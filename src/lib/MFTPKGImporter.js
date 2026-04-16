@@ -195,68 +195,87 @@ export class MFTPKGImporter {
       return { value: id + '---' + ckType, type: 'REFERENCE' };
     }
 
-    function addRecord(id, type, fields) {
+    // CoreData timestamp: seconds since 2001-01-01 -> JS ms
+    function cdTs(val) {
+      if (val === null || val === undefined) return null;
+      return Math.round((val * 1000) + 978307200000);
+    }
+
+    function addRecord(id, type, fields, created, modified) {
       records[id] = {
         recordType: type,
         recordName: id,
         fields,
-        created: { timestamp: Date.now() },
-        modified: { timestamp: Date.now() },
+        created: { timestamp: created || Date.now() },
+        modified: { timestamp: modified || Date.now() },
       };
       counts[type] = (counts[type] || 0) + 1;
     }
 
+    // Helper: run query safely, return rows or empty
+    function q(sql) {
+      try {
+        const r = db.exec(sql);
+        if (r.length === 0) return [];
+        return r[0].values.map(row => Object.fromEntries(r[0].columns.map((c, i) => [c, row[i]])));
+      } catch { return []; }
+    }
+
     // ── Extract Persons ──
-    this._progress('extracting', 0, 7);
+    this._progress('extracting', 0, 11);
     if (entityMap.Person) {
-      const rows = db.exec(`
+      for (const r of q(`
         SELECT Z_PK, ZFIRSTNAME, ZLASTNAME, ZGENDER, ZNAMEPREFIX, ZNAMESUFFIX, ZNAMEMIDDLE,
                ZCACHED_BIRTHDATE, ZCACHED_DEATHDATE, ZCACHED_FULLNAME, ZCACHED_FULLNAMEFORSORTING,
-               ZUNIQUEID, ZISSTARTPERSON
+               ZUNIQUEID, ZISSTARTPERSON, ZISBOOKMARKED2, ZISPRIVATE,
+               ZGEDCOMID, ZREFERENCENUMBERID, ZANCESTRALFILENUMBERID, ZFAMILYSEARCHID,
+               ZCHANGEDATE, ZCREATIONDATE
         FROM ZBASEOBJECT WHERE Z_ENT = ${entityMap.Person}
-      `);
-      if (rows.length > 0) {
-        const cols = rows[0].columns;
-        for (const row of rows[0].values) {
-          const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-          const id = makeId('person', r.Z_PK);
-          const fields = {};
-          if (r.ZFIRSTNAME) fields.firstName = field(r.ZFIRSTNAME);
-          if (r.ZLASTNAME) fields.lastName = field(r.ZLASTNAME);
-          if (r.ZGENDER !== null) fields.gender = field(r.ZGENDER, 'INT64');
-          if (r.ZNAMEPREFIX) fields.namePrefix = field(r.ZNAMEPREFIX);
-          if (r.ZNAMESUFFIX) fields.nameSuffix = field(r.ZNAMESUFFIX);
-          if (r.ZNAMEMIDDLE) fields.nameMiddle = field(r.ZNAMEMIDDLE);
-          if (r.ZCACHED_FULLNAME) fields.cached_fullName = field(r.ZCACHED_FULLNAME);
-          if (r.ZCACHED_FULLNAMEFORSORTING) fields.cached_fullNameForSorting = field(r.ZCACHED_FULLNAMEFORSORTING);
-          if (r.ZCACHED_BIRTHDATE) fields.cached_birthDate = field(r.ZCACHED_BIRTHDATE);
-          if (r.ZCACHED_DEATHDATE) fields.cached_deathDate = field(r.ZCACHED_DEATHDATE);
-          if (r.ZUNIQUEID) fields.uniqueID = field(r.ZUNIQUEID);
-          if (r.ZISSTARTPERSON) fields.isStartPerson = field(r.ZISSTARTPERSON, 'INT64');
-          addRecord(id, 'Person', fields);
-        }
+      `)) {
+        const id = makeId('person', r.Z_PK);
+        const f = {};
+        if (r.ZFIRSTNAME) f.firstName = field(r.ZFIRSTNAME);
+        if (r.ZLASTNAME) f.lastName = field(r.ZLASTNAME);
+        if (r.ZGENDER !== null) f.gender = field(r.ZGENDER, 'INT64');
+        if (r.ZNAMEPREFIX) f.namePrefix = field(r.ZNAMEPREFIX);
+        if (r.ZNAMESUFFIX) f.nameSuffix = field(r.ZNAMESUFFIX);
+        if (r.ZNAMEMIDDLE) f.nameMiddle = field(r.ZNAMEMIDDLE);
+        if (r.ZCACHED_FULLNAME) f.cached_fullName = field(r.ZCACHED_FULLNAME);
+        if (r.ZCACHED_FULLNAMEFORSORTING) f.cached_fullNameForSorting = field(r.ZCACHED_FULLNAMEFORSORTING);
+        if (r.ZCACHED_BIRTHDATE) f.cached_birthDate = field(r.ZCACHED_BIRTHDATE);
+        if (r.ZCACHED_DEATHDATE) f.cached_deathDate = field(r.ZCACHED_DEATHDATE);
+        if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+        if (r.ZISSTARTPERSON) f.isStartPerson = field(r.ZISSTARTPERSON, 'INT64');
+        if (r.ZISBOOKMARKED2) f.isBookmarked = field(r.ZISBOOKMARKED2, 'INT64');
+        if (r.ZISPRIVATE) f.isPrivate = field(r.ZISPRIVATE, 'INT64');
+        if (r.ZGEDCOMID) f.gedcomID = field(r.ZGEDCOMID);
+        if (r.ZREFERENCENUMBERID) f.referenceNumberID = field(r.ZREFERENCENUMBERID);
+        if (r.ZANCESTRALFILENUMBERID) f.ancestralFileNumberID = field(r.ZANCESTRALFILENUMBERID);
+        if (r.ZFAMILYSEARCHID) f.familySearchID = field(r.ZFAMILYSEARCHID);
+        if (r.ZCHANGEDATE) f.mft_changeDate = field(cdTs(r.ZCHANGEDATE), 'TIMESTAMP');
+        if (r.ZCREATIONDATE) f.mft_creationDate = field(cdTs(r.ZCREATIONDATE), 'TIMESTAMP');
+        addRecord(id, 'Person', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
       }
     }
 
     // ── Extract Families ──
-    this._progress('extracting', 1, 7);
+    this._progress('extracting', 1, 11);
     if (entityMap.Family) {
-      const rows = db.exec(`
-        SELECT Z_PK, ZMAN, ZWOMAN, ZCACHED_MARRIAGEDATE, ZUNIQUEID
+      for (const r of q(`
+        SELECT Z_PK, ZMAN, ZWOMAN, ZCACHED_MARRIAGEDATE, ZUNIQUEID,
+               ZCHANGEDATE, ZCREATIONDATE, ZGEDCOMID
         FROM ZBASEOBJECT WHERE Z_ENT = ${entityMap.Family}
-      `);
-      if (rows.length > 0) {
-        const cols = rows[0].columns;
-        for (const row of rows[0].values) {
-          const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-          const id = makeId('family', r.Z_PK);
-          const fields = {};
-          if (r.ZMAN) fields.man = ref('person', r.ZMAN);
-          if (r.ZWOMAN) fields.woman = ref('person', r.ZWOMAN);
-          if (r.ZCACHED_MARRIAGEDATE) fields.cached_marriageDate = field(r.ZCACHED_MARRIAGEDATE);
-          if (r.ZUNIQUEID) fields.uniqueID = field(r.ZUNIQUEID);
-          addRecord(id, 'Family', fields);
-        }
+      `)) {
+        const id = makeId('family', r.Z_PK);
+        const f = {};
+        if (r.ZMAN) f.man = ref('person', r.ZMAN);
+        if (r.ZWOMAN) f.woman = ref('person', r.ZWOMAN);
+        if (r.ZCACHED_MARRIAGEDATE) f.cached_marriageDate = field(r.ZCACHED_MARRIAGEDATE);
+        if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+        if (r.ZGEDCOMID) f.gedcomID = field(r.ZGEDCOMID);
+        if (r.ZCHANGEDATE) f.mft_changeDate = field(cdTs(r.ZCHANGEDATE), 'TIMESTAMP');
+        if (r.ZCREATIONDATE) f.mft_creationDate = field(cdTs(r.ZCREATIONDATE), 'TIMESTAMP');
+        addRecord(id, 'Family', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
       }
     }
 
@@ -278,106 +297,95 @@ export class MFTPKGImporter {
     }
 
     // ── Extract Person Events ──
-    this._progress('extracting', 3, 7);
+    this._progress('extracting', 3, 11);
     if (entityMap.PersonEvent) {
-      const rows = db.exec(`
+      for (const r of q(`
         SELECT e.Z_PK, e.ZPERSON1 as ZPERSON, e.ZDATE2 as ZDATE,
                e.ZASSIGNEDPLACE, e.ZUSERDESCRIPTION1, e.ZUNIQUEID,
+               e.ZCAUSE, e.ZVALUE, e.ZCHANGEDATE, e.ZCREATIONDATE,
                c.ZTYPENAME as CONCLUSION_NAME, c.ZUNIQUEID as CTYPE_UID, c.Z_ENT as CTYPE_ENT
         FROM ZBASEOBJECT e
         LEFT JOIN ZCONCLUSIONTYPE c ON c.Z_PK = e.ZCONCLUSIONTYPE2
         WHERE e.Z_ENT = ${entityMap.PersonEvent}
-      `);
-      if (rows.length > 0) {
-        const cols = rows[0].columns;
-        for (const row of rows[0].values) {
-          const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-          const id = makeId('personevent', r.Z_PK);
-          const fields = {};
-          if (r.ZPERSON) fields.person = ref('person', r.ZPERSON);
-          // conclusionType as CloudKit reference: "UniqueID_PersonEvent_Birth---ConclusionPersonEventType"
-          if (r.CTYPE_UID) {
-            const ctypeEntName = entityMap._names?.[r.CTYPE_ENT] || 'ConclusionPersonEventType';
-            fields.conclusionType = { value: r.CTYPE_UID + '---' + ctypeEntName, type: 'REFERENCE' };
-          }
-          if (r.CONCLUSION_NAME) fields.eventType = field(r.CONCLUSION_NAME);
-          if (r.ZDATE) fields.date = field(r.ZDATE);
-          if (r.ZASSIGNEDPLACE) fields.place = ref('place', r.ZASSIGNEDPLACE);
-          if (r.ZUSERDESCRIPTION1) fields.description = field(r.ZUSERDESCRIPTION1);
-          if (r.ZUNIQUEID) fields.uniqueID = field(r.ZUNIQUEID);
-          addRecord(id, 'PersonEvent', fields);
+      `)) {
+        const id = makeId('personevent', r.Z_PK);
+        const f = {};
+        if (r.ZPERSON) f.person = ref('person', r.ZPERSON);
+        if (r.CTYPE_UID) {
+          const ctypeEntName = entityMap._names?.[r.CTYPE_ENT] || 'ConclusionPersonEventType';
+          f.conclusionType = { value: r.CTYPE_UID + '---' + ctypeEntName, type: 'REFERENCE' };
         }
+        if (r.CONCLUSION_NAME) f.eventType = field(r.CONCLUSION_NAME);
+        if (r.ZDATE) f.date = field(r.ZDATE);
+        if (r.ZASSIGNEDPLACE) f.place = ref('place', r.ZASSIGNEDPLACE);
+        if (r.ZUSERDESCRIPTION1) f.description = field(r.ZUSERDESCRIPTION1);
+        if (r.ZCAUSE) f.cause = field(r.ZCAUSE);
+        if (r.ZVALUE) f.value = field(r.ZVALUE);
+        if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+        addRecord(id, 'PersonEvent', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
       }
     }
 
     // ── Extract Family Events ──
-    this._progress('extracting', 4, 7);
+    this._progress('extracting', 4, 11);
     if (entityMap.FamilyEvent) {
-      const rows = db.exec(`
+      for (const r of q(`
         SELECT e.Z_PK, e.ZFAMILY, e.ZDATE1 as ZDATE,
-               e.ZASSIGNEDPLACE, e.ZUNIQUEID,
+               e.ZASSIGNEDPLACE, e.ZUNIQUEID, e.ZCHANGEDATE, e.ZCREATIONDATE,
                c.ZTYPENAME as CONCLUSION_NAME, c.ZUNIQUEID as CTYPE_UID, c.Z_ENT as CTYPE_ENT
         FROM ZBASEOBJECT e
         LEFT JOIN ZCONCLUSIONTYPE c ON c.Z_PK = e.ZCONCLUSIONTYPE1
         WHERE e.Z_ENT = ${entityMap.FamilyEvent}
-      `);
-      if (rows.length > 0) {
-        const cols = rows[0].columns;
-        for (const row of rows[0].values) {
-          const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-          const id = makeId('familyevent', r.Z_PK);
-          const fields = {};
-          if (r.ZFAMILY) fields.family = ref('family', r.ZFAMILY);
-          if (r.CTYPE_UID) {
-            const ctypeEntName = entityMap._names?.[r.CTYPE_ENT] || 'ConclusionFamilyEventType';
-            fields.conclusionType = { value: r.CTYPE_UID + '---' + ctypeEntName, type: 'REFERENCE' };
-          }
-          if (r.CONCLUSION_NAME) fields.eventType = field(r.CONCLUSION_NAME);
-          if (r.ZDATE) fields.date = field(r.ZDATE);
-          if (r.ZASSIGNEDPLACE) fields.place = ref('place', r.ZASSIGNEDPLACE);
-          if (r.ZUNIQUEID) fields.uniqueID = field(r.ZUNIQUEID);
-          addRecord(id, 'FamilyEvent', fields);
+      `)) {
+        const id = makeId('familyevent', r.Z_PK);
+        const f = {};
+        if (r.ZFAMILY) f.family = ref('family', r.ZFAMILY);
+        if (r.CTYPE_UID) {
+          const ctypeEntName = entityMap._names?.[r.CTYPE_ENT] || 'ConclusionFamilyEventType';
+          f.conclusionType = { value: r.CTYPE_UID + '---' + ctypeEntName, type: 'REFERENCE' };
         }
+        if (r.CONCLUSION_NAME) f.eventType = field(r.CONCLUSION_NAME);
+        if (r.ZDATE) f.date = field(r.ZDATE);
+        if (r.ZASSIGNEDPLACE) f.place = ref('place', r.ZASSIGNEDPLACE);
+        if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+        addRecord(id, 'FamilyEvent', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
       }
     }
 
     // ── Extract PersonFacts ──
     this._progress('extracting', 5, 11);
     if (entityMap.PersonFact) {
-      const rows = db.exec(`
+      for (const r of q(`
         SELECT e.Z_PK, e.ZPERSON2 as ZPERSON, e.ZVALUE, e.ZUSERDESCRIPTION2,
-               e.ZUNIQUEID, c.ZTYPENAME as CONCLUSION_NAME,
-               c.ZUNIQUEID as CTYPE_UID, c.Z_ENT as CTYPE_ENT
+               e.ZUNIQUEID, e.ZCHANGEDATE, e.ZCREATIONDATE,
+               c.ZTYPENAME as CONCLUSION_NAME, c.ZUNIQUEID as CTYPE_UID, c.Z_ENT as CTYPE_ENT
         FROM ZBASEOBJECT e
         LEFT JOIN ZCONCLUSIONTYPE c ON c.Z_PK = e.ZCONCLUSIONTYPE3
         WHERE e.Z_ENT = ${entityMap.PersonFact}
-      `);
-      if (rows.length > 0) {
-        const cols = rows[0].columns;
-        for (const row of rows[0].values) {
-          const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-          const id = makeId('personfact', r.Z_PK);
-          const fields = {};
-          if (r.ZPERSON) fields.person = ref('person', r.ZPERSON);
-          if (r.CTYPE_UID) {
-            const ctypeEntName = entityMap._names?.[r.CTYPE_ENT] || 'ConclusionPersonFactType';
-            fields.conclusionType = { value: r.CTYPE_UID + '---' + ctypeEntName, type: 'REFERENCE' };
-          }
-          if (r.CONCLUSION_NAME) fields.factType = field(r.CONCLUSION_NAME);
-          if (r.ZVALUE) fields.value = field(r.ZVALUE);
-          if (r.ZUSERDESCRIPTION2) fields.description = field(r.ZUSERDESCRIPTION2);
-          if (r.ZUNIQUEID) fields.uniqueID = field(r.ZUNIQUEID);
-          addRecord(id, 'PersonFact', fields);
+      `)) {
+        const id = makeId('personfact', r.Z_PK);
+        const f = {};
+        if (r.ZPERSON) f.person = ref('person', r.ZPERSON);
+        if (r.CTYPE_UID) {
+          const ctypeEntName = entityMap._names?.[r.CTYPE_ENT] || 'ConclusionPersonFactType';
+          f.conclusionType = { value: r.CTYPE_UID + '---' + ctypeEntName, type: 'REFERENCE' };
         }
+        if (r.CONCLUSION_NAME) f.factType = field(r.CONCLUSION_NAME);
+        if (r.ZVALUE) f.value = field(r.ZVALUE);
+        if (r.ZUSERDESCRIPTION2) f.description = field(r.ZUSERDESCRIPTION2);
+        if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+        addRecord(id, 'PersonFact', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
       }
     }
 
-    // ── Extract ConclusionTypes (event/fact type definitions) ──
+    // ── Extract ConclusionTypes with icon data ──
     this._progress('extracting', 6, 11);
     {
+      // Note: HEX() converts BLOB to hex string; we convert to base64 in JS
       const rows = db.exec(`
         SELECT Z_PK, Z_ENT, ZTYPENAME, ZTYPENAMELOCALIZATIONKEY, ZUNIQUEID,
-               ZISENABLED, ZISUSERCREATED, ZORDER, ZGEDCOMTAG, ZIDENTIFIER
+               ZISENABLED, ZISUSERCREATED, ZORDER, ZGEDCOMTAG, ZIDENTIFIER,
+               HEX(ZICONPNGDATA) as ICON_HEX
         FROM ZCONCLUSIONTYPE
       `);
       if (rows.length > 0) {
@@ -395,13 +403,41 @@ export class MFTPKGImporter {
           if (r.ZISUSERCREATED !== null) fields.isUserCreated = field(r.ZISUSERCREATED, 'INT64');
           if (r.ZORDER !== null) fields.order = field(r.ZORDER, 'DOUBLE');
           if (r.ZGEDCOMTAG) fields.gedcomTag = field(r.ZGEDCOMTAG);
+          if (r.ICON_HEX) {
+            // Convert hex to base64 for the icon PNG
+            const bytes = new Uint8Array(r.ICON_HEX.match(/.{2}/g).map(h => parseInt(h, 16)));
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+            fields.iconPNGData = field(btoa(binary));
+          }
           addRecord(id, entName, fields);
         }
       }
     }
 
-    // ── Extract Places ──
+    // ── Extract Labels ──
     this._progress('extracting', 7, 11);
+    for (const r of q('SELECT Z_PK, ZTITLE, ZCOLORCOMPONENTSSTRING, ZUNIQUEID FROM ZLABEL')) {
+      const id = makeId('label', r.Z_PK);
+      const f = {};
+      if (r.ZTITLE) f.title = field(r.ZTITLE);
+      if (r.ZCOLORCOMPONENTSSTRING) f.colorComponentsString = field(r.ZCOLORCOMPONENTSSTRING);
+      if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+      addRecord(id, 'Label', f);
+    }
+
+    // ── Extract LabelRelations ──
+    for (const r of q('SELECT Z_PK, ZLABEL, ZBASEOBJECT, ZUNIQUEID FROM ZLABELRELATION')) {
+      const id = makeId('labelrelation', r.Z_PK);
+      const f = {};
+      if (r.ZLABEL) f.label = ref('label', r.ZLABEL);
+      if (r.ZBASEOBJECT) f.baseObject = ref('person', r.ZBASEOBJECT);
+      if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+      addRecord(id, 'LabelRelation', f);
+    }
+
+    // ── Extract Places ──
+    this._progress('extracting', 8, 11);
     if (entityMap.Place) {
       const rows = db.exec(`
         SELECT Z_PK, ZCACHED_NORMALLOCATIONSTRING, ZCACHED_SHORTLOCATIONSTRING,
