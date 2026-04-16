@@ -48,7 +48,8 @@ async function ensureDataLoaded() {
     return false;
   }
   try {
-    const response = await fetch('/family-data.json');
+    const base = import.meta.env?.BASE_URL || '/';
+    const response = await fetch(base + 'family-data.json');
     if (response.ok) {
       const data = await response.json();
       const count = await db.importDataset(data);

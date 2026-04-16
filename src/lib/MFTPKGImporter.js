@@ -28,7 +28,9 @@ async function getSqlJs() {
   if (!window.initSqlJs) {
     await new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = '/sql-wasm.js';
+      // Use base tag or fallback to detect base path (works with GitHub Pages subpath)
+      var base = document.querySelector('base')?.href || import.meta.env?.BASE_URL || '/';
+      script.src = base + 'sql-wasm.js';
       script.onload = resolve;
       script.onerror = () => reject(new Error('Failed to load sql-wasm.js'));
       document.head.appendChild(script);
@@ -36,7 +38,7 @@ async function getSqlJs() {
   }
 
   _SQL = await window.initSqlJs({
-    locateFile: () => '/sql-wasm.wasm',
+    locateFile: () => (document.querySelector('base')?.href || import.meta.env?.BASE_URL || '/') + 'sql-wasm.wasm',
   });
   return _SQL;
 }

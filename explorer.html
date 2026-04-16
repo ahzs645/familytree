@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CloudTreeWeb Source Explorer</title>
-  <link rel="icon" href="/favicon.ico" />
+  <link rel="icon" href="favicon.ico" />
   <style>
     :root {
       --bg: #0f1117;
@@ -241,7 +241,7 @@
 </head>
 <body>
   <div class="header">
-    <a href="/">&larr; Home</a>
+    <a href="./">&larr; Home</a>
     <h1>Source Explorer</h1>
     <input type="text" class="search-box" id="search" placeholder="Search sections... (e.g. person, database, modal)" />
   </div>
@@ -292,7 +292,7 @@
     let activeFile = null;
 
     async function init() {
-      const res = await fetch('/sections/_manifest.json');
+      const res = await fetch('sections/_manifest.json');
       manifest = await res.json();
       renderSidebar(manifest.sections);
 
