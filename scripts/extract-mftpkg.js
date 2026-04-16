@@ -60,12 +60,21 @@ function ref(targetType, pk) {
   return { value: id + '---' + ckType, type: 'REFERENCE' };
 }
 
+// Helper: convert CoreData timestamp (seconds since 2001-01-01) to JS timestamp
+function coreDataTimestamp(val) {
+  if (val === null || val === undefined) return null;
+  // CoreData epoch: 2001-01-01T00:00:00Z = 978307200000 ms
+  return Math.round((val * 1000) + 978307200000);
+}
+
 // ── Extract Persons (Z_ENT = 14) ──
 console.log('\nExtracting persons...');
 const persons = db.prepare(`
   SELECT Z_PK, ZFIRSTNAME, ZLASTNAME, ZGENDER, ZNAMEPREFIX, ZNAMESUFFIX, ZNAMEMIDDLE,
          ZCACHED_BIRTHDATE, ZCACHED_DEATHDATE, ZCACHED_FULLNAME, ZCACHED_FULLNAMEFORSORTING,
-         ZUNIQUEID, ZISSTARTPERSON
+         ZUNIQUEID, ZISSTARTPERSON, ZISBOOKMARKED2, ZISPRIVATE,
+         ZGEDCOMID, ZREFERENCENUMBERID, ZANCESTRALFILENUMBERID, ZFAMILYSEARCHID,
+         ZCHANGEDATE, ZCREATIONDATE
   FROM ZBASEOBJECT WHERE Z_ENT = ?
 `).all(ENT.Person);
 
@@ -75,8 +84,8 @@ for (const p of persons) {
     recordType: 'Person',
     recordName: id,
     fields: {},
-    created: { timestamp: Date.now() },
-    modified: { timestamp: Date.now() },
+    created: { timestamp: coreDataTimestamp(p.ZCREATIONDATE) || Date.now() },
+    modified: { timestamp: coreDataTimestamp(p.ZCHANGEDATE) || Date.now() },
   };
   const f = records[id].fields;
   if (p.ZFIRSTNAME) f.firstName = field(p.ZFIRSTNAME);
@@ -91,13 +100,23 @@ for (const p of persons) {
   if (p.ZCACHED_DEATHDATE) f.cached_deathDate = field(p.ZCACHED_DEATHDATE);
   if (p.ZUNIQUEID) f.uniqueID = field(p.ZUNIQUEID);
   if (p.ZISSTARTPERSON) f.isStartPerson = field(p.ZISSTARTPERSON, 'INT64');
+  if (p.ZISBOOKMARKED2) f.isBookmarked = field(p.ZISBOOKMARKED2, 'INT64');
+  if (p.ZISPRIVATE) f.isPrivate = field(p.ZISPRIVATE, 'INT64');
+  if (p.ZGEDCOMID) f.gedcomID = field(p.ZGEDCOMID);
+  if (p.ZREFERENCENUMBERID) f.referenceNumberID = field(p.ZREFERENCENUMBERID);
+  if (p.ZANCESTRALFILENUMBERID) f.ancestralFileNumberID = field(p.ZANCESTRALFILENUMBERID);
+  if (p.ZFAMILYSEARCHID) f.familySearchID = field(p.ZFAMILYSEARCHID);
+  // Dates as fields — app reads mft_changeDate/mft_creationDate with new Date(value)
+  if (p.ZCHANGEDATE) f.mft_changeDate = field(coreDataTimestamp(p.ZCHANGEDATE), 'TIMESTAMP');
+  if (p.ZCREATIONDATE) f.mft_creationDate = field(coreDataTimestamp(p.ZCREATIONDATE), 'TIMESTAMP');
 }
 console.log(`  ${persons.length} persons`);
 
 // ── Extract Families (Z_ENT = 13) ──
 console.log('Extracting families...');
 const families = db.prepare(`
-  SELECT Z_PK, ZMAN, ZWOMAN, ZCACHED_MARRIAGEDATE, ZUNIQUEID
+  SELECT Z_PK, ZMAN, ZWOMAN, ZCACHED_MARRIAGEDATE, ZUNIQUEID,
+         ZCHANGEDATE, ZCREATIONDATE, ZISBOOKMARKED1, ZGEDCOMID
   FROM ZBASEOBJECT WHERE Z_ENT = ?
 `).all(ENT.Family);
 
@@ -107,8 +126,8 @@ for (const f of families) {
     recordType: 'Family',
     recordName: id,
     fields: {},
-    created: { timestamp: Date.now() },
-    modified: { timestamp: Date.now() },
+    created: { timestamp: coreDataTimestamp(f.ZCREATIONDATE) || Date.now() },
+    modified: { timestamp: coreDataTimestamp(f.ZCHANGEDATE) || Date.now() },
   };
   const fld = records[id].fields;
   if (f.ZMAN) fld.man = ref('person', f.ZMAN);
@@ -148,6 +167,7 @@ console.log('Extracting person events...');
 const personEvents = db.prepare(`
   SELECT e.Z_PK, e.ZPERSON1 as ZPERSON, e.ZCONCLUSIONTYPE2 as ZCTYPE, e.ZDATE2 as ZDATE,
          e.ZCACHED_DATEASDATE3, e.ZASSIGNEDPLACE, e.ZUSERDESCRIPTION1, e.ZUNIQUEID,
+         e.ZCAUSE, e.ZVALUE, e.ZCHANGEDATE, e.ZCREATIONDATE,
          c.ZTYPENAME as CONCLUSION_NAME, c.ZUNIQUEID as CTYPE_UID, c.Z_ENT as CTYPE_ENT
   FROM ZBASEOBJECT e
   LEFT JOIN ZCONCLUSIONTYPE c ON c.Z_PK = e.ZCONCLUSIONTYPE2
@@ -160,8 +180,8 @@ for (const ev of personEvents) {
     recordType: 'PersonEvent',
     recordName: id,
     fields: {},
-    created: { timestamp: Date.now() },
-    modified: { timestamp: Date.now() },
+    created: { timestamp: coreDataTimestamp(ev.ZCREATIONDATE) || Date.now() },
+    modified: { timestamp: coreDataTimestamp(ev.ZCHANGEDATE) || Date.now() },
   };
   const f = records[id].fields;
   if (ev.ZPERSON) f.person = ref('person', ev.ZPERSON);
@@ -173,6 +193,8 @@ for (const ev of personEvents) {
   if (ev.ZDATE) f.date = field(ev.ZDATE);
   if (ev.ZASSIGNEDPLACE) f.place = ref('place', ev.ZASSIGNEDPLACE);
   if (ev.ZUSERDESCRIPTION1) f.description = field(ev.ZUSERDESCRIPTION1);
+  if (ev.ZCAUSE) f.cause = field(ev.ZCAUSE);
+  if (ev.ZVALUE) f.value = field(ev.ZVALUE);
   if (ev.ZUNIQUEID) f.uniqueID = field(ev.ZUNIQUEID);
 }
 console.log(`  ${personEvents.length} person events`);
@@ -243,7 +265,8 @@ console.log('Extracting conclusion types...');
 {
   const ctypes = db.prepare(`
     SELECT Z_PK, Z_ENT, ZTYPENAME, ZTYPENAMELOCALIZATIONKEY, ZUNIQUEID,
-           ZISENABLED, ZISUSERCREATED, ZORDER, ZGEDCOMTAG, ZIDENTIFIER
+           ZISENABLED, ZISUSERCREATED, ZORDER, ZGEDCOMTAG, ZIDENTIFIER,
+           HEX(ZICONPNGDATA) as ICON_HEX
     FROM ZCONCLUSIONTYPE
   `).all();
 
@@ -260,9 +283,43 @@ console.log('Extracting conclusion types...');
     if (ct.ZISUSERCREATED !== null) f.isUserCreated = field(ct.ZISUSERCREATED, 'INT64');
     if (ct.ZORDER !== null) f.order = field(ct.ZORDER, 'DOUBLE');
     if (ct.ZGEDCOMTAG) f.gedcomTag = field(ct.ZGEDCOMTAG);
+    if (ct.ICON_HEX) {
+      // Convert hex to base64 for the icon PNG
+      const buf = Buffer.from(ct.ICON_HEX, 'hex');
+      f.iconPNGData = field(buf.toString('base64'));
+    }
   }
   console.log(`  ${ctypes.length} conclusion types`);
 }
+
+// ── Extract Labels ──
+console.log('Extracting labels...');
+try {
+  const labels = db.prepare('SELECT Z_PK, ZTITLE, ZCOLORCOMPONENTSSTRING, ZUNIQUEID FROM ZLABEL').all();
+  for (const l of labels) {
+    const id = makeId('label', l.Z_PK);
+    records[id] = { recordType: 'Label', recordName: id, fields: {}, created: { timestamp: Date.now() }, modified: { timestamp: Date.now() } };
+    const f = records[id].fields;
+    if (l.ZTITLE) f.title = field(l.ZTITLE);
+    if (l.ZCOLORCOMPONENTSSTRING) f.colorComponentsString = field(l.ZCOLORCOMPONENTSSTRING);
+    if (l.ZUNIQUEID) f.uniqueID = field(l.ZUNIQUEID);
+  }
+  console.log(`  ${labels.length} labels`);
+} catch (e) { console.log('  Labels: skipped'); }
+
+// ── Extract LabelRelations ──
+try {
+  const labelRels = db.prepare('SELECT Z_PK, ZLABEL, ZBASEOBJECT, ZUNIQUEID FROM ZLABELRELATION').all();
+  for (const lr of labelRels) {
+    const id = makeId('labelrelation', lr.Z_PK);
+    records[id] = { recordType: 'LabelRelation', recordName: id, fields: {}, created: { timestamp: Date.now() }, modified: { timestamp: Date.now() } };
+    const f = records[id].fields;
+    if (lr.ZLABEL) f.label = ref('label', lr.ZLABEL);
+    if (lr.ZBASEOBJECT) f.baseObject = ref('person', lr.ZBASEOBJECT); // Simplification: may point to other types
+    if (lr.ZUNIQUEID) f.uniqueID = field(lr.ZUNIQUEID);
+  }
+  console.log(`  ${labelRels.length} label relations`);
+} catch (e) { console.log('  LabelRelations: skipped'); }
 
 // ── Extract Places (Z_ENT = 28) ──
 console.log('Extracting places...');
