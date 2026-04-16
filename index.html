@@ -289,7 +289,7 @@ ChangeLogEntry</pre>
         const db = getLocalDatabase();
         await db.clearAll();
         // Remove the flag so next refresh auto-imports from family-data.json
-        localStorage.removeItem('cloudtreeweb-has-imported');
+        localStorage.setItem('cloudtreeweb-has-imported', '1');
         location.reload();
       };
 
