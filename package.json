@@ -9,8 +9,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "patch": "node scripts/patch-bundle.js",
+    "copy-wasm": "cp node_modules/sql.js/dist/sql-wasm.js public/ && cp node_modules/sql.js/dist/sql-wasm.wasm public/",
     "extract": "node scripts/extract-mftpkg.js",
-    "postinstall": "node scripts/patch-bundle.js"
+    "postinstall": "npm run copy-wasm && npm run patch"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",

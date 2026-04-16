@@ -9,6 +9,12 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        explorer: 'explorer.html',
+      },
+    },
   },
   optimizeDeps: {
     exclude: ['better-sqlite3', 'sql.js'],
