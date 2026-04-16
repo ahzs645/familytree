@@ -1,0 +1,29 @@
+{
+  "name": "cloudtreeweb-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Reconstructed CloudTreeWeb family tree app from deobfuscated source",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "patch": "node scripts/patch-bundle.js",
+    "extract": "node scripts/extract-mftpkg.js",
+    "postinstall": "node scripts/patch-bundle.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.9.0",
+    "idb": "^8.0.3",
+    "jszip": "^3.10.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
+    "playwright": "^1.59.1",
+    "vite": "^6.3.2"
+  }
+}

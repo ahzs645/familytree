@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#fff" />
+    <meta name="description" content="CloudTreeWeb - Family Tree Demo" />
+    <link rel="apple-touch-icon" href="/cloudtreeweb_webapp_icon.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>CloudTreeWeb Demo</title>
+    <link href="/static/css/main.418a0462.css" rel="stylesheet" />
+    <!-- Load the new modular source (React, models, etc. from npm) -->
+    <script type="module" src="/src/main.jsx"></script>
+    <style>
+      :root {
+        --bg: #0f1117;
+        --bg-surface: #1a1d27;
+        --bg-elevated: #242837;
+        --border: #2e3345;
+        --text: #e2e4eb;
+        --text-muted: #8b90a0;
+        --accent: #6c8aff;
+        --accent-hover: #8ba4ff;
+        --green: #4ade80;
+        --orange: #fb923c;
+        --red: #f87171;
+      }
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+
+      .landing {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .hero {
+        text-align: center;
+        padding: 80px 24px 48px;
+        background: linear-gradient(180deg, #161926 0%, var(--bg) 100%);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .hero img {
+        width: 80px;
+        height: 80px;
+        border-radius: 18px;
+        margin-bottom: 20px;
+      }
+
+      .hero h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        margin-bottom: 8px;
+      }
+
+      .hero p {
+        color: var(--text-muted);
+        font-size: 1.1rem;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+        max-width: 960px;
+        margin: 48px auto;
+        padding: 0 24px;
+      }
+
+      .card {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 28px;
+        transition: border-color 0.2s, transform 0.2s;
+        cursor: pointer;
+        text-decoration: none;
+        color: inherit;
+        display: block;
+      }
+
+      .card:hover {
+        border-color: var(--accent);
+        transform: translateY(-2px);
+      }
+
+      .card h2 {
+        font-size: 1.15rem;
+        font-weight: 600;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .card p {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+      }
+
+      .badge {
+        font-size: 0.7rem;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-weight: 500;
+      }
+
+      .badge-live { background: rgba(74, 222, 128, 0.15); color: var(--green); }
+      .badge-source { background: rgba(108, 138, 255, 0.15); color: var(--accent); }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 16px;
+        max-width: 960px;
+        margin: 0 auto 48px;
+        padding: 0 24px;
+      }
+
+      .stat {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px 20px;
+        text-align: center;
+      }
+
+      .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--accent);
+      }
+
+      .stat-label {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+      }
+
+      .footer {
+        margin-top: auto;
+        text-align: center;
+        padding: 24px;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        border-top: 1px solid var(--border);
+      }
+
+      /* Hide the React root on the landing page */
+      #root { display: none; }
+      body.app-mode #root { display: block; }
+      body.app-mode .landing { display: none; }
+    </style>
+  </head>
+  <body>
+    <!-- Landing Page -->
+    <div class="landing" id="landing">
+      <div class="hero">
+        <img src="/cloudtreeweb_webapp_icon.png" alt="CloudTreeWeb" />
+        <h1>CloudTreeWeb Demo</h1>
+        <p>Deobfuscated and reconstructed family tree web app from Synium Software's CloudTreeWeb</p>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value">41,678</div>
+          <div class="stat-label">Lines of Code</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">56</div>
+          <div class="stat-label">Code Sections</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">18</div>
+          <div class="stat-label">Webpack Modules</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value">54</div>
+          <div class="stat-label">Classes Found</div>
+        </div>
+      </div>
+
+      <div class="cards">
+        <div class="card" id="import-card" style="border: 2px dashed var(--border); transition: border-color 0.2s;">
+          <h2>Import Family Tree <span class="badge badge-live" id="import-badge">Drop .mftpkg here</span></h2>
+          <p id="import-desc">Drag your <code>.mftpkg</code> file or folder here — the <code>database</code> file inside it will be found automatically. You can also drop the <code>database</code> file directly, or a <code>.json</code> export. Everything stays in your browser.</p>
+          <input type="file" id="file-input" style="display:none" accept="*" />
+          <div id="import-progress" style="display:none; margin-top: 16px;">
+            <div style="background: var(--bg); border-radius: 8px; overflow: hidden; height: 10px; border: 1px solid var(--border);">
+              <div id="progress-bar" style="background: var(--accent); height: 100%; width: 0%; transition: width 0.4s ease-out;"></div>
+            </div>
+            <p id="progress-text" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px; line-height: 1.6;"></p>
+          </div>
+        </div>
+
+        <a class="card" href="#" onclick="launchApp(true); return false;" id="launch-card">
+          <h2>Open Family Tree <span class="badge badge-live" id="launch-badge">Local Data</span></h2>
+          <p id="launch-desc">Launch the CloudTreeWeb interface with your imported family tree. All data stays in your browser's IndexedDB — no internet connection needed.</p>
+        </a>
+      </div>
+
+      <div class="cards">
+        <a class="card" href="/explorer.html">
+          <h2>Source Explorer <span class="badge badge-source">56 sections</span></h2>
+          <p>Browse the deobfuscated source code organized into semantic sections: models, components, data layer, and more.</p>
+        </a>
+      </div>
+
+      <div class="cards">
+        <div class="card" style="cursor: default;">
+          <h2>Architecture</h2>
+          <p style="margin-bottom: 12px;">Reconstructed structure from the minified bundle:</p>
+          <pre style="font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 0.8rem; color: var(--text-muted); line-height: 1.8; overflow-x: auto;">
+01-config/    CloudKit containers &amp; API tokens
+02-data/      Database controllers &amp; CloudKit operations (26 files)
+03-models/    Person, Family, Event, Place models (10 files)
+04-components/ Edit Person, Edit Place, Modal, Lists (7 files)
+05-enums/     Gender, citation modes, place templates
+06-utils/     Helpers, formatters, UUID generation
+07-bootstrap/ React root render &amp; app initialization</pre>
+        </div>
+        <div class="card" style="cursor: default;">
+          <h2>Data Model</h2>
+          <p style="margin-bottom: 12px;">CloudKit record types used by the app:</p>
+          <pre style="font-family: 'SF Mono', Monaco, Consolas, monospace; font-size: 0.8rem; color: var(--text-muted); line-height: 1.8; overflow-x: auto;">
+Person          Family          PersonEvent
+FamilyEvent     PersonFact      ChildRelation
+Place           Source          Media
+DNATestResult   Note            Story
+PersonGroup     Label           ToDo
+FamilyTreeInformation
+AdditionalName  AssociateRelation
+ChangeLogEntry</pre>
+        </div>
+      </div>
+
+      <div class="footer">
+        Deobfuscated with <a href="https://github.com/nicobrinkkemper/jsmap" style="color: var(--accent);">jsmap</a> &mdash;
+        Original app &copy; 2025 Synium Software GmbH
+      </div>
+    </div>
+
+    <!-- React App Mount Point (hidden until launched) -->
+    <div id="root"></div>
+
+    <script type="module">
+      import { getLocalDatabase } from '/src/lib/LocalDatabase.js';
+
+      // ── Check existing data on load ──
+      async function checkExistingData() {
+        const db = getLocalDatabase();
+        await db.open();
+        if (await db.hasData()) {
+          const summary = await db.getSummary();
+          const badge = document.getElementById('import-badge');
+          const desc = document.getElementById('import-desc');
+          const launchBadge = document.getElementById('launch-badge');
+          const launchDesc = document.getElementById('launch-desc');
+
+          badge.textContent = `${summary.total} records loaded`;
+          badge.style.background = 'rgba(74,222,128,0.15)';
+          badge.style.color = 'var(--green)';
+          desc.innerHTML = `<strong>${summary.types.Person || 0}</strong> persons, <strong>${summary.types.Family || 0}</strong> families, <strong>${summary.types.PersonEvent || 0}</strong> events, <strong>${summary.types.Place || 0}</strong> places.` +
+            `<br><span style="margin-top:8px;display:inline-flex;gap:16px;">` +
+            `<a href="#" onclick="event.stopPropagation(); clearData(); return false;" style="color:var(--red);font-size:0.85rem;">Clear data</a>` +
+            `<a href="#" onclick="event.stopPropagation(); document.getElementById('file-input').click(); return false;" style="color:var(--accent);font-size:0.85rem;">Re-import</a>` +
+            `</span>`;
+
+          launchBadge.textContent = `${summary.types.Person || 0} persons ready`;
+          launchDesc.textContent = `Open the CloudTreeWeb interface with your ${summary.total} imported records.`;
+        }
+      }
+      checkExistingData();
+
+      // ── Clear data ──
+      window.clearData = async function() {
+        const db = getLocalDatabase();
+        await db.clearAll();
+        // Remove the flag so next refresh auto-imports from family-data.json
+        localStorage.removeItem('cloudtreeweb-has-imported');
+        location.reload();
+      };
+
+      // ── Launch app ──
+      window.launchApp = function(demo) {
+        document.body.classList.add('app-mode');
+        const script = document.createElement('script');
+        // Always use the patched bundle (local adapter, no CloudKit)
+        script.src = '/static/js/main-demo.js';
+        script.defer = true;
+        document.head.appendChild(script);
+      };
+
+      // ── File import via drag-and-drop or click ──
+      const importCard = document.getElementById('import-card');
+      const fileInput = document.getElementById('file-input');
+      const progressDiv = document.getElementById('import-progress');
+      const progressBar = document.getElementById('progress-bar');
+      const progressText = document.getElementById('progress-text');
+
+      importCard.addEventListener('click', () => fileInput.click());
+      importCard.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        importCard.style.borderColor = 'var(--accent)';
+      });
+      importCard.addEventListener('dragleave', () => {
+        importCard.style.borderColor = 'var(--border)';
+      });
+      importCard.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        importCard.style.borderColor = 'var(--border)';
+
+        // Check if a directory/package was dropped (webkitGetAsEntry API)
+        const items = e.dataTransfer.items;
+        if (items && items.length > 0) {
+          const entry = items[0].webkitGetAsEntry ? items[0].webkitGetAsEntry() : null;
+          if (entry && entry.isDirectory) {
+            // Dropped a .mftpkg folder — find the 'database' file inside it
+            await updateProgress(5, 'Scanning .mftpkg folder...', 'var(--accent)');
+            const dbFile = await findDatabaseInDirectory(entry);
+            if (dbFile) {
+              handleFile(dbFile);
+              return;
+            } else {
+              await updateProgress(100, '', 'var(--red)');
+              progressText.innerHTML = '<strong style="color:var(--red);">No "database" file found</strong><br>The folder does not contain a file named "database".';
+              return;
+            }
+          }
+        }
+
+        const file = e.dataTransfer.files[0];
+        if (file) handleFile(file);
+      });
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) handleFile(file);
+      });
+
+      // Find the 'database' file inside a dropped directory
+      function findDatabaseInDirectory(dirEntry) {
+        return new Promise((resolve) => {
+          const reader = dirEntry.createReader();
+          reader.readEntries((entries) => {
+            for (const entry of entries) {
+              if (entry.isFile && entry.name === 'database') {
+                entry.file((file) => resolve(file));
+                return;
+              }
+            }
+            resolve(null);
+          });
+        });
+      }
+
+      // Let the browser repaint between progress updates
+      function updateProgress(pct, text, color) {
+        return new Promise(resolve => {
+          progressDiv.style.display = 'block';
+          progressBar.style.width = pct + '%';
+          if (color) progressBar.style.background = color;
+          progressText.textContent = text;
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        });
+      }
+
+      async function handleFile(file) {
+        await updateProgress(5, 'Reading file...', 'var(--accent)');
+
+        try {
+          await updateProgress(10, 'Loading SQLite engine (WebAssembly)...');
+
+          // Lazy-load the importer (loads sql.js WASM)
+          const { MFTPKGImporter } = await import('/src/lib/MFTPKGImporter.js');
+          const importer = new MFTPKGImporter();
+          let result;
+
+          if (file.name.endsWith('.json')) {
+            await updateProgress(30, 'Parsing JSON...');
+            const text = await file.text();
+            const data = JSON.parse(text);
+            await updateProgress(60, 'Saving to IndexedDB...');
+            result = await importer.importFromJSON(data);
+          } else {
+            importer.onProgress = async (stage, current, total) => {
+              const pctMap = { loading: 15, parsing: 25, extracting: 30 + (current / Math.max(total, 1)) * 45, importing: 80, done: 100 };
+              const labelMap = {
+                loading: 'Reading database file...',
+                parsing: 'Parsing SQLite with WebAssembly...',
+                extracting: `Extracting records (step ${current + 1} of ${total})...`,
+                importing: 'Saving to IndexedDB...',
+                done: 'Done!',
+              };
+              // Update DOM synchronously (the rAF in updateProgress won't help inside sync callbacks)
+              progressBar.style.width = (pctMap[stage] || 50) + '%';
+              progressText.textContent = labelMap[stage] || stage;
+            };
+            result = await importer.importFromFile(file);
+          }
+
+          await updateProgress(100, '', 'var(--green)');
+
+          // Show completion with counts + launch button
+          const counts = result.counts || {};
+          progressText.innerHTML =
+            '<strong style="color:var(--green);">Import complete!</strong> ' +
+            (result.total || 0) + ' records' +
+            (result.treeName ? ' from "' + result.treeName + '"' : '') +
+            (counts.Person ? ' &mdash; ' + counts.Person + ' persons, ' + (counts.Family || 0) + ' families' : '') +
+            '<br><a href="/?demo" style="color:var(--accent);font-weight:600;font-size:1rem;margin-top:8px;display:inline-block;">Open Family Tree &rarr;</a>' +
+            '&nbsp;&nbsp;<a href="/" style="color:var(--text-muted);font-size:0.85rem;">or refresh page</a>';
+
+        } catch (err) {
+          await updateProgress(100, '', 'var(--red)');
+          progressText.innerHTML = '<strong style="color:var(--red);">Import failed</strong><br>' +
+            err.message.replace(/\. /g, '.<br>');
+          console.error('Import error:', err);
+        }
+      }
+
+      // Auto-launch if URL has ?demo or ?app
+      if (window.location.search.includes('demo') || window.location.search.includes('app')) {
+        window.launchApp(true);
+      }
+    </script>
+  </body>
+</html>

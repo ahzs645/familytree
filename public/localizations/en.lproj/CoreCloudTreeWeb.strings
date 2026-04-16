@@ -1,0 +1,105 @@
+/* LoginPage */
+"_CoreCloudTreeWeb__CreateAppleID" = "Create an Apple ID";
+"_CoreCloudTreeWeb_Description" = "CloudTreeWeb is a service that lets you edit family trees shared with you from $MFTLINKPLACEHOLDER$ or $MFTLINKPLACEHOLDER$.";
+"_CoreCloudTreeWeb_Buy_MacFamilyTree_Or_MobileFamilyTree_Title" = "Buy MacFamilyTree or MobileFamilyTree on the App Store";
+
+"_CoreCloudTreeWeb_Select_MacFamilyTree_Version" = "Select your MacFamilyTree or MobileFamilyTree Version";
+"iCloud.com.syniumsoftware.familytree10" = "Version 10";
+"iCloud.com.syniumsoftware.familytree11" = "Version 11";
+
+/* AcceptShare */
+"_CoreCloudTreeWeb_AcceptShare_ActionsMenu_Title" = "Accept CloudTree invitation…";
+"_CoreCloudTreeWeb_AcceptShare_Title" = "Join family tree on CloudTree";
+"_CoreCloudTreeWeb_AcceptShare_ShareLink" = "Share Link";
+"_CoreCloudTreeWeb_AcceptShare_Instruction" = "To accept an invitation to a shared tree please paste the link you received in the text field above and hit \'Ok\'.";
+"_CoreCloudTreeWeb_AcceptShare_NeedLoginOrCreateAppleIDDescription" = "In order to participate in this family tree shared with you using CloudTree, you have to log in with your Apple ID. If you do not have an Apple ID, please create a free Apple ID in order to join this family tree.";
+"_CoreCloudTreeWeb_AcceptedShare" = "Accepted CloudTree invitation: %@.";
+"_CoreCloudTreeWeb_AcceptedShare_Needs_To_Sign_In_To_Different_Container" = "To view this tree first sign out. Then sign in to %@.";
+"_CoreCloudTreeWeb_AcceptShare_Failed" = "Accept CloudTree invitation failed (%@).";
+"_CoreCloudTreeWeb_AcceptShare_Failed_No_Matching_Container" = "Accept CloudTree invitation failed, share-link is not valid.";
+"_CoreCloudTreeWeb_Instructions_Title" = "How to use CloudTreeWeb?";
+
+/* SelectDatabase */
+"_CoreCloudTreeWeb_Private_Databases" = "My Family Trees";
+"_CoreCloudTreeWeb_Shared_Databases" = "Family Trees shared with me";
+
+"_CoreCloudTreeWeb_No_Private_Databases_Title" = "No Family Trees";
+"_CoreCloudTreeWeb_No_Private_Databases_Explanation" = "Currently, you have not uploaded any family trees to CloudTree. Please use MacFamilyTree on your Mac or MobileFamilyTree on your iPhone or iPad to upload family trees.";
+
+"_CoreCloudTreeWeb_No_Shared_Databases_Title" = "No Family Trees shared with you";
+"_CoreCloudTreeWeb_No_Shared_Databases_Explanation" = "No family trees have been shared with you on CloudTree. In order to participate in a family tree of another person, please ask the owner of the family tree to share their family tree on CloudTree using MacFamilyTree or MobileFamilyTree with your Apple ID.";
+
+"_CoreCloudTreeWeb_Close_Databases" = "Close Family Tree";
+"_CoreCloudTreeWeb_Go_To_Overview" = "Overview";
+"_CoreCloudTreeWeb_Imprint_Title" = "Imprint";
+
+/* ItemsList */
+"_ItemsList_Select_Person_Title" = "Select Person";
+"_ItemsList_NoPersons" = "No Persons";
+"_ItemsList_Select_Family_Title" = "Select Family";
+"_ItemsList_NoFamilies" = "No Families";
+"_ItemsList_Select_Place_Title" = "Select Place";
+"_ItemsList_NoPlaces" = "No Places";
+"_ItemsList_Select_Source_Title" = "Select Source";
+"_ItemsList_NoSources" = "No Sources";
+"_ItemsList_NoChanges" = "No Changes";
+"_ItemsList_LoadMore" = "Load more…";
+
+"_PersonsList_Title" = "Persons List";
+"_FamiliesList_Title" = "Families List";
+"_PlacesList_Title" = "Places List";
+"_SourcesList_Title" = "Sources List";
+
+"_ItemsList_SearchBar_Description" = "Search is case sensitive and only matches the beginning of a name.";
+
+/* Warnings */
+"_CoreCloudTreeWeb_ThereAreUnsavedChangesWarning" = "There are unsaved changes. Really leave screen?";
+"_CoreCloudTreeWeb_AddingPicturesNotSupportedInSharedDatabaseWarning" = "Adding pictures to a shared family tree is currently not supported, but will be available soon.";
+
+/* Errors */
+"_CoreCloudTreeWeb_ErrorMessage_Saving_ConflictError" = "Saving your changes failed because this record was modified by another user. You need to reload the page.";
+"_CoreCloudTreeWeb_ErrorMessage_Saving_UnknownError" = "Saving changes failed due to an unknown error. Please reload the page. If the problem persists, please contact us.";
+"_CoreCloudTreeWeb_ErrorMessage_AuthenticationExpired_Error" = "Your session has expired. Please sign in again to continue.";
+
+/* EditPerson */
+"_EditPerson_SelectPerson_ActionsMenu_Title" = "Select Person…";
+"_EditPerson_SelectPerson_ActionsMenu_Title_Short" = "Person…";
+
+/* EditFamily */
+"_EditFamily_SelectFamily_ActionsMenu_Title" = "Select Family…";
+"_EditFamily_SelectFamily_ActionsMenu_Title_Short" = "Family…";
+
+/* EditPLace */
+"_EditPerson_SelectPlace_ActionsMenu_Title" = "Select Place…";
+"_EditPerson_SelectPlace_ActionsMenu_Title_Short" = "Place…";
+"_EditPlaceMapSection_Title" = "Map";
+
+/* EditSource */
+"_EditSource_SelectSource_ActionsMenu_Title" = "Select Source…";
+"_EditSource_SelectSource_ActionsMenu_Title_Short" = "Source…";
+
+/* EditMedia */
+"_EditMedia_Download_PDF" = "Download PDF";
+
+/* EventDropDownList */
+"_CoreCloudTreeWeb_CommonEvents" = "Common Events";
+"_CoreCloudTreeWeb_CommonFacts" = "Common Facts";
+
+/* Instructions */
+"_CoreCloudTreeWeb_Instructions_Section_1_Title" = "What is CloudTreeWeb?";
+"_CoreCloudTreeWeb_Instructions_Section_1_Text" = "CloudTreeWeb is a complimentary service for MacFamilyTree and MobileFamilyTree. Using CloudTreeWeb, you can access family trees created in MacFamilyTree or MobileFamilyTree over the Internet. You can access your family trees yourself, but CloudTreeWeb also allows you to collaborate with users on a family tree who use Windows or Android. For example, you can invite family members to collaborate who don't use a Mac, iPhone or iPad to get valuable data for your family tree.";
+
+"_CoreCloudTreeWeb_Instructions_Section_2_Title" = "How do I access my own family trees?";
+"_CoreCloudTreeWeb_Instructions_Section_2_Text" = "To access your own family trees, simply log in with the Apple ID you use on your Mac, iPhone or iPad. Your trees synced with CloudTree will then appear automatically. Changes you make on CloudTreeWeb will be reflected in MacFamilyTree or MobileFamilyTree – and vice versa.";
+
+"_CoreCloudTreeWeb_Instructions_Section_3_Title" = "How do I invite a user who is not using MacFamilyTree or MobileFamilyTree?";
+"_CoreCloudTreeWeb_Instructions_Section_3_Text" = "If you want to invite another user to collaborate, they will first need an Apple ID, which can be $BEGINLINK$registered here$ENDLINK$ for free. Once the user has obtained an Apple ID, invite that Apple ID to your family tree via CloudTree in MacFamilyTree or MobileFamilyTree. For details on inviting in MacFamilyTree or MobileFamilyTree, refer to the user manual of the software. Once the invitation is made, send that person the invitation link - for example, by email or messenger. The invitee then logs in to CloudTreeWeb with their Apple ID and accepts the invitation using the button that appears below.";
+
+"_CoreCloudTreeWeb_Instructions_Section_4_Title" = "I was invited to a tree, but I don't use MacFamilyTree or MobileFamilyTree. How can I contribute data to the family tree?";
+"_CoreCloudTreeWeb_Instructions_Section_4_Text" = "If a MacFamilyTree or MobileFamilyTree user has sent you an invitation link, you can join them in researching a family tree. First, you need a free Apple ID, which you can $BEGINLINK$register here$ENDLINK$ for free. After successfully registering your Apple ID, use it to log in to CloudTreeWeb. Once the registration is done, accept the invitation link by clicking on the 'Accept CloudTree invitation' link below and enter the link there. The family tree will then appear on the family tree overview page and can be edited. Note that any changes you make will automatically be reflected in MacFamilyTree or MobileFamilyTree.";
+
+"_CoreCloudTreeWeb_Instructions_Section_5_Title" = "How is my data protected?";
+"_CoreCloudTreeWeb_Instructions_Section_5_Text" = "Your data is protected in the best possible way. The way CloudTreeWeb works, third parties are blocked from accessing your data - even we, as developers, do not have access to your family tree data. This is possible because CloudTreeWeb queries the family tree data directly from Apple iCloud from your computer or cell phone, without a detour through our servers. Thus, CloudTreeWeb meets the same security standards as Apple's own iCloud.com website, for example. Please make sure that your Apple ID is protected sufficiently - for example, by using a password that you do not use with any other service and by enabling two-factor authentication.";
+
+"_CoreCloudTreeWeb_Instructions_Section_6_Title" = "I have a suggestion or a problem - how can I let you know?";
+"_CoreCloudTreeWeb_Instructions_Section_6_Text" = "We are happy to hear from you. If you have a suggestion for improvement or have noticed a problem, please use the contact form on $BEGINLINK$www.syniumsoftware.com$ENDLINK$ to get in touch with us.";

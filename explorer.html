@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CloudTreeWeb Source Explorer</title>
+  <link rel="icon" href="/favicon.ico" />
+  <style>
+    :root {
+      --bg: #0f1117;
+      --bg-surface: #1a1d27;
+      --bg-elevated: #242837;
+      --bg-code: #161922;
+      --border: #2e3345;
+      --text: #e2e4eb;
+      --text-muted: #8b90a0;
+      --accent: #6c8aff;
+      --green: #4ade80;
+      --orange: #fb923c;
+      --red: #f87171;
+      --purple: #c084fc;
+      --yellow: #fbbf24;
+      --cyan: #22d3ee;
+
+      /* Syntax Highlighting */
+      --syn-keyword: #c084fc;
+      --syn-string: #4ade80;
+      --syn-number: #fb923c;
+      --syn-comment: #6b7280;
+      --syn-function: #6c8aff;
+      --syn-class: #22d3ee;
+      --syn-property: #e2e4eb;
+      --syn-operator: #f87171;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      grid-template-rows: 56px 1fr;
+    }
+
+    /* Header */
+    .header {
+      grid-column: 1 / -1;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 16px;
+    }
+
+    .header a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+    }
+    .header a:hover { color: var(--accent); }
+
+    .header h1 {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .header .search-box {
+      margin-left: auto;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      color: var(--text);
+      font-size: 0.85rem;
+      width: 260px;
+      outline: none;
+    }
+    .header .search-box:focus { border-color: var(--accent); }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 12px 0;
+    }
+
+    .sidebar-category {
+      padding: 8px 16px 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    .sidebar-item {
+      display: block;
+      padding: 6px 16px 6px 24px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-decoration: none;
+      cursor: pointer;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .sidebar-item:hover {
+      background: var(--bg-elevated);
+      color: var(--text);
+    }
+    .sidebar-item.active {
+      background: rgba(108, 138, 255, 0.08);
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+
+    .sidebar-item .line-count {
+      float: right;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    /* Main content */
+    .main {
+      overflow: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .file-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .file-header .file-name {
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+
+    .file-header .file-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .badge {
+      font-size: 0.65rem;
+      padding: 2px 8px;
+      border-radius: 5px;
+      font-weight: 500;
+    }
+    .badge-data { background: rgba(108, 138, 255, 0.15); color: var(--accent); }
+    .badge-model { background: rgba(34, 211, 238, 0.15); color: var(--cyan); }
+    .badge-component { background: rgba(192, 132, 252, 0.15); color: var(--purple); }
+    .badge-util { background: rgba(251, 191, 44, 0.15); color: var(--yellow); }
+    .badge-config { background: rgba(74, 222, 128, 0.15); color: var(--green); }
+    .badge-enum { background: rgba(248, 113, 113, 0.15); color: var(--red); }
+    .badge-bootstrap { background: rgba(251, 146, 60, 0.15); color: var(--orange); }
+
+    .code-container {
+      flex: 1;
+      overflow: auto;
+      background: var(--bg-code);
+    }
+
+    .code-container pre {
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      padding: 16px 20px;
+      counter-reset: line;
+      white-space: pre;
+      tab-size: 2;
+    }
+
+    .code-line {
+      display: block;
+    }
+    .code-line::before {
+      counter-increment: line;
+      content: counter(line);
+      display: inline-block;
+      width: 40px;
+      margin-right: 20px;
+      text-align: right;
+      color: var(--text-muted);
+      opacity: 0.4;
+      font-size: 12px;
+      user-select: none;
+    }
+    .code-line:hover { background: rgba(108, 138, 255, 0.05); }
+
+    /* Syntax highlighting (simple regex-based) */
+    .syn-kw { color: var(--syn-keyword); }
+    .syn-str { color: var(--syn-string); }
+    .syn-num { color: var(--syn-number); }
+    .syn-cmt { color: var(--syn-comment); font-style: italic; }
+    .syn-fn { color: var(--syn-function); }
+    .syn-cls { color: var(--syn-class); }
+    .syn-op { color: var(--syn-operator); }
+
+    /* Welcome screen */
+    .welcome {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      text-align: center;
+      padding: 40px;
+      line-height: 2;
+    }
+    .welcome kbd {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: 'SF Mono', monospace;
+      font-size: 0.85em;
+    }
+
+    .hidden { display: none !important; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="/">&larr; Home</a>
+    <h1>Source Explorer</h1>
+    <input type="text" class="search-box" id="search" placeholder="Search sections... (e.g. person, database, modal)" />
+  </div>
+
+  <div class="sidebar" id="sidebar"></div>
+
+  <div class="main" id="main">
+    <div class="welcome" id="welcome">
+      <div>
+        Select a file from the sidebar to view its source code.<br>
+        <kbd>56</kbd> sections across <kbd>7</kbd> categories extracted from the deobfuscated bundle.
+      </div>
+    </div>
+    <div class="file-header hidden" id="file-header">
+      <span class="file-name" id="file-name"></span>
+      <span class="badge" id="file-badge"></span>
+      <span class="file-meta" id="file-meta"></span>
+    </div>
+    <div class="code-container hidden" id="code-container">
+      <pre id="code-output"></pre>
+    </div>
+  </div>
+
+  <script>
+    const CATEGORY_LABELS = {
+      '00-misc': 'Miscellaneous',
+      '01-config': 'Configuration',
+      '02-data': 'Data Layer',
+      '03-models': 'Models',
+      '04-components': 'Components',
+      '05-enums': 'Enums & Constants',
+      '06-utils': 'Utilities',
+      '07-bootstrap': 'Bootstrap',
+    };
+
+    const BADGE_CLASS = {
+      '00-misc': 'badge-util',
+      '01-config': 'badge-config',
+      '02-data': 'badge-data',
+      '03-models': 'badge-model',
+      '04-components': 'badge-component',
+      '05-enums': 'badge-enum',
+      '06-utils': 'badge-util',
+      '07-bootstrap': 'badge-bootstrap',
+    };
+
+    let manifest = null;
+    let activeFile = null;
+
+    async function init() {
+      const res = await fetch('/sections/_manifest.json');
+      manifest = await res.json();
+      renderSidebar(manifest.sections);
+
+      document.getElementById('search').addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase();
+        const filtered = manifest.sections.filter(s =>
+          s.file.toLowerCase().includes(q) ||
+          s.name.toLowerCase().includes(q) ||
+          s.category.toLowerCase().includes(q) ||
+          (s.classes || []).join(' ').toLowerCase().includes(q) ||
+          (s.functions || []).join(' ').toLowerCase().includes(q)
+        );
+        renderSidebar(filtered);
+      });
+    }
+
+    function renderSidebar(sections) {
+      const sidebar = document.getElementById('sidebar');
+      let html = '';
+      let lastCat = '';
+
+      for (const section of sections) {
+        if (section.category !== lastCat) {
+          lastCat = section.category;
+          html += `<div class="sidebar-category">${CATEGORY_LABELS[section.category] || section.category}</div>`;
+        }
+        const isActive = activeFile === section.file ? ' active' : '';
+        const name = section.name.replace(/-/g, ' ');
+        html += `<a class="sidebar-item${isActive}" data-file="${section.file}" onclick="loadFile('${section.file}')">
+          ${name}
+          <span class="line-count">${section.lines}L</span>
+        </a>`;
+      }
+      sidebar.innerHTML = html;
+    }
+
+    async function loadFile(filePath) {
+      activeFile = filePath;
+      const section = manifest.sections.find(s => s.file === filePath);
+
+      // Update sidebar active state
+      document.querySelectorAll('.sidebar-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.file === filePath);
+      });
+
+      // Show header
+      const header = document.getElementById('file-header');
+      const codeContainer = document.getElementById('code-container');
+      const welcome = document.getElementById('welcome');
+      header.classList.remove('hidden');
+      codeContainer.classList.remove('hidden');
+      welcome.classList.add('hidden');
+
+      document.getElementById('file-name').textContent = section.file;
+      const badge = document.getElementById('file-badge');
+      badge.textContent = CATEGORY_LABELS[section.category] || section.category;
+      badge.className = `badge ${BADGE_CLASS[section.category] || 'badge-util'}`;
+
+      const meta = [];
+      if (section.lines) meta.push(`${section.lines} lines`);
+      if (section.startLine) meta.push(`L${section.startLine}-${section.endLine}`);
+      if (section.classes?.length) meta.push(`Classes: ${section.classes.join(', ')}`);
+      if (section.functions?.length > 0 && section.functions.length <= 8) {
+        meta.push(`Functions: ${section.functions.join(', ')}`);
+      }
+      document.getElementById('file-meta').textContent = meta.join('  |  ');
+
+      // Load source
+      const res = await fetch(`/sections/${filePath}`);
+      const code = await res.text();
+      document.getElementById('code-output').innerHTML = highlightCode(code);
+      codeContainer.scrollTop = 0;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function highlightCode(code) {
+      const lines = code.split('\n');
+      return lines.map(line => {
+        let html = escapeHtml(line);
+
+        // Comments
+        html = html.replace(/(\/\/.*$)/, '<span class="syn-cmt">$1</span>');
+        html = html.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="syn-cmt">$1</span>');
+
+        // Strings (simple — won't handle escaped quotes perfectly)
+        html = html.replace(/("(?:[^"\\]|\\.)*")/g, '<span class="syn-str">$1</span>');
+        html = html.replace(/('(?:[^'\\]|\\.)*')/g, '<span class="syn-str">$1</span>');
+
+        // Keywords
+        html = html.replace(/\b(var|let|const|function|class|return|if|else|for|while|do|switch|case|break|continue|new|this|throw|try|catch|finally|typeof|instanceof|in|of|default|export|import|from|async|await|yield|extends|static|get|set|delete|void|true|false|null|undefined)\b/g,
+          '<span class="syn-kw">$1</span>');
+
+        // Numbers
+        html = html.replace(/\b(\d+\.?\d*)\b/g, '<span class="syn-num">$1</span>');
+
+        // Function calls
+        html = html.replace(/\b([a-zA-Z_$]\w*)\s*(?=\()/g, '<span class="syn-fn">$1</span>');
+
+        return `<span class="code-line">${html}</span>`;
+      }).join('\n');
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+CoreCloudTreeWeb.strings
+CoreAdditionalNames.strings
+CoreCoordinate.strings
+CoreCommon.strings
+CoreEdit.strings
+CoreEventStrings.strings
+CoreMedia.strings
+CoreObjectDescriptions.strings
+CoreFunctionPaneNames.strings
+CoreSourceRelations.strings
+CoreSourceTemplates.strings
+CorePlaceTemplates.strings
+CoreAssociateRelations.strings

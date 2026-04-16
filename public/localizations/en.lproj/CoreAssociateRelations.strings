@@ -1,0 +1,40 @@
+//Person Container
+"_AssociateRelation_Type_Friend" = "Friend";
+"_AssociateRelation_Type_Friend_Inverted" = "Friend";
+
+"_AssociateRelation_Type_BestFriend" = "Best Friend";
+"_AssociateRelation_Type_BestFriend_Inverted" = "Best Friend";
+
+"_AssociateRelation_Type_Teacher" = "Teacher";
+"_AssociateRelation_Type_Teacher_Inverted" = "Student";
+
+"_AssociateRelation_Type_Coworker" = "Co-Worker";
+"_AssociateRelation_Type_Coworker_Inverted" = "Co-Worker";
+
+"_AssociateRelation_Type_Neighbor" = "Neighbor";
+"_AssociateRelation_Type_Neighbor_Inverted" = "Neighbor";
+
+"_AssociateRelation_Type_Servant" = "Servant";
+"_AssociateRelation_Type_Servant_Inverted" = "Employer/Master";
+
+"_AssociateRelation_Type_Boss" = "Boss";
+"_AssociateRelation_Type_Boss_Inverted" = "Employee";
+
+"_AssociateRelation_Type_Godfather" = "Godparent";
+"_AssociateRelation_Type_Godfather_Inverted" = "Godparent of %@";
+
+"_AssociateRelation_Type_WitnessOfBirth" = "Witness of Birth";
+"_AssociateRelation_Type_WitnessOfBirth_Inverted" = "Witness of Birth of %@";
+
+"_AssociateRelation_Type_WitnessOfDeath" = "Witness of Death";
+"_AssociateRelation_Type_WitnessOfDeath_Inverted" = "Witness of Death of %@";
+
+//Family Container
+"_AssociateRelation_Type_WitnessOfMarriage" = "Witness of Marriage";
+"_AssociateRelation_Type_WitnessOfMarriage_Inverted" = "Witness of Marriage of %@";
+
+"_AssociateRelation_Type_WitnessOfCivilMarriage" = "Witness of Civil Marriage";
+"_AssociateRelation_Type_WitnessOfCivilMarriage_Inverted" = "Witness of Civil Marriage of %@";
+
+"_AssociateRelation_Type_WitnessOfReligiousMarriage" = "Witness of Religious Marriage";
+"_AssociateRelation_Type_WitnessOfReligiousMarriage_Inverted" = "Witness of Religious Marriage of %@";

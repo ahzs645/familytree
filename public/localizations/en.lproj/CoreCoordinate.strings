@@ -1,0 +1,7 @@
+/*User Readable Coordinate*/
+"_Coordinate_UserReadableDegree" = "%@° %@' %@\" %@";
+
+"_Coordinate_West" = "West";
+"_Coordinate_East" = "East";
+"_Coordinate_North" = "North";
+"_Coordinate_South" = "South";

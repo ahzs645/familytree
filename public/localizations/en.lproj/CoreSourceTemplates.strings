@@ -1,0 +1,227 @@
+/*Counts*/
+"_SourceTemplate_SourcesCountSingular" = "%d Source";
+"_SourceTemplate_SourcesCount" = "%d Sources";
+
+/*SourceTemplate*/
+"SourceTemplate_Generic" = "Generic";
+"SourceTemplate_FamilySearch" = "FamilySearch";
+
+"SourceTemplate_Book" = "Book";
+"SourceTemplate_CDROM" = "CD-ROM";
+"SourceTemplate_Deed" = "Deed";
+"SourceTemplate_EmailMessage" = "E-Mail Message";
+"SourceTemplate_FamilyBible" = "Family Bible";
+"SourceTemplate_Letter" = "Letter";
+"SourceTemplate_Newspaper" = "Newspaper";
+"SourceTemplate_Periodical" = "Periodical";
+"SourceTemplate_TaxList" = "Tax List";
+"SourceTemplate_VitalRecord" = "Vital Record";
+"SourceTemplate_WebSite" = "Website";
+"SourceTemplate_Will" = "Will";
+"SourceTemplate_AddressBook" = "Address Book";
+"SourceTemplate_ManuscriptRecord" = "Manuscript Record";
+"SourceTemplate_FamilyBible" = "Family Bible";
+"SourceTemplate_PersonalBible" = "Personal Bible";
+"SourceTemplate_Portrait" = "Portrait";
+"SourceTemplate_ResearchReport_Digital" = "Research Report (Digital)";
+"SourceTemplate_ResearchReport_PhysicalCopy" = "Research Report (Physical Copy)";
+"SourceTemplate_ResearchReport_Microfilm" = "Research Report (Microfilm)";
+"SourceTemplate_UnpublishedNarrative" = "Unpublished Narrative";
+"SourceTemplate_VerticalFile" = "Vertical File";
+"SourceTemplate_PreservationFilm" = "Preservation Film";
+"SourceTemplate_FamilyChart" = "Family Chart";
+"SourceTemplate_HistoricalLetter_Digital" = "Historical Letter (Digital)";
+"SourceTemplate_HistoricalLetter_PhysicalCopy" = "Historical Letter (Physical Copy)";
+"SourceTemplate_HistoricalLetter_Microfilm" = "Historical Letter (Microfilm)";
+"SourceTemplate_Interview_Digital" = "Interview (Digital)";
+"SourceTemplate_Interview_PhysicalCopy" = "Interview (Physical Copy)";
+"SourceTemplate_Interview_Microfilm" = "Interview (Microfilm)";
+"SourceTemplate_DiaryOrJournal" = "Diary/Journal";
+"SourceTemplate_LegalDocument_Digital" = "Legal Document (Digital)";
+"SourceTemplate_LegalDocument_PhysicalCopy" = "Legal Document (Physical Copy)";
+"SourceTemplate_LegalDocument_Microfilm" = "Legal Document (Microfilm)";
+"SourceTemplate_PersonalCorrespondence" = "Personal Correspondence";
+"SourceTemplate_CorporateRecord_Digital" = "Corporate Record (Digital)";
+"SourceTemplate_CorporateRecord_PhysicalCopy" = "Corporate Record (Physical Copy)";
+"SourceTemplate_CorporateRecord_Microfilm" = "Corporate Record (Microfilm)";
+"SourceTemplate_BusinessOrganisationalRecord" = "Business Organisational Record";
+"SourceTemplate_LegalGeneticTesting" = "Legal Genetic Testing";
+"SourceTemplate_NonLegalPrivateGeneticTesting" = "Non-Legal/Private Genetic Testing";
+"SourceTemplate_HistoricalResearch" = "Historical Research";
+"SourceTemplate_SchoolRecord_Digital" = "School Record (Digital)";
+"SourceTemplate_SchoolRecord_PhysicalCopy" = "School Record (Physical Copy)";
+"SourceTemplate_SchoolRecord_Microfilm" = "School Record (Microfilm)";
+"SourceTemplate_CemeteryRecord_Digital" = "Cemetery Record (Digital)";
+"SourceTemplate_CemeteryRecord_PhysicalCopy" = "Cemetery Record (Physical Copy)";
+"SourceTemplate_CemeteryRecord_Microfilm" = "Cemetery Record (Microfilm)";
+"SourceTemplate_GraveMarkers" = "Grave Markers";
+"SourceTemplate_Census_Digital" = "Census (Digital)";
+"SourceTemplate_Census_PhysicalCopy" = "Census (Physical Copy)";
+"SourceTemplate_Census_Microfilm" = "Census (Microfilm)";
+"SourceTemplate_NativeAmericanTribalCensus" = "Native American Tribal Census";
+"SourceTemplate_ChurchRecord_Books" = "Church Record (Books)";
+"SourceTemplate_ChurchRecord_Digital" = "Church Record (Digital)";
+"SourceTemplate_ChurchRecord_Microfilm" = "Church Record (Microfilm)";
+"SourceTemplate_CourtDocuments" = "Court Documents";
+"SourceTemplate_VitalRecord_BirthCertificate" = "Vital Record – Birth Certificate";
+"SourceTemplate_VitalRecord_MarriageLicense" = "Vital Record – Marriage License";
+"SourceTemplate_VitalRecord_DivorceCertificate" = "Vital Record – Divorce Certificate";
+"SourceTemplate_VitalRecord_DeathCertificate" = "Vital Record – Death Certificate";
+"SourceTemplate_VitalRecord" = "Vital Record";
+"SourceTemplate_LandGrantRegister" = "Land Grant Register";
+"SourceTemplate_LandRecord_Digital" = "Land Record (Digital)";
+"SourceTemplate_LandRecord_PhysicalCopy" = "Land Record (Physical Copy)";
+"SourceTemplate_LandRecord_Microfilm" = "Land Record (Microfilm)";
+"SourceTemplate_LocalAndStateRecord_Digital" = "Local and State Record (Digital)";
+"SourceTemplate_LocalAndStateRecord_PhysicalCopy" = "Local and State Record (Physical Copy)";
+"SourceTemplate_LocalAndStateRecord_Microfilm" = "Local and State Record (Microfilm)";
+"SourceTemplate_NationalGovernmentRecord_Digital" = "National Government Record (Digital)";
+"SourceTemplate_NationalGovernmentRecord_PhysicalCopy" = "National Government Record (Physical Copy)";
+"SourceTemplate_NationalGovernmentRecord_Microfilm" = "National Government Record (Microfilm)";
+"SourceTemplate_Map" = "Map";
+"SourceTemplate_Video" = "Video";
+"SourceTemplate_USCongressionalRecord_Digital" = "US Congressional Record (Digital)";
+"SourceTemplate_USCongressionalRecord_Microfilm" = "US Congressional Record (Microfilm)";
+"SourceTemplate_DraftRegistration" = "Draft Registration";
+"SourceTemplate_ImmigrationRecord_Digital" = "Immigration Record (Digital)";
+"SourceTemplate_ImmigrationRecord_PhysicalCopy" = "Immigration Record (Physical Copy)";
+"SourceTemplate_ImmigrationRecord_Microfilm" = "Immigration Record (Microfilm)";
+"SourceTemplate_EmigrationRecord_Digital" = "Emigration Record (Digital)";
+"SourceTemplate_EmigrationRecord_PhysicalCopy" = "Emigration Record (Physical Copy)";
+"SourceTemplate_EmigrationRecord_Microfilm" = "Emigration Record (Microfilm)";
+"SourceTemplate_NaturalizationRecord" = "Naturalization Record";
+"SourceTemplate_PensionFile" = "Pension File";
+"SourceTemplate_FuneralHomeRecord" = "Funeral Home Record";
+"SourceTemplate_PassengerList" = "Passenger List";
+"SourceTemplate_MedicalRecord" = "Medical Record";
+"SourceTemplate_MilitaryRecord" = "Military Record";
+
+/*_SourceTemplate_KeyName*/
+"SourceTemplate_KeyName_Abbreviation" = "Abbreviation";
+"SourceTemplate_KeyName_Agency" = "Agency";
+"SourceTemplate_KeyName_ReferenceNumber" = "Reference Number";
+"SourceTemplate_KeyName_ReferenceType" = "Reference Type";
+"SourceTemplate_KeyName_Place" = "Place";
+"SourceTemplate_KeyName_Publication" = "Publication";
+"SourceTemplate_KeyName_Title" = "Title";
+"SourceTemplate_KeyName_Author" = "Author";
+"SourceTemplate_KeyName_Edition" = "Edition";
+"SourceTemplate_KeyName_VolumeNumber" = "Volume Number";
+"SourceTemplate_KeyName_Submitter" = "Submitter";
+"SourceTemplate_KeyName_Register" = "Register";
+"SourceTemplate_KeyName_Date" = "Date";
+"SourceTemplate_KeyName_MediaType" = "Media Type";
+"SourceTemplate_KeyName_LocationOfSource" = "Location of Source";
+"SourceTemplate_KeyName_DateViewed" = "Date Viewed";
+"SourceTemplate_KeyName_BookPeriodicalName" = "Book/Periodical Name";
+"SourceTemplate_KeyName_Owner" = "Owner";
+"SourceTemplate_KeyName_Interviewer" = "Interviewer";
+"SourceTemplate_KeyName_Page" = "Page";
+"SourceTemplate_KeyName_FileNumber" = "File Number";
+"SourceTemplate_KeyName_CallNumber" = "Call Number";
+"SourceTemplate_KeyName_Compiler" = "Compiler";
+"SourceTemplate_KeyName_ContactPerson" = "Contact Person";
+"SourceTemplate_KeyName_Copyright" = "Copyright";
+"SourceTemplate_KeyName_Detail" = "Detail";
+"SourceTemplate_KeyName_FilmNumber" = "Film Number";
+"SourceTemplate_KeyName_Informant" = "Informant";
+"SourceTemplate_KeyName_Interviewee" = "Interviewee";
+"SourceTemplate_KeyName_Issue" = "Issue";
+"SourceTemplate_KeyName_Recorder" = "Recorder";
+"SourceTemplate_KeyName_Series" = "Series";
+"SourceTemplate_KeyName_RecordGroup" = "Record Group";
+"SourceTemplate_KeyName_Collection" = "Collection";
+"SourceTemplate_KeyName_OwnerAddress" = "Owner Address";
+"SourceTemplate_KeyName_OwnerLocation" = "Owner Location";
+"SourceTemplate_KeyName_Subject" = "Subject";
+"SourceTemplate_KeyName_OtherSubjects" = "Other Subjects";
+"SourceTemplate_KeyName_AuthorAddress" = "Author Address";
+"SourceTemplate_KeyName_AuthorCredentials" = "Author Credentials";
+"SourceTemplate_KeyName_OtherAuthors" = "Other Authors";
+"SourceTemplate_KeyName_Recipient" = "Recipient";
+"SourceTemplate_KeyName_MicrofilmRollNumber" = "Microfilm Roll Number";
+"SourceTemplate_KeyName_Publisher" = "Publisher";
+"SourceTemplate_KeyName_FolderLabel" = "Folder Label";
+"SourceTemplate_KeyName_Compiler" = "Compiler";
+"SourceTemplate_KeyName_SeriesTitle" = "Series Title";
+"SourceTemplate_KeyName_Volumes" = "Volumes";
+"SourceTemplate_KeyName_Format" = "Format";
+"SourceTemplate_KeyName_FilmType" = "Film Type";
+"SourceTemplate_KeyName_NumberOfRolls" = "Number Of Rolls";
+"SourceTemplate_KeyName_InformantName" = "Informant Name";
+"SourceTemplate_KeyName_InformantRelationship" = "Informant Relationship";
+"SourceTemplate_KeyName_InformantAddress" = "Informant Address";
+"SourceTemplate_KeyName_Organization" = "Organization";
+"SourceTemplate_KeyName_Cemetery" = "Cemetery";
+"SourceTemplate_KeyName_StateTerritory" = "State/Territory";
+"SourceTemplate_KeyName_StateOrCountry" = "State or Country";
+"SourceTemplate_KeyName_County" = "County";
+"SourceTemplate_KeyName_TownshipCivilDistrict" = "Township/Civil District";
+"SourceTemplate_KeyName_Schedule" = "Schedule";
+"SourceTemplate_KeyName_CensusYear" = "Census Year";
+"SourceTemplate_KeyName_Church" = "Church";
+"SourceTemplate_KeyName_School" = "School";
+"SourceTemplate_KeyName_Tribe" = "Tribe";
+"SourceTemplate_KeyName_Presenter" = "Presenter";
+"SourceTemplate_KeyName_Congress" = "Congress";
+"SourceTemplate_KeyName_Session" = "Session";
+"SourceTemplate_KeyName_SerialNumber" = "Serial Number";
+"SourceTemplate_KeyName_OrderNumber" = "Order Number";
+"SourceTemplate_KeyName_MilitaryDivision" = "Military Division";
+"SourceTemplate_KeyName_Court" = "Court";
+"SourceTemplate_KeyName_Vessel" = "Vessel";
+
+/*SourceTemplateKey*/
+"_SourceTemplateKey_Type_Text" = "Text";
+"_SourceTemplateKey_Type_Date" = "Date";
+
+/*SourceTemplateKeyRelation - Enums*/
+
+"SourceTemplateKeyRelation_CitationMode_Short" = "Short Citations Style";
+"SourceTemplateKeyRelation_CitationMode_Long" = "Long Citations Style";
+
+"SourceTemplateKeyRelation_CitationFontMode_Normal" = "Normal";
+"SourceTemplateKeyRelation_CitationFontMode_Bold" = "Bold";
+"SourceTemplateKeyRelation_CitationFontMode_Italic" = "Italic";
+
+"SourceTemplateKeyRelation_CitationTrailingMode_Comma" = "Comma";
+"SourceTemplateKeyRelation_CitationTrailingMode_Period" = "Period";
+"SourceTemplateKeyRelation_CitationTrailingMode_Hyphen" = "Hyphen";
+"SourceTemplateKeyRelation_CitationTrailingMode_Space" = "Whitespace";
+"SourceTemplateKeyRelation_CitationTrailingMode_Colon" = "Colon";
+"SourceTemplateKeyRelation_CitationTrailingMode_Semicolon" = "Semicolon";
+
+"SourceTemplateKeyRelation_CitationBracketMode_None" = "None";
+"SourceTemplateKeyRelation_CitationBracketMode_Brackets" = "Round Brackets";
+"SourceTemplateKeyRelation_CitationBracketMode_CurlyBrackets" = "Curly Brackets";
+"SourceTemplateKeyRelation_CitationBracketMode_AngleBrackets" = "Angle Brackets";
+"SourceTemplateKeyRelation_CitationBracketMode_SingleQuotes" = "Single Quotation Marks";
+"SourceTemplateKeyRelation_CitationBracketMode_DoubleQuotes" = "Double Quotation Marks";
+
+
+
+/*EditSourceTemplatesController*/
+"_EditSourceTemplatesController_RemoveTemplateMessage" = "Really delete Source Template? All attached sources will be permanently deleted.";
+"_EditSourceTemplatesController_RemoveTemplateInformative" = "Are you really sure you want to delete this source template? There are sources attached to this template which will be also permanently deleted if you delete this source template.";
+
+"_EditSourceTemplatesController_MergeTemplateDoneMessage" = "Source Templates merged";
+"_EditSourceTemplatesController_MergeTemplatesDoneInformative" = "The Source Templates '%@' and '%@' have been successfully merged.";
+
+"_EditSourceTemplatesController_ReallyMergeTemplateMessage" = "Really merge Templates?";
+"_EditSourceTemplatesController_ReallyMergeTemplateInformative" = "Do you really want to merge the Templates '%@' and '%@'? Afterwards, these become a single Template.";
+
+
+/*EditSourceTemplateKeysController*/
+"_EditSourceTemplateKeysController_RemoveTemplateKeyMessage" = "Really delete Template Field? All fields from sources will be permanently deleted.";
+"_EditSourceTemplateKeysController_RemoveTemplateKeyInformative" = "Do you really want to delete the selected template field? There is still information entered for this template field which will be permanently deleted.";
+
+"_EditSourceTemplateKeysController_MergeTemplateKeysConflictMessage" = "Merge Source Fields";
+"_EditSourceTemplateKeysController_MergeTemplateKeysConflictInformative" = "You are about to merge the Source Field '%@' with the Source Field '%@', but in some sources in your family tree, both source fields are present in a single source. Please decide how to proceed for these sources:";
+"_EditSourceTemplateKeysController_MergeTemplateKeysConflictKeepBoth" = "Keep Both Values";
+"_EditSourceTemplateKeysController_MergeTemplateKeysConflictKeepSingle" = "Keep Value of %@";
+
+"_EditSourceTemplateKeysController_MergeTemplateKeysDoneMessage" = "Source Fields merged";
+"_EditSourceTemplateKeysController_MergeTemplateKeysDoneInformative" = "Source Field '%@' has been merged with Source Field '%@'";
+
+"_EditSourceTemplateKeysController_ReallyMergeTemplateKeysMessage" = "Really merge Template Fields?";
+"_EditSourceTemplateKeysController_ReallyMergeTemplateKeysInformative" = "Do you really want to merge the Template Fields '%@' and '%@'? Afterwards, these become a single Template Field.";

@@ -1,0 +1,20 @@
+/*Default Titles*/
+"_MediaPicture_DefaultTitleWithDate" = "Picture from %@";
+"_MediaVideo_DefaultTitleWithDate" = "Video from %@";
+
+/*MediaContainerListController*/
+"_MediaContainerListController_DeleteMediaOrRelationMessage" = "Delete Media or Media Relation?";
+"_MediaContainerListController_DeleteMediaOrRelationInformative" = "Do you want to permanently delete the selected media entry or do you just want to remove the relation of the media entry and keep this media in your database?";
+
+"_MediaContainerListController_DeleteMediaMessage" = "Delete Media?";
+"_MediaContainerListController_DeleteMediaInformative" = "Do you really want to delete the selected media entry permanently?";
+
+"_MediaContainerListController_DeleteMediaButton" = "Delete Media";
+"_MediaContainerListController_DeleteMediaRelationButton" = "Delete Media Relation";
+
+"_MediaContainerListController_SortingMode_ByTitle" = "By Title";
+"_MediaContainerListController_SortingMode_ByDate" = "By Birth Date";
+
+"_MediaContainerListController_NoDateTitle" = "No Date";
+
+"_MediaContainerListController_FileWithoutTitleName" = "File %d";

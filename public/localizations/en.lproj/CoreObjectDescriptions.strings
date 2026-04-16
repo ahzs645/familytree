@@ -1,0 +1,723 @@
+/*Object Descriptions*/
+"_ObjectDescription_Person" = "Person %@";
+"_ObjectDescription_Family" = "Family %@";
+"_ObjectDescription_Story" = "Story %@";
+"_ObjectDescription_StorySection" = "Story Section %@";
+"_ObjectDescription_PersonEvent" = "Event %@ of %@";
+"_ObjectDescription_PersonEvent_PlaceExtension" = "in %@";
+"_ObjectDescription_FamilyEvent" = "Family Event %@ of %@";
+"_ObjectDescription_FamilyEvent_PlaceExtension" = "in %@";
+"_ObjectDescription_MediaPicture" = "Image %@ of %@";
+"_ObjectDescription_MediaAudio" = "Audio %@ of %@";
+"_ObjectDescription_MediaVideo" = "Video %@ of %@";
+"_ObjectDescription_MediaURL" = "Webpage %@ of %@";
+"_ObjectDescription_MediaPDF" = "PDF %@ of %@";
+"_ObjectDescription_MediaRelation" = "Media Relation %@";
+"_ObjectDescription_MediaRelationAssignment" = "Media Relation Assignment %@";
+"_ObjectDescription_Note" = "Note on %@";
+"_ObjectDescription_Source" = "Source %@";
+"_ObjectDescription_SourceTemplate" = "Source Template %@";
+"_ObjectDescription_SourceTemplateKey" = "Source Template Field %@";
+"_ObjectDescription_SourceKeyValue" = "Source Value – %@: %@";
+"_ObjectDescription_SourceTemplateKeyRelation" = "Source Template Field Relation %@ – %@";
+"_ObjectDescription_Label" = "Label %@";
+"_ObjectDescription_ToDo" = "ToDo %@";
+"_ObjectDescription_PersonGroup" = "Person Group %@";
+"_ObjectDescription_PersonFact" = "Fact %@ of %@";
+"_ObjectDescription_AssociateRelation" = "Influential Person Relation %@";
+"_ObjectDescription_Place" = "Place %@";
+"_ObjectDescription_PlaceTemplate" = "Place Template %@";
+"_ObjectDescription_PlaceTemplateKey" = "Place Template Field %@";
+"_ObjectDescription_PlaceKeyValue" = "Place Value – %@: %@";
+"_ObjectDescription_PlaceTemplateKeyRelation" = "Place Template Field Relation %@ – %@";
+"_ObjectDescription_PlaceDetail" = "Place Detail %@";
+"_ObjectDescription_SourceRelation" = "Source Citation - %@ - %@";
+"_ObjectDescription_AdditionalName" = "Additional Name %@ of %@";
+"_ObjectDescription_Coordinate" = "Coordinate of Place %@";
+"_ObjectDescription_Scope" = "Smart Filter %@";
+"_ObjectDescription_ChildRelation" = "Child Relation %@ - %@";
+"_ObjectDescription_ConclusionPersonFactType" = "Person Fact Type %@";
+"_ObjectDescription_ConclusionPersonEventType" = "Person Event Type %@";
+"_ObjectDescription_ConclusionFamilyEventType" = "Family Event Type %@";
+"_ObjectDescription_ConclusionAdditionalNameType" = "Additional Name Type %@";
+"_ObjectDescription_ConclusionAssociateRelationType" = "Influential Relation Type %@";
+"_ObjectDescription_FamilySearchKnownBadFurtherInformationMatch" = "FamilySearch Information %@";
+"_ObjectDescription_FamilySearchKnownBadPersonMatch" = "FamilySearch Information %@";
+
+"_ObjectDescription_Book" = "Book %@";
+"_ObjectDescription_BookChapter" = "Book Chapter %@";
+"_ObjectDescription_BookSerializedBaseObjectReportBuilder" = "Configuration for section %@";
+"_ObjectDescription_BookSerializedEditedReportBuilder" = "Configuration for edited section %@";
+"_ObjectDescription_BookSerializedBaseReportBuilder" = "Configuration for section %@";
+"_ObjectDescription_BookSerializedChapterReportBuilder" = "Configuration for chapter %@";
+"_ObjectDescription_BookPersonSection" = "Person Section %@";
+"_ObjectDescription_BookFamilySection" = "Family Section %@";
+"_ObjectDescription_BookPersonBasedReportBuilderSection" = "Report Section %@";
+"_ObjectDescription_BookFamilyBasedReportBuilderSection" = "Report Section %@";
+"_ObjectDescription_BookBaseObjectsBasedReportBuilderSection" = "Report Section %@";
+"_ObjectDescription_BookGenericReportBuilderSection" = "Report Section %@";
+"_ObjectDescription_BookDiagramReportBuilderSection" = "Diagram Section %@";
+"_ObjectDescription_BookReportBuilderPerson" = "Report Section Person %@";
+"_ObjectDescription_BookReportBuilderFamily" = "Report Section Family %@";
+"_ObjectDescription_BookBaseObjectsBasedReportBuilderObject" = "Report Section Object %@";
+"_ObjectDescription_BookDiagramBaseObject" = "Diagram Section Object";
+
+"_ObjectDescription_DNATestResult" = "DNA Test Result %@";
+"_ObjectDescription_DNATestYDNASubResultYSTRMarker" = "DNA Y-DNA STR Marker %@";
+"_ObjectDescription_DNATestMTDNASubResultSNPDifference" = "DNA mtDNA SNP Difference %@";
+"_ObjectDescription_DNATestMTDNASubResult" = "mtDNA Test Result – %@";
+"_ObjectDescription_DNATestATDNASubResult" = "atDNA Test Result – %@";
+"_ObjectDescription_DNATestYDNASubResult" = "Y-DNA Test Result – %@";
+
+"_ObjectDescription_FamilyTreeInformation" = "Family Tree Author Information";
+
+/*Object Types*/
+"_ObjectType_Person" = "Person";
+"_ObjectType_Event" = "Event";
+"_ObjectType_Story" = "Story";
+"_ObjectType_StorySection" = "Story Section";
+"_ObjectType_StorySectionRelation" = "Story Section Relation";
+"_ObjectType_StoryRelation" = "Story Relation";
+"_ObjectType_PersonEvent" = "Person Event";
+"_ObjectType_FamilyEvent" = "Family Event";
+"_ObjectType_Fact" = "Fact";
+"_ObjectType_PersonFact" = "Person Fact";
+"_ObjectType_Family" = "Family";
+"_ObjectType_Place" = "Place";
+"_ObjectType_PlaceDetail" = "Place Detail";
+"_ObjectType_PlaceTemplate" = "Place Template";
+"_ObjectType_PlaceTemplateKey" = "Place Template Field";
+"_ObjectType_PlaceTemplateKeyRelation" = "Place Template Field Relation";
+"_ObjectType_PlaceKeyValue" = "Place Value";
+"_ObjectType_Note" = "Note";
+"_ObjectType_Source" = "Source";
+"_ObjectType_SourceRelation" = "Source Citation";
+"_ObjectType_SourceTemplate" = "Source Template";
+"_ObjectType_SourceTemplateKey" = "Source Template Field";
+"_ObjectType_SourceTemplateKeyRelation" = "Source Template Field Relation";
+"_ObjectType_SourceKeyValue" = "Source Value";
+"_ObjectType_SourceRepository" = "Source Repository";
+"_ObjectType_BaseMedia" = "Media";
+"_ObjectType_MediaAudio" = "Media Audio";
+"_ObjectType_MediaPicture" = "Media Picture";
+"_ObjectType_MediaURL" = "Media URL";
+"_ObjectType_MediaPDF" = "Media PDF";
+"_ObjectType_MediaRelation" = "Media Relation";
+"_ObjectType_MediaRelationAssignment" = "Media Relation Assignment";
+"_ObjectType_MediaRelationAssignmentPicture" = "Media Relation Assignment Picture";
+"_ObjectType_MediaVideo" = "Media Video";
+"_ObjectType_Coordinate" = "Coordinate";
+"_ObjectType_Scope" = "Smart Filter";
+"_ObjectType_Label" = "Label";
+"_ObjectType_ToDo" = "ToDo";
+"_ObjectType_PersonGroup" = "Person Group";
+"_ObjectType_PersonGroupRelation" = "Person Group Relation";
+"_ObjectType_ToDoRelation" = "ToDo Relation";
+"_ObjectType_ChildRelation" = "Child Relation";
+"_ObjectType_ConclusionPersonFactType" = "Person Fact Type";
+"_ObjectType_ConclusionPersonEventType" = "Person Event Type";
+"_ObjectType_ConclusionFamilyEventType" = "Family Event Type";
+"_ObjectType_ConclusionAdditionalNameType" = "Additional Name Type";
+"_ObjectType_ConclusionAssociateRelationType" = "Influential Relation Type";
+"_ObjectType_AssociateRelation" = "Influential Person Relation";
+"_ObjectType_AdditionalName" = "Additional Name";
+"_ObjectType_ResearchAssistantQuestionInfo" = "Research Assistant Information";
+"_ObjectType_FamilySearchKnownBadPersonMatch" = "FamilySearch Information";
+"_ObjectType_FamilySearchKnownBadFurtherInformationMatch" = "FamilySearch Information";
+"_ObjectType_BaseObjectFamilySearchProperties" = "FamilySearch Information";
+"_ObjectType_FamilyTreeInformation" = "Family Tree Information";
+"_ObjectType_LabelRelation" = "Label Relation";
+
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerCloudKitChangesWorklist" = "CloudTree Sync Information";
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerCloudKitChangesWorklistForRecordType" = "CloudTree Sync Information";
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerCloudKitChangesWorklistForRecordTypeEntry" = "CloudTree Sync Information";
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerCloudKitChangesWorklistZoneNameServerChangeToken" = "CloudTree Sync Information";
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerLocalChangesWorklist" = "CloudTree Sync Information";
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerLocalChangesWorklistDanglingReferenceEntry" = "CloudTree Sync Information";
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerLocalChangesWorklistFinalDeleteEntry" = "CloudTree Sync Information";
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerLocalChangesWorklistForEntity" = "CloudTree Sync Information";
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerLocalChangesWorklistForEntityEntry" = "CloudTree Sync Information";
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerLocalChangesWorklistPostponedEntry" = "CloudTree Sync Information";
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerCloudKitChangesWorklistAddVerifyListItem" = "CloudTree Sync Information";
+"_ObjectType_CloudKitCoordinatorDatabaseHandlerSpecialPostDownloadStep" = "CloudTree Sync Information";
+
+"_ObjectType_DNATestResult" = "DNA Test Result";
+
+"_ObjectType_ChangeLogSubEntry" = "Change Log Entry";
+"_ObjectType_ChangeLogEntry" = "Change Log";
+
+"_ObjectType_Book" = "Book";
+"_ObjectType_BookChapter" = "Book Chapter";
+"_ObjectType_BookBaseObjectReportBuilder" = "Person/Family Report";
+"_ObjectType_BookSerializedBaseObjectReportBuilder" = "Report Configuration";
+"_ObjectType_BookSerializedEditedReportBuilder" = "Edited Report Configuration";
+"_ObjectType_BookSerializedBaseReportBuilder" = "Report Section Configuration";
+"_ObjectType_BookSerializedChapterReportBuilder" = "Chapter Report Configuration";
+"_ObjectType_BookPersonSection" = "Person Section";
+"_ObjectType_BookFamilySection" = "Family Section";
+"_ObjectType_BookPersonBasedReportBuilderSection" = "Report Section";
+"_ObjectType_BookFamilyBasedReportBuilderSection" = "Report Section";
+"_ObjectType_BookBaseObjectsBasedReportBuilderSection" = "Report Section";
+"_ObjectType_BookGenericReportBuilderSection" = "Report Section";
+"_ObjectType_BookDiagramReportBuilderSection" = "Diagram Section %@";
+"_ObjectType_BookReportBuilderPerson" = "Report Section Person";
+"_ObjectType_BookReportBuilderFamily" = "Report Section Family";
+"_ObjectType_BookBaseObjectsBasedReportBuilderObject" = "Report Section Object";
+"_ObjectType_BookDiagramBaseObject" = "Diagram Section Object";
+
+"_ObjectType_SavedReport" = "Saved Report";
+"_ObjectType_SavedChart" = "Saved Chart";
+"_ObjectType_SavedBook" = "Saved Book";
+"_ObjectType_SavedWebsite" = "Saved Website";
+
+"_ObjectType_DNATestResult" = "DNA Test Result";
+"_ObjectType_DNATestATDNASubResult" = "Autosomal DNA Result Information";
+"_ObjectType_DNATestYDNASubResult" = "Y-DNA Result Information";
+"_ObjectType_DNATestMTDNASubResult" = "mtDNA Result Information";
+"_ObjectType_DNATestYDNASubResultYSTRMarker" = "Y-DNA STR Marker";
+"_ObjectType_DNATestMTDNASubResultSNPDifference" = "mtDNA SNP Difference";
+"_ObjectType_DNATestBaseSubResultRawDataFile" = "DNA Raw Data File";
+
+/*Object Properties*/
+/*BaseObject*/
+"_ObjectProperty_BaseObject_changeDate" = "Change Date";
+"_ObjectProperty_BaseObject_creationDate" = "Creation Date";
+"_ObjectProperty_BaseObject_ancestralFileNumberID" = "Ancestral File Number";
+"_ObjectProperty_BaseObject_cloudKitChangeTag" = "CloudTree Change Information";
+"_ObjectProperty_BaseObject_excludedPlausibilityAnalyzerClassNames" = "Plausibility Analyzer Information";
+"_ObjectProperty_BaseObject_familySearchID" = "FamilySearch ID";
+"_ObjectProperty_BaseObject_gedcomID" = "Gedcom ID";
+"_ObjectProperty_BaseObject_isPrivate" = "Flagged as Private";
+"_ObjectProperty_BaseObject_referenceNumberID" = "Own Reference Number";
+"_ObjectProperty_BaseObject_researchAssistantCompletedQuestionsMask" = "Research Assistant Information";
+"_ObjectProperty_BaseObject_uniqueID" = "Internal Unique ID";
+
+/*NoteContainer*/
+"_ObjectProperty_NoteContainer_notes" = "Notes";
+
+/*SourceContainer*/
+"_ObjectProperty_SourceContainer_sourceRelations" = "Source Citations";
+
+/*Person*/
+"_ObjectProperty_Person_firstName" = "First Name";
+"_ObjectProperty_Person_lastName" = "Last Name";
+"_ObjectProperty_Person_nameMiddle" = "Middle Name";
+"_ObjectProperty_Person_namePrefix" = "Title";
+"_ObjectProperty_Person_nameSuffix" = "Suffix";
+"_ObjectProperty_Person_marriedName" = "Married Name";
+"_ObjectProperty_Person_cached_fullName" = "Full Name";
+"_ObjectProperty_Person_gender" = "Gender";
+"_ObjectProperty_Person_cached_birthDate" = "Birth Date";
+"_ObjectProperty_Person_cached_birthDateAsDate" = "Birth Date";
+"_ObjectProperty_Person_cached_christeningDate" = "Christening Date";
+"_ObjectProperty_Person_cached_christeningDateAsDate" = "Christening Date";
+"_ObjectProperty_Person_cached_deathDate" = "Death Date";
+"_ObjectProperty_Person_cached_deathDateAsDate" = "Death Date";
+"_ObjectProperty_Person_cached_fullNameForSorting" = "Full Name used for sorting";
+"_ObjectProperty_Person_firstNameSoundex" = "Soundex of First Name";
+"_ObjectProperty_Person_isBookmarked" = "Bookmarked";
+"_ObjectProperty_Person_isStartPerson" = "Marked as Start Person";
+"_ObjectProperty_Person_lastNameSoundex" = "Soundex of Last Name";
+"_ObjectProperty_Person_nameMiddleSoundex" = "Soundex of Middle Name";
+"_ObjectProperty_Person_namePrefixSoundex" = "Soundex of Title";
+"_ObjectProperty_Person_nameSuffixSoundex" = "Soundex of Suffix";
+
+/*AdditionalName*/
+"_ObjectProperty_AdditionalName_firstName" = "First Name";
+"_ObjectProperty_AdditionalName_lastName" = "Last Name";
+"_ObjectProperty_AdditionalName_nameMiddle" = "Middle Name";
+"_ObjectProperty_AdditionalName_namePrefix" = "Title";
+"_ObjectProperty_AdditionalName_nameSuffix" = "Suffix";
+"_ObjectProperty_AdditionalName_person" = "Person";
+"_ObjectProperty_AdditionalName_conclusionType" = "Type";
+
+/*Family*/
+"_ObjectProperty_Family_cached_marriageDate" = "Marriage Date";
+"_ObjectProperty_Family_cached_marriageDateAsDate" = "Marriage Date";
+"_ObjectProperty_Family_isBookmarked" = "Bookmarked";
+"_ObjectProperty_Family_childRelations" = "Child Relations";
+"_ObjectProperty_Family_events" = "Family Events";
+"_ObjectProperty_Family_man" = "Man";
+"_ObjectProperty_Family_woman" = "Woman";
+
+/*Story*/
+"_ObjectProperty_Story_title" = "Title";
+"_ObjectProperty_Story_userDescription" = "Description";
+"_ObjectProperty_Story_fromDate" = "From Date";
+"_ObjectProperty_Story_toDate" = "To Date";
+
+/*StorySection*/
+"_ObjectProperty_StorySection_subtitle" = "Section Title";
+"_ObjectProperty_StorySection_text" = "Text";
+"_ObjectProperty_StorySection_order" = "Order";
+
+/*Event*/
+"_ObjectProperty_Event_date" = "Date";
+"_ObjectProperty_Event_time" = "Time";
+"_ObjectProperty_Event_userDescription" = "Description";
+"_ObjectProperty_Event_agency" = "Authority";
+"_ObjectProperty_Event_address" = "Address";
+"_ObjectProperty_Event_cause" = "Cause";
+"_ObjectProperty_Event_assignedPlace" = "Place";
+"_ObjectProperty_Event_assignedPlaceDetail" = "Place Detail";
+"_ObjectProperty_Event_ldsStatus" = "LDS Status";
+"_ObjectProperty_Event_ldsTempleCode" = "LDS Temple Code";
+
+/*PersonEvent*/
+"_ObjectProperty_PersonEvent_conclusionType" = "Event Type";
+"_ObjectProperty_PersonEvent_person" = "Person";
+
+/*FamilyEvent*/
+"_ObjectProperty_FamilyEvent_conclusionType" = "Event Type";
+"_ObjectProperty_FamilyEvent_family" = "Family";
+
+/*Fact*/
+"_ObjectProperty_Fact_value" = "Value";
+
+/*PersonFact*/
+"_ObjectProperty_PersonFact_conclusionType" = "Fact Type";
+"_ObjectProperty_PersonFact_person" = "Person";
+
+/*Place*/
+"_ObjectProperty_Place_template" = "Place Template";
+"_ObjectProperty_Place_place" = "Place";
+"_ObjectProperty_Place_county" = "County";
+"_ObjectProperty_Place_state" = "State";
+"_ObjectProperty_Place_country" = "Country";
+"_ObjectProperty_Place_coordinate" = "Coordinate";
+"_ObjectProperty_Place_alternatePlaceNames" = "Alternate Names";
+"_ObjectProperty_Place_isBookmarked" = "Is Bookmarked";
+"_ObjectProperty_Place_geoNameID" = "GeoName ID";
+
+/*PlaceKeyValue*/
+"_ObjectProperty_PlaceKeyValue_templateKey" = "Template Field";
+"_ObjectProperty_PlaceKeyValue_value" = "Value";
+"_ObjectProperty_PlaceKeyValue_place" = "Place";
+
+/*PlaceTemplate*/
+"_ObjectProperty_PlaceTemplate_name" = "Name";
+"_ObjectProperty_PlaceTemplate_isDefaultTemplate" = "Default Template";
+"_ObjectProperty_PlaceTemplate_isFavoriteTemplate" = "Favorite Template";
+"_ObjectProperty_PlaceTemplate_countryIdentifier" = "Country";
+
+/*PlaceTemplateKey*/
+"_ObjectProperty_PlaceTemplateKey_localName" = "Local Name";
+"_ObjectProperty_PlaceTemplateKey_internationalName" = "International Name";
+"_ObjectProperty_PlaceTemplateKey_order" = "Order";
+"_ObjectProperty_PlaceTemplateKey_gedcomTag" = "GEDCOM Place FORM Tag";
+
+/*PlaceTemplateKeyRelation*/
+"_ObjectProperty_PlaceTemplateKeyRelation_order" = "Order";
+"_PlaceTemplateKeyRelation_relationUsage" = "Usage";
+
+"_ObjectProperty_PlaceTemplateKeyRelation_veryShortCitationOrder" = "Very Short Citation Order";
+"_ObjectProperty_PlaceTemplateKeyRelation_veryShortCitationEnabled" = "Enabled for Very Short Citation";
+"_ObjectProperty_PlaceTemplateKeyRelation_veryShortCitationTrailingMode" = "Very Short Citation Separator";
+"_ObjectProperty_PlaceTemplateKeyRelation_veryShortCitationBracketMode" = "Very Short Citation Brackets";
+
+"_ObjectProperty_PlaceTemplateKeyRelation_shortCitationOrder" = "Short Citation Order";
+"_ObjectProperty_PlaceTemplateKeyRelation_shortCitationEnabled" = "Enabled for Short Citation";
+"_ObjectProperty_PlaceTemplateKeyRelation_shortCitationTrailingMode" = "Short Citation Separator";
+"_ObjectProperty_PlaceTemplateKeyRelation_shortCitationBracketMode" = "Short Citation Brackets";
+
+"_ObjectProperty_PlaceTemplateKeyRelation_normalCitationOrder" = "Normal Citation Order";
+"_ObjectProperty_PlaceTemplateKeyRelation_normalCitationEnabled" = "Enabled for Normal Citation";
+"_ObjectProperty_PlaceTemplateKeyRelation_normalCitationTrailingMode" = "Normal Citation Separator";
+"_ObjectProperty_PlaceTemplateKeyRelation_normalCitationBracketMode" = "Normal Citation Brackets";
+
+/*PlaceDetail*/
+"_ObjectProperty_PlaceDetail_name" = "Name";
+"_ObjectProperty_PlaceDetail_place" = "Place";
+"_ObjectProperty_PlaceDetail_geoNameID" = "GeoName ID";
+
+/*Coordinate*/
+"_ObjectProperty_Coordinate_latitude" = "Latitude";
+"_ObjectProperty_Coordinate_longitude" = "Longitude";
+"_ObjectProperty_Coordinate_place" = "Place";
+"_ObjectProperty_Coordinate_placeDetail" = "Place Detail";
+"_ObjectProperty_Coordinate_generated_coordinate_string" = "Coordinate";
+"_ObjectProperty_Coordinate_latitudeDegrees" = "Latitude Degrees";
+"_ObjectProperty_Coordinate_latitudeMinutes" = "Latitude Minutes";
+"_ObjectProperty_Coordinate_latitudeSeconds" = "Latitude Seconds";
+"_ObjectProperty_Coordinate_latitudeIsSouth" = "Latitude Orientation";
+"_ObjectProperty_Coordinate_longitudeDegrees" = "Longitude Degrees";
+"_ObjectProperty_Coordinate_longitudeMinutes" = "Longitude Minutes";
+"_ObjectProperty_Coordinate_longitudeSeconds" = "Longitude Seconds";
+"_ObjectProperty_Coordinate_longitudeIsWest" = "Longitude Orientation";
+
+/*Note*/
+"_ObjectProperty_Note_text" = "Text";
+
+/*Source*/
+"_ObjectProperty_Source_template" = "Source Template";
+"_ObjectProperty_Source_text" = "Text";
+"_ObjectProperty_Source_isBookmarked"= "Bookmarked";
+"_ObjectProperty_Source_sourceRepository"= "Source Repository";
+
+/*SourceKeyValue*/
+"_ObjectProperty_SourceKeyValue_templateKey" = "Template Field";
+"_ObjectProperty_SourceKeyValue_source" = "Source";
+"_ObjectProperty_SourceKeyValue_value" = "Value";
+
+/*SourceTemplate*/
+"_ObjectProperty_SourceTemplate_name" = "Name";
+"_ObjectProperty_SourceTemplate_isDefaultTemplate" = "Default Template";
+"_ObjectProperty_SourceTemplate_isFavoriteTemplate" = "Favorite Template";
+
+/*SourceTemplateKey*/
+"_ObjectProperty_SourceTemplateKey_name" = "Field Name";
+"_ObjectProperty_SourceTemplateKey_order" = "Order";
+"_ObjectProperty_SourceTemplateKey_type" = "Field Type";
+"_ObjectProperty_SourceTemplateKey_gedcomTag" = "GEDCOM Tag";
+
+/*SourceTemplateKeyRelation*/
+"_ObjectProperty_SourceTemplateKeyRelation_isTitleComponent" = "Included in Source Title";
+"_ObjectProperty_SourceTemplateKeyRelation_isDateForDisplayComponent" = "Included in Source Date";
+"_ObjectProperty_SourceTemplateKeyRelation_order" = "Order";
+
+"_ObjectProperty_SourceTemplateKeyRelation_shortCitationOrder" = "Short Citation Order";
+"_ObjectProperty_SourceTemplateKeyRelation_shortCitationEnabled" = "Enabled for Short Citation";
+"_ObjectProperty_SourceTemplateKeyRelation_shortCitationFontMode" = "Short Citation Font";
+"_ObjectProperty_SourceTemplateKeyRelation_shortCitationTrailingMode" = "Short Citation Separator";
+"_ObjectProperty_SourceTemplateKeyRelation_shortCitationBracketMode" = "Short Citation Brackets";
+
+"_ObjectProperty_SourceTemplateKeyRelation_longCitationOrder" = "Long Citation Order";
+"_ObjectProperty_SourceTemplateKeyRelation_longCitationEnabled" = "Enabled for Long Citation";
+"_ObjectProperty_SourceTemplateKeyRelation_longCitationFontMode" = "Long Citation Font";
+"_ObjectProperty_SourceTemplateKeyRelation_longCitationTrailingMode" = "Long Citation Separator";
+"_ObjectProperty_SourceTemplateKeyRelation_longCitationBracketMode" = "Long Citation Brackets";
+
+/*SourceRepository*/
+"_ObjectProperty_SourceRepository_name"= "Name";
+"_ObjectProperty_SourceRepository_address"= "Address";
+"_ObjectProperty_SourceRepository_addressLine1"= "Address Line 1";
+"_ObjectProperty_SourceRepository_addressLine2"= "Address Line 2";
+"_ObjectProperty_SourceRepository_addressLine3"= "Address Line 3";
+"_ObjectProperty_SourceRepository_city"= "City";
+"_ObjectProperty_SourceRepository_country"= "Country";
+"_ObjectProperty_SourceRepository_email"= "Email";
+"_ObjectProperty_SourceRepository_fax"= "Fax";
+"_ObjectProperty_SourceRepository_phone"= "Phone";
+"_ObjectProperty_SourceRepository_postalCode"= "Postal Code";
+"_ObjectProperty_SourceRepository_state"= "Address";
+"_ObjectProperty_SourceRepository_www"= "WWW";
+
+/*SourceRelation*/
+"_ObjectProperty_SourceRelation_source" = "Source";
+"_ObjectProperty_SourceRelation_sourceContainer" = "Referenced Entry";
+"_ObjectProperty_SourceRelation_page" = "Page";
+"_ObjectProperty_SourceRelation_qualityEvidence" = "Evidence Quality";
+"_ObjectProperty_SourceRelation_qualityInformation" = "Information Quality";
+"_ObjectProperty_SourceRelation_qualitySource" = "Source Quality";
+"_ObjectProperty_SourceRelation_certainty" = "Certainty";
+
+/*PersonGroup*/
+"_ObjectProperty_PersonGroup_name" = "Name";
+"_ObjectProperty_PersonGroup_personGroupColor" = "Color";
+"_ObjectProperty_PersonGroup_userDescription" = "Description";
+
+/*AssociateRelation*/
+"_ObjectProperty_AssociateRelation_date" = "Date";
+"_ObjectProperty_AssociateRelation_conclusionType" = "Type";
+
+/*ChildRelation*/
+"_ObjectProperty_ChildRelation_type" = "Child Relation Type";
+"_ObjectProperty_ChildRelation_relationTypeToManInFamily" = "Relation Type to Father";
+"_ObjectProperty_ChildRelation_relationTypeToWomanInFamily" = "Relation Type to Mother";
+"_ObjectProperty_ChildRelation_type" = "Child Relation Type";
+"_ObjectProperty_ChildRelation_child" = "Child";
+"_ObjectProperty_ChildRelation_family" = "Family";
+
+/*ToDo*/
+"_ObjectProperty_ToDo_dueDate" = "Due Date";
+"_ObjectProperty_ToDo_title" = "Title";
+"_ObjectProperty_ToDo_text" = "Text";
+"_ObjectProperty_ToDo_typeConclusionType" = "Type";
+"_ObjectProperty_ToDo_priorityConclusionType" = "Priority";
+"_ObjectProperty_ToDo_statusConclusionType" = "Status";
+
+/*Label*/
+"_ObjectProperty_Label_colorComponentsString" = "Color";
+"_ObjectProperty_Label_title" = "Title";
+
+/*BaseMedia*/
+"_ObjectProperty_BaseMedia_title" = "Title";
+"_ObjectProperty_BaseMedia_date" = "Date";
+"_ObjectProperty_BaseMedia_isBookmarked" = "Bookmarked";
+"_ObjectProperty_BaseMedia_canShowAsMediaForMediaContainer" = "Use as Entry Image";
+
+/*MediaRelation*/
+"_ObjectProperty_MediaRelation_hasMediaRelationAssignment" = "Has Assignment Area";
+
+/*MediaPicture*/
+"_ObjectProperty_MediaPicture_pictureFileIdentifier" = "Picture";
+"_ObjectProperty_MediaPicture_thumbnailFileIdentifier" = "Thumbnail";
+
+/*MediaVideo*/
+"_ObjectProperty_MediaVideo_videoFileIdentifier" = "Video";
+"_ObjectProperty_MediaVideo_thumbnailFileIdentifier" = "Thumbnail";
+
+/*MediaPDF*/
+"_ObjectProperty_MediaPDF_pdfFileIdentifier" = "PDF";
+"_ObjectProperty_MediaPDF_thumbnailFileIdentifier" = "Thumbnail";
+
+/*MediaURL*/
+"_ObjectProperty_MediaURL_url" = "Website Address";
+
+/*MediaAudio*/
+"_ObjectProperty_MediaAudio_audioFileIdentifier" = "Audio";
+
+/*Scope*/
+"_ObjectProperty_Scope_scopeEntity" = "Smart Filter Type";
+"_ObjectProperty_Scope_scopeName" = "Smart Filter Name";
+"_ObjectProperty_Scope_archivedFiltersContainerData" = "Smart Filter Description";
+
+/*ConclusionType*/
+"_ObjectProperty_ConclusionType_gedcomTag" = "GEDCOM Tag";
+"_ObjectProperty_ConclusionType_iconPNGData" = "Icon";
+"_ObjectProperty_ConclusionType_identifier" = "Identifier";
+"_ObjectProperty_ConclusionType_isEnabled" = "Enabled";
+"_ObjectProperty_ConclusionType_isUserCreated" = "User Created";
+"_ObjectProperty_ConclusionType_showAsPlaceholder" = "Show as placeholder";
+"_ObjectProperty_ConclusionType_typeName" = "Type Name";
+"_ObjectProperty_ConclusionType_typeName_ForFamily" = "Type Name from perspective of family";
+"_ObjectProperty_ConclusionType_typeNameLocalizationKey" = "Name Localization Key";
+
+/*ConclusionToDoStatusType*/
+"_ObjectProperty_ConclusionToDoStatusType_typeShouldBeConsideredAsDone" = "Should be considered as 'Done'";
+"_ObjectProperty_ConclusionToDoStatusType_isDefault" = "Default";
+
+/*ConclusionToDoTypeType*/
+"_ObjectProperty_ConclusionToDoTypeType_isDefault" = "Default";
+
+/*ConclusionToDoPriorityType*/
+"_ObjectProperty_ConclusionToDoPriorityType_isDefault" = "Default";
+
+/*OrderedConclusionType*/
+"_ObjectProperty_OrderedConclusionType_order" = "Order";
+
+/*ConclusionAssociateRelationType*/
+"_ObjectProperty_ConclusionAssociateRelationType_invertedTypeName" = "Inverted Type Name";
+"_ObjectProperty_ConclusionAssociateRelationType_compatibleAssociatedContainerClassName" = "Association Target";
+"_ObjectProperty_ConclusionAssociateRelationType_invertedTypeName_ForFamily" = "Type Name from perspective of person";
+
+/*SavedView*/
+"_ObjectProperty_SavedView_title" = "Title";
+"_ObjectProperty_SavedView_date" = "Date";
+
+/*SavedReport*/
+"_ObjectProperty_SavedReport_reportControllerData" = "Report";
+"_ObjectProperty_SavedReport_thumbnailData" = "Thumbnail";
+
+/*SavedChart*/
+"_ObjectProperty_SavedChart_chartObjectsContainerData" = "Chart";
+"_ObjectProperty_SavedChart_thumbnailData" = "Thumbnail";
+
+/*SavedBook*/
+"_ObjectProperty_SavedBook_bookData" = "Book";
+"_ObjectProperty_SavedBook_thumbnailData" = "Thumbnail";
+"_ObjectProperty_SavedBook_author" = "Author";
+"_ObjectProperty_SavedBook_subTitle" = "Subtitle";
+
+/*SavedWebsite*/
+"_ObjectProperty_SavedWebsite_fileIdentifier" = "Data";
+"_ObjectProperty_SavedWebsite_changeDate" = "Change Date";
+
+/*FamilyTreeInformation*/
+"_ObjectProperty_FamilyTreeInformation_authorName" = "Author Name";
+"_ObjectProperty_FamilyTreeInformation_authorAddressLine" = "Author Address Line 1";
+"_ObjectProperty_FamilyTreeInformation_authorAddressLine1" = "Author Address Line 2";
+"_ObjectProperty_FamilyTreeInformation_authorAddressLine2" = "Author Address Line 3";
+"_ObjectProperty_FamilyTreeInformation_authorAddressLine3" = "Author Address Line 4";
+"_ObjectProperty_FamilyTreeInformation_authorAddressCity" = "Author Address City";
+"_ObjectProperty_FamilyTreeInformation_authorAddressState" = "Author Address State";
+"_ObjectProperty_FamilyTreeInformation_authorAddressCountry" = "Author Address Country";
+"_ObjectProperty_FamilyTreeInformation_authorAddressPostalCode" = "Author Address Postal Code";
+"_ObjectProperty_FamilyTreeInformation_authorPhoneNumber" = "Author Phone Number";
+"_ObjectProperty_FamilyTreeInformation_authorEmail" = "Author Email";
+"_ObjectProperty_FamilyTreeInformation_authorFax" = "Author Fax";
+"_ObjectProperty_FamilyTreeInformation_authorWebAddress" = "Author Web Address";
+"_ObjectProperty_FamilyTreeInformation_mediaThumbnailsStyle" = "Media Thumbnail Style";
+
+/*DNATestResult*/
+"_ObjectProperty_DNATestResult_name" = "Test Name";
+"_ObjectProperty_DNATestResult_dateString" = "Date";
+"_ObjectProperty_DNATestResult_urlToVendor" = "URL";
+"_ObjectProperty_DNATestResult_templateIdentifier" = "Template";
+"_ObjectProperty_DNATestResult_person" = "Person";
+
+"_ObjectProperty_DNATestYDNASubResult_haplogroupString" = "Y-DNA Haplogroup";
+"_ObjectProperty_DNATestMTDNASubResult_haplogroupString" = "mtDNA Haplogroup";
+
+"_ObjectProperty_DNATestYDNASubResultYSTRMarker_order" = "Order";
+"_ObjectProperty_DNATestYDNASubResultYSTRMarker_strName" = "STR Marker Name";
+"_ObjectProperty_DNATestYDNASubResultYSTRMarker_strValueString" = "STR Value";
+
+"_ObjectProperty_DNATestMTDNASubResultSNPDifference_order" = "Order";
+"_ObjectProperty_DNATestMTDNASubResultSNPDifference_differenceString" = "SNP Difference";
+
+/*Book*/
+"_ObjectProperty_BookBaseItem_order" = "Index";
+
+"_ObjectProperty_BookBaseSection_alwaysWantsNewPageForItems" = "Subsections on new page";
+"_ObjectProperty_BookBaseSection_name" = "Name";
+"_ObjectProperty_BookBaseSection_bookChapter" = "Containing chapter";
+
+"_ObjectProperty_BookPersonSection_person" = "Person";
+
+"_ObjectProperty_Book_chaptersOnSeparatePage" = "Chapters on separate page";
+"_ObjectProperty_Book_onlyColorizeChapterPages" = "Only colorize chapter pages";
+"_ObjectProperty_Book_chapterNumeralType" = "Chapter numbers";
+"_ObjectProperty_Book_title" = "Title";
+"_ObjectProperty_Book_author" = "Author";
+"_ObjectProperty_Book_date" = "Date";
+"_ObjectProperty_Book_style" = "Book style";
+"_ObjectProperty_Book_useTextualStyleAsDefault" = "Use Textual Style for new reports";
+"_ObjectProperty_Book_includeCitationsAsDefault" = "Include citations for new reports";
+"_ObjectProperty_Book_styleFontScaling" = "Font scaling";
+"_ObjectProperty_Book_localizationIdentifier" = "Language";
+"_ObjectProperty_Book_languageShouldReformatDates" = "Localized date formats";
+"_ObjectProperty_Book_templateClassName" = "Template";
+"_ObjectProperty_Book_pageBackgroundPageNumberEnabled" = "Page numbers enabled";
+"_ObjectProperty_Book_pageBackgroundPageNumberAlignment" = "Page numbers alignment";
+"_ObjectProperty_Book_pageBackgroundPageNumberPosition" = "Page numbers position";
+"_ObjectProperty_Book_pageBackgroundRendererStyle" = "Page header style";
+"_ObjectProperty_Book_pageBackgroundChapterTitleColor" = "Chapter title color";
+"_ObjectProperty_Book_pageBackgroundChapterNumberColor" = "Chapter number color";
+"_ObjectProperty_Book_pageBackgroundSectionTitleColor" = "Section title color";
+"_ObjectProperty_Book_pageBackgroundSectionNumberColor" = "Section number color";
+"_ObjectProperty_Book_pageBackgroundPageNumberColor" = "Page number color";
+
+"_ObjectProperty_BookChapter_name" = "Chapter name";
+"_ObjectProperty_BookChapter_chapterHighlightColor" = "Chapter highlight color";
+"_ObjectProperty_BookChapter_chapterPageColor" = "Chapter page color";
+"_ObjectProperty_BookChapter_chapterType" = "Chapter type";
+
+"_ObjectProperty_BookReportBuilderPerson_person" = "Person";
+"_ObjectProperty_BookReportBuilderPerson_personBasedReportBuilderSection" = "Section";
+"_ObjectProperty_BookReportBuilderFamily_family" = "Family";
+"_ObjectProperty_BookReportBuilderFamily_familyBasedReportBuilderSection" = "Section";
+"_ObjectProperty_BookBaseObjectsBasedReportBuilderObject_baseObject" = "Item";
+"_ObjectProperty_BookBaseObjectsBasedReportBuilderObject_order" = "Index";
+"_ObjectProperty_BookBaseObjectsBasedReportBuilderObject_baseObjectsBasedReportBuilderSection" = "Section";
+"_ObjectProperty_BookDiagramBaseObject_baseObject" = "Item";
+"_ObjectProperty_BookDiagramBaseObject_diagramReportBuilderSection" = "Section";
+
+"_ObjectProperty_BookSerializedReportBuilder_serializedReportBuilderData" = "Report configuration";
+"_ObjectProperty_BookSerializedBaseReportBuilder_baseItem" = "Report section";
+"_ObjectProperty_BookBaseObjectReportBuilder_baseObjectSection" = "Containing section";
+
+/*Change Log*/
+"_ChangeLogEntry_ObjectIsStillPresentTooltip" = "This entry is still present in the database";
+"_ChangeLogEntry_ObjectNoLongerPresentTooltip" = "This entry has been deleted from the database and is no longer available";
+
+"_ChangeLog_NoValuePlaceholder" = "No Value";
+
+"_Person_ChangeLogKey" = "Person %@";
+"_Person_ChangeLogPropertyKey_FirstName" = "First name changed from '%@' to '%@'";
+"_Person_ChangeLogPropertyKey_LastName" = "Last name changed from '%@' to '%@'";
+"_Person_ChangeLogPropertyKey_NamePrefix" = "Name prefix changed from '%@' to '%@'";
+"_Person_ChangeLogPropertyKey_NameSuffix" = "Name suffix changed from '%@' to '%@'";
+"_Person_ChangeLogPropertyKey_NameMiddle" = "Middle name changed from '%@' to '%@'";
+"_Person_ChangeLogPropertyKey_Gender" = "Gender changed from '%@' to '%@'";
+"_Person_ChangeLog_Added" = "Person added";
+"_Person_ChangeLog_Deleted" = "Person '%@' deleted";
+"_Person_ChangeLog_ConflictResolved" = "Conflict of property '%@' has been resolved to '%@'";
+
+"_AdditionalName_ChangeLog_Added" = "Additional name '%@' added";
+"_AdditionalName_ChangeLog_Deleted" = "Additional name '%@' deleted";
+"_AdditionalName_ChangeLogPropertyKey_Type" = "Type of additional name changed from '%@' to '%@'";
+"_AdditionalName_ChangeLogPropertyKey_FirstName" = "First name of '%@' has been changed from '%@' to '%@'";
+"_AdditionalName_ChangeLogPropertyKey_LastName" = "Last name of '%@' has been changed from '%@' to '%@'";
+"_AdditionalName_ChangeLog_ConflictResolved" = "Conflict of property '%@' has been resolved to '%@'";
+
+"_Event_ChangeLog_Added" = "Event '%@' added";
+"_Event_ChangeLog_Deleted" = "Event '%@' deleted";
+"_Event_ChangeLogPropertyKey_Type" = "Type of event changed from '%@' to '%@'";
+"_Event_ChangeLogPropertyKey_AssignedPlace" = "Place of event '%@' changed to '%@'";
+"_Event_ChangeLogPropertyKey_AssignedPlaceDetail" = "Place Detail of event '%@' changed to '%@'";
+"_Event_ChangeLogPropertyKey_Coordinate" = "Coordinate of event '%@' changed to '%@'";
+"_Event_ChangeLogPropertyKey_Date" = "Date of event '%@' changed from '%@' to '%@'";
+"_Event_ChangeLogPropertyKey_Time" = "Time of event '%@' changed from '%@' to '%@'";
+"_Event_ChangeLogPropertyKey_UserDescription" = "Description of event '%@' changed from '%@' to '%@'";
+"_Event_ChangeLogPropertyKey_Address" = "Address of event '%@' changed from '%@' to '%@'";
+"_Event_ChangeLogPropertyKey_Agency" = "Agency of event '%@' changed from '%@' to '%@'";
+"_Event_ChangeLogPropertyKey_Cause" = "Cause of event '%@' changed from '%@' to '%@'";
+"_Event_ChangeLog_ConflictResolvedForGenericProperty" = "Conflict of property '%@' of event '%@' resolved to '%@'";
+"_Event_ChangeLog_ConflictResolvedForAssignedPlace" = "Conflict of place of event '%@' resolved to '%@'";
+"_Event_ChangeLog_ConflictResolvedForAssignedPlaceDetail" = "Conflict of place of event '%@' resolved to '%@'";
+"_Event_ChangeLog_ConflictResolvedForCoordinate" = "Conflict of coordinate of event '%@' resolved to '%@'";
+
+"_Fact_ChangeLogPropertyKey_Type" = "Type of fact changed from '%@' to '%@'";
+"_Fact_ChangeLogPropertyKey_Value" = "Fact '%@' changed from '%@' to '%@'";
+"_Fact_ChangeLog_Added" = "Fact '%@' added";
+"_Fact_ChangeLog_Deleted" = "Fact '%@' deleted";
+"_Fact_ChangeLog_ConflictResolvedForValue" = "Conflict of fact '%@' resolved to '%@'";
+
+"_Family_ChangeLogKey" = "Family %@";
+"_Family_ChangeLogPropertyKey_Man" = "Added person '%@' as man";
+"_Family_ChangeLogPropertyKey_Woman" = "Added person '%@' as woman";
+"_Family_ChangeLog_Added" = "Family added";
+"_Family_ChangeLog_Deleted" = "Family deleted";
+"_Family_ChangeLog_ConflictResolvedForMan" = "Conflict of assigned man resolved to '%@'";
+"_Family_ChangeLog_ConflictResolvedForWoman" = "Conflict of assigned woman resolved to '%@'";
+
+"_ChildRelation_ChangeLogPropertyKey_Family" = "Added as child to family '%@'";
+"_ChildRelation_ChangeLogPropertyKey_Child" = "Child '%@' added";
+"_ChildRelation_ChangeLogPropertyKey_RelationTypeToManInFamily" = "Child relation type to father of child '%@' changed from '%@' to '%@'";
+"_ChildRelation_ChangeLogPropertyKey_RelationTypeToWomanInFamily" = "Child relation type to mother of child '%@' changed from '%@' to '%@'";
+"_ChildRelation_ChangeLog_Deleted" = "Child '%@' removed from family";
+"_ChildRelation_ChangeLog_Deleted_Child" = "Removed as child from family '%@'";
+
+"_Source_ChangeLogKey" = "Source %@";
+"_Source_ChangeLogPropertyKey_Title" = "Title changed from '%@' to '%@'";
+"_Source_ChangeLogPropertyKey_Abbreviation" = "Abbreviation changed from '%@' to '%@'";
+"_Source_ChangeLogPropertyKey_Agency" = "Authority changed from '%@' to '%@'";
+"_Source_ChangeLogPropertyKey_Author" = "Author changed from '%@' to '%@'";
+"_Source_ChangeLogPropertyKey_Date" = "Date changed from '%@' to '%@'";
+"_Source_ChangeLogPropertyKey_Place" = "Place changed from '%@' to '%@'";
+"_Source_ChangeLogPropertyKey_Publication" = "Publication changed from '%@' to '%@'";
+"_Source_ChangeLogPropertyKey_ReferenceNumber" = "Reference number changed from '%@' to '%@'";
+"_Source_ChangeLogPropertyKey_ReferenceType" = "Reference type changed from '%@' to '%@'";
+"_Source_ChangeLogPropertyKey_Text" = "Text changed";
+"_Source_ChangeLog_Added" = "Source added";
+"_Source_ChangeLog_Deleted" = "Source '%@' deleted";
+"_Source_ChangeLog_ConflictResolved" = "Conflict of property '%@' of source resolved to '%@'";
+
+"_SourceKeyValue_ChangeLogPropertyKey_Value" = "Value '%@' changed from '%@' to '%@'";
+"_SourceKeyValue_ChangeLog_ConflictResolvedForValueProperty" = "Conflict of value '%@' resolved to '%@'";
+"_SourceKeyValue_ChangeLog_Added" = "Value '%@' added";
+"_SourceKeyValue_ChangeLog_Deleted" = "Value '%@' deleted";
+
+"_SourceRelation_ChangeLogPropertyKey_Source" = "Added as source citation to '%@'";
+"_SourceRelation_ChangeLogPropertyKey_SourceContainer" = "Source citation '%@' added";
+"_SourceRelation_ChangeLog_SourceDelete" = "Source citation '%@' removed";
+"_SourceRelation_ChangeLog_SourceContainerDelete" = "Source citation of '%@' removed";
+"_SourceRelation_ChangeLogPropertyKey_Page" = "Page of source citation for source '%@' changed from '%@' to '%@'";
+"_SourceRelation_ChangeLogPropertyKey_QualityEvidence" = "Evidence quality of source citation for source '%@' changed from '%@' to '%@'";
+"_SourceRelation_ChangeLogPropertyKey_QualityInformation" = "Information quality of source citation for source '%@' changed from '%@' to '%@'";
+"_SourceRelation_ChangeLogPropertyKey_QualitySource" = "Source quality of source citation for source '%@' changed from '%@' to '%@'";
+
+"_MediaRelation_ChangeLogPropertyKey_BaseMedia" = "Media '%@' added";
+"_MediaRelation_ChangeLog_BaseMediaDeleted" = "Media '%@' removed";
+"_MediaRelation_ChangeLog_MediaContainerDeleted" = "Entry '%@' removed from media";
+"_MediaRelation_ChangeLogPropertyKey_MediaContainer" = "Added as media to '%@'";
+
+"_BaseMedia_ChangeLogKey" = "Media %@";
+"_BaseMedia_ChangeLogPropertyKey_Title" = "Title changed from '%@' to '%@'";
+"_BaseMedia_ChangeLogPropertyKey_Date" = "Date changed from '%@' to '%@'";
+"_BaseMedia_ChangeLogPropertyKey_PictureFileIdentifier" = "Picture edited";
+"_BaseMedia_ChangeLogPropertyKey_PDFFileIdentifier" = "PDF edited";
+"_BaseMedia_ChangeLog_Added" = "Media added";
+"_BaseMedia_ChangeLog_Deleted" = "Media '%@' deleted";
+
+/*Base Object Composite Images Modes*/
+"_BaseObject_CompositeImages_Mode_None" = "Always show placeholder icon";
+"_BaseObject_CompositeImages_Mode_PrimaryImageFromPrimaryMediaContainer" = "Show primary picture";
+"_BaseObject_CompositeImages_Mode_UpToThreeImagesFromPrimaryMediaContainer" = "Show up to three pictures";
+"_BaseObject_CompositeImages_Mode_UpToSixImagesFromPrimaryMediaContainer" = "Show up to six pictures";
+"_BaseObject_CompositeImages_Mode_UpToTenImagesFromPrimaryMediaContainer" = "Show up to ten pictures";
+"_BaseObject_CompositeImages_Mode_PrimaryImageFromPrimaryMediaContainerAndConnectedMediaContainers" = "Show primary picture, also collected from connected entries";
+"_BaseObject_CompositeImages_Mode_UpToThreeImagesFromPrimaryMediaContainerAndConnectedMediaContainers" = "Show up to three pictures, also collected from connected entries";
+"_BaseObject_CompositeImages_Mode_UpToSixImagesFromPrimaryMediaContainerAndConnectedMediaContainers" = "Show up to six pictures, also collected from connected entries";
+"_BaseObject_CompositeImages_Mode_UpToTenImagesFromPrimaryMediaContainerAndConnectedMediaContainers" = "Show up to ten pictures, also collected from connected entries";

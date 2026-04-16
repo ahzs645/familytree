@@ -1,0 +1,25 @@
+/*AdditionalNameType*/
+"_AdditionalName_MaidenName" = "Name at Birth";
+"_AdditionalName_ArtistsName" = "Stage/Pen Name";
+"_AdditionalName_Other" = "Other Name";
+"_AdditionalName_MarriedName" = "Married Name";
+"_AdditionalName_DoubleBarrelledName" = "Double-barrelled Name";
+"_AdditionalName_FamilyName" = "Family Name";
+"_AdditionalName_NameVariation" = "Name Variation";
+"_AdditionalName_Nickname" = "Nickname";
+"_AdditionalName_AdoptiveName" = "Adoptive Name";
+"_AdditionalName_FormalName" = "Formal Name";
+"_AdditionalName_ReligiousName" = "Religious Name";
+"_AdditionalName_Title" = "Title";
+"_AdditionalName_ProfessionalName" = "Professional Name";
+
+/*Prefix*/
+"_AdditionalName_Prefix_MaidenName_ForMale" = "né";
+"_AdditionalName_Prefix_MaidenName_ForFemale" = "née";
+
+/*Configs*/
+"_Person_AdditionalNamePreferenceConfiguration_All" = "All";
+"_Person_AdditionalNamePreferenceConfiguration_OnlyMarriedName" = "Only Married Name";
+"_Person_AdditionalNamePreferenceConfiguration_OnlyFamilyName" = "Only Family Name";
+"_Person_AdditionalNamePreferenceConfiguration_OnlyNickName" = "Only Nickname";
+"_Person_AdditionalNamePreferenceConfiguration_None" = "None";

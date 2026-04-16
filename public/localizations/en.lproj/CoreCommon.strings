@@ -1,0 +1,315 @@
+/*Common*/
+"_Common_Gender" = "Gender";
+"_Common_Date" = "Date";
+"_Common_Type" = "Type";
+"_Common_BirthDate" = "Date of Birth";
+"_Common_ChristeningDate" = "Date of Christening";
+"_Common_DeathDate" = "Date of Death";
+"_Common_Place" = "Place";
+"_Common_Places" = "Places";
+"_Common_Country" = "Country";
+"_Common_State" = "State";
+"_Common_County" = "County";
+"_Common_BirthPlace" = "Place of Birth";
+"_Common_ChristeningPlace" = "Place of Christening";
+"_Common_DeathPlace" = "Place of Death";
+"_Common_Cause" = "Cause";
+"_Common_Authority" = "Authority";
+"_Common_Description" = "Description";
+"_Common_Father" = "Father";
+"_Common_Mother" = "Mother";
+"_Common_Child" = "Child";
+"_Common_Childs" = "Children";
+"_Common_Person" = "Person";
+"_Common_Persons" = "Persons";
+"_Common_Family" = "Family";
+"_Common_Families" = "Families";
+"_Common_UnnamedFamily" = "Unnamed Family";
+"_Common_Parents" = "Parents";
+"_Common_Partners" = "Partners";
+"_Common_Partner" = "Partner";
+"_Common_Children" = "Children";
+"_Common_Event" = "Event";
+"_Common_Events" = "Events";
+"_Common_EventsAtThisPlace" = "Events at this Place";
+"_Common_Source" = "Source";
+"_Common_Sources" = "Sources";
+"_Common_PlaceDetail" = "Place Detail";
+"_Common_UnnamedLabel" = "Unnamed Label";
+"_Common_UnnamedSource" = "Unnamed Source";
+"_Common_UnnamedSourceRepository" = "Unnamed Source Repository";
+"_Common_UnnamedMedia" = "Unnamed Media";
+"_Common_UnnamedPersonGroup" = "Unnamed Person Group";
+"_Common_UnnamedStory" = "Unnamed Story";
+"_Common_UnnamedStorySection" = "Unnamed Story Section";
+"_Common_UnnamedPlaceDetail" = "Unnamed Place Detail";
+"_Common_Section" = "Section";
+"_Common_Fact" = "Fact";
+"_Common_Facts" = "Facts";
+"_Common_Age" = "Age";
+"_Common_Label" = "Label";
+"_Common_Labels" = "Labels";
+"_Common_Marriage" = "Marriage";
+"_Common_MarriageDate" = "Date of Marriage";
+"_Common_MarriagePlace" = "Place of Marriage";
+"_Common_BrothersAndSisters" = "Siblings";
+"_Common_Man" = "Man";
+"_Common_Woman" = "Woman";
+"_Common_UnknownGender" = "Unknown Gender";
+"_Common_Intersex" = "Intersex";
+"_Common_Male" = "Male";
+"_Common_Female" = "Female";
+"_Common_Partner1" = "Partner 1";
+"_Common_Partner2" = "Partner 2";
+"_Common_Parent1" = "Parent 1";
+"_Common_Parent2" = "Parent 2";
+"_Common_Search" = "Find";
+"_Common_ChangeButton" = "Change";
+"_Common_Search_Menu_Title" = "Search Menu";
+"_Common_Search_Options" = "Search Options...";
+"_Common_Search_Clear" = "Clear";
+"_Common_Search_Recent" = "Recent Searches";
+"_Common_Name" = "Name";
+"_Common_Now" = "Today";
+"_Common_Age" = "Age";
+"_Common_ReferenceNumber" = "Reference Number";
+"_Common_UnnamedTitle" = "Unnamed";
+"_Common_UnnamedPerson" = "Unnamed Person";
+"_Common_UnknownPerson" = "Unknown Person";
+"_Common_Unknown" = "Unknown";
+"_Common_UnnamedPlace" = "Unnamed Place";
+"_Common_UnnamedChart" = "Unnamed Chart";
+"_Common_UnnamedToDo" = "Unnamed ToDo";
+"_Common_UnnamedSourceTemplate" = "Unnamed Source Template";
+"_Common_UnnamedSourceTemplateKey" = "Unnamed Template Field";
+"_Common_UnnamedPlaceTemplate" = "Unnamed Place Template";
+"_Common_UnnamedPlaceTemplateKey" = "Unnamed Template Field";
+"_Common_Title" = "Title";
+"_Common_Note" = "Note";
+"_Common_Notes" = "Notes";
+"_Common_Citation_Notes" = "Citation Notes";
+"_Common_ToDo" = "ToDo";
+"_Common_ToDos" = "ToDos";
+"_Common_Media" = "Media";
+"_Common_Text" = "Text";
+"_Common_Picture" = "Picture";
+"_Common_Pictures" = "Pictures";
+"_Common_OtherNames" = "Other Names";
+"_Common_Type" = "Type";
+"_Common_FirstName" = "First Name";
+"_Common_LastName" = "Last Name";
+"_Common_PrefixName" = "Title";
+"_Common_MiddleName" = "Middle Name";
+"_Common_SuffixName" = "Suffix";
+"_Common_Value" = "Value";
+"_Common_ChangeDate" = "Change Date";
+"_Common_CreationDate" = "Creation Date";
+"_Common_Generation" = "Generation";
+"_Common_Page" = "Page";
+"_Common_Chart" = "Chart";
+"_Common_Year" = "Year";
+"_Common_Years" = "Years";
+"_Common_None" = "None";
+"_Common_Default" = "Default";
+"_Common_Favorite" = "Favorite";
+"_Common_Favorites" = "Favorites";
+"_Common_Generic" = "Generic";
+"_Common_Others" = "Others";
+"_Common_Assigned_Entries" = "Assigned Entries";
+"_Common_IsAssignedToFamilySearch" = "Is Assigned to Family Search";
+"_Common_IsNotAssignedToFamilySearch" = "Is not Assigned to Family Search";
+"_Common_IsBookmarked" = "Is Bookmarked";
+"_Common_IsNotBookmarked" = "Is not Bookmarked";
+"_Common_Black" = "Black";
+"_Common_White" = "White";
+"_Common_Save" = "Save";
+"_Common_Discard" = "Discard";
+"_Common_Print" = "Print";
+"_Common_Order" = "Order";
+"_Common_Image" = "Image";
+"_Common_Link" = "Link";
+"_Common_Export" = "Export";
+"_Common_PleaseWaitPlaceholder" = "Please Wait…";
+"_Common_Count" = "Count";
+"_Common_MarkAsSeen" = "Mark as seen";
+"_Common_LogoutButton" = "Logout";
+"_Common_NumberingSystem" = "Numbering System";
+"_Common_NoNameAvailable" = "No Name available";
+"_Common_Download" = "Download";
+"_Common_Color" = "Color";
+"_Common_BackgroundColor" = "Background Color";
+"_Common_Width" = "Width";
+"_Common_Help" = "Help";
+"_Common_Settings" = "Settings";
+"_Common_DuplicateButton" = "Duplicate";
+"_Common_FamilyTree" = "Family Tree";
+"_Common_Version" = "Version";
+"_Common_Entries" = "Entries";
+"_Common_Example" = "Example";
+"_Common_LoginButton" = "Login";
+
+/*Sorting*/
+"_Common_Sorting_ByName" = "By Name";
+"_Common_Sorting_ByLastName" = "By Last Name";
+"_Common_Sorting_ByFirstName" = "By First Name";
+"_Common_Sorting_ByDate" = "By Date";
+"_Common_Sorting_ByBirthDate" = "By Birth Date";
+"_Common_Sorting_ByDeathDate" = "By Death Date";
+"_Common_Sorting_ByBirthPlace" = "By Birth Place";
+"_Common_Sorting_ByDeathPlace" = "By Death Place";
+"_Common_Sorting_ByScore" = "By Score";
+"_Common_AscendingSortOrder" = "Ascending";
+"_Common_DescendingSortOrder" = "Descending";
+
+/*Keys*/
+"_Common_CommandKey" = "⌘";
+"_Common_ControlKey" = "CTRL";
+
+/*Buttons*/
+"_Common_OKButton" = "OK";
+"_Common_QuitButton" = "Quit";
+"_Common_NeverButton" = "Never";
+"_Common_LaterButton" = "Later";
+"_Common_CancelButton" = "Cancel";
+"_Common_AssignButton" = "Assign";
+"_Common_ContinueButton" = "Continue";
+"_Common_DontAskAgainButton" = "Don't ask again";
+"_Common_OKDontAskAgainButton" = "OK. Don't ask again";
+"_Common_RetryButton" = "Retry";
+"_Common_RemoveButton" = "Remove";
+"_Common_ReplaceButton" = "Replace";
+"_Common_OpenButton" = "Open";
+"_Common_CloseButton" = "Close";
+"_Common_DeleteButton" = "Delete";
+"_Common_DeleteAllButton" = "Delete All";
+"_Common_EnableButton" = "Enable";
+"_Common_DisableButton" = "Disable";
+"_Common_ResetButton" = "Reset";
+"_Common_StopSharingButton" = "Stop Sharing";
+"_Common_ImportButton" = "Import";
+"_Common_DisplayButton" = "Display";
+"_Common_CopyButton" = "Copy";
+"_Common_UpdateButton" = "Update";
+"_Common_AddButton" = "Add";
+"_Common_SelectButton" = "Select";
+"_Common_Yes" = "Yes";
+"_Common_No" = "No";
+"_Common_Create" = "Create";
+"_Common_Done" = "Done";
+"_Common_Edit" = "Edit";
+"_Common_EditWithObject" = "Edit '%@'";
+"_Common_DeleteWithObject" = "Delete '%@'";
+"_Common_Error" = "Error";
+"_Common_NextButton" = "Next";
+"_Common_PreviousButton" = "Previous";
+"_Common_UploadButton" = "Upload";
+"_Common_SkipButton" = "Skip";
+"_Common_IgnoreButton" = "Ignore";
+"_Common_OptionsButton" = "Options";
+"_Common_HideKeyboard" = "Hide Keyboard";
+"_Common_Actions" = "Actions";
+"_Common_Accept" = "Accept";
+"_Common_Decline" = "Decline";
+"_Common_Back" = "Back";
+"_Common_Toggle" = "Toggle All";
+"_Common_RejectButton" = "Reject";
+"_Common_SaveButton" = "Save";
+"_Common_UploadButton" = "Upload";
+"_Common_MergeButton" = "Merge";
+"_Common_OpenInBrowser" = "Open in Browser";
+"_Common_RenameButton" = "Rename";
+
+/*Counts*/
+"_Common_PersonCountSingular" = "%d Person";
+"_Common_PersonCountPlural" = "%d Persons";
+"_Common_ChildCountSingular" = "%d Child";
+"_Common_ChildCountPlural" = "%d Children";
+"_Common_EntryCountSingular" = "%d Entry";
+"_Common_EntryCountPlural" = "%d Entries";
+"_Common_EventCountSingular" = "%d Event";
+"_Common_EventCountPlural" = "%d Events";
+"_Common_SourceCitationsSingular" = "%d Citation";
+"_Common_SourceCitationsPlural" = "%d Citations";
+"_Common_PersonCountSingularString" = "%@ Person";
+"_Common_PersonCountPluralString" = "%@ Persons";
+"_Common_ChildCountSingularString" = "%@ Child";
+"_Common_ChildCountPluralString" = "%@ Children";
+"_Common_EntryCountSingularString" = "%@ Entry";
+"_Common_EntryCountPluralString" = "%@ Entries";
+"_Common_SourceCitationsSingularString" = "%@ Citation";
+"_Common_SourceCitationsPluralString" = "%@ Citations";
+"_Common_GenerationsSingularString" = "%d Generation";
+"_Common_GenerationsPluralString" = "%d Generations";
+"_Common_Unlimited" = "Unlimited";
+
+/*Selected Counts*/
+"_Common_NoneSelected" = "None selected";
+"_Common_NothingToSelected" = "Nothing to select";
+"_Common_OneSelected" = "One selected";
+"_Common_MultipleSelected" = "%d selected";
+
+/*Progress Counts*/
+"_Common_ProgressCount" = "%d of %d";
+"_Common_ProgressCountAsString" = "%@ of %@";
+
+/*Population Prefix*/
+"_Common_Population" = "Population: %@";
+
+/*Localization*/
+"_Common_InternationalLocalization" = "International";
+
+/*Contextual*/
+"_Common_ContextualMenu_ChangeLabel" = "Change Label";
+
+/*Placeholders*/
+"_Common_NoPersonPlaceholder" = "No Person";
+"_Common_NoPartnerPlaceholder" = "No Partner";
+"_Common_NoPlacePlaceholder" = "No Place";
+"_Common_NoDatePlaceholder" = "No Date";
+"_Common_NoManPlaceholder" = "No Man";
+"_Common_NoWomanPlaceholder" = "No Woman";
+"_Common_NoChildrenPlaceholder" = "No Children";
+"_Common_NoSourceTemplateKeysPlaceholder" = "No Source Template Field";
+"_Common_NoLabelsPlaceholder" = "No Labels";
+"_Common_NoConclusionTypesPlaceholder" = "No Items";
+"_Common_NoPersonGroupsPlaceholder" = "No Person Groups";
+
+/*Events & Facts*/
+"_Common_PersonEvents" = "Person Events";
+"_Common_FamilyEvents" = "Family Events";
+"_Common_PersonFacts" = "Person Facts";
+
+/*Person Name Formats*/
+"_Person_NameFormat_Title_FirstName_MiddleName_LastName_Suffix" = "Title \"First Name\" \"Middle Name\" \"Last Name\" Suffix";
+"_Person_NameFormat_Title_LastName_Suffix_FirstName_MiddleName" = "Title \"Last Name\" Suffix \"First Name\" \"Middle Name\"";
+"_Person_NameFormat_Title_LastName_Suffix_Comma_FirstName_MiddleName" = "Title \"Last Name\" Suffix, \"First Name\" \"Middle Name\"";
+"_Person_NameFormat_FirstName_MiddleName_LastName_Suffix_Comma_Title" = "\"First Name\" \"Middle Name\" \"Last Name\" Suffix, Title";
+"_Person_NameFormat_LastName_Suffix_Comma_FirstName_MiddleName_Comma_Title" = "\"Last Name\" Suffix, \"First Name\" \"Middle Name\", Title";
+"_Person_NameFormat_Title_LastName_MiddleName_FirstName_Suffix" = "Title \"Last Name\" \"Middle Name\" \"First Name\" Suffix";
+"_Person_NameFormat_Title_Comma_FirstName_Suffix_Bracket_MiddleName_Bracket" = "Title \"Last Name\", \"First Name\" Suffix (\"Middle Name\")";
+"_Person_NameFormat_Title_FirstName_Comma_LastName_Comma_MiddleName_Comma_Suffix" = "Title \"First Name\", \"Last Name\", \"Middle Name\", Suffix";
+"_Person_NameFormat_LastName_Comma_FirstName_Comma_MiddleName_Comma_Suffix_Comma_Title" = "\"Last Name\", \"First Name\", \"Middle Name\", Suffix, Title";
+
+/*Font Styles*/
+"_Common_FontStyle_Normal" = "Normal";
+"_Common_FontStyle_Italic" = "Italic";
+"_Common_FontStyle_Bold" = "Bold";
+"_Common_FontStyle_Light" = "Light";
+"_Common_FontStyle_Medium" = "Medium";
+"_Common_FontStyle_SemiBold" = "Semi Bold";
+"_Common_FontStyle_BoldItalic" = "Bold Italic";
+
+/*Colors*/
+"_Common_Colors_Red" = "Red";
+"_Common_Colors_Yellow" = "Yellow";
+"_Common_Colors_Orange" = "Orange";
+"_Common_Colors_Green" = "Green";
+"_Common_Colors_Turquoise" = "Turquoise";
+"_Common_Colors_Blue" = "Blue";
+"_Common_Colors_Magenta" = "Magenta";
+
+/*Empty*/
+"_Common_NoInformationEnteredTooltip" = "No information has been entered";
+
+/*Errors*/
+"_Common_Errors_NoInternetConnection" = "No Internet Connection is available";

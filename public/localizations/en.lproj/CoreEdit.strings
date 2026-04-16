@@ -1,0 +1,761 @@
+/*Common*/
+"_EditCommon_PrivateFlagLabel" = "Private";
+
+/*Titles*/
+"_EditPersonController_Title" = "Edit Person";
+"_EditPersonEventController_Title" = "Edit Person Event";
+"_EditPersonFactController_Title" = "Edit Person Fact";
+"_EditFamilyController_Title" = "Edit Family";
+"_EditFamilyEventController_Title" = "Edit Family Event";
+"_InteractiveTreeEditPersonController_Title" = "Interactive Tree – Persons";
+"_InteractiveTreeEditFamilyController_Title" = "Interactive Tree – Families";
+"_EditToDoController_Title" = "Edit ToDo";
+"_EditPlaceController_Title" = "Edit Place";
+"_EditSourceController_Title" = "Edit Source";
+"_EditMediaController_Title" = "Edit Media";
+"_EditStoryController_Title" = "Edit Story";
+"_EditPersonGroupController_Title" = "Edit Person Group";
+"_EditFamilyTreeInformationController_Title" = "Author";
+"_EditDNATestResultController_Title" = "DNA Test Result";
+
+/*BaseEditController*/
+"_BaseEditController_DeletePersonQuestionMessage" = "Delete Person '%@'?";
+"_BaseEditController_DeletePersonQuestionInformative" = "Do you really want to delete this person from your family tree?";
+"_BaseEditController_DeleteBaseObjectQuestionMessage" = "Delete '%@'?";
+"_BaseEditController_DeleteBaseObjectQuestionInformative" = "Do you really want to delete this entry from your family tree?";
+
+"_BaseEditController_ManuallyAddPlaceDetailTitle" = "Manually add Place Detail";
+"_BaseEditController_ManuallyAddPlaceDetailInformative" = "Please enter the name of the new Place Detail of '%@'";
+
+/*BaseEditListContentController*/
+"_BaseEditListContentController_SortingButton" = "Sorting";
+"_BaseEditListContentController_SortAscending" = "Ascending";
+"_BaseEditListContentController_SortDescending" = "Descending";
+
+/*InteractiveTreeEditPersonActionsContentController*/
+"_InteractiveTreeEditPersonActionsContentController_Title" = "Actions";
+
+/*InteractiveTreeEditFamilySearchPersonSummaryContentController*/
+"_InteractiveTreeEditFamilySearchPersonSummaryContentController_Title" = "Person Summary";
+
+/*EditPersonController*/
+"_EditPersonController_AddFatherPlaceholder" = "Add New Father";
+"_EditPersonController_AddMotherPlaceholder" = "Add New Mother";
+"_EditPersonController_AddPartnerPlaceholder" = "Add New Partner";
+"_EditPersonController_AddChildPlaceholder" = "Add New Child";
+"_EditPersonController_AddNewPersonMenuItem" = "Add New Person";
+"_EditPersonController_AddNewPersonAsChildMenuItem" = "Add New Child";
+"_EditPersonController_AddNewPersonAsPartnerMenuItem" = "Add New Partner";
+"_EditPersonController_AddNewPersonAsFatherMenuItem" = "Add New Father";
+"_EditPersonController_AddNewPersonAsMotherMenuItem" = "Add New Mother";
+"_EditPersonController_AddExistingPersonAsChildMenuItem" = "Add Existing Person as Child…";
+"_EditPersonController_AddExistingPersonAsPartnerMenuItem" = "Add Existing Person as Partner…";
+"_EditPersonController_AddExistingPersonAsFatherMenuItem" = "Add Existing Person as Father…";
+"_EditPersonController_AddExistingPersonAsMotherMenuItem" = "Add Existing Person as Mother…";
+"_EditPersonController_DeleteFamily" = "Delete Family";
+"_EditPersonController_DeletePerson" = "Delete Person";
+"_EditPersonController_SelectFamily" = "Select Family";
+"_EditPersonController_EditPersonMenuItem" = "Edit %@";
+"_EditPersonController_EditFamilyMenuItem" = "Edit Family %@";
+"_EditPersonController_EditFamilyMenuItem_WithoutPlaceholder" = "Edit Family";
+"_EditPersonController_RemovePersonFromFamilyMenuItem" = "Remove %@ from Family";
+"_EditPersonController_DeletePersonMenuItem" = "Delete %@…";
+"_EditPersonController_ChildRelationTypeMenuItem" = "Child Relation Type";
+"_EditPersonController_ChildRelationTypeForFatherMenuItem" = "Relation to Father %@";
+"_EditPersonController_ChildRelationTypeForMotherMenuItem" = "Relation to Mother %@";
+"_EditPersonController_NoPersonsPlaceholder_Title" = "No Persons present";
+"_EditPersonController_NoPersonsPlaceholder_Message" = "There are no persons in this family tree. Please select \"Add First Person\" to create your first person.";
+"_EditPersonController_NoPersonsPlaceholder_AddPersonButton" = "Add First Person";
+"_EditPersonController_ShowOldestAncestorsMenuItem" = "Oldest Ancestors…";
+"_EditPersonController_AddFurtherFather" = "Add Further Father";
+"_EditPersonController_AddFurtherMother" = "Add Further Mother";
+"_EditPersonController_BrotherOrSisterOfFamilyMenuItem" = "Brother or Sister of '%@' in Family…";
+"_EditPersonController_AddBrotherMenuItem" = "Add New Brother";
+"_EditPersonController_AddSisterMenuItem" = "Add New Sister";
+"_EditPersonController_AddFurtherPartnerMenuItem" = "Add Further Partner";
+"_EditPersonController_AddExistingFurtherPartnerMenuItem" = "Add Existing Person as Further Partner…";
+"_EditPersonController_ShowYoungestAncestorsMenuItem" = "Youngest Descendants…";
+"_EditPersonController_RemovePersonQuestionMessage" = "Do you really want to remove the Person '%@' from the Family '%@'?";
+"_EditPersonController_RemovePersonQuestionInformative" = "This won't delete the person from your family tree, but will remove the person from this family.";
+"_EditPersonController_ParentsOptionsButton" = "Parent Options…";
+"_EditPersonController_PartnerOptionsButton" = "Partner Options…";
+
+/*EditPerson Name*/
+"_EditPersonNameContentController_Title" = "Name & Gender";
+
+/*EditPersonFamilySearchContentController*/
+"_EditPersonFamilySearchContentController_Title" = "FamilySearch";
+"_EditPersonFamilySearchContentController_DetailsButton" = "Details";
+
+/*EditPerson Additional Names*/
+"_EditPersonAdditionalNamesContentController_Title" = "Additional Names";
+"_EditPersonAdditionalNamesContentController_AdditionalNamePlaceholder" = "%@ – Enter Information here";
+"_EditPersonAdditionalNamesContentController_DeleteAdditionalNameQuestionMessage" = "Delete Additional Name '%@'?";
+"_EditPersonAdditionalNamesContentController_DeleteAdditionalNameQuestionInformative" = "Do you really want to delete this additional name?";
+"_EditPersonAdditionalNamesContentController_AddAdditionalNameButton" = "Add Name";
+"_EditPersonAdditionalNamesContentController_EditAdditionalNameConclusionTypes" = "Edit Additional Name Types…";
+"_EditPersonAdditionalNamesContentController_LargePlaceholder" = "No Additional Name present";
+"_EditPersonAdditionalNamesContentController_SmallPlaceholder" = "Please use the button above to add a new Additional Name.";
+
+/*EditPersonFactsContentController*/
+"_EditPersonFactsContentController_Title" = "Facts";
+"_EditPersonFactsContentController_FactPlaceholder" = "%@ – Enter Information here";
+"_EditPersonFactsContentController_EditFactDetails" = "Edit Fact Details";
+"_EditPersonFactsContentController_AddFactButton" = "Add Fact";
+"_EditPersonFactsContentController_DeleteFactQuestionMessage" = "Delete Person Fact?";
+"_EditPersonFactsContentController_EditPersonFactConclusionTypes" = "Edit Person Fact Types";
+"_EditPersonFactsContentController_Sorting_ByFactType" = "By Fact Type";
+"_EditPersonFactsContentController_Sorting_ByFactValue" = "By Fact Value";
+"_EditPersonFactsContentController_LargePlaceholder" = "No Facts present";
+"_EditPersonFactsContentController_SmallPlaceholder" = "Please use the button above to add a new Fact.";
+
+/*BaseEditHeaderContentController*/
+"_BaseEditHeaderContentController_Title" = "Header";
+
+/*EditEventGeneralContentController*/
+"_EditEventGeneralContentController_Title" = "General";
+
+/*EditEventPlaceContentController*/
+"_EditEventPlaceContentController_Title" = "Place";
+"_EditEventPlaceContentController_SelectExistingPlace" = "Select Place";
+"_EditEventPlaceContentController_ShowPlace" = "Show Place";
+"_EditEventPlaceContentController_AssignPlace" = "Assign Place";
+"_EditEventPlaceContentController_LargePlaceholder" = "No Place assigned";
+"_EditEventPlaceContentController_SmallPlaceholder" = "No place has been assigned to this event. Use the button above to assign an existing or look up a new place";
+
+/*EditEventPlaceDetailContentController*/
+"_EditEventPlaceDetailContentController_Title" = "Place Detail";
+
+/*EditPersonFactGeneralContentController*/
+"_EditPersonFactGeneralContentController_Title" = "General";
+
+/*Media*/
+"_EditMediaContentController_Title" = "Media";
+"_EditMediaContentController_AddMediaButton" = "Add Media";
+"_EditMediaContentController_LargePlaceholder" = "No Media present";
+"_EditMediaContentController_SmallPlaceholder" = "Please use the button above to add Photos, PDFs, Videos, Audio or Web Pages";
+"_EditMediaContentController_NoPicture_SmallPlaceholder" = "Please use the button above to add Pictures.";
+"_EditMediaContentController_EditMenuItem" = "Edit…";
+"_EditMediaContentController_DeleteMenuItem" = "Delete";
+"_EditMediaContentController_DoNotUseAsEntryImageMenuItem" = "Do not use as Entry Image";
+"_EditMediaContentController_UseAsEntryImageMenuItem" = "Use as Entry Image";
+"_EditMediaContentController_MarkAsNotPrivateMenuItem" = "Mark as Not Private";
+"_EditMediaContentController_MarkAsPrivateMenuItem" = "Mark as Private";
+"_EditMediaContentController_DeleteMediaQuestionMessage" = "Really Delete Media?";
+"_EditMediaContentController_DeleteMediaQuestionInformative" = "Do you really want to delete this media from your family tree?";
+"_EditMediaContentController_ShowSlideshowButton" = "Slideshow";
+"_EditMediaContentController_BringToFrontMenuItem" = "Order Media to Front";
+
+/*Shared Labels*/
+"_EditLabelsContentController_Title" = "Labels";
+"_EditLabelsContentController_NoLabelsLargePlaceholder" = "No Labels present";
+"_EditLabelsContentController_NoLabelsSmallPlaceholder" = "No Labels are present in this family tree. Use the button above to add Labels.";
+
+/*Shared Base Events*/
+"_BaseEditEventsContentController_Title" = "Events";
+"_BaseEditEventsContentController_LargePlaceholder" = "No Events present";
+"_BaseEditEventsContentController_SmallPlaceholder" = "Please use the button above to add a new Event.";
+"_BaseEditEventsContentController_EditEventDetails" = "Edit Event Details";
+"_BaseEditEventsContentController_DeleteEvent" = "Delete Event";
+"_BaseEditEventsContentController_EventPlaceholder" = "%@ – Enter Information here";
+"_BaseEditEventsContentController_FamilyEventPlaceholder" = "%@ with %@ – Enter Information here";
+"_BaseEditEventsContentController_NoDateAvailable" = "No Date entered";
+"_BaseEditEventsContentController_AddEventButton" = "Add Event";
+"_BaseEditEventsContentController_AgeAtEvent" = "Age at Event";
+"_BaseEditEventsContentController_EditPersonEventConclusionTypes" = "Edit Person Event Types…";
+"_BaseEditEventsContentController_EditFamilyEventConclusionTypes" = "Edit Family Event Types…";
+"_BaseEditEventsContentController_NoNotesPlaceholder" = "No Notes entered";
+"_BaseEditEventsContentController_NoSourcesPlaceholder" = "No Sources entered";
+"_BaseEditEventsContentController_NoPlacePlaceholder" = "No Place entered";
+"_BaseEditEventsContentController_DeadButNoFurtherInfoCheckbox" = "Mark Person as dead, but no further information is available";
+"_BaseEditEventsContentController_MarriedButNoFurtherInfoCheckbox" = "Mark couple as married, but no further information is available";
+"_BaseEditEventsContentController_Sorting_ByTypeAndDate" = "By Event Type and Date";
+"_BaseEditEventsContentController_Sorting_ByTypeName" = "By Event Type Name";
+"_BaseEditEventsContentController_Sorting_ByDate" = "By Event Date";
+"_BaseEditEventsContentController_Sorting_ByDescription" = "By Description";
+"_BaseEditEventsContentController_CopyEventToPersonMenuItem" = "Copy Event to Person…";
+"_BaseEditEventsContentController_FurtherOptionsButton" = "Further Options…";
+"_BaseEditEventsContentController_EditFamilyMenuItem" = "Edit Family %@";
+"_BaseEditEventsContentController_CreateStoryFromEventMenuItem" = "Create Story for Event";
+"_BaseEditEventsContentController_LookupNewPlaceDetail" = "Lookup new Place Detail…";
+"_BaseEditEventsContentController_ManuallyAddPlaceDetail" = "Manually add new Place Detail…";
+"_BaseEditEventsContentController_EditPlaceDetails" = "Edit Place Details…";
+
+/*EditCreationAndChangeDateContentController*/
+"_EditCreationAndChangeDateContentController_Title" = "Last Edited";
+"_EditCreationAndChangeDateContentController_ChangeDate" = "Change Date";
+"_EditCreationAndChangeDateContentController_CreationDate" = "Creation Date";
+
+/*EditReferenceNumbersContentController*/
+"_EditReferenceNumbersContentController_Title" = "Reference Numbers";
+
+/*EditFamilyController*/
+"_EditFamilyBaseEditParentContentController_NoManPlaceholder" = "No man has been added to this family. Select the buttons below to add a new or an existing man to this family.";
+"_EditFamilyBaseEditParentContentController_NoWomanPlaceholder" = "No woman has been added to this family. Select the buttons below to add a new or an existing woman to this family.";
+"_EditFamilyBaseEditParentContentController_AddNewManButton" = "Add New Man";
+"_EditFamilyBaseEditParentContentController_AddExistingManButton" = "Add Existing Man";
+"_EditFamilyBaseEditParentContentController_AddNewWomanButton" = "Add New Woman";
+"_EditFamilyBaseEditParentContentController_AddExistingWomanButton" = "Add Existing Woman";
+"_EditFamilyBaseEditParentContentController_RemoveAsManButton" = "Remove as Man";
+"_EditFamilyBaseEditParentContentController_RemoveAsWomanButton" = "Remove as Woman";
+"_EditFamilyBaseEditParentContentController_RemoveAsPartner1Button" = "Remove as Partner 1";
+"_EditFamilyBaseEditParentContentController_RemoveAsPartner2Button" = "Remove as Partner 2";
+"_EditFamilyBaseEditParentContentController_EditParentButton" = "Edit";
+"_EditFamilyBaseEditParentContentController_ShowParentButton" = "Show";
+"_EditFamilyController_AddNewFamily" = "Add New Family";
+"_EditFamilyController_DeleteFamily" = "Delete Family";
+"_EditFamilyController_DeleteFamilyQuestionMessage" = "Really Delete Family?";
+"_EditFamilyController_NoFamiliesPlaceholder_Title" = "No Families present";
+"_EditFamilyController_NoFamiliesPlaceholder_Message" = "There are no families in this family tree. Please select \"Add First Family\" to create your first family.";
+"_EditFamilyController_NoFamiliesPlaceholder_AddFamilyButton" = "Add First Family";
+"_EditFamilyChildRelationsContentController_AddChildTopLevelButton" = "Add Children";
+"_EditFamilyChildRelationsContentController_AddNewChildButton" = "Add New Child";
+"_EditFamilyChildRelationsContentController_AddExistingChildButton" = "Add Existing Child";
+"_EditFamilyChildRelationsContentController_RemoveAsChildButton" = "Remove as Child";
+"_EditFamilyChildRelationsContentController_EditChildButton" = "Edit";
+"_EditFamilyChildRelationsContentController_ChildOrderPopup" = "Custom Child Order";
+"_EditFamilyChildRelationsContentController_ChildOrder" = "Child #%d";
+"_EditFamilyChildRelationsContentController_Sorting_CustomOrder" = "Custom Order";
+"_EditFamilyChildRelationsContentController_Sorting_ByBirthDate" = "By Birth Date";
+"_EditFamilyChildRelationsContentController_Sorting_ByName" = "By Name";
+"_EditFamilyController_AddFatherPlaceholder" = "Add Father of %@";
+"_EditFamilyController_AddMotherPlaceholder" = "Add Mother of %@";
+"_EditFamilyController_AddParent1Placeholder" = "Add Parent 1 of %@";
+"_EditFamilyController_AddParent2Placeholder" = "Add Parent 2 of %@";
+"_EditFamilyChildRelationsContentController_LargePlaceholder" = "No Children present";
+"_EditFamilyChildRelationsContentController_SmallPlaceholder" = "No Children have been entered in this family. Use the buttons above to add children.";
+"_EditFamilyChildRelationsContentController_DeleteChildRelationMessage" = "Remove Child '%@' from Family?";
+"_EditFamilyChildRelationsContentController_DeleteChildRelationInformative" = "Do you really want to remove this child from this family? The child won't be deleted, but is no longer a part of this family.";
+"_EditFamilyBaseEditParentContentController_RemoveFromFamilyMessage" = "Remove Parent '%@'?";
+"_EditFamilyBaseEditParentContentController_RemoveFromFamilyInformative" = "Do you really want to remove this parent from this family? The parent won't be deleted, but is no longer a part of this family.";
+"_EditFamilyController_ParentsOfLabel" = "Parents of %@";
+
+/*EditFamilyEditManContentController*/
+"_EditFamilyEditManContentController_Title" = "Man";
+
+/*EditFamilyEditWomanContentController*/
+"_EditFamilyEditWomanContentController_Title" = "Woman";
+
+/*EditFamilyChildContentController*/
+"_EditFamilyChildContentController_Title" = "Children";
+
+/*EditNotesContentController*/
+"_EditNotesContentController_Title" = "Notes";
+"_EditNotesContentController_AddNoteButton" = "Add Note";
+"_EditNotesContentController_DeleteNoteQuestionMessage" = "Really Delete Note?";
+"_EditNotesContentController_LargePlaceholder" = "No Notes present";
+"_EditNotesContentController_SmallPlaceholder" = "Please use the button above to add a new Note";
+"_EditNotesContentController_NoNoteTextPlaceholder" = "No Note Text entered";
+"_EditNotesContentController_Sorting_ByCreationDate" = "By Creation Date";
+"_EditNotesContentController_Sorting_ByChangeDate" = "By Change Date";
+"_EditNotesContentController_Sorting_ByText" = "By Text";
+
+/*EditToDosContentController*/
+"_EditToDoContentController_Title" = "ToDos";
+"_EditToDoContentController_LargePlaceholder" = "No ToDos present";
+"_EditToDoContentController_SmallPlaceholder" = "Please use the buttons above to add a new ToDo or attach an existing ToDo";
+"_EditToDoContentController_AddToDoButton" = "Add ToDo";
+"_EditToDoContentController_AddNewToDoMenuItem" = "Add New ToDo";
+"_EditToDoContentController_AddExistingToDoMenuItem" = "Add Existing ToDo";
+"_EditToDoContentController_RemoveFromToDoButton" = "Remove from ToDo";
+"_EditToDoContentController_NoTitleEnteredPlaceholder" = "No Title entered";
+"_EditToDoContentController_NoDateEnteredPlaceholder" = "No Date entered";
+"_EditToDosContentController_Sorting_ByTitle" = "By Title";
+"_EditToDosContentController_Sorting_ByDueDate" = "By Due Date";
+"_EditToDosContentController_Sorting_ByStatus" = "By Status";
+"_EditToDosContentController_Sorting_ByPriority" = "By Priority";
+"_EditToDosContentController_Sorting_ByType" = "By Type";
+"_EditToDoController_DeleteEmptyToDosMessage" = "Really delete %d ToDos which are marked as done?";
+"_EditToDoController_DeleteEmptyToDosInformative" = "Do you really want to delete all ToDos from your family tree which has been marked as done?";
+"_EditToDoController_DeleteEmptyToDosMessage_NoDoneFound" = "No ToDos found which are marked as done";
+"_EditToDoController_DeleteEmptyToDosInformative_NoDoneFound" = "In your family tree, no ToDos marked as done have been found so none have been removed.";
+
+/*EditToDoGeneralContentController*/
+"_EditToDoGeneralContentController_Title" = "General";
+"_EditToDoGeneralContentController_EditPriorityConclusionTypes" = "Edit priority types…";
+"_EditToDoGeneralContentController_EditStatusConclusionTypes" = "Edit status types…";
+"_EditToDoGeneralContentController_EditTypeConclusionTypes" = "Edit types…";
+
+/*EditToDoTextContentController*/
+"_EditToDoTextContentController_Title" = "Text";
+"_EditToDoTextContentController_LargePlaceholder" = "No Text entered";
+"_EditToDoTextContentController_SmallPlaceholder" = "Press here to enter text for this todo";
+
+/*EditToDoAssignedEntriesContentController*/
+"_EditToDoAssignedEntriesContentController_Title" = "Assigned Entries";
+"_EditToDoAssignedEntriesContentController_AddEntryButton" = "Add Entry";
+"_EditToDoAssignedEntriesContentController_LargePlaceholder" = "No Assigned Entries present";
+"_EditToDoAssignedEntriesContentController_SmallPlaceholder" = "Select the button above to add entries from your family tree to this ToDo";
+"_EditToDoAssignedEntriesContentController_Sorting_ByName" = "By Name";
+"_EditToDoAssignedEntriesContentController_Sorting_ByDate" = "By Date";
+
+/*EditPlaceController*/
+"_EditPlaceController_LargePlaceholder" = "No Places present";
+"_EditPlaceController_SmallPlaceholder" = "Please enter Places for person or family events or use the button below to lookup a new place.";
+"_EditPlaceController_LookupNewPlaceButton" = "Lookup First Place";
+
+/*_EditPlaceLinksContentController_OtherLanguagesButton*/
+"_EditPlaceLinksContentController_Title" = "Web Pages";
+"_BaseEditPlaceLinksContentController_OtherLanguagesButton" = "Other Languages…";
+"_BaseEditPlaceLinksContentController_ShowArticleButton" = "Show Article";
+
+/*EditEventPlace*/
+"_EditEventPlaceSheetLookupNewPlaceSection_Title" = "Lookup New Place";
+"_EditEventPlaceSheetSelectExistingPlaceSection_Title" = "Select Existing Place";
+"_EditEventPlaceSheetSelectExistingPlaceSection_TitleReplace" = "Replace with existing Place";
+"_EditEventPlaceSheetManualEnterPlaceSection_Title" = "Manually Enter Place";
+"_EditEventPlaceSheetManualEnterPlaceSection_TitleReplace" = "Manually Edit Place";
+"_EditEventPlaceViewController_RemoveCurrentPlace" = "Remove Current Place";
+"_EditEventPlaceViewController_JustLookUpCoordinate" = "Only Lookup Coordinate";
+"_EditEventPlaceViewController_EditPlace" = "Edit Place";
+
+/*EditPlacePane*/
+"_EditPlacePane_Map_PlaceholderTitle" = "No coordinate";
+"_EditPlacePane_Map_PlaceholderMessage" = "In order to show the location of the selected place on the map, please look up the geographical coordinate for this place:";
+"_EditPlacePane_Map_PlaceholderMessagePlaceDetail" = "In order to show the location of the selected place detail on the map, please look up the geographical coordinates for this place detail";
+"_EditPlacePane_Map_PlaceholderButton" = "Look up Coordinates…";
+"_EditPlacePane_MapKitTypePopupButton" = "Map Type";
+"_EditPlacePane_MapKitTypePopupButton_FromPreferences" = "As specified in preferences";
+"_EditPlacePane_MapKitTypePopupButton_Standard" = "Standard";
+"_EditPlacePane_MapKitTypePopupButton_StandardMuted" = "Standard (Muted)";
+"_EditPlacePane_MapKitTypePopupButton_Satellite" = "Satellite";
+"_EditPlacePane_MapKitTypePopupButton_Hybrid" = "Hybrid";
+"_EditPlacePane_OnlyShowSelectedPlaceOnMapCheckbox" = "Only show selected place on map";
+"_EditPlacePane_OnlyShowPlaceDetailsForSelectedPlaceOnMapCheckbox" = "Only show place details when place is selected";
+"_EditPlacePane_MapOptionsButton" = "Map Options";
+"_EditPlacePane_PinColorPopupButton" = "Pin Color";
+"_EditPlacePane_PinColorPopupButton_SingleColor" = "Single-Colored";
+"_EditPlacePane_PinColorPopupButton_ByEventCount_YellowToRed" = "By Event Count (Yellow to Red)";
+"_EditPlacePane_PinColorPopupButton_ByEventCount_BlueToRed" = "By Event Count (Blue to Red)";
+"_EditPlacePane_PinColorPopupButton_ByEventCount_GreenToYellowToRed" = "By Event Count (Green to Yellow to Red)";
+"_EditPlacePane_PinColorPopupButton_ByEventCount_TurquoiseToYellowToLightRed" = "By Event Count (Turquoise to Yellow to Light Red)";
+"_EditPlacePane_PinColorPopupButton_ByEventCount_BlueToMagentaToOrange" = "By Event Count (Blue to Magenta to Orange)";
+"_EditPlacePane_ShowEventCountOnPlacePins" = "Show event count on pins";
+
+/*EditToDoController*/
+"_EditToDoController_LargePlaceholder" = "No ToDos present";
+"_EditToDoController_SmallPlaceholder" = "There are no ToDos in this family tree. Please select \"Add First ToDo\" to create your first ToDo.";
+"_EditToDoController_AddToDoButton" = "Add First ToDo";
+
+/*EditPlaceHeaderContentController*/
+"_EditPlaceHeaderContentController_EventCountTitleSingular" = "One event at this place";
+"_EditPlaceHeaderContentController_EventCountTitlePlural" = "%d events at this place";
+"_EditPlaceHeaderContentController_PlaceDetailCountTitleSingular" = "One place detail";
+"_EditPlaceHeaderContentController_PlaceDetailCountTitlePlural" = "%d place details";
+"_EditPlaceHeaderContentController_EventsDateRangeSingular" = "Event date";
+"_EditPlaceHeaderContentController_EventsDateRangePlural" = "Events date range";
+
+/*EditPlaceNameContentController*/
+"_EditPlaceNameContentController_Title" = "Place Name";
+"_EditPlaceNameContentController_EditTemplates" = "Edit Place Templates…";
+
+/*EditPlaceFurtherPlaceNameFieldsContentController*/
+"_EditPlaceFurtherPlaceNameFieldsContentController_Title" = "Further Place Name Fields";
+"_EditPlaceFurtherPlaceNameFieldsContentController_LargePlaceholder" = "No Further Place Fields specified";
+"_EditPlaceFurtherPlaceNameFieldsContentController_SmallPlaceholder" = "You may add further place fields to this place that is not specified in the currently selected template using the button above.";
+"_EditPlaceFurtherPlaceNameFieldsContentController_AddField" = "Add Field…";
+"_EditPlaceFurtherPlaceNameFieldsContentController_AddTemplateKeyToTemplate" = "Add Field '%@' to template '%@'";
+"_EditPlaceFurtherPlaceNameFieldsContentController_EditTemplateKeys" = "Edit Place Fields…";
+"_EditPlaceFurtherPlaceNameFieldsContentController_DeleteFieldContentsMessage" = "Delete this information from the place?";
+"_EditPlaceFurtherPlaceNameFieldsContentController_DeleteFieldContentsInformative" = "Do you really want to delete this further information from the currently displayed place?";
+
+/*EditPlaceAlternateNamesContentController*/
+"_EditPlaceAlternateNamesContentController_Title" = "Alternate Place Names";
+"_EditPlaceAlternateNamesContentController_AlternatePlaceNamesPlaceholder" = "Enter any alternate place names here";
+
+/*EditPlaceCoordinateContentController*/
+"_EditPlaceCoordinateContentController_Title" = "Coordinate";
+"_EditPlaceCoordinateContentController_LargePlaceholder" = "No Coordinate entered";
+"_EditPlaceCoordinateContentController_SmallPlaceholder" = "Please use the buttons above to either enter coordinates for this place manually or look them up using the place name.";
+"_EditPlaceCoordinateContentController_SmallPlaceholder_CTW" = "Please use the button above to enter coordinates for this place manually.";
+"_EditPlaceCoordinateContentController_AddCoordinateButton" = "Enter manually";
+"_EditPlaceCoordinateContentController_LookupButton" = "Lookup";
+"_EditPlaceCoordinateContentController_DeleteCoordinateQuestionMessage" = "Delete Coordinate?";
+
+/*EditPlaceEventsAtPlaceContentController*/
+"_EditPlaceEventsAtPlaceContentController_Title" = "Events at Place";
+"_EditPlaceEventsAtPlaceContentController_RemoveFromPlace" = "Remove from Place";
+"_EditPlaceEventsAtPlaceContentController_LargePlaceholder" = "No Events added";
+"_EditPlaceEventsAtPlaceContentController_SmallPlaceholder" = "No person or family events have been added to this place. Use the 'Persons' or 'Family' section to assign places to events.";
+"_EditPlaceEventsAtPlaceContentController_Sorting_ByType" = "By Event Type";
+"_EditPlaceEventsAtPlaceContentController_Sorting_ByDate" = "By Event Date";
+
+/*EditPlaceDetailsContentController*/
+"_EditPlaceDetailsContentController_Title" = "Place Details";
+"_EditPlaceDetailsContentController_AddPlaceDetail" = "Add";
+"_EditPlaceDetailsContentController_AddEmptyPlaceDetail" = "Add Empty Place Detail";
+"_EditPlaceDetailsContentController_SearchOtherPlaceDetail" = "Lookup new Place Detail…";
+"_EditPlaceDetailsContentController_DeletePlaceDetailQuestionMessage" = "Really Delete Place Detail?";
+"_EditPlaceDetailsContentController_LookupCoordinateButton" = "Lookup Coordinate…";
+"_EditPlaceDetailsContentController_AddCoordinateButton" = "Add Coordinate";
+"_EditPlaceDetailsContentController_RemoveCoordinateButton" = "Remove Coordinate";
+"_EditPlaceDetailsContentController_NoNamePlaceholder" = "No Place Detail Name entered";
+"_EditPlaceDetailsContentController_EventCount" = "Count of Events";
+"_EditPlaceDetailsContentController_LargePlaceholder" = "No place details entered";
+"_EditPlaceDetailsContentController_SmallPlaceholder" = "Use the 'Add' button above to add place details. Place details are specific addresses, sections or other points of interests at this place.";
+"_EditPlaceDetailsContentController_MegeWithOtherPlaceDetailButton" = "Merge with other Place Detail";
+
+/*InteractiveTreeEditPersonController*/
+"_InteractiveTreeEditPersonController_SelectPersonsPlaceholder_Title" = "Select Person or Family";
+"_InteractiveTreeEditPersonController_SelectPersonsPlaceholder_Message" = "Please select a Person or a Family connection in order to start editing";
+
+/*EditPrivateContentController*/
+"_EditPrivateContentController_Title" = "Private";
+"_EditPrivateContentController_MarkAsPrivate" = "Marked as Private";
+"_EditPrivateContentController_Explanation" = "If selected, this information won't show up in charts or reports";
+
+/*EditSourceContentController*/
+"_EditSourceContentController_LargePlaceholder" = "No Sources present";
+"_EditSourceContentController_SmallPlaceholder" = "There are no sources in this family tree. Please select \"Add First Source\" to create your first source.";
+"_EditSourceContentController_AddToDoButton" = "Add First Source";
+"_EditSourceContentController_DeleteSourceQuestionMessage" = "Really Delete Source?";
+
+/*EditSourceGeneralContentController*/
+"_EditSourceGeneralContentController_Title" = "Source Information";
+"_EditSourceGeneralContentController_TitlePlaceholder" = "No Title specified";
+"_EditSourceGeneralContentController_EditSourceRepository" = "Edit Source Repositories…";
+"_EditSourceGeneralContentController_EditTemplates" = "Edit Source Templates…";
+
+/*EditSourceFurtherFieldsContentController*/
+"_EditSourceFurtherFieldsContentController_Title" = "Further Information";
+"_EditSourceFurtherFieldsContentController_LargePlaceholder" = "No Further Information Fields specified";
+"_EditSourceFurtherFieldsContentController_SmallPlaceholder" = "You may add further information to this source that is not specified in the currently selected template using the button above.";
+"_EditSourceFurtherFieldsContentController_AddField" = "Add Field…";
+"_EditSourceFurtherFieldsContentController_AddTemplateKeyToTemplate" = "Add Field '%@' to template '%@'";
+"_EditSourceFurtherFieldsContentController_EditTemplateKeys" = "Edit Source Fields…";
+"_EditSourceFurtherFieldsContentController_DeleteFieldContentsMessage" = "Delete this information from the source?";
+"_EditSourceFurtherFieldsContentController_DeleteFieldContentsInformative" = "Do you really want to delete this further information from the currently displayed source?";
+
+/*EditSourceSourceRepositoryContentController*/
+"_EditSourceSourceRepositoryContentController_Title" = "Source Repository";
+"_EditSourceSourceRepositoryContentController_NoSourceRepository" = "No Source Repository";
+
+/*EditSourceReferencedEntriesContentController*/
+"_EditSourceReferencedEntriesContentController_RemoveFromSourceButton" = "Remove from Source";
+"_EditSourceReferencedEntriesContentController_Title" = "Referenced Entries";
+"_EditSourceReferencedEntriesContentController_AddEntryToSourceButton" = "Add Entry";
+"_EditSourceReferencedEntriesContentController_LargePlaceholder" = "No Referenced Entries present";
+"_EditSourceReferencedEntriesContentController_SmallPlaceholder" = "Please use the button above to add referenced entries to this source";
+"_EditSourceReferencedEntriesContentController_Sorting_ByType" = "By Type";
+"_EditSourceReferencedEntriesContentController_Sorting_ByPage" = "By Page";
+"_EditSourceReferencedEntriesContentController_CitationNotes" = "Citation Notes";
+
+/*EditSourceRelationsContentController*/
+"_EditSourceRelationsContentController_Title" = "Source Citations";
+"_EditSourceRelationsContentController_LargePlaceholder" = "No Sources Citations present";
+"_EditSourceRelationsContentController_SmallPlaceholder" = "Please use the button above to add source citations for this entry";
+"_EditSourceRelationsContentController_AddSourceButton" = "Add Source";
+"_EditSourceRelationsContentController_AddExistingSourceMenuItem" = "Add Existing Source…";
+"_EditSourceRelationsContentController_AddNewSourceMenuItem" = "Add New Source";
+"_EditSourceRelationsContentController_DeleteSourceMenuItem" = "Delete Source";
+"_EditSourceRelationsContentController_SourceDate" = "Source Date";
+"_EditSourceRelationsContentController_Sorting_ByTitle" = "Sort By Source Title";
+"_EditSourceRelationsContentController_Sorting_ByCertainty" = "Sort By Source Certainty";
+"_EditSourceRelationsContentController_Sorting_ByDate" = "Sort By Source Date";
+"_EditSourceRelationsContentController_Sorting_ByPage" = "Sort By Page Number";
+"_EditSourceRelationsContentController_RemoveObjectFromSourceMessage" = "Remove Entry from Source '%@'?";
+"_EditSourceRelationsContentController_RemoveObjectFromSourceInformative" = "Do you really want to remove this source citation? This won't delete the source, but removes this entry from the source.";
+"_EditSourceRelationsContentController_CitedSource" = "Cited Source";
+"_EditSourceRelationsContentController_PasteSourceCitation" = "Paste Source Citation";
+"_EditSourceRelationsContentController_CopySourceCitation" = "Copy Source Citation";
+
+/*EditSourceTextContentController*/
+"_EditSourceTextContentController_Title" = "Source Text";
+"_EditSourceTextContentController_LargePlaceholder" = "No Text entered";
+"_EditSourceTextContentController_SmallPlaceholder" = "Press here to enter text for this source";
+
+/*EditMediaController*/
+"_EditMediaController_LargePlaceholder" = "No Media present";
+"_EditMediaController_SmallPlaceholder" = "Add Media to the Media sections when editing Persons, Families or Places";
+
+/*EditMediaMediaPreviewContentController*/
+"_EditMediaMediaPreviewContentController_Title" = "Media";
+"_EditMediaMediaPreviewContentControlleriOSPlatformView_ShowFullImageButton" = "Show Full Size Picture…";
+"_EditMediaMediaPreviewContentControlleriOSPlatformView_ShowWebsiteButton" = "Show Website…";
+"_EditMediaMediaPreviewContentControlleriOSPlatformView_ShowVideoButton" = "Show Video…";
+"_EditMediaMediaPreviewContentControlleriOSPlatformView_ShowAudioButton" = "Show Audio…";
+"_EditMediaMediaPreviewContentControlleriOSPlatformView_ShowFullPDFButton"= "Show Full PDF…";
+
+/*EditMediaGeneralContentController*/
+"_EditMediaGeneralContentController_Title" = "General";
+
+/*EditMediaAssignedEntriesContentController*/
+"_EditMediaAssignedEntriesContentController_Title" = "Assigned Entries";
+"_EditMediaAssignedEntriesContentController_LargePlaceholder" = "No Assigned Entries present";
+"_EditMediaAssignedEntriesContentController_SmallPlaceholder" = "Please use the button above to assign entries like persons or families to this media";
+"_EditMediaAssignedEntriesContentController_RemoveFromMediaButton" = "Remove";
+"_EditMediaAssignedEntriesContentController_AddEntryButton" = "Add Entry";
+"_EditMediaAssignedEntriesContentController_EditMediaRelationAssignmentButton" = "Edit Assignment Area";
+"_EditMediaAssignedEntriesContentController_RemoveMediaFromEntryMessage" = "Do you really want to remove the entry '%@' from this media?";
+"_EditMediaAssignedEntriesContentController_RemoveMediaFromEntryInformative" = "This won't delete the media, but just removes the assignment of the entry to this media.";
+"_EditMediaAssignedEntriesContentController_RemoveMediaFromEntryAndDeleteMessage" = "Do you really want to delete this media?";
+"_EditMediaAssignedEntriesContentController_RemoveMediaFromEntryAndDeleteInformative" = "Since this is the last entry assigned to this media, the media will be removed from the family tree.";
+
+/*EditMediaCropColorizeContentController*/
+"_EditMediaCropColorizeContentController_Title" = "AI & Crop";
+"_EditMediaCropColorizeContentController_OpenCropColorizeButton" = "Edit & Enhance Picture…";
+"_EditMediaCropColorizeContentController_Explanation" = "Select the button above to crop, colorize, remove scratches, enhance, or remove the background from this picture.";
+"_EditMediaCropColorizeContentController_SuiteableForColorizeExplanation" = "This picture seems to be suitable for colorization. Auto-Colorize, enhance, remove scratches or crop images using the button above.";
+
+/*EditFamilyTreeInformationHeaderContentController*/
+"_EditFamilyTreeInformationHeaderContentController_LargeTitle" = "About the Author of this Family Tree";
+
+/*EditFamilyTreeInformationNameAndAddressContentController*/
+"_EditFamilyTreeInformationNameAndAddressContentController_Title" = "Author Name & Address";
+"_EditFamilyTreeInformationNameAndAddressContentController_NoNamePlaceholder" = "No Name entered";
+
+/*EditFamilyTreeInformationContactContentController*/
+"_EditFamilyTreeInformationContactContentController_Title" = "Author Contact";
+
+/*EditFamilyTreeInformationFamilyCrestContentController*/
+"_EditFamilyTreeInformationFamilyCrestContentController_Title" = "Family Crest";
+
+/*EditFamilyTreeInformationIconSettingsContentController*/
+"_EditFamilyTreeInformationIconSettingsContentController_Title" = "Icon Settings";
+"_EditFamilyTreeInformationIconSettingsContentController_RemoveMediaFromIconMenuItem" = "Remove from Icon";
+"_EditFamilyTreeInformationIconSettingsContentController_AddToIconButton" = "Add Media to Icon";
+
+/*EditAssociatesContentController*/
+"_EditAssociatesContentController_Title" = "Influential Persons";
+"_EditAssociatesContentController_AddAssociatedPersonButton" = "Add Influential Person";
+"_EditAssociatesContentController_AddNewPersonAsAssociate" = "Add new Influential Person";
+"_EditAssociatesContentController_AddNewFamilyAsAssociate" = "Add new Influential Family";
+"_EditAssociatesContentController_AddExistingPersonAsAssociate" = "Add existing person as Influential Person";
+"_EditAssociatesContentController_AddExistingFamilyAsAssociate" = "Add existing family as Influential Family";
+"_EditAssociatesContentController_RemoveAssociateButton" = "Remove Influential Person";
+"_EditAssociatesContentController_LargePlaceholder" = "No Influential Persons present";
+"_EditAssociatesContentController_SmallPlaceholder" = "Please use the button above to add Influential Persons like Godfathers";
+"_EditAssociatesContentController_RemoveAssociateRelationMessage" = "Do you really want to remove the relation to '%@'?";
+"_EditAssociatesContentController_RemoveAssociateRelationInformative" = "This won't remove the person from your family tree, but just the relation to this person.";
+"_EditAssociatesContentController_EditAssociateRelationConclusionTypes" = "Edit Influential Relation Types…";
+
+/*EditBookmarkContentController*/
+"_EditBookmarkContentController_Title" = "Bookmarks";
+"_EditBookmarkContentController_OtherBookmarkedEntries_Person" = "Persons";
+"_EditBookmarkContentController_OtherBookmarkedEntries_Family" = "Families";
+"_EditBookmarkContentController_OtherBookmarkedEntries_Place" = "Places";
+"_EditBookmarkContentController_OtherBookmarkedEntries_Source" = "Sources";
+"_EditBookmarkContentController_OtherBookmarkedEntries_BaseMedia" = "Media";
+
+/*EditPersonDNAContentController*/
+"_EditPersonDNAContentController_Title" = "DNA";
+"_EditPersonDNAContentController_EditDNATestResultButton" = "Edit DNA Data";
+"_EditPersonDNAContentController_AddDNATest" = "Add DNA Test Result";
+"_EditPersonDNAContentController_LargePlaceholder" = "No DNA Test Results entered";
+"_EditPersonDNAContentController_SmallPlaceholder" = "Please use the buttons above to add DNA Test Results to this person";
+"_EditPersonDNAContentController_Sorting_ByTitle" = "By Title";
+"_EditPersonDNAContentController_Sorting_ByDate" = "By Date";
+
+/*EditDNATestResultGeneralContentController*/
+"_EditDNATestResultGeneralContentController_Title" = "General";
+"_EditDNATestResultGeneralContentController_NoNameEnteredPlaceholder" = "No Test Name entered";
+
+/*EditDNATestResultYDNAGeneralInformationContentController*/
+"_EditDNATestResultYDNAGeneralInformationContentController_Title" = "Y-DNA Information";
+"_EditDNATestResultYDNAGeneralInformationContentController_NoHaplogroupPlaceholder" = "No Haplogroup entered";
+
+/*EditDNATestResultYDNASTRMarkerListContentController*/
+"_EditDNATestResultYDNASTRMarkerListContentController_Title" = "Y-DNA STR Markers";
+"_EditDNATestResultYDNASTRMarkerListContentController_AddMarkerButton" = "Add Marker";
+"_EditDNATestResultYDNASTRMarkerListContentController_LargePlaceholder" = "No Y-DNA STR Markers entered";
+"_EditDNATestResultYDNASTRMarkerListContentController_SmallPlaceholder" = "Please use the button above to add Y-DNA STR Markers";
+
+/*EditDNATestResultMTDNAGeneralInformationContentController*/
+"_EditDNATestResultMTDNAGeneralInformationContentController_Title" = "mtDNA Information";
+"_EditDNATestResultMTDNAGeneralInformationContentController_NoHaplogroupPlaceholder" = "No Haplogroup entered";
+
+/*EditDNATestResultBaseMTDNARegionSNPDifferencesContentController*/
+"_EditDNATestResultBaseMTDNARegionSNPDifferencesContentController_AddMarkerButton" = "Add Marker";
+"_EditDNATestResultBaseMTDNARegionSNPDifferencesContentController_LargePlaceholder" = "No Markers entered";
+"_EditDNATestResultBaseMTDNARegionSNPDifferencesContentController_SmallPlaceholder" = "Please use the button above to add markers";
+
+/*EditDNATestResultMTNDNAHVR1SNPDifferencesContentController*/
+"_EditDNATestResultMTNDNAHVR1SNPDifferencesContentController_Title" = "mtDNA HVR1 SNP Differences";
+
+/*EditDNATestResultMTNDNAHVR2SNPDifferencesContentController*/
+"_EditDNATestResultMTNDNAHVR2SNPDifferencesContentController_Title" = "mtDNA HVR2 SNP Differences";
+
+/*EditDNATestResultMTNDNACodingRegionSNPDifferencesContentController*/
+"_EditDNATestResultMTNDNACodingRegionSNPDifferencesContentController_Title" = "mtDNA Coding Region SNP Differences";
+
+/*EditDNATestResultBaseRawDataContentController*/
+"_EditDNATestResultBaseRawDataContentController_LargePlaceholder" = "No raw DNA data has been added";
+"_EditDNATestResultBaseRawDataContentController_SmallPlaceholder" = "Please use the button above to add raw DNA data";
+"_EditDNATestResultBaseRawDataContentController_AddDataButton" = "Add Data";
+"_EditDNATestResultBaseRawDataContentController_SelectFileMessage" = "Please select a file to save as raw DNA data";
+"_EditDNATestResultBaseRawDataContentController_DeleteDNARawDataMessage" = "Really delete DNA data?";
+"_EditDNATestResultBaseRawDataContentController_DeleteDNARawDataInformative" = "Do you really want to delete the raw DNA data associated with this test?";
+
+/*EditDNATestResultYDNARawDataContentController*/
+"_EditDNATestResultYDNARawDataContentController_Title" = "Y-DNA Raw Data";
+"_EditDNATestResultYDNARawDataContentController_DataPresentString" = "Raw data for Y-DNA stored, file size: %@";
+
+/*EditDNATestResultMTDNARawDataContentController*/
+"_EditDNATestResultMTDNARawDataContentController_Title" = "mtDNA Raw Data";
+"_EditDNATestResultMTDNARawDataContentController_DataPresentString" = "Raw data for mtDNA stored, file size: %@";
+
+/*EditDNATestResultATDNARawDataContentController*/
+"_EditDNATestResultATDNARawDataContentController_Title" = "atDNA Raw Data";
+"_EditDNATestResultATDNARawDataContentController_DataPresentString" = "Raw data for atDNA stored, file size: %@";
+
+/*EditSourceRelationCertaintySettingsCertaintyViewContentController*/
+"_EditSourceRelationCertaintySettingsCertaintyViewContentController_Title" = "Source Certainty";
+"_EditSourceRelationCertaintySettingsCertaintyViewContentController_GeneralExplanation" = "Please specify the source, information and evidence quality of this referenced entry for the mentioned source:";
+"_EditSourceRelationCertaintySettingsCertaintyViewContentController_SourceQuality" = "Source Quality";
+"_EditSourceRelationCertaintySettingsCertaintyViewContentController_QualityExplanation" = "Choose if the source is the original document or if it has been a derivative source.";
+"_EditSourceRelationCertaintySettingsCertaintyViewContentController_InformationQuality" = "Information Quality";
+"_EditSourceRelationCertaintySettingsCertaintyViewContentController_InformationExplanation" = "Is the information in this source firsthand or secondhand information?";
+"_EditSourceRelationCertaintySettingsCertaintyViewContentController_EvidenceQuality" = "Evidence Quality";
+"_EditSourceRelationCertaintySettingsCertaintyViewContentController_EvidenceExplanation" = "Specify if the evidence for the referenced entry in this source is negative, indirect or direct.";
+
+/*EditPersonNumberingSystemContentController*/
+"_EditPersonNumberingSystemContentController_Title" = "Numbering System";
+"_EditPersonNumberingSystemContentController_SetNumberingSystemTopLevelMenuItem" = "Numbering System…";
+"_EditPersonNumberingSystemContentController_NoNumberingSystemAssigned" = "Choose a numbering system starting with this person using the button below:";
+"_EditPersonNumberingSystemContentController_NumberingSystemAssignedAndIsStartPerson" = "This person is the starting person in the current numbering system (%@).";
+"_EditPersonNumberingSystemContentController_NumberingSystemAssignedAndHasValueAndIsNotStartPerson" = "This person has a number in the current numbering system starting with person:";
+"_EditPersonNumberingSystemContentController_NumberingSystemAssignedAndPersonHasNoValue" = "This person has no number in the current numbering system. This means that this person is not a ancestor or descendant of the start person of this numbering system (%@):";
+
+/*EditPersonGroupController*/
+"_EditPersonGroupController_LargePlaceholder" = "No Person Groups present";
+"_EditPersonGroupController_SmallPlaceholder" = "There are no person groups in this family tree. Person Groups can be used to highlight distinct branches in your family tree. Please select \"Add First Person Group\" to create your first person group.";
+"_EditPersonGroupController_AddPersonGroupButton" = "Add First Person Group";
+"_EditPersonGroupGeneralContentController_Title" = "General";
+"_EditPersonGroupGeneralContentController_NamePlaceholder" = "No Name specified";
+
+/*EditPersonGroupPersonsInGroupContentController*/
+"_EditPersonGroupPersonsInGroupContentController_Title" = "Persons in Group";
+"_EditPersonGroupPersonsInGroupContentController_LargePlaceholder" = "No Persons in this Person Group";
+"_EditPersonGroupPersonsInGroupContentController_SmallPlaceholder" = "Please use the button above to add persons to this person group.";
+"_EditPersonGroupPersonsInGroupContentController_RemoveFromPersonGroupButton" = "Remove from Group";
+"_EditPersonGroupPersonsInGroupContentController_AddPersonToGroupButton" = "Add Persons";
+"_EditPersonGroupPersonsInGroupContentController_ManagePersonsInGroupButton" = "Manage Persons";
+"_EditPersonGroupPersonsInGroupContentController_Sorting_ByName" = "By Name";
+"_EditPersonGroupPersonsInGroupContentController_Sorting_ByBirthDate" = "By Birth Date";
+
+"_EditPersonGroupPersonsInGroupContentController_DeletePersonGroupRelationMessage" = "Remove '%@' from Person Group '%@'?";
+"_EditPersonGroupPersonsInGroupContentController_DeletePersonGroupRelationInformative" = "This does not delete the person nor the person group, but the person will be removed from this person group.";
+
+/*_EditPersonGroupsContentController_Title*/
+"_EditPersonGroupsContentController_Title" = "Person Groups";
+"_EditPersonGroupsContentController_NoPersonGroupsLargePlaceholder" = "No Person Groups present";
+"_EditPersonGroupsContentController_NoPersonGroupsSmallPlaceholder" = "No Person Groups have been added to this family tree. Use the Person Groups function to add Person Groups.";
+
+/*EditStoryRelationsContentController*/
+"_EditStoryRelationsContentController_Title" = "Stories";
+"_EditStoryRelationsContentController_AddStoryButton" = "Add Story";
+"_EditStoryRelationsContentController_AddExistingStoryMenuItem" = "Add Existing Story…";
+"_EditStoryRelationsContentController_AddExistingStorySectionMenuItem" = "Add Existing Story Section…";
+"_EditStoryRelationsContentController_AddNewStoryMenuItem" = "Add New Story";
+"_EditStoryRelationsContentController_LargePlaceholder" = "No Stories present";
+"_EditStoryRelationsContentController_SmallPlaceholder" = "Please use the button above to add a new or existing Story.";
+
+/*EditStoryController*/
+"_EditStoryGeneralContentController_Title" = "General";
+"_EditStoryGeneralContentController_TitlePlaceholder" = "No Title specified";
+"_EditStorySectionsContentController_AddStorySecton" = "Add Story Section";
+"_EditStorySectionsContentController_Title" = "Story Sections";
+"_EditStorySectionsContentController_LargePlaceholder" = "No Story Sections present";
+"_EditStorySectionsContentController_SmallPlaceholder" = "Please use the button above to add a first section to this story";
+"_EditStorySectionsContentController_NoSubtitlePlaceholder" = "No Section Title specified";
+"_EditStorySectionsContentController_NoTextPlaceholder" = "No Section Text specified";
+"_EditStorySectionsContentController_StorySectionRelations" = "Referenced Entries in Section";
+"_EditStorySectionsContentController_NoStorySectionRelationsPlaceholder" = "No Referenced Entries present";
+"_EditStoryReferencedEntriesContentController_AddEntryToStoryButton" = "Add Entry";
+"_EditStoryReferencedEntriesContentController_Title" = "Referenced Entries";
+"_EditStoryContentController_AddStoryButton" = "Add First Story";
+"_EditStoryContentController_LargePlaceholder" = "No Stories present";
+"_EditStoryContentController_SmallPlaceholder" = "Currently, no Stories have been added to this family tree. Use Stories to tell and record special events of your family history. Please select \"Add First Story\" to create your first story.";
+"_EditStorySectionsContentController_AddMedia" = "Add Media";
+"_EditStoryReferencedEntriesContentController_LargePlaceholder" = "No Referenced Entries present";
+"_EditStoryReferencedEntriesContentController_SmallPlaceholder" = "Please use the buttons to add Persons, Events or Families that are referenced in this story.";
+"_EditStorySectionsContentController_MoveUp" = "Move Section Up";
+"_EditStorySectionsContentController_MoveDown" = "Move Section Down";
+
+/*ManagePersonGroupPersonsController*/
+"_ManagePersonGroupPersonsController_Title" = "Persons in Group";
+"_ManagePersonGroupPersons_NoPersonsLeftToAdd" = "All Persons in your family tree have been added to this Person Group";
+"_ManagePersonGroupPersons_NoPersonsInGroup" = "No Persons are part of this Person Group";
+"_ManagePersonGroupPersonsAddRelatives_Title" = "Add Relatives to Group";
+"_ManagePersonGroupPersonsControllerAddRelativesInformation_Explanation" = "Please select which relatives of '%@' you want to add to this person group:";
+"_ManagePersonGroupPersonsController_AddPersonsToGroup" = "Add Persons to Group";
+"_ManagePersonGroupPersonsControllerAddRelativesInformation_Parents" = "Add all Ancestors of Person";
+"_ManagePersonGroupPersonsControllerAddRelativesInformation_AllRelativesOfParents" = "Add all Relatives of Ancestors";
+"_ManagePersonGroupPersonsControllerAddRelativesInformation_Children" = "Add all Descendants of Person";
+"_ManagePersonGroupPersonsControllerAddRelativesInformation_PartnersOfChildren" = "Add all Partners of Descendants";
+"_ManagePersonGroupPersonsControllerAddRelativesInformation_AllRelativesOfChildren" = "Add all Relatives of Descendants";
+"_ManagePersonGroupPersonsControllerAddRelativesInformation_Partners" = "Add Partners to Group";
+"_ManagePersonGroupPersonsControllerAddRelativesInformation_AllRelativesOfPartners" = "Add all Relatives of Partners";
+"_ManagePersonGroupPersonsControllerAddRelativesInformation_GenerationsToCollect" = "Generations to collect";
+"_ManagePersonGroupPersonsControllerAddRelativesInformation_AllGenerations" = "All Generations";
+
+/*BaseReferencedEntriesListContentController*/
+"_BaseReferencedEntriesListContentController_EditPersonMenuItem" = "Edit Person '%@'";
+"_BaseReferencedEntriesListContentController_EditPersonEventMenuItem" = "Edit Person Event '%@'";
+"_BaseReferencedEntriesListContentController_EditFamilyMenuItem" = "Edit Family '%@'";
+"_BaseReferencedEntriesListContentController_EditFamilyEventMenuItem" = "Edit Family Event '%@'";
+
+/*EditStorySectionReferencedEntriesContentController*/
+"_EditStorySectionReferencedEntriesContentController_Title" = "Referenced Entries in Section";
+"_EditStorySectionReferencedEntriesContentController_LargePlaceholder" = "No Referenced Entries present";
+"_EditStorySectionReferencedEntriesContentController_SmallPlaceholder" = "Please use the buttons to add Persons, Events or Families that are referenced in this story section.";
+"_EditStorySectionReferencedEntriesContentController_AddEntryToStorySectionButton" = "Add Entry";
+
+/*EditAssociateRelationGeneralController*/
+"_EditAssociateRelationGeneralController_Title" = "General";
+"_EditAssociateRelationGeneralController_Source" = "Origin";
+"_EditAssociateRelationGeneralController_Target" = "Target";
+
+/*EditEventPlaceController*/
+"_EditEventPlaceController_TemplateHint" = "Please select a place template for this place from the button below. If no suitable template is available, please use the 'Edit Templates' option to create a new template";
+"_EditEventPlaceController_FieldsHint" = "Enter the information for this place in the fields below. If you need different fields, consider selecting a different place template or adding the fields to the place template.";
+
+/*Common*/
+"_CommonEdit_NoLabelsAssignedPlaceholder" = "No Labels assigned";
+
+/*Specialized Freeform Controls*/
+"_FreeformControlsNotesControlDescription_NNotes" = "%d Notes";
+"_FreeformControlsNotesControlDescription_OneNote" = "1 Note";
+"_FreeformControlsEventsControlDescription_NEvents" = "%d Events";
+"_FreeformControlsEventsControlDescription_OneEvent" = "1 Event";
+"_FreeformControlsSourceRelationsControlDescription_NSources" = "%d Sources";
+"_FreeformControlsSourceRelationsControlDescription_OneSource" = "1 Source";
+"_FreeformControlsStorySectionRelationsControlDescription_NRelations" = "%d Referenced Entries";
+"_FreeformControlsStorySectionRelationsControlDescription_OneRelation" = "One Referenced Entry";
+
+"_FreeformControlsTextFieldControlDescription_NoMicrophoneAvailableDescription" = "No Microphone has been found.";
+"_FreeformControlsTextFieldControlDescription_NoMicrophoneAvailableRecovery" = "A Microphone is required for Speech Recognition. Make sure that a Microphone is available and not used by any other app.";
+"_FreeformControlsTextFieldControlDescription_SpeechNotGrantedDescription" = "Permission required for Speech Recognition";
+"_FreeformControlsTextFieldControlDescription_SpeechNotGrantedRecovery" = "Family Tree does not have permission for Speech Recognition. Please grant Family Tree permission using the Privacy Settings in the Settings app.";
+
+/*Section Identifiers*/
+"_SectionIdentifier_main" = "Main Area";
+"_SectionIdentifier_aboveMainFullWidth" = "Above Main Area – Full Width";
+"_SectionIdentifier_top" = "Header Area";
+"_SectionIdentifier_parents" = "Parents Area";
+"_Column_top_0" = "Main Area";
+"_Column_main_0" = "Left Side";
+"_Column_main_1" = "Right Side";
+"_Column_main_256" = "Sidebar";
+"_Column_parents_0" = "Left Side";
+"_Column_parents_1" = "Right Side";
+"_Column_aboveMainFullWidth_0" = "Main Area";
+
+/*DatabaseChangesController*/
+"_DatabaseChangesController_PurgeAllChangesMessage" = "Really purge Change Log? This cannot be undone.";
+"_DatabaseChangesController_PurgeAllChangesInformativeWithDate" = "Please confirm if you want to delete all change log entries in the change log made before %@.";
+"_DatabaseChangesController_PurgeAllChangesInformative" = "Please confirm if you want to delete all change log entries from your family tree.";
+"_DatabaseChangesController_PurgeAllChangesOfDeletedEntriesMessage" = "Really purge Change Log for Deleted Entries? This cannot be undone.";
+"_DatabaseChangesController_PurgeAllChangesOfDeletedEntriesInformative" = "Please confirm if you want to delete all change log entries referencing deleted persons, families etc.";
+"_DatabaseChangesController_PurgeButton" = "Purge Change Log";
+"_DatabaseChangesController_DeleteChangeLogEntryMessage" = "Really delete Change Log Entry?";
+
+/*PlaceLookupControllerResultPlacePreviewNamesContentController*/
+"_PlaceLookupControllerResultPlacePreviewNamesContentController_Title" = "Names";
+
+/*PlaceLookupControllerResultPlacePreviewLinksContentController*/
+"_PlaceLookupControllerResultPlacePreviewLinksContentController_Title" = "Web Pages";
+
+/*Edit Labels Views*/
+"_EditLabel_DeleteLabelTitle" = "Really delete Label?";
+"_EditLabel_DeleteLabelMessage" = "This will permanently delete this label and remove it from all associated entries in your family tree.";

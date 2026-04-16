@@ -1,0 +1,20 @@
+{
+  "short_name": "CloudTreeWeb",
+  "name": "CloudTreeWeb",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "96x96",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "cloudtreeweb_webapp_icon.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "minimal-ui",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}

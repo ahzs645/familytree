@@ -1,0 +1,129 @@
+/*Counts*/
+"_PlaceTemplate_PlacesCountSingular" = "%d Place";
+"_PlaceTemplate_PlacesCount" = "%d Places";
+
+/*Templates*/
+"PlaceTemplate_Generic" = "Generic";
+"PlaceTemplate_Generic_ThreeComponents" = "Generic (Three Levels)";
+"PlaceTemplate_Generic_TwoComponents" = "Generic (Two Levels)";
+"PlaceTemplate_Generic_OneComponent" = "Generic (One Level)";
+"PlaceTemplate_Generic_Level" = "Generic (%d Levels)";
+"PlaceTemplate_Germany" = "Germany";
+"PlaceTemplate_Netherlands" = "Netherlands";
+"PlaceTemplate_France" = "France";
+"PlaceTemplate_United Kingdom" = "United Kingdom";
+"PlaceTemplate_Ireland" = "Ireland";
+"PlaceTemplate_Switzerland" = "Switzerland";
+"PlaceTemplate_Austria" = "Austria";
+"PlaceTemplate_Spain" = "Spain";
+"PlaceTemplate_Portugal" = "Portugal";
+"PlaceTemplate_Italy" = "Italy";
+"PlaceTemplate_Czechia" = "Czechia";
+"PlaceTemplate_Slovakia" = "Slovakia";
+"PlaceTemplate_Slovenia" = "Slovenia";
+"PlaceTemplate_Croatia" = "Croatia";
+"PlaceTemplate_Bosnia and Herzegovina" = "Bosnia and Herzegovina";
+"PlaceTemplate_Serbia" = "Serbia";
+"PlaceTemplate_Romania" = "Romania";
+"PlaceTemplate_Bulgaria" = "Bulgaria";
+"PlaceTemplate_Hungary" = "Hungary";
+"PlaceTemplate_Finland" = "Finland";
+"PlaceTemplate_Sweden" = "Sweden";
+"PlaceTemplate_Norway" = "Norway";
+"PlaceTemplate_Denmark" = "Denmark";
+"PlaceTemplate_Poland" = "Poland";
+"PlaceTemplate_Russia" = "Russia";
+"PlaceTemplate_China" = "China";
+"PlaceTemplate_Greece" = "Greece";
+"PlaceTemplate_Mexico" = "Mexico";
+"PlaceTemplate_Brazil" = "Brazil";
+"PlaceTemplate_England (Parish)" = "England (Parish)";
+"PlaceTemplate_England (Borough)" = "England (Borough)";
+"PlaceTemplate_United States of America" = "United States of America";
+"PlaceTemplate_Canada (Province)" = "Canada (Province)";
+"PlaceTemplate_Canada (Territory)" = "Canada (Territory)";
+"PlaceTemplate_Australia" = "Australia";
+"PlaceTemplate_Belgium" = "Belgium";
+
+/*Relation Usage*/
+"_RelationUsage_AdministrativeDivision1" = "Administrative Division 1";
+"_RelationUsage_AdministrativeDivision2" = "Administrative Division 2";
+"_RelationUsage_AdministrativeDivision3" = "Administrative Division 3";
+"_RelationUsage_AdministrativeDivision4" = "Administrative Division 4";
+"_RelationUsage_AdministrativeDivision5" = "Administrative Division 5";
+"_RelationUsage_AdministrativeDivisionOther" = "Other Administrative Division";
+"_RelationUsage_PlaceName" = "Place Name";
+"_RelationUsage_CountryName" = "Country Name";
+
+/*Template Keys*/
+"PlaceTemplate_KeyName_Place" = "Place";
+"PlaceTemplate_KeyName_County" = "County";
+"PlaceTemplate_KeyName_State" = "State";
+"PlaceTemplate_KeyName_Country" = "Country";
+"PlaceTemplate_KeyName_Administrative Divison" = "Administrative Division";
+"PlaceTemplate_KeyName_Administrative Unit" = "Administrative Unit";
+"PlaceTemplate_KeyName_Municipality" = "Municipality";
+"PlaceTemplate_KeyName_Canton" = "Canton";
+"PlaceTemplate_KeyName_District" = "District";
+"PlaceTemplate_KeyName_Commune" = "Commune";
+"PlaceTemplate_KeyName_Region" = "Region";
+"PlaceTemplate_KeyName_Autonomos Region" = "Autonomos Region";
+"PlaceTemplate_KeyName_Department" = "Department";
+"PlaceTemplate_KeyName_Province" = "Province";
+"PlaceTemplate_KeyName_Federal Subject" = "Federal Subject";
+"PlaceTemplate_KeyName_Federal District" = "Federal District";
+"PlaceTemplate_KeyName_Oblast" = "Oblast";
+"PlaceTemplate_KeyName_Republic" = "Republic";
+"PlaceTemplate_KeyName_Kray" = "Kray";
+"PlaceTemplate_KeyName_Decentralized Administration" = "Decentralized Administration";
+"PlaceTemplate_KeyName_Borough" = "Borough";
+"PlaceTemplate_KeyName_Parish" = "Parish";
+"PlaceTemplate_KeyName_Territory" = "Territory";
+
+
+"PlaceTemplate_KeyName_Level" = "Level %d";
+
+/*Enums*/
+"PlaceTemplateKeyRelation_CitationMode_VeryShort" = "Very Short";
+"PlaceTemplateKeyRelation_CitationMode_Short" = "Short";
+"PlaceTemplateKeyRelation_CitationMode_Normal" = "Normal";
+
+"PlaceTemplateKeyRelation_CitationTrailingMode_Comma" = "Comma";
+"PlaceTemplateKeyRelation_CitationTrailingMode_Period" = "Period";
+"PlaceTemplateKeyRelation_CitationTrailingMode_Hyphen" = "Hyphen";
+"PlaceTemplateKeyRelation_CitationTrailingMode_Space" = "Whitespace";
+"PlaceTemplateKeyRelation_CitationTrailingMode_Colon" = "Colon";
+"PlaceTemplateKeyRelation_CitationTrailingMode_Semicolon" = "Semicolon";
+
+"PlaceTemplateKeyRelation_CitationBracketMode_None" = "None";
+"PlaceTemplateKeyRelation_CitationBracketMode_Brackets" = "Round Brackets";
+"PlaceTemplateKeyRelation_CitationBracketMode_CurlyBrackets" = "Curly Brackets";
+"PlaceTemplateKeyRelation_CitationBracketMode_AngleBrackets" = "Angle Brackets";
+"PlaceTemplateKeyRelation_CitationBracketMode_SingleQuotes" = "Single Quotation Marks";
+"PlaceTemplateKeyRelation_CitationBracketMode_DoubleQuotes" = "Double Quotation Marks";
+
+/*EditPlaceTemplatesController*/
+"_EditPlaceTemplatesController_RemoveTemplateMessage" = "Really delete Place Template? All attached places will be permanently deleted.";
+"_EditPlaceTemplatesController_RemoveTemplateInformative" = "Are you really sure you want to delete this place template? There are places attached to this template which will be also permanently deleted if you delete this place template.";
+
+"_EditPlaceTemplatesController_MergeTemplateDoneMessage" = "Place Templates merged";
+"_EditPlaceTemplatesController_MergeTemplatesDoneInformative" = "The Place Templates '%@' and '%@' have been successfully merged.";
+
+"_EditPlaceTemplatesController_ReallyMergeTemplateMessage" = "Really merge Templates?";
+"_EditPlaceTemplatesController_ReallyMergeTemplateInformative" = "Do you really want to merge the Templates '%@' and '%@'? Afterwards, these become a single Template.";
+
+
+/*EditPlaceTemplateKeysController*/
+"_EditPlaceTemplateKeysController_RemoveTemplateKeyMessage" = "Really delete Template Field? All fields from places will be permanently deleted.";
+"_EditPlaceTemplateKeysController_RemoveTemplateKeyInformative" = "Do you really want to delete the selected template field? There is still information entered for this template field which will be permanently deleted.";
+
+"_EditPlaceTemplateKeysController_MergeTemplateKeysConflictMessage" = "Merge Place Fields";
+"_EditPlaceTemplateKeysController_MergeTemplateKeysConflictInformative" = "You are about to merge the place field '%@' with the place field '%@', but in some places in your family tree, both place fields are present in a single place. Please decide how to proceed for these places:";
+"_EditPlaceTemplateKeysController_MergeTemplateKeysConflictKeepBoth" = "Keep Both Values";
+"_EditPlaceTemplateKeysController_MergeTemplateKeysConflictKeepSingle" = "Keep Value of %@";
+
+"_EditPlaceTemplateKeysController_MergeTemplateKeysDoneMessage" = "Place Fields merged";
+"_EditPlaceTemplateKeysController_MergeTemplateKeysDoneInformative" = "Place Field '%@' has been merged with Place Field '%@'";
+
+"_EditPlaceTemplateKeysController_ReallyMergeTemplateKeysMessage" = "Really merge Template Fields?";
+"_EditPlaceTemplateKeysController_ReallyMergeTemplateKeysInformative" = "Do you really want to merge the Template Fields '%@' and '%@'? Afterwards, these become a single Template Field.";

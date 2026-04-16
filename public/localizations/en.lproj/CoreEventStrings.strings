@@ -1,0 +1,132 @@
+/*PersonEvents*/
+"_PersonEvent_Adoption" = "Adoption";
+"_PersonEvent_AdultChristening" = "Adult baptism";
+"_PersonEvent_Baptism" = "Child Baptism";
+"_PersonEvent_BarMitzvah" = "Bar Mitzvah";
+"_PersonEvent_BasMitzvah" = "Bas Mitzvah";
+"_PersonEvent_Birth" = "Birth";
+"_PersonEvent_Blessing" = "Blessing";
+"_PersonEvent_Burial" = "Burial";
+"_PersonEvent_Census" = "Census";
+"_PersonEvent_Christening" = "Christening";
+"_PersonEvent_Circumcision" = "Circumcision";
+"_PersonEvent_Cremation" = "Cremation";
+"_PersonEvent_Confirmation" = "Confirmation";
+"_PersonEvent_Death" = "Death";
+"_PersonEvent_Deed" = "Document/Deed";
+"_PersonEvent_Education" = "Formal Education";
+"_PersonEvent_Emigration" = "Emigration";
+"_PersonEvent_FirstCommunion" = "First Communion";
+"_PersonEvent_GenericEvent" = "Other Event";
+"_PersonEvent_Graduation" = "Graduation";
+"_PersonEvent_Illness" = "Illness";
+"_PersonEvent_Immigration" = "Immigration";
+"_PersonEvent_LDSBaptism" = "LDS Baptism";
+"_PersonEvent_LDSChildSealing" = "LDS Sealing To Parents";
+"_PersonEvent_LDSConfirmation" = "LDS Confirmation";
+"_PersonEvent_LDSEndowment" = "LDS Endowment";
+"_PersonEvent_LDSInitiatory" = "LDS Initiatory";
+"_PersonEvent_MilitaryService" = "Military Service";
+"_PersonEvent_Miscarriage" = "Miscarriage";
+"_PersonEvent_Mission" = "Mission";
+"_PersonEvent_Naturalization" = "Naturalization";
+"_PersonEvent_NobilityTypeTitle" = "Nobility Title";
+"_PersonEvent_Occupation" = "Occupation";
+"_PersonEvent_Ordination" = "Ordination";
+"_PersonEvent_Probate" = "Probate";
+"_PersonEvent_Religion" = "Religion";
+"_PersonEvent_Residence" = "Place of Residence";
+"_PersonEvent_Retirement" = "Retirement";
+"_PersonEvent_Will" = "Will";
+"_PersonEvent_NickName" = "Nickname";
+"_PersonEvent_FosterChild" = "Foster Child";
+"_PersonEvent_MilitaryAward" = "Military Award";
+"_PersonEvent_MilitaryDischarge" = "Military Discharge";
+"_PersonEvent_MilitaryInduction" = "Military Induction";
+"_PersonEvent_LandTransaction" = "Land Transaction";
+"_PersonEvent_Apprenticeship" = "Apprenticeship";
+"_PersonEvent_Excommunication" = "Excommunication";
+"_PersonEvent_Funeral" = "Funeral";
+"_PersonEvent_Nationality" = "Nationality";
+
+/*FamilyEvents*/
+"_FamilyEvent_Marriage" = "Marriage";
+"_FamilyEvent_Divorced" = "Divorce";
+"_FamilyEvent_Annuled" = "Annulment";
+"_FamilyEvent_Bann" = "Banns";
+"_FamilyEvent_Contract" = "Marriage Contract";
+"_FamilyEvent_License" = "Marriage License";
+"_FamilyEvent_Settlement" = "Prenuptial Agreement";
+"_FamilyEvent_LDSSpouseSealing" = "LDS Sealing To Spouse";
+"_FamilyEvent_OtherEvent" = "Other Event";
+"_FamilyEvent_Engagement" = "Engagement";
+"_FamilyEvent_Divorce_Filing" = "Divorce Filing";
+"_FamilyEvent_Census" = "Census";
+"_FamilyEvent_Partnership" = "Civil Partnership";
+"_FamilyEvent_Separation" = "Separation";
+"_FamilyEvent_MarriageCivil" = "Civil Marriage";
+"_FamilyEvent_MarriageReligion" = "Religious Marriage";
+
+/*Facts*/
+"_PersonFact_SocialSecurityNumber" = "Social Security Number";
+"_PersonFact_CasteName" = "Caste";
+"_PersonFact_PhysicalDescription" = "Physical Description";
+"_PersonFact_NationalID" = "National ID Number";
+"_PersonFact_NationalOrTribalOrigin" = "National or Tribal Origin";
+"_PersonFact_Possession" = "Possession";
+"_PersonFact_EyeColor" = "Eye Color";
+"_PersonFact_Height" = "Height";
+"_PersonFact_Race" = "Ethnic Origin";
+"_PersonFact_SkinColor" = "Skin Color";
+"_PersonFact_Weight" = "Weight";
+"_PersonFact_Email" = "Email";
+"_PersonFact_Phone" = "Phone Number";
+"_PersonFact_HairColor" = "Hair Color";
+"_PersonFact_Hobby" = "Hobby";
+"_PersonFact_Honors" = "Honors";
+"_PersonFact_BloodType" = "Blood Type";
+"_PersonFact_Clan" = "Clan";
+"_PersonFact_TribeName" = "Tribe";
+"_PersonFact_CustomFamilySearchFactTitle" = "Custom Fact: %@";
+"_PersonFact_NoCoupleRelationships" = "No Couple Relationships";
+"_PersonFact_NoChildren" = "No Children";
+
+/*Conclusion Types*/
+"ConclusionPersonEventType_Unnamed" = "Unnamed Person Event Type";
+"ConclusionFamilyEventType_Unnamed" = "Unnamed Family Event Type";
+"ConclusionPersonFactType_Unnamed" = "Unnamed Person Fact Type";
+"ConclusionAdditionalNameType_Unnamed" = "Unnamed Additional Name Type";
+"ConclusionAssociateRelationType_Unnamed" = "Unnamed Influential Relation Type";
+"ConclusionToDoPriorityType_Unnamed" = "Unnamed ToDo Priority Type";
+"ConclusionToDoStatusType_Unnamed" = "Unnamed ToDo Status Type";
+"ConclusionToDoTypeType_Unnamed" = "Unnamed ToDo Type";
+"_ConclusionType_IsNotUserCreatedFlag" = "Built-in type";
+"_ConclusionType_IsUserCreatedFlag" = "User created type";
+"_ConclusionType_PersonEvents" = "Person Events";
+"_ConclusionType_PersonFacts" = "Person Facts";
+"_ConclusionType_FamilyEvents" = "Family Events";
+"_ConclusionType_AssociateRelations" = "Influential Relations";
+"_ConclusionType_PersonEventsFamilyEvents" = "Events";
+"_ConclusionType_PersonEventsFamilyEventsPersonFacts" = "Events & Facts";
+"_ConclusionType_PersonEventsFamilyEventsPersonFactsAssociateRelations" = "Events, Facts & Influential Relations";
+
+/*LDS*/
+"_Event_LDSNoTemple" = "No Temple";
+
+/*LDS Event Status*/
+"_LDSEventStatus_Canceled" = "Cancelled";
+"_LDSEventStatus_Cleared" = "Cleared";
+"_LDSEventStatus_Completed" = "Completed";
+"_LDSEventStatus_DNS" = "Does not qualify";
+"_LDSEventStatus_DNS/CAN" = "DNS/CAN";
+"_LDSEventStatus_Qualified" = "Qualified";
+"_LDSEventStatus_Pre1970" = "Pre-1970";
+"_LDSEventStatus_Submitted" = "Submitted";
+"_LDSEventStatus_Uncleared" = "Uncleared";
+"_LDSEventStatus_Infant" = "Infant";
+"_LDSEventStatus_Child" = "Child";
+"_LDSEventStatus_Stillborn" = "Stillborn";
+"_LDSEventStatus_BIC" = "BIC";
+
+/*Duplicate Conclusion GEDCOM Tag*/
+"_ConclusionType_DuplicateGedcomTag" = "This GEDCOM Tag is already in use. Please choose a different one because duplicate GEDCOM tags can lead to problems when exporting GEDCOM files.";
