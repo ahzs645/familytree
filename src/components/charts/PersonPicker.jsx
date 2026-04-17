@@ -1,0 +1,110 @@
+/**
+ * Searchable dropdown for picking the chart's start person.
+ */
+import React, { useState, useMemo } from 'react';
+
+export function PersonPicker({ persons, value, onChange }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return persons.slice(0, 200);
+    return persons.filter((p) => p.fullName.toLowerCase().includes(q)).slice(0, 200);
+  }, [persons, query]);
+
+  const selected = persons.find((p) => p.recordName === value);
+
+  return (
+    <div style={{ position: 'relative', minWidth: 260 }}>
+      <button onClick={() => setOpen((v) => !v)} style={triggerStyle}>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {selected ? selected.fullName : 'Choose person…'}
+        </span>
+        <span style={{ color: '#8b90a0', marginLeft: 8 }}>▾</span>
+      </button>
+      {open && (
+        <div style={popoverStyle}>
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search…"
+            style={inputStyle}
+          />
+          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+            {filtered.length === 0 && (
+              <div style={{ padding: 12, color: '#8b90a0', fontSize: 13 }}>No matches.</div>
+            )}
+            {filtered.map((p) => (
+              <div
+                key={p.recordName}
+                onClick={() => {
+                  onChange(p.recordName);
+                  setOpen(false);
+                  setQuery('');
+                }}
+                style={{
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid #1f2230',
+                  background: p.recordName === value ? '#242837' : 'transparent',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#242837')}
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = p.recordName === value ? '#242837' : 'transparent')
+                }
+              >
+                <div style={{ color: '#e2e4eb', fontSize: 14 }}>{p.fullName}</div>
+                {(p.birthDate || p.deathDate) && (
+                  <div style={{ color: '#8b90a0', fontSize: 11 }}>
+                    {(p.birthDate || '?').slice(0, 4)} – {(p.deathDate || '').slice(0, 4)}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const triggerStyle = {
+  width: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  background: '#242837',
+  color: '#e2e4eb',
+  border: '1px solid #2e3345',
+  borderRadius: 8,
+  padding: '8px 12px',
+  font: '13px -apple-system, system-ui, sans-serif',
+  cursor: 'pointer',
+};
+
+const popoverStyle = {
+  position: 'absolute',
+  top: 'calc(100% + 6px)',
+  left: 0,
+  right: 0,
+  background: '#1a1d27',
+  border: '1px solid #2e3345',
+  borderRadius: 8,
+  zIndex: 50,
+  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+};
+
+const inputStyle = {
+  width: '100%',
+  background: '#0f1117',
+  color: '#e2e4eb',
+  border: 'none',
+  borderBottom: '1px solid #2e3345',
+  padding: '10px 12px',
+  font: '13px -apple-system, system-ui, sans-serif',
+  outline: 'none',
+};
+
+export default PersonPicker;

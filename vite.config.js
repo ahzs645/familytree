@@ -13,6 +13,8 @@ export default defineConfig({
       input: {
         main: 'index.html',
         explorer: 'explorer.html',
+        charts: 'charts.html',
+        search: 'search.html',
       },
     },
   },
