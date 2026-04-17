@@ -31,6 +31,7 @@ export { FamilyRecord } from './FamilyRecord.js';
 export { PlaceRecord } from './PlaceRecord.js';
 export { EventRecord, PersonEventRecord, FamilyEventRecord } from './EventRecord.js';
 export { SourceRecord } from './SourceRecord.js';
+export { wrapRecord, personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel } from './wrap.js';
 export {
   Gender,
   ChangeType,

@@ -4,6 +4,7 @@
  * "spouse" (sideways). Returns a list of nodes with edge labels.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { personSummary } from '../models/index.js';
 
 export async function findRelationshipPath(startRecordName, endRecordName) {
   if (startRecordName === endRecordName) return { steps: [{ from: startRecordName, edge: 'self' }] };
@@ -64,19 +65,6 @@ async function getNeighbors(db, recordName) {
     }
   }
   return out;
-}
-
-function personSummary(record) {
-  const f = record.fields || {};
-  const first = f.firstName?.value || '';
-  const last = f.lastName?.value || '';
-  return {
-    recordName: record.recordName,
-    fullName: f.cached_fullName?.value || `${first} ${last}`.trim() || 'Unknown',
-    gender: f.gender?.value ?? 0,
-    birthDate: f.cached_birthDate?.value || null,
-    deathDate: f.cached_deathDate?.value || null,
-  };
 }
 
 /**

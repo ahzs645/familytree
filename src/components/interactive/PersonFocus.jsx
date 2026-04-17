@@ -1,29 +1,22 @@
 /**
  * Right-pane focus view for a single person — parents / partners / children / events,
- * each as a clickable chip that re-focuses the pane.
+ * each as a clickable chip that re-focuses the pane. Summaries arrive from
+ * buildPersonContext() already converted via models/wrap.js.
  */
 import React from 'react';
+import { Gender, lifeSpanLabel } from '../../models/index.js';
 
-function summaryOf(record) {
-  if (!record) return null;
-  const f = record.fields || {};
-  const first = f.firstName?.value || '';
-  const last = f.lastName?.value || '';
-  return {
-    recordName: record.recordName,
-    fullName: f.cached_fullName?.value || `${first} ${last}`.trim() || 'Unknown',
-    birthDate: f.cached_birthDate?.value || null,
-    deathDate: f.cached_deathDate?.value || null,
-    gender: f.gender?.value ?? 0,
-  };
-}
-
-function lifeSpan(p) {
-  if (!p) return '';
-  const b = (p.birthDate || '').slice(0, 4);
-  const d = (p.deathDate || '').slice(0, 4);
-  if (!b && !d) return '';
-  return `${b || '?'} – ${d || ''}`.trim();
+function genderLabel(g) {
+  switch (g) {
+    case Gender.Male:
+      return 'Male';
+    case Gender.Female:
+      return 'Female';
+    case Gender.Intersex:
+      return 'Intersex';
+    default:
+      return 'Unknown';
+  }
 }
 
 function Chip({ person, onPick }) {
@@ -36,7 +29,7 @@ function Chip({ person, onPick }) {
       onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
     >
       <div style={{ fontSize: 13, color: '#e2e4eb', fontWeight: 600 }}>{person.fullName}</div>
-      <div style={{ fontSize: 11, color: '#8b90a0' }}>{lifeSpan(person)}</div>
+      <div style={{ fontSize: 11, color: '#8b90a0' }}>{lifeSpanLabel(person)}</div>
     </div>
   );
 }
@@ -56,16 +49,18 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
   if (!context) {
     return <div style={{ padding: 40, color: '#8b90a0' }}>Pick a person from the list.</div>;
   }
-  const self = summaryOf(context.self);
-  const parents = context.parents.flatMap((fam) => [summaryOf(fam.man), summaryOf(fam.woman)]).filter(Boolean);
-  const partners = context.families.map((f) => summaryOf(f.partner)).filter(Boolean);
-  const children = context.families.flatMap((f) => f.children.map(summaryOf)).filter(Boolean);
+  const self = context.selfSummary;
+  const parents = context.parents.flatMap((fam) => [fam.man, fam.woman]).filter(Boolean);
+  const partners = context.families.map((f) => f.partner).filter(Boolean);
+  const children = context.families.flatMap((f) => f.children).filter(Boolean);
 
   return (
     <div style={scroll}>
       <div style={headerBlock}>
         <div style={{ fontSize: 22, color: '#e2e4eb', fontWeight: 700 }}>{self.fullName}</div>
-        <div style={{ fontSize: 13, color: '#8b90a0', marginTop: 4 }}>{lifeSpan(self) || 'No life dates'}</div>
+        <div style={{ fontSize: 13, color: '#8b90a0', marginTop: 4 }}>
+          {lifeSpanLabel(self) || 'No life dates'} · {genderLabel(self.gender)}
+        </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
           <button style={actionBtn} onClick={() => onOpenAncestorChart(self.recordName)}>Ancestor chart →</button>
           <button style={actionBtn} onClick={() => onOpenDescendantChart(self.recordName)}>Descendant chart →</button>
@@ -126,12 +121,13 @@ function chipStyles(placeholder, gender) {
     transition: 'filter 0.15s',
   };
   if (placeholder) return { ...base, background: '#161922', border: '1px dashed #2e3345', color: '#5b6072' };
-  const colors = [
-    ['#1f2330', '#3a4054'],
-    ['#1c2a44', '#3b6db8'],
-    ['#3a1c33', '#b8417a'],
-  ];
-  const [fill, stroke] = colors[gender ?? 0] || colors[0];
+  const colors = {
+    [Gender.Male]: ['#1c2a44', '#3b6db8'],
+    [Gender.Female]: ['#3a1c33', '#b8417a'],
+    [Gender.UnknownGender]: ['#1f2330', '#3a4054'],
+    [Gender.Intersex]: ['#2a1f3a', '#7c5cb8'],
+  };
+  const [fill, stroke] = colors[gender] || colors[Gender.UnknownGender];
   return { ...base, background: fill, border: `1px solid ${stroke}` };
 }
 

@@ -1,28 +1,10 @@
 /**
  * Pure traversal helpers over LocalDatabase for building tree/chart views.
- * All functions return plain objects so chart layouts can stay pure.
+ * All functions return plain objects (summaries) so chart layouts can stay pure.
+ * Uses models/wrap.js for record-to-summary conversion — single source of truth.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
-
-const PLACEHOLDER_NAME = 'Unknown';
-
-function personSummary(record) {
-  if (!record) return null;
-  const f = record.fields || {};
-  const first = f.firstName?.value || '';
-  const last = f.lastName?.value || '';
-  const fullName = f.cached_fullName?.value || `${first} ${last}`.trim() || PLACEHOLDER_NAME;
-  return {
-    recordName: record.recordName,
-    firstName: first,
-    lastName: last,
-    fullName,
-    gender: f.gender?.value ?? 0,
-    birthDate: f.cached_birthDate?.value || null,
-    deathDate: f.cached_deathDate?.value || null,
-    thumbnail: f.thumbnailFileIdentifier?.value || null,
-  };
-}
+import { personSummary } from '../models/index.js';
 
 /**
  * Build an ancestor pedigree tree to a given depth.
@@ -50,7 +32,7 @@ export async function buildAncestorTree(rootRecordName, maxGenerations = 5) {
 
 /**
  * Build a descendant tree to a given depth.
- * Returns nested { person, partner, children: [] }.
+ * Returns nested { person, unions: [{ partner, children }] }.
  */
 export async function buildDescendantTree(rootRecordName, maxGenerations = 4) {
   const db = getLocalDatabase();

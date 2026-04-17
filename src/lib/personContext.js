@@ -1,8 +1,11 @@
 /**
  * Build a "context" bundle for a single person — the data needed to render
  * their interactive-tree focus view: parents, partners, children, events.
+ * Summaries go through models/wrap.js so Gender enum values and name formatting
+ * stay consistent with the rest of the app.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { personSummary, familySummary } from '../models/index.js';
 
 export async function buildPersonContext(recordName) {
   const db = getLocalDatabase();
@@ -18,8 +21,19 @@ export async function buildPersonContext(recordName) {
 
   return {
     self,
-    parents, // [{ family, man, woman }]
-    families, // [{ family, partner, children }]
+    selfSummary: personSummary(self),
+    parents: parents.map((fam) => ({
+      family: fam.family,
+      familySummary: familySummary(fam.family),
+      man: personSummary(fam.man),
+      woman: personSummary(fam.woman),
+    })),
+    families: families.map((fam) => ({
+      family: fam.family,
+      familySummary: familySummary(fam.family),
+      partner: personSummary(fam.partner),
+      children: fam.children.map(personSummary),
+    })),
     events: personEvents.records || [],
     facts: personFacts.records || [],
   };
@@ -43,7 +57,7 @@ export async function getSiblings(recordName) {
       if (!childRef || seen.has(childRef)) continue;
       seen.add(childRef);
       const child = await db.getRecord(childRef);
-      if (child) siblings.push(child);
+      if (child) siblings.push(personSummary(child));
     }
   }
   return siblings;

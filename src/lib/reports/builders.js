@@ -1,23 +1,33 @@
 /**
  * Narrative builders — given a person/family record, produce a report (AST).
- * Data shaping only; no rendering.
+ * Data shaping only; no rendering. All person/family formatting goes through
+ * models/wrap.js so output stays consistent with the rest of the app.
  */
 import { buildAncestorTree, buildDescendantTree } from '../treeQuery.js';
 import { buildPersonContext } from '../personContext.js';
+import { personSummary, lifeSpanLabel, Gender } from '../../models/index.js';
 import { block, emptyReport } from './ast.js';
 
-function personLabel(p) {
-  if (!p) return 'Unknown';
-  const f = p.fields || {};
-  return f.cached_fullName?.value || `${f.firstName?.value || ''} ${f.lastName?.value || ''}`.trim() || 'Unknown';
+function nameOf(summaryOrPerson) {
+  return summaryOrPerson?.fullName || 'Unknown';
 }
 
-function lifeSpan(p) {
-  const f = p?.fields || {};
-  const b = (f.cached_birthDate?.value || '').slice(0, 4);
-  const d = (f.cached_deathDate?.value || '').slice(0, 4);
-  if (!b && !d) return '';
-  return `(${b || '?'} – ${d || ''})`.trim();
+function spanAnnotated(summary) {
+  const label = lifeSpanLabel(summary);
+  return label ? `(${label})` : '';
+}
+
+function genderLabel(g) {
+  switch (g) {
+    case Gender.Male:
+      return 'Male';
+    case Gender.Female:
+      return 'Female';
+    case Gender.Intersex:
+      return 'Intersex';
+    default:
+      return 'Unknown';
+  }
 }
 
 /**
@@ -26,27 +36,25 @@ function lifeSpan(p) {
 export async function buildPersonSummary(recordName) {
   const ctx = await buildPersonContext(recordName);
   if (!ctx) return emptyReport('Person not found');
-  const self = ctx.self;
-  const name = personLabel(self);
-  const report = emptyReport(`Person Summary — ${name}`);
-  const f = self.fields || {};
+  const self = ctx.selfSummary;
+  const report = emptyReport(`Person Summary — ${nameOf(self)}`);
 
-  report.blocks.push(block.title(name, 1));
-  if (lifeSpan(self)) report.blocks.push(block.paragraph(lifeSpan(self)));
+  report.blocks.push(block.title(nameOf(self), 1));
+  if (lifeSpanLabel(self)) report.blocks.push(block.paragraph(lifeSpanLabel(self)));
   report.blocks.push(block.spacer(6));
 
   const vitals = [];
-  if (f.cached_birthDate?.value) vitals.push(`Born: ${f.cached_birthDate.value}`);
-  if (f.cached_deathDate?.value) vitals.push(`Died: ${f.cached_deathDate.value}`);
-  vitals.push(`Gender: ${['Unknown', 'Male', 'Female'][f.gender?.value ?? 0]}`);
+  if (self.birthDate) vitals.push(`Born: ${self.birthDate}`);
+  if (self.deathDate) vitals.push(`Died: ${self.deathDate}`);
+  vitals.push(`Gender: ${genderLabel(self.gender)}`);
   if (vitals.length > 0) report.blocks.push(block.list(vitals));
 
   if (ctx.parents.length > 0) {
     report.blocks.push(block.title('Parents', 2));
     const items = [];
     for (const fam of ctx.parents) {
-      if (fam.man) items.push(`Father: ${personLabel(fam.man)} ${lifeSpan(fam.man)}`);
-      if (fam.woman) items.push(`Mother: ${personLabel(fam.woman)} ${lifeSpan(fam.woman)}`);
+      if (fam.man) items.push(`Father: ${nameOf(fam.man)} ${spanAnnotated(fam.man)}`.trim());
+      if (fam.woman) items.push(`Mother: ${nameOf(fam.woman)} ${spanAnnotated(fam.woman)}`.trim());
     }
     report.blocks.push(block.list(items));
   }
@@ -54,10 +62,9 @@ export async function buildPersonSummary(recordName) {
   if (ctx.families.length > 0) {
     report.blocks.push(block.title('Families', 2));
     for (const fam of ctx.families) {
-      const partner = personLabel(fam.partner);
-      report.blocks.push(block.title(`With ${partner} ${lifeSpan(fam.partner)}`, 3));
+      report.blocks.push(block.title(`With ${nameOf(fam.partner)} ${spanAnnotated(fam.partner)}`.trim(), 3));
       if (fam.children.length > 0) {
-        report.blocks.push(block.list(fam.children.map((c) => `${personLabel(c)} ${lifeSpan(c)}`)));
+        report.blocks.push(block.list(fam.children.map((c) => `${nameOf(c)} ${spanAnnotated(c)}`.trim())));
       } else {
         report.blocks.push(block.paragraph('No children recorded.'));
       }
@@ -87,7 +94,7 @@ export async function buildPersonSummary(recordName) {
 export async function buildAncestorNarrative(recordName, generations = 5) {
   const tree = await buildAncestorTree(recordName, generations);
   if (!tree) return emptyReport('Person not found');
-  const report = emptyReport(`Ancestors of ${tree.person?.fullName || 'Unknown'}`);
+  const report = emptyReport(`Ancestors of ${nameOf(tree.person)}`);
   report.blocks.push(block.title(report.title, 1));
 
   function line(node) {
@@ -134,24 +141,22 @@ function relationNameAt(gen, path) {
 export async function buildFamilyGroupSheet(recordName) {
   const ctx = await buildPersonContext(recordName);
   if (!ctx || ctx.families.length === 0) return emptyReport('No families to summarize');
-  const report = emptyReport(`Family Group Sheet — ${personLabel(ctx.self)}`);
+  const self = ctx.selfSummary;
+  const report = emptyReport(`Family Group Sheet — ${nameOf(self)}`);
   report.blocks.push(block.title(report.title, 1));
 
   for (const fam of ctx.families) {
-    const partner = fam.partner;
-    report.blocks.push(block.title(`${personLabel(ctx.self)} & ${personLabel(partner)}`, 2));
-    const marriage = fam.family.fields?.cached_marriageDate?.value;
-    if (marriage) report.blocks.push(block.paragraph(`Married: ${marriage}`));
+    report.blocks.push(block.title(`${nameOf(self)} & ${nameOf(fam.partner)}`, 2));
+    if (fam.familySummary?.marriageDate) {
+      report.blocks.push(block.paragraph(`Married: ${fam.familySummary.marriageDate}`));
+    }
 
-    const rows = fam.children.map((c) => {
-      const f = c.fields || {};
-      return [
-        personLabel(c),
-        ['Unknown', 'Male', 'Female'][f.gender?.value ?? 0],
-        f.cached_birthDate?.value || '',
-        f.cached_deathDate?.value || '',
-      ];
-    });
+    const rows = fam.children.map((c) => [
+      nameOf(c),
+      genderLabel(c.gender),
+      c.birthDate || '',
+      c.deathDate || '',
+    ]);
     if (rows.length > 0) {
       report.blocks.push(block.table(['Child', 'Gender', 'Born', 'Died'], rows));
     } else {
@@ -167,19 +172,19 @@ export async function buildFamilyGroupSheet(recordName) {
 export async function buildDescendantNarrative(recordName, generations = 4) {
   const tree = await buildDescendantTree(recordName, generations);
   if (!tree) return emptyReport('Person not found');
-  const report = emptyReport(`Descendants of ${tree.person?.fullName || 'Unknown'}`);
+  const report = emptyReport(`Descendants of ${nameOf(tree.person)}`);
   report.blocks.push(block.title(report.title, 1));
 
   function visit(node, gen) {
     if (!node || !node.person || gen > generations) return;
     const header = gen === 0 ? 'Proband' : `Generation ${gen}`;
-    report.blocks.push(block.title(`${header}: ${node.person.fullName}`, gen === 0 ? 2 : 3));
+    report.blocks.push(block.title(`${header}: ${nameOf(node.person)}`, gen === 0 ? 2 : 3));
     for (const u of node.unions) {
       if (u.partner) {
-        report.blocks.push(block.paragraph(`Married ${u.partner.fullName}`));
+        report.blocks.push(block.paragraph(`Married ${nameOf(u.partner)}`));
       }
       if (u.children.length > 0) {
-        report.blocks.push(block.list(u.children.map((c) => c.person?.fullName || 'Unknown')));
+        report.blocks.push(block.list(u.children.map((c) => nameOf(c.person))));
         for (const c of u.children) visit(c, gen + 1);
       }
     }

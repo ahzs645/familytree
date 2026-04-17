@@ -5,6 +5,7 @@
  * templates feature). Pass a partial override to `mergeTheme(base, override)`.
  */
 
+// Gender values follow src/models/constants.js: Male=0, Female=1, UnknownGender=2, Intersex=3
 export const DEFAULT_THEME = {
   id: 'default-dark',
   name: 'Default (Dark)',
@@ -20,9 +21,10 @@ export const DEFAULT_THEME = {
   placeholderFill: '#161922',
   placeholderStroke: '#2e3345',
   gender: {
-    0: { fill: '#1f2330', stroke: '#3a4054' }, // unknown
-    1: { fill: '#1c2a44', stroke: '#3b6db8' }, // male
-    2: { fill: '#3a1c33', stroke: '#b8417a' }, // female
+    0: { fill: '#1c2a44', stroke: '#3b6db8' }, // Male
+    1: { fill: '#3a1c33', stroke: '#b8417a' }, // Female
+    2: { fill: '#1f2330', stroke: '#3a4054' }, // UnknownGender
+    3: { fill: '#2a1f3a', stroke: '#7c5cb8' }, // Intersex
   },
 };
 
@@ -37,9 +39,10 @@ export const LIGHT_THEME = {
   placeholderFill: '#ffffff',
   placeholderStroke: '#dfe2eb',
   gender: {
-    0: { fill: '#eef0f6', stroke: '#bfc4d4' },
-    1: { fill: '#dfeaff', stroke: '#5b8be0' },
-    2: { fill: '#fbe1ee', stroke: '#cc6499' },
+    0: { fill: '#dfeaff', stroke: '#5b8be0' }, // Male
+    1: { fill: '#fbe1ee', stroke: '#cc6499' }, // Female
+    2: { fill: '#eef0f6', stroke: '#bfc4d4' }, // Unknown
+    3: { fill: '#ece4f6', stroke: '#9374c7' }, // Intersex
   },
 };
 
@@ -54,9 +57,10 @@ export const SEPIA_THEME = {
   placeholderFill: '#fbf6e8',
   placeholderStroke: '#cdb898',
   gender: {
-    0: { fill: '#ece1c4', stroke: '#a89172' },
-    1: { fill: '#e0d2ad', stroke: '#7a6038' },
-    2: { fill: '#e9cfb4', stroke: '#a26938' },
+    0: { fill: '#e0d2ad', stroke: '#7a6038' }, // Male
+    1: { fill: '#e9cfb4', stroke: '#a26938' }, // Female
+    2: { fill: '#ece1c4', stroke: '#a89172' }, // Unknown
+    3: { fill: '#ddcdb3', stroke: '#85683f' }, // Intersex
   },
 };
 

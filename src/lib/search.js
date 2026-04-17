@@ -9,6 +9,7 @@
  * Each entity type exposes its own searchable fields via `SEARCH_FIELDS`.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { Gender } from '../models/index.js';
 
 export const ENTITY_TYPES = [
   { id: 'Person', label: 'Persons' },
@@ -24,7 +25,17 @@ export const SEARCH_FIELDS = {
     { id: 'firstName', label: 'First Name', type: 'text' },
     { id: 'lastName', label: 'Last Name', type: 'text' },
     { id: 'cached_fullName', label: 'Full Name', type: 'text' },
-    { id: 'gender', label: 'Gender', type: 'enum', options: [{ value: 0, label: 'Unknown' }, { value: 1, label: 'Male' }, { value: 2, label: 'Female' }] },
+    {
+      id: 'gender',
+      label: 'Gender',
+      type: 'enum',
+      options: [
+        { value: Gender.Male, label: 'Male' },
+        { value: Gender.Female, label: 'Female' },
+        { value: Gender.UnknownGender, label: 'Unknown' },
+        { value: Gender.Intersex, label: 'Intersex' },
+      ],
+    },
     { id: 'cached_birthDate', label: 'Birth Date', type: 'date' },
     { id: 'cached_deathDate', label: 'Death Date', type: 'date' },
     { id: 'thumbnailFileIdentifier', label: 'Has Photo', type: 'presence' },
