@@ -317,8 +317,8 @@ export class MFTPKGImporter {
         }
         if (r.CONCLUSION_NAME) f.eventType = field(r.CONCLUSION_NAME);
         if (r.ZDATE) f.date = field(r.ZDATE);
-        if (r.ZASSIGNEDPLACE) f.place = ref('place', r.ZASSIGNEDPLACE);
-        if (r.ZUSERDESCRIPTION1) f.description = field(r.ZUSERDESCRIPTION1);
+        if (r.ZASSIGNEDPLACE) f.assignedPlace = ref('place', r.ZASSIGNEDPLACE);
+        if (r.ZUSERDESCRIPTION1) f.userDescription = field(r.ZUSERDESCRIPTION1);
         if (r.ZCAUSE) f.cause = field(r.ZCAUSE);
         if (r.ZVALUE) f.value = field(r.ZVALUE);
         if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
@@ -346,7 +346,7 @@ export class MFTPKGImporter {
         }
         if (r.CONCLUSION_NAME) f.eventType = field(r.CONCLUSION_NAME);
         if (r.ZDATE) f.date = field(r.ZDATE);
-        if (r.ZASSIGNEDPLACE) f.place = ref('place', r.ZASSIGNEDPLACE);
+        if (r.ZASSIGNEDPLACE) f.assignedPlace = ref('place', r.ZASSIGNEDPLACE);
         if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
         addRecord(id, 'FamilyEvent', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
       }
@@ -385,6 +385,7 @@ export class MFTPKGImporter {
       const rows = db.exec(`
         SELECT Z_PK, Z_ENT, ZTYPENAME, ZTYPENAMELOCALIZATIONKEY, ZUNIQUEID,
                ZISENABLED, ZISUSERCREATED, ZORDER, ZGEDCOMTAG, ZIDENTIFIER,
+               ZCOMPATIBLEASSOCIATEDCONTAINERCLASSNAME, ZINVERTEDTYPENAME,
                HEX(ZICONPNGDATA) as ICON_HEX
         FROM ZCONCLUSIONTYPE
       `);
@@ -403,6 +404,8 @@ export class MFTPKGImporter {
           if (r.ZISUSERCREATED !== null) fields.isUserCreated = field(r.ZISUSERCREATED, 'INT64');
           if (r.ZORDER !== null) fields.order = field(r.ZORDER, 'DOUBLE');
           if (r.ZGEDCOMTAG) fields.gedcomTag = field(r.ZGEDCOMTAG);
+          if (r.ZCOMPATIBLEASSOCIATEDCONTAINERCLASSNAME) fields.compatibleAssociatedContainerClassName = field(r.ZCOMPATIBLEASSOCIATEDCONTAINERCLASSNAME);
+          if (r.ZINVERTEDTYPENAME) fields.invertedTypeName = field(r.ZINVERTEDTYPENAME);
           if (r.ICON_HEX) {
             // Convert hex to base64 for the icon PNG
             const bytes = new Uint8Array(r.ICON_HEX.match(/.{2}/g).map(h => parseInt(h, 16)));
@@ -450,7 +453,10 @@ export class MFTPKGImporter {
           const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
           const id = makeId('place', r.Z_PK);
           const fields = {};
-          if (r.ZCACHED_NORMALLOCATIONSTRING) fields.placeName = field(r.ZCACHED_NORMALLOCATIONSTRING);
+          if (r.ZCACHED_NORMALLOCATIONSTRING) {
+            fields.placeName = field(r.ZCACHED_NORMALLOCATIONSTRING);
+            fields.place = field(r.ZCACHED_NORMALLOCATIONSTRING);
+          }
           if (r.ZCACHED_SHORTLOCATIONSTRING) fields.cached_shortLocationString = field(r.ZCACHED_SHORTLOCATIONSTRING);
           if (r.ZCACHED_STANDARDIZEDLOCATIONSTRING) fields.cached_standardizedLocationString = field(r.ZCACHED_STANDARDIZEDLOCATIONSTRING);
           if (r.ZUNIQUEID) fields.uniqueID = field(r.ZUNIQUEID);

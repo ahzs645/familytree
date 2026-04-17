@@ -191,8 +191,8 @@ for (const ev of personEvents) {
   }
   if (ev.CONCLUSION_NAME) f.eventType = field(ev.CONCLUSION_NAME);
   if (ev.ZDATE) f.date = field(ev.ZDATE);
-  if (ev.ZASSIGNEDPLACE) f.place = ref('place', ev.ZASSIGNEDPLACE);
-  if (ev.ZUSERDESCRIPTION1) f.description = field(ev.ZUSERDESCRIPTION1);
+  if (ev.ZASSIGNEDPLACE) f.assignedPlace = ref('place', ev.ZASSIGNEDPLACE);
+  if (ev.ZUSERDESCRIPTION1) f.userDescription = field(ev.ZUSERDESCRIPTION1);
   if (ev.ZCAUSE) f.cause = field(ev.ZCAUSE);
   if (ev.ZVALUE) f.value = field(ev.ZVALUE);
   if (ev.ZUNIQUEID) f.uniqueID = field(ev.ZUNIQUEID);
@@ -227,7 +227,7 @@ for (const ev of familyEvents) {
   }
   if (ev.CONCLUSION_NAME) f.eventType = field(ev.CONCLUSION_NAME);
   if (ev.ZDATE) f.date = field(ev.ZDATE);
-  if (ev.ZASSIGNEDPLACE) f.place = ref('place', ev.ZASSIGNEDPLACE);
+  if (ev.ZASSIGNEDPLACE) f.assignedPlace = ref('place', ev.ZASSIGNEDPLACE);
   if (ev.ZUNIQUEID) f.uniqueID = field(ev.ZUNIQUEID);
 }
 console.log(`  ${familyEvents.length} family events`);
@@ -266,6 +266,7 @@ console.log('Extracting conclusion types...');
   const ctypes = db.prepare(`
     SELECT Z_PK, Z_ENT, ZTYPENAME, ZTYPENAMELOCALIZATIONKEY, ZUNIQUEID,
            ZISENABLED, ZISUSERCREATED, ZORDER, ZGEDCOMTAG, ZIDENTIFIER,
+           ZCOMPATIBLEASSOCIATEDCONTAINERCLASSNAME, ZINVERTEDTYPENAME,
            HEX(ZICONPNGDATA) as ICON_HEX
     FROM ZCONCLUSIONTYPE
   `).all();
@@ -283,6 +284,8 @@ console.log('Extracting conclusion types...');
     if (ct.ZISUSERCREATED !== null) f.isUserCreated = field(ct.ZISUSERCREATED, 'INT64');
     if (ct.ZORDER !== null) f.order = field(ct.ZORDER, 'DOUBLE');
     if (ct.ZGEDCOMTAG) f.gedcomTag = field(ct.ZGEDCOMTAG);
+    if (ct.ZCOMPATIBLEASSOCIATEDCONTAINERCLASSNAME) f.compatibleAssociatedContainerClassName = field(ct.ZCOMPATIBLEASSOCIATEDCONTAINERCLASSNAME);
+    if (ct.ZINVERTEDTYPENAME) f.invertedTypeName = field(ct.ZINVERTEDTYPENAME);
     if (ct.ICON_HEX) {
       // Convert hex to base64 for the icon PNG
       const buf = Buffer.from(ct.ICON_HEX, 'hex');
@@ -339,7 +342,11 @@ for (const pl of places) {
     modified: { timestamp: Date.now() },
   };
   const f = records[id].fields;
-  if (pl.ZCACHED_NORMALLOCATIONSTRING) f.placeName = field(pl.ZCACHED_NORMALLOCATIONSTRING);
+  if (pl.ZCACHED_NORMALLOCATIONSTRING) {
+    f.placeName = field(pl.ZCACHED_NORMALLOCATIONSTRING);
+    // The app reads place via fieldValue("place"), not "placeName"
+    f.place = field(pl.ZCACHED_NORMALLOCATIONSTRING);
+  }
   if (pl.ZCACHED_SHORTLOCATIONSTRING) f.cached_shortLocationString = field(pl.ZCACHED_SHORTLOCATIONSTRING);
   if (pl.ZCACHED_STANDARDIZEDLOCATIONSTRING) f.cached_standardizedLocationString = field(pl.ZCACHED_STANDARDIZEDLOCATIONSTRING);
   if (pl.ZUNIQUEID) f.uniqueID = field(pl.ZUNIQUEID);
