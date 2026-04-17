@@ -162,6 +162,12 @@
       #root { display: none; }
       body.app-mode #root { display: block; }
       body.app-mode .landing { display: none; }
+      /* Reset to light theme when the CloudTreeWeb app is active */
+      body.app-mode {
+        background: #ffffff;
+        color: #333333;
+        font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+      }
     </style>
   </head>
   <body>
