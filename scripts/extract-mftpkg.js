@@ -367,6 +367,32 @@ try {
   console.log(`  ${stmpls.length} source templates`);
 } catch (e) { console.log('  SourceTemplates: skipped'); }
 
+// ── Extract ChangeLogEntries ──
+console.log('Extracting change log entries...');
+try {
+  const cles = db.prepare(`
+    SELECT Z_PK, ZOBJECTENTITYNAME, ZOBJECTNAMEKEY, ZOBJECTNAMEKEYVALUESFORFORMATSTRING,
+           ZOBJECTUNIQUEID, ZUNIQUEID, ZEARLIESTCHANGEDATE, ZLATESTCHANGEDATE
+    FROM ZCHANGELOGENTRY
+  `).all();
+  for (const c of cles) {
+    const id = makeId('changelogentry', c.Z_PK);
+    records[id] = { recordType: 'ChangeLogEntry', recordName: id, fields: {},
+      created: { timestamp: coreDataTimestamp(c.ZEARLIESTCHANGEDATE) || Date.now() },
+      modified: { timestamp: coreDataTimestamp(c.ZLATESTCHANGEDATE) || Date.now() } };
+    const f = records[id].fields;
+    if (c.ZOBJECTENTITYNAME) f.objectEntityName = field(c.ZOBJECTENTITYNAME);
+    if (c.ZOBJECTNAMEKEY) f.objectNameKey = field(c.ZOBJECTNAMEKEY);
+    if (c.ZOBJECTNAMEKEYVALUESFORFORMATSTRING) f.objectNameKeyValuesForFormatString = field(c.ZOBJECTNAMEKEYVALUESFORFORMATSTRING);
+    if (c.ZOBJECTUNIQUEID) f.objectUniqueID = field(c.ZOBJECTUNIQUEID);
+    if (c.ZUNIQUEID) f.uniqueID = field(c.ZUNIQUEID);
+    if (c.ZEARLIESTCHANGEDATE) f.earliestChangeDate = field(coreDataTimestamp(c.ZEARLIESTCHANGEDATE), 'TIMESTAMP');
+    if (c.ZLATESTCHANGEDATE) f.latestChangeDate = field(coreDataTimestamp(c.ZLATESTCHANGEDATE), 'TIMESTAMP');
+    f.changeDate = f.latestChangeDate || f.earliestChangeDate;
+  }
+  console.log(`  ${cles.length} change log entries`);
+} catch (e) { console.log('  ChangeLogEntries: skipped (' + e.message + ')'); }
+
 // ── Extract Places (Z_ENT = 28) ──
 console.log('Extracting places...');
 const places = db.prepare(`
@@ -520,7 +546,7 @@ try {
 // ── Extract PlaceTemplates, Keys, KeyRelations ──
 console.log('Extracting place templates...');
 const ptTables = [
-  { table: 'ZPLACETEMPLATE', type: 'PlaceTemplate', cols: 'Z_PK, ZNAME, ZCOUNTRYIDENTIFIER, ZUNIQUEID' },
+  { table: 'ZPLACETEMPLATE', type: 'PlaceTemplate', cols: 'Z_PK, ZNAME, ZCOUNTRYIDENTIFIER, ZUNIQUEID, ZLOCALIZEABLENAMEKEY' },
   { table: 'ZPLACETEMPLATEKEY', type: 'PlaceTemplateKey', cols: 'Z_PK, ZINTERNATIONALNAME, ZLOCALNAME, ZUNIQUEID' },
   { table: 'ZPLACETEMPLATEKEYRELATION', type: 'PlaceTemplateKeyRelation', cols: 'Z_PK, ZTEMPLATE, ZTEMPLATEKEY, ZUNIQUEID, ZORDER' },
 ];
@@ -542,6 +568,12 @@ for (const t of ptTables) {
       if (r.ZINTERNATIONALNAME) f.internationalName = field(r.ZINTERNATIONALNAME);
       if (r.ZLOCALNAME) f.localName = field(r.ZLOCALNAME);
       if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+      if (r.ZLOCALIZEABLENAMEKEY) f.localizeableNameKey = field(r.ZLOCALIZEABLENAMEKEY);
+      // Derive name from uniqueID if not present (PlaceTemplate_Norway -> Norway)
+      if (!r.ZNAME && r.ZUNIQUEID && t.type === 'PlaceTemplate') {
+        const derivedName = r.ZUNIQUEID.replace('PlaceTemplate_', '').replace(/_/g, ' ');
+        f.name = field(derivedName);
+      }
       if (r.ZTEMPLATE) f.template = ref('placetemplate', r.ZTEMPLATE);
       if (r.ZTEMPLATEKEY) f.templateKey = ref('placetemplatekey', r.ZTEMPLATEKEY);
       if (r.ZORDER !== undefined && r.ZORDER !== null) f.order = field(r.ZORDER, 'DOUBLE');
