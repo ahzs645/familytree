@@ -280,7 +280,7 @@ export function ChartsApp() {
           <FanChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} />
         )}
         {chartType === 'relationship' && (
-          <RelationshipPathChart result={relationshipResult} onPersonClick={onPersonClick} theme={theme} />
+          <RelationshipPathChart result={relationshipResult} secondPicked={!!secondId} onPersonClick={onPersonClick} theme={theme} />
         )}
         {chartType === 'virtual' && (
           <div style={{ display: 'flex', height: '100%' }}>

@@ -21,6 +21,7 @@ export function Map({
   onClick,
   className = '',
   interactive = true,
+  projection,
 }) {
   const { theme } = useTheme();
   const containerRef = useRef(null);
@@ -31,13 +32,15 @@ export function Map({
   // Initialize map once.
   useEffect(() => {
     if (!containerRef.current) return;
-    const map = new maplibregl.Map({
+    const opts = {
       container: containerRef.current,
       style: theme === 'dark' ? STYLE_DARK : STYLE_LIGHT,
       center,
       zoom,
       interactive,
-    });
+    };
+    if (projection) opts.projection = projection;
+    const map = new maplibregl.Map(opts);
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.on('load', () => setReady(true));

@@ -21,3 +21,6 @@ public/sections/
 
 # Playwright
 test-results/
+
+# Local visual diff screenshots — personal data
+scripts/screenshots/

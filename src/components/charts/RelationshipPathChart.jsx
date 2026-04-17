@@ -16,12 +16,12 @@ const EDGE_GLYPH = {
   spouse: '↔ spouse',
 };
 
-export function RelationshipPathChart({ result, onPersonClick, theme = DEFAULT_THEME }) {
-  if (!result) {
-    return <div style={{ padding: 24, color: theme.textMuted }}>Pick two persons to find their relationship.</div>;
+export function RelationshipPathChart({ result, secondPicked, onPersonClick, theme = DEFAULT_THEME }) {
+  if (!secondPicked) {
+    return <div style={{ padding: 24, color: theme.textMuted }}>Pick a second person to compare against.</div>;
   }
-  if (!result.steps || result.steps.length === 0) {
-    return <div style={{ padding: 24, color: theme.textMuted }}>No connection found between these persons.</div>;
+  if (!result || !result.steps || result.steps.length === 0) {
+    return <div style={{ padding: 24, color: theme.textMuted }}>No connection found between these persons in the tree.</div>;
   }
 
   const stepWidth = theme.nodeWidth + STEP_GAP;

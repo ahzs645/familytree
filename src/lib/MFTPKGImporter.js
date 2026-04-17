@@ -466,6 +466,34 @@ export class MFTPKGImporter {
       }
     }
 
+    // ── Extract SourceRelations ──
+    // SourceRelation rows live in ZBASEOBJECT (Z_ENT=32 in a typical schema).
+    // ZSOURCE → Source Z_PK, ZSOURCECONTAINER → target Z_PK,
+    // Z11_SOURCECONTAINER → target's Z_ENT (discriminator, e.g. 14=Person, 25=PersonEvent).
+    if (entityMap.SourceRelation) {
+      for (const r of q(`
+        SELECT Z_PK, ZSOURCE, ZSOURCECONTAINER, Z11_SOURCECONTAINER, ZUNIQUEID,
+               ZPAGE, ZTEXT2, ZTEXT3, ZCHANGEDATE, ZCREATIONDATE
+        FROM ZBASEOBJECT WHERE Z_ENT = ${entityMap.SourceRelation}
+      `)) {
+        if (!r.ZSOURCE || !r.ZSOURCECONTAINER) continue;
+        const targetEntName = entityMap._names?.[r.Z11_SOURCECONTAINER];
+        if (!targetEntName) continue;
+        const id = makeId('sourcerelation', r.Z_PK);
+        const f = {};
+        f.source = ref('source', r.ZSOURCE);
+        f.target = ref(targetEntName.toLowerCase(), r.ZSOURCECONTAINER);
+        f.targetType = field(targetEntName);
+        if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+        if (r.ZPAGE) f.page = field(r.ZPAGE);
+        if (r.ZTEXT2) f.text = field(r.ZTEXT2);
+        if (r.ZTEXT3) f.citation = field(r.ZTEXT3);
+        if (r.ZCHANGEDATE) f.mft_changeDate = field(cdTs(r.ZCHANGEDATE), 'TIMESTAMP');
+        if (r.ZCREATIONDATE) f.mft_creationDate = field(cdTs(r.ZCREATIONDATE), 'TIMESTAMP');
+        addRecord(id, 'SourceRelation', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
+      }
+    }
+
     // ── Extract SourceTemplates ──
     for (const r of q('SELECT Z_PK, ZNAME, ZUNIQUEID FROM ZSOURCETEMPLATE')) {
       const id = r.ZUNIQUEID || makeId('sourcetemplate', r.Z_PK);

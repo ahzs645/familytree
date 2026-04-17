@@ -36,6 +36,8 @@ const ROUTES = [
   '/tree',
   '/charts',
   '/map',
+  '/globe',
+  '/saved-charts',
   '/maps-diagram',
   '/places',
   '/sources',

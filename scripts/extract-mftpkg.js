@@ -356,6 +356,44 @@ if (ENT.Source) {
   console.log(`  ${sources.length} sources`);
 }
 
+// ── Extract SourceRelations ──
+// Z_ENT=32 in a typical schema. ZSOURCE → Source, ZSOURCECONTAINER → target,
+// Z11_SOURCECONTAINER → target's Z_ENT (e.g. 14=Person, 25=PersonEvent).
+console.log('Extracting source relations...');
+if (ENT.SourceRelation) {
+  const rels = db.prepare(`
+    SELECT Z_PK, ZSOURCE, ZSOURCECONTAINER, Z11_SOURCECONTAINER, ZUNIQUEID,
+           ZPAGE, ZTEXT2, ZTEXT3, ZCHANGEDATE, ZCREATIONDATE
+    FROM ZBASEOBJECT WHERE Z_ENT = ?
+  `).all(ENT.SourceRelation);
+  let n = 0;
+  for (const r of rels) {
+    if (!r.ZSOURCE || !r.ZSOURCECONTAINER) continue;
+    const targetEntName = ENT_NAMES[r.Z11_SOURCECONTAINER];
+    if (!targetEntName) continue;
+    const id = makeId('sourcerelation', r.Z_PK);
+    records[id] = {
+      recordType: 'SourceRelation',
+      recordName: id,
+      fields: {},
+      created: { timestamp: coreDataTimestamp(r.ZCREATIONDATE) || Date.now() },
+      modified: { timestamp: coreDataTimestamp(r.ZCHANGEDATE) || Date.now() },
+    };
+    const f = records[id].fields;
+    f.source = ref('source', r.ZSOURCE);
+    f.target = ref(targetEntName.toLowerCase(), r.ZSOURCECONTAINER);
+    f.targetType = field(targetEntName);
+    if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+    if (r.ZPAGE) f.page = field(r.ZPAGE);
+    if (r.ZTEXT2) f.text = field(r.ZTEXT2);
+    if (r.ZTEXT3) f.citation = field(r.ZTEXT3);
+    if (r.ZCHANGEDATE) f.mft_changeDate = field(coreDataTimestamp(r.ZCHANGEDATE), 'TIMESTAMP');
+    if (r.ZCREATIONDATE) f.mft_creationDate = field(coreDataTimestamp(r.ZCREATIONDATE), 'TIMESTAMP');
+    n++;
+  }
+  console.log(`  ${n} source relations`);
+}
+
 // ── Extract SourceTemplates ──
 console.log('Extracting source templates...');
 try {

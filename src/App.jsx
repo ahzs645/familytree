@@ -24,7 +24,9 @@ const Sources = lazy(() => import('./routes/Sources.jsx'));
 const Events = lazy(() => import('./routes/Events.jsx'));
 const Media = lazy(() => import('./routes/Media.jsx'));
 const MapView = lazy(() => import('./routes/MapView.jsx'));
+const Globe = lazy(() => import('./routes/Globe.jsx'));
 const MapsDiagram = lazy(() => import('./routes/MapsDiagram.jsx'));
+const SavedCharts = lazy(() => import('./routes/SavedCharts.jsx'));
 const Statistics = lazy(() => import('./routes/Statistics.jsx'));
 const Plausibility = lazy(() => import('./routes/Plausibility.jsx'));
 const Maintenance = lazy(() => import('./routes/Maintenance.jsx'));
@@ -79,7 +81,9 @@ export function App() {
               <Route path="events" element={<L><Events /></L>} />
               <Route path="media" element={<L><Media /></L>} />
               <Route path="map" element={<L><MapView /></L>} />
+              <Route path="globe" element={<L><Globe /></L>} />
               <Route path="maps-diagram" element={<L><MapsDiagram /></L>} />
+              <Route path="saved-charts" element={<L><SavedCharts /></L>} />
               <Route path="statistics" element={<L><Statistics /></L>} />
               <Route path="plausibility" element={<L><Plausibility /></L>} />
               <Route path="maintenance" element={<L><Maintenance /></L>} />

@@ -12,6 +12,8 @@ const LINKS = [
   { to: '/', label: 'Home', end: true },
   { to: '/tree', label: 'Tree' },
   { to: '/charts', label: 'Charts' },
+  { to: '/saved-charts', label: 'Saved' },
+  { to: '/globe', label: 'Globe' },
   { to: '/map', label: 'Map' },
   { to: '/places', label: 'Places' },
   { to: '/sources', label: 'Sources' },

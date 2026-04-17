@@ -6,6 +6,17 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
+import { MiniTimeline } from '../MiniTimeline.jsx';
+
+function humanizeConclusionLabel(raw) {
+  if (!raw) return 'Event';
+  // "UniqueID_PersonEvent_Birth---ConclusionPersonEventType" → "Birth"
+  // "person-1234---Person" → ignored, use as-is
+  const stripped = String(raw).replace(/---.*$/, '');
+  const m = stripped.match(/UniqueID_(?:Person|Family)Event_(.+)$/) || stripped.match(/UniqueID_PersonFact_(.+)$/);
+  if (m) return m[1].replace(/([a-z])([A-Z])/g, '$1 $2');
+  return stripped.replace(/^UniqueID_/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
+}
 
 function genderLabel(g) {
   switch (g) {
@@ -111,17 +122,27 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
         {context.events.length === 0 ? (
           <div style={empty}>No events recorded.</div>
         ) : (
-          <table style={eventsTable}>
-            <tbody>
-              {context.events.map((e) => (
-                <tr key={e.recordName}>
-                  <td style={eventTypeCell}>{e.fields?.conclusionType?.value || e.fields?.eventType?.value || 'Event'}</td>
-                  <td style={eventDateCell}>{e.fields?.date?.value || '—'}</td>
-                  <td style={eventDescCell}>{e.fields?.description?.value || ''}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <div style={{ marginBottom: 12 }}>
+              <MiniTimeline
+                events={context.events.map((e) => ({
+                  label: humanizeConclusionLabel(e.fields?.conclusionType?.value || e.fields?.eventType?.value),
+                  date: e.fields?.date?.value,
+                }))}
+              />
+            </div>
+            <table style={eventsTable}>
+              <tbody>
+                {context.events.map((e) => (
+                  <tr key={e.recordName}>
+                    <td style={eventTypeCell}>{humanizeConclusionLabel(e.fields?.conclusionType?.value || e.fields?.eventType?.value)}</td>
+                    <td style={eventDateCell}>{e.fields?.date?.value || '—'}</td>
+                    <td style={eventDescCell}>{e.fields?.description?.value || ''}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
         )}
       </Section>
     </div>

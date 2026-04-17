@@ -55,6 +55,8 @@ const SHOTS = [
   { path: '/charts?type=fan', file: '07-charts-fan.png', wait: 1200 },
   { path: '/charts?type=virtual', file: '08-charts-virtual.png', wait: 1200 },
   { path: '/map', file: '09-map.png', wait: 2500 },
+  { path: '/globe', file: '09b-globe.png', wait: 3500 },
+  { path: '/saved-charts', file: '09c-saved-charts.png', wait: 800 },
   { path: '/maps-diagram', file: '10-maps-diagram.png', wait: 2500 },
   { path: '/places', file: '11-places.png', wait: 1200 },
   { path: '/sources', file: '12-sources.png', wait: 1200 },
