@@ -50,7 +50,9 @@ const RECORD_TYPE_MAP = {
   person: 'Person', family: 'Family', place: 'Place', source: 'Source',
   personevent: 'PersonEvent', familyevent: 'FamilyEvent',
   childrelation: 'ChildRelation', placetemplate: 'PlaceTemplate',
-  placetemplatekey: 'PlaceTemplateKey', treeinfo: 'FamilyTreeInformation',
+  placetemplatekey: 'PlaceTemplateKey', placekeyvalue: 'PlaceKeyValue',
+  coordinate: 'Coordinate', placedetail: 'PlaceDetail',
+  source: 'Source', sourcetemplate: 'SourceTemplate', treeinfo: 'FamilyTreeInformation',
 };
 
 function ref(targetType, pk) {
@@ -324,12 +326,54 @@ try {
   console.log(`  ${labelRels.length} label relations`);
 } catch (e) { console.log('  LabelRelations: skipped'); }
 
+// ── Extract Sources (Z_ENT = 10) ──
+console.log('Extracting sources...');
+if (ENT.Source) {
+  const sources = db.prepare(`
+    SELECT Z_PK, ZCACHED_TITLE, ZCACHED_DATE, ZTEXT, ZUNIQUEID, ZGEDCOMID,
+           ZTEMPLATE, ZCHANGEDATE, ZCREATIONDATE, ZISBOOKMARKED
+    FROM ZBASEOBJECT WHERE Z_ENT = ?
+  `).all(ENT.Source);
+  for (const s of sources) {
+    const id = makeId('source', s.Z_PK);
+    records[id] = { recordType: 'Source', recordName: id, fields: {},
+      created: { timestamp: coreDataTimestamp(s.ZCREATIONDATE) || Date.now() },
+      modified: { timestamp: coreDataTimestamp(s.ZCHANGEDATE) || Date.now() } };
+    const f = records[id].fields;
+    if (s.ZCACHED_TITLE) f.cached_title = field(s.ZCACHED_TITLE);
+    if (s.ZCACHED_TITLE) f.title = field(s.ZCACHED_TITLE);
+    if (s.ZCACHED_DATE) f.cached_date = field(s.ZCACHED_DATE);
+    if (s.ZTEXT) f.text = field(s.ZTEXT);
+    if (s.ZUNIQUEID) f.uniqueID = field(s.ZUNIQUEID);
+    if (s.ZGEDCOMID) f.gedcomID = field(s.ZGEDCOMID);
+    if (s.ZTEMPLATE) f.template = ref('sourcetemplate', s.ZTEMPLATE);
+    if (s.ZISBOOKMARKED) f.isBookmarked = field(s.ZISBOOKMARKED, 'INT64');
+    if (s.ZCHANGEDATE) f.mft_changeDate = field(coreDataTimestamp(s.ZCHANGEDATE), 'TIMESTAMP');
+    if (s.ZCREATIONDATE) f.mft_creationDate = field(coreDataTimestamp(s.ZCREATIONDATE), 'TIMESTAMP');
+  }
+  console.log(`  ${sources.length} sources`);
+}
+
+// ── Extract SourceTemplates ──
+console.log('Extracting source templates...');
+try {
+  const stmpls = db.prepare('SELECT Z_PK, ZNAME, ZUNIQUEID FROM ZSOURCETEMPLATE').all();
+  for (const st of stmpls) {
+    const id = st.ZUNIQUEID || makeId('sourcetemplate', st.Z_PK);
+    records[id] = { recordType: 'SourceTemplate', recordName: id, fields: {}, created: { timestamp: Date.now() }, modified: { timestamp: Date.now() } };
+    if (st.ZNAME) records[id].fields.name = field(st.ZNAME);
+    if (st.ZUNIQUEID) records[id].fields.uniqueID = field(st.ZUNIQUEID);
+  }
+  console.log(`  ${stmpls.length} source templates`);
+} catch (e) { console.log('  SourceTemplates: skipped'); }
+
 // ── Extract Places (Z_ENT = 28) ──
 console.log('Extracting places...');
 const places = db.prepare(`
   SELECT Z_PK, ZCACHED_NORMALLOCATIONSTRING, ZCACHED_SHORTLOCATIONSTRING,
          ZCACHED_STANDARDIZEDLOCATIONSTRING, ZUNIQUEID, ZTEMPLATE1,
-         ZCHANGEDATE, ZCREATIONDATE, ZGEONAMEID, ZALTERNATEPLACENAMES, ZCOORDINATE
+         ZCHANGEDATE, ZCREATIONDATE, ZGEONAMEID, ZALTERNATEPLACENAMES, ZCOORDINATE,
+         ZGEDCOMID, ZREFERENCENUMBERID
   FROM ZBASEOBJECT WHERE Z_ENT = ?
 `).all(ENT.Place);
 
@@ -407,10 +451,28 @@ for (const pl of places) {
   if (pl.ZTEMPLATE1) f.template = ref('placetemplate', pl.ZTEMPLATE1);
   if (pl.ZGEONAMEID) f.geonameID = field(pl.ZGEONAMEID);
   if (pl.ZALTERNATEPLACENAMES) f.alternateNames = field(pl.ZALTERNATEPLACENAMES);
+  if (pl.ZGEDCOMID) f.gedcomID = field(pl.ZGEDCOMID);
+  if (pl.ZREFERENCENUMBERID) f.referenceNumberID = field(pl.ZREFERENCENUMBERID);
   if (pl.ZCHANGEDATE) f.mft_changeDate = field(coreDataTimestamp(pl.ZCHANGEDATE), 'TIMESTAMP');
   if (pl.ZCREATIONDATE) f.mft_creationDate = field(coreDataTimestamp(pl.ZCREATIONDATE), 'TIMESTAMP');
 }
 console.log(`  ${places.length} places`);
+
+// ── Extract PlaceKeyValues ──
+console.log('Extracting place key values...');
+try {
+  const pkvs = db.prepare('SELECT Z_PK, ZPLACE, ZTEMPLATEKEY, ZVALUE, ZUNIQUEID FROM ZPLACEKEYVALUE').all();
+  for (const pkv of pkvs) {
+    const id = makeId('placekeyvalue', pkv.Z_PK);
+    records[id] = { recordType: 'PlaceKeyValue', recordName: id, fields: {}, created: { timestamp: Date.now() }, modified: { timestamp: Date.now() } };
+    const f = records[id].fields;
+    if (pkv.ZPLACE) f.place = ref('place', pkv.ZPLACE);
+    if (pkv.ZTEMPLATEKEY) f.templateKey = ref('placetemplatekey', pkv.ZTEMPLATEKEY);
+    if (pkv.ZVALUE) f.value = field(pkv.ZVALUE);
+    if (pkv.ZUNIQUEID) f.uniqueID = field(pkv.ZUNIQUEID);
+  }
+  console.log(`  ${pkvs.length} place key values`);
+} catch (e) { console.log('  PlaceKeyValues: skipped (' + e.message + ')'); }
 
 // ── Extract Coordinates ──
 console.log('Extracting coordinates...');

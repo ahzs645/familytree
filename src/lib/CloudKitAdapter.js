@@ -329,7 +329,7 @@ function createCloudKitDatabase(scope) {
               fields: {
                 databaseName: { value: treeName, type: 'STRING' },
                 name: { value: treeName, type: 'STRING' },
-                databaseVersion: { value: 7, type: 'INT64' },
+                databaseVersion: { value: 29, type: 'INT64' },
               },
               created: { timestamp: Date.now() },
               modified: { timestamp: Date.now() },

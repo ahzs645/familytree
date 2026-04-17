@@ -185,7 +185,8 @@ export class MFTPKGImporter {
       person: 'Person', family: 'Family', place: 'Place', source: 'Source',
       personevent: 'PersonEvent', familyevent: 'FamilyEvent',
       childrelation: 'ChildRelation', placetemplate: 'PlaceTemplate',
-      placetemplatekey: 'PlaceTemplateKey', treeinfo: 'FamilyTreeInformation',
+      placetemplatekey: 'PlaceTemplateKey', placekeyvalue: 'PlaceKeyValue',
+      coordinate: 'Coordinate', placedetail: 'PlaceDetail', treeinfo: 'FamilyTreeInformation',
     };
 
     function ref(targetType, pk) {
@@ -497,6 +498,17 @@ export class MFTPKGImporter {
         if (r.ZCHANGEDATE) f.mft_changeDate = field(cdTs(r.ZCHANGEDATE), 'TIMESTAMP');
         if (r.ZCREATIONDATE) f.mft_creationDate = field(cdTs(r.ZCREATIONDATE), 'TIMESTAMP');
         addRecord(id, 'Place', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
+      }
+
+      // Extract PlaceKeyValues
+      for (const r of q('SELECT Z_PK, ZPLACE, ZTEMPLATEKEY, ZVALUE, ZUNIQUEID FROM ZPLACEKEYVALUE')) {
+        const id = makeId('placekeyvalue', r.Z_PK);
+        const f = {};
+        if (r.ZPLACE) f.place = ref('place', r.ZPLACE);
+        if (r.ZTEMPLATEKEY) f.templateKey = ref('placetemplatekey', r.ZTEMPLATEKEY);
+        if (r.ZVALUE) f.value = field(r.ZVALUE);
+        if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+        addRecord(id, 'PlaceKeyValue', f);
       }
 
       // Extract coordinates
