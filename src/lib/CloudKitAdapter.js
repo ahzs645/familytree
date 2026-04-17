@@ -349,13 +349,14 @@ function createCloudKitDatabase(scope) {
       });
     },
 
-    saveRecords: function(records) {
+    saveRecords: function(records, options) {
       var promises = (records || []).map(function(r) {
         r.modified = { timestamp: Date.now() };
-        return idbPut(STORE_RECORDS, r);
+        r.recordChangeTag = 'local-' + Date.now();
+        return idbPut(STORE_RECORDS, r).then(function() { return r; });
       });
-      return Promise.all(promises).then(function() {
-        return { records: records, hasErrors: false };
+      return Promise.all(promises).then(function(saved) {
+        return { records: saved, hasErrors: false };
       });
     },
 
@@ -369,19 +370,44 @@ function createCloudKitDatabase(scope) {
       });
     },
 
-    newRecordsBatch: function() {
+    newRecordsBatch: function(options) {
       var ops = [];
       return {
-        create: function(r) { ops.push({ op: 'create', record: r }); return this; },
-        update: function(r) { ops.push({ op: 'update', record: r }); return this; },
-        delete: function(name) { ops.push({ op: 'delete', recordName: name }); return this; },
+        create: function(records) {
+          var arr = Array.isArray(records) ? records : [records];
+          arr.forEach(function(r) { ops.push({ op: 'create', record: r }); });
+          return this;
+        },
+        update: function(records) {
+          var arr = Array.isArray(records) ? records : [records];
+          arr.forEach(function(r) { ops.push({ op: 'update', record: r }); });
+          return this;
+        },
+        createOrUpdate: function(records) {
+          var arr = Array.isArray(records) ? records : [records];
+          arr.forEach(function(r) { ops.push({ op: 'createOrUpdate', record: r }); });
+          return this;
+        },
+        delete: function(records) {
+          var arr = Array.isArray(records) ? records : [records];
+          arr.forEach(function(r) {
+            var name = typeof r === 'string' ? r : (r.recordName || r);
+            ops.push({ op: 'delete', recordName: name });
+          });
+          return this;
+        },
         commit: function() {
+          var savedRecords = [];
           var promises = ops.map(function(o) {
             if (o.op === 'delete') return idbDelete(STORE_RECORDS, o.recordName);
-            return idbPut(STORE_RECORDS, o.record);
+            var rec = o.record;
+            rec.modified = { timestamp: Date.now() };
+            rec.recordChangeTag = 'local-' + Date.now();
+            savedRecords.push(rec);
+            return idbPut(STORE_RECORDS, rec);
           });
           return Promise.all(promises).then(function() {
-            return { records: [], hasErrors: false };
+            return { records: savedRecords, hasErrors: false };
           });
         },
       };
