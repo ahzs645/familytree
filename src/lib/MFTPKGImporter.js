@@ -186,7 +186,9 @@ export class MFTPKGImporter {
       personevent: 'PersonEvent', familyevent: 'FamilyEvent',
       childrelation: 'ChildRelation', placetemplate: 'PlaceTemplate',
       placetemplatekey: 'PlaceTemplateKey', placekeyvalue: 'PlaceKeyValue',
-      coordinate: 'Coordinate', placedetail: 'PlaceDetail', treeinfo: 'FamilyTreeInformation',
+      coordinate: 'Coordinate', placedetail: 'PlaceDetail',
+      source: 'Source', sourcetemplate: 'SourceTemplate',
+      changelogentry: 'ChangeLogEntry', treeinfo: 'FamilyTreeInformation',
     };
 
     function ref(targetType, pk) {
@@ -440,6 +442,58 @@ export class MFTPKGImporter {
       addRecord(id, 'LabelRelation', f);
     }
 
+    // ── Extract Sources ──
+    this._progress('extracting', 7, 14);
+    if (entityMap.Source) {
+      for (const r of q(`
+        SELECT Z_PK, ZCACHED_TITLE, ZCACHED_DATE, ZTEXT, ZUNIQUEID, ZGEDCOMID,
+               ZTEMPLATE, ZCHANGEDATE, ZCREATIONDATE, ZISBOOKMARKED
+        FROM ZBASEOBJECT WHERE Z_ENT = ${entityMap.Source}
+      `)) {
+        const id = makeId('source', r.Z_PK);
+        const f = {};
+        if (r.ZCACHED_TITLE) { f.cached_title = field(r.ZCACHED_TITLE); f.title = field(r.ZCACHED_TITLE); }
+        if (r.ZCACHED_DATE) f.cached_date = field(r.ZCACHED_DATE);
+        if (r.ZTEXT) f.text = field(r.ZTEXT);
+        if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+        if (r.ZGEDCOMID) f.gedcomID = field(r.ZGEDCOMID);
+        if (r.ZTEMPLATE) f.template = ref('sourcetemplate', r.ZTEMPLATE);
+        if (r.ZISBOOKMARKED) f.isBookmarked = field(r.ZISBOOKMARKED, 'INT64');
+        if (r.ZCHANGEDATE) f.mft_changeDate = field(cdTs(r.ZCHANGEDATE), 'TIMESTAMP');
+        if (r.ZCREATIONDATE) f.mft_creationDate = field(cdTs(r.ZCREATIONDATE), 'TIMESTAMP');
+        addRecord(id, 'Source', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
+      }
+    }
+
+    // ── Extract SourceTemplates ──
+    for (const r of q('SELECT Z_PK, ZNAME, ZUNIQUEID FROM ZSOURCETEMPLATE')) {
+      const id = r.ZUNIQUEID || makeId('sourcetemplate', r.Z_PK);
+      const f = {};
+      if (r.ZNAME) f.name = field(r.ZNAME);
+      if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+      addRecord(id, 'SourceTemplate', f);
+    }
+
+    // ── Extract ChangeLogEntries ──
+    this._progress('extracting', 8, 14);
+    for (const r of q(`
+      SELECT Z_PK, ZOBJECTENTITYNAME, ZOBJECTNAMEKEY, ZOBJECTNAMEKEYVALUESFORFORMATSTRING,
+             ZOBJECTUNIQUEID, ZUNIQUEID, ZEARLIESTCHANGEDATE, ZLATESTCHANGEDATE
+      FROM ZCHANGELOGENTRY
+    `)) {
+      const id = makeId('changelogentry', r.Z_PK);
+      const f = {};
+      if (r.ZOBJECTENTITYNAME) f.objectEntityName = field(r.ZOBJECTENTITYNAME);
+      if (r.ZOBJECTNAMEKEY) f.objectNameKey = field(r.ZOBJECTNAMEKEY);
+      if (r.ZOBJECTNAMEKEYVALUESFORFORMATSTRING) f.objectNameKeyValuesForFormatString = field(r.ZOBJECTNAMEKEYVALUESFORFORMATSTRING);
+      if (r.ZOBJECTUNIQUEID) f.objectUniqueID = field(r.ZOBJECTUNIQUEID);
+      if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+      if (r.ZEARLIESTCHANGEDATE) f.earliestChangeDate = field(cdTs(r.ZEARLIESTCHANGEDATE), 'TIMESTAMP');
+      if (r.ZLATESTCHANGEDATE) f.latestChangeDate = field(cdTs(r.ZLATESTCHANGEDATE), 'TIMESTAMP');
+      f.changeDate = f.latestChangeDate || f.earliestChangeDate;
+      addRecord(id, 'ChangeLogEntry', f, cdTs(r.ZEARLIESTCHANGEDATE), cdTs(r.ZLATESTCHANGEDATE));
+    }
+
     // ── Extract Places with components and coordinates ──
     this._progress('extracting', 8, 11);
     if (entityMap.Place) {
@@ -469,7 +523,8 @@ export class MFTPKGImporter {
       for (const r of q(`
         SELECT Z_PK, ZCACHED_NORMALLOCATIONSTRING, ZCACHED_SHORTLOCATIONSTRING,
                ZCACHED_STANDARDIZEDLOCATIONSTRING, ZUNIQUEID, ZTEMPLATE1,
-               ZCHANGEDATE, ZCREATIONDATE, ZGEONAMEID, ZALTERNATEPLACENAMES
+               ZCHANGEDATE, ZCREATIONDATE, ZGEONAMEID, ZALTERNATEPLACENAMES,
+               ZGEDCOMID, ZREFERENCENUMBERID
         FROM ZBASEOBJECT WHERE Z_ENT = ${entityMap.Place}
       `)) {
         const id = makeId('place', r.Z_PK);
@@ -495,6 +550,8 @@ export class MFTPKGImporter {
         if (r.ZTEMPLATE1) f.template = ref('placetemplate', r.ZTEMPLATE1);
         if (r.ZGEONAMEID) f.geonameID = field(r.ZGEONAMEID);
         if (r.ZALTERNATEPLACENAMES) f.alternateNames = field(r.ZALTERNATEPLACENAMES);
+        if (r.ZGEDCOMID) f.gedcomID = field(r.ZGEDCOMID);
+        if (r.ZREFERENCENUMBERID) f.referenceNumberID = field(r.ZREFERENCENUMBERID);
         if (r.ZCHANGEDATE) f.mft_changeDate = field(cdTs(r.ZCHANGEDATE), 'TIMESTAMP');
         if (r.ZCREATIONDATE) f.mft_creationDate = field(cdTs(r.ZCREATIONDATE), 'TIMESTAMP');
         addRecord(id, 'Place', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
@@ -545,7 +602,7 @@ export class MFTPKGImporter {
     this._progress('extracting', 8, 11);
     {
       const tables = [
-        { table: 'ZPLACETEMPLATE', type: 'PlaceTemplate', cols: 'Z_PK, ZNAME, ZCOUNTRYIDENTIFIER, ZUNIQUEID' },
+        { table: 'ZPLACETEMPLATE', type: 'PlaceTemplate', cols: 'Z_PK, ZNAME, ZCOUNTRYIDENTIFIER, ZUNIQUEID, ZLOCALIZEABLENAMEKEY' },
         { table: 'ZPLACETEMPLATEKEY', type: 'PlaceTemplateKey', cols: 'Z_PK, ZINTERNATIONALNAME, ZLOCALNAME, ZUNIQUEID' },
         { table: 'ZPLACETEMPLATEKEYRELATION', type: 'PlaceTemplateKeyRelation', cols: 'Z_PK, ZTEMPLATE, ZTEMPLATEKEY, ZUNIQUEID, ZORDER' },
       ];
@@ -563,9 +620,14 @@ export class MFTPKGImporter {
               if (r.ZINTERNATIONALNAME) fields.internationalName = field(r.ZINTERNATIONALNAME);
               if (r.ZLOCALNAME) fields.localName = field(r.ZLOCALNAME);
               if (r.ZUNIQUEID) fields.uniqueID = field(r.ZUNIQUEID);
+              if (r.ZLOCALIZEABLENAMEKEY) fields.localizeableNameKey = field(r.ZLOCALIZEABLENAMEKEY);
               if (r.ZTEMPLATE) fields.template = ref('placetemplate', r.ZTEMPLATE);
               if (r.ZTEMPLATEKEY) fields.templateKey = ref('placetemplatekey', r.ZTEMPLATEKEY);
               if (r.ZORDER !== undefined && r.ZORDER !== null) fields.order = field(r.ZORDER, 'DOUBLE');
+              // Derive name from uniqueID if not present
+              if (!r.ZNAME && r.ZUNIQUEID && t.type === 'PlaceTemplate') {
+                fields.name = field(r.ZUNIQUEID.replace('PlaceTemplate_', '').replace(/_/g, ' '));
+              }
               addRecord(id, t.type, fields);
             }
           }
