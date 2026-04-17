@@ -4,6 +4,7 @@
  * buildPersonContext() already converted via models/wrap.js.
  */
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
 
 function genderLabel(g) {
@@ -46,6 +47,7 @@ function Section({ title, children, count }) {
 }
 
 export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescendantChart }) {
+  const navigate = useNavigate();
   if (!context) {
     return <div style={{ padding: 40, color: '#8b90a0' }}>Pick a person from the list.</div>;
   }
@@ -61,9 +63,10 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
         <div style={{ fontSize: 13, color: '#8b90a0', marginTop: 4 }}>
           {lifeSpanLabel(self) || 'No life dates'} · {genderLabel(self.gender)}
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-          <button style={actionBtn} onClick={() => onOpenAncestorChart(self.recordName)}>Ancestor chart →</button>
-          <button style={actionBtn} onClick={() => onOpenDescendantChart(self.recordName)}>Descendant chart →</button>
+        <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+          <button style={primaryBtn} onClick={() => navigate(`/person/${self.recordName}`)}>Edit person</button>
+          <button style={actionBtn} onClick={() => onOpenAncestorChart(self.recordName)}>Ancestor chart</button>
+          <button style={actionBtn} onClick={() => onOpenDescendantChart(self.recordName)}>Descendant chart</button>
         </div>
       </div>
 
@@ -80,6 +83,19 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
           <div style={empty}>No partners recorded.</div>
         ) : (
           <div style={chipGrid}>{partners.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} />)}</div>
+        )}
+        {context.families.length > 0 && (
+          <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {context.families.map((fam) => (
+              <button
+                key={fam.family.recordName}
+                onClick={() => navigate(`/family/${fam.family.recordName}`)}
+                style={editPill}
+              >
+                Edit family with {fam.partner?.fullName || '?'}
+              </button>
+            ))}
+          </div>
         )}
       </Section>
 
@@ -143,6 +159,25 @@ const actionBtn = {
   borderRadius: 6,
   padding: '6px 12px',
   fontSize: 12,
+  cursor: 'pointer',
+};
+const primaryBtn = {
+  background: '#3b6db8',
+  color: '#fff',
+  border: 'none',
+  borderRadius: 6,
+  padding: '6px 12px',
+  fontSize: 12,
+  cursor: 'pointer',
+  fontWeight: 600,
+};
+const editPill = {
+  background: 'transparent',
+  color: '#6c8aff',
+  border: '1px solid #2e3345',
+  borderRadius: 4,
+  padding: '4px 10px',
+  fontSize: 11,
   cursor: 'pointer',
 };
 const eventsTable = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };

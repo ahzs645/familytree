@@ -1,8 +1,7 @@
 /**
  * End-to-end smoke test for the SPA against real data.
- *
- * Loads public/family-data.json into IndexedDB, navigates every route via
- * react-router, checks for JS errors and that expected DOM shows up.
+ * Loads public/family-data.json into IndexedDB, navigates every route,
+ * checks for JS errors and that expected DOM shows up.
  */
 import { chromium } from 'playwright';
 import { readFileSync, existsSync } from 'node:fs';
@@ -27,137 +26,112 @@ page.on('console', (m) => {
 const BASE = 'http://localhost:3000';
 
 await page.goto(BASE + '/', { waitUntil: 'networkidle' });
-// Clear IndexedDB, import the real JSON, then let main.jsx re-mount.
 await page.evaluate(async () => {
   const { getLocalDatabase } = await import('/src/lib/LocalDatabase.js');
   const db = getLocalDatabase();
   await db.open();
   await db.clearAll();
-  // Force auto-load path on the next reload.
   localStorage.removeItem('cloudtreeweb-has-imported');
 });
 await page.reload({ waitUntil: 'networkidle' });
-await page.waitForTimeout(800);
+await page.waitForTimeout(1000);
 
 const summary = await page.evaluate(async () => {
   const { getLocalDatabase } = await import('/src/lib/LocalDatabase.js');
-  const s = await getLocalDatabase().getSummary();
-  return s;
+  return await getLocalDatabase().getSummary();
+});
+
+// Find a real person ID and a real family ID for the editor routes
+const sample = await page.evaluate(async () => {
+  const { getLocalDatabase } = await import('/src/lib/LocalDatabase.js');
+  const db = getLocalDatabase();
+  const persons = await db.query('Person', { limit: 1 });
+  const families = await db.query('Family', { limit: 1 });
+  return {
+    personId: persons.records[0]?.recordName || null,
+    familyId: families.records[0]?.recordName || null,
+  };
 });
 
 const routes = [
-  {
-    path: '/',
-    check: async () => ({
-      hasImportZone: (await page.locator('text=Import Family Tree').count()) > 0,
-      hasPersonCount: /persons/.test(await page.textContent('body')),
-    }),
+  { path: '/', check: async () => ({ hasImport: (await page.locator('text=Import Family Tree').count()) > 0 }) },
+  { path: '/tree', check: async () => ({ hasFocus: (await page.locator('text=Partners').count()) > 0 }) },
+  { path: '/charts', check: async () => ({ svgRects: await page.locator('svg rect').count() }) },
+  { path: '/places', check: async () => ({ hasItems: (await page.locator('input[placeholder*="Search places"]').count()) > 0 }) },
+  { path: '/sources', check: async () => ({ hasItems: (await page.locator('input[placeholder*="Search sources"]').count()) > 0 }) },
+  { path: '/events', check: async () => ({ hasFilter: (await page.locator('text=All events').count()) > 0 }) },
+  { path: '/media', check: async () => ({ hasFilter: (await page.locator('text=Pictures').count()) > 0 }) },
+  { path: '/search', check: async () => ({ hasScopes: (await page.locator('text=Smart Scope').count()) > 0 }) },
+  { path: '/duplicates', check: async () => ({ hasScan: (await page.locator('button:has-text("Scan")').count()) > 0 }) },
+  { path: '/reports', check: async () => ({ hasExport: (await page.locator('button:has-text("HTML")').count()) > 0 }) },
+  { path: '/books', check: async () => ({ hasToc: (await page.locator('text=Table of Contents').count()) > 0 }) },
+  { path: '/change-log', check: async () => ({ hasEntityFilter: (await page.locator('text=Entity:').count()) > 0 }) },
+  sample.personId && {
+    path: '/person/' + sample.personId,
+    check: async () => ({ hasSave: (await page.locator('button:has-text("Save changes")').count()) > 0 }),
+  },
+  sample.familyId && {
+    path: '/family/' + sample.familyId,
+    check: async () => ({ hasChildren: (await page.locator('text=Children').count()) > 0 }),
   },
   {
-    path: '/tree',
-    waitFor: 'text=Parents',
-    check: async () => ({
-      rowsInList: await page.locator('[style*="cursor"]').count(),
-      hasFocus: (await page.locator('text=Partners').count()) > 0,
-    }),
+    path: '/classic',
+    check: async () => ({ hasIframe: (await page.locator('iframe[title="CloudTreeWeb Classic UI"]').count()) > 0 }),
   },
-  {
-    path: '/charts',
-    waitFor: 'svg',
-    check: async () => ({
-      svgRects: await page.locator('svg rect').count(),
-      hasCanvas: (await page.locator('svg').count()) > 0,
-    }),
-  },
-  {
-    path: '/search',
-    waitFor: 'text=Entity',
-    check: async () => ({
-      hasSmartScopes: (await page.locator('text=Smart Scope').count()) > 0,
-      scopeRun: await (async () => {
-        try {
-          await page.selectOption('select:has(option[value="persons-19c"])', 'persons-19c');
-          await page.waitForTimeout(500);
-          return await page.locator('tbody tr').count();
-        } catch {
-          return -1;
-        }
-      })(),
-    }),
-  },
-  {
-    path: '/duplicates',
-    waitFor: 'text=Find Duplicates',
-    check: async () => {
-      const hasScan = (await page.locator('button:has-text("Scan")').count()) > 0;
-      if (!hasScan) return { hasScan };
-      await page.click('button:has-text("Scan")');
-      await page.waitForTimeout(1500);
-      const pairs = await page.locator('button:has-text("Merge →")').count();
-      return { hasScan, pairsFound: pairs };
-    },
-  },
-  {
-    path: '/reports',
-    waitFor: 'text=Export',
-    check: async () => ({
-      previewHasTitle: (await page.locator('h1').count()) > 0,
-      hasExportButtons: (await page.locator('button:has-text("HTML")').count()) > 0,
-    }),
-  },
-  {
-    path: '/books',
-    waitFor: 'text=Sections',
-    check: async () => ({
-      hasTocHeader: (await page.locator('h2:has-text("Table of Contents")').count()) > 0,
-      hasSectionList: (await page.locator('text=SECTION 1').count()) > 0,
-    }),
-  },
-];
+].filter(Boolean);
 
 const results = [];
 for (const r of routes) {
   const before = allErrors.length;
   await page.goto(BASE + r.path, { waitUntil: 'networkidle' });
-  if (r.waitFor) {
-    try {
-      await page.waitForSelector(r.waitFor, { timeout: 5000 });
-    } catch {
-      /* fall through — record will show */
-    }
-  }
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(700);
   let check = {};
   try {
     check = await r.check();
   } catch (e) {
     check = { failed: e.message };
   }
-  const errorsHere = allErrors.slice(before).map((x) => x.msg);
-  results.push({ path: r.path, check, errors: errorsHere });
+  results.push({ path: r.path, check, errors: allErrors.slice(before).map((x) => x.msg) });
 }
 
-// Check Arabic text specifically — pick a sample person name containing Arabic chars.
-await page.goto(BASE + '/tree');
-await page.waitForTimeout(600);
-const arabicSample = await page.evaluate(() => {
-  const text = document.body.innerText;
-  const m = text.match(/[\u0600-\u06FF]+(?:\s+[\u0600-\u06FF]+)?/);
-  return m ? m[0] : null;
-});
+// Editor write test: change a person's middle name on the editor route, save,
+// then verify the change is persisted and a ChangeLogEntry was created.
+let writeResult = { skipped: true };
+if (sample.personId) {
+  const before = allErrors.length;
+  await page.goto(BASE + '/person/' + sample.personId, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(600);
+  const middleInput = await page.locator('input').nth(1); // 2nd field is "Middle name"
+  await middleInput.fill('SMOKE-TEST');
+  await page.click('button:has-text("Save changes")');
+  await page.waitForTimeout(700);
+  const persisted = await page.evaluate(async (id) => {
+    const { getLocalDatabase } = await import('/src/lib/LocalDatabase.js');
+    const r = await getLocalDatabase().getRecord(id);
+    return r?.fields?.nameMiddle?.value || null;
+  }, sample.personId);
+  const newLogCount = await page.evaluate(async () => {
+    const { getLocalDatabase } = await import('/src/lib/LocalDatabase.js');
+    const { records } = await getLocalDatabase().query('ChangeLogEntry', { limit: 100000 });
+    return records.filter((r) => r.fields?.author?.value === 'You').length;
+  });
+  writeResult = {
+    personFieldPersisted: persisted,
+    newChangeLogEntries: newLogCount,
+    errorsDuringWrite: allErrors.slice(before).map((x) => x.msg),
+  };
+}
 
 console.log('=== DATA ===');
 console.log(`public/family-data.json: ${dataSize} KB`);
-console.log('IndexedDB summary:', JSON.stringify(summary.types));
+console.log('Persons:', summary.types.Person, '· Families:', summary.types.Family, '· Places:', summary.types.Place, '· Sources:', summary.types.Source);
 console.log('\n=== ROUTES ===');
 for (const r of results) {
-  console.log(`\n${r.path}`);
-  console.log('  check:', JSON.stringify(r.check));
-  console.log('  errors:', r.errors.length ? r.errors : '(none)');
+  console.log(`${r.path}  ${r.errors.length ? 'ERR ' + r.errors.length : 'ok'}  ${JSON.stringify(r.check)}`);
 }
-console.log('\n=== ARABIC ===');
-console.log('Sample Arabic text on /tree:', arabicSample || '(none found)');
+console.log('\n=== EDITOR WRITE ===');
+console.log(JSON.stringify(writeResult, null, 2));
 
 await browser.close();
-const totalErrors = results.reduce((s, r) => s + r.errors.length, 0);
+const totalErrors = results.reduce((s, r) => s + r.errors.length, 0) + (writeResult.errorsDuringWrite?.length || 0);
 process.exit(totalErrors > 0 ? 1 : 0);

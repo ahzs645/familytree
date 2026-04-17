@@ -15,6 +15,14 @@ const Search = lazy(() => import('./routes/Search.jsx'));
 const Duplicates = lazy(() => import('./routes/Duplicates.jsx'));
 const Reports = lazy(() => import('./routes/Reports.jsx'));
 const Books = lazy(() => import('./routes/Books.jsx'));
+const ChangeLog = lazy(() => import('./routes/ChangeLog.jsx'));
+const PersonEditor = lazy(() => import('./routes/PersonEditor.jsx'));
+const FamilyEditor = lazy(() => import('./routes/FamilyEditor.jsx'));
+const Places = lazy(() => import('./routes/Places.jsx'));
+const Sources = lazy(() => import('./routes/Sources.jsx'));
+const Events = lazy(() => import('./routes/Events.jsx'));
+const Media = lazy(() => import('./routes/Media.jsx'));
+const Classic = lazy(() => import('./routes/Classic.jsx'));
 
 function Fallback() {
   return (
@@ -22,6 +30,10 @@ function Fallback() {
       Loading view…
     </div>
   );
+}
+
+function L({ children }) {
+  return <Suspense fallback={<Fallback />}>{children}</Suspense>;
 }
 
 export function App() {
@@ -32,54 +44,20 @@ export function App() {
           <Routes>
             <Route element={<AppShell />}>
               <Route index element={<Home />} />
-              <Route
-                path="tree"
-                element={
-                  <Suspense fallback={<Fallback />}>
-                    <Tree />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="charts"
-                element={
-                  <Suspense fallback={<Fallback />}>
-                    <Charts />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="search"
-                element={
-                  <Suspense fallback={<Fallback />}>
-                    <Search />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="duplicates"
-                element={
-                  <Suspense fallback={<Fallback />}>
-                    <Duplicates />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="reports"
-                element={
-                  <Suspense fallback={<Fallback />}>
-                    <Reports />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="books"
-                element={
-                  <Suspense fallback={<Fallback />}>
-                    <Books />
-                  </Suspense>
-                }
-              />
+              <Route path="tree" element={<L><Tree /></L>} />
+              <Route path="charts" element={<L><Charts /></L>} />
+              <Route path="search" element={<L><Search /></L>} />
+              <Route path="duplicates" element={<L><Duplicates /></L>} />
+              <Route path="reports" element={<L><Reports /></L>} />
+              <Route path="books" element={<L><Books /></L>} />
+              <Route path="change-log" element={<L><ChangeLog /></L>} />
+              <Route path="person/:id" element={<L><PersonEditor /></L>} />
+              <Route path="family/:id" element={<L><FamilyEditor /></L>} />
+              <Route path="places" element={<L><Places /></L>} />
+              <Route path="sources" element={<L><Sources /></L>} />
+              <Route path="events" element={<L><Events /></L>} />
+              <Route path="media" element={<L><Media /></L>} />
+              <Route path="classic" element={<L><Classic /></L>} />
             </Route>
           </Routes>
         </ActivePersonProvider>

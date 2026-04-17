@@ -10,10 +10,14 @@ const LINKS = [
   { to: '/', label: 'Home', end: true },
   { to: '/tree', label: 'Tree' },
   { to: '/charts', label: 'Charts' },
+  { to: '/places', label: 'Places' },
+  { to: '/sources', label: 'Sources' },
+  { to: '/events', label: 'Events' },
+  { to: '/media', label: 'Media' },
   { to: '/search', label: 'Search' },
-  { to: '/duplicates', label: 'Duplicates' },
   { to: '/reports', label: 'Reports' },
   { to: '/books', label: 'Books' },
+  { to: '/change-log', label: 'Change Log' },
 ];
 
 export function AppShell() {

@@ -9,10 +9,16 @@ import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 const SECTIONS = [
   { to: '/tree', title: 'Interactive Tree', body: 'Alphabetical person list with live search, plus parents / partners / children for the focused person.' },
   { to: '/charts', title: 'Charts', body: 'Ancestor, descendant, hourglass, tree, fan, double-ancestor, relationship-path, and configurable virtual-tree views.' },
-  { to: '/search', title: 'Search', body: 'Multi-criteria filters across persons, families, places, sources, events — plus smart scopes like "childless persons" or "born in the 19th century".' },
+  { to: '/places', title: 'Places', body: 'List, search, and edit place records — names, normalized form, GeoName ID, coordinates.' },
+  { to: '/sources', title: 'Sources', body: 'Manage citation sources — title, author, date, full text, bookmarks.' },
+  { to: '/events', title: 'Events', body: 'Browse, edit, create, or delete person and family events. Conclusion type, date, place, description.' },
+  { to: '/media', title: 'Media', body: 'Gallery view of pictures, PDFs, URLs, audio, and video records. Edit captions and descriptions.' },
+  { to: '/search', title: 'Search', body: 'Multi-criteria filters across every entity type, plus smart scopes (childless persons, 19th-century births, places without coordinates…).' },
   { to: '/duplicates', title: 'Find Duplicates', body: 'Scan for duplicate persons, families, or sources and merge them side-by-side with per-field choices.' },
-  { to: '/reports', title: 'Reports', body: 'Person summaries, ancestor / descendant narratives, family group sheets. Save, paginate, export to PDF, HTML, RTF, CSV, or text.' },
+  { to: '/reports', title: 'Reports', body: 'Person summaries, ancestor / descendant narratives, family group sheets. Save, paginate, export to PDF / HTML / RTF / CSV / text.' },
   { to: '/books', title: 'Books', body: 'Compose multi-section books with custom titles, a TOC, and any number of report sections.' },
+  { to: '/change-log', title: 'Change Log', body: 'Browse every edit to the tree, grouped by date with field-level before/after detail.' },
+  { to: '/classic', title: 'Classic UI', body: 'The original CloudTreeWeb interface, embedded for any editor not yet rebuilt natively. Reads and writes the same database.' },
 ];
 
 export function Home() {
