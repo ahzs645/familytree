@@ -328,9 +328,46 @@ try {
 console.log('Extracting places...');
 const places = db.prepare(`
   SELECT Z_PK, ZCACHED_NORMALLOCATIONSTRING, ZCACHED_SHORTLOCATIONSTRING,
-         ZCACHED_STANDARDIZEDLOCATIONSTRING, ZUNIQUEID
+         ZCACHED_STANDARDIZEDLOCATIONSTRING, ZUNIQUEID, ZTEMPLATE1,
+         ZCHANGEDATE, ZCREATIONDATE, ZGEONAMEID, ZALTERNATEPLACENAMES, ZCOORDINATE
   FROM ZBASEOBJECT WHERE Z_ENT = ?
 `).all(ENT.Place);
+
+// Build PlaceKeyValue lookup: place Z_PK -> {templateKeyPK -> value}
+const placeKeyValues = {};
+try {
+  const pkvs = db.prepare('SELECT ZPLACE, ZTEMPLATEKEY, ZVALUE FROM ZPLACEKEYVALUE').all();
+  for (const pkv of pkvs) {
+    if (!placeKeyValues[pkv.ZPLACE]) placeKeyValues[pkv.ZPLACE] = {};
+    placeKeyValues[pkv.ZPLACE][pkv.ZTEMPLATEKEY] = pkv.ZVALUE;
+  }
+} catch {}
+
+// Build PlaceTemplateKeyRelation lookup: template Z_PK -> [{keyPK, order}]
+const templateKeyRelations = {};
+try {
+  const rels = db.prepare('SELECT ZTEMPLATE, ZTEMPLATEKEY, ZORDER FROM ZPLACETEMPLATEKEYRELATION ORDER BY ZORDER').all();
+  for (const r of rels) {
+    if (!templateKeyRelations[r.ZTEMPLATE]) templateKeyRelations[r.ZTEMPLATE] = [];
+    templateKeyRelations[r.ZTEMPLATE].push({ keyPK: r.ZTEMPLATEKEY, order: r.ZORDER });
+  }
+} catch {}
+
+// Build PlaceTemplateKey name lookup (from localization keys or key position)
+const templateKeyNames = {};
+try {
+  const keys = db.prepare('SELECT Z_PK, ZINTERNATIONALNAME, ZLOCALNAME, ZLOCALIZABLEINTERNATIONALNAMEKEY FROM ZPLACETEMPLATEKEY').all();
+  for (const k of keys) {
+    // Use international name, or derive from localization key
+    let name = k.ZINTERNATIONALNAME || k.ZLOCALNAME || '';
+    if (!name && k.ZLOCALIZABLEINTERNATIONALNAMEKEY) {
+      // Extract key name: _PlaceTemplateKey_Place -> Place
+      const m = k.ZLOCALIZABLEINTERNATIONALNAMEKEY.match(/(?:PlaceTemplate_KeyName_|_PlaceTemplateKey_)(\w+)/);
+      if (m) name = m[1];
+    }
+    templateKeyNames[k.Z_PK] = name;
+  }
+} catch {}
 
 for (const pl of places) {
   const id = makeId('place', pl.Z_PK);
@@ -338,20 +375,85 @@ for (const pl of places) {
     recordType: 'Place',
     recordName: id,
     fields: {},
-    created: { timestamp: Date.now() },
-    modified: { timestamp: Date.now() },
+    created: { timestamp: coreDataTimestamp(pl.ZCREATIONDATE) || Date.now() },
+    modified: { timestamp: coreDataTimestamp(pl.ZCHANGEDATE) || Date.now() },
   };
   const f = records[id].fields;
-  if (pl.ZCACHED_NORMALLOCATIONSTRING) {
-    f.placeName = field(pl.ZCACHED_NORMALLOCATIONSTRING);
-    // The app reads place via fieldValue("place"), not "placeName"
+
+  // Resolve individual place components from PlaceKeyValues + template key relations
+  if (pl.ZTEMPLATE1 && templateKeyRelations[pl.ZTEMPLATE1] && placeKeyValues[pl.Z_PK]) {
+    const kvs = placeKeyValues[pl.Z_PK];
+    const rels = templateKeyRelations[pl.ZTEMPLATE1];
+    for (const rel of rels) {
+      const keyName = templateKeyNames[rel.keyPK];
+      const value = kvs[rel.keyPK];
+      if (keyName && value) {
+        // Map template key names to CloudKit field names
+        const fieldMap = { Place: 'place', County: 'county', State: 'state', Country: 'country', City: 'place' };
+        const fieldName = fieldMap[keyName] || keyName.toLowerCase();
+        if (!f[fieldName]) f[fieldName] = field(value);
+      }
+    }
+  }
+
+  // Fallback: use cached string for the 'place' field if not set from components
+  if (!f.place && pl.ZCACHED_NORMALLOCATIONSTRING) {
     f.place = field(pl.ZCACHED_NORMALLOCATIONSTRING);
   }
+  if (pl.ZCACHED_NORMALLOCATIONSTRING) f.placeName = field(pl.ZCACHED_NORMALLOCATIONSTRING);
   if (pl.ZCACHED_SHORTLOCATIONSTRING) f.cached_shortLocationString = field(pl.ZCACHED_SHORTLOCATIONSTRING);
   if (pl.ZCACHED_STANDARDIZEDLOCATIONSTRING) f.cached_standardizedLocationString = field(pl.ZCACHED_STANDARDIZEDLOCATIONSTRING);
   if (pl.ZUNIQUEID) f.uniqueID = field(pl.ZUNIQUEID);
+  if (pl.ZTEMPLATE1) f.template = ref('placetemplate', pl.ZTEMPLATE1);
+  if (pl.ZGEONAMEID) f.geonameID = field(pl.ZGEONAMEID);
+  if (pl.ZALTERNATEPLACENAMES) f.alternateNames = field(pl.ZALTERNATEPLACENAMES);
+  if (pl.ZCHANGEDATE) f.mft_changeDate = field(coreDataTimestamp(pl.ZCHANGEDATE), 'TIMESTAMP');
+  if (pl.ZCREATIONDATE) f.mft_creationDate = field(coreDataTimestamp(pl.ZCREATIONDATE), 'TIMESTAMP');
 }
 console.log(`  ${places.length} places`);
+
+// ── Extract Coordinates ──
+console.log('Extracting coordinates...');
+try {
+  const coords = db.prepare(`
+    SELECT Z_PK, ZPLACE, ZPLACEDETAIL, ZLATITUDEDEGREES, ZLATITUDEMINUTES, ZLATITUDESECONDS,
+           ZLATITUDEISSOUTH, ZLONGITUDEDEGREES, ZLONGITUDEMINUTES, ZLONGITUDESECONDS,
+           ZLONGITUDEISWEST, ZUNIQUEID
+    FROM ZCOORDINATE
+  `).all();
+  for (const c of coords) {
+    const id = makeId('coordinate', c.Z_PK);
+    const f = {};
+    if (c.ZLATITUDEDEGREES) f.latitudeDegrees = field(c.ZLATITUDEDEGREES);
+    if (c.ZLATITUDEMINUTES) f.latitudeMinutes = field(c.ZLATITUDEMINUTES);
+    if (c.ZLATITUDESECONDS) f.latitudeSeconds = field(c.ZLATITUDESECONDS);
+    if (c.ZLATITUDEISSOUTH) f.latitudeIsSouth = field(c.ZLATITUDEISSOUTH, 'INT64');
+    if (c.ZLONGITUDEDEGREES) f.longitudeDegrees = field(c.ZLONGITUDEDEGREES);
+    if (c.ZLONGITUDEMINUTES) f.longitudeMinutes = field(c.ZLONGITUDEMINUTES);
+    if (c.ZLONGITUDESECONDS) f.longitudeSeconds = field(c.ZLONGITUDESECONDS);
+    if (c.ZLONGITUDEISWEST) f.longitudeIsWest = field(c.ZLONGITUDEISWEST, 'INT64');
+    if (c.ZPLACE) f.place = ref('place', c.ZPLACE);
+    if (c.ZPLACEDETAIL) f.placeDetail = ref('placedetail', c.ZPLACEDETAIL);
+    if (c.ZUNIQUEID) f.uniqueID = field(c.ZUNIQUEID);
+
+    // Also compute decimal lat/lon for convenience
+    const lat = (parseFloat(c.ZLATITUDEDEGREES || 0) + parseFloat(c.ZLATITUDEMINUTES || 0) / 60 + parseFloat(c.ZLATITUDESECONDS || 0) / 3600) * (c.ZLATITUDEISSOUTH ? -1 : 1);
+    const lon = (parseFloat(c.ZLONGITUDEDEGREES || 0) + parseFloat(c.ZLONGITUDEMINUTES || 0) / 60 + parseFloat(c.ZLONGITUDESECONDS || 0) / 3600) * (c.ZLONGITUDEISWEST ? -1 : 1);
+    f.latitude = field(lat, 'DOUBLE');
+    f.longitude = field(lon, 'DOUBLE');
+
+    records[id] = { recordType: 'Coordinate', recordName: id, fields: f, created: { timestamp: Date.now() }, modified: { timestamp: Date.now() } };
+
+    // Also attach coordinate reference to the place record
+    if (c.ZPLACE) {
+      const placeId = makeId('place', c.ZPLACE);
+      if (records[placeId]) {
+        records[placeId].fields.coordinate = ref('coordinate', c.Z_PK);
+      }
+    }
+  }
+  console.log(`  ${coords.length} coordinates`);
+} catch (e) { console.log('  Coordinates: skipped (' + e.message + ')'); }
 
 // ── Extract PlaceTemplates, Keys, KeyRelations ──
 console.log('Extracting place templates...');

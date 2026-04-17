@@ -439,29 +439,93 @@ export class MFTPKGImporter {
       addRecord(id, 'LabelRelation', f);
     }
 
-    // ── Extract Places ──
+    // ── Extract Places with components and coordinates ──
     this._progress('extracting', 8, 11);
     if (entityMap.Place) {
-      const rows = db.exec(`
-        SELECT Z_PK, ZCACHED_NORMALLOCATIONSTRING, ZCACHED_SHORTLOCATIONSTRING,
-               ZCACHED_STANDARDIZEDLOCATIONSTRING, ZUNIQUEID
-        FROM ZBASEOBJECT WHERE Z_ENT = ${entityMap.Place}
-      `);
-      if (rows.length > 0) {
-        const cols = rows[0].columns;
-        for (const row of rows[0].values) {
-          const r = Object.fromEntries(cols.map((c, i) => [c, row[i]]));
-          const id = makeId('place', r.Z_PK);
-          const fields = {};
-          if (r.ZCACHED_NORMALLOCATIONSTRING) {
-            fields.placeName = field(r.ZCACHED_NORMALLOCATIONSTRING);
-            fields.place = field(r.ZCACHED_NORMALLOCATIONSTRING);
-          }
-          if (r.ZCACHED_SHORTLOCATIONSTRING) fields.cached_shortLocationString = field(r.ZCACHED_SHORTLOCATIONSTRING);
-          if (r.ZCACHED_STANDARDIZEDLOCATIONSTRING) fields.cached_standardizedLocationString = field(r.ZCACHED_STANDARDIZEDLOCATIONSTRING);
-          if (r.ZUNIQUEID) fields.uniqueID = field(r.ZUNIQUEID);
-          addRecord(id, 'Place', fields);
+      // Build PlaceKeyValue lookup
+      const placeKVs = {};
+      for (const r of q('SELECT ZPLACE, ZTEMPLATEKEY, ZVALUE FROM ZPLACEKEYVALUE')) {
+        if (!placeKVs[r.ZPLACE]) placeKVs[r.ZPLACE] = {};
+        placeKVs[r.ZPLACE][r.ZTEMPLATEKEY] = r.ZVALUE;
+      }
+      // Build template key relations
+      const tmplKeyRels = {};
+      for (const r of q('SELECT ZTEMPLATE, ZTEMPLATEKEY, ZORDER FROM ZPLACETEMPLATEKEYRELATION ORDER BY ZORDER')) {
+        if (!tmplKeyRels[r.ZTEMPLATE]) tmplKeyRels[r.ZTEMPLATE] = [];
+        tmplKeyRels[r.ZTEMPLATE].push({ keyPK: r.ZTEMPLATEKEY });
+      }
+      // Build template key names
+      const keyNames = {};
+      for (const r of q('SELECT Z_PK, ZINTERNATIONALNAME, ZLOCALNAME, ZLOCALIZABLEINTERNATIONALNAMEKEY FROM ZPLACETEMPLATEKEY')) {
+        let name = r.ZINTERNATIONALNAME || r.ZLOCALNAME || '';
+        if (!name && r.ZLOCALIZABLEINTERNATIONALNAMEKEY) {
+          const m = r.ZLOCALIZABLEINTERNATIONALNAMEKEY.match(/(?:PlaceTemplate_KeyName_|_PlaceTemplateKey_)(\w+)/);
+          if (m) name = m[1];
         }
+        keyNames[r.Z_PK] = name;
+      }
+
+      for (const r of q(`
+        SELECT Z_PK, ZCACHED_NORMALLOCATIONSTRING, ZCACHED_SHORTLOCATIONSTRING,
+               ZCACHED_STANDARDIZEDLOCATIONSTRING, ZUNIQUEID, ZTEMPLATE1,
+               ZCHANGEDATE, ZCREATIONDATE, ZGEONAMEID, ZALTERNATEPLACENAMES
+        FROM ZBASEOBJECT WHERE Z_ENT = ${entityMap.Place}
+      `)) {
+        const id = makeId('place', r.Z_PK);
+        const f = {};
+        // Resolve individual components
+        if (r.ZTEMPLATE1 && tmplKeyRels[r.ZTEMPLATE1] && placeKVs[r.Z_PK]) {
+          const kvs = placeKVs[r.Z_PK];
+          for (const rel of (tmplKeyRels[r.ZTEMPLATE1] || [])) {
+            const kn = keyNames[rel.keyPK];
+            const v = kvs[rel.keyPK];
+            if (kn && v) {
+              const fm = { Place: 'place', County: 'county', State: 'state', Country: 'country', City: 'place' };
+              const fn = fm[kn] || kn.toLowerCase();
+              if (!f[fn]) f[fn] = field(v);
+            }
+          }
+        }
+        if (!f.place && r.ZCACHED_NORMALLOCATIONSTRING) f.place = field(r.ZCACHED_NORMALLOCATIONSTRING);
+        if (r.ZCACHED_NORMALLOCATIONSTRING) f.placeName = field(r.ZCACHED_NORMALLOCATIONSTRING);
+        if (r.ZCACHED_SHORTLOCATIONSTRING) f.cached_shortLocationString = field(r.ZCACHED_SHORTLOCATIONSTRING);
+        if (r.ZCACHED_STANDARDIZEDLOCATIONSTRING) f.cached_standardizedLocationString = field(r.ZCACHED_STANDARDIZEDLOCATIONSTRING);
+        if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+        if (r.ZTEMPLATE1) f.template = ref('placetemplate', r.ZTEMPLATE1);
+        if (r.ZGEONAMEID) f.geonameID = field(r.ZGEONAMEID);
+        if (r.ZALTERNATEPLACENAMES) f.alternateNames = field(r.ZALTERNATEPLACENAMES);
+        if (r.ZCHANGEDATE) f.mft_changeDate = field(cdTs(r.ZCHANGEDATE), 'TIMESTAMP');
+        if (r.ZCREATIONDATE) f.mft_creationDate = field(cdTs(r.ZCREATIONDATE), 'TIMESTAMP');
+        addRecord(id, 'Place', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
+      }
+
+      // Extract coordinates
+      for (const c of q(`
+        SELECT Z_PK, ZPLACE, ZPLACEDETAIL, ZLATITUDEDEGREES, ZLATITUDEMINUTES, ZLATITUDESECONDS,
+               ZLATITUDEISSOUTH, ZLONGITUDEDEGREES, ZLONGITUDEMINUTES, ZLONGITUDESECONDS,
+               ZLONGITUDEISWEST, ZUNIQUEID
+        FROM ZCOORDINATE
+      `)) {
+        const id = makeId('coordinate', c.Z_PK);
+        const f = {};
+        if (c.ZLATITUDEDEGREES) f.latitudeDegrees = field(c.ZLATITUDEDEGREES);
+        if (c.ZLATITUDEMINUTES) f.latitudeMinutes = field(c.ZLATITUDEMINUTES);
+        if (c.ZLATITUDESECONDS) f.latitudeSeconds = field(c.ZLATITUDESECONDS);
+        if (c.ZLATITUDEISSOUTH) f.latitudeIsSouth = field(c.ZLATITUDEISSOUTH, 'INT64');
+        if (c.ZLONGITUDEDEGREES) f.longitudeDegrees = field(c.ZLONGITUDEDEGREES);
+        if (c.ZLONGITUDEMINUTES) f.longitudeMinutes = field(c.ZLONGITUDEMINUTES);
+        if (c.ZLONGITUDESECONDS) f.longitudeSeconds = field(c.ZLONGITUDESECONDS);
+        if (c.ZLONGITUDEISWEST) f.longitudeIsWest = field(c.ZLONGITUDEISWEST, 'INT64');
+        if (c.ZPLACE) f.place = ref('place', c.ZPLACE);
+        if (c.ZUNIQUEID) f.uniqueID = field(c.ZUNIQUEID);
+        const lat = (parseFloat(c.ZLATITUDEDEGREES||0) + parseFloat(c.ZLATITUDEMINUTES||0)/60 + parseFloat(c.ZLATITUDESECONDS||0)/3600) * (c.ZLATITUDEISSOUTH ? -1 : 1);
+        const lon = (parseFloat(c.ZLONGITUDEDEGREES||0) + parseFloat(c.ZLONGITUDEMINUTES||0)/60 + parseFloat(c.ZLONGITUDESECONDS||0)/3600) * (c.ZLONGITUDEISWEST ? -1 : 1);
+        f.latitude = field(lat, 'DOUBLE');
+        f.longitude = field(lon, 'DOUBLE');
+        addRecord(id, 'Coordinate', f);
+        // Attach to place
+        const placeId = c.ZPLACE ? makeId('place', c.ZPLACE) : null;
+        if (placeId && records[placeId]) records[placeId].fields.coordinate = ref('coordinate', c.Z_PK);
       }
     }
 
