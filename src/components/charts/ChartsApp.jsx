@@ -4,7 +4,9 @@
  * Supports a second-person picker for Double Ancestor and Relationship Path.
  */
 import React, { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { listAllPersons, findStartPerson, buildAncestorTree, buildDescendantTree } from '../../lib/treeQuery.js';
+import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { findRelationshipPath } from '../../lib/relationshipPath.js';
 import { listChartTemplates, saveChartTemplate, deleteChartTemplate, newTemplateId } from '../../lib/chartTemplates.js';
 import { THEMES, getTheme } from './theme.js';
@@ -16,6 +18,7 @@ import { TreeChart } from './TreeChart.jsx';
 import { DoubleAncestorChart } from './DoubleAncestorChart.jsx';
 import { FanChart } from './FanChart.jsx';
 import { RelationshipPathChart } from './RelationshipPathChart.jsx';
+import { VirtualTreeDiagram } from './VirtualTreeDiagram.jsx';
 
 const CHART_TYPES = [
   { id: 'ancestor', label: 'Ancestor', needsSecond: false },
@@ -25,15 +28,22 @@ const CHART_TYPES = [
   { id: 'double-ancestor', label: 'Double Ancestor', needsSecond: true },
   { id: 'fan', label: 'Fan', needsSecond: false },
   { id: 'relationship', label: 'Relationship Path', needsSecond: true },
+  { id: 'virtual', label: 'Virtual Tree (configurable)', needsSecond: false },
 ];
 
 export function ChartsApp() {
+  const [searchParams] = useSearchParams();
+  const { recordName: sharedRootId, setActivePerson } = useActivePerson();
   const [persons, setPersons] = useState([]);
-  const [rootId, setRootId] = useState(null);
+  const [rootId, setRootId] = useState(sharedRootId);
   const [secondId, setSecondId] = useState(null);
-  const [chartType, setChartType] = useState('ancestor');
+  const [chartType, setChartType] = useState(searchParams.get('type') || 'ancestor');
   const [generations, setGenerations] = useState(5);
   const [themeId, setThemeId] = useState(THEMES[0].id);
+  const [virtualSource, setVirtualSource] = useState('descendant');
+  const [virtualOrientation, setVirtualOrientation] = useState('vertical');
+  const [virtualHSpacing, setVirtualHSpacing] = useState(24);
+  const [virtualVSpacing, setVirtualVSpacing] = useState(110);
   const [ancestorTree, setAncestorTree] = useState(null);
   const [descendantTree, setDescendantTree] = useState(null);
   const [secondAncestorTree, setSecondAncestorTree] = useState(null);
@@ -55,10 +65,15 @@ export function ChartsApp() {
         setLoading(false);
         return;
       }
-      const start = await findStartPerson();
-      setRootId(start?.recordName || list[0].recordName);
+      if (!rootId || !list.some((p) => p.recordName === rootId)) {
+        const start = await findStartPerson();
+        const pick = start?.recordName || list[0].recordName;
+        setRootId(pick);
+        setActivePerson(pick);
+      }
       setLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Build trees as inputs change.
@@ -99,7 +114,20 @@ export function ChartsApp() {
     };
   }, [secondId, chartType, generations, needsSecond, rootId]);
 
-  const onPersonClick = useCallback((p) => setRootId(p.recordName), []);
+  const onPersonClick = useCallback(
+    (p) => {
+      setRootId(p.recordName);
+      setActivePerson(p.recordName);
+    },
+    [setActivePerson]
+  );
+  const onRootChange = useCallback(
+    (id) => {
+      setRootId(id);
+      setActivePerson(id);
+    },
+    [setActivePerson]
+  );
 
   const onSaveTemplate = useCallback(async () => {
     const name = prompt('Name for this chart template:');
@@ -141,11 +169,8 @@ export function ChartsApp() {
   return (
     <div style={shellStyle}>
       <header style={headerStyle}>
-        <a href="/" style={{ color: '#8b90a0', textDecoration: 'none', marginRight: 16, fontSize: 13 }}>← Home</a>
-        <strong style={{ color: '#e2e4eb', marginRight: 24 }}>Charts</strong>
-
         <Field label="Person">
-          <PersonPicker persons={persons} value={rootId} onChange={setRootId} />
+          <PersonPicker persons={persons} value={rootId} onChange={onRootChange} />
         </Field>
 
         {needsSecond && (
@@ -255,6 +280,44 @@ export function ChartsApp() {
         {chartType === 'relationship' && (
           <RelationshipPathChart result={relationshipResult} onPersonClick={onPersonClick} theme={theme} />
         )}
+        {chartType === 'virtual' && (
+          <div style={{ display: 'flex', height: '100%' }}>
+            <aside style={{ width: 220, padding: 16, borderRight: '1px solid #2e3345', background: '#161926', color: '#e2e4eb', fontSize: 13 }}>
+              <div style={{ color: '#8b90a0', fontSize: 11, marginBottom: 8, letterSpacing: 0.4 }}>VIRTUAL TREE OPTIONS</div>
+              <label style={{ display: 'block', marginBottom: 10 }}>
+                <div style={{ color: '#8b90a0', fontSize: 11, marginBottom: 3 }}>Source</div>
+                <select value={virtualSource} onChange={(e) => setVirtualSource(e.target.value)} style={optionSelect}>
+                  <option value="descendant">Descendants</option>
+                  <option value="ancestor">Ancestors</option>
+                </select>
+              </label>
+              <label style={{ display: 'block', marginBottom: 10 }}>
+                <div style={{ color: '#8b90a0', fontSize: 11, marginBottom: 3 }}>Orientation</div>
+                <select value={virtualOrientation} onChange={(e) => setVirtualOrientation(e.target.value)} style={optionSelect}>
+                  <option value="vertical">Vertical</option>
+                  <option value="horizontal">Horizontal</option>
+                </select>
+              </label>
+              <label style={{ display: 'block', marginBottom: 10 }}>
+                <div style={{ color: '#8b90a0', fontSize: 11, marginBottom: 3 }}>Sibling spacing ({virtualHSpacing}px)</div>
+                <input type="range" min={8} max={80} value={virtualHSpacing} onChange={(e) => setVirtualHSpacing(+e.target.value)} style={{ width: '100%' }} />
+              </label>
+              <label style={{ display: 'block', marginBottom: 10 }}>
+                <div style={{ color: '#8b90a0', fontSize: 11, marginBottom: 3 }}>Generation spacing ({virtualVSpacing}px)</div>
+                <input type="range" min={50} max={200} value={virtualVSpacing} onChange={(e) => setVirtualVSpacing(+e.target.value)} style={{ width: '100%' }} />
+              </label>
+            </aside>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <VirtualTreeDiagram
+                tree={virtualSource === 'ancestor' ? ancestorTree : descendantTree}
+                source={virtualSource}
+                onPersonClick={onPersonClick}
+                theme={theme}
+                options={{ orientation: virtualOrientation, hSpacing: virtualHSpacing, vSpacing: virtualVSpacing }}
+              />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
@@ -272,9 +335,8 @@ function Field({ label, children }) {
 const shellStyle = {
   display: 'flex',
   flexDirection: 'column',
-  height: '100vh',
+  height: '100%',
   background: '#0f1117',
-  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
 };
 const headerStyle = {
   display: 'flex',
@@ -296,14 +358,23 @@ const selectStyle = {
   outline: 'none',
   cursor: 'pointer',
 };
+const optionSelect = {
+  width: '100%',
+  background: '#242837',
+  color: '#e2e4eb',
+  border: '1px solid #2e3345',
+  borderRadius: 6,
+  padding: '6px 8px',
+  font: '12px -apple-system, system-ui, sans-serif',
+  outline: 'none',
+};
 const loadingStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  height: '100vh',
+  height: '100%',
   color: '#8b90a0',
   background: '#0f1117',
-  fontFamily: '-apple-system, system-ui, sans-serif',
 };
 
 export default ChartsApp;

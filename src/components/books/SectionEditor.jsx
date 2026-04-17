@@ -1,0 +1,86 @@
+/**
+ * Inline editor for a single book section — kind + target person + options.
+ */
+import React from 'react';
+import { SECTION_KINDS } from '../../lib/books.js';
+import { PersonPicker } from '../charts/PersonPicker.jsx';
+
+export function SectionEditor({ section, persons, onChange, onRemove, onMoveUp, onMoveDown, index, total }) {
+  const def = SECTION_KINDS.find((k) => k.id === section.kind);
+  return (
+    <div style={card}>
+      <div style={head}>
+        <span style={{ color: '#8b90a0', fontSize: 11, fontWeight: 600 }}>SECTION {index + 1}</span>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button disabled={index === 0} onClick={onMoveUp} style={iconBtn}>↑</button>
+          <button disabled={index === total - 1} onClick={onMoveDown} style={iconBtn}>↓</button>
+          <button onClick={onRemove} style={{ ...iconBtn, color: '#f87171' }}>×</button>
+        </div>
+      </div>
+      <div style={row}>
+        <select value={section.kind} onChange={(e) => onChange({ ...section, kind: e.target.value })} style={input}>
+          {SECTION_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+        </select>
+        {section.kind === 'title' && (
+          <>
+            <input
+              value={section.text || ''}
+              onChange={(e) => onChange({ ...section, text: e.target.value })}
+              placeholder="Book title"
+              style={{ ...input, flex: 1 }}
+            />
+            <input
+              value={section.subtitle || ''}
+              onChange={(e) => onChange({ ...section, subtitle: e.target.value })}
+              placeholder="Subtitle (optional)"
+              style={{ ...input, flex: 1 }}
+            />
+          </>
+        )}
+        {def?.needsPerson && (
+          <div style={{ minWidth: 240 }}>
+            <PersonPicker
+              persons={persons}
+              value={section.targetRecordName}
+              onChange={(v) => onChange({ ...section, targetRecordName: v })}
+            />
+          </div>
+        )}
+        {def?.needsGenerations && (
+          <input
+            type="number"
+            min={2}
+            max={10}
+            value={section.generations || 5}
+            onChange={(e) => onChange({ ...section, generations: +e.target.value || 5 })}
+            style={{ ...input, width: 70 }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
+
+const card = { background: '#13161f', border: '1px solid #2e3345', borderRadius: 8, padding: 12, marginBottom: 10 };
+const head = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 };
+const row = { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' };
+const input = {
+  background: '#242837',
+  color: '#e2e4eb',
+  border: '1px solid #2e3345',
+  borderRadius: 6,
+  padding: '6px 10px',
+  font: '13px -apple-system, system-ui, sans-serif',
+  outline: 'none',
+};
+const iconBtn = {
+  background: '#242837',
+  color: '#e2e4eb',
+  border: '1px solid #2e3345',
+  borderRadius: 4,
+  padding: '4px 8px',
+  fontSize: 12,
+  cursor: 'pointer',
+};
+
+export default SectionEditor;

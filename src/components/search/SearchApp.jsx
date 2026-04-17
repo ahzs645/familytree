@@ -4,6 +4,7 @@
  */
 import React, { useState, useCallback } from 'react';
 import { ENTITY_TYPES, SEARCH_FIELDS, FILTER_OPS, runSearch } from '../../lib/search.js';
+import { listScopes, runScope } from '../../lib/smartScopes.js';
 import { FilterRow } from './FilterRow.jsx';
 import { SearchResults } from './SearchResults.jsx';
 
@@ -28,6 +29,17 @@ export function SearchApp() {
     setRunning(false);
   }, [entityType, textQuery, filters]);
 
+  const onRunScope = useCallback(async (scopeId) => {
+    if (!scopeId) return;
+    setRunning(true);
+    const r = await runScope(scopeId);
+    setEntityType(r.entityType);
+    setFilters([]);
+    setTextQuery('');
+    setResult({ records: r.records, total: r.total, hasMore: false });
+    setRunning(false);
+  }, []);
+
   const onAddFilter = useCallback(() => {
     const f = newFilter(entityType);
     if (f) setFilters((x) => [...x, f]);
@@ -44,9 +56,6 @@ export function SearchApp() {
   return (
     <div style={shell}>
       <header style={header}>
-        <a href="/" style={{ color: '#8b90a0', textDecoration: 'none', marginRight: 16, fontSize: 13 }}>← Home</a>
-        <strong style={{ color: '#e2e4eb', marginRight: 24 }}>Search</strong>
-
         <Field label="Entity">
           <select value={entityType} onChange={(e) => { setEntityType(e.target.value); setFilters([]); setResult(null); }} style={input}>
             {ENTITY_TYPES.map((t) => (
@@ -63,6 +72,19 @@ export function SearchApp() {
             style={{ ...input, minWidth: 200 }}
             onKeyDown={(e) => e.key === 'Enter' && onRun()}
           />
+        </Field>
+
+        <Field label="Smart Scope">
+          <select
+            value=""
+            onChange={(e) => onRunScope(e.target.value)}
+            style={{ ...input, minWidth: 200, cursor: 'pointer' }}
+          >
+            <option value="">Choose a scope…</option>
+            {listScopes().map((s) => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
         </Field>
 
         <button onClick={onAddFilter} style={{ ...input, cursor: 'pointer', marginTop: 14 }}>+ Filter</button>
@@ -103,9 +125,8 @@ function Field({ label, children }) {
 const shell = {
   display: 'flex',
   flexDirection: 'column',
-  height: '100vh',
+  height: '100%',
   background: '#0f1117',
-  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
 };
 const header = {
   display: 'flex',
