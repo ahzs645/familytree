@@ -52,7 +52,9 @@ const RECORD_TYPE_MAP = {
   childrelation: 'ChildRelation', placetemplate: 'PlaceTemplate',
   placetemplatekey: 'PlaceTemplateKey', placekeyvalue: 'PlaceKeyValue',
   coordinate: 'Coordinate', placedetail: 'PlaceDetail',
-  source: 'Source', sourcetemplate: 'SourceTemplate', treeinfo: 'FamilyTreeInformation',
+  source: 'Source', sourcetemplate: 'SourceTemplate',
+  changelogentry: 'ChangeLogEntry', changelogsubentry: 'ChangeLogSubEntry',
+  treeinfo: 'FamilyTreeInformation',
 };
 
 function ref(targetType, pk) {
@@ -392,6 +394,35 @@ try {
   }
   console.log(`  ${cles.length} change log entries`);
 } catch (e) { console.log('  ChangeLogEntries: skipped (' + e.message + ')'); }
+
+// ── Extract ChangeLogSubEntries ──
+console.log('Extracting change log sub-entries...');
+try {
+  const clses = db.prepare(`
+    SELECT Z_PK, ZSUPERENTRY, ZCHANGETYPE, ZCHANGEDATE, ZCHANGEKEY,
+           ZCHANGEKEYVALUESFORFORMATSTRING, ZCHANGEOBJECTENTITYNAME,
+           ZCHANGEOBJECTUNIQUEID, ZCHANGEDKEYINCHANGEOBJECT, ZUNIQUEID, ZUSERNAME
+    FROM ZCHANGELOGSUBENTRY
+  `).all();
+  for (const c of clses) {
+    const id = makeId('changelogsubentry', c.Z_PK);
+    records[id] = { recordType: 'ChangeLogSubEntry', recordName: id, fields: {},
+      created: { timestamp: coreDataTimestamp(c.ZCHANGEDATE) || Date.now() },
+      modified: { timestamp: coreDataTimestamp(c.ZCHANGEDATE) || Date.now() } };
+    const f = records[id].fields;
+    if (c.ZSUPERENTRY) f.superEntry = ref('changelogentry', c.ZSUPERENTRY);
+    if (c.ZCHANGETYPE !== null) f.changeType = field(c.ZCHANGETYPE, 'INT64');
+    if (c.ZCHANGEDATE) f.changeDate = field(coreDataTimestamp(c.ZCHANGEDATE), 'TIMESTAMP');
+    if (c.ZCHANGEKEY) f.changeKey = field(c.ZCHANGEKEY);
+    if (c.ZCHANGEKEYVALUESFORFORMATSTRING) f.changeKeyValuesForFormatString = field(c.ZCHANGEKEYVALUESFORFORMATSTRING);
+    if (c.ZCHANGEOBJECTENTITYNAME) f.changeObjectEntityName = field(c.ZCHANGEOBJECTENTITYNAME);
+    if (c.ZCHANGEOBJECTUNIQUEID) f.changeObjectUniqueID = field(c.ZCHANGEOBJECTUNIQUEID);
+    if (c.ZCHANGEDKEYINCHANGEOBJECT) f.changedKeyInChangeObject = field(c.ZCHANGEDKEYINCHANGEOBJECT);
+    if (c.ZUNIQUEID) f.uniqueID = field(c.ZUNIQUEID);
+    if (c.ZUSERNAME) f.userName = field(c.ZUSERNAME);
+  }
+  console.log(`  ${clses.length} change log sub-entries`);
+} catch (e) { console.log('  ChangeLogSubEntries: skipped (' + e.message + ')'); }
 
 // ── Extract Places (Z_ENT = 28) ──
 console.log('Extracting places...');

@@ -188,7 +188,8 @@ export class MFTPKGImporter {
       placetemplatekey: 'PlaceTemplateKey', placekeyvalue: 'PlaceKeyValue',
       coordinate: 'Coordinate', placedetail: 'PlaceDetail',
       source: 'Source', sourcetemplate: 'SourceTemplate',
-      changelogentry: 'ChangeLogEntry', treeinfo: 'FamilyTreeInformation',
+      changelogentry: 'ChangeLogEntry', changelogsubentry: 'ChangeLogSubEntry',
+      treeinfo: 'FamilyTreeInformation',
     };
 
     function ref(targetType, pk) {
@@ -492,6 +493,29 @@ export class MFTPKGImporter {
       if (r.ZLATESTCHANGEDATE) f.latestChangeDate = field(cdTs(r.ZLATESTCHANGEDATE), 'TIMESTAMP');
       f.changeDate = f.latestChangeDate || f.earliestChangeDate;
       addRecord(id, 'ChangeLogEntry', f, cdTs(r.ZEARLIESTCHANGEDATE), cdTs(r.ZLATESTCHANGEDATE));
+    }
+
+    // ── Extract ChangeLogSubEntries ──
+    this._progress('extracting', 9, 14);
+    for (const r of q(`
+      SELECT Z_PK, ZSUPERENTRY, ZCHANGETYPE, ZCHANGEDATE, ZCHANGEKEY,
+             ZCHANGEKEYVALUESFORFORMATSTRING, ZCHANGEOBJECTENTITYNAME,
+             ZCHANGEOBJECTUNIQUEID, ZCHANGEDKEYINCHANGEOBJECT, ZUNIQUEID, ZUSERNAME
+      FROM ZCHANGELOGSUBENTRY
+    `)) {
+      const id = makeId('changelogsubentry', r.Z_PK);
+      const f = {};
+      if (r.ZSUPERENTRY) f.superEntry = ref('changelogentry', r.ZSUPERENTRY);
+      if (r.ZCHANGETYPE !== null) f.changeType = field(r.ZCHANGETYPE, 'INT64');
+      if (r.ZCHANGEDATE) f.changeDate = field(cdTs(r.ZCHANGEDATE), 'TIMESTAMP');
+      if (r.ZCHANGEKEY) f.changeKey = field(r.ZCHANGEKEY);
+      if (r.ZCHANGEKEYVALUESFORFORMATSTRING) f.changeKeyValuesForFormatString = field(r.ZCHANGEKEYVALUESFORFORMATSTRING);
+      if (r.ZCHANGEOBJECTENTITYNAME) f.changeObjectEntityName = field(r.ZCHANGEOBJECTENTITYNAME);
+      if (r.ZCHANGEOBJECTUNIQUEID) f.changeObjectUniqueID = field(r.ZCHANGEOBJECTUNIQUEID);
+      if (r.ZCHANGEDKEYINCHANGEOBJECT) f.changedKeyInChangeObject = field(r.ZCHANGEDKEYINCHANGEOBJECT);
+      if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+      if (r.ZUSERNAME) f.userName = field(r.ZUSERNAME);
+      addRecord(id, 'ChangeLogSubEntry', f, cdTs(r.ZCHANGEDATE), cdTs(r.ZCHANGEDATE));
     }
 
     // ── Extract Places with components and coordinates ──
