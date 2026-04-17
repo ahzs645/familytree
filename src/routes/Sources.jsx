@@ -9,7 +9,6 @@ import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/ch
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { sourceSummary, personSummary } from '../models/index.js';
 import {
-  SOURCE_TEMPLATES,
   LABELS,
   REFERENCE_NUMBER_FIELDS,
   formatTimestamp,
@@ -20,6 +19,15 @@ import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 
 function uuid(p) {
   return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function humanizeTemplateName(recordName) {
+  // "SourceTemplate_ChurchRecord_Books" → "Church Record - Books"
+  return (recordName || '')
+    .replace(/^SourceTemplate_/, '')
+    .replace(/_/g, ' · ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .trim();
 }
 
 const ACCENTS = {
@@ -61,6 +69,7 @@ function Field({ label, children }) {
 
 export default function Sources() {
   const [sources, setSources] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [templateId, setTemplateId] = useState('');
   const [info, setInfo] = useState({});
@@ -82,6 +91,15 @@ export default function Sources() {
       return an.localeCompare(bn);
     });
     setSources(sorted);
+    const tpls = await db.query('SourceTemplate', { limit: 10000 });
+    setTemplates(
+      tpls.records
+        .map((t) => ({
+          recordName: t.recordName,
+          name: t.fields?.name?.value || t.fields?.title?.value || humanizeTemplateName(t.recordName),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    );
     if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
   }, [activeId]);
 
@@ -91,7 +109,8 @@ export default function Sources() {
     if (!activeId) return;
     const r = sources.find((s) => s.recordName === activeId);
     if (!r) return;
-    setTemplateId(refToRecordName(r.fields?.sourceTemplate?.value) || '');
+    // Real .mftpkg uses `template`; saveWithChangeLog writes `sourceTemplate`.
+    setTemplateId(refToRecordName(r.fields?.template?.value) || refToRecordName(r.fields?.sourceTemplate?.value) || '');
     const v = {};
     for (const f of INFO_FIELDS) v[f.id] = r.fields?.[f.id]?.value ?? '';
     setInfo(v);
@@ -144,8 +163,13 @@ export default function Sources() {
     const db = getLocalDatabase();
     const next = { ...r, fields: { ...r.fields } };
 
-    if (templateId) next.fields.sourceTemplate = { value: refValue(templateId, 'SourceTemplate'), type: 'REFERENCE' };
-    else delete next.fields.sourceTemplate;
+    if (templateId) {
+      next.fields.template = { value: refValue(templateId, 'SourceTemplate'), type: 'REFERENCE' };
+      delete next.fields.sourceTemplate;
+    } else {
+      delete next.fields.template;
+      delete next.fields.sourceTemplate;
+    }
 
     for (const f of INFO_FIELDS) {
       const v = info[f.id];
@@ -226,7 +250,7 @@ export default function Sources() {
         <Field label="Source Template">
           <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className={inputClass}>
             <option value="">— no template —</option>
-            {SOURCE_TEMPLATES.map((t) => <option key={t} value={`SourceTemplate_${t.replace(/\s/g, '')}`}>{t}</option>)}
+            {templates.map((t) => <option key={t.recordName} value={t.recordName}>{t.name}</option>)}
           </select>
         </Field>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">

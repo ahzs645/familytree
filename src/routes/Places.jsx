@@ -9,7 +9,6 @@ import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/ch
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { placeSummary } from '../models/index.js';
 import {
-  PLACE_TEMPLATES,
   PLACE_TEMPLATE_FIELDS,
   DEFAULT_PLACE_FIELDS,
   LABELS,
@@ -53,14 +52,21 @@ function Field({ label, children }) {
   );
 }
 
-function templateFieldsFor(templateId) {
+function templateFieldsFor(templateId, templates) {
   if (!templateId) return DEFAULT_PLACE_FIELDS;
-  const key = templateId.replace(/^PlaceTemplate_/, '');
-  return PLACE_TEMPLATE_FIELDS[key] || DEFAULT_PLACE_FIELDS;
+  // Try the legacy slug form first, then the actual template name from the
+  // record so real data ("placetemplate-12" → "United States of America")
+  // resolves to the correct field set.
+  const slug = templateId.replace(/^PlaceTemplate_/, '');
+  if (PLACE_TEMPLATE_FIELDS[slug]) return PLACE_TEMPLATE_FIELDS[slug];
+  const record = templates?.find((t) => t.recordName === templateId);
+  if (record && PLACE_TEMPLATE_FIELDS[record.name]) return PLACE_TEMPLATE_FIELDS[record.name];
+  return DEFAULT_PLACE_FIELDS;
 }
 
 export default function Places() {
   const [places, setPlaces] = useState([]);
+  const [templates, setTemplates] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [templateId, setTemplateId] = useState('');
   const [components, setComponents] = useState({});
@@ -69,6 +75,10 @@ export default function Places() {
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
+  // Coordinate record lives separate from Place, linked by Place.coordinate or Coordinate.place.
+  const [coordinate, setCoordinate] = useState(null);
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
 
@@ -81,6 +91,15 @@ export default function Places() {
       return an.localeCompare(bn);
     });
     setPlaces(sorted);
+    const tpls = await db.query('PlaceTemplate', { limit: 10000 });
+    setTemplates(
+      tpls.records
+        .map((t) => ({
+          recordName: t.recordName,
+          name: t.fields?.name?.value || t.fields?.title?.value || t.recordName,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    );
     if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
   }, [activeId]);
 
@@ -91,14 +110,20 @@ export default function Places() {
     const record = places.find((p) => p.recordName === activeId);
     if (!record) return;
 
-    const tplRef = refToRecordName(record.fields?.placeTemplate?.value) || '';
+    // Real mftpkg uses `template`, my editor writes `placeTemplate` — accept either.
+    const tplRef =
+      refToRecordName(record.fields?.template?.value) ||
+      refToRecordName(record.fields?.placeTemplate?.value) ||
+      '';
     setTemplateId(tplRef);
 
+    const fields = templateFieldsFor(tplRef, templates);
     const comps = {};
-    const fields = templateFieldsFor(tplRef);
+    // Real data stores component values directly as lowercase fields (place, county, state,
+    // province, country…). Fall back to `placeComponent_<slot>` for records we created.
     for (const fname of fields) {
       const slot = fname.toLowerCase();
-      comps[slot] = record.fields?.[`placeComponent_${slot}`]?.value || '';
+      comps[slot] = record.fields?.[slot]?.value || record.fields?.[`placeComponent_${slot}`]?.value || '';
     }
     if (!Object.values(comps).some((v) => v)) {
       const first = fields[0]?.toLowerCase();
@@ -125,10 +150,24 @@ export default function Places() {
       const s = {};
       for (const def of LABELS) s[def.id] = map.has(def.id);
       setLabels(s);
-    })();
-  }, [activeId, places]);
 
-  const templateFields = useMemo(() => templateFieldsFor(templateId), [templateId]);
+      // Load the Coordinate record: either the direct ref on Place, or a Coordinate
+      // whose `place` ref points back here.
+      const coordRef = refToRecordName(record.fields?.coordinate?.value);
+      let coord = coordRef ? await db.getRecord(coordRef) : null;
+      if (!coord) {
+        const { records } = await db.query('Coordinate', {
+          referenceField: 'place', referenceValue: activeId, limit: 5,
+        });
+        coord = records[0] || null;
+      }
+      setCoordinate(coord);
+      setLatitude(coord?.fields?.latitude?.value?.toString() ?? '');
+      setLongitude(coord?.fields?.longitude?.value?.toString() ?? '');
+    })();
+  }, [activeId, places, templates]);
+
+  const templateFields = useMemo(() => templateFieldsFor(templateId, templates), [templateId, templates]);
 
   const onSave = useCallback(async () => {
     const record = places.find((p) => p.recordName === activeId);
@@ -137,20 +176,30 @@ export default function Places() {
     const db = getLocalDatabase();
     const nextFields = { ...record.fields };
 
-    if (templateId) nextFields.placeTemplate = { value: refValue(templateId, 'PlaceTemplate'), type: 'REFERENCE' };
-    else delete nextFields.placeTemplate;
+    if (templateId) {
+      nextFields.template = { value: refValue(templateId, 'PlaceTemplate'), type: 'REFERENCE' };
+      delete nextFields.placeTemplate;
+    } else {
+      delete nextFields.template;
+      delete nextFields.placeTemplate;
+    }
 
     for (const fname of templateFields) {
       const slot = fname.toLowerCase();
       const v = components[slot];
-      const key = `placeComponent_${slot}`;
-      if (v == null || v === '') delete nextFields[key];
-      else nextFields[key] = { value: v, type: 'STRING' };
+      // Real data uses lowercase fields directly (place, county, state…); drop legacy
+      // placeComponent_ keys.
+      delete nextFields[`placeComponent_${slot}`];
+      if (v == null || v === '') delete nextFields[slot];
+      else nextFields[slot] = { value: v, type: 'STRING' };
     }
     const parts = templateFields.map((fname) => components[fname.toLowerCase()]).filter(Boolean);
     const display = parts.join(', ');
-    if (parts[0]) nextFields.placeName = { value: parts[0], type: 'STRING' };
-    if (display) nextFields.cached_normallocationString = { value: display, type: 'STRING' };
+    if (parts[0]) nextFields.placeName = { value: display || parts[0], type: 'STRING' };
+    if (display) {
+      nextFields.cached_shortLocationString = { value: display, type: 'STRING' };
+      nextFields.cached_standardizedLocationString = { value: parts.join(','), type: 'STRING' };
+    }
 
     nextFields.isBookmarked = { value: !!bookmarked, type: 'BOOLEAN' };
     nextFields.isPrivate = { value: !!isPrivate, type: 'BOOLEAN' };
@@ -158,6 +207,39 @@ export default function Places() {
       const v = refNumbers[f.id];
       if (v == null || v === '') delete nextFields[f.id];
       else nextFields[f.id] = { value: v, type: 'STRING' };
+    }
+
+    // Coordinate — write to separate Coordinate record. Create if missing,
+    // delete if both inputs are blank.
+    const latNum = parseFloat(latitude);
+    const lonNum = parseFloat(longitude);
+    const hasCoord = Number.isFinite(latNum) && Number.isFinite(lonNum);
+    if (hasCoord) {
+      let coord = coordinate;
+      if (!coord) {
+        coord = {
+          recordName: uuid('coord'),
+          recordType: 'Coordinate',
+          fields: { place: { value: refValue(activeId, 'Place'), type: 'REFERENCE' } },
+        };
+        await db.saveRecord(coord);
+        await logRecordCreated(coord);
+        nextFields.coordinate = { value: refValue(coord.recordName, 'Coordinate'), type: 'REFERENCE' };
+      }
+      await saveWithChangeLog({
+        ...coord,
+        fields: {
+          ...coord.fields,
+          place: { value: refValue(activeId, 'Place'), type: 'REFERENCE' },
+          latitude: { value: latNum, type: 'DOUBLE' },
+          longitude: { value: lonNum, type: 'DOUBLE' },
+        },
+      });
+    } else if (coordinate) {
+      await db.deleteRecord(coordinate.recordName);
+      await logRecordDeleted(coordinate.recordName, 'Coordinate');
+      delete nextFields.coordinate;
+      setCoordinate(null);
     }
 
     await saveWithChangeLog({ ...record, fields: nextFields });
@@ -219,11 +301,11 @@ export default function Places() {
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
-  }, [activeId, places, templateId, templateFields, components, details, labels, refNumbers, bookmarked, isPrivate, reload]);
+  }, [activeId, places, templateId, templateFields, components, details, labels, refNumbers, bookmarked, isPrivate, latitude, longitude, coordinate, reload]);
 
   const active = places.find((p) => p.recordName === activeId);
-  const lat = parseFloat(active?.fields?.latitude?.value);
-  const lng = parseFloat(active?.fields?.longitude?.value);
+  const lat = parseFloat(latitude);
+  const lng = parseFloat(longitude);
   const hasPoint = Number.isFinite(lat) && Number.isFinite(lng);
 
   const renderRow = (r) => {
@@ -254,7 +336,7 @@ export default function Places() {
         <Field label="Place Template">
           <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className={inputClass}>
             <option value="">— no template —</option>
-            {PLACE_TEMPLATES.map((t) => <option key={t} value={`PlaceTemplate_${t}`}>{t}</option>)}
+            {templates.map((t) => <option key={t.recordName} value={t.recordName}>{t.name}</option>)}
           </select>
         </Field>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
@@ -296,25 +378,11 @@ export default function Places() {
       <Section title="Coordinate" accent={ACCENTS.coord}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Latitude">
-            <input value={active.fields?.latitude?.value ?? ''}
-              onChange={(e) => {
-                const v = e.target.value;
-                setPlaces((arr) => arr.map((p) => p.recordName === activeId
-                  ? { ...p, fields: { ...p.fields, latitude: { value: v, type: 'NUMBER' } } }
-                  : p));
-              }}
-              className={inputClass} />
+            <input value={latitude} onChange={(e) => setLatitude(e.target.value)} className={inputClass} />
             {hasPoint && <div className="text-[11px] text-muted-foreground mt-1">{dmsLat(lat)}</div>}
           </Field>
           <Field label="Longitude">
-            <input value={active.fields?.longitude?.value ?? ''}
-              onChange={(e) => {
-                const v = e.target.value;
-                setPlaces((arr) => arr.map((p) => p.recordName === activeId
-                  ? { ...p, fields: { ...p.fields, longitude: { value: v, type: 'NUMBER' } } }
-                  : p));
-              }}
-              className={inputClass} />
+            <input value={longitude} onChange={(e) => setLongitude(e.target.value)} className={inputClass} />
             {hasPoint && <div className="text-[11px] text-muted-foreground mt-1">{dmsLon(lng)}</div>}
           </Field>
         </div>
@@ -328,15 +396,13 @@ export default function Places() {
             markers={hasPoint ? [{
               id: 'self', lat, lng, draggable: true,
               onDragEnd: ({ lng: nl, lat: nL }) => {
-                setPlaces((arr) => arr.map((p) => p.recordName === activeId
-                  ? { ...p, fields: { ...p.fields, latitude: { value: nL.toFixed(6), type: 'NUMBER' }, longitude: { value: nl.toFixed(6), type: 'NUMBER' } } }
-                  : p));
+                setLatitude(nL.toFixed(6));
+                setLongitude(nl.toFixed(6));
               },
             }] : []}
             onClick={({ lng: nl, lat: nL }) => {
-              setPlaces((arr) => arr.map((p) => p.recordName === activeId
-                ? { ...p, fields: { ...p.fields, latitude: { value: nL.toFixed(6), type: 'NUMBER' }, longitude: { value: nl.toFixed(6), type: 'NUMBER' } } }
-                : p));
+              setLatitude(nL.toFixed(6));
+              setLongitude(nl.toFixed(6));
             }}
           />
         </div>

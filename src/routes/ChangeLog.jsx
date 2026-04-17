@@ -1,23 +1,35 @@
 /**
- * Change Log viewer — lists recent ChangeLogEntry records grouped by date,
- * expandable to show field-level sub-entries.
+ * Change Log viewer — lists ChangeLogEntry records grouped by date.
+ * Expand any row to fetch + show field-level ChangeLogSubEntries.
+ *
+ * Reads through the changeLogQuery helpers so it works for both legacy
+ * mft entries and ones written by saveWithChangeLog.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { listChangeLogEntries, getSubEntriesForEntry } from '../lib/changeLogQuery.js';
-import { refToRecordName } from '../lib/recordRef.js';
+import {
+  listChangeLogEntries,
+  getSubEntriesForEntry,
+  entityTypeOf,
+  targetLabelOf,
+  targetIdOf,
+  changeKindOf,
+  authorOf,
+  timestampMillis,
+  subEntryDescription,
+} from '../lib/changeLogQuery.js';
 
 const ENTITY_TYPES = ['', 'Person', 'Family', 'PersonEvent', 'FamilyEvent', 'Place', 'Source'];
 
-function formatDate(iso) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return String(iso).slice(0, 16);
+function formatDate(ms) {
+  if (!ms) return '—';
+  const d = new Date(ms);
+  if (isNaN(d.getTime())) return '—';
   return d.toLocaleString();
 }
 
-function dateKey(iso) {
-  if (!iso) return 'unknown';
-  const d = new Date(iso);
+function dateKey(ms) {
+  if (!ms) return 'unknown';
+  const d = new Date(ms);
   if (isNaN(d.getTime())) return 'unknown';
   return d.toISOString().slice(0, 10);
 }
@@ -39,9 +51,7 @@ export default function ChangeLog() {
         setLoading(false);
       }
     })();
-    return () => {
-      cancel = true;
-    };
+    return () => { cancel = true; };
   }, [filter]);
 
   const toggle = useCallback(async (recordName) => {
@@ -62,7 +72,7 @@ export default function ChangeLog() {
     let currentKey = null;
     let currentGroup = null;
     for (const e of entries) {
-      const k = dateKey(e.fields?.timestamp?.value || e.fields?.mft_changeDate?.value);
+      const k = dateKey(timestampMillis(e));
       if (k !== currentKey) {
         currentKey = k;
         currentGroup = { key: k, entries: [] };
@@ -73,69 +83,57 @@ export default function ChangeLog() {
   }
 
   return (
-    <div style={shell}>
-      <header style={header}>
-        <label style={label}>Entity:</label>
-        <select value={filter} onChange={(e) => setFilter(e.target.value)} style={select}>
-          {ENTITY_TYPES.map((t) => (
-            <option key={t} value={t}>{t || 'All'}</option>
-          ))}
+    <div className="flex flex-col h-full">
+      <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
+        <label className="text-xs text-muted-foreground">Entity</label>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm outline-none"
+        >
+          {ENTITY_TYPES.map((t) => <option key={t} value={t}>{t || 'All'}</option>)}
         </select>
-        <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+        <span className="ml-auto text-xs text-muted-foreground">
           {loading ? 'Loading…' : `${entries.length} entries`}
         </span>
       </header>
-      <main style={main}>
+
+      <main className="flex-1 overflow-auto p-5 bg-background">
         {!loading && entries.length === 0 && (
-          <div style={{ color: 'hsl(var(--muted-foreground))', padding: 40, textAlign: 'center' }}>
-            No change log entries yet.
+          <div className="text-center text-muted-foreground py-12">
+            No change log entries{filter ? ` for ${filter}` : ''}.
           </div>
         )}
         {groups.map((g) => (
-          <section key={g.key} style={{ marginBottom: 24 }}>
-            <div style={dateHeader}>{g.key === 'unknown' ? 'Unknown date' : g.key}</div>
+          <section key={g.key} className="mb-6">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              {g.key === 'unknown' ? 'Unknown date' : g.key}
+            </div>
             {g.entries.map((e) => {
               const isOpen = expanded.has(e.recordName);
-              const f = e.fields || {};
+              const kind = changeKindOf(e);
               return (
-                <div key={e.recordName} style={row}>
-                  <button onClick={() => toggle(e.recordName)} style={rowHead}>
-                    <span style={kindBadge(f.changeType?.value)}>{f.changeType?.value || '—'}</span>
-                    <span style={{ color: 'hsl(var(--foreground))', flex: 1, marginLeft: 10 }}>
-                      {f.targetType?.value || 'Record'} · {f.summary?.value || refToRecordName(f.target?.value) || ''}
+                <div key={e.recordName} className="bg-card border border-border rounded-md mb-1.5">
+                  <button
+                    onClick={() => toggle(e.recordName)}
+                    className="flex items-center w-full px-3 py-2.5 text-left hover:bg-secondary/40 transition-colors"
+                  >
+                    {kind && <KindBadge kind={kind} />}
+                    <span className="flex-1 ml-3 text-sm">
+                      <span className="text-muted-foreground mr-2">{entityTypeOf(e) || 'Record'}</span>
+                      <span className="text-foreground">{targetLabelOf(e) || targetIdOf(e)}</span>
                     </span>
-                    <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, marginRight: 10 }}>
-                      {formatDate(f.timestamp?.value || f.mft_changeDate?.value)}
-                    </span>
-                    <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>{isOpen ? '▾' : '▸'}</span>
+                    <span className="text-xs text-muted-foreground mr-3">{formatDate(timestampMillis(e))}</span>
+                    <span className="text-muted-foreground">{isOpen ? '▾' : '▸'}</span>
                   </button>
                   {isOpen && (
-                    <div style={detail}>
-                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, marginBottom: 6 }}>
-                        Author: {f.author?.value || 'unknown'} · Target: {refToRecordName(f.target?.value)}
-                      </div>
-                      {(subs[e.recordName] || []).length === 0 ? (
-                        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>No field-level detail.</div>
-                      ) : (
-                        <table style={subTable}>
-                          <thead>
-                            <tr>
-                              <th style={subTh}>Field</th>
-                              <th style={subTh}>Before</th>
-                              <th style={subTh}>After</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(subs[e.recordName] || []).map((s) => (
-                              <tr key={s.recordName}>
-                                <td style={subTd}>{s.fields?.fieldName?.value || '—'}</td>
-                                <td style={subTd}>{s.fields?.oldValue?.value || <em style={{ color: 'hsl(var(--muted-foreground))' }}>empty</em>}</td>
-                                <td style={subTd}>{s.fields?.newValue?.value || <em style={{ color: 'hsl(var(--muted-foreground))' }}>empty</em>}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
+                    <div className="border-t border-border bg-background/60">
+                      <SubEntries
+                        subs={subs[e.recordName] || []}
+                        entityType={entityTypeOf(e)}
+                        author={authorOf(e)}
+                        targetId={targetIdOf(e)}
+                      />
                     </div>
                   )}
                 </div>
@@ -148,30 +146,63 @@ export default function ChangeLog() {
   );
 }
 
-function kindBadge(kind) {
-  const colors = { Add: '#4ade80', Delete: 'hsl(var(--destructive))', Change: 'hsl(var(--primary))', ResolvedConflict: '#fb923c' };
-  return {
-    display: 'inline-block',
-    fontSize: 11,
-    fontWeight: 700,
-    color: colors[kind] || 'hsl(var(--muted-foreground))',
-    border: `1px solid ${colors[kind] || 'hsl(var(--muted-foreground))'}`,
-    borderRadius: 4,
-    padding: '2px 6px',
-    minWidth: 60,
-    textAlign: 'center',
-  };
+function SubEntries({ subs, entityType, author, targetId }) {
+  if (subs.length === 0) {
+    return (
+      <div className="px-4 py-3">
+        <div className="text-xs text-muted-foreground italic">No field-level changes recorded.</div>
+        {(author || targetId) && (
+          <div className="text-[11px] text-muted-foreground mt-1">
+            {author && <>Author: {author} · </>}Target: {targetId || '—'}
+          </div>
+        )}
+      </div>
+    );
+  }
+  // Order sub-entries by their own changeDate so the sentence list reads chronologically.
+  const ordered = [...subs].sort(
+    (a, b) => (a.fields?.changeDate?.value || 0) - (b.fields?.changeDate?.value || 0)
+  );
+  return (
+    <div>
+      {ordered.map((s) => {
+        const ts = s.fields?.changeDate?.value;
+        return (
+          <div
+            key={s.recordName}
+            className="flex items-center px-4 py-2 border-t border-border/40 first:border-t-0"
+          >
+            <span className="flex-1 text-sm text-foreground pr-4 break-words" dir="auto">
+              {subEntryDescription(s, entityType)}
+            </span>
+            {ts && (
+              <span className="text-[11px] text-muted-foreground ml-2 whitespace-nowrap">
+                {new Date(ts).toLocaleString()}
+              </span>
+            )}
+          </div>
+        );
+      })}
+      {(author || targetId) && (
+        <div className="px-4 py-2 border-t border-border/40 text-[11px] text-muted-foreground">
+          {author && <>Author: {author} · </>}Target: {targetId || '—'}
+        </div>
+      )}
+    </div>
+  );
 }
 
-const shell = { display: 'flex', flexDirection: 'column', height: '100%' };
-const header = { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
-const label = { color: 'hsl(var(--muted-foreground))', fontSize: 12 };
-const select = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '7px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none' };
-const main = { flex: 1, overflow: 'auto', padding: '16px 24px' };
-const dateHeader = { color: 'hsl(var(--muted-foreground))', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: 600, marginBottom: 8 };
-const row = { background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, marginBottom: 6 };
-const rowHead = { display: 'flex', alignItems: 'center', width: '100%', background: 'transparent', border: 'none', padding: '10px 14px', cursor: 'pointer', color: 'hsl(var(--foreground))' };
-const detail = { padding: '10px 14px 14px', borderTop: '1px solid hsl(var(--border))' };
-const subTable = { width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 4 };
-const subTh = { textAlign: 'left', padding: '5px 8px', color: 'hsl(var(--muted-foreground))', fontWeight: 600, borderBottom: '1px solid hsl(var(--border))' };
-const subTd = { padding: '5px 8px', color: 'hsl(var(--foreground))', borderBottom: '1px solid hsl(var(--border))', fontFamily: '"SF Mono", Consolas, monospace', fontSize: 11.5, wordBreak: 'break-word', verticalAlign: 'top' };
+const KIND_COLORS = {
+  Add: 'text-emerald-500 border-emerald-500/40',
+  Delete: 'text-destructive border-destructive/40',
+  Change: 'text-primary border-primary/40',
+  ResolvedConflict: 'text-amber-500 border-amber-500/40',
+};
+
+function KindBadge({ kind }) {
+  return (
+    <span className={`inline-block text-[10px] font-bold uppercase tracking-wider rounded border px-2 py-0.5 min-w-[60px] text-center ${KIND_COLORS[kind] || 'text-muted-foreground border-border'}`}>
+      {kind}
+    </span>
+  );
+}
