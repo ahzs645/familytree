@@ -64,9 +64,30 @@ export const SEPIA_THEME = {
   },
 };
 
-export const THEMES = [DEFAULT_THEME, LIGHT_THEME, SEPIA_THEME];
+// Synthetic "auto" theme that tracks the app's light/dark toggle at resolution time.
+// Callers should resolve via getTheme(id) at render time so a toggle re-applies.
+export const AUTO_THEME = {
+  id: 'auto',
+  name: 'Auto (follow app)',
+};
 
-export function getTheme(id) {
+export const THEMES = [AUTO_THEME, DEFAULT_THEME, LIGHT_THEME, SEPIA_THEME];
+
+function currentAppIsDark() {
+  if (typeof document === 'undefined') return true;
+  return document.documentElement.classList.contains('dark');
+}
+
+/**
+ * Resolve a chart theme. Pass `appIsDark` explicitly when the caller knows
+ * the React-controlled theme state (avoids reading the html class before the
+ * theme-applying useEffect has run).
+ */
+export function getTheme(id, appIsDark) {
+  if (id === 'auto' || !id) {
+    const dark = appIsDark === undefined ? currentAppIsDark() : appIsDark;
+    return dark ? DEFAULT_THEME : LIGHT_THEME;
+  }
   return THEMES.find((t) => t.id === id) || DEFAULT_THEME;
 }
 

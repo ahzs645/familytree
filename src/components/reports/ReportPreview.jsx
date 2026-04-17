@@ -50,7 +50,10 @@ function Block({ block: b }) {
   }
 }
 
-const empty = { padding: 48, color: '#8b90a0', textAlign: 'center' };
+const empty = { padding: 48, color: 'hsl(var(--muted-foreground))', textAlign: 'center' };
+// The report preview always renders as a paper page — white background and
+// dark body text — regardless of the app theme, so it matches what HTML/PDF
+// exports produce.
 const page = {
   background: '#fff',
   color: '#1a1d27',

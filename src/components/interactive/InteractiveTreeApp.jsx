@@ -69,7 +69,7 @@ export function InteractiveTreeApp() {
     return (
       <EmptyMsg>
         No family data found.{' '}
-        <a href="/" style={{ color: '#6c8aff', marginLeft: 6 }}>Import a .mftpkg</a> first.
+        <a href="/" style={{ color: 'hsl(var(--primary))', marginLeft: 6 }}>Import a .mftpkg</a> first.
       </EmptyMsg>
     );
   }
@@ -105,7 +105,7 @@ const empty = {
   alignItems: 'center',
   justifyContent: 'center',
   height: '100%',
-  color: '#8b90a0',
+  color: 'hsl(var(--muted-foreground))',
   fontSize: 14,
 };
 

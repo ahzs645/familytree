@@ -95,7 +95,7 @@ export default function Media() {
             <option key={t.id} value={t.id}>{t.label}</option>
           ))}
         </select>
-        <span style={{ marginLeft: 'auto', color: '#8b90a0', fontSize: 12 }}>
+        <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
           {filtered.length} item{filtered.length === 1 ? '' : 's'}
         </span>
       </header>
@@ -103,7 +103,7 @@ export default function Media() {
       <div style={body}>
         <div style={gallery}>
           {filtered.length === 0 && (
-            <div style={{ color: '#5b6072', padding: 40, gridColumn: '1 / -1', textAlign: 'center' }}>
+            <div style={{ color: 'hsl(var(--muted-foreground))', padding: 40, gridColumn: '1 / -1', textAlign: 'center' }}>
               No media in this tree {filter !== 'all' ? `of type "${filter}"` : ''}.
             </div>
           )}
@@ -115,15 +115,15 @@ export default function Media() {
                 onClick={() => setActiveId(m.recordName)}
                 style={{
                   ...tile,
-                  borderColor: isActive ? '#6c8aff' : '#2e3345',
-                  background: isActive ? '#1a2030' : '#13161f',
+                  borderColor: isActive ? 'hsl(var(--primary))' : 'hsl(var(--border))',
+                  background: isActive ? 'hsl(var(--accent))' : 'hsl(var(--card))',
                 }}
               >
                 <div style={{ fontSize: 38, lineHeight: 1, marginBottom: 6 }}>{iconFor(m.recordType)}</div>
-                <div style={{ fontSize: 12, color: '#e2e4eb', fontWeight: 600, marginBottom: 2, wordBreak: 'break-word' }}>
+                <div style={{ fontSize: 12, color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: 2, wordBreak: 'break-word' }}>
                   {m.fields?.caption?.value || m.fields?.filename?.value || m.fields?.fileName?.value || m.fields?.url?.value || m.recordName}
                 </div>
-                <div style={{ fontSize: 11, color: '#8b90a0' }}>{m.recordType.replace('Media', '')}</div>
+                <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{m.recordType.replace('Media', '')}</div>
               </div>
             );
           })}
@@ -132,7 +132,7 @@ export default function Media() {
         {active && (
           <aside style={detail}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-              <h2 style={{ fontSize: 14, color: '#e2e4eb', margin: 0, fontWeight: 600 }}>
+              <h2 style={{ fontSize: 14, color: 'hsl(var(--foreground))', margin: 0, fontWeight: 600 }}>
                 {iconFor(active.recordType)} {active.recordType.replace('Media', '')}
               </h2>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
@@ -151,7 +151,7 @@ export default function Media() {
             )}
             {values.filename && (
               <FieldRow label="Filename">
-                <div style={{ color: '#8b90a0', fontSize: 12, fontFamily: '"SF Mono", Consolas, monospace' }}>
+                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, fontFamily: '"SF Mono", Consolas, monospace' }}>
                   {values.filename}
                 </div>
               </FieldRow>
@@ -172,11 +172,11 @@ export default function Media() {
 }
 
 const shell = { display: 'flex', flexDirection: 'column', height: '100%' };
-const header = { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderBottom: '1px solid #2e3345', background: '#161926' };
-const select = { background: '#242837', color: '#e2e4eb', border: '1px solid #2e3345', borderRadius: 6, padding: '6px 10px', fontSize: 12 };
+const header = { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
+const select = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 10px', fontSize: 12 };
 const body = { flex: 1, display: 'flex', overflow: 'hidden' };
 const gallery = { flex: 1, overflow: 'auto', padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 };
-const tile = { padding: 14, border: '1px solid #2e3345', borderRadius: 8, cursor: 'pointer', minHeight: 110, transition: 'border-color 0.15s, background 0.15s' };
-const detail = { width: 360, borderLeft: '1px solid #2e3345', background: '#13161f', padding: 20, overflow: 'auto' };
-const saveBtn = { background: '#3b6db8', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
-const deleteBtn = { background: 'transparent', color: '#f87171', border: '1px solid #3a2d30', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };
+const tile = { padding: 14, border: '1px solid hsl(var(--border))', borderRadius: 8, cursor: 'pointer', minHeight: 110, transition: 'border-color 0.15s, background 0.15s' };
+const detail = { width: 360, borderLeft: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', padding: 20, overflow: 'auto' };
+const saveBtn = { background: 'hsl(var(--primary))', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
+const deleteBtn = { background: 'transparent', color: 'hsl(var(--destructive))', border: '1px solid #3a2d30', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };

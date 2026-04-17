@@ -57,7 +57,7 @@ export function FilterRow({ entityType, filter, onChange, onRemove }) {
           style={inputStyle}
         />
       )}
-      <button onClick={onRemove} style={{ ...inputStyle, color: '#f87171', cursor: 'pointer' }}>×</button>
+      <button onClick={onRemove} style={{ ...inputStyle, color: 'hsl(var(--destructive))', cursor: 'pointer' }}>×</button>
     </div>
   );
 }
@@ -71,9 +71,9 @@ function parseValueForType(fieldDef, raw) {
 }
 
 const inputStyle = {
-  background: '#242837',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 6,
   padding: '6px 10px',
   font: '13px -apple-system, system-ui, sans-serif',

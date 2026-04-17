@@ -1,83 +1,131 @@
 /**
- * Family editor — /family/:id. Edit marriage date, swap partners,
- * add/remove/reorder children. Every save appends a ChangeLogEntry.
+ * Family editor — /family/:id. Full field set:
+ *   • Man panel (left) — inline name/title/suffix + parents row
+ *   • Woman panel (right) — same
+ *   • Children list with reorder + edit shortcut
+ *   • Family events (typed sub-list)
+ *   • Media, Notes, Source Citations, Influential Persons
+ *   • Labels, Reference Numbers, Bookmarks, Private, Last Edited
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
-import { refValue, refToRecordName as refValueToName } from '../lib/recordRef.js';
+import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { listAllPersons } from '../lib/treeQuery.js';
 import { personSummary, familySummary, lifeSpanLabel } from '../models/index.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
-import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { Section } from '../components/editors/Section.jsx';
+import { EditSwitch } from '../components/editors/EditSwitch.jsx';
+import { TypePicker } from '../components/editors/TypePicker.jsx';
+import {
+  FAMILY_EVENT_TYPES,
+  INFLUENTIAL_PERSON_TYPES_FAMILY,
+  LABELS,
+  REFERENCE_NUMBER_FIELDS,
+  formatTimestamp,
+} from '../lib/catalogs.js';
 
-function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+function uuid(p) {
+  return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+const ACCENTS = {
+  man: 'rgb(179 204 255)',
+  woman: 'rgb(255 204 179)',
+  children: 'rgb(77 128 230)',
+  events: 'rgb(0 217 115)',
+  media: 'rgb(77 128 230)',
+  notes: 'rgb(217 217 0)',
+  sources: 'rgb(51 0 255)',
+  influential: 'rgb(0 77 179)',
+  labels: 'rgb(255 0 128)',
+  ref: 'rgb(128 217 77)',
+  bookmarks: 'rgb(128 51 255)',
+  private: 'rgb(255 0 0)',
+  edited: 'rgb(191 128 64)',
+};
+
+const inputClass = 'w-full bg-background text-foreground border border-border rounded-md px-2.5 py-2 text-sm outline-none focus:border-primary';
+
+function Field({ label, children }) {
+  return (
+    <div className="flex-1 min-w-0">
+      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+      {children}
+    </div>
+  );
 }
 
 export default function FamilyEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+
   const [family, setFamily] = useState(null);
   const [persons, setPersons] = useState([]);
   const [manId, setManId] = useState(null);
   const [womanId, setWomanId] = useState(null);
   const [marriageDate, setMarriageDate] = useState('');
-  const [note, setNote] = useState('');
-  const [familyEvents, setFamilyEvents] = useState([]);
-  const [children, setChildren] = useState([]); // [{ childRelationName, childRecordName, summary }]
+  const [children, setChildren] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [labels, setLabels] = useState({});
+  const [refNumbers, setRefNumbers] = useState({});
+  const [bookmarked, setBookmarked] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
+
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [notFound, setNotFound] = useState(false);
 
-  const load = useCallback(async () => {
+  const reload = useCallback(async () => {
     const db = getLocalDatabase();
     const f = await db.getRecord(id);
-    if (!f) {
-      setNotFound(true);
-      return;
-    }
+    if (!f) { setNotFound(true); return; }
     setFamily(f);
-    setManId(refValueToName(f.fields?.man?.value));
-    setWomanId(refValueToName(f.fields?.woman?.value));
+    setManId(refToRecordName(f.fields?.man?.value));
+    setWomanId(refToRecordName(f.fields?.woman?.value));
     setMarriageDate(f.fields?.cached_marriageDate?.value || '');
-    setNote(f.fields?.note?.value || '');
+    setBookmarked(!!f.fields?.isBookmarked?.value);
+    setIsPrivate(!!f.fields?.isPrivate?.value);
 
-    const { records: fevents } = await db.query('FamilyEvent', {
-      referenceField: 'family',
-      referenceValue: id,
-      limit: 500,
-    });
-    setFamilyEvents(fevents);
+    const refs = {};
+    for (const fd of REFERENCE_NUMBER_FIELDS) refs[fd.id] = f.fields?.[fd.id]?.value ?? '';
+    setRefNumbers(refs);
 
-    const { records: rels } = await db.query('ChildRelation', {
-      referenceField: 'family',
-      referenceValue: id,
-      limit: 500,
-    });
+    const [cr, ev, note, lbl] = await Promise.all([
+      db.query('ChildRelation', { referenceField: 'family', referenceValue: id, limit: 500 }),
+      db.query('FamilyEvent', { referenceField: 'family', referenceValue: id, limit: 500 }),
+      db.query('Note', { referenceField: 'family', referenceValue: id, limit: 500 }),
+      db.query('LabelRelation', { referenceField: 'targetFamily', referenceValue: id, limit: 500 }),
+    ]);
+
     const hydrated = [];
-    for (const cr of rels) {
-      const childRef = refValueToName(cr.fields?.child?.value);
+    for (const rel of cr.records) {
+      const childRef = refToRecordName(rel.fields?.child?.value);
       if (!childRef) continue;
-      const child = await db.getRecord(childRef);
-      const sum = personSummary(child);
+      const c = await db.getRecord(childRef);
       hydrated.push({
-        childRelationName: cr.recordName,
+        childRelationName: rel.recordName,
         childRecordName: childRef,
-        summary: sum,
-        order: cr.fields?.order?.value ?? 0,
+        summary: personSummary(c),
+        order: rel.fields?.order?.value ?? 0,
       });
     }
     hydrated.sort((a, b) => a.order - b.order);
     setChildren(hydrated);
+    setEvents(ev.records);
+    setNotes(note.records.map((n) => ({ recordName: n.recordName, text: n.fields?.text?.value || '' })));
+
+    const labelMap = new Map(lbl.records.map((r) => [refToRecordName(r.fields?.label?.value), r.recordName]));
+    const lblState = {};
+    for (const def of LABELS) lblState[def.id] = labelMap.has(def.id);
+    setLabels(lblState);
 
     if (persons.length === 0) setPersons(await listAllPersons());
   }, [id, persons.length]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { reload(); }, [reload]);
 
   const moveChild = (i, dir) => {
     setChildren((arr) => {
@@ -88,20 +136,12 @@ export default function FamilyEditor() {
       return next;
     });
   };
-
-  const removeChild = (i) => {
-    setChildren((arr) => arr.filter((_, j) => j !== i));
-  };
-
+  const removeChild = (i) => setChildren((arr) => arr.filter((_, j) => j !== i));
   const addChild = (recordName) => {
-    if (!recordName) return;
-    if (children.some((c) => c.childRecordName === recordName)) return;
+    if (!recordName || children.some((c) => c.childRecordName === recordName)) return;
     const sum = persons.find((p) => p.recordName === recordName);
     if (!sum) return;
-    setChildren((arr) => [
-      ...arr,
-      { childRelationName: null, childRecordName: recordName, summary: sum, order: arr.length },
-    ]);
+    setChildren((arr) => [...arr, { childRelationName: null, childRecordName: recordName, summary: sum, order: arr.length }]);
   };
 
   const onSave = useCallback(async () => {
@@ -109,6 +149,7 @@ export default function FamilyEditor() {
     setSaving(true);
     const db = getLocalDatabase();
 
+    // Family record
     const nextFields = { ...family.fields };
     if (manId) nextFields.man = { value: refValue(manId, 'Person'), type: 'REFERENCE' };
     else delete nextFields.man;
@@ -116,38 +157,29 @@ export default function FamilyEditor() {
     else delete nextFields.woman;
     if (marriageDate) nextFields.cached_marriageDate = { value: marriageDate, type: 'STRING' };
     else delete nextFields.cached_marriageDate;
-    if (note) nextFields.note = { value: note, type: 'STRING' };
-    else delete nextFields.note;
+    nextFields.isBookmarked = { value: !!bookmarked, type: 'BOOLEAN' };
+    nextFields.isPrivate = { value: !!isPrivate, type: 'BOOLEAN' };
+    for (const f of REFERENCE_NUMBER_FIELDS) {
+      const v = refNumbers[f.id];
+      if (v == null || v === '') delete nextFields[f.id];
+      else nextFields[f.id] = { value: v, type: 'STRING' };
+    }
+    await saveWithChangeLog({ ...family, fields: nextFields });
 
-    const updated = { ...family, fields: nextFields };
-    await saveWithChangeLog(updated);
-
-    // Reconcile children: existing rels keep their recordName, new ones are created,
-    // removed ones get deleted.
-    const { records: existingRels } = await db.query('ChildRelation', {
-      referenceField: 'family',
-      referenceValue: id,
-      limit: 500,
-    });
-    const existingByChild = new Map(
-      existingRels.map((r) => [refValueToName(r.fields?.child?.value), r])
-    );
-    const keepRelNames = new Set();
-
+    // Children reconcile
+    const existingRels = (await db.query('ChildRelation', { referenceField: 'family', referenceValue: id, limit: 500 })).records;
+    const existingByChild = new Map(existingRels.map((r) => [refToRecordName(r.fields?.child?.value), r]));
+    const keep = new Set();
     for (let i = 0; i < children.length; i++) {
       const c = children[i];
       const existing = existingByChild.get(c.childRecordName);
       if (existing) {
-        keepRelNames.add(existing.recordName);
+        keep.add(existing.recordName);
         if ((existing.fields?.order?.value ?? 0) !== i) {
-          const rel = {
-            ...existing,
-            fields: { ...existing.fields, order: { value: i, type: 'NUMBER' } },
-          };
-          await saveWithChangeLog(rel);
+          await saveWithChangeLog({ ...existing, fields: { ...existing.fields, order: { value: i, type: 'NUMBER' } } });
         }
       } else {
-        const rel = {
+        const rec = {
           recordName: uuid('cr'),
           recordType: 'ChildRelation',
           fields: {
@@ -156,154 +188,288 @@ export default function FamilyEditor() {
             order: { value: i, type: 'NUMBER' },
           },
         };
-        await db.saveRecord(rel);
-        await logRecordCreated(rel);
-        keepRelNames.add(rel.recordName);
+        await db.saveRecord(rec);
+        await logRecordCreated(rec);
+        keep.add(rec.recordName);
       }
     }
-
     for (const rel of existingRels) {
-      if (!keepRelNames.has(rel.recordName)) {
+      if (!keep.has(rel.recordName)) {
         await db.deleteRecord(rel.recordName);
         await logRecordDeleted(rel.recordName, 'ChildRelation');
       }
     }
 
-    await load();
+    // Notes reconcile
+    const existingNotes = (await db.query('Note', { referenceField: 'family', referenceValue: id, limit: 500 })).records;
+    const keepN = new Set();
+    for (const n of notes) {
+      if (!n.text) continue;
+      if (n.recordName) {
+        keepN.add(n.recordName);
+        const prev = existingNotes.find((r) => r.recordName === n.recordName);
+        if (prev) {
+          await saveWithChangeLog({ ...prev, fields: { ...prev.fields, text: { value: n.text, type: 'STRING' } } });
+        }
+      } else {
+        const rec = {
+          recordName: uuid('note'),
+          recordType: 'Note',
+          fields: {
+            family: { value: refValue(id, 'Family'), type: 'REFERENCE' },
+            text: { value: n.text, type: 'STRING' },
+          },
+        };
+        await db.saveRecord(rec);
+        await logRecordCreated(rec);
+        keepN.add(rec.recordName);
+      }
+    }
+    for (const prev of existingNotes) {
+      if (!keepN.has(prev.recordName)) {
+        await db.deleteRecord(prev.recordName);
+        await logRecordDeleted(prev.recordName, 'Note');
+      }
+    }
+
+    // Labels reconcile
+    const existingLbl = (await db.query('LabelRelation', { referenceField: 'targetFamily', referenceValue: id, limit: 500 })).records;
+    const existingByLabel = new Map(existingLbl.map((r) => [refToRecordName(r.fields?.label?.value), r]));
+    for (const def of LABELS) {
+      const want = !!labels[def.id];
+      const existing = existingByLabel.get(def.id);
+      if (want && !existing) {
+        const rec = {
+          recordName: uuid('lbr'),
+          recordType: 'LabelRelation',
+          fields: {
+            label: { value: refValue(def.id, 'Label'), type: 'REFERENCE' },
+            targetFamily: { value: refValue(id, 'Family'), type: 'REFERENCE' },
+          },
+        };
+        await db.saveRecord(rec);
+        await logRecordCreated(rec);
+      } else if (!want && existing) {
+        await db.deleteRecord(existing.recordName);
+        await logRecordDeleted(existing.recordName, 'LabelRelation');
+      }
+    }
+
+    await reload();
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
-  }, [family, manId, womanId, marriageDate, note, children, id, load]);
+  }, [family, manId, womanId, marriageDate, children, notes, labels, refNumbers, bookmarked, isPrivate, id, reload]);
 
-  if (notFound) return <div style={pad}>Family not found.</div>;
-  if (!family) return <div style={pad}>Loading…</div>;
+  if (notFound) return <div className="p-10 text-muted-foreground">Family not found.</div>;
+  if (!family) return <div className="p-10 text-muted-foreground">Loading…</div>;
 
-  const summary = familySummary(family);
   const man = persons.find((p) => p.recordName === manId);
   const woman = persons.find((p) => p.recordName === womanId);
+  const summary = familySummary(family);
 
   return (
-    <div style={shell}>
-      <header style={header}>
-        <button onClick={() => navigate(-1)} style={backBtn}>← Back</button>
-        <h1 style={{ fontSize: 18, color: '#e2e4eb', margin: 0, fontWeight: 600 }}>
-          Edit Family · {summary?.familyName || family.recordName}
-        </h1>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          {status && <span style={{ color: '#4ade80', fontSize: 12 }}>{status}</span>}
-          <button disabled={saving} onClick={onSave} style={saveBtn}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </button>
+    <div className="flex flex-col h-full">
+      <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
+        <button onClick={() => navigate(-1)} className="text-xs text-muted-foreground border border-border rounded-md px-3 py-1.5 hover:bg-accent">← Back</button>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-base font-semibold truncate">
+            Family · {summary?.familyName || [man?.fullName, woman?.fullName].filter(Boolean).join(' & ') || family.recordName}
+          </h1>
         </div>
+        {status && <span className="text-emerald-500 text-xs">{status}</span>}
+        <button disabled={saving} onClick={onSave} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+          {saving ? 'Saving…' : 'Save changes'}
+        </button>
       </header>
 
-      <main style={main}>
-        <div style={grid}>
-          <FieldRow label="Partner (male)">
-            <PersonPicker persons={persons} value={manId} onChange={setManId} />
-            {man && <div style={partnerHint}>{man.fullName} {lifeSpanLabel(man) && `· ${lifeSpanLabel(man)}`}</div>}
-          </FieldRow>
-          <FieldRow label="Partner (female)">
-            <PersonPicker persons={persons} value={womanId} onChange={setWomanId} />
-            {woman && <div style={partnerHint}>{woman.fullName} {lifeSpanLabel(woman) && `· ${lifeSpanLabel(woman)}`}</div>}
-          </FieldRow>
-          <FieldRow label="Marriage date">
-            <input
-              value={marriageDate}
-              onChange={(e) => setMarriageDate(e.target.value)}
-              placeholder="YYYY or YYYY-MM-DD"
-              style={editorInput}
-            />
-          </FieldRow>
-        </div>
+      <main className="flex-1 overflow-auto bg-background">
+        <div className="max-w-6xl mx-auto p-5">
 
-        <FieldRow label="Family note">
-          <textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            style={editorTextarea}
-            rows={3}
-          />
-        </FieldRow>
-
-        <FieldRow label={`Family events · ${familyEvents.length}`} hint="Open the Events page to add or edit family events.">
-          {familyEvents.length === 0 ? (
-            <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 13, fontStyle: 'italic' }}>
-              No family events recorded.
-            </div>
-          ) : (
-            <div>
-              {familyEvents.map((e) => (
-                <div
-                  key={e.recordName}
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    alignItems: 'center',
-                    padding: '8px 10px',
-                    marginBottom: 4,
-                    background: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: 6,
-                  }}
-                >
-                  <span style={{ color: 'hsl(var(--foreground))', fontSize: 13, flex: 1 }}>
-                    {e.fields?.conclusionType?.value || e.fields?.eventType?.value || 'Event'}
-                    {e.fields?.date?.value && (
-                      <span style={{ color: 'hsl(var(--muted-foreground))', marginLeft: 8, fontSize: 11 }}>
-                        {e.fields.date.value}
-                      </span>
-                    )}
-                  </span>
-                  <button
-                    onClick={() => navigate('/events')}
-                    style={{ ...tinyBtn, color: 'hsl(var(--primary))' }}
-                  >
-                    open in Events
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-          <button onClick={() => navigate('/events')} style={{ ...tinyBtn, marginTop: 8 }}>
-            + Add family event (opens Events)
-          </button>
-        </FieldRow>
-
-        <FieldRow label={`Children · ${children.length}`}>
-          {children.length === 0 && (
-            <div style={{ color: '#5b6072', fontSize: 13, marginBottom: 8 }}>No children yet.</div>
-          )}
-          {children.map((c, i) => (
-            <div key={c.childRecordName} style={childRow}>
-              <span style={{ color: '#5b6072', fontSize: 11, minWidth: 28 }}>{i + 1}.</span>
-              <span style={{ color: '#e2e4eb', fontSize: 13, flex: 1 }}>
-                {c.summary?.fullName || c.childRecordName}
-                {lifeSpanLabel(c.summary) && <span style={{ color: '#8b90a0', marginLeft: 8, fontSize: 11 }}>{lifeSpanLabel(c.summary)}</span>}
-              </span>
-              <button disabled={i === 0} onClick={() => moveChild(i, -1)} style={tinyBtn}>↑</button>
-              <button disabled={i === children.length - 1} onClick={() => moveChild(i, 1)} style={tinyBtn}>↓</button>
-              <button onClick={() => navigate(`/person/${c.childRecordName}`)} style={tinyBtn}>edit</button>
-              <button onClick={() => removeChild(i)} style={{ ...tinyBtn, color: '#f87171' }}>remove</button>
-            </div>
-          ))}
-          <div style={{ marginTop: 10, maxWidth: 320 }}>
-            <PersonPicker persons={persons} value={null} onChange={addChild} />
-            <div style={{ color: '#5b6072', fontSize: 11, marginTop: 4 }}>Pick a person to add as a child.</div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <Section title="Man" accent={ACCENTS.man}>
+              <Field label="Partner">
+                <PersonPicker persons={persons} value={manId} onChange={setManId} />
+              </Field>
+              {man && <div className="mt-2 text-xs text-muted-foreground">{man.fullName} {lifeSpanLabel(man) && `· ${lifeSpanLabel(man)}`}</div>}
+              <button onClick={() => manId && navigate(`/person/${manId}`)} disabled={!manId}
+                className="mt-3 text-xs text-primary hover:underline disabled:opacity-50">
+                Open person editor →
+              </button>
+            </Section>
+            <Section title="Woman" accent={ACCENTS.woman}>
+              <Field label="Partner">
+                <PersonPicker persons={persons} value={womanId} onChange={setWomanId} />
+              </Field>
+              {woman && <div className="mt-2 text-xs text-muted-foreground">{woman.fullName} {lifeSpanLabel(woman) && `· ${lifeSpanLabel(woman)}`}</div>}
+              <button onClick={() => womanId && navigate(`/person/${womanId}`)} disabled={!womanId}
+                className="mt-3 text-xs text-primary hover:underline disabled:opacity-50">
+                Open person editor →
+              </button>
+            </Section>
           </div>
-        </FieldRow>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
+            <div className="min-w-0">
+              <Section title={`Children · ${children.length}`} accent={ACCENTS.children}
+                controls={
+                  <div className="max-w-[260px]">
+                    <PersonPicker persons={persons} value={null} onChange={addChild} />
+                  </div>
+                }
+              >
+                {children.length === 0 ? (
+                  <Empty title="No children recorded" hint="Use the picker above to add a child." />
+                ) : (
+                  <div className="space-y-1.5">
+                    {children.map((c, i) => (
+                      <div key={c.childRecordName} className="flex items-center gap-2 p-2 bg-secondary/30 rounded-md">
+                        <span className="text-xs text-muted-foreground w-6">{i + 1}.</span>
+                        <span className="text-sm flex-1 truncate">
+                          {c.summary?.fullName || c.childRecordName}
+                          {lifeSpanLabel(c.summary) && <span className="text-muted-foreground ml-2 text-xs">{lifeSpanLabel(c.summary)}</span>}
+                        </span>
+                        <button disabled={i === 0} onClick={() => moveChild(i, -1)} className="text-xs text-muted-foreground border border-border rounded-md w-7 h-7 hover:bg-accent disabled:opacity-30">↑</button>
+                        <button disabled={i === children.length - 1} onClick={() => moveChild(i, 1)} className="text-xs text-muted-foreground border border-border rounded-md w-7 h-7 hover:bg-accent disabled:opacity-30">↓</button>
+                        <button onClick={() => navigate(`/person/${c.childRecordName}`)} className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent">edit</button>
+                        <button onClick={() => removeChild(i)} className="text-destructive border border-border rounded-md w-7 h-7 text-xs hover:bg-destructive/10">×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
+
+              <Section title="Family Events" accent={ACCENTS.events}
+                controls={<TypePicker placeholder="Add Event" options={FAMILY_EVENT_TYPES}
+                  onPick={async (t) => {
+                    const db = getLocalDatabase();
+                    const rec = {
+                      recordName: uuid('fe'),
+                      recordType: 'FamilyEvent',
+                      fields: {
+                        family: { value: refValue(id, 'Family'), type: 'REFERENCE' },
+                        conclusionType: { value: refValue(t, 'ConclusionFamilyEventType'), type: 'REFERENCE' },
+                      },
+                    };
+                    await db.saveRecord(rec);
+                    await logRecordCreated(rec);
+                    await reload();
+                  }} />}
+              >
+                <Field label="Marriage date">
+                  <input value={marriageDate} onChange={(e) => setMarriageDate(e.target.value)} placeholder="YYYY or YYYY-MM-DD" className={inputClass} />
+                </Field>
+                {events.length === 0 ? (
+                  <div className="mt-3">
+                    <Empty title="No family events" hint="Use the menu above to add one." />
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {events.map((e) => {
+                      const typeId = refToRecordName(e.fields?.conclusionType?.value) || '';
+                      const label = FAMILY_EVENT_TYPES.find((t) => t.id === typeId)?.label || typeId || 'Event';
+                      const date = e.fields?.date?.value || '';
+                      return (
+                        <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
+                          <span className="text-sm">{label}{date && <span className="text-muted-foreground"> · {date}</span>}</span>
+                          <button onClick={() => navigate('/events')} className="text-xs text-primary hover:underline">open in Events</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Section>
+
+              <Section title="Media" accent={ACCENTS.media}
+                controls={<button onClick={() => navigate('/media')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Media</button>}>
+                <Empty title="No media present" hint="Open the Media page to add pictures." />
+              </Section>
+
+              <Section title="Notes" accent={ACCENTS.notes}
+                controls={<button onClick={() => setNotes((a) => [...a, { text: '' }])}
+                  className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Add Note</button>}>
+                {notes.length === 0 ? (
+                  <Empty title="No notes present" hint="Use the button above to add one." />
+                ) : notes.map((n, i) => (
+                  <div key={n.recordName || i} className="mb-3">
+                    <textarea value={n.text} rows={3}
+                      onChange={(e) => setNotes((a) => a.map((x, j) => j === i ? { ...x, text: e.target.value } : x))}
+                      className={inputClass + ' resize-y'} />
+                    <div className="text-right">
+                      <button onClick={() => setNotes((a) => a.filter((_, j) => j !== i))}
+                        className="text-destructive border border-border rounded-md w-7 h-7 text-xs hover:bg-destructive/10 mt-1">×</button>
+                    </div>
+                  </div>
+                ))}
+              </Section>
+
+              <Section title="Source Citations" accent={ACCENTS.sources}
+                controls={<button onClick={() => navigate('/sources')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Sources</button>}>
+                <Empty title="Source citations" hint="Manage citations in the Sources section." />
+              </Section>
+
+              <Section title="Influential Persons" accent={ACCENTS.influential}>
+                <Empty title="No influential persons" hint={INFLUENTIAL_PERSON_TYPES_FAMILY.map((t) => t.label).join(', ')} />
+              </Section>
+            </div>
+
+            <div>
+              <Section title="Labels" accent={ACCENTS.labels}>
+                <div className="space-y-1">
+                  {LABELS.map((def) => (
+                    <EditSwitch key={def.id} label={def.label} color={def.color}
+                      checked={!!labels[def.id]}
+                      onChange={(v) => setLabels((s) => ({ ...s, [def.id]: v }))} />
+                  ))}
+                </div>
+              </Section>
+
+              <Section title="Reference Numbers" accent={ACCENTS.ref}>
+                <div className="grid grid-cols-1 gap-3">
+                  {REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID').map((f) => (
+                    <Field key={f.id} label={f.label}>
+                      <input value={refNumbers[f.id] ?? ''} onChange={(e) => setRefNumbers((s) => ({ ...s, [f.id]: e.target.value }))} className={inputClass} />
+                    </Field>
+                  ))}
+                </div>
+              </Section>
+
+              <Section title="Bookmarks" accent={ACCENTS.bookmarks}>
+                <EditSwitch label="Bookmarked" checked={bookmarked} onChange={setBookmarked} />
+              </Section>
+
+              <Section title="Private" accent={ACCENTS.private}>
+                <EditSwitch label="Marked as Private" checked={isPrivate} onChange={setIsPrivate} />
+                <p className="text-[11px] text-muted-foreground mt-2">Hidden from charts and reports when set.</p>
+              </Section>
+
+              <Section title="Last Edited" accent={ACCENTS.edited}>
+                <ReadOnly label="Change Date" value={formatTimestamp(family.fields?.mft_changeDate?.value || family.modified?.timestamp)} />
+                <ReadOnly label="Creation Date" value={formatTimestamp(family.fields?.mft_creationDate?.value || family.created?.timestamp)} />
+              </Section>
+            </div>
+          </div>
+
+        </div>
       </main>
     </div>
   );
 }
 
-const shell = { display: 'flex', flexDirection: 'column', height: '100%' };
-const header = { display: 'flex', gap: 12, alignItems: 'center', padding: '12px 20px', borderBottom: '1px solid #2e3345', background: '#161926' };
-const main = { flex: 1, overflow: 'auto', padding: '24px 28px', maxWidth: 900, margin: '0 auto', width: '100%', boxSizing: 'border-box' };
-const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, marginBottom: 12 };
-const partnerHint = { color: '#8b90a0', fontSize: 11, marginTop: 4 };
-const childRow = { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 10px', background: '#13161f', border: '1px solid #2e3345', borderRadius: 6, marginBottom: 6 };
-const pad = { padding: 40, color: '#8b90a0' };
-const backBtn = { background: 'transparent', color: '#8b90a0', border: '1px solid #2e3345', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer' };
-const saveBtn = { background: '#3b6db8', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 600 };
-const tinyBtn = { background: 'transparent', color: '#8b90a0', border: '1px solid #2e3345', borderRadius: 4, padding: '3px 7px', fontSize: 11, cursor: 'pointer' };
+function Empty({ title, hint }) {
+  return (
+    <div className="text-center py-6">
+      <div className="text-sm text-foreground">{title}</div>
+      {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
+    </div>
+  );
+}
+
+function ReadOnly({ label, value }) {
+  return (
+    <div className="mb-2 last:mb-0">
+      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className="text-sm">{value}</div>
+    </div>
+  );
+}

@@ -7,6 +7,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { listAllPersons, findStartPerson, buildAncestorTree, buildDescendantTree } from '../../lib/treeQuery.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
+import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { findRelationshipPath } from '../../lib/relationshipPath.js';
 import { listChartTemplates, saveChartTemplate, deleteChartTemplate, newTemplateId } from '../../lib/chartTemplates.js';
 import { THEMES, getTheme } from './theme.js';
@@ -39,7 +40,8 @@ export function ChartsApp() {
   const [secondId, setSecondId] = useState(null);
   const [chartType, setChartType] = useState(searchParams.get('type') || 'ancestor');
   const [generations, setGenerations] = useState(5);
-  const [themeId, setThemeId] = useState(THEMES[0].id);
+  const [themeId, setThemeId] = useState('auto');
+  const { theme: appTheme } = useTheme();
   const [virtualSource, setVirtualSource] = useState('descendant');
   const [virtualOrientation, setVirtualOrientation] = useState('vertical');
   const [virtualHSpacing, setVirtualHSpacing] = useState(24);
@@ -52,7 +54,7 @@ export function ChartsApp() {
   const [loading, setLoading] = useState(true);
   const [empty, setEmpty] = useState(false);
 
-  const theme = getTheme(themeId);
+  const theme = getTheme(themeId, appTheme === 'dark');
   const needsSecond = CHART_TYPES.find((t) => t.id === chartType)?.needsSecond;
 
   useEffect(() => {
@@ -161,7 +163,7 @@ export function ChartsApp() {
   if (empty) {
     return (
       <div style={loadingStyle}>
-        No family data found. <a href="/" style={{ color: '#6c8aff', marginLeft: 6 }}>Import a .mftpkg</a> first.
+        No family data found. <a href="/" style={{ color: 'hsl(var(--primary))', marginLeft: 6 }}>Import a .mftpkg</a> first.
       </div>
     );
   }
@@ -282,28 +284,28 @@ export function ChartsApp() {
         )}
         {chartType === 'virtual' && (
           <div style={{ display: 'flex', height: '100%' }}>
-            <aside style={{ width: 220, padding: 16, borderRight: '1px solid #2e3345', background: '#161926', color: '#e2e4eb', fontSize: 13 }}>
-              <div style={{ color: '#8b90a0', fontSize: 11, marginBottom: 8, letterSpacing: 0.4 }}>VIRTUAL TREE OPTIONS</div>
+            <aside style={{ width: 220, padding: 16, borderRight: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', color: 'hsl(var(--foreground))', fontSize: 13 }}>
+              <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 8, letterSpacing: 0.4 }}>VIRTUAL TREE OPTIONS</div>
               <label style={{ display: 'block', marginBottom: 10 }}>
-                <div style={{ color: '#8b90a0', fontSize: 11, marginBottom: 3 }}>Source</div>
+                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Source</div>
                 <select value={virtualSource} onChange={(e) => setVirtualSource(e.target.value)} style={optionSelect}>
                   <option value="descendant">Descendants</option>
                   <option value="ancestor">Ancestors</option>
                 </select>
               </label>
               <label style={{ display: 'block', marginBottom: 10 }}>
-                <div style={{ color: '#8b90a0', fontSize: 11, marginBottom: 3 }}>Orientation</div>
+                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Orientation</div>
                 <select value={virtualOrientation} onChange={(e) => setVirtualOrientation(e.target.value)} style={optionSelect}>
                   <option value="vertical">Vertical</option>
                   <option value="horizontal">Horizontal</option>
                 </select>
               </label>
               <label style={{ display: 'block', marginBottom: 10 }}>
-                <div style={{ color: '#8b90a0', fontSize: 11, marginBottom: 3 }}>Sibling spacing ({virtualHSpacing}px)</div>
+                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Sibling spacing ({virtualHSpacing}px)</div>
                 <input type="range" min={8} max={80} value={virtualHSpacing} onChange={(e) => setVirtualHSpacing(+e.target.value)} style={{ width: '100%' }} />
               </label>
               <label style={{ display: 'block', marginBottom: 10 }}>
-                <div style={{ color: '#8b90a0', fontSize: 11, marginBottom: 3 }}>Generation spacing ({virtualVSpacing}px)</div>
+                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Generation spacing ({virtualVSpacing}px)</div>
                 <input type="range" min={50} max={200} value={virtualVSpacing} onChange={(e) => setVirtualVSpacing(+e.target.value)} style={{ width: '100%' }} />
               </label>
             </aside>
@@ -326,7 +328,7 @@ export function ChartsApp() {
 function Field({ label, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', marginRight: 12 }}>
-      <span style={{ color: '#8b90a0', fontSize: 11, marginBottom: 3 }}>{label}</span>
+      <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
       {children}
     </div>
   );
@@ -336,22 +338,22 @@ const shellStyle = {
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
-  background: '#0f1117',
+  background: 'hsl(var(--background))',
 };
 const headerStyle = {
   display: 'flex',
   alignItems: 'flex-end',
   gap: 8,
   padding: '12px 20px',
-  borderBottom: '1px solid #2e3345',
-  background: '#161926',
+  borderBottom: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--card))',
   flexWrap: 'wrap',
 };
 const mainStyle = { flex: 1, position: 'relative', overflow: 'hidden' };
 const selectStyle = {
-  background: '#242837',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 8,
   padding: '8px 10px',
   font: '13px -apple-system, system-ui, sans-serif',
@@ -360,9 +362,9 @@ const selectStyle = {
 };
 const optionSelect = {
   width: '100%',
-  background: '#242837',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 6,
   padding: '6px 8px',
   font: '12px -apple-system, system-ui, sans-serif',
@@ -373,8 +375,8 @@ const loadingStyle = {
   alignItems: 'center',
   justifyContent: 'center',
   height: '100%',
-  color: '#8b90a0',
-  background: '#0f1117',
+  color: 'hsl(var(--muted-foreground))',
+  background: 'hsl(var(--background))',
 };
 
 export default ChartsApp;

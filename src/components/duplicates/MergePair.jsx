@@ -55,10 +55,10 @@ export function MergePair({ pair, onMerged, onSkip }) {
     <div style={card}>
       <div style={header}>
         <div>
-          <div style={{ fontSize: 14, color: '#e2e4eb', fontWeight: 600 }}>
+          <div style={{ fontSize: 14, color: 'hsl(var(--foreground))', fontWeight: 600 }}>
             {a.recordType} pair — score {(score * 100).toFixed(0)}%
           </div>
-          <div style={{ fontSize: 12, color: '#8b90a0', marginTop: 2 }}>{reasons.join(' · ') || 'heuristic match'}</div>
+          <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>{reasons.join(' · ') || 'heuristic match'}</div>
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={onSkip} style={btnSecondary}>Skip</button>
@@ -75,14 +75,14 @@ export function MergePair({ pair, onMerged, onSkip }) {
         const different = JSON.stringify(av) !== JSON.stringify(bv);
         return (
           <div key={k} style={row}>
-            <div style={{ ...cell, border: choices[k] === 'a' ? '1px solid #3b6db8' : '1px solid #2e3345', background: different && av != null ? '#1a2030' : '#161922' }}>
+            <div style={{ ...cell, border: choices[k] === 'a' ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border))', background: different && av != null ? 'hsl(var(--accent))' : 'hsl(var(--muted))' }}>
               <div style={fieldLabel}>{k}</div>
               <div style={fieldValue}>{displayValue(av)}</div>
               {different && (
                 <button onClick={() => setChoices({ ...choices, [k]: 'a' })} style={tinyBtn}>Use A</button>
               )}
             </div>
-            <div style={{ ...cell, border: choices[k] === 'b' ? '1px solid #b8417a' : '1px solid #2e3345', background: different && bv != null ? '#1e1820' : '#161922' }}>
+            <div style={{ ...cell, border: choices[k] === 'b' ? '1px solid #b8417a' : '1px solid hsl(var(--border))', background: different && bv != null ? 'hsl(var(--accent))' : 'hsl(var(--muted))' }}>
               <div style={fieldLabel}>{k}</div>
               <div style={fieldValue}>{displayValue(bv)}</div>
               {different && (
@@ -97,31 +97,31 @@ export function MergePair({ pair, onMerged, onSkip }) {
 }
 
 const card = {
-  background: '#13161f',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--card))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 10,
   padding: 16,
   marginBottom: 18,
 };
 const header = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 };
 const grid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 };
-const colHeader = { color: '#8b90a0', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3 };
+const colHeader = { color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3 };
 const row = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 };
 const cell = { padding: 10, borderRadius: 6 };
-const fieldLabel = { color: '#8b90a0', fontSize: 11, marginBottom: 3 };
-const fieldValue = { color: '#e2e4eb', fontSize: 13, wordBreak: 'break-word' };
+const fieldLabel = { color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 };
+const fieldValue = { color: 'hsl(var(--foreground))', fontSize: 13, wordBreak: 'break-word' };
 const tinyBtn = {
   marginTop: 6,
   background: 'transparent',
-  color: '#6c8aff',
-  border: '1px solid #2e3345',
+  color: 'hsl(var(--primary))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 4,
   padding: '3px 8px',
   fontSize: 11,
   cursor: 'pointer',
 };
 const btnPrimary = {
-  background: '#3b6db8',
+  background: 'hsl(var(--primary))',
   color: '#fff',
   border: 'none',
   borderRadius: 6,
@@ -130,9 +130,9 @@ const btnPrimary = {
   cursor: 'pointer',
 };
 const btnSecondary = {
-  background: '#242837',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 6,
   padding: '7px 14px',
   fontSize: 13,

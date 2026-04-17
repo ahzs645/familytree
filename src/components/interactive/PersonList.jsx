@@ -41,19 +41,19 @@ export function PersonList({ persons, activeId, onPick }) {
                 onClick={() => onPick(p.recordName)}
                 style={{
                   ...row,
-                  background: p.recordName === activeId ? '#242837' : 'transparent',
-                  borderLeft: p.recordName === activeId ? '3px solid #6c8aff' : '3px solid transparent',
+                  background: p.recordName === activeId ? 'hsl(var(--secondary))' : 'transparent',
+                  borderLeft: p.recordName === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
                 }}
                 onMouseEnter={(e) => {
-                  if (p.recordName !== activeId) e.currentTarget.style.background = '#1a1d27';
+                  if (p.recordName !== activeId) e.currentTarget.style.background = 'hsl(var(--muted))';
                 }}
                 onMouseLeave={(e) => {
                   if (p.recordName !== activeId) e.currentTarget.style.background = 'transparent';
                 }}
               >
-                <div style={{ color: '#e2e4eb', fontSize: 13 }}>{p.fullName}</div>
+                <div style={{ color: 'hsl(var(--foreground))', fontSize: 13 }}>{p.fullName}</div>
                 {(p.birthDate || p.deathDate) && (
-                  <div style={{ color: '#8b90a0', fontSize: 11 }}>
+                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
                     {(p.birthDate || '?').slice(0, 4)} – {(p.deathDate || '').slice(0, 4)}
                   </div>
                 )}
@@ -62,20 +62,20 @@ export function PersonList({ persons, activeId, onPick }) {
           </div>
         ))}
         {sections.length === 0 && (
-          <div style={{ padding: 20, color: '#8b90a0', fontSize: 13 }}>No matches.</div>
+          <div style={{ padding: 20, color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>No matches.</div>
         )}
       </div>
     </div>
   );
 }
 
-const shell = { display: 'flex', flexDirection: 'column', height: '100%', borderRight: '1px solid #2e3345', background: '#13161f' };
-const searchBar = { padding: 10, borderBottom: '1px solid #2e3345' };
+const shell = { display: 'flex', flexDirection: 'column', height: '100%', borderRight: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
+const searchBar = { padding: 10, borderBottom: '1px solid hsl(var(--border))' };
 const search = {
   width: '100%',
-  background: '#0f1117',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--background))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 6,
   padding: '7px 10px',
   font: '13px -apple-system, system-ui, sans-serif',
@@ -83,16 +83,16 @@ const search = {
 };
 const list = { flex: 1, overflow: 'auto' };
 const sectionHeader = {
-  background: '#1a1d27',
-  color: '#8b90a0',
+  background: 'hsl(var(--muted))',
+  color: 'hsl(var(--muted-foreground))',
   fontSize: 11,
   fontWeight: 600,
   padding: '6px 12px',
   letterSpacing: 0.5,
-  borderBottom: '1px solid #2e3345',
+  borderBottom: '1px solid hsl(var(--border))',
   position: 'sticky',
   top: 0,
 };
-const row = { padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #1a1d27' };
+const row = { padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid hsl(var(--border))' };
 
 export default PersonList;

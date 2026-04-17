@@ -29,8 +29,8 @@ function Chip({ person, onPick }) {
       onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.15)')}
       onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
     >
-      <div style={{ fontSize: 13, color: '#e2e4eb', fontWeight: 600 }}>{person.fullName}</div>
-      <div style={{ fontSize: 11, color: '#8b90a0' }}>{lifeSpanLabel(person)}</div>
+      <div style={{ fontSize: 13, color: 'hsl(var(--foreground))', fontWeight: 600 }}>{person.fullName}</div>
+      <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{lifeSpanLabel(person)}</div>
     </div>
   );
 }
@@ -39,7 +39,7 @@ function Section({ title, children, count }) {
   return (
     <div style={{ marginBottom: 22 }}>
       <div style={sectionHead}>
-        {title} {count != null && <span style={{ color: '#5b6072', fontWeight: 400 }}>· {count}</span>}
+        {title} {count != null && <span style={{ color: 'hsl(var(--muted-foreground))', fontWeight: 400 }}>· {count}</span>}
       </div>
       {children}
     </div>
@@ -49,7 +49,7 @@ function Section({ title, children, count }) {
 export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescendantChart }) {
   const navigate = useNavigate();
   if (!context) {
-    return <div style={{ padding: 40, color: '#8b90a0' }}>Pick a person from the list.</div>;
+    return <div style={{ padding: 40, color: 'hsl(var(--muted-foreground))' }}>Pick a person from the list.</div>;
   }
   const self = context.selfSummary;
   const parents = context.parents.flatMap((fam) => [fam.man, fam.woman]).filter(Boolean);
@@ -59,8 +59,8 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
   return (
     <div style={scroll}>
       <div style={headerBlock}>
-        <div style={{ fontSize: 22, color: '#e2e4eb', fontWeight: 700 }}>{self.fullName}</div>
-        <div style={{ fontSize: 13, color: '#8b90a0', marginTop: 4 }}>
+        <div style={{ fontSize: 22, color: 'hsl(var(--foreground))', fontWeight: 700 }}>{self.fullName}</div>
+        <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
           {lifeSpanLabel(self) || 'No life dates'} · {genderLabel(self.gender)}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
@@ -136,33 +136,35 @@ function chipStyles(placeholder, gender) {
     minWidth: 160,
     transition: 'filter 0.15s',
   };
-  if (placeholder) return { ...base, background: '#161922', border: '1px dashed #2e3345', color: '#5b6072' };
+  if (placeholder)
+    return { ...base, background: 'hsl(var(--muted))', border: '1px dashed hsl(var(--border))', color: 'hsl(var(--muted-foreground))' };
+  // Semi-transparent fills work on both light and dark backgrounds.
   const colors = {
-    [Gender.Male]: ['#1c2a44', '#3b6db8'],
-    [Gender.Female]: ['#3a1c33', '#b8417a'],
-    [Gender.UnknownGender]: ['#1f2330', '#3a4054'],
-    [Gender.Intersex]: ['#2a1f3a', '#7c5cb8'],
+    [Gender.Male]: ['hsl(215 80% 55% / 0.18)', 'hsl(215 80% 55% / 0.6)'],
+    [Gender.Female]: ['hsl(330 70% 55% / 0.18)', 'hsl(330 70% 55% / 0.6)'],
+    [Gender.UnknownGender]: ['hsl(var(--muted))', 'hsl(var(--border))'],
+    [Gender.Intersex]: ['hsl(280 60% 55% / 0.18)', 'hsl(280 60% 55% / 0.6)'],
   };
   const [fill, stroke] = colors[gender] || colors[Gender.UnknownGender];
-  return { ...base, background: fill, border: `1px solid ${stroke}` };
+  return { ...base, background: fill, border: `1px solid ${stroke}`, color: 'hsl(var(--foreground))' };
 }
 
 const scroll = { height: '100%', overflow: 'auto', padding: 28 };
-const headerBlock = { paddingBottom: 20, borderBottom: '1px solid #2e3345', marginBottom: 24 };
-const sectionHead = { color: '#e2e4eb', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 };
+const headerBlock = { paddingBottom: 20, borderBottom: '1px solid hsl(var(--border))', marginBottom: 24 };
+const sectionHead = { color: 'hsl(var(--foreground))', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 };
 const chipGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 };
-const empty = { color: '#5b6072', fontSize: 13, fontStyle: 'italic' };
+const empty = { color: 'hsl(var(--muted-foreground))', fontSize: 13, fontStyle: 'italic' };
 const actionBtn = {
-  background: '#242837',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 6,
   padding: '6px 12px',
   fontSize: 12,
   cursor: 'pointer',
 };
 const primaryBtn = {
-  background: '#3b6db8',
+  background: 'hsl(var(--primary))',
   color: '#fff',
   border: 'none',
   borderRadius: 6,
@@ -173,16 +175,16 @@ const primaryBtn = {
 };
 const editPill = {
   background: 'transparent',
-  color: '#6c8aff',
-  border: '1px solid #2e3345',
+  color: 'hsl(var(--primary))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 4,
   padding: '4px 10px',
   fontSize: 11,
   cursor: 'pointer',
 };
 const eventsTable = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
-const eventTypeCell = { padding: '6px 0', color: '#e2e4eb', width: '28%' };
-const eventDateCell = { padding: '6px 8px', color: '#8b90a0', width: '18%' };
-const eventDescCell = { padding: '6px 0', color: '#8b90a0' };
+const eventTypeCell = { padding: '6px 0', color: 'hsl(var(--foreground))', width: '28%' };
+const eventDateCell = { padding: '6px 8px', color: 'hsl(var(--muted-foreground))', width: '18%' };
+const eventDescCell = { padding: '6px 0', color: 'hsl(var(--muted-foreground))' };
 
 export default PersonFocus;

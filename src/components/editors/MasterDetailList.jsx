@@ -19,14 +19,14 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
   return (
     <div style={shell}>
       <aside style={left}>
-        <div style={{ padding: 10, borderBottom: '1px solid #2e3345' }}>
+        <div style={{ padding: 10, borderBottom: '1px solid hsl(var(--border))' }}>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={placeholder}
             style={search}
           />
-          <div style={{ color: '#5b6072', fontSize: 11, marginTop: 6 }}>
+          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginTop: 6 }}>
             {filtered.length} of {items.length}
           </div>
         </div>
@@ -37,8 +37,8 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
               onClick={() => onPick(it.recordName || it.id)}
               style={{
                 ...row,
-                background: (it.recordName || it.id) === activeId ? '#242837' : 'transparent',
-                borderLeft: (it.recordName || it.id) === activeId ? '3px solid #6c8aff' : '3px solid transparent',
+                background: (it.recordName || it.id) === activeId ? 'hsl(var(--secondary))' : 'transparent',
+                borderLeft: (it.recordName || it.id) === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
               }}
             >
               {renderRow(it)}
@@ -52,18 +52,18 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
 }
 
 const shell = { display: 'flex', height: '100%' };
-const left = { width: 300, borderRight: '1px solid #2e3345', background: '#13161f', display: 'flex', flexDirection: 'column', flexShrink: 0 };
+const left = { width: 300, borderRight: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', display: 'flex', flexDirection: 'column', flexShrink: 0 };
 const search = {
   width: '100%',
-  background: '#0f1117',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--background))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 6,
   padding: '7px 10px',
   font: '13px -apple-system, system-ui, sans-serif',
   outline: 'none',
   boxSizing: 'border-box',
 };
-const row = { padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid #1a1d27' };
+const row = { padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid hsl(var(--border))' };
 
 export default MasterDetailList;

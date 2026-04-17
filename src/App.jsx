@@ -28,7 +28,7 @@ const Classic = lazy(() => import('./routes/Classic.jsx'));
 
 function Fallback() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#8b90a0', fontSize: 13 }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>
       Loading view…
     </div>
   );

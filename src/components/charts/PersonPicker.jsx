@@ -21,7 +21,7 @@ export function PersonPicker({ persons, value, onChange }) {
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {selected ? selected.fullName : 'Choose person…'}
         </span>
-        <span style={{ color: '#8b90a0', marginLeft: 8 }}>▾</span>
+        <span style={{ color: 'hsl(var(--muted-foreground))', marginLeft: 8 }}>▾</span>
       </button>
       {open && (
         <div style={popoverStyle}>
@@ -34,7 +34,7 @@ export function PersonPicker({ persons, value, onChange }) {
           />
           <div style={{ maxHeight: 320, overflowY: 'auto' }}>
             {filtered.length === 0 && (
-              <div style={{ padding: 12, color: '#8b90a0', fontSize: 13 }}>No matches.</div>
+              <div style={{ padding: 12, color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>No matches.</div>
             )}
             {filtered.map((p) => (
               <div
@@ -47,17 +47,17 @@ export function PersonPicker({ persons, value, onChange }) {
                 style={{
                   padding: '8px 12px',
                   cursor: 'pointer',
-                  borderBottom: '1px solid #1f2230',
-                  background: p.recordName === value ? '#242837' : 'transparent',
+                  borderBottom: '1px solid hsl(var(--border))',
+                  background: p.recordName === value ? 'hsl(var(--secondary))' : 'transparent',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = '#242837')}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(var(--secondary))')}
                 onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = p.recordName === value ? '#242837' : 'transparent')
+                  (e.currentTarget.style.background = p.recordName === value ? 'hsl(var(--secondary))' : 'transparent')
                 }
               >
-                <div style={{ color: '#e2e4eb', fontSize: 14 }}>{p.fullName}</div>
+                <div style={{ color: 'hsl(var(--foreground))', fontSize: 14 }}>{p.fullName}</div>
                 {(p.birthDate || p.deathDate) && (
-                  <div style={{ color: '#8b90a0', fontSize: 11 }}>
+                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
                     {(p.birthDate || '?').slice(0, 4)} – {(p.deathDate || '').slice(0, 4)}
                   </div>
                 )}
@@ -75,9 +75,9 @@ const triggerStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  background: '#242837',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 8,
   padding: '8px 12px',
   font: '13px -apple-system, system-ui, sans-serif',
@@ -89,8 +89,8 @@ const popoverStyle = {
   top: 'calc(100% + 6px)',
   left: 0,
   right: 0,
-  background: '#1a1d27',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--muted))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 8,
   zIndex: 50,
   boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
@@ -98,10 +98,10 @@ const popoverStyle = {
 
 const inputStyle = {
   width: '100%',
-  background: '#0f1117',
-  color: '#e2e4eb',
+  background: 'hsl(var(--background))',
+  color: 'hsl(var(--foreground))',
   border: 'none',
-  borderBottom: '1px solid #2e3345',
+  borderBottom: '1px solid hsl(var(--border))',
   padding: '10px 12px',
   font: '13px -apple-system, system-ui, sans-serif',
   outline: 'none',

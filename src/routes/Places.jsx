@@ -1,39 +1,76 @@
 /**
- * Places list + editor. Edit place name, short name, coordinates, GeoName ID.
+ * Places — list + editor. Place Template picker drives the dynamic
+ * component inputs (Place / County / State / Country, etc.). DMS coordinate
+ * display. Map widget for click-to-set coords. Place Details sub-list.
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { placeSummary } from '../models/index.js';
+import {
+  PLACE_TEMPLATES,
+  PLACE_TEMPLATE_FIELDS,
+  DEFAULT_PLACE_FIELDS,
+  LABELS,
+  REFERENCE_NUMBER_FIELDS,
+  formatTimestamp,
+  dmsLat,
+  dmsLon,
+} from '../lib/catalogs.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
-import { FieldRow, editorInput } from '../components/editors/FieldRow.jsx';
-import { SubRecordList } from '../components/editors/SubRecordList.jsx';
-import { Map } from '../components/ui/Map.jsx';
+import { Section } from '../components/editors/Section.jsx';
+import { EditSwitch } from '../components/editors/EditSwitch.jsx';
+import { Map as MapView } from '../components/ui/Map.jsx';
 
-function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+function uuid(p) {
+  return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-const PLACE_FIELDS = [
-  { id: 'placeName', label: 'Place name' },
-  { id: 'cached_normallocationString', label: 'Normalized name' },
-  { id: 'cached_shortLocationString', label: 'Short name' },
-  { id: 'cached_standardizedLocationString', label: 'Standardized name' },
-  { id: 'geonameID', label: 'GeoName ID' },
-  { id: 'latitude', label: 'Latitude' },
-  { id: 'longitude', label: 'Longitude' },
-];
+const ACCENTS = {
+  name: 'rgb(255 153 0)',
+  details: 'rgb(51 102 230)',
+  coord: 'rgb(128 64 191)',
+  map: 'rgb(77 128 230)',
+  media: 'rgb(77 128 230)',
+  notes: 'rgb(217 217 0)',
+  sources: 'rgb(51 0 255)',
+  labels: 'rgb(255 0 128)',
+  ref: 'rgb(128 217 77)',
+  bookmarks: 'rgb(128 51 255)',
+  private: 'rgb(255 0 0)',
+  edited: 'rgb(191 128 64)',
+};
+
+const inputClass = 'w-full bg-background text-foreground border border-border rounded-md px-2.5 py-2 text-sm outline-none focus:border-primary';
+
+function Field({ label, children }) {
+  return (
+    <div className="flex-1 min-w-0">
+      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function templateFieldsFor(templateId) {
+  if (!templateId) return DEFAULT_PLACE_FIELDS;
+  const key = templateId.replace(/^PlaceTemplate_/, '');
+  return PLACE_TEMPLATE_FIELDS[key] || DEFAULT_PLACE_FIELDS;
+}
 
 export default function Places() {
   const [places, setPlaces] = useState([]);
-  const [templates, setTemplates] = useState([]);
   const [activeId, setActiveId] = useState(null);
-  const [values, setValues] = useState({});
   const [templateId, setTemplateId] = useState('');
-  const [keyValues, setKeyValues] = useState([]);
-  const [status, setStatus] = useState(null);
+  const [components, setComponents] = useState({});
+  const [details, setDetails] = useState([]);
+  const [labels, setLabels] = useState({});
+  const [refNumbers, setRefNumbers] = useState({});
+  const [bookmarked, setBookmarked] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -44,40 +81,54 @@ export default function Places() {
       return an.localeCompare(bn);
     });
     setPlaces(sorted);
-    const { records: tpls } = await db.query('PlaceTemplate', { limit: 10000 });
-    setTemplates(tpls);
-    if (sorted.length > 0 && !activeId) setActiveId(sorted[0].recordName);
+    if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
   }, [activeId]);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  useEffect(() => { reload(); }, [reload]);
 
   useEffect(() => {
     if (!activeId) return;
     const record = places.find((p) => p.recordName === activeId);
     if (!record) return;
-    const v = {};
-    for (const f of PLACE_FIELDS) v[f.id] = record.fields?.[f.id]?.value ?? '';
-    setValues(v);
-    setTemplateId(refToRecordName(record.fields?.placeTemplate?.value) || '');
-    // Fetch key/values linked to this place
+
+    const tplRef = refToRecordName(record.fields?.placeTemplate?.value) || '';
+    setTemplateId(tplRef);
+
+    const comps = {};
+    const fields = templateFieldsFor(tplRef);
+    for (const fname of fields) {
+      const slot = fname.toLowerCase();
+      comps[slot] = record.fields?.[`placeComponent_${slot}`]?.value || '';
+    }
+    if (!Object.values(comps).some((v) => v)) {
+      const first = fields[0]?.toLowerCase();
+      if (first) comps[first] = record.fields?.placeName?.value || '';
+    }
+    setComponents(comps);
+
+    setBookmarked(!!record.fields?.isBookmarked?.value);
+    setIsPrivate(!!record.fields?.isPrivate?.value);
+
+    const refs = {};
+    for (const fd of REFERENCE_NUMBER_FIELDS) refs[fd.id] = record.fields?.[fd.id]?.value ?? '';
+    setRefNumbers(refs);
+
     (async () => {
       const db = getLocalDatabase();
-      const { records: kvs } = await db.query('PlaceKeyValue', {
-        referenceField: 'place',
-        referenceValue: activeId,
-        limit: 500,
-      });
-      setKeyValues(
-        kvs.map((r) => ({
-          recordName: r.recordName,
-          key: r.fields?.key?.value || r.fields?.keyName?.value || '',
-          value: r.fields?.value?.value || '',
-        }))
-      );
+      const pd = await db.query('PlaceDetail', { referenceField: 'place', referenceValue: activeId, limit: 500 });
+      setDetails(pd.records.map((r) => ({
+        recordName: r.recordName,
+        name: r.fields?.name?.value || '',
+      })));
+      const lbl = await db.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: activeId, limit: 500 });
+      const map = new Map(lbl.records.map((r) => [refToRecordName(r.fields?.label?.value), r.recordName]));
+      const s = {};
+      for (const def of LABELS) s[def.id] = map.has(def.id);
+      setLabels(s);
     })();
   }, [activeId, places]);
+
+  const templateFields = useMemo(() => templateFieldsFor(templateId), [templateId]);
 
   const onSave = useCallback(async () => {
     const record = places.find((p) => p.recordName === activeId);
@@ -85,47 +136,49 @@ export default function Places() {
     setSaving(true);
     const db = getLocalDatabase();
     const nextFields = { ...record.fields };
-    for (const f of PLACE_FIELDS) {
-      const v = values[f.id];
-      if (v === '' || v == null) delete nextFields[f.id];
-      else nextFields[f.id] = { ...(nextFields[f.id] || { type: 'STRING' }), value: v };
+
+    if (templateId) nextFields.placeTemplate = { value: refValue(templateId, 'PlaceTemplate'), type: 'REFERENCE' };
+    else delete nextFields.placeTemplate;
+
+    for (const fname of templateFields) {
+      const slot = fname.toLowerCase();
+      const v = components[slot];
+      const key = `placeComponent_${slot}`;
+      if (v == null || v === '') delete nextFields[key];
+      else nextFields[key] = { value: v, type: 'STRING' };
     }
-    if (templateId) {
-      nextFields.placeTemplate = { value: refValue(templateId, 'PlaceTemplate'), type: 'REFERENCE' };
-    } else {
-      delete nextFields.placeTemplate;
+    const parts = templateFields.map((fname) => components[fname.toLowerCase()]).filter(Boolean);
+    const display = parts.join(', ');
+    if (parts[0]) nextFields.placeName = { value: parts[0], type: 'STRING' };
+    if (display) nextFields.cached_normallocationString = { value: display, type: 'STRING' };
+
+    nextFields.isBookmarked = { value: !!bookmarked, type: 'BOOLEAN' };
+    nextFields.isPrivate = { value: !!isPrivate, type: 'BOOLEAN' };
+    for (const f of REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID')) {
+      const v = refNumbers[f.id];
+      if (v == null || v === '') delete nextFields[f.id];
+      else nextFields[f.id] = { value: v, type: 'STRING' };
     }
+
     await saveWithChangeLog({ ...record, fields: nextFields });
 
-    // Reconcile PlaceKeyValue records
-    const existing = (
-      await db.query('PlaceKeyValue', { referenceField: 'place', referenceValue: activeId, limit: 500 })
-    ).records;
+    const existing = (await db.query('PlaceDetail', { referenceField: 'place', referenceValue: activeId, limit: 500 })).records;
     const keep = new Set();
-    for (const kv of keyValues) {
-      if (!kv.key && !kv.value) continue;
-      if (kv.recordName) {
-        keep.add(kv.recordName);
-        const prev = existing.find((r) => r.recordName === kv.recordName);
+    for (const d of details) {
+      if (!d.name) continue;
+      if (d.recordName) {
+        keep.add(d.recordName);
+        const prev = existing.find((r) => r.recordName === d.recordName);
         if (prev) {
-          await saveWithChangeLog({
-            ...prev,
-            fields: {
-              ...prev.fields,
-              key: { value: kv.key || '', type: 'STRING' },
-              value: { value: kv.value || '', type: 'STRING' },
-              place: { value: refValue(activeId, 'Place'), type: 'REFERENCE' },
-            },
-          });
+          await saveWithChangeLog({ ...prev, fields: { ...prev.fields, name: { value: d.name, type: 'STRING' } } });
         }
       } else {
         const rec = {
-          recordName: uuid('pkv'),
-          recordType: 'PlaceKeyValue',
+          recordName: uuid('pd'),
+          recordType: 'PlaceDetail',
           fields: {
-            key: { value: kv.key || '', type: 'STRING' },
-            value: { value: kv.value || '', type: 'STRING' },
             place: { value: refValue(activeId, 'Place'), type: 'REFERENCE' },
+            name: { value: d.name, type: 'STRING' },
           },
         };
         await db.saveRecord(rec);
@@ -136,7 +189,29 @@ export default function Places() {
     for (const prev of existing) {
       if (!keep.has(prev.recordName)) {
         await db.deleteRecord(prev.recordName);
-        await logRecordDeleted(prev.recordName, 'PlaceKeyValue');
+        await logRecordDeleted(prev.recordName, 'PlaceDetail');
+      }
+    }
+
+    const existingLbl = (await db.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: activeId, limit: 500 })).records;
+    const existingByLabel = new Map(existingLbl.map((r) => [refToRecordName(r.fields?.label?.value), r]));
+    for (const def of LABELS) {
+      const want = !!labels[def.id];
+      const existing2 = existingByLabel.get(def.id);
+      if (want && !existing2) {
+        const rec = {
+          recordName: uuid('lbr'),
+          recordType: 'LabelRelation',
+          fields: {
+            label: { value: refValue(def.id, 'Label'), type: 'REFERENCE' },
+            targetPlace: { value: refValue(activeId, 'Place'), type: 'REFERENCE' },
+          },
+        };
+        await db.saveRecord(rec);
+        await logRecordCreated(rec);
+      } else if (!want && existing2) {
+        await db.deleteRecord(existing2.recordName);
+        await logRecordDeleted(existing2.recordName, 'LabelRelation');
       }
     }
 
@@ -144,103 +219,179 @@ export default function Places() {
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
-  }, [activeId, places, values, templateId, keyValues, reload]);
+  }, [activeId, places, templateId, templateFields, components, details, labels, refNumbers, bookmarked, isPrivate, reload]);
+
+  const active = places.find((p) => p.recordName === activeId);
+  const lat = parseFloat(active?.fields?.latitude?.value);
+  const lng = parseFloat(active?.fields?.longitude?.value);
+  const hasPoint = Number.isFinite(lat) && Number.isFinite(lng);
 
   const renderRow = (r) => {
     const s = placeSummary(r);
     return (
       <div>
-        <div style={{ color: '#e2e4eb', fontSize: 13 }}>{s?.displayName || s?.name || r.recordName}</div>
-        {s?.geonameID && <div style={{ color: '#5b6072', fontSize: 11 }}>GeoName #{s.geonameID}</div>}
+        <div className="text-sm text-foreground">{s?.displayName || s?.name || r.recordName}</div>
+        {s?.geonameID && <div className="text-xs text-muted-foreground">GeoName #{s.geonameID}</div>}
       </div>
     );
   };
 
-  const active = places.find((p) => p.recordName === activeId);
   const detail = active ? (
-    <div style={detailStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18 }}>
-        <h2 style={{ fontSize: 16, color: '#e2e4eb', margin: 0, fontWeight: 600 }}>
+    <div className="p-5 max-w-4xl">
+      <div className="flex items-center mb-4">
+        <h2 className="text-base font-semibold truncate">
           {placeSummary(active)?.displayName || active.recordName}
         </h2>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          {status && <span style={{ color: '#4ade80', fontSize: 12 }}>{status}</span>}
-          <button onClick={onSave} disabled={saving} style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
+        <div className="ml-auto flex items-center gap-3">
+          {status && <span className="text-emerald-500 text-xs">{status}</span>}
+          <button onClick={onSave} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
         </div>
       </div>
-      <div style={grid}>
-        {PLACE_FIELDS.map((f) => (
-          <FieldRow key={f.id} label={f.label}>
-            <input
-              value={values[f.id] ?? ''}
-              onChange={(e) => setValues({ ...values, [f.id]: e.target.value })}
-              style={editorInput}
-            />
-          </FieldRow>
-        ))}
-      </div>
-      <FieldRow label="Place template">
-        <select
-          value={templateId}
-          onChange={(e) => setTemplateId(e.target.value)}
-          style={editorInput}
-        >
-          <option value="">— no template —</option>
-          {templates.map((t) => (
-            <option key={t.recordName} value={t.recordName}>
-              {t.fields?.name?.value || t.fields?.title?.value || t.recordName}
-            </option>
-          ))}
-        </select>
-      </FieldRow>
 
-      <div style={{ marginTop: 16 }}>
-        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 }}>
-          Template key/value pairs · {keyValues.length}
+      <Section title="Place Name" accent={ACCENTS.name}>
+        <Field label="Place Template">
+          <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className={inputClass}>
+            <option value="">— no template —</option>
+            {PLACE_TEMPLATES.map((t) => <option key={t} value={`PlaceTemplate_${t}`}>{t}</option>)}
+          </select>
+        </Field>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+          {templateFields.map((fname) => {
+            const slot = fname.toLowerCase();
+            return (
+              <Field key={fname} label={fname}>
+                <input
+                  value={components[slot] || ''}
+                  onChange={(e) => setComponents((s) => ({ ...s, [slot]: e.target.value }))}
+                  className={inputClass}
+                />
+              </Field>
+            );
+          })}
         </div>
-        <SubRecordList
-          items={keyValues}
-          fields={[
-            { id: 'key', label: 'Key' },
-            { id: 'value', label: 'Value' },
-          ]}
-          onUpdate={(i, next) => setKeyValues((a) => a.map((x, j) => (j === i ? next : x)))}
-          onAdd={() => setKeyValues((a) => [...a, { key: '', value: '' }])}
-          onDelete={(i) => setKeyValues((a) => a.filter((_, j) => j !== i))}
-          addLabel="+ Add key/value"
-          empty="No key/value pairs."
-        />
-      </div>
+      </Section>
 
-      <div style={{ marginTop: 16, height: 320, borderRadius: 8, overflow: 'hidden', border: '1px solid hsl(var(--border))' }}>
-        {(() => {
-          const lat = parseFloat(values.latitude);
-          const lng = parseFloat(values.longitude);
-          const hasPoint = Number.isFinite(lat) && Number.isFinite(lng);
-          const center = hasPoint ? [lng, lat] : [0, 20];
-          const markers = hasPoint
-            ? [{ id: 'self', lat, lng, draggable: true, onDragEnd: ({ lng: nl, lat: nL }) => setValues((v) => ({ ...v, latitude: nL.toFixed(6), longitude: nl.toFixed(6) })) }]
-            : [];
-          return (
-            <Map
-              center={center}
-              zoom={hasPoint ? 8 : 1.5}
-              markers={markers}
-              onClick={({ lng: nl, lat: nL }) => setValues((v) => ({ ...v, latitude: nL.toFixed(6), longitude: nl.toFixed(6) }))}
-            />
-          );
-        })()}
-      </div>
-      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginTop: 6 }}>
-        Click anywhere on the map to set coordinates, or drag the marker to fine-tune.
+      <Section title={`Place Details · ${details.length}`} accent={ACCENTS.details}
+        controls={<button onClick={() => setDetails((a) => [...a, { name: '' }])}
+          className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Add Detail</button>}>
+        {details.length === 0 ? (
+          <Empty title="No place details" hint="Use the button above to add one." />
+        ) : (
+          <div className="space-y-2">
+            {details.map((d, i) => (
+              <div key={d.recordName || i} className="flex items-center gap-2">
+                <input value={d.name} placeholder="Place detail name"
+                  onChange={(e) => setDetails((a) => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                  className={inputClass} />
+                <button onClick={() => setDetails((a) => a.filter((_, j) => j !== i))}
+                  className="text-destructive border border-border rounded-md w-8 h-8 text-sm hover:bg-destructive/10">×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Section>
+
+      <Section title="Coordinate" accent={ACCENTS.coord}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Field label="Latitude">
+            <input value={active.fields?.latitude?.value ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                setPlaces((arr) => arr.map((p) => p.recordName === activeId
+                  ? { ...p, fields: { ...p.fields, latitude: { value: v, type: 'NUMBER' } } }
+                  : p));
+              }}
+              className={inputClass} />
+            {hasPoint && <div className="text-[11px] text-muted-foreground mt-1">{dmsLat(lat)}</div>}
+          </Field>
+          <Field label="Longitude">
+            <input value={active.fields?.longitude?.value ?? ''}
+              onChange={(e) => {
+                const v = e.target.value;
+                setPlaces((arr) => arr.map((p) => p.recordName === activeId
+                  ? { ...p, fields: { ...p.fields, longitude: { value: v, type: 'NUMBER' } } }
+                  : p));
+              }}
+              className={inputClass} />
+            {hasPoint && <div className="text-[11px] text-muted-foreground mt-1">{dmsLon(lng)}</div>}
+          </Field>
+        </div>
+      </Section>
+
+      <Section title="Map" accent={ACCENTS.map}>
+        <div className="h-80 rounded-md overflow-hidden border border-border">
+          <MapView
+            center={hasPoint ? [lng, lat] : [0, 20]}
+            zoom={hasPoint ? 9 : 1.5}
+            markers={hasPoint ? [{
+              id: 'self', lat, lng, draggable: true,
+              onDragEnd: ({ lng: nl, lat: nL }) => {
+                setPlaces((arr) => arr.map((p) => p.recordName === activeId
+                  ? { ...p, fields: { ...p.fields, latitude: { value: nL.toFixed(6), type: 'NUMBER' }, longitude: { value: nl.toFixed(6), type: 'NUMBER' } } }
+                  : p));
+              },
+            }] : []}
+            onClick={({ lng: nl, lat: nL }) => {
+              setPlaces((arr) => arr.map((p) => p.recordName === activeId
+                ? { ...p, fields: { ...p.fields, latitude: { value: nL.toFixed(6), type: 'NUMBER' }, longitude: { value: nl.toFixed(6), type: 'NUMBER' } } }
+                : p));
+            }}
+          />
+        </div>
+        <div className="text-[11px] text-muted-foreground mt-2">Click on the map to set coordinates, drag the marker to fine-tune.</div>
+      </Section>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
+        <div>
+          <Section title="Media" accent={ACCENTS.media}>
+            <Empty title="No media present" hint="Open the Media section to manage pictures." />
+          </Section>
+          <Section title="Notes" accent={ACCENTS.notes}>
+            <Empty title="No notes present" hint="Add notes about this place." />
+          </Section>
+          <Section title="Source Citations" accent={ACCENTS.sources}>
+            <Empty title="Source citations" hint="Link sources documenting this place." />
+          </Section>
+        </div>
+        <div>
+          <Section title="Labels" accent={ACCENTS.labels}>
+            <div className="space-y-1">
+              {LABELS.map((def) => (
+                <EditSwitch key={def.id} label={def.label} color={def.color}
+                  checked={!!labels[def.id]} onChange={(v) => setLabels((s) => ({ ...s, [def.id]: v }))} />
+              ))}
+            </div>
+          </Section>
+          <Section title="Reference Numbers" accent={ACCENTS.ref}>
+            <div className="grid grid-cols-1 gap-3">
+              {REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID').map((f) => (
+                <Field key={f.id} label={f.label}>
+                  <input value={refNumbers[f.id] ?? ''} onChange={(e) => setRefNumbers((s) => ({ ...s, [f.id]: e.target.value }))} className={inputClass} />
+                </Field>
+              ))}
+            </div>
+          </Section>
+          <Section title="Bookmarks" accent={ACCENTS.bookmarks}>
+            <EditSwitch label="Bookmarked" checked={bookmarked} onChange={setBookmarked} />
+          </Section>
+          <Section title="Private" accent={ACCENTS.private}>
+            <EditSwitch label="Marked as Private" checked={isPrivate} onChange={setIsPrivate} />
+          </Section>
+          <Section title="Last Edited" accent={ACCENTS.edited}>
+            <ReadOnly label="Change Date" value={formatTimestamp(active.fields?.mft_changeDate?.value || active.modified?.timestamp)} />
+            <ReadOnly label="Creation Date" value={formatTimestamp(active.fields?.mft_creationDate?.value || active.created?.timestamp)} />
+          </Section>
+        </div>
       </div>
     </div>
   ) : (
-    <div style={{ color: '#5b6072', padding: 40 }}>No place selected.</div>
+    <div className="p-10 text-muted-foreground">No place selected.</div>
   );
 
   if (places.length === 0) {
-    return <div style={{ padding: 40, color: '#8b90a0' }}>No places in this tree yet.</div>;
+    return <div className="p-10 text-muted-foreground">No places in this tree yet.</div>;
   }
 
   return (
@@ -255,6 +406,20 @@ export default function Places() {
   );
 }
 
-const detailStyle = { padding: 28, maxWidth: 760 };
-const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 };
-const saveBtn = { background: '#3b6db8', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 600 };
+function Empty({ title, hint }) {
+  return (
+    <div className="text-center py-6">
+      <div className="text-sm text-foreground">{title}</div>
+      {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
+    </div>
+  );
+}
+
+function ReadOnly({ label, value }) {
+  return (
+    <div className="mb-2 last:mb-0">
+      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className="text-sm">{value}</div>
+    </div>
+  );
+}

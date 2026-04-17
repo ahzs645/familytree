@@ -106,7 +106,7 @@ export function BooksApp() {
   if (empty) {
     return (
       <div style={loadingStyle}>
-        No family data. <a href="/" style={{ color: '#6c8aff', marginLeft: 6 }}>Import a .mftpkg</a> first.
+        No family data. <a href="/" style={{ color: 'hsl(var(--primary))', marginLeft: 6 }}>Import a .mftpkg</a> first.
       </div>
     );
   }
@@ -130,7 +130,7 @@ export function BooksApp() {
             {savedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
           </select>
         )}
-        <span style={{ marginLeft: 'auto', color: '#8b90a0', fontSize: 12 }}>
+        <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
           Export:
         </span>
         {EXPORT_FORMATS.map((f) => (
@@ -140,7 +140,7 @@ export function BooksApp() {
 
       <div style={body}>
         <aside style={leftPane}>
-          <div style={{ color: '#8b90a0', fontSize: 11, fontWeight: 600, padding: '12px 14px 8px', letterSpacing: 0.4 }}>SECTIONS</div>
+          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 600, padding: '12px 14px 8px', letterSpacing: 0.4 }}>SECTIONS</div>
           <div style={{ flex: 1, overflow: 'auto', padding: '0 14px' }}>
             {book.sections.map((s, i) => (
               <SectionEditor
@@ -156,7 +156,7 @@ export function BooksApp() {
               />
             ))}
           </div>
-          <div style={{ padding: 14, borderTop: '1px solid #2e3345' }}>
+          <div style={{ padding: 14, borderTop: '1px solid hsl(var(--border))' }}>
             <select
               value=""
               onChange={(e) => { if (e.target.value) { addSection(e.target.value); e.target.value = ''; } }}
@@ -175,12 +175,12 @@ export function BooksApp() {
   );
 }
 
-const shell = { display: 'flex', flexDirection: 'column', height: '100%', background: '#0f1117' };
-const header = { display: 'flex', gap: 6, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #2e3345', background: '#161926', flexWrap: 'wrap' };
+const shell = { display: 'flex', flexDirection: 'column', height: '100%', background: 'hsl(var(--background))' };
+const header = { display: 'flex', gap: 6, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', flexWrap: 'wrap' };
 const body = { flex: 1, display: 'flex', overflow: 'hidden' };
-const leftPane = { width: 360, display: 'flex', flexDirection: 'column', borderRight: '1px solid #2e3345', background: '#13161f' };
+const leftPane = { width: 360, display: 'flex', flexDirection: 'column', borderRight: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
 const main = { flex: 1, overflow: 'auto' };
-const input = { background: '#242837', color: '#e2e4eb', border: '1px solid #2e3345', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer' };
-const loadingStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#8b90a0', background: '#0f1117' };
+const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer' };
+const loadingStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--background))' };
 
 export default BooksApp;

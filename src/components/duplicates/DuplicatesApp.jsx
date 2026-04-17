@@ -36,17 +36,17 @@ export function DuplicatesApp() {
             <option key={s.id} value={s.id}>{s.label}</option>
           ))}
         </select>
-        <button onClick={onScan} disabled={scanning} style={{ ...input, background: '#3b6db8', cursor: 'pointer' }}>
+        <button onClick={onScan} disabled={scanning} style={{ ...input, background: 'hsl(var(--primary))', cursor: 'pointer' }}>
           {scanning ? 'Scanning…' : 'Scan'}
         </button>
-        <span style={{ marginLeft: 'auto', color: '#8b90a0', fontSize: 12 }}>
+        <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
           {pairs.length > 0 && `${visible.length} of ${pairs.length} candidate pair${pairs.length === 1 ? '' : 's'}`}
         </span>
       </header>
 
       <main style={main}>
         {pairs.length === 0 && !scanning && (
-          <div style={{ color: '#8b90a0', textAlign: 'center', marginTop: 60 }}>
+          <div style={{ color: 'hsl(var(--muted-foreground))', textAlign: 'center', marginTop: 60 }}>
             Pick an entity type and click <strong>Scan</strong> to find potential duplicates.
           </div>
         )}
@@ -69,9 +69,9 @@ export function DuplicatesApp() {
   );
 }
 
-const shell = { display: 'flex', flexDirection: 'column', height: '100%', background: '#0f1117' };
-const header = { display: 'flex', gap: 8, alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid #2e3345', background: '#161926' };
+const shell = { display: 'flex', flexDirection: 'column', height: '100%', background: 'hsl(var(--background))' };
+const header = { display: 'flex', gap: 8, alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
 const main = { flex: 1, overflow: 'auto', padding: 20 };
-const input = { background: '#242837', color: '#e2e4eb', border: '1px solid #2e3345', borderRadius: 8, padding: '8px 12px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none' };
+const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 12px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none' };
 
 export default DuplicatesApp;

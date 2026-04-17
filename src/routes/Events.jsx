@@ -147,10 +147,10 @@ export default function Events() {
       '';
     return (
       <div>
-        <div style={{ color: '#e2e4eb', fontSize: 13 }}>
-          {t}{d && <span style={{ color: '#8b90a0' }}> · {d}</span>}
+        <div style={{ color: 'hsl(var(--foreground))', fontSize: 13 }}>
+          {t}{d && <span style={{ color: 'hsl(var(--muted-foreground))' }}> · {d}</span>}
         </div>
-        <div style={{ color: '#5b6072', fontSize: 11 }}>
+        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
           {e.recordType === 'PersonEvent' ? 'Person' : 'Family'} {subjectRef && `· ${subjectRef}`}
         </div>
       </div>
@@ -163,7 +163,7 @@ export default function Events() {
   const detail = active ? (
     <div style={detailStyle}>
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18 }}>
-        <h2 style={{ fontSize: 16, color: '#e2e4eb', margin: 0, fontWeight: 600 }}>
+        <h2 style={{ fontSize: 16, color: 'hsl(var(--foreground))', margin: 0, fontWeight: 600 }}>
           {active.recordType === 'PersonEvent' ? 'Person event' : 'Family event'}
         </h2>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -245,7 +245,7 @@ export default function Events() {
       </FieldRow>
     </div>
   ) : (
-    <div style={{ color: '#5b6072', padding: 40 }}>No event selected. Create one from the toolbar.</div>
+    <div style={{ color: 'hsl(var(--muted-foreground))', padding: 40 }}>No event selected. Create one from the toolbar.</div>
   );
 
   const toolbar = (
@@ -281,8 +281,8 @@ export default function Events() {
 
 const detailStyle = { padding: 28, maxWidth: 860 };
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 12 };
-const saveBtn = { background: '#3b6db8', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 600 };
-const deleteBtn = { background: 'transparent', color: '#f87171', border: '1px solid #3a2d30', borderRadius: 6, padding: '8px 12px', fontSize: 12, cursor: 'pointer' };
-const toolbarStyle = { display: 'flex', alignItems: 'center', padding: '10px 20px', borderBottom: '1px solid #2e3345', background: '#161926' };
-const smallSelect = { background: '#242837', color: '#e2e4eb', border: '1px solid #2e3345', borderRadius: 6, padding: '6px 10px', fontSize: 12 };
-const smallBtn = { background: '#242837', color: '#e2e4eb', border: '1px solid #2e3345', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };
+const saveBtn = { background: 'hsl(var(--primary))', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 600 };
+const deleteBtn = { background: 'transparent', color: 'hsl(var(--destructive))', border: '1px solid #3a2d30', borderRadius: 6, padding: '8px 12px', fontSize: 12, cursor: 'pointer' };
+const toolbarStyle = { display: 'flex', alignItems: 'center', padding: '10px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
+const smallSelect = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 10px', fontSize: 12 };
+const smallBtn = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };

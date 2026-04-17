@@ -107,7 +107,7 @@ export function ReportsApp() {
   if (empty) {
     return (
       <div style={loadingStyle}>
-        No family data. <a href="/" style={{ color: '#6c8aff', marginLeft: 6 }}>Import a .mftpkg</a> first.
+        No family data. <a href="/" style={{ color: 'hsl(var(--primary))', marginLeft: 6 }}>Import a .mftpkg</a> first.
       </div>
     );
   }
@@ -174,16 +174,16 @@ export function ReportsApp() {
 function Field({ label, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', marginRight: 12 }}>
-      <span style={{ color: '#8b90a0', fontSize: 11, marginBottom: 3 }}>{label}</span>
+      <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
       {children}
     </div>
   );
 }
 
-const shell = { display: 'flex', flexDirection: 'column', height: '100%', background: '#0f1117' };
-const header = { display: 'flex', alignItems: 'flex-end', gap: 8, padding: '12px 20px', borderBottom: '1px solid #2e3345', background: '#161926', flexWrap: 'wrap' };
+const shell = { display: 'flex', flexDirection: 'column', height: '100%', background: 'hsl(var(--background))' };
+const header = { display: 'flex', alignItems: 'flex-end', gap: 8, padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', flexWrap: 'wrap' };
 const main = { flex: 1, overflow: 'auto' };
-const input = { background: '#242837', color: '#e2e4eb', border: '1px solid #2e3345', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer' };
-const loadingStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: '#8b90a0', background: '#0f1117', fontFamily: '-apple-system, system-ui, sans-serif' };
+const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer' };
+const loadingStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--background))', fontFamily: '-apple-system, system-ui, sans-serif' };
 
 export default ReportsApp;

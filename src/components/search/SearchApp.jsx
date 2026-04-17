@@ -88,13 +88,13 @@ export function SearchApp() {
         </Field>
 
         <button onClick={onAddFilter} style={{ ...input, cursor: 'pointer', marginTop: 14 }}>+ Filter</button>
-        <button onClick={onRun} disabled={running} style={{ ...input, cursor: 'pointer', marginTop: 14, background: '#3b6db8' }}>
+        <button onClick={onRun} disabled={running} style={{ ...input, cursor: 'pointer', marginTop: 14, background: 'hsl(var(--primary))' }}>
           {running ? 'Running…' : 'Search'}
         </button>
       </header>
 
       <div style={filterPanel}>
-        {filters.length === 0 && <div style={{ color: '#5b6072', fontSize: 13 }}>No filters. Type free text and click Search, or add field-specific filters with “+ Filter”.</div>}
+        {filters.length === 0 && <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>No filters. Type free text and click Search, or add field-specific filters with “+ Filter”.</div>}
         {filters.map((f, i) => (
           <FilterRow
             key={i}
@@ -116,7 +116,7 @@ export function SearchApp() {
 function Field({ label, children }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', marginRight: 12 }}>
-      <span style={{ color: '#8b90a0', fontSize: 11, marginBottom: 3 }}>{label}</span>
+      <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
       {children}
     </div>
   );
@@ -126,23 +126,23 @@ const shell = {
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
-  background: '#0f1117',
+  background: 'hsl(var(--background))',
 };
 const header = {
   display: 'flex',
   alignItems: 'flex-end',
   gap: 8,
   padding: '12px 20px',
-  borderBottom: '1px solid #2e3345',
-  background: '#161926',
+  borderBottom: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--card))',
   flexWrap: 'wrap',
 };
-const filterPanel = { padding: '12px 20px', borderBottom: '1px solid #2e3345', background: '#13161f' };
+const filterPanel = { padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
 const main = { flex: 1, position: 'relative', overflow: 'hidden' };
 const input = {
-  background: '#242837',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 8,
   padding: '8px 10px',
   font: '13px -apple-system, system-ui, sans-serif',

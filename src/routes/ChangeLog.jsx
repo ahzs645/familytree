@@ -81,13 +81,13 @@ export default function ChangeLog() {
             <option key={t} value={t}>{t || 'All'}</option>
           ))}
         </select>
-        <span style={{ marginLeft: 'auto', color: '#8b90a0', fontSize: 12 }}>
+        <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
           {loading ? 'Loading…' : `${entries.length} entries`}
         </span>
       </header>
       <main style={main}>
         {!loading && entries.length === 0 && (
-          <div style={{ color: '#8b90a0', padding: 40, textAlign: 'center' }}>
+          <div style={{ color: 'hsl(var(--muted-foreground))', padding: 40, textAlign: 'center' }}>
             No change log entries yet.
           </div>
         )}
@@ -101,21 +101,21 @@ export default function ChangeLog() {
                 <div key={e.recordName} style={row}>
                   <button onClick={() => toggle(e.recordName)} style={rowHead}>
                     <span style={kindBadge(f.changeType?.value)}>{f.changeType?.value || '—'}</span>
-                    <span style={{ color: '#e2e4eb', flex: 1, marginLeft: 10 }}>
+                    <span style={{ color: 'hsl(var(--foreground))', flex: 1, marginLeft: 10 }}>
                       {f.targetType?.value || 'Record'} · {f.summary?.value || refToRecordName(f.target?.value) || ''}
                     </span>
-                    <span style={{ color: '#8b90a0', fontSize: 12, marginRight: 10 }}>
+                    <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, marginRight: 10 }}>
                       {formatDate(f.timestamp?.value || f.mft_changeDate?.value)}
                     </span>
-                    <span style={{ color: '#8b90a0', fontSize: 12 }}>{isOpen ? '▾' : '▸'}</span>
+                    <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>{isOpen ? '▾' : '▸'}</span>
                   </button>
                   {isOpen && (
                     <div style={detail}>
-                      <div style={{ color: '#8b90a0', fontSize: 12, marginBottom: 6 }}>
+                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, marginBottom: 6 }}>
                         Author: {f.author?.value || 'unknown'} · Target: {refToRecordName(f.target?.value)}
                       </div>
                       {(subs[e.recordName] || []).length === 0 ? (
-                        <div style={{ color: '#5b6072', fontSize: 12 }}>No field-level detail.</div>
+                        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>No field-level detail.</div>
                       ) : (
                         <table style={subTable}>
                           <thead>
@@ -129,8 +129,8 @@ export default function ChangeLog() {
                             {(subs[e.recordName] || []).map((s) => (
                               <tr key={s.recordName}>
                                 <td style={subTd}>{s.fields?.fieldName?.value || '—'}</td>
-                                <td style={subTd}>{s.fields?.oldValue?.value || <em style={{ color: '#5b6072' }}>empty</em>}</td>
-                                <td style={subTd}>{s.fields?.newValue?.value || <em style={{ color: '#5b6072' }}>empty</em>}</td>
+                                <td style={subTd}>{s.fields?.oldValue?.value || <em style={{ color: 'hsl(var(--muted-foreground))' }}>empty</em>}</td>
+                                <td style={subTd}>{s.fields?.newValue?.value || <em style={{ color: 'hsl(var(--muted-foreground))' }}>empty</em>}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -149,13 +149,13 @@ export default function ChangeLog() {
 }
 
 function kindBadge(kind) {
-  const colors = { Add: '#4ade80', Delete: '#f87171', Change: '#6c8aff', ResolvedConflict: '#fb923c' };
+  const colors = { Add: '#4ade80', Delete: 'hsl(var(--destructive))', Change: 'hsl(var(--primary))', ResolvedConflict: '#fb923c' };
   return {
     display: 'inline-block',
     fontSize: 11,
     fontWeight: 700,
-    color: colors[kind] || '#8b90a0',
-    border: `1px solid ${colors[kind] || '#8b90a0'}`,
+    color: colors[kind] || 'hsl(var(--muted-foreground))',
+    border: `1px solid ${colors[kind] || 'hsl(var(--muted-foreground))'}`,
     borderRadius: 4,
     padding: '2px 6px',
     minWidth: 60,
@@ -164,14 +164,14 @@ function kindBadge(kind) {
 }
 
 const shell = { display: 'flex', flexDirection: 'column', height: '100%' };
-const header = { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px', borderBottom: '1px solid #2e3345', background: '#161926' };
-const label = { color: '#8b90a0', fontSize: 12 };
-const select = { background: '#242837', color: '#e2e4eb', border: '1px solid #2e3345', borderRadius: 8, padding: '7px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none' };
+const header = { display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
+const label = { color: 'hsl(var(--muted-foreground))', fontSize: 12 };
+const select = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '7px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none' };
 const main = { flex: 1, overflow: 'auto', padding: '16px 24px' };
-const dateHeader = { color: '#8b90a0', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: 600, marginBottom: 8 };
-const row = { background: '#13161f', border: '1px solid #2e3345', borderRadius: 8, marginBottom: 6 };
-const rowHead = { display: 'flex', alignItems: 'center', width: '100%', background: 'transparent', border: 'none', padding: '10px 14px', cursor: 'pointer', color: '#e2e4eb' };
-const detail = { padding: '10px 14px 14px', borderTop: '1px solid #2e3345' };
+const dateHeader = { color: 'hsl(var(--muted-foreground))', fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.4, fontWeight: 600, marginBottom: 8 };
+const row = { background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, marginBottom: 6 };
+const rowHead = { display: 'flex', alignItems: 'center', width: '100%', background: 'transparent', border: 'none', padding: '10px 14px', cursor: 'pointer', color: 'hsl(var(--foreground))' };
+const detail = { padding: '10px 14px 14px', borderTop: '1px solid hsl(var(--border))' };
 const subTable = { width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 4 };
-const subTh = { textAlign: 'left', padding: '5px 8px', color: '#8b90a0', fontWeight: 600, borderBottom: '1px solid #2e3345' };
-const subTd = { padding: '5px 8px', color: '#e2e4eb', borderBottom: '1px solid #1f2230', fontFamily: '"SF Mono", Consolas, monospace', fontSize: 11.5, wordBreak: 'break-word', verticalAlign: 'top' };
+const subTh = { textAlign: 'left', padding: '5px 8px', color: 'hsl(var(--muted-foreground))', fontWeight: 600, borderBottom: '1px solid hsl(var(--border))' };
+const subTd = { padding: '5px 8px', color: 'hsl(var(--foreground))', borderBottom: '1px solid hsl(var(--border))', fontFamily: '"SF Mono", Consolas, monospace', fontSize: 11.5, wordBreak: 'break-word', verticalAlign: 'top' };

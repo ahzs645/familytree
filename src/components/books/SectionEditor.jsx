@@ -10,11 +10,11 @@ export function SectionEditor({ section, persons, onChange, onRemove, onMoveUp, 
   return (
     <div style={card}>
       <div style={head}>
-        <span style={{ color: '#8b90a0', fontSize: 11, fontWeight: 600 }}>SECTION {index + 1}</span>
+        <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 600 }}>SECTION {index + 1}</span>
         <div style={{ display: 'flex', gap: 4 }}>
           <button disabled={index === 0} onClick={onMoveUp} style={iconBtn}>↑</button>
           <button disabled={index === total - 1} onClick={onMoveDown} style={iconBtn}>↓</button>
-          <button onClick={onRemove} style={{ ...iconBtn, color: '#f87171' }}>×</button>
+          <button onClick={onRemove} style={{ ...iconBtn, color: 'hsl(var(--destructive))' }}>×</button>
         </div>
       </div>
       <div style={row}>
@@ -61,22 +61,22 @@ export function SectionEditor({ section, persons, onChange, onRemove, onMoveUp, 
   );
 }
 
-const card = { background: '#13161f', border: '1px solid #2e3345', borderRadius: 8, padding: 12, marginBottom: 10 };
+const card = { background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 12, marginBottom: 10 };
 const head = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 };
 const row = { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' };
 const input = {
-  background: '#242837',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 6,
   padding: '6px 10px',
   font: '13px -apple-system, system-ui, sans-serif',
   outline: 'none',
 };
 const iconBtn = {
-  background: '#242837',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 4,
   padding: '4px 8px',
   fontSize: 12,

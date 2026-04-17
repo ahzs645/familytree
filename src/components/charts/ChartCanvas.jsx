@@ -79,9 +79,9 @@ export function ChartCanvas({
 }
 
 const btn = {
-  background: '#242837',
-  color: '#e2e4eb',
-  border: '1px solid #2e3345',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
   borderRadius: 6,
   padding: '6px 10px',
   font: '13px -apple-system, system-ui, sans-serif',
