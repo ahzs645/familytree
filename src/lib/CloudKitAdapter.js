@@ -240,10 +240,7 @@ function createCloudKitDatabase(scope) {
         });
       }
 
-      // Handle PlaceTemplate/PlaceTemplateKey queries (return empty for now)
-      if (type && type.startsWith('PlaceTemplate')) {
-        return Promise.resolve({ records: [], hasMore: false, hasErrors: false });
-      }
+      // PlaceTemplate queries now served from IndexedDB (no longer empty stub)
 
       return idbGetAll(STORE_RECORDS, 'byType', type).then(function(records) {
         // Apply filters
@@ -368,6 +365,7 @@ function createCloudKitDatabase(scope) {
       var promises = (records || []).map(function(r) {
         r.modified = { timestamp: Date.now() };
         r.recordChangeTag = 'local-' + Date.now();
+        addRecordMethods(r);
         return idbPut(STORE_RECORDS, r).then(function() { return r; });
       });
       return Promise.all(promises).then(function(saved) {
