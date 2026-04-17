@@ -24,6 +24,24 @@ const Sources = lazy(() => import('./routes/Sources.jsx'));
 const Events = lazy(() => import('./routes/Events.jsx'));
 const Media = lazy(() => import('./routes/Media.jsx'));
 const MapView = lazy(() => import('./routes/MapView.jsx'));
+const MapsDiagram = lazy(() => import('./routes/MapsDiagram.jsx'));
+const Statistics = lazy(() => import('./routes/Statistics.jsx'));
+const Plausibility = lazy(() => import('./routes/Plausibility.jsx'));
+const Maintenance = lazy(() => import('./routes/Maintenance.jsx'));
+const Bookmarks = lazy(() => import('./routes/Bookmarks.jsx'));
+const ToDos = lazy(() => import('./routes/ToDos.jsx'));
+const Stories = lazy(() => import('./routes/Stories.jsx'));
+const PersonGroups = lazy(() => import('./routes/PersonGroups.jsx'));
+const DNAResults = lazy(() => import('./routes/DNAResults.jsx'));
+const SourceRepositories = lazy(() => import('./routes/SourceRepositories.jsx'));
+const Slideshow = lazy(() => import('./routes/Slideshow.jsx'));
+const WorldHistory = lazy(() => import('./routes/WorldHistory.jsx'));
+const Research = lazy(() => import('./routes/Research.jsx'));
+const Templates = lazy(() => import('./routes/Templates.jsx'));
+const Labels = lazy(() => import('./routes/Labels.jsx'));
+const Quiz = lazy(() => import('./routes/Quiz.jsx'));
+const Backup = lazy(() => import('./routes/Backup.jsx'));
+const ExportRoute = lazy(() => import('./routes/Export.jsx'));
 const Classic = lazy(() => import('./routes/Classic.jsx'));
 
 function Fallback() {
@@ -61,6 +79,24 @@ export function App() {
               <Route path="events" element={<L><Events /></L>} />
               <Route path="media" element={<L><Media /></L>} />
               <Route path="map" element={<L><MapView /></L>} />
+              <Route path="maps-diagram" element={<L><MapsDiagram /></L>} />
+              <Route path="statistics" element={<L><Statistics /></L>} />
+              <Route path="plausibility" element={<L><Plausibility /></L>} />
+              <Route path="maintenance" element={<L><Maintenance /></L>} />
+              <Route path="bookmarks" element={<L><Bookmarks /></L>} />
+              <Route path="todos" element={<L><ToDos /></L>} />
+              <Route path="stories" element={<L><Stories /></L>} />
+              <Route path="groups" element={<L><PersonGroups /></L>} />
+              <Route path="dna" element={<L><DNAResults /></L>} />
+              <Route path="repositories" element={<L><SourceRepositories /></L>} />
+              <Route path="slideshow" element={<L><Slideshow /></L>} />
+              <Route path="world-history" element={<L><WorldHistory /></L>} />
+              <Route path="research" element={<L><Research /></L>} />
+              <Route path="templates" element={<L><Templates /></L>} />
+              <Route path="labels" element={<L><Labels /></L>} />
+              <Route path="quiz" element={<L><Quiz /></L>} />
+              <Route path="backup" element={<L><Backup /></L>} />
+              <Route path="export" element={<L><ExportRoute /></L>} />
               <Route path="classic" element={<L><Classic /></L>} />
             </Route>
           </Routes>

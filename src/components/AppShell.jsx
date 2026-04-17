@@ -18,8 +18,11 @@ const LINKS = [
   { to: '/events', label: 'Events' },
   { to: '/media', label: 'Media' },
   { to: '/search', label: 'Search' },
+  { to: '/statistics', label: 'Stats' },
   { to: '/reports', label: 'Reports' },
   { to: '/books', label: 'Books' },
+  { to: '/todos', label: 'ToDos' },
+  { to: '/bookmarks', label: 'Bookmarks' },
   { to: '/change-log', label: 'Change Log' },
 ];
 
