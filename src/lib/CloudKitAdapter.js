@@ -185,6 +185,18 @@ function convertRefsToCloudKitFormat(fields) {
   return result;
 }
 
+// ── Record Method Injection ──
+// The app expects raw CloudKit records to have a referenceName property.
+// This is normally set by the CloudKit SDK on every record object.
+function addRecordMethods(record) {
+  if (!record) return record;
+  // referenceName = "recordName---RecordType" (used as a lookup key)
+  if (!record.referenceName) {
+    record.referenceName = record.recordName + '---' + (record.recordType || 'Unknown');
+  }
+  return record;
+}
+
 // ── CloudKit Database (backed by IndexedDB) ──
 
 function createCloudKitDatabase(scope) {
@@ -220,10 +232,10 @@ function createCloudKitDatabase(scope) {
         return idbGetAll(STORE_RECORDS, 'byType', type).then(function(dbRecords) {
           var records = dbRecords.length > 0
             ? dbRecords.map(function(r) {
-                return { recordName: r.recordName, recordType: r.recordType, recordChangeTag: 'ct-1',
-                         fields: convertRefsToCloudKitFormat(r.fields), created: r.created, modified: r.modified };
+                return addRecordMethods({ recordName: r.recordName, recordType: r.recordType, recordChangeTag: 'ct-1',
+                         fields: convertRefsToCloudKitFormat(r.fields), created: r.created, modified: r.modified });
               })
-            : getConclusionTypeRecords(type);
+            : getConclusionTypeRecords(type).map(addRecordMethods);
           return { records: records, hasMore: false, continuationMarker: null, hasErrors: false };
         });
       }
@@ -300,7 +312,7 @@ function createCloudKitDatabase(scope) {
         var limit = (query && query.resultsLimit) || 200;
         var limited = records.slice(0, limit);
         var mapped = limited.map(function(r) {
-          return {
+          return addRecordMethods({
             recordName: r.recordName,
             recordType: r.recordType,
             recordChangeTag: 'tag-1',
@@ -308,7 +320,7 @@ function createCloudKitDatabase(scope) {
             created: r.created,
             modified: r.modified,
             zoneID: (query && query.zoneID) || { zoneName: 'com.apple.coredata.cloudkit.zone#####Root', ownerRecordName: '_local_user' },
-          };
+          });
         });
         return { records: mapped, hasMore: records.length > limit, continuationMarker: null, hasErrors: false };
       });
@@ -322,7 +334,7 @@ function createCloudKitDatabase(scope) {
         if (n === 'databaseRoot' || n === 'databaseRootShare') {
           return getMeta('zones').then(function(zones) {
             var treeName = (zones && zones.defaultZone && zones.defaultZone.zoneName) || 'Family Tree';
-            return {
+            return addRecordMethods({
               recordName: n,
               recordType: 'FamilyTreeInformation',
               recordChangeTag: 'root-1',
@@ -334,12 +346,15 @@ function createCloudKitDatabase(scope) {
               created: { timestamp: Date.now() },
               modified: { timestamp: Date.now() },
               zoneID: (options && options.zoneID) || { zoneName: 'com.apple.coredata.cloudkit.zone#####Root', ownerRecordName: '_local_user' },
-            };
+            });
           });
         }
 
         return idbGet(STORE_RECORDS, n).then(function(rec) {
-          if (rec) rec.fields = convertRefsToCloudKitFormat(rec.fields);
+          if (rec) {
+            rec.fields = convertRefsToCloudKitFormat(rec.fields);
+            addRecordMethods(rec);
+          }
           return rec;
         });
       });
