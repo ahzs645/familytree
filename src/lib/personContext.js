@@ -5,6 +5,7 @@
  * stay consistent with the rest of the app.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { refToRecordName } from './recordRef.js';
 import { personSummary, familySummary } from '../models/index.js';
 
 export async function buildPersonContext(recordName) {
@@ -53,7 +54,7 @@ export async function getSiblings(recordName) {
       referenceValue: fam.family.recordName,
     });
     for (const cr of records) {
-      const childRef = cr.fields?.child?.value?.recordName;
+      const childRef = refToRecordName(cr.fields?.child?.value);
       if (!childRef || seen.has(childRef)) continue;
       seen.add(childRef);
       const child = await db.getRecord(childRef);

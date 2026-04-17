@@ -1,5 +1,5 @@
 /**
- * Home route — import card + live tree stats + shortcut cards to each section.
+ * Home route — import card + live tree stats + shortcut cards.
  */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -9,16 +9,17 @@ import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 const SECTIONS = [
   { to: '/tree', title: 'Interactive Tree', body: 'Alphabetical person list with live search, plus parents / partners / children for the focused person.' },
   { to: '/charts', title: 'Charts', body: 'Ancestor, descendant, hourglass, tree, fan, double-ancestor, relationship-path, and configurable virtual-tree views.' },
-  { to: '/places', title: 'Places', body: 'List, search, and edit place records — names, normalized form, GeoName ID, coordinates.' },
+  { to: '/map', title: 'Map', body: 'Every place in your tree plotted on an interactive base map. Click a marker to jump to its record.' },
+  { to: '/places', title: 'Places', body: 'List, search, and edit place records — names, normalized form, GeoName ID, coordinates, place templates.' },
   { to: '/sources', title: 'Sources', body: 'Manage citation sources — title, author, date, full text, bookmarks.' },
-  { to: '/events', title: 'Events', body: 'Browse, edit, create, or delete person and family events. Conclusion type, date, place, description.' },
-  { to: '/media', title: 'Media', body: 'Gallery view of pictures, PDFs, URLs, audio, and video records. Edit captions and descriptions.' },
-  { to: '/search', title: 'Search', body: 'Multi-criteria filters across every entity type, plus smart scopes (childless persons, 19th-century births, places without coordinates…).' },
-  { to: '/duplicates', title: 'Find Duplicates', body: 'Scan for duplicate persons, families, or sources and merge them side-by-side with per-field choices.' },
-  { to: '/reports', title: 'Reports', body: 'Person summaries, ancestor / descendant narratives, family group sheets. Save, paginate, export to PDF / HTML / RTF / CSV / text.' },
+  { to: '/events', title: 'Events', body: 'Browse, edit, create, or delete person and family events.' },
+  { to: '/media', title: 'Media', body: 'Gallery view of pictures, PDFs, URLs, audio, and video records.' },
+  { to: '/search', title: 'Search', body: 'Multi-criteria filters across every entity type, plus smart scopes (childless persons, 19th-century births…).' },
+  { to: '/duplicates', title: 'Find Duplicates', body: 'Scan for duplicate persons, families, or sources and merge them side-by-side.' },
+  { to: '/reports', title: 'Reports', body: 'Person summaries, ancestor / descendant narratives, family group sheets. Export to PDF / HTML / RTF / CSV / text.' },
   { to: '/books', title: 'Books', body: 'Compose multi-section books with custom titles, a TOC, and any number of report sections.' },
   { to: '/change-log', title: 'Change Log', body: 'Browse every edit to the tree, grouped by date with field-level before/after detail.' },
-  { to: '/classic', title: 'Classic UI', body: 'The original CloudTreeWeb interface, embedded for any editor not yet rebuilt natively. Reads and writes the same database.' },
+  { to: '/classic', title: 'Classic UI', body: 'The original CloudTreeWeb interface, embedded for any editor not yet rebuilt natively.' },
 ];
 
 export function Home() {
@@ -26,51 +27,54 @@ export function Home() {
   const { hasData, summary, clear } = useDatabaseStatus();
 
   return (
-    <div style={container}>
-      <section style={{ marginBottom: 28 }}>
-        <h1 style={h1}>Your family tree, in the browser</h1>
-        <p style={lead}>
+    <div className="max-w-5xl mx-auto px-6 py-8 pb-16 h-full overflow-auto">
+      <section className="mb-8">
+        <h1 className="text-3xl font-bold mb-3">Your family tree, in the browser</h1>
+        <p className="text-muted-foreground leading-relaxed max-w-3xl">
           Import a MacFamilyTree <code>.mftpkg</code> once, then explore it through every view without another round-trip.
           Everything runs locally — no account, no upload, no sync.
         </p>
       </section>
 
-      <section style={{ marginBottom: 28 }}>
-        <ImportDropZone onImported={() => { window.location.hash = ''; navigate('/tree'); }} />
+      <section className="mb-8">
+        <ImportDropZone onImported={() => navigate('/tree')} />
       </section>
 
       {hasData && summary && (
-        <section style={summaryCard}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, color: '#8b90a0' }}>Loaded</div>
-            <div style={{ fontSize: 22, color: '#e2e4eb', fontWeight: 700 }}>
-              {summary.total.toLocaleString()} records
-            </div>
-            <div style={{ fontSize: 12, color: '#8b90a0', marginTop: 6 }}>
+        <section className="mb-8 p-5 rounded-xl border border-border bg-card flex items-center gap-5">
+          <div className="flex-1">
+            <div className="text-sm text-muted-foreground">Loaded</div>
+            <div className="text-2xl font-bold">{summary.total.toLocaleString()} records</div>
+            <div className="text-xs text-muted-foreground mt-1.5">
               {summary.types.Person || 0} persons · {summary.types.Family || 0} families ·{' '}
               {summary.types.PersonEvent || 0} events · {summary.types.Place || 0} places ·{' '}
               {summary.types.Source || 0} sources
             </div>
           </div>
-          <button onClick={async () => { if (confirm('Clear all local data?')) await clear(); }} style={clearBtn}>
+          <button
+            onClick={async () => {
+              if (confirm('Clear all local data?')) await clear();
+            }}
+            className="rounded-md border border-border bg-transparent text-destructive px-3 py-2 text-xs hover:bg-destructive/10"
+          >
             Clear data
           </button>
         </section>
       )}
 
       <section>
-        <h2 style={h2}>Sections</h2>
-        <div style={grid}>
+        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Sections</h2>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3.5">
           {SECTIONS.map((s) => (
             <div
               key={s.to}
-              style={card}
               onClick={() => navigate(s.to)}
-              onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#3a4054')}
-              onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#2e3345')}
+              className="p-4.5 rounded-xl border border-border bg-card cursor-pointer hover:border-muted-foreground/50 transition-colors"
             >
-              <div style={cardTitle}>{s.title} <span style={chevron}>→</span></div>
-              <div style={cardBody}>{s.body}</div>
+              <div className="text-base font-semibold flex justify-between mb-1.5">
+                {s.title} <span className="text-primary">→</span>
+              </div>
+              <div className="text-xs text-muted-foreground leading-relaxed">{s.body}</div>
             </div>
           ))}
         </div>
@@ -78,41 +82,5 @@ export function Home() {
     </div>
   );
 }
-
-const container = { maxWidth: 960, margin: '0 auto', padding: '32px 24px 60px', overflow: 'auto', height: '100%' };
-const h1 = { fontSize: 28, margin: '0 0 10px', color: '#e2e4eb', fontWeight: 700 };
-const h2 = { fontSize: 15, margin: '0 0 14px', color: '#8b90a0', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 };
-const lead = { fontSize: 15, color: '#8b90a0', lineHeight: 1.6, margin: 0 };
-const summaryCard = {
-  marginBottom: 28,
-  padding: 18,
-  borderRadius: 12,
-  background: '#13161f',
-  border: '1px solid #2e3345',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 20,
-};
-const clearBtn = {
-  background: 'transparent',
-  color: '#f87171',
-  border: '1px solid #2e3345',
-  borderRadius: 8,
-  padding: '8px 12px',
-  fontSize: 12,
-  cursor: 'pointer',
-};
-const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 };
-const card = {
-  border: '1px solid #2e3345',
-  borderRadius: 12,
-  padding: 18,
-  background: '#13161f',
-  cursor: 'pointer',
-  transition: 'border-color 0.15s',
-};
-const cardTitle = { fontSize: 15, fontWeight: 600, color: '#e2e4eb', marginBottom: 6, display: 'flex', justifyContent: 'space-between' };
-const cardBody = { fontSize: 13, color: '#8b90a0', lineHeight: 1.55 };
-const chevron = { color: '#6c8aff' };
 
 export default Home;

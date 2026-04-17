@@ -2,6 +2,7 @@
  * Read-side helpers for ChangeLogEntry + ChangeLogSubEntry records.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { refToRecordName } from './recordRef.js';
 
 function tsOf(entry) {
   return (
@@ -40,7 +41,7 @@ export async function getSubEntriesForEntry(entryRecordName) {
 
 export async function getTargetRecord(entry) {
   const db = getLocalDatabase();
-  const ref = entry.fields?.target?.value?.recordName;
+  const ref = refToRecordName(entry.fields?.target?.value);
   if (!ref) return null;
   return db.getRecord(ref);
 }

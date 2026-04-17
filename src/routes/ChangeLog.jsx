@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import { listChangeLogEntries, getSubEntriesForEntry } from '../lib/changeLogQuery.js';
+import { refToRecordName } from '../lib/recordRef.js';
 
 const ENTITY_TYPES = ['', 'Person', 'Family', 'PersonEvent', 'FamilyEvent', 'Place', 'Source'];
 
@@ -101,7 +102,7 @@ export default function ChangeLog() {
                   <button onClick={() => toggle(e.recordName)} style={rowHead}>
                     <span style={kindBadge(f.changeType?.value)}>{f.changeType?.value || '—'}</span>
                     <span style={{ color: '#e2e4eb', flex: 1, marginLeft: 10 }}>
-                      {f.targetType?.value || 'Record'} · {f.summary?.value || (f.target?.value?.recordName || '')}
+                      {f.targetType?.value || 'Record'} · {f.summary?.value || refToRecordName(f.target?.value) || ''}
                     </span>
                     <span style={{ color: '#8b90a0', fontSize: 12, marginRight: 10 }}>
                       {formatDate(f.timestamp?.value || f.mft_changeDate?.value)}
@@ -111,7 +112,7 @@ export default function ChangeLog() {
                   {isOpen && (
                     <div style={detail}>
                       <div style={{ color: '#8b90a0', fontSize: 12, marginBottom: 6 }}>
-                        Author: {f.author?.value || 'unknown'} · Target: {f.target?.value?.recordName}
+                        Author: {f.author?.value || 'unknown'} · Target: {refToRecordName(f.target?.value)}
                       </div>
                       {(subs[e.recordName] || []).length === 0 ? (
                         <div style={{ color: '#5b6072', fontSize: 12 }}>No field-level detail.</div>

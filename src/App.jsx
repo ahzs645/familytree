@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AppShell } from './components/AppShell.jsx';
 import { ActivePersonProvider } from './contexts/ActivePersonContext.jsx';
 import { DatabaseStatusProvider } from './contexts/DatabaseStatusContext.jsx';
+import { ThemeProvider } from './contexts/ThemeContext.jsx';
 import Home from './routes/Home.jsx';
 
 const Tree = lazy(() => import('./routes/Tree.jsx'));
@@ -22,6 +23,7 @@ const Places = lazy(() => import('./routes/Places.jsx'));
 const Sources = lazy(() => import('./routes/Sources.jsx'));
 const Events = lazy(() => import('./routes/Events.jsx'));
 const Media = lazy(() => import('./routes/Media.jsx'));
+const MapView = lazy(() => import('./routes/MapView.jsx'));
 const Classic = lazy(() => import('./routes/Classic.jsx'));
 
 function Fallback() {
@@ -39,7 +41,8 @@ function L({ children }) {
 export function App() {
   return (
     <BrowserRouter>
-      <DatabaseStatusProvider>
+      <ThemeProvider>
+       <DatabaseStatusProvider>
         <ActivePersonProvider>
           <Routes>
             <Route element={<AppShell />}>
@@ -57,11 +60,13 @@ export function App() {
               <Route path="sources" element={<L><Sources /></L>} />
               <Route path="events" element={<L><Events /></L>} />
               <Route path="media" element={<L><Media /></L>} />
+              <Route path="map" element={<L><MapView /></L>} />
               <Route path="classic" element={<L><Classic /></L>} />
             </Route>
           </Routes>
         </ActivePersonProvider>
-      </DatabaseStatusProvider>
+       </DatabaseStatusProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

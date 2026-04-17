@@ -12,6 +12,7 @@
  *   const person = await db.getRecord('person-123');
  */
 import { openDB } from 'idb';
+import { refToRecordName } from './recordRef.js';
 
 const DB_NAME = 'cloudtreeweb-local';
 const DB_VERSION = 2;
@@ -151,8 +152,7 @@ export class LocalDatabase {
       records = records.filter((r) => {
         const ref = r.fields?.[options.referenceField];
         if (!ref) return false;
-        const refName = ref.value?.recordName ?? ref.value;
-        return refName === options.referenceValue;
+        return refToRecordName(ref.value) === options.referenceValue;
       });
     }
 
@@ -266,16 +266,17 @@ export class LocalDatabase {
     const { records: childRels } = await this.query('ChildRelation', {
       referenceField: 'child',
       referenceValue: personRecordName,
+      limit: 100000,
     });
 
     const results = [];
     for (const cr of childRels) {
-      const familyRef = cr.fields?.family?.value?.recordName;
+      const familyRef = refToRecordName(cr.fields?.family?.value);
       if (!familyRef) continue;
       const family = await this.getRecord(familyRef);
       if (!family) continue;
-      const manRef = family.fields?.man?.value?.recordName;
-      const womanRef = family.fields?.woman?.value?.recordName;
+      const manRef = refToRecordName(family.fields?.man?.value);
+      const womanRef = refToRecordName(family.fields?.woman?.value);
       results.push({
         family,
         man: manRef ? await this.getRecord(manRef) : null,
@@ -287,27 +288,28 @@ export class LocalDatabase {
 
   async getPersonsChildrenInformation(personRecordName) {
     // Find families where this person is man or woman
-    const { records: allFamilies } = await this.query('Family');
+    const { records: allFamilies } = await this.query('Family', { limit: 100000 });
     const families = allFamilies.filter((f) => {
-      const manRef = f.fields?.man?.value?.recordName;
-      const womanRef = f.fields?.woman?.value?.recordName;
+      const manRef = refToRecordName(f.fields?.man?.value);
+      const womanRef = refToRecordName(f.fields?.woman?.value);
       return manRef === personRecordName || womanRef === personRecordName;
     });
 
     const results = [];
     for (const fam of families) {
-      const manRef = fam.fields?.man?.value?.recordName;
-      const womanRef = fam.fields?.woman?.value?.recordName;
+      const manRef = refToRecordName(fam.fields?.man?.value);
+      const womanRef = refToRecordName(fam.fields?.woman?.value);
       const partnerId = manRef === personRecordName ? womanRef : manRef;
 
       // Find children via ChildRelation
       const { records: childRels } = await this.query('ChildRelation', {
         referenceField: 'family',
         referenceValue: fam.recordName,
+        limit: 100000,
       });
       const children = [];
       for (const cr of childRels) {
-        const childRef = cr.fields?.child?.value?.recordName;
+        const childRef = refToRecordName(cr.fields?.child?.value);
         if (childRef) {
           const child = await this.getRecord(childRef);
           if (child) children.push(child);

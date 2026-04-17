@@ -5,6 +5,7 @@
  * side by side.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { refValue } from './recordRef.js';
 
 let _seq = 0;
 
@@ -52,7 +53,7 @@ export async function saveWithChangeLog(updatedRecord, { author = 'You', changeK
       recordName: subName,
       recordType: 'ChangeLogSubEntry',
       fields: {
-        changeLogEntry: { value: { recordName: entryName } },
+        changeLogEntry: { value: refValue(entryName, 'ChangeLogEntry'), type: 'REFERENCE' },
         fieldName: { value: c.field },
         oldValue: { value: stringifyValue(c.before) },
         newValue: { value: stringifyValue(c.after) },
@@ -65,7 +66,7 @@ export async function saveWithChangeLog(updatedRecord, { author = 'You', changeK
     recordName: entryName,
     recordType: 'ChangeLogEntry',
     fields: {
-      target: { value: { recordName: updatedRecord.recordName } },
+      target: { value: refValue(updatedRecord.recordName, updatedRecord.recordType), type: 'REFERENCE' },
       targetType: { value: updatedRecord.recordType },
       timestamp: { value: nowIso() },
       author: { value: author },
@@ -104,7 +105,7 @@ export async function logRecordCreated(record, { author = 'You' } = {}) {
     recordName: uuid('cle'),
     recordType: 'ChangeLogEntry',
     fields: {
-      target: { value: { recordName: record.recordName } },
+      target: { value: refValue(record.recordName, record.recordType), type: 'REFERENCE' },
       targetType: { value: record.recordType },
       timestamp: { value: nowIso() },
       author: { value: author },
@@ -122,7 +123,7 @@ export async function logRecordDeleted(recordName, recordType, { author = 'You' 
     recordName: uuid('cle'),
     recordType: 'ChangeLogEntry',
     fields: {
-      target: { value: { recordName } },
+      target: { value: refValue(recordName, recordType), type: 'REFERENCE' },
       targetType: { value: recordType },
       timestamp: { value: nowIso() },
       author: { value: author },

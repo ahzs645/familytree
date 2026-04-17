@@ -10,6 +10,7 @@
  * Pairs with score >= threshold are returned.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { refToRecordName } from './recordRef.js';
 
 const PERSON_THRESHOLD = 0.85;
 const SOURCE_THRESHOLD = 0.85;
@@ -145,8 +146,8 @@ export async function findDuplicateFamilies() {
   const { records } = await db.query('Family', { limit: 100000 });
   const byPair = new Map();
   for (const r of records) {
-    const m = r.fields?.man?.value?.recordName || '';
-    const w = r.fields?.woman?.value?.recordName || '';
+    const m = refToRecordName(r.fields?.man?.value) || '';
+    const w = refToRecordName(r.fields?.woman?.value) || '';
     if (!m && !w) continue;
     const key = [m, w].sort().join('|');
     if (!byPair.has(key)) byPair.set(key, []);

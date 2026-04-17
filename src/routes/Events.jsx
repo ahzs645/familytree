@@ -5,6 +5,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
+import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { personSummary, placeSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
@@ -66,12 +67,15 @@ export default function Events() {
     const ev = events.find((e) => e.recordName === activeId);
     if (!ev) return;
     setValues({
-      conclusionType: ev.fields?.conclusionType?.value || ev.fields?.eventType?.value || '',
+      conclusionType: refToRecordName(ev.fields?.conclusionType?.value) || ev.fields?.conclusionType?.value || ev.fields?.eventType?.value || '',
       date: ev.fields?.date?.value || '',
       description: ev.fields?.description?.value || ev.fields?.userDescription?.value || '',
-      personRef: ev.fields?.person?.value?.recordName || '',
-      familyRef: ev.fields?.family?.value?.recordName || '',
-      placeRef: ev.fields?.place?.value?.recordName || ev.fields?.assignedPlace?.value?.recordName || '',
+      personRef: refToRecordName(ev.fields?.person?.value) || '',
+      familyRef: refToRecordName(ev.fields?.family?.value) || '',
+      placeRef:
+        refToRecordName(ev.fields?.place?.value) ||
+        refToRecordName(ev.fields?.assignedPlace?.value) ||
+        '',
     });
   }, [activeId, events]);
 
@@ -87,12 +91,12 @@ export default function Events() {
     if (values.description) next.fields.description = { value: values.description, type: 'STRING' };
     else delete next.fields.description;
     if (ev.recordType === 'PersonEvent' && values.personRef) {
-      next.fields.person = { value: { recordName: values.personRef }, type: 'REFERENCE' };
+      next.fields.person = { value: refValue(values.personRef, 'Person'), type: 'REFERENCE' };
     }
     if (ev.recordType === 'FamilyEvent' && values.familyRef) {
-      next.fields.family = { value: { recordName: values.familyRef }, type: 'REFERENCE' };
+      next.fields.family = { value: refValue(values.familyRef, 'Family'), type: 'REFERENCE' };
     }
-    if (values.placeRef) next.fields.place = { value: { recordName: values.placeRef }, type: 'REFERENCE' };
+    if (values.placeRef) next.fields.place = { value: refValue(values.placeRef, 'Place'), type: 'REFERENCE' };
     else delete next.fields.place;
 
     await saveWithChangeLog(next);

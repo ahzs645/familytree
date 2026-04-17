@@ -6,10 +6,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
+import { refValue, refToRecordName as refValueToName } from '../lib/recordRef.js';
 import { listAllPersons } from '../lib/treeQuery.js';
 import { personSummary, familySummary, lifeSpanLabel } from '../models/index.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
-import { FieldRow, editorInput } from '../components/editors/FieldRow.jsx';
+import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -23,6 +24,8 @@ export default function FamilyEditor() {
   const [manId, setManId] = useState(null);
   const [womanId, setWomanId] = useState(null);
   const [marriageDate, setMarriageDate] = useState('');
+  const [note, setNote] = useState('');
+  const [familyEvents, setFamilyEvents] = useState([]);
   const [children, setChildren] = useState([]); // [{ childRelationName, childRecordName, summary }]
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
@@ -36,9 +39,17 @@ export default function FamilyEditor() {
       return;
     }
     setFamily(f);
-    setManId(f.fields?.man?.value?.recordName || null);
-    setWomanId(f.fields?.woman?.value?.recordName || null);
+    setManId(refValueToName(f.fields?.man?.value));
+    setWomanId(refValueToName(f.fields?.woman?.value));
     setMarriageDate(f.fields?.cached_marriageDate?.value || '');
+    setNote(f.fields?.note?.value || '');
+
+    const { records: fevents } = await db.query('FamilyEvent', {
+      referenceField: 'family',
+      referenceValue: id,
+      limit: 500,
+    });
+    setFamilyEvents(fevents);
 
     const { records: rels } = await db.query('ChildRelation', {
       referenceField: 'family',
@@ -47,7 +58,7 @@ export default function FamilyEditor() {
     });
     const hydrated = [];
     for (const cr of rels) {
-      const childRef = cr.fields?.child?.value?.recordName;
+      const childRef = refValueToName(cr.fields?.child?.value);
       if (!childRef) continue;
       const child = await db.getRecord(childRef);
       const sum = personSummary(child);
@@ -99,12 +110,14 @@ export default function FamilyEditor() {
     const db = getLocalDatabase();
 
     const nextFields = { ...family.fields };
-    if (manId) nextFields.man = { value: { recordName: manId }, type: 'REFERENCE' };
+    if (manId) nextFields.man = { value: refValue(manId, 'Person'), type: 'REFERENCE' };
     else delete nextFields.man;
-    if (womanId) nextFields.woman = { value: { recordName: womanId }, type: 'REFERENCE' };
+    if (womanId) nextFields.woman = { value: refValue(womanId, 'Person'), type: 'REFERENCE' };
     else delete nextFields.woman;
     if (marriageDate) nextFields.cached_marriageDate = { value: marriageDate, type: 'STRING' };
     else delete nextFields.cached_marriageDate;
+    if (note) nextFields.note = { value: note, type: 'STRING' };
+    else delete nextFields.note;
 
     const updated = { ...family, fields: nextFields };
     await saveWithChangeLog(updated);
@@ -117,7 +130,7 @@ export default function FamilyEditor() {
       limit: 500,
     });
     const existingByChild = new Map(
-      existingRels.map((r) => [r.fields?.child?.value?.recordName, r])
+      existingRels.map((r) => [refValueToName(r.fields?.child?.value), r])
     );
     const keepRelNames = new Set();
 
@@ -138,8 +151,8 @@ export default function FamilyEditor() {
           recordName: uuid('cr'),
           recordType: 'ChildRelation',
           fields: {
-            family: { value: { recordName: id }, type: 'REFERENCE' },
-            child: { value: { recordName: c.childRecordName }, type: 'REFERENCE' },
+            family: { value: refValue(id, 'Family'), type: 'REFERENCE' },
+            child: { value: refValue(c.childRecordName, 'Person'), type: 'REFERENCE' },
             order: { value: i, type: 'NUMBER' },
           },
         };
@@ -160,7 +173,7 @@ export default function FamilyEditor() {
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
-  }, [family, manId, womanId, marriageDate, children, id, load]);
+  }, [family, manId, womanId, marriageDate, note, children, id, load]);
 
   if (notFound) return <div style={pad}>Family not found.</div>;
   if (!family) return <div style={pad}>Loading…</div>;
@@ -203,6 +216,59 @@ export default function FamilyEditor() {
             />
           </FieldRow>
         </div>
+
+        <FieldRow label="Family note">
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            style={editorTextarea}
+            rows={3}
+          />
+        </FieldRow>
+
+        <FieldRow label={`Family events · ${familyEvents.length}`} hint="Open the Events page to add or edit family events.">
+          {familyEvents.length === 0 ? (
+            <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 13, fontStyle: 'italic' }}>
+              No family events recorded.
+            </div>
+          ) : (
+            <div>
+              {familyEvents.map((e) => (
+                <div
+                  key={e.recordName}
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'center',
+                    padding: '8px 10px',
+                    marginBottom: 4,
+                    background: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: 6,
+                  }}
+                >
+                  <span style={{ color: 'hsl(var(--foreground))', fontSize: 13, flex: 1 }}>
+                    {e.fields?.conclusionType?.value || e.fields?.eventType?.value || 'Event'}
+                    {e.fields?.date?.value && (
+                      <span style={{ color: 'hsl(var(--muted-foreground))', marginLeft: 8, fontSize: 11 }}>
+                        {e.fields.date.value}
+                      </span>
+                    )}
+                  </span>
+                  <button
+                    onClick={() => navigate('/events')}
+                    style={{ ...tinyBtn, color: 'hsl(var(--primary))' }}
+                  >
+                    open in Events
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button onClick={() => navigate('/events')} style={{ ...tinyBtn, marginTop: 8 }}>
+            + Add family event (opens Events)
+          </button>
+        </FieldRow>
 
         <FieldRow label={`Children · ${children.length}`}>
           {children.length === 0 && (
