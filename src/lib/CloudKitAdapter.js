@@ -14,9 +14,10 @@
 // ── IndexedDB Access (lightweight, no idb dependency — runs inside the bundle) ──
 
 var DB_NAME = 'cloudtreeweb-local';
-var DB_VERSION = 2;
+var DB_VERSION = 3;
 var STORE_RECORDS = 'records';
 var STORE_META = 'meta';
+var STORE_ASSETS = 'assets';
 
 function openIDB() {
   return new Promise(function(resolve, reject) {
@@ -29,6 +30,11 @@ function openIDB() {
       }
       if (!db.objectStoreNames.contains(STORE_META)) {
         db.createObjectStore(STORE_META, { keyPath: 'key' });
+      }
+      if (!db.objectStoreNames.contains(STORE_ASSETS)) {
+        var assets = db.createObjectStore(STORE_ASSETS, { keyPath: 'assetId' });
+        assets.createIndex('byOwnerRecordName', 'ownerRecordName', { unique: false });
+        assets.createIndex('bySourceIdentifier', 'sourceIdentifier', { unique: false });
       }
     };
     request.onsuccess = function() { resolve(request.result); };

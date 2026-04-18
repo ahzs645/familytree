@@ -31,9 +31,10 @@ export default function Backup() {
     try {
       const text = await file.text();
       const json = JSON.parse(text);
-      const n = await restoreBackup(json);
+      const restored = await restoreBackup(json);
       await refresh();
-      setStatus(`Restored ${n.toLocaleString()} records.`);
+      const assetPart = restored.assets ? ` and ${restored.assets.toLocaleString()} assets` : '';
+      setStatus(`Restored ${restored.records.toLocaleString()} records${assetPart}.`);
     } catch (e) {
       setStatus('Restore failed: ' + e.message);
     }
@@ -51,7 +52,7 @@ export default function Backup() {
         <div className="rounded-lg border border-border bg-card p-5 mb-4">
           <h2 className="text-sm font-semibold mb-2">Export</h2>
           <p className="text-xs text-muted-foreground mb-4">
-            {summary ? `${summary.total.toLocaleString()} records will be packaged.` : 'No data loaded.'}
+            {summary ? `${summary.total.toLocaleString()} records and any imported media assets will be packaged.` : 'No data loaded.'}
           </p>
           <button onClick={onExport} disabled={busy || !summary}
             className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-60">

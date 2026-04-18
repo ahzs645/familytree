@@ -14,6 +14,15 @@ const CHART_LABELS = {
   tree: 'Tree (horizontal)',
   'double-ancestor': 'Double Ancestor',
   fan: 'Fan',
+  circular: 'Circular Tree',
+  symmetrical: 'Symmetrical Tree',
+  distribution: 'Distribution',
+  timeline: 'Timeline',
+  genogram: 'Genogram',
+  sociogram: 'Sociogram',
+  'fractal-h-tree': 'Fractal H-Tree',
+  'square-tree': 'Square Tree',
+  'fractal-tree': 'Fractal Tree',
   relationship: 'Relationship Path',
   virtual: 'Virtual Tree',
 };
@@ -25,9 +34,33 @@ const ACCENT = {
   tree: 'bg-violet-500/15 text-violet-500',
   'double-ancestor': 'bg-pink-500/15 text-pink-500',
   fan: 'bg-orange-500/15 text-orange-500',
+  circular: 'bg-lime-500/15 text-lime-500',
+  symmetrical: 'bg-sky-500/15 text-sky-500',
+  distribution: 'bg-teal-500/15 text-teal-500',
+  timeline: 'bg-indigo-500/15 text-indigo-500',
+  genogram: 'bg-fuchsia-500/15 text-fuchsia-500',
+  sociogram: 'bg-rose-500/15 text-rose-500',
+  'fractal-h-tree': 'bg-yellow-500/15 text-yellow-500',
+  'square-tree': 'bg-green-500/15 text-green-500',
+  'fractal-tree': 'bg-purple-500/15 text-purple-500',
   relationship: 'bg-cyan-500/15 text-cyan-500',
   virtual: 'bg-rose-500/15 text-rose-500',
 };
+
+function importedLayoutStatus(view) {
+  const decodedRaw = view.fields?.chartObjectsContainerDataDecoded?.value;
+  if (decodedRaw) {
+    try {
+      const decoded = JSON.parse(decodedRaw);
+      if (decoded.status === 'decoded') return 'decoded Mac layout';
+      if (decoded.status === 'unsupported-binary') return 'archived binary layout preserved';
+    } catch {
+      // Fall through to byte-preservation wording.
+    }
+  }
+  if (view.fields?.chartObjectsContainerData?.value) return 'archived layout preserved';
+  return 'metadata only; no Mac layout payload in this file';
+}
 
 export default function SavedCharts() {
   const [templates, setTemplates] = useState(null);
@@ -114,7 +147,7 @@ export default function SavedCharts() {
                   <div className="text-sm font-semibold mt-2 mb-1 truncate">{view.fields?.title?.value || view.fields?.name?.value || view.recordName}</div>
                   <div className="text-xs text-muted-foreground mb-3">
                     {view.fields?.author?.value || 'MacFamilyTree import'}
-                    {view.fields?.chartObjectsContainerData?.value ? ' · archived layout preserved' : ' · metadata only'}
+                    {' · '}{importedLayoutStatus(view)}
                   </div>
                   <button onClick={() => navigate('/charts?type=tree')}
                     className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">

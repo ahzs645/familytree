@@ -177,8 +177,8 @@ function hasCoordValue(value) {
 
 export async function runScope(scopeId) {
   const scope = BUILTIN_SCOPES.find((s) => s.id === scopeId);
-  if (!scope) throw new Error('Unknown scope: ' + scopeId);
   const db = getLocalDatabase();
+  if (!scope) return runImportedScope(scopeId, db);
   const { records } = await db.query(scope.entityType, { limit: 100000 });
   const ctx = scope.needsCtx ? await buildCtx(scope.needsCtx) : null;
   const matched = records.filter((r) => scope.predicate(r, ctx));
@@ -188,4 +188,242 @@ export async function runScope(scopeId) {
 export function listScopes(entityType) {
   if (!entityType) return BUILTIN_SCOPES;
   return BUILTIN_SCOPES.filter((s) => s.entityType === entityType);
+}
+
+export async function listAllScopes(entityType) {
+  const imported = await listImportedScopes(entityType);
+  return [...listScopes(entityType), ...imported];
+}
+
+export async function listImportedScopes(entityType) {
+  const db = getLocalDatabase();
+  const { records } = await db.query('Scope', { limit: 100000 });
+  return records
+    .map(importedScopeDescriptor)
+    .filter(Boolean)
+    .filter((scope) => !entityType || scope.entityType === entityType);
+}
+
+function importedScopeDescriptor(record) {
+  const decoded = parseDecoded(record.fields?.archivedFiltersDecoded?.value);
+  const summary = decoded?.summary || {};
+  const entityType = record.fields?.scopeEntity?.value || summary.entityName;
+  if (!entityType) return null;
+  const label = record.fields?.scopeName?.value || record.fields?.name?.value || summary.identifier || record.recordName;
+  return {
+    id: `imported:${record.recordName}`,
+    recordName: record.recordName,
+    entityType,
+    label,
+    description: `Imported MacFamilyTree scope${summary.identifier ? ` (${summary.identifier})` : ''}.`,
+    imported: true,
+    executable: Boolean(importedPredicateFactory(summary.identifier || label)),
+    decodedSummary: summary,
+  };
+}
+
+function parseDecoded(value) {
+  if (!value) return null;
+  try {
+    return typeof value === 'string' ? JSON.parse(value) : value;
+  } catch {
+    return null;
+  }
+}
+
+async function runImportedScope(scopeId, db) {
+  const recordName = String(scopeId || '').replace(/^imported:/, '');
+  const record = await db.getRecord(recordName);
+  if (!record || record.recordType !== 'Scope') throw new Error('Unknown scope: ' + scopeId);
+  const scope = importedScopeDescriptor(record);
+  const predicateFactory = importedPredicateFactory(scope?.decodedSummary?.identifier || scope?.label);
+  if (!scope || !predicateFactory) throw new Error('Imported scope is preserved but not executable yet.');
+  const { records } = await db.query(scope.entityType, { limit: 100000 });
+  const ctx = await buildImportedCtx(db, scope);
+  const matched = records.filter((r) => predicateFactory(r, ctx, scope));
+  return { entityType: scope.entityType, scope, records: matched, total: matched.length };
+}
+
+function importedPredicateFactory(identifier) {
+  const id = String(identifier || '');
+  const map = {
+    StandardScope_Sources_AtLeastOneMedia: (r, ctx) => ctx.mediaTargetIds.has(r.recordName),
+    StandardScope_ToDos_AtLeastOneAssignedEntry: (r, ctx) => ctx.todoAssignedIds.has(r.recordName),
+    StandardScope_Families_NumberOfChildren: (r, ctx, scope) => compareNumber(ctx.childrenByFamily.get(r.recordName) || 0, selectedNumber(scope, 1), selectedOperator(scope, 'equalKey')),
+    StandardScope_ToDos_FurtherResearch: (r) => hasToken(r, ['type', 'title', 'description', 'text'], 'research'),
+    StandardScope_Places_WithoutCoordinates: (r, ctx) => !hasAnyCoordinates(r, ctx),
+    StandardScope_ToDos_FurtherResearchAndPriorityHigh: (r) => hasToken(r, ['type', 'title', 'description', 'text'], 'research') && hasToken(r, ['priority', 'title', 'description', 'text'], 'high'),
+    StandardScope_Persons_HasPictures: (r, ctx) => Boolean(r.fields?.thumbnailFileIdentifier?.value) || ctx.mediaTargetIds.has(r.recordName),
+    StandardScope_Families_Label: (r, ctx, scope) => labelMatch(r, ctx, scope),
+    StandardScope_Sources_AtLeastOneAssignedEntry: (r, ctx) => ctx.sourceAssignedIds.has(r.recordName),
+    StandardScope_Sources_Label: (r, ctx, scope) => labelMatch(r, ctx, scope),
+    StandardScope_Places_AtLeastOneEvent: (r, ctx) => ctx.eventPlaceIds.has(r.recordName),
+    StandardScope_Persons_Labels: (r, ctx, scope) => labelMatch(r, ctx, scope),
+    StandardScope_Persons_FamilySearch: (r) => Boolean(readField(r, ['familySearchID', 'familySearchId'])),
+    StandardScope_Places_Label: (r, ctx, scope) => labelMatch(r, ctx, scope),
+    StandardScope_Families_MarriageDate: (r, _ctx, scope) => compareDate(readField(r, ['cached_marriageDate', 'marriageDate']), selectedValue(scope), selectedOperator(scope, 'beforeKey')),
+    StandardScope_Persons_Ancestors: (r, ctx) => ctx.ancestorIds.has(r.recordName),
+    StandardScope_Persons_IsLiving: (r) => !readField(r, ['cached_deathDate', 'deathDate']),
+  };
+  return map[id] || null;
+}
+
+async function buildImportedCtx(db, scope) {
+  const ctx = {
+    mediaTargetIds: new Set(),
+    todoAssignedIds: new Set(),
+    childrenByFamily: new Map(),
+    labelTargetsByUniqueID: new Map(),
+    labelTargetsByName: new Map(),
+    sourceAssignedIds: new Set(),
+    eventPlaceIds: new Set(),
+    coordinateValueIds: new Set(),
+    placeCoordinateIds: new Set(),
+    ancestorIds: new Set(),
+  };
+
+  const [
+    mediaRelations,
+    todoRelations,
+    childRelations,
+    labels,
+    labelRelations,
+    sourceRelations,
+    personEvents,
+    familyEvents,
+    coordinates,
+  ] = await Promise.all([
+    db.query('MediaRelation', { limit: 100000 }),
+    db.query('ToDoRelation', { limit: 100000 }),
+    db.query('ChildRelation', { limit: 100000 }),
+    db.query('Label', { limit: 100000 }),
+    db.query('LabelRelation', { limit: 100000 }),
+    db.query('SourceRelation', { limit: 100000 }),
+    db.query('PersonEvent', { limit: 100000 }),
+    db.query('FamilyEvent', { limit: 100000 }),
+    db.query('Coordinate', { limit: 100000 }),
+  ]);
+
+  for (const rel of mediaRelations.records) {
+    const target = readRef(rel.fields?.target) || readRef(rel.fields?.baseObject);
+    if (target) ctx.mediaTargetIds.add(target);
+  }
+  for (const rel of todoRelations.records) {
+    const todo = readRef(rel.fields?.todo);
+    if (todo) ctx.todoAssignedIds.add(todo);
+  }
+  for (const rel of childRelations.records) {
+    const family = readRef(rel.fields?.family);
+    if (family) ctx.childrenByFamily.set(family, (ctx.childrenByFamily.get(family) || 0) + 1);
+  }
+  for (const rel of sourceRelations.records) {
+    const source = readRef(rel.fields?.source);
+    if (source) ctx.sourceAssignedIds.add(source);
+  }
+  for (const ev of [...personEvents.records, ...familyEvents.records]) {
+    const place = readRef(ev.fields?.place) || readRef(ev.fields?.assignedPlace);
+    if (place) ctx.eventPlaceIds.add(place);
+  }
+  for (const coord of coordinates.records) {
+    if (hasCoordinateValues(coord)) ctx.coordinateValueIds.add(coord.recordName);
+    const place = readRef(coord.fields?.place);
+    if (place && hasCoordinateValues(coord)) ctx.placeCoordinateIds.add(place);
+  }
+
+  const labelsByRecordName = new Map(labels.records.map((label) => [label.recordName, label]));
+  for (const rel of labelRelations.records) {
+    const labelId = readRef(rel.fields?.label);
+    const target = readRef(rel.fields?.target) || readRef(rel.fields?.baseObject);
+    if (!labelId || !target) continue;
+    const label = labelsByRecordName.get(labelId);
+    const uniqueID = readField(label, ['uniqueID']);
+    const name = readField(label, ['name', 'title']);
+    addToSetMap(ctx.labelTargetsByUniqueID, uniqueID, target);
+    addToSetMap(ctx.labelTargetsByName, String(name || '').toLowerCase(), target);
+  }
+
+  const ancestorRootUniqueID = selectedValue(scope, 'P1');
+  if (ancestorRootUniqueID) {
+    await collectAncestorsByUniqueID(db, ancestorRootUniqueID, ctx.ancestorIds);
+  }
+
+  return ctx;
+}
+
+function addToSetMap(map, key, value) {
+  if (!key || !value) return;
+  if (!map.has(key)) map.set(key, new Set());
+  map.get(key).add(value);
+}
+
+async function collectAncestorsByUniqueID(db, uniqueID, out) {
+  const { records } = await db.query('Person', { limit: 100000 });
+  const root = records.find((person) => readField(person, ['uniqueID']) === uniqueID);
+  if (!root) return;
+  async function visit(recordName) {
+    const parents = await db.getPersonsParents(recordName);
+    for (const family of parents) {
+      for (const parent of [family.man, family.woman]) {
+        if (!parent || out.has(parent.recordName)) continue;
+        out.add(parent.recordName);
+        await visit(parent.recordName);
+      }
+    }
+  }
+  await visit(root.recordName);
+}
+
+function selectedFilter(scope) {
+  return scope?.decodedSummary?.filters?.find((filter) => filter.selectionDictionary && filter.kind !== 'compound') || null;
+}
+
+function selectedValue(scope, key = 'A1') {
+  return selectedFilter(scope)?.selectionDictionary?.[key] ?? null;
+}
+
+function selectedNumber(scope, fallback) {
+  const value = Number(selectedValue(scope));
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function selectedOperator(scope, fallback) {
+  const dict = selectedFilter(scope)?.selectionDictionary || {};
+  return dict.NUMBERCOMPARISONOPERATOR || dict.DATECOMPARISONOPERATOR || dict.HASORHASNOTLABELCOMPARISONOPERATOR || fallback;
+}
+
+function compareNumber(value, target, op) {
+  if (op === 'greaterThanKey') return value > target;
+  if (op === 'lessThanKey') return value < target;
+  if (op === 'notEqualKey') return value !== target;
+  return value === target;
+}
+
+function compareDate(raw, target, op) {
+  const valueYear = parseYear(raw);
+  const targetYear = parseYear(target);
+  if (valueYear == null || targetYear == null) return false;
+  if (op === 'beforeKey') return valueYear < targetYear;
+  if (op === 'afterKey') return valueYear > targetYear;
+  if (op === 'notEqualKey') return valueYear !== targetYear;
+  return valueYear === targetYear;
+}
+
+function labelMatch(record, ctx, scope) {
+  const targetLabel = selectedValue(scope);
+  if (targetLabel && ctx.labelTargetsByUniqueID.get(targetLabel)?.has(record.recordName)) return true;
+  return ctx.labelTargetsByName.get('incomplete')?.has(record.recordName) || false;
+}
+
+function hasAnyCoordinates(record, ctx) {
+  const coordinateRef = refToRecordName(record.fields?.coordinate?.value);
+  return (
+    hasDirectCoordinates(record) ||
+    (coordinateRef && ctx.coordinateValueIds.has(coordinateRef)) ||
+    ctx.placeCoordinateIds.has(record.recordName)
+  );
+}
+
+function hasToken(record, fields, token) {
+  const needle = String(token).toLowerCase();
+  return fields.some((field) => String(readField(record, [field], '')).toLowerCase().includes(needle));
 }

@@ -16,7 +16,7 @@ const EDGE_GLYPH = {
   spouse: '↔ spouse',
 };
 
-export function RelationshipPathChart({ result, secondPicked, onPersonClick, theme = DEFAULT_THEME }) {
+export function RelationshipPathChart({ result, secondPicked, onPersonClick, theme = DEFAULT_THEME, page }) {
   if (!secondPicked) {
     return <div style={{ padding: 24, color: theme.textMuted }}>Pick a second person to compare against.</div>;
   }
@@ -28,7 +28,7 @@ export function RelationshipPathChart({ result, secondPicked, onPersonClick, the
   const y = 40;
 
   return (
-    <ChartCanvas theme={theme}>
+    <ChartCanvas theme={theme} page={page}>
       <g transform={`translate(${PADDING},${PADDING})`}>
         <text x={0} y={20} fill={theme.text} fontSize={16} fontWeight={600} fontFamily={theme.fontFamily}>
           Relationship: {result.label}

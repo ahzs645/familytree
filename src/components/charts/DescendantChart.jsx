@@ -10,12 +10,12 @@ import { layoutDescendants } from './layouts/descendantLayout.js';
 
 const PADDING = 30;
 
-export function DescendantChart({ tree, onPersonClick, theme = DEFAULT_THEME }) {
+export function DescendantChart({ tree, onPersonClick, theme = DEFAULT_THEME, page }) {
   const { nodes, links } = useMemo(() => layoutDescendants(tree, theme), [tree, theme]);
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
 
   return (
-    <ChartCanvas theme={theme}>
+    <ChartCanvas theme={theme} page={page}>
       <g transform={`translate(${PADDING},${PADDING})`}>
         {links.map((l, i) => (
           <path key={i} d={l.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />

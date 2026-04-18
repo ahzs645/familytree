@@ -15,7 +15,7 @@ function fitText(name, gen) {
   return name.length > max ? name.slice(0, max - 1) + '…' : name;
 }
 
-export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, arcDegrees }) {
+export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, arcDegrees, page }) {
   const { slices, totalRadius, size, probandRadius } = useMemo(
     () => layoutFan(tree, generations, { arcDegrees }),
     [tree, generations, arcDegrees]
@@ -26,7 +26,7 @@ export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT
   const cy = size / 2;
 
   return (
-    <ChartCanvas theme={theme}>
+    <ChartCanvas theme={theme} page={page}>
       <g transform={`translate(${PADDING},${PADDING})`}>
         <g transform={`translate(${cx},${cy})`}>
           {slices.map((s, i) => {

@@ -25,6 +25,12 @@ describe.skipIf(!existsSync(SAMPLE_DB))('MacFamilyTree package extraction', () =
       expect(dataset.counts.SourceKeyValue).toBe(10);
       expect(dataset.counts.SourceTemplateKey).toBe(72);
       expect(dataset.counts.SourceTemplateKeyRelation).toBe(640);
+      const importedScope = dataset.records['scope-35'];
+      const decodedScope = JSON.parse(importedScope.fields.archivedFiltersDecoded.value);
+      expect(decodedScope.status).toBe('decoded');
+      expect(decodedScope.summary.entityName).toBe('Family');
+      expect(decodedScope.summary.identifier).toBe('StandardScope_Families_MarriageDate');
+      expect(decodedScope.summary.filters.some((filter) => filter.selectionDictionary?.A1 === '01.01.1950')).toBe(true);
       const importedLabel = Object.values(dataset.records).find((record) => record.recordType === 'Label');
       expect(readLabel(importedLabel).name).toBeTruthy();
       expect(Object.keys(dataset.records).length).toBeGreaterThan(6500);

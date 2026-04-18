@@ -35,16 +35,20 @@ function renderBlock(b) {
 }
 
 export function renderHTML(report, { theme } = {}) {
-  const css = theme?.id === 'default-light'
-    ? 'body{background:#fff;color:#1a1d27}'
-    : theme?.id === 'sepia'
-      ? 'body{background:#f4eedd;color:#3a2a14}'
-      : 'body{background:#0f1117;color:#e2e4eb}';
+  const pageStyle = report.pageStyle || {};
+  const pageBackground = pageStyle.background === 'sepia' ? '#fbf6e8' : pageStyle.background === 'soft' ? '#f7f8fb' : '#fff';
+  const css = theme?.id === 'sepia'
+    ? `body{background:${pageBackground};color:#3a2a14}`
+    : `body{background:${pageBackground};color:#1a1d27}`;
+  const pageSize = pageStyle.pageSize === 'a4' ? 'A4' : pageStyle.pageSize === 'legal' ? 'legal' : 'letter';
+  const orientation = pageStyle.orientation === 'landscape' ? 'landscape' : 'portrait';
+  const margin = Number.isFinite(pageStyle.margin) ? Math.max(24, Math.min(96, pageStyle.margin)) : 48;
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${esc(report.title)}</title>
 <style>
   ${css}
-  body{font-family:-apple-system,system-ui,sans-serif;padding:40px;max-width:800px;margin:0 auto;line-height:1.6}
+  @page{size:${pageSize} ${orientation};margin:${margin}px}
+  body{font-family:-apple-system,system-ui,sans-serif;padding:${margin}px;max-width:${orientation === 'landscape' ? 1080 : 820}px;margin:0 auto;line-height:1.6}
   h1{font-size:28px;margin:0 0 10px}
   h2{font-size:20px;margin:24px 0 10px;border-bottom:1px solid currentColor;padding-bottom:4px;opacity:.85}
   h3{font-size:16px;margin:20px 0 8px}

@@ -1,4 +1,5 @@
 import { normalizeColor } from './schema.js';
+import { decodeNSKeyedArchive } from './nsKeyedArchive.js';
 
 const RECORD_TYPE_MAP = {
   additionalname: 'AdditionalName',
@@ -130,12 +131,21 @@ function addUnmapped(fields, row, mappedColumns) {
 
 function decodeArchivedPayload(base64, label, warnings) {
   if (!base64) return null;
-  warnings.push(`${label} contains an archived Mac payload; original bytes were preserved for fixture-backed decoding.`);
-  return {
-    format: 'NSKeyedArchiver',
-    status: 'preserved',
-    decoded: null,
-  };
+  try {
+    const decoded = decodeNSKeyedArchive(base64);
+    if (decoded.status !== 'decoded') {
+      warnings.push(`${label} contains an archived Mac payload; original bytes were preserved (${decoded.status}).`);
+    }
+    return decoded;
+  } catch (error) {
+    warnings.push(`${label} contains an archived Mac payload; original bytes were preserved after decode failed: ${String(error?.message || error).slice(0, 180)}`);
+    return {
+      format: 'NSKeyedArchiver',
+      status: 'preserved',
+      decoded: null,
+      summary: { error: String(error?.message || error) },
+    };
+  }
 }
 
 function buildResourceIndex(resourceFiles = []) {

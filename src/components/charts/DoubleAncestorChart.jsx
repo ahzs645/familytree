@@ -12,7 +12,7 @@ import { layoutAncestors } from './layouts/ancestorLayout.js';
 const PADDING = 30;
 const COUPLE_GAP = 80;
 
-export function DoubleAncestorChart({ leftTree, rightTree, generations = 4, onPersonClick, theme = DEFAULT_THEME }) {
+export function DoubleAncestorChart({ leftTree, rightTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page }) {
   const layout = useMemo(() => {
     const left = layoutAncestors(leftTree, generations, theme);
     const right = layoutAncestors(rightTree, generations, theme);
@@ -56,7 +56,7 @@ export function DoubleAncestorChart({ leftTree, rightTree, generations = 4, onPe
   }
 
   return (
-    <ChartCanvas theme={theme}>
+    <ChartCanvas theme={theme} page={page}>
       <g transform={`translate(${PADDING},${PADDING})`}>
         {/* Left side connectors (mirrored geometry) */}
         {layout.left.links.map((l, i) => {

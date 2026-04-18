@@ -15,7 +15,7 @@ import { openDB } from 'idb';
 import { refToRecordName } from './recordRef.js';
 
 const DB_NAME = 'cloudtreeweb-local';
-const DB_VERSION = 3;
+export const LOCAL_DB_VERSION = 3;
 const STORE_RECORDS = 'records';
 const STORE_META = 'meta';
 const STORE_ASSETS = 'assets';
@@ -28,7 +28,7 @@ export class LocalDatabase {
   async open() {
     if (this._db) return this._db;
 
-    this._db = await openDB(DB_NAME, DB_VERSION, {
+    this._db = await openDB(DB_NAME, LOCAL_DB_VERSION, {
       upgrade(db, oldVersion) {
         // Records store — keyed by recordName, indexed by recordType
         if (!db.objectStoreNames.contains(STORE_RECORDS)) {
@@ -301,6 +301,16 @@ export class LocalDatabase {
     const db = await this.open();
     const index = db.transaction(STORE_ASSETS).store.index('byOwnerRecordName');
     return index.getAll(ownerRecordName);
+  }
+
+  async listAllAssets() {
+    const db = await this.open();
+    return db.getAll(STORE_ASSETS);
+  }
+
+  async getAssetCount() {
+    const db = await this.open();
+    return db.count(STORE_ASSETS);
   }
 
   // ── Metadata ──

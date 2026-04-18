@@ -9,6 +9,14 @@ import {
   buildAncestorNarrative,
   buildFamilyGroupSheet,
   buildDescendantNarrative,
+  buildPersonsList,
+  buildPlacesList,
+  buildSourcesList,
+  buildEventsList,
+  buildAnniversaryList,
+  buildAhnentafelReport,
+  buildPlausibilityReport,
+  buildToDoListReport,
 } from '../../lib/reports/builders.js';
 import { applyPageStyle, listSavedReports, saveReport, deleteSavedReport, newReportId } from '../../lib/reports/savedReports.js';
 import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
@@ -16,10 +24,18 @@ import { PersonPicker } from '../charts/PersonPicker.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
 
 const BUILDERS = [
-  { id: 'person-summary', label: 'Person Summary', run: (rn) => buildPersonSummary(rn) },
-  { id: 'ancestor-narrative', label: 'Ancestor Narrative', run: (rn, o) => buildAncestorNarrative(rn, o.generations || 5) },
-  { id: 'descendant-narrative', label: 'Descendant Narrative', run: (rn, o) => buildDescendantNarrative(rn, o.generations || 4) },
-  { id: 'family-group-sheet', label: 'Family Group Sheet', run: (rn) => buildFamilyGroupSheet(rn) },
+  { id: 'person-summary', label: 'Person Summary', needsSubject: true, run: (rn) => buildPersonSummary(rn) },
+  { id: 'ancestor-narrative', label: 'Ancestor Narrative', needsSubject: true, usesGenerations: true, run: (rn, o) => buildAncestorNarrative(rn, o.generations || 5) },
+  { id: 'descendant-narrative', label: 'Descendant Narrative', needsSubject: true, usesGenerations: true, run: (rn, o) => buildDescendantNarrative(rn, o.generations || 4) },
+  { id: 'family-group-sheet', label: 'Family Group Sheet', needsSubject: true, run: (rn) => buildFamilyGroupSheet(rn) },
+  { id: 'ahnentafel', label: 'Ahnentafel Report', needsSubject: true, usesGenerations: true, run: (rn, o) => buildAhnentafelReport(rn, o.generations || 6) },
+  { id: 'persons-list', label: 'Persons List', needsSubject: false, run: () => buildPersonsList() },
+  { id: 'places-list', label: 'Places List', needsSubject: false, run: () => buildPlacesList() },
+  { id: 'sources-list', label: 'Sources List', needsSubject: false, run: () => buildSourcesList() },
+  { id: 'events-list', label: 'Events List', needsSubject: false, run: () => buildEventsList() },
+  { id: 'anniversary-list', label: 'Anniversary List', needsSubject: false, run: () => buildAnniversaryList() },
+  { id: 'todo-list', label: 'ToDo List', needsSubject: false, run: () => buildToDoListReport() },
+  { id: 'plausibility-list', label: 'Plausibility List', needsSubject: false, run: () => buildPlausibilityReport() },
 ];
 
 export function ReportsApp() {
@@ -29,6 +45,9 @@ export function ReportsApp() {
   const [generations, setGenerations] = useState(5);
   const [paginate, setPaginate] = useState(false);
   const [pageBackground, setPageBackground] = useState('none');
+  const [pageSize, setPageSize] = useState('letter');
+  const [orientation, setOrientation] = useState('portrait');
+  const [margin, setMargin] = useState(48);
   const [report, setReport] = useState(null);
   const [savedList, setSavedList] = useState([]);
   const [empty, setEmpty] = useState(false);
@@ -51,19 +70,18 @@ export function ReportsApp() {
   }, []);
 
   useEffect(() => {
-    if (!targetId) return;
+    const builder = BUILDERS.find((b) => b.id === builderId);
+    if (!builder || (builder.needsSubject && !targetId)) return;
     let cancelled = false;
     (async () => {
-      const builder = BUILDERS.find((b) => b.id === builderId);
-      if (!builder) return;
       const ast = await builder.run(targetId, { generations });
-      const styled = applyPageStyle(ast, { paginate });
+      const styled = applyPageStyle(ast, { paginate, background: pageBackground, pageSize, orientation, margin });
       if (!cancelled) setReport(styled);
     })();
     return () => {
       cancelled = true;
     };
-  }, [targetId, builderId, generations, paginate]);
+  }, [targetId, builderId, generations, paginate, pageBackground, pageSize, orientation, margin]);
 
   const onSave = useCallback(async () => {
     const name = prompt('Name for this report:');
@@ -74,10 +92,10 @@ export function ReportsApp() {
       builderId,
       targetRecordName: targetId,
       options: { generations },
-      pageStyle: { paginate, background: pageBackground },
+      pageStyle: { paginate, background: pageBackground, pageSize, orientation, margin },
     });
     setSavedList(await listSavedReports());
-  }, [builderId, targetId, generations, paginate, pageBackground]);
+  }, [builderId, targetId, generations, paginate, pageBackground, pageSize, orientation, margin]);
 
   const onApplySaved = useCallback(async (id) => {
     const entry = savedList.find((r) => r.id === id);
@@ -87,6 +105,9 @@ export function ReportsApp() {
     setGenerations(entry.options?.generations ?? 5);
     setPaginate(!!entry.pageStyle?.paginate);
     setPageBackground(entry.pageStyle?.background || 'none');
+    setPageSize(entry.pageStyle?.pageSize || 'letter');
+    setOrientation(entry.pageStyle?.orientation || 'portrait');
+    setMargin(entry.pageStyle?.margin || 48);
   }, [savedList]);
 
   const onDelete = useCallback(async (id) => {
@@ -101,7 +122,8 @@ export function ReportsApp() {
   }, [report]);
 
   const builder = BUILDERS.find((b) => b.id === builderId);
-  const usesGenerations = useMemo(() => builder?.id?.includes('narrative'), [builder]);
+  const needsSubject = builder?.needsSubject !== false;
+  const usesGenerations = useMemo(() => !!builder?.usesGenerations, [builder]);
 
   if (loading) return <div style={loadingStyle}>Loading…</div>;
   if (empty) {
@@ -123,9 +145,11 @@ export function ReportsApp() {
           </select>
         </Field>
 
-        <Field label="Subject">
-          <PersonPicker persons={persons} value={targetId} onChange={setTargetId} />
-        </Field>
+        {needsSubject && (
+          <Field label="Subject">
+            <PersonPicker persons={persons} value={targetId} onChange={setTargetId} />
+          </Field>
+        )}
 
         {usesGenerations && (
           <Field label="Generations">
@@ -137,6 +161,26 @@ export function ReportsApp() {
           <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
             <input type="checkbox" checked={paginate} onChange={(e) => setPaginate(e.target.checked)} /> Page breaks
           </label>
+        </Field>
+
+        <Field label="Page">
+          <div style={{ display: 'flex', gap: 4 }}>
+            <select value={pageSize} onChange={(e) => setPageSize(e.target.value)} style={input}>
+              <option value="letter">Letter</option>
+              <option value="a4">A4</option>
+              <option value="legal">Legal</option>
+            </select>
+            <select value={orientation} onChange={(e) => setOrientation(e.target.value)} style={input}>
+              <option value="portrait">Portrait</option>
+              <option value="landscape">Landscape</option>
+            </select>
+            <select value={pageBackground} onChange={(e) => setPageBackground(e.target.value)} style={input}>
+              <option value="none">White</option>
+              <option value="soft">Soft</option>
+              <option value="sepia">Sepia</option>
+            </select>
+            <input type="number" min={24} max={96} value={margin} onChange={(e) => setMargin(+e.target.value || 48)} style={{ ...input, width: 64 }} title="Margin" />
+          </div>
         </Field>
 
         <Field label="Export">

@@ -37,16 +37,17 @@ export function newReportId() {
 
 /** Apply page-style options (pagination, background) to a generated report AST. */
 export function applyPageStyle(report, pageStyle = {}) {
-  if (!pageStyle.paginate || !report.blocks.length) return report;
+  const styledReport = { ...report, pageStyle: { ...pageStyle } };
+  if (!pageStyle.paginate || !styledReport.blocks.length) return styledReport;
   // Insert a page break before each top-level (h1/h2) title after the first.
   const blocks = [];
   let seenTitle = false;
-  for (const b of report.blocks) {
+  for (const b of styledReport.blocks) {
     if (b.kind === 'title' && b.level <= 2) {
       if (seenTitle) blocks.push({ kind: 'pageBreak' });
       seenTitle = true;
     }
     blocks.push(b);
   }
-  return { ...report, blocks };
+  return { ...styledReport, blocks };
 }

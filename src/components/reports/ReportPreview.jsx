@@ -6,8 +6,9 @@ import React from 'react';
 
 export function ReportPreview({ report }) {
   if (!report) return <div style={empty}>Configure a report to see the preview.</div>;
+  const pageStyle = styleFor(report.pageStyle);
   return (
-    <div style={page}>
+    <div style={{ ...page, ...pageStyle }}>
       {report.blocks.map((b, i) => <Block key={i} block={b} />)}
     </div>
   );
@@ -73,5 +74,23 @@ const table = { width: '100%', borderCollapse: 'collapse', margin: '14px 0', fon
 const th = { textAlign: 'left', padding: '6px 8px', borderBottom: '1px solid #1a1d27', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.3, color: '#5b6072', fontWeight: 600 };
 const td = { padding: '6px 8px', borderBottom: '1px solid #e5e7ed' };
 const pageBreak = { textAlign: 'center', color: '#aab', fontSize: 11, padding: '10px 0', borderTop: '1px dashed #aab', borderBottom: '1px dashed #aab', margin: '18px 0' };
+
+function styleFor(pageStyle = {}) {
+  const size = pageStyle.pageSize === 'a4'
+    ? { width: 794, maxWidth: 'calc(100vw - 48px)' }
+    : pageStyle.pageSize === 'legal'
+      ? { width: pageStyle.orientation === 'landscape' ? 1344 : 816, maxWidth: 'calc(100vw - 48px)' }
+      : { width: pageStyle.orientation === 'landscape' ? 1056 : 816, maxWidth: 'calc(100vw - 48px)' };
+  const background = pageStyle.background === 'sepia'
+    ? '#fbf6e8'
+    : pageStyle.background === 'soft'
+      ? '#f7f8fb'
+      : '#fff';
+  return {
+    ...size,
+    background,
+    padding: Math.max(24, Math.min(96, pageStyle.margin || 48)),
+  };
+}
 
 export default ReportPreview;

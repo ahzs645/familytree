@@ -13,7 +13,7 @@ import { layoutDescendants } from './layouts/descendantLayout.js';
 const PADDING = 30;
 const HALF_GAP = 40;
 
-export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME }) {
+export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page }) {
   const layout = useMemo(() => {
     const ancestors = layoutAncestors(ancestorTree, generations, theme);
     const descendants = layoutDescendants(descendantTree, theme);
@@ -50,7 +50,7 @@ export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPer
   if (!ancestorTree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
 
   return (
-    <ChartCanvas theme={theme}>
+    <ChartCanvas theme={theme} page={page}>
       <g transform={`translate(${PADDING},${PADDING})`}>
         {layout.ancestor.links.map((l, i) => {
           const midX = (l.from.x + l.toFather.x) / 2;

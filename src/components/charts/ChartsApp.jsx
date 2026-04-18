@@ -20,6 +20,13 @@ import { DoubleAncestorChart } from './DoubleAncestorChart.jsx';
 import { FanChart } from './FanChart.jsx';
 import { RelationshipPathChart } from './RelationshipPathChart.jsx';
 import { VirtualTreeDiagram } from './VirtualTreeDiagram.jsx';
+import {
+  CircularAncestorChart,
+  DistributionChart,
+  TimelineChart,
+  GenogramChart,
+  FractalAncestorChart,
+} from './SpecializedCharts.jsx';
 
 const CHART_TYPES = [
   { id: 'ancestor', label: 'Ancestor', needsSecond: false },
@@ -28,6 +35,15 @@ const CHART_TYPES = [
   { id: 'tree', label: 'Tree (horizontal)', needsSecond: false },
   { id: 'double-ancestor', label: 'Double Ancestor', needsSecond: true },
   { id: 'fan', label: 'Fan', needsSecond: false },
+  { id: 'circular', label: 'Circular Tree', needsSecond: false },
+  { id: 'symmetrical', label: 'Symmetrical Tree', needsSecond: false },
+  { id: 'distribution', label: 'Distribution', needsSecond: false },
+  { id: 'timeline', label: 'Timeline', needsSecond: false },
+  { id: 'genogram', label: 'Genogram', needsSecond: false },
+  { id: 'sociogram', label: 'Sociogram', needsSecond: false },
+  { id: 'fractal-h-tree', label: 'Fractal H-Tree', needsSecond: false },
+  { id: 'square-tree', label: 'Square Tree', needsSecond: false },
+  { id: 'fractal-tree', label: 'Fractal Tree', needsSecond: false },
   { id: 'relationship', label: 'Relationship Path', needsSecond: true },
   { id: 'virtual', label: 'Virtual Tree (configurable)', needsSecond: false },
 ];
@@ -46,6 +62,11 @@ export function ChartsApp() {
   const [virtualOrientation, setVirtualOrientation] = useState('vertical');
   const [virtualHSpacing, setVirtualHSpacing] = useState(24);
   const [virtualVSpacing, setVirtualVSpacing] = useState(110);
+  const [chartTitle, setChartTitle] = useState('');
+  const [chartNote, setChartNote] = useState('');
+  const [pageSize, setPageSize] = useState('letter');
+  const [pageOrientation, setPageOrientation] = useState('landscape');
+  const [chartBackground, setChartBackground] = useState('');
   const [ancestorTree, setAncestorTree] = useState(null);
   const [descendantTree, setDescendantTree] = useState(null);
   const [secondAncestorTree, setSecondAncestorTree] = useState(null);
@@ -56,6 +77,13 @@ export function ChartsApp() {
 
   const theme = getTheme(themeId, appTheme === 'dark');
   const needsSecond = CHART_TYPES.find((t) => t.id === chartType)?.needsSecond;
+  const chartPage = {
+    title: chartTitle,
+    note: chartNote,
+    size: pageSize,
+    orientation: pageOrientation,
+    backgroundColor: chartBackground || theme.background,
+  };
 
   useEffect(() => {
     (async () => {
@@ -140,10 +168,13 @@ export function ChartsApp() {
       chartType,
       themeId,
       generations,
+      title: chartTitle,
+      note: chartNote,
+      page: { size: pageSize, orientation: pageOrientation, backgroundColor: chartBackground },
     };
     await saveChartTemplate(tpl);
     setTemplates(await listChartTemplates());
-  }, [chartType, themeId, generations]);
+  }, [chartType, themeId, generations, chartTitle, chartNote, pageSize, pageOrientation, chartBackground]);
 
   const onApplyTemplate = useCallback(async (id) => {
     const tpl = templates.find((t) => t.id === id);
@@ -151,6 +182,11 @@ export function ChartsApp() {
     setChartType(tpl.chartType);
     setThemeId(tpl.themeId);
     setGenerations(tpl.generations);
+    setChartTitle(tpl.title || '');
+    setChartNote(tpl.note || '');
+    setPageSize(tpl.page?.size || 'letter');
+    setPageOrientation(tpl.page?.orientation || 'landscape');
+    setChartBackground(tpl.page?.backgroundColor || '');
   }, [templates]);
 
   const onDeleteTemplate = useCallback(async (id) => {
@@ -208,6 +244,29 @@ export function ChartsApp() {
           />
         </Field>
 
+        <Field label="Title">
+          <input value={chartTitle} onChange={(e) => setChartTitle(e.target.value)} placeholder="Optional title" style={{ ...selectStyle, width: 150 }} />
+        </Field>
+
+        <Field label="Note">
+          <input value={chartNote} onChange={(e) => setChartNote(e.target.value)} placeholder="Optional note" style={{ ...selectStyle, width: 150 }} />
+        </Field>
+
+        <Field label="Page">
+          <div style={{ display: 'flex', gap: 4 }}>
+            <select value={pageSize} onChange={(e) => setPageSize(e.target.value)} style={selectStyle}>
+              <option value="letter">Letter</option>
+              <option value="a4">A4</option>
+              <option value="legal">Legal</option>
+            </select>
+            <select value={pageOrientation} onChange={(e) => setPageOrientation(e.target.value)} style={selectStyle}>
+              <option value="landscape">Landscape</option>
+              <option value="portrait">Portrait</option>
+            </select>
+            <input value={chartBackground} onChange={(e) => setChartBackground(e.target.value)} placeholder="Background" style={{ ...selectStyle, width: 100 }} title="CSS background color" />
+          </div>
+        </Field>
+
         <Field label="Templates">
           <div style={{ display: 'flex', gap: 4 }}>
             <select
@@ -244,10 +303,10 @@ export function ChartsApp() {
 
       <main style={mainStyle}>
         {chartType === 'ancestor' && (
-          <AncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} />
+          <AncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
         )}
         {chartType === 'descendant' && (
-          <DescendantChart tree={descendantTree} onPersonClick={onPersonClick} theme={theme} />
+          <DescendantChart tree={descendantTree} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
         )}
         {chartType === 'hourglass' && (
           <HourglassChart
@@ -256,15 +315,17 @@ export function ChartsApp() {
             generations={generations}
             onPersonClick={onPersonClick}
             theme={theme}
+            page={chartPage}
           />
         )}
-        {chartType === 'tree' && (
+        {(chartType === 'tree' || chartType === 'symmetrical') && (
           <TreeChart
             ancestorTree={ancestorTree}
             descendantTree={descendantTree}
             generations={generations}
             onPersonClick={onPersonClick}
             theme={theme}
+            page={chartPage}
           />
         )}
         {chartType === 'double-ancestor' && (
@@ -274,13 +335,38 @@ export function ChartsApp() {
             generations={generations}
             onPersonClick={onPersonClick}
             theme={theme}
+            page={chartPage}
           />
         )}
         {chartType === 'fan' && (
-          <FanChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} />
+          <FanChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
+        )}
+        {chartType === 'circular' && (
+          <CircularAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
+        )}
+        {chartType === 'distribution' && (
+          <DistributionChart persons={persons} theme={theme} page={chartPage} />
+        )}
+        {chartType === 'timeline' && (
+          <TimelineChart ancestorTree={ancestorTree} descendantTree={descendantTree} theme={theme} page={chartPage} />
+        )}
+        {chartType === 'genogram' && (
+          <GenogramChart tree={descendantTree} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
+        )}
+        {chartType === 'sociogram' && (
+          <GenogramChart tree={descendantTree} onPersonClick={onPersonClick} theme={theme} page={chartPage} sociogram />
+        )}
+        {chartType === 'fractal-h-tree' && (
+          <FractalAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} variant="h-tree" />
+        )}
+        {chartType === 'square-tree' && (
+          <FractalAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} variant="square" />
+        )}
+        {chartType === 'fractal-tree' && (
+          <FractalAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} variant="fractal" />
         )}
         {chartType === 'relationship' && (
-          <RelationshipPathChart result={relationshipResult} secondPicked={!!secondId} onPersonClick={onPersonClick} theme={theme} />
+          <RelationshipPathChart result={relationshipResult} secondPicked={!!secondId} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
         )}
         {chartType === 'virtual' && (
           <div style={{ display: 'flex', height: '100%' }}>
@@ -315,6 +401,7 @@ export function ChartsApp() {
                 source={virtualSource}
                 onPersonClick={onPersonClick}
                 theme={theme}
+                page={chartPage}
                 options={{ orientation: virtualOrientation, hSpacing: virtualHSpacing, vSpacing: virtualVSpacing }}
               />
             </div>

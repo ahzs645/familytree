@@ -11,6 +11,7 @@ export function ChartCanvas({
   minZoom = 0.15,
   maxZoom = 4,
   theme = DEFAULT_THEME,
+  page = {},
   children,
 }) {
   const svgRef = useRef(null);
@@ -54,9 +55,47 @@ export function ChartCanvas({
   };
 
   const reset = () => setView({ x: 0, y: 0, k: 1 });
+  const background = page.backgroundColor || theme.background;
+
+  const exportSvg = () => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('width', exportSize(page).width);
+    clone.setAttribute('height', exportSize(page).height);
+    downloadBlob(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' }), safeFilename(page.title || 'chart', 'svg'));
+  };
+
+  const exportPng = () => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const size = exportSize(page);
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clone.setAttribute('width', size.width);
+    clone.setAttribute('height', size.height);
+    const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size.width;
+      canvas.height = size.height;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, size.width, size.height);
+      ctx.drawImage(img, 0, 0, size.width, size.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((png) => {
+        if (png) downloadBlob(png, safeFilename(page.title || 'chart', 'png'));
+      }, 'image/png');
+    };
+    img.src = url;
+  };
 
   return (
-    <div style={{ position: 'relative', width, height, background: theme.background, overflow: 'hidden' }}>
+    <div style={{ position: 'relative', width, height, background, overflow: 'hidden' }}>
       <svg
         ref={svgRef}
         width="100%"
@@ -67,15 +106,50 @@ export function ChartCanvas({
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
       >
+        <rect x="0" y="0" width="100%" height="100%" fill={background} />
+        {(page.title || page.note) && (
+          <g pointerEvents="none">
+            {page.title && <text x={24} y={34} fill={theme.text} fontSize={20} fontFamily={theme.fontFamily} fontWeight={700}>{page.title}</text>}
+            {page.note && <text x={24} y={56} fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{page.note}</text>}
+          </g>
+        )}
         <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>{children}</g>
       </svg>
       <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6 }}>
         <button onClick={() => setView((v) => ({ ...v, k: Math.min(maxZoom, v.k * 1.2) }))} style={btn}>+</button>
         <button onClick={() => setView((v) => ({ ...v, k: Math.max(minZoom, v.k / 1.2) }))} style={btn}>−</button>
         <button onClick={reset} style={btn}>Reset</button>
+        <button onClick={exportSvg} style={btn}>SVG</button>
+        <button onClick={exportPng} style={btn}>PNG</button>
       </div>
     </div>
   );
+}
+
+function exportSize(page = {}) {
+  const sizes = {
+    letter: [1056, 816],
+    a4: [1123, 794],
+    legal: [1344, 816],
+  };
+  const [landscapeWidth, landscapeHeight] = sizes[page.size] || sizes.letter;
+  if (page.orientation === 'portrait') return { width: landscapeHeight, height: landscapeWidth };
+  return { width: landscapeWidth, height: landscapeHeight };
+}
+
+function safeFilename(base, ext) {
+  return `${String(base || 'chart').replace(/[^\w-]+/g, '_')}.${ext}`;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 200);
 }
 
 const btn = {

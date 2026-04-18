@@ -2,9 +2,10 @@
  * SearchApp — top-level UI for the search page.
  * Pick entity type, build filter rows, run search, view results.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { ENTITY_TYPES, SEARCH_FIELDS, FILTER_OPS, runSearch } from '../../lib/search.js';
-import { listScopes, runScope } from '../../lib/smartScopes.js';
+import { listAllScopes, runScope } from '../../lib/smartScopes.js';
+import { applySearchReplace, previewSearchReplace, replaceableFields, undoLastSearchReplace } from '../../lib/searchReplace.js';
 import { FilterRow } from './FilterRow.jsx';
 import { SearchResults } from './SearchResults.jsx';
 
@@ -21,6 +22,31 @@ export function SearchApp() {
   const [filters, setFilters] = useState([]);
   const [result, setResult] = useState(null);
   const [running, setRunning] = useState(false);
+  const [scopeOptions, setScopeOptions] = useState([]);
+  const [replaceField, setReplaceField] = useState('');
+  const [findText, setFindText] = useState('');
+  const [replacementText, setReplacementText] = useState('');
+  const [matchCase, setMatchCase] = useState(false);
+  const [wholeField, setWholeField] = useState(false);
+  const [replacePreview, setReplacePreview] = useState(null);
+  const [replaceStatus, setReplaceStatus] = useState('');
+
+  const replaceFields = useMemo(() => replaceableFields(entityType), [entityType]);
+
+  useEffect(() => {
+    setReplaceField(replaceFields[0]?.id || '');
+    setReplacePreview(null);
+  }, [replaceFields]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listAllScopes(entityType).then((scopes) => {
+      if (!cancelled) setScopeOptions(scopes);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [entityType]);
 
   const onRun = useCallback(async () => {
     setRunning(true);
@@ -32,12 +58,18 @@ export function SearchApp() {
   const onRunScope = useCallback(async (scopeId) => {
     if (!scopeId) return;
     setRunning(true);
-    const r = await runScope(scopeId);
-    setEntityType(r.entityType);
-    setFilters([]);
-    setTextQuery('');
-    setResult({ records: r.records, total: r.total, hasMore: false });
-    setRunning(false);
+    setReplaceStatus('');
+    try {
+      const r = await runScope(scopeId);
+      setEntityType(r.entityType);
+      setFilters([]);
+      setTextQuery('');
+      setResult({ records: r.records, total: r.total, hasMore: false });
+    } catch (error) {
+      setReplaceStatus(error.message);
+    } finally {
+      setRunning(false);
+    }
   }, []);
 
   const onAddFilter = useCallback(() => {
@@ -52,6 +84,60 @@ export function SearchApp() {
   const onRemoveFilter = useCallback((i) => {
     setFilters((x) => x.filter((_, j) => j !== i));
   }, []);
+
+  const onPreviewReplace = useCallback(async () => {
+    setRunning(true);
+    setReplaceStatus('Building preview…');
+    try {
+      const preview = await previewSearchReplace({
+        entityType,
+        fieldName: replaceField,
+        findText,
+        replacementText,
+        matchCase,
+        wholeField,
+        filters,
+        textQuery,
+      });
+      setReplacePreview(preview);
+      setReplaceStatus(`${preview.total.toLocaleString()} replacement${preview.total === 1 ? '' : 's'} ready across ${preview.searched.toLocaleString()} searched records.`);
+    } catch (error) {
+      setReplaceStatus(error.message);
+    } finally {
+      setRunning(false);
+    }
+  }, [entityType, replaceField, findText, replacementText, matchCase, wholeField, filters, textQuery]);
+
+  const onApplyReplace = useCallback(async () => {
+    if (!replacePreview?.changes?.length) return;
+    if (!confirm(`Apply ${replacePreview.total.toLocaleString()} replacement${replacePreview.total === 1 ? '' : 's'}?`)) return;
+    setRunning(true);
+    setReplaceStatus('Applying replacements…');
+    try {
+      const applied = await applySearchReplace(replacePreview);
+      setReplaceStatus(`Applied ${applied.changed.toLocaleString()} replacement${applied.changed === 1 ? '' : 's'}.`);
+      setReplacePreview(null);
+      await onRun();
+    } catch (error) {
+      setReplaceStatus(error.message);
+    } finally {
+      setRunning(false);
+    }
+  }, [replacePreview, onRun]);
+
+  const onUndoReplace = useCallback(async () => {
+    setRunning(true);
+    setReplaceStatus('Undoing last Search and Replace…');
+    try {
+      const undone = await undoLastSearchReplace();
+      setReplaceStatus(`Restored ${undone.restored.toLocaleString()} record${undone.restored === 1 ? '' : 's'}.`);
+      await onRun();
+    } catch (error) {
+      setReplaceStatus(error.message);
+    } finally {
+      setRunning(false);
+    }
+  }, [onRun]);
 
   return (
     <div style={shell}>
@@ -81,8 +167,8 @@ export function SearchApp() {
             style={{ ...input, minWidth: 200, cursor: 'pointer' }}
           >
             <option value="">Choose a scope…</option>
-            {listScopes().map((s) => (
-              <option key={s.id} value={s.id}>{s.label}</option>
+            {scopeOptions.map((s) => (
+              <option key={s.id} value={s.id}>{s.imported ? 'Imported: ' : ''}{s.label}{s.imported && !s.executable ? ' (preserved)' : ''}</option>
             ))}
           </select>
         </Field>
@@ -105,6 +191,50 @@ export function SearchApp() {
           />
         ))}
       </div>
+
+      <section style={replacePanel}>
+        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Search and Replace</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <Field label="Field">
+            <select value={replaceField} onChange={(e) => setReplaceField(e.target.value)} style={{ ...input, minWidth: 150 }}>
+              {replaceFields.map((field) => <option key={field.id} value={field.id}>{field.label}</option>)}
+            </select>
+          </Field>
+          <Field label="Find">
+            <input value={findText} onChange={(e) => setFindText(e.target.value)} style={{ ...input, minWidth: 180 }} />
+          </Field>
+          <Field label="Replace with">
+            <input value={replacementText} onChange={(e) => setReplacementText(e.target.value)} style={{ ...input, minWidth: 180 }} />
+          </Field>
+          <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input type="checkbox" checked={matchCase} onChange={(e) => setMatchCase(e.target.checked)} /> Match case
+          </label>
+          <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <input type="checkbox" checked={wholeField} onChange={(e) => setWholeField(e.target.checked)} /> Whole field
+          </label>
+          <button onClick={onPreviewReplace} disabled={running || !replaceField || !findText} style={input}>Preview</button>
+          <button onClick={onApplyReplace} disabled={running || !replacePreview?.changes?.length} style={{ ...input, background: 'hsl(var(--primary))' }}>Apply</button>
+          <button onClick={onUndoReplace} disabled={running} style={input}>Undo Last</button>
+        </div>
+        {replaceStatus && <div style={{ marginTop: 8, color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>{replaceStatus}</div>}
+        {replacePreview?.changes?.length > 0 && (
+          <div style={previewBox}>
+            {replacePreview.changes.slice(0, 20).map((change) => (
+              <div key={`${change.recordName}-${change.fieldName}`} style={previewRow}>
+                <strong>{change.label}</strong>
+                <span style={{ color: 'hsl(var(--muted-foreground))' }}>{change.fieldName}</span>
+                <span>{String(change.before)}</span>
+                <span style={{ color: 'hsl(var(--primary))' }}>{String(change.after)}</span>
+              </div>
+            ))}
+            {replacePreview.changes.length > 20 && (
+              <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, padding: 6 }}>
+                {replacePreview.changes.length - 20} more replacement previews hidden.
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       <main style={main}>
         <SearchResults entityType={entityType} result={result} />
@@ -138,6 +268,7 @@ const header = {
   flexWrap: 'wrap',
 };
 const filterPanel = { padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
+const replacePanel = { padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
 const main = { flex: 1, position: 'relative', overflow: 'hidden' };
 const input = {
   background: 'hsl(var(--secondary))',
@@ -148,5 +279,7 @@ const input = {
   font: '13px -apple-system, system-ui, sans-serif',
   outline: 'none',
 };
+const previewBox = { marginTop: 10, maxHeight: 180, overflow: 'auto', border: '1px solid hsl(var(--border))', borderRadius: 8 };
+const previewRow = { display: 'grid', gridTemplateColumns: 'minmax(160px, 1.2fr) 120px minmax(160px, 1fr) minmax(160px, 1fr)', gap: 8, padding: '6px 8px', borderBottom: '1px solid hsl(var(--border))', fontSize: 12 };
 
 export default SearchApp;

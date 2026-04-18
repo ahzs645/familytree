@@ -8,6 +8,7 @@ import { getLocalDatabase } from './LocalDatabase.js';
 export async function exportBackup() {
   const db = getLocalDatabase();
   const summary = await db.getSummary();
+  const assets = await db.listAllAssets();
   const records = {};
   for (const type of Object.keys(summary?.types || {})) {
     const { records: list } = await db.query(type, { limit: 1000000 });
@@ -15,10 +16,12 @@ export async function exportBackup() {
   }
   return {
     format: 'cloudtreeweb-backup',
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     counts: summary?.types || {},
+    assetCount: assets.length,
     records,
+    assets,
   };
 }
 
@@ -40,6 +43,18 @@ export async function restoreBackup(json) {
     throw new Error('File is not a CloudTreeWeb backup.');
   }
   const db = getLocalDatabase();
-  await db.importDataset({ records: json.records, meta: { source: 'backup', importedAt: Date.now() } });
-  return Object.keys(json.records).length;
+  await db.importDataset({
+    records: json.records,
+    assets: Array.isArray(json.assets) ? json.assets : [],
+    meta: {
+      source: 'backup',
+      importedAt: Date.now(),
+      backupVersion: json.version || 1,
+      assetCount: Array.isArray(json.assets) ? json.assets.length : 0,
+    },
+  });
+  return {
+    records: Object.keys(json.records).length,
+    assets: Array.isArray(json.assets) ? json.assets.length : 0,
+  };
 }
