@@ -12,12 +12,14 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
+import { readRef } from '../lib/schema.js';
 import { listAllPersons } from '../lib/treeQuery.js';
 import { personSummary, familySummary, lifeSpanLabel } from '../models/index.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { TypePicker } from '../components/editors/TypePicker.jsx';
+import { AssociateRelationsEditor, MediaRelationsEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import {
   FAMILY_EVENT_TYPES,
   INFLUENTIAL_PERSON_TYPES_FAMILY,
@@ -70,6 +72,7 @@ export default function FamilyEditor() {
   const [events, setEvents] = useState([]);
   const [notes, setNotes] = useState([]);
   const [labels, setLabels] = useState({});
+  const [related, setRelated] = useState({ media: [], sources: [], todos: [], stories: [] });
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
@@ -122,7 +125,29 @@ export default function FamilyEditor() {
     for (const def of LABELS) lblState[def.id] = labelMap.has(def.id);
     setLabels(lblState);
 
-    if (persons.length === 0) setPersons(await listAllPersons());
+    const [mediaRels, sourceRels, todoRels, storyRels] = await Promise.all([
+      db.query('MediaRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+      db.query('SourceRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+      db.query('ToDoRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+      db.query('StoryRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+    ]);
+    async function hydrate(rels, fieldName, fallbackType) {
+      const out = [];
+      for (const rel of rels.records) {
+        const targetId = readRef(rel.fields?.[fieldName]);
+        const target = targetId ? await db.getRecord(targetId) : null;
+        out.push({ rel, target, type: target?.recordType || fallbackType });
+      }
+      return out;
+    }
+    setRelated({
+      media: await hydrate(mediaRels, 'media', 'Media'),
+      sources: await hydrate(sourceRels, 'source', 'Source'),
+      todos: await hydrate(todoRels, 'todo', 'ToDo'),
+      stories: await hydrate(storyRels, 'story', 'Story'),
+    });
+
+    if (persons.length === 0) setPersons(await listAllPersons({ includePrivate: true }));
   }, [id, persons.length]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -382,7 +407,7 @@ export default function FamilyEditor() {
 
               <Section title="Media" accent={ACCENTS.media}
                 controls={<button onClick={() => navigate('/media')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Media</button>}>
-                <Empty title="No media present" hint="Open the Media page to add pictures." />
+                <MediaRelationsEditor ownerRecordName={id} ownerRecordType="Family" onChanged={reload} />
               </Section>
 
               <Section title="Notes" accent={ACCENTS.notes}
@@ -405,11 +430,11 @@ export default function FamilyEditor() {
 
               <Section title="Source Citations" accent={ACCENTS.sources}
                 controls={<button onClick={() => navigate('/sources')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Sources</button>}>
-                <Empty title="Source citations" hint="Manage citations in the Sources section." />
+                <SourceCitationsEditor ownerRecordName={id} ownerRecordType="Family" ownerRole="target" onChanged={reload} />
               </Section>
 
               <Section title="Influential Persons" accent={ACCENTS.influential}>
-                <Empty title="No influential persons" hint={INFLUENTIAL_PERSON_TYPES_FAMILY.map((t) => t.label).join(', ')} />
+                <AssociateRelationsEditor ownerRecordName={id} ownerRecordType="Family" relationTypes={INFLUENTIAL_PERSON_TYPES_FAMILY} onChanged={reload} />
               </Section>
             </div>
 
@@ -461,6 +486,22 @@ function Empty({ title, hint }) {
     <div className="text-center py-6">
       <div className="text-sm text-foreground">{title}</div>
       {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
+    </div>
+  );
+}
+
+function RelatedList({ items, emptyTitle, emptyHint }) {
+  if (!items?.length) return <Empty title={emptyTitle} hint={emptyHint} />;
+  return (
+    <div className="space-y-2">
+      {items.map(({ rel, target, type }) => (
+        <div key={rel.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
+          <span className="text-sm truncate">
+            <span className="text-xs text-muted-foreground mr-2">{type}</span>
+            {target?.fields?.cached_fullName?.value || target?.fields?.title?.value || target?.fields?.name?.value || target?.recordName || readRef(rel.fields?.target)}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }

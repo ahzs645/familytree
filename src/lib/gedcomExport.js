@@ -4,6 +4,7 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refToRecordName } from './recordRef.js';
+import { isPublicRecord } from './privacy.js';
 import { Gender } from '../models/index.js';
 
 function escape(text) {
@@ -29,14 +30,33 @@ function eventTag(conclusion) {
 
 export async function buildGedcom() {
   const db = getLocalDatabase();
-  const persons = (await db.query('Person', { limit: 100000 })).records;
-  const families = (await db.query('Family', { limit: 100000 })).records;
-  const places = (await db.query('Place', { limit: 100000 })).records;
-  const sources = (await db.query('Source', { limit: 100000 })).records;
-  const personEvents = (await db.query('PersonEvent', { limit: 100000 })).records;
-  const familyEvents = (await db.query('FamilyEvent', { limit: 100000 })).records;
-  const notes = (await db.query('Note', { limit: 100000 })).records;
-  const childRels = (await db.query('ChildRelation', { limit: 100000 })).records;
+  const rawPersons = (await db.query('Person', { limit: 100000 })).records;
+  const rawFamilies = (await db.query('Family', { limit: 100000 })).records;
+  const rawPlaces = (await db.query('Place', { limit: 100000 })).records;
+  const rawSources = (await db.query('Source', { limit: 100000 })).records;
+  const rawPersonEvents = (await db.query('PersonEvent', { limit: 100000 })).records;
+  const rawFamilyEvents = (await db.query('FamilyEvent', { limit: 100000 })).records;
+  const rawNotes = (await db.query('Note', { limit: 100000 })).records;
+  const rawChildRels = (await db.query('ChildRelation', { limit: 100000 })).records;
+
+  const persons = rawPersons.filter(isPublicRecord);
+  const publicPersonIds = new Set(persons.map((p) => p.recordName));
+  const families = rawFamilies.filter((fam) => isPublicRecord(fam) && familyHasPublicMember(fam, rawChildRels, publicPersonIds));
+  const publicFamilyIds = new Set(families.map((f) => f.recordName));
+  const places = rawPlaces.filter(isPublicRecord);
+  const sources = rawSources.filter(isPublicRecord);
+  const personEvents = rawPersonEvents.filter((event) => (
+    isPublicRecord(event) && publicPersonIds.has(refToRecordName(event.fields?.person?.value))
+  ));
+  const familyEvents = rawFamilyEvents.filter((event) => (
+    isPublicRecord(event) && publicFamilyIds.has(refToRecordName(event.fields?.family?.value))
+  ));
+  const notes = rawNotes.filter(isPublicRecord);
+  const childRels = rawChildRels.filter((rel) => {
+    const family = refToRecordName(rel.fields?.family?.value);
+    const child = refToRecordName(rel.fields?.child?.value);
+    return family && child && publicFamilyIds.has(family) && publicPersonIds.has(child);
+  });
 
   const personIdx = new Map(persons.map((p, i) => [p.recordName, i + 1]));
   const familyIdx = new Map(families.map((f, i) => [f.recordName, i + 1]));
@@ -148,6 +168,16 @@ export async function buildGedcom() {
 
   lines.push('0 TRLR');
   return lines.join('\n');
+}
+
+function familyHasPublicMember(family, childRels, publicPersonIds) {
+  const man = refToRecordName(family.fields?.man?.value);
+  const woman = refToRecordName(family.fields?.woman?.value);
+  if ((man && publicPersonIds.has(man)) || (woman && publicPersonIds.has(woman))) return true;
+  return childRels.some((rel) => (
+    refToRecordName(rel.fields?.family?.value) === family.recordName &&
+    publicPersonIds.has(refToRecordName(rel.fields?.child?.value))
+  ));
 }
 
 export async function downloadGedcom() {

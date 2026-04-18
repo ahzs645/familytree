@@ -5,6 +5,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordDeleted } from '../lib/changeLog.js';
+import { readRef } from '../lib/schema.js';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 
 const MEDIA_TYPES = [
@@ -27,6 +28,8 @@ export default function Media() {
   const [values, setValues] = useState({});
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
+  const [activeAssets, setActiveAssets] = useState([]);
+  const [activeRelations, setActiveRelations] = useState([]);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -52,6 +55,20 @@ export default function Media() {
       url: m.fields?.url?.value || '',
       filename: m.fields?.filename?.value || m.fields?.fileName?.value || '',
     });
+    (async () => {
+      const db = getLocalDatabase();
+      const ids = m.fields?.assetIds?.value || [];
+      const storedAssets = ids.length ? (await Promise.all(ids.map((id) => db.getAsset(id)))).filter(Boolean) : await db.listAssetsForRecord(m.recordName);
+      setActiveAssets(storedAssets);
+      const rels = await db.query('MediaRelation', { limit: 100000 });
+      const related = [];
+      for (const rel of rels.records.filter((r) => readRef(r.fields?.media) === m.recordName)) {
+        const targetId = readRef(rel.fields?.target);
+        const target = targetId ? await db.getRecord(targetId) : null;
+        related.push({ rel, target });
+      }
+      setActiveRelations(related);
+    })();
   }, [activeId, media]);
 
   const onSave = useCallback(async () => {
@@ -164,6 +181,23 @@ export default function Media() {
                 rows={6}
               />
             </FieldRow>
+            <FieldRow label="Preview">
+              <MediaPreview record={active} assets={activeAssets} />
+            </FieldRow>
+            <FieldRow label="Related Entries">
+              {activeRelations.length === 0 ? (
+                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>No related entries.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 6 }}>
+                  {activeRelations.map(({ rel, target }) => (
+                    <div key={rel.recordName} style={{ fontSize: 12, color: 'hsl(var(--foreground))', background: 'hsl(var(--secondary))', borderRadius: 6, padding: 8 }}>
+                      <span style={{ color: 'hsl(var(--muted-foreground))', marginRight: 6 }}>{rel.fields?.targetType?.value || target?.recordType || 'Record'}</span>
+                      {target?.fields?.cached_fullName?.value || target?.fields?.title?.value || target?.fields?.cached_familyName?.value || target?.recordName || readRef(rel.fields?.target)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </FieldRow>
           </aside>
         )}
       </div>
@@ -180,3 +214,19 @@ const tile = { padding: 14, border: '1px solid hsl(var(--border))', borderRadius
 const detail = { width: 360, borderLeft: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', padding: 20, overflow: 'auto' };
 const saveBtn = { background: 'hsl(var(--primary))', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
 const deleteBtn = { background: 'transparent', color: 'hsl(var(--destructive))', border: '1px solid #3a2d30', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };
+
+function MediaPreview({ record, assets }) {
+  const asset = assets[0];
+  if (record.recordType === 'MediaURL' && record.fields?.url?.value) {
+    return <a href={record.fields.url.value} target="_blank" rel="noreferrer" style={{ color: 'hsl(var(--primary))', fontSize: 12 }}>{record.fields.url.value}</a>;
+  }
+  if (!asset?.dataBase64) {
+    return <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>No local asset stored for this media record.</div>;
+  }
+  const src = `data:${asset.mimeType || 'application/octet-stream'};base64,${asset.dataBase64}`;
+  if (record.recordType === 'MediaPicture') return <img src={src} alt="" style={{ maxWidth: '100%', borderRadius: 6, border: '1px solid hsl(var(--border))' }} />;
+  if (record.recordType === 'MediaPDF') return <iframe title={asset.filename || record.recordName} src={src} style={{ width: '100%', height: 280, border: '1px solid hsl(var(--border))', borderRadius: 6 }} />;
+  if (record.recordType === 'MediaAudio') return <audio controls src={src} style={{ width: '100%' }} />;
+  if (record.recordType === 'MediaVideo') return <video controls src={src} style={{ width: '100%', borderRadius: 6 }} />;
+  return <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>{asset.filename || asset.assetId}</div>;
+}

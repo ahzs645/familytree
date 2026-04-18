@@ -16,6 +16,7 @@
  *   // result = { persons: 836, families: 282, ... }
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { extractMFTPKGDataset } from './mftpkgExtractor.js';
 
 // sql.js is loaded dynamically on first use.
 // Both sql-wasm.js and sql-wasm.wasm are served from public/ — fully local, no CDN.
@@ -83,9 +84,12 @@ export class MFTPKGImporter {
 
       // Find the 'database' file inside the ZIP
       let dbEntry = null;
+      const resourceEntries = [];
       zip.forEach((path, entry) => {
         if (!entry.dir && path.endsWith('/database')) {
           dbEntry = entry;
+        } else if (!entry.dir && path.includes('/resources/')) {
+          resourceEntries.push({ path, entry });
         }
       });
 
@@ -104,10 +108,14 @@ export class MFTPKGImporter {
 
       console.log('[MFTPKGImporter] Extracted database from ZIP:', dbEntry.name);
       const dbBuffer = await dbEntry.async('uint8array');
+      const resourceFiles = [];
+      for (const { path, entry } of resourceEntries) {
+        resourceFiles.push({ path, name: path.split('/').pop(), bytes: await entry.async('uint8array') });
+      }
       const SQL = await getSqlJs();
       const db = new SQL.Database(dbBuffer);
       try {
-        return await this._extractAndImport(db, file.name.replace('.zip', ''));
+        return await this._extractAndImport(db, file.name.replace('.zip', ''), resourceFiles);
       } finally {
         db.close();
       }
@@ -156,19 +164,41 @@ export class MFTPKGImporter {
 
   // ── Internal extraction ──
 
-  async _extractAndImport(db, sourceName) {
-    // Get entity type mapping
-    const entityMap = { _names: {} };
-    const entities = db.exec('SELECT Z_ENT, Z_NAME FROM Z_PRIMARYKEY');
-    if (entities.length > 0) {
-      for (const row of entities[0].values) {
-        entityMap[row[1]] = row[0]; // name -> ent ID
-        entityMap._names[row[0]] = row[1]; // ent ID -> name (reverse)
-      }
-    }
+  async _extractAndImport(db, sourceName, resourceFiles = []) {
+    const query = (sql) => {
+      const result = db.exec(sql);
+      if (!result.length) return [];
+      const { columns, values } = result[0];
+      return values.map((row) => Object.fromEntries(columns.map((c, i) => [c, row[i]])));
+    };
 
-    const records = {};
-    const counts = {};
+    const dataset = extractMFTPKGDataset({ query, sourceName, resourceFiles });
+    this._progress('importing', 0, 1);
+    const localDB = getLocalDatabase();
+    const total = await localDB.importDataset(dataset);
+    this._progress('done', total, total);
+    return {
+      total,
+      treeName: dataset.treeName,
+      counts: dataset.counts,
+      assets: dataset.assets.length,
+      decodedSavedViews: dataset.decodedSavedViews,
+      warnings: dataset.warnings,
+    };
+
+    {
+      // Get entity type mapping
+      const entityMap = { _names: {} };
+      const entities = db.exec('SELECT Z_ENT, Z_NAME FROM Z_PRIMARYKEY');
+      if (entities.length > 0) {
+        for (const row of entities[0].values) {
+          entityMap[row[1]] = row[0]; // name -> ent ID
+          entityMap._names[row[0]] = row[1]; // ent ID -> name (reverse)
+        }
+      }
+
+      const records = {};
+      const counts = {};
 
     function makeId(type, pk) {
       return `${type.toLowerCase()}-${pk}`;
@@ -732,11 +762,12 @@ export class MFTPKGImporter {
 
     this._progress('done', total, total);
 
-    return {
-      total,
-      treeName,
-      counts,
-    };
+      return {
+        total,
+        treeName,
+        counts,
+      };
+    }
   }
 
   _progress(stage, current, total) {

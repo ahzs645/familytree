@@ -5,8 +5,9 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { refToRecordName } from '../lib/recordRef.js';
 import { placeSummary } from '../models/index.js';
-import { Map } from '../components/ui/Map.jsx';
+import { Map as BaseMap } from '../components/ui/Map.jsx';
 
 function parseCoord(v) {
   if (v == null || v === '') return null;
@@ -17,22 +18,37 @@ function parseCoord(v) {
 export default function MapView() {
   const navigate = useNavigate();
   const [places, setPlaces] = useState([]);
+  const [coordinates, setCoordinates] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
       const db = getLocalDatabase();
-      const { records } = await db.query('Place', { limit: 100000 });
-      setPlaces(records);
+      const [placeResult, coordinateResult] = await Promise.all([
+        db.query('Place', { limit: 100000 }),
+        db.query('Coordinate', { limit: 100000 }),
+      ]);
+      setPlaces(placeResult.records);
+      setCoordinates(coordinateResult.records);
       setLoading(false);
     })();
   }, []);
 
   const markers = useMemo(() => {
+    const coordByPlace = new Map();
+    for (const coord of coordinates) {
+      const placeId = refToRecordName(coord.fields?.place?.value);
+      if (placeId) coordByPlace.set(placeId, coord);
+    }
+
     const out = [];
     for (const p of places) {
-      const lat = parseCoord(p.fields?.latitude?.value);
-      const lng = parseCoord(p.fields?.longitude?.value);
+      const coordinateRef = refToRecordName(p.fields?.coordinate?.value);
+      const coord =
+        (coordinateRef && coordinates.find((c) => c.recordName === coordinateRef)) ||
+        coordByPlace.get(p.recordName);
+      const lat = parseCoord(coord?.fields?.latitude?.value ?? p.fields?.latitude?.value);
+      const lng = parseCoord(coord?.fields?.longitude?.value ?? p.fields?.longitude?.value);
       if (lat == null || lng == null) continue;
       const s = placeSummary(p);
       out.push({
@@ -44,7 +60,7 @@ export default function MapView() {
       });
     }
     return out;
-  }, [places, navigate]);
+  }, [places, coordinates, navigate]);
 
   const initial = useMemo(() => {
     if (markers.length === 0) return { center: [0, 20], zoom: 1.5 };
@@ -68,7 +84,7 @@ export default function MapView() {
         </span>
       </header>
       <div className="flex-1 relative">
-        <Map center={initial.center} zoom={initial.zoom} markers={markers} />
+        <BaseMap center={initial.center} zoom={initial.zoom} markers={markers} />
       </div>
     </div>
   );

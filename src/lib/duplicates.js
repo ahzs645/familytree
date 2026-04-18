@@ -11,6 +11,7 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refToRecordName } from './recordRef.js';
+import { planReferenceRewrite, countReferencesTo } from './referenceGraph.js';
 
 const PERSON_THRESHOLD = 0.85;
 const SOURCE_THRESHOLD = 0.85;
@@ -208,12 +209,57 @@ export async function findDuplicateSources(threshold = SOURCE_THRESHOLD) {
  * should handle relinking ChildRelations / Family refs etc. if needed).
  */
 export async function mergeRecords(targetName, sourceName) {
+  return mergeRecordsSafely(targetName, sourceName);
+}
+
+export async function previewMergeRecords(targetName, sourceName) {
   const db = getLocalDatabase();
-  const target = await db.getRecord(targetName);
-  const source = await db.getRecord(sourceName);
+  const all = await db.getAllRecords();
+  const source = all.find((r) => r.recordName === sourceName);
+  if (!source) throw new Error('Record not found for merge preview');
+  const rewrite = planReferenceRewrite(all, sourceName, targetName, source.recordType);
+  const counts = countReferencesTo(all, sourceName);
+  return {
+    rewrittenReferenceCount: rewrite.rewrittenReferenceCount,
+    dedupedRelationCount: rewrite.dedupedRelationCount,
+    preservedRecordCount: rewrite.preservedRecordCount,
+    deletedRecordNames: [sourceName, ...rewrite.deleteRecordNames],
+    recordsWithReferences: counts.recordsWithReferences,
+    warnings: [],
+  };
+}
+
+export async function mergeRecordsSafely(targetName, sourceName, options = {}) {
+  const db = getLocalDatabase();
+  const all = await db.getAllRecords();
+  const target = all.find((r) => r.recordName === targetName);
+  const source = all.find((r) => r.recordName === sourceName);
   if (!target || !source) throw new Error('Record not found for merge');
-  const merged = { ...target, fields: { ...source.fields, ...target.fields } };
-  await db.saveRecord(merged);
-  await db.deleteRecord(sourceName);
-  return merged;
+  if (target.recordType !== source.recordType) throw new Error('Cannot merge different record types');
+
+  const mergedRecord = {
+    ...target,
+    fields: options.mergedFields ? { ...options.mergedFields } : { ...source.fields, ...target.fields },
+  };
+  const rewrite = planReferenceRewrite(all, sourceName, targetName, target.recordType);
+  const sourceAssets = await db.listAssetsForRecord(sourceName);
+  const movedAssets = sourceAssets.map((asset) => ({ ...asset, ownerRecordName: targetName }));
+  const saveByName = new Map(rewrite.saveRecords.map((r) => [r.recordName, r]));
+  saveByName.set(mergedRecord.recordName, mergedRecord);
+  const deleteRecordNames = [sourceName, ...rewrite.deleteRecordNames.filter((name) => name !== targetName)];
+
+  await db.applyRecordTransaction({
+    saveRecords: [...saveByName.values()],
+    deleteRecordNames,
+    saveAssets: movedAssets,
+  });
+
+  return {
+    mergedRecord,
+    rewrittenReferenceCount: rewrite.rewrittenReferenceCount,
+    dedupedRelationCount: rewrite.dedupedRelationCount,
+    preservedRecordCount: rewrite.preservedRecordCount,
+    deletedRecordNames,
+    warnings: [],
+  };
 }

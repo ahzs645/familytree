@@ -4,11 +4,16 @@
  * "spouse" (sideways). Returns a list of nodes with edge labels.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { isPublicRecord } from './privacy.js';
 import { personSummary } from '../models/index.js';
 
 export async function findRelationshipPath(startRecordName, endRecordName) {
-  if (startRecordName === endRecordName) return { steps: [{ from: startRecordName, edge: 'self' }] };
   const db = getLocalDatabase();
+  const [start, end] = await Promise.all([db.getRecord(startRecordName), db.getRecord(endRecordName)]);
+  if (!isPublicRecord(start) || !isPublicRecord(end)) return null;
+  if (startRecordName === endRecordName) {
+    return { steps: [{ recordName: startRecordName, edgeFromPrev: 'self', person: personSummary(start) }], label: 'Same person' };
+  }
   const visited = new Map(); // recordName → { prev, edge }
   visited.set(startRecordName, { prev: null, edge: null });
   const queue = [startRecordName];
@@ -53,15 +58,17 @@ async function getNeighbors(db, recordName) {
   // Parents (up)
   const parents = await db.getPersonsParents(recordName);
   for (const fam of parents) {
-    if (fam.man) out.push({ neighbor: fam.man.recordName, edge: 'parent' });
-    if (fam.woman) out.push({ neighbor: fam.woman.recordName, edge: 'parent' });
+    if (!isPublicRecord(fam.family)) continue;
+    if (isPublicRecord(fam.man)) out.push({ neighbor: fam.man.recordName, edge: 'parent' });
+    if (isPublicRecord(fam.woman)) out.push({ neighbor: fam.woman.recordName, edge: 'parent' });
   }
   // Children + spouses (down + sideways)
   const families = await db.getPersonsChildrenInformation(recordName);
   for (const fam of families) {
-    if (fam.partner) out.push({ neighbor: fam.partner.recordName, edge: 'spouse' });
+    if (!isPublicRecord(fam.family)) continue;
+    if (isPublicRecord(fam.partner)) out.push({ neighbor: fam.partner.recordName, edge: 'spouse' });
     for (const child of fam.children) {
-      out.push({ neighbor: child.recordName, edge: 'child' });
+      if (isPublicRecord(child)) out.push({ neighbor: child.recordName, edge: 'child' });
     }
   }
   return out;

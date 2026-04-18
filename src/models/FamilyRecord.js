@@ -3,18 +3,17 @@
  * Was `ht` / `pt` in the minified code.
  */
 import { BaseRecord } from './BaseRecord.js';
+import { readRef } from '../lib/schema.js';
 
 export class FamilyRecord extends BaseRecord {
   /** Reference to the male partner's record name. */
   manRecordName() {
-    const ref = this.fieldValue('man');
-    return ref ? ref.recordName : null;
+    return readRef(this.fieldValue('man'));
   }
 
   /** Reference to the female partner's record name. */
   womanRecordName() {
-    const ref = this.fieldValue('woman');
-    return ref ? ref.recordName : null;
+    return readRef(this.fieldValue('woman'));
   }
 
   /** Cached marriage date string. */

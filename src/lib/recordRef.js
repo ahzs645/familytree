@@ -41,3 +41,12 @@ export function refValue(recordName, recordType) {
   if (recordType) return `${recordName}---${recordType}`;
   return recordName;
 }
+
+export {
+  readRef,
+  writeRef,
+  replaceRefValue,
+  readField,
+  readConclusionType,
+  readLabel,
+} from './schema.js';

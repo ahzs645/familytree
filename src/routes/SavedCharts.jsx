@@ -5,6 +5,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listChartTemplates, deleteChartTemplate, saveChartTemplate, newTemplateId } from '../lib/chartTemplates.js';
+import { getLocalDatabase } from '../lib/LocalDatabase.js';
 
 const CHART_LABELS = {
   ancestor: 'Ancestor',
@@ -32,20 +33,26 @@ export default function SavedCharts() {
   const [templates, setTemplates] = useState(null);
   const navigate = useNavigate();
 
-  const reload = useCallback(async () => setTemplates(await listChartTemplates()), []);
-  useEffect(() => { reload(); }, [reload]);
+  const [importedViews, setImportedViews] = useState([]);
+  const reloadAll = useCallback(async () => {
+    setTemplates(await listChartTemplates());
+    const db = getLocalDatabase();
+    const { records } = await db.query('SavedChart', { limit: 100000 });
+    setImportedViews(records);
+  }, []);
+  useEffect(() => { reloadAll(); }, [reloadAll]);
 
   const onDelete = async (id) => {
     if (!confirm('Delete this saved chart?')) return;
     await deleteChartTemplate(id);
-    reload();
+    reloadAll();
   };
 
   const onDuplicate = async (tpl) => {
     const name = prompt('Name for the copy:', `${tpl.name} (copy)`);
     if (!name) return;
     await saveChartTemplate({ ...tpl, id: newTemplateId(), name });
-    reload();
+    reloadAll();
   };
 
   if (templates == null) return <div className="p-10 text-muted-foreground">Loading…</div>;
@@ -56,9 +63,9 @@ export default function SavedCharts() {
         <header className="mb-5">
           <h1 className="text-xl font-bold">Saved Charts</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {templates.length === 0
+            {templates.length + importedViews.length === 0
               ? 'No saved charts yet. Configure a chart in Charts and click Save to store the layout.'
-              : `${templates.length} saved chart configuration${templates.length === 1 ? '' : 's'}`}
+              : `${templates.length + importedViews.length} saved chart configuration${templates.length + importedViews.length === 1 ? '' : 's'}`}
           </p>
         </header>
 
@@ -96,6 +103,27 @@ export default function SavedCharts() {
               </div>
             ))}
           </div>
+        )}
+        {importedViews.length > 0 && (
+          <section className="mt-6">
+            <h2 className="text-sm font-semibold mb-3">Imported MacFamilyTree Saved Charts</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {importedViews.map((view) => (
+                <div key={view.recordName} className="rounded-lg border border-border bg-card p-4">
+                  <span className="text-[10px] font-bold uppercase tracking-wider rounded px-2 py-0.5 bg-secondary text-muted-foreground">SavedChart</span>
+                  <div className="text-sm font-semibold mt-2 mb-1 truncate">{view.fields?.title?.value || view.fields?.name?.value || view.recordName}</div>
+                  <div className="text-xs text-muted-foreground mb-3">
+                    {view.fields?.author?.value || 'MacFamilyTree import'}
+                    {view.fields?.chartObjectsContainerData?.value ? ' · archived layout preserved' : ' · metadata only'}
+                  </div>
+                  <button onClick={() => navigate('/charts?type=tree')}
+                    className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">
+                    Open Web Chart
+                  </button>
+                </div>
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </div>

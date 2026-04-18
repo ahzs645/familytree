@@ -7,6 +7,8 @@ import { SimpleCrudList } from '../components/editors/SimpleCrudList.jsx';
 
 const TABS = [
   { id: 'SourceTemplate', label: 'Source Templates', uuidPrefix: 'srctpl' },
+  { id: 'SourceTemplateKey', label: 'Source Template Keys', uuidPrefix: 'srctplkey' },
+  { id: 'SourceTemplateKeyRelation', label: 'Source Template Key Relations', uuidPrefix: 'srctplrel' },
   { id: 'PlaceTemplate', label: 'Place Templates', uuidPrefix: 'plctpl' },
   { id: 'ConclusionPersonEventType', label: 'Person Event Types', uuidPrefix: 'cpet' },
   { id: 'ConclusionFamilyEventType', label: 'Family Event Types', uuidPrefix: 'cfet' },
@@ -16,7 +18,9 @@ const TABS = [
 
 const FIELDS = [
   { id: 'name', label: 'Name' },
+  { id: 'typeName', label: 'Type name' },
   { id: 'title', label: 'Display title' },
+  { id: 'order', label: 'Order', type: 'number' },
   { id: 'description', label: 'Description', kind: 'textarea', rows: 3 },
 ];
 
@@ -41,7 +45,7 @@ export default function Templates() {
           uuidPrefix={def.uuidPrefix}
           title={def.label}
           fields={FIELDS}
-          displayLabel={(r) => r.fields?.name?.value || r.fields?.title?.value || r.recordName}
+          displayLabel={(r) => r.fields?.name?.value || r.fields?.typeName?.value || r.fields?.title?.value || r.recordName}
           searchPlaceholder={`Search ${def.label.toLowerCase()}…`}
           emptyText={`No ${def.label.toLowerCase()} yet.`}
         />

@@ -3,18 +3,19 @@
  * Was `_t` / `kt` in the minified code.
  */
 import { BaseRecord } from './BaseRecord.js';
+import { FIELD_ALIASES, readField } from '../lib/schema.js';
 
 export class PlaceRecord extends BaseRecord {
   placeName() {
-    return this.fieldValue('placeName') || this.fieldValue('cached_normallocationString') || '';
+    return readField(this.record, FIELD_ALIASES.placeName, '');
   }
 
   normalLocationString() {
-    return this.fieldValue('cached_normallocationString') || this.placeName();
+    return readField(this.record, ['cached_normallocationString', 'cached_displayName', 'placeName'], this.placeName());
   }
 
   shortLocationString() {
-    return this.fieldValue('cached_shortLocationString') || this.placeName();
+    return readField(this.record, FIELD_ALIASES.placeShortName, this.placeName());
   }
 
   standardizedLocationString() {
@@ -22,7 +23,7 @@ export class PlaceRecord extends BaseRecord {
   }
 
   geonameID() {
-    return this.fieldValue('geonameID') || null;
+    return readField(this.record, FIELD_ALIASES.geonameID, null);
   }
 }
 

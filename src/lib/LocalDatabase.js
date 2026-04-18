@@ -15,9 +15,10 @@ import { openDB } from 'idb';
 import { refToRecordName } from './recordRef.js';
 
 const DB_NAME = 'cloudtreeweb-local';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_RECORDS = 'records';
 const STORE_META = 'meta';
+const STORE_ASSETS = 'assets';
 
 export class LocalDatabase {
   constructor() {
@@ -39,6 +40,12 @@ export class LocalDatabase {
         // Metadata store — tree info, import history, preferences
         if (!db.objectStoreNames.contains(STORE_META)) {
           db.createObjectStore(STORE_META, { keyPath: 'key' });
+        }
+
+        if (!db.objectStoreNames.contains(STORE_ASSETS)) {
+          const assets = db.createObjectStore(STORE_ASSETS, { keyPath: 'assetId' });
+          assets.createIndex('byOwnerRecordName', 'ownerRecordName', { unique: false });
+          assets.createIndex('bySourceIdentifier', 'sourceIdentifier', { unique: false });
         }
       },
     });
@@ -96,6 +103,12 @@ export class LocalDatabase {
     const tx = db.transaction(STORE_RECORDS);
     const results = await Promise.all(recordNames.map((name) => tx.store.get(name)));
     return results.filter(Boolean);
+  }
+
+  /** Get every stored record. Use only for maintenance/import/merge operations. */
+  async getAllRecords() {
+    const db = await this.open();
+    return db.getAll(STORE_RECORDS);
   }
 
   /** Query records by type with optional filter, sort, and limit. */
@@ -184,6 +197,28 @@ export class LocalDatabase {
     return records;
   }
 
+  /** Apply a records/assets mutation atomically in one IndexedDB transaction. */
+  async applyRecordTransaction({ saveRecords = [], deleteRecordNames = [], saveAssets = [], deleteAssetIds = [] } = {}) {
+    const db = await this.open();
+    const tx = db.transaction([STORE_RECORDS, STORE_ASSETS], 'readwrite');
+    const now = Date.now();
+    for (const record of saveRecords) {
+      if (!record) continue;
+      record.modified = { timestamp: now };
+      tx.objectStore(STORE_RECORDS).put(record);
+    }
+    for (const recordName of deleteRecordNames) {
+      if (recordName) tx.objectStore(STORE_RECORDS).delete(recordName);
+    }
+    for (const asset of saveAssets) {
+      if (asset?.assetId) tx.objectStore(STORE_ASSETS).put(asset);
+    }
+    for (const assetId of deleteAssetIds) {
+      if (assetId) tx.objectStore(STORE_ASSETS).delete(assetId);
+    }
+    await tx.done;
+  }
+
   /** Delete a record by recordName. */
   async deleteRecord(recordName) {
     const db = await this.open();
@@ -197,9 +232,10 @@ export class LocalDatabase {
     const db = await this.open();
 
     // Clear existing data
-    const clearTx = db.transaction([STORE_RECORDS, STORE_META], 'readwrite');
+    const clearTx = db.transaction([STORE_RECORDS, STORE_META, STORE_ASSETS], 'readwrite');
     await clearTx.objectStore(STORE_RECORDS).clear();
     await clearTx.objectStore(STORE_META).clear();
+    await clearTx.objectStore(STORE_ASSETS).clear();
     await clearTx.done;
 
     // Import records in batches of 500
@@ -221,6 +257,13 @@ export class LocalDatabase {
     if (dataset.zones) {
       await this.setMeta('zones', dataset.zones);
     }
+    if (Array.isArray(dataset.assets) && dataset.assets.length > 0) {
+      const tx = db.transaction(STORE_ASSETS, 'readwrite');
+      for (const asset of dataset.assets) {
+        if (asset?.assetId) tx.store.put(asset);
+      }
+      await tx.done;
+    }
 
     return records.length;
   }
@@ -228,10 +271,36 @@ export class LocalDatabase {
   /** Clear all data. */
   async clearAll() {
     const db = await this.open();
-    const tx = db.transaction([STORE_RECORDS, STORE_META], 'readwrite');
+    const tx = db.transaction([STORE_RECORDS, STORE_META, STORE_ASSETS], 'readwrite');
     await tx.objectStore(STORE_RECORDS).clear();
     await tx.objectStore(STORE_META).clear();
+    await tx.objectStore(STORE_ASSETS).clear();
     await tx.done;
+  }
+
+  // ── Assets ──
+
+  async saveAsset(asset) {
+    if (!asset?.assetId) throw new Error('Asset must include assetId');
+    const db = await this.open();
+    await db.put(STORE_ASSETS, asset);
+    return asset;
+  }
+
+  async getAsset(assetId) {
+    const db = await this.open();
+    return db.get(STORE_ASSETS, assetId);
+  }
+
+  async deleteAsset(assetId) {
+    const db = await this.open();
+    await db.delete(STORE_ASSETS, assetId);
+  }
+
+  async listAssetsForRecord(ownerRecordName) {
+    const db = await this.open();
+    const index = db.transaction(STORE_ASSETS).store.index('byOwnerRecordName');
+    return index.getAll(ownerRecordName);
   }
 
   // ── Metadata ──

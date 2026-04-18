@@ -3,14 +3,15 @@
  * Was `Tt` / `Nt` in the minified code.
  */
 import { BaseRecord } from './BaseRecord.js';
+import { FIELD_ALIASES, readBoolean, readField } from '../lib/schema.js';
 
 export class SourceRecord extends BaseRecord {
   title(includeFullText = false) {
-    return this.fieldValue('cached_title') || this.fieldValue('title') || '';
+    return readField(this.record, FIELD_ALIASES.sourceTitle, '');
   }
 
   date() {
-    return this.fieldValue('cached_date') || null;
+    return readField(this.record, FIELD_ALIASES.sourceDate, null);
   }
 
   text() {
@@ -18,7 +19,7 @@ export class SourceRecord extends BaseRecord {
   }
 
   isBookmarked() {
-    return !!this.fieldValue('isBookmarked');
+    return readBoolean(this.record, FIELD_ALIASES.bookmark);
   }
 }
 

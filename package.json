@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "vitest run",
     "build": "vite build",
     "preview": "vite preview",
     "patch": "node scripts/patch-bundle.js",
@@ -31,6 +32,7 @@
     "playwright": "^1.59.1",
     "postcss": "^8.5.10",
     "tailwindcss": "^3.4.19",
-    "vite": "^6.3.2"
+    "vite": "^6.3.2",
+    "vitest": "^4.1.4"
   }
 }

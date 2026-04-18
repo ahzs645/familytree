@@ -6,6 +6,8 @@
  * extends this class. It wraps a raw CloudKit record and provides
  * common methods for field access, modification tracking, and persistence.
  */
+import { readField } from '../lib/schema.js';
+
 export class BaseRecord {
   constructor(record) {
     this.record = record;
@@ -30,8 +32,7 @@ export class BaseRecord {
 
   /** Read a field value from the underlying CloudKit record. */
   fieldValue(fieldName) {
-    const field = this.record?.fields?.[fieldName];
-    return field ? field.value : undefined;
+    return readField(this.record, fieldName);
   }
 
   /** Set a field value on the underlying CloudKit record. */

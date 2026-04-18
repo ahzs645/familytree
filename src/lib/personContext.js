@@ -6,12 +6,13 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refToRecordName } from './recordRef.js';
+import { isPublicRecord } from './privacy.js';
 import { personSummary, familySummary } from '../models/index.js';
 
 export async function buildPersonContext(recordName) {
   const db = getLocalDatabase();
   const self = await db.getRecord(recordName);
-  if (!self) return null;
+  if (!isPublicRecord(self)) return null;
 
   const [parents, families, personEvents, personFacts] = await Promise.all([
     db.getPersonsParents(recordName),
@@ -23,20 +24,20 @@ export async function buildPersonContext(recordName) {
   return {
     self,
     selfSummary: personSummary(self),
-    parents: parents.map((fam) => ({
+    parents: parents.filter((fam) => isPublicRecord(fam.family)).map((fam) => ({
       family: fam.family,
       familySummary: familySummary(fam.family),
-      man: personSummary(fam.man),
-      woman: personSummary(fam.woman),
+      man: isPublicRecord(fam.man) ? personSummary(fam.man) : null,
+      woman: isPublicRecord(fam.woman) ? personSummary(fam.woman) : null,
     })),
-    families: families.map((fam) => ({
+    families: families.filter((fam) => isPublicRecord(fam.family)).map((fam) => ({
       family: fam.family,
       familySummary: familySummary(fam.family),
-      partner: personSummary(fam.partner),
-      children: fam.children.map(personSummary),
+      partner: isPublicRecord(fam.partner) ? personSummary(fam.partner) : null,
+      children: fam.children.filter(isPublicRecord).map(personSummary),
     })),
-    events: personEvents.records || [],
-    facts: personFacts.records || [],
+    events: (personEvents.records || []).filter(isPublicRecord),
+    facts: (personFacts.records || []).filter(isPublicRecord),
   };
 }
 
@@ -49,6 +50,7 @@ export async function getSiblings(recordName) {
   const siblings = [];
   const seen = new Set([recordName]);
   for (const fam of parents) {
+    if (!isPublicRecord(fam.family)) continue;
     const { records } = await db.query('ChildRelation', {
       referenceField: 'family',
       referenceValue: fam.family.recordName,
@@ -58,7 +60,7 @@ export async function getSiblings(recordName) {
       if (!childRef || seen.has(childRef)) continue;
       seen.add(childRef);
       const child = await db.getRecord(childRef);
-      if (child) siblings.push(personSummary(child));
+      if (isPublicRecord(child)) siblings.push(personSummary(child));
     }
   }
   return siblings;

@@ -3,8 +3,9 @@
  * For each field present on either record the user picks left or right;
  * clicking "Merge" writes the chosen values to the left record and deletes the right.
  */
-import React, { useMemo, useState } from 'react';
-import { mergeRecords } from '../../lib/duplicates.js';
+import React, { useEffect, useMemo, useState } from 'react';
+import { mergeRecordsSafely, previewMergeRecords } from '../../lib/duplicates.js';
+import { readRef } from '../../lib/schema.js';
 
 const SKIP_FIELDS = new Set(['modified', 'created']);
 
@@ -16,6 +17,8 @@ function collectFields(a, b) {
 function displayValue(v) {
   if (v == null) return '';
   if (typeof v === 'object') {
+    const ref = readRef(v);
+    if (ref) return 'ref -> ' + ref;
     if (v.recordName) return 'ref → ' + v.recordName;
     return JSON.stringify(v).slice(0, 50);
   }
@@ -33,20 +36,25 @@ export function MergePair({ pair, onMerged, onSkip }) {
     return init;
   });
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    previewMergeRecords(a.recordName, b.recordName)
+      .then((result) => { if (!cancelled) setPreview(result); })
+      .catch(() => { if (!cancelled) setPreview(null); });
+    return () => { cancelled = true; };
+  }, [a.recordName, b.recordName]);
 
   const onMergeClick = async () => {
     setBusy(true);
-    // Build merged field set according to choices, write to A, delete B.
-    const db = await import('../../lib/LocalDatabase.js').then((m) => m.getLocalDatabase());
     const mergedFields = { ...a.fields };
     for (const k of fields) {
       const pick = choices[k] === 'b' ? b.fields?.[k] : a.fields?.[k];
       if (pick !== undefined) mergedFields[k] = pick;
       else delete mergedFields[k];
     }
-    const merged = { ...a, fields: mergedFields };
-    await db.saveRecord(merged);
-    await db.deleteRecord(b.recordName);
+    await mergeRecordsSafely(a.recordName, b.recordName, { mergedFields });
     setBusy(false);
     onMerged?.();
   };
@@ -59,6 +67,12 @@ export function MergePair({ pair, onMerged, onSkip }) {
             {a.recordType} pair — score {(score * 100).toFixed(0)}%
           </div>
           <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>{reasons.join(' · ') || 'heuristic match'}</div>
+          {preview && (
+            <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 5 }}>
+              Rewrites {preview.rewrittenReferenceCount} refs · preserves {preview.preservedRecordCount} related records · removes {preview.deletedRecordNames.length} record{preview.deletedRecordNames.length === 1 ? '' : 's'}
+              {preview.dedupedRelationCount ? ` · dedupes ${preview.dedupedRelationCount} relations` : ''}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={onSkip} style={btnSecondary}>Skip</button>

@@ -6,6 +6,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
+import { readConclusionType, readRef } from '../lib/schema.js';
 import { personSummary, placeSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
@@ -52,8 +53,8 @@ export default function Events() {
     setFamilies(familyRecs.records);
     setPlaces(placeRecs.records);
     setTypes({
-      Person: personTypes.records.map((r) => r.fields?.name?.value || r.fields?.title?.value).filter(Boolean),
-      Family: familyTypes.records.map((r) => r.fields?.name?.value || r.fields?.title?.value).filter(Boolean),
+      Person: personTypes.records.map((r) => ({ id: r.recordName, label: readConclusionType(r) })).filter((r) => r.label),
+      Family: familyTypes.records.map((r) => ({ id: r.recordName, label: readConclusionType(r) })).filter((r) => r.label),
     });
     if (merged.length > 0 && !activeId) setActiveId(merged[0].recordName);
   }, [activeId]);
@@ -68,6 +69,7 @@ export default function Events() {
     if (!ev) return;
     setValues({
       conclusionType: refToRecordName(ev.fields?.conclusionType?.value) || ev.fields?.conclusionType?.value || ev.fields?.eventType?.value || '',
+      conclusionTypeLabel: readConclusionType(ev),
       date: ev.fields?.date?.value || '',
       description: ev.fields?.description?.value || ev.fields?.userDescription?.value || '',
       personRef: refToRecordName(ev.fields?.person?.value) || '',
@@ -84,8 +86,18 @@ export default function Events() {
     if (!ev) return;
     setSaving(true);
     const next = { ...ev, fields: { ...ev.fields } };
-    if (values.conclusionType) next.fields.conclusionType = { value: values.conclusionType, type: 'STRING' };
-    else delete next.fields.conclusionType;
+    const typeOptions = ev.recordType === 'FamilyEvent' ? types.Family : types.Person;
+    const chosenType = typeOptions.find((t) => t.id === values.conclusionType || t.label === values.conclusionType);
+    if (chosenType) {
+      next.fields.conclusionType = { value: refValue(chosenType.id, ev.recordType === 'FamilyEvent' ? 'ConclusionFamilyEventType' : 'ConclusionPersonEventType'), type: 'REFERENCE' };
+      next.fields.eventType = { value: chosenType.label, type: 'STRING' };
+    } else if (values.conclusionType) {
+      delete next.fields.conclusionType;
+      next.fields.eventType = { value: values.conclusionType, type: 'STRING' };
+    } else {
+      delete next.fields.conclusionType;
+      delete next.fields.eventType;
+    }
     if (values.date) next.fields.date = { value: values.date, type: 'STRING' };
     else delete next.fields.date;
     if (values.description) next.fields.description = { value: values.description, type: 'STRING' };
@@ -104,7 +116,7 @@ export default function Events() {
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
-  }, [activeId, events, values, reload]);
+  }, [activeId, events, values, types, reload]);
 
   const onCreate = useCallback(async (kind) => {
     const db = getLocalDatabase();
@@ -112,7 +124,7 @@ export default function Events() {
       recordName: uuid(kind === 'PersonEvent' ? 'pe' : 'fe'),
       recordType: kind,
       fields: {
-        conclusionType: { value: '', type: 'STRING' },
+        eventType: { value: '', type: 'STRING' },
         date: { value: '', type: 'STRING' },
       },
     };
@@ -139,11 +151,11 @@ export default function Events() {
   });
 
   const renderRow = (e) => {
-    const t = e.fields?.conclusionType?.value || e.fields?.eventType?.value || 'Event';
+    const t = readConclusionType(e) || 'Event';
     const d = e.fields?.date?.value || '';
     const subjectRef =
-      e.fields?.person?.value?.recordName ||
-      e.fields?.family?.value?.recordName ||
+      readRef(e.fields?.person) ||
+      readRef(e.fields?.family) ||
       '';
     return (
       <div>
@@ -177,12 +189,12 @@ export default function Events() {
         <FieldRow label="Type" hint="Matches your ConclusionType library. Free-text is accepted.">
           <input
             list="event-types"
-            value={values.conclusionType ?? ''}
-            onChange={(e) => setValues({ ...values, conclusionType: e.target.value })}
+            value={values.conclusionTypeLabel || values.conclusionType || ''}
+            onChange={(e) => setValues({ ...values, conclusionType: e.target.value, conclusionTypeLabel: '' })}
             style={editorInput}
           />
           <datalist id="event-types">
-            {availableTypes.map((t) => <option key={t} value={t} />)}
+            {availableTypes.map((t) => <option key={t.id} value={t.label} />)}
           </datalist>
         </FieldRow>
         <FieldRow label="Date" hint="YYYY, YYYY-MM, or YYYY-MM-DD.">

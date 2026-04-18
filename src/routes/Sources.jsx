@@ -16,6 +16,7 @@ import {
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
+import { MediaRelationsEditor, NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 
 function uuid(p) {
   return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -70,10 +71,14 @@ function Field({ label, children }) {
 export default function Sources() {
   const [sources, setSources] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [repositories, setRepositories] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [templateId, setTemplateId] = useState('');
+  const [repositoryId, setRepositoryId] = useState('');
   const [info, setInfo] = useState({});
   const [text, setText] = useState('');
+  const [templateFields, setTemplateFields] = useState([]);
+  const [templateValues, setTemplateValues] = useState({});
   const [labels, setLabels] = useState({});
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
@@ -91,12 +96,23 @@ export default function Sources() {
       return an.localeCompare(bn);
     });
     setSources(sorted);
-    const tpls = await db.query('SourceTemplate', { limit: 10000 });
+    const [tpls, repos] = await Promise.all([
+      db.query('SourceTemplate', { limit: 10000 }),
+      db.query('SourceRepository', { limit: 10000 }),
+    ]);
     setTemplates(
       tpls.records
         .map((t) => ({
           recordName: t.recordName,
           name: t.fields?.name?.value || t.fields?.title?.value || humanizeTemplateName(t.recordName),
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    );
+    setRepositories(
+      repos.records
+        .map((repo) => ({
+          recordName: repo.recordName,
+          name: repo.fields?.name?.value || repo.fields?.title?.value || repo.recordName,
         }))
         .sort((a, b) => a.name.localeCompare(b.name))
     );
@@ -111,6 +127,7 @@ export default function Sources() {
     if (!r) return;
     // Real .mftpkg uses `template`; saveWithChangeLog writes `sourceTemplate`.
     setTemplateId(refToRecordName(r.fields?.template?.value) || refToRecordName(r.fields?.sourceTemplate?.value) || '');
+    setRepositoryId(refToRecordName(r.fields?.sourceRepository?.value) || '');
     const v = {};
     for (const f of INFO_FIELDS) v[f.id] = r.fields?.[f.id]?.value ?? '';
     setInfo(v);
@@ -153,6 +170,38 @@ export default function Sources() {
       const s = {};
       for (const def of LABELS) s[def.id] = map.has(def.id);
       setLabels(s);
+
+      const selectedTemplateId = refToRecordName(r.fields?.template?.value) || refToRecordName(r.fields?.sourceTemplate?.value) || '';
+      if (selectedTemplateId) {
+        const [relations, keys, values] = await Promise.all([
+          db.query('SourceTemplateKeyRelation', { referenceField: 'template', referenceValue: selectedTemplateId, limit: 1000 }),
+          db.query('SourceTemplateKey', { limit: 10000 }),
+          db.query('SourceKeyValue', { referenceField: 'source', referenceValue: activeId, limit: 1000 }),
+        ]);
+        const keyById = new Map(keys.records.map((key) => [key.recordName, key]));
+        const valueByKey = new Map(values.records.map((value) => [refToRecordName(value.fields?.templateKey?.value), value]));
+        const fields = relations.records
+          .map((rel) => {
+            const keyId = refToRecordName(rel.fields?.templateKey?.value);
+            const key = keyById.get(keyId);
+            const value = valueByKey.get(keyId);
+            return {
+              relation: rel,
+              key,
+              keyId,
+              valueRecord: value,
+              label: key?.fields?.name?.value || key?.fields?.localizeableNameKey?.value || keyId,
+              order: rel.fields?.order?.value ?? 0,
+            };
+          })
+          .filter((item) => item.keyId)
+          .sort((a, b) => a.order - b.order);
+        setTemplateFields(fields);
+        setTemplateValues(Object.fromEntries(fields.map((item) => [item.keyId, item.valueRecord?.fields?.value?.value || ''])));
+      } else {
+        setTemplateFields([]);
+        setTemplateValues({});
+      }
     })();
   }, [activeId, sources]);
 
@@ -170,6 +219,8 @@ export default function Sources() {
       delete next.fields.template;
       delete next.fields.sourceTemplate;
     }
+    if (repositoryId) next.fields.sourceRepository = { value: refValue(repositoryId, 'SourceRepository'), type: 'REFERENCE' };
+    else delete next.fields.sourceRepository;
 
     for (const f of INFO_FIELDS) {
       const v = info[f.id];
@@ -189,6 +240,31 @@ export default function Sources() {
     }
 
     await saveWithChangeLog(next);
+
+    const existingKeyValues = (await db.query('SourceKeyValue', { referenceField: 'source', referenceValue: activeId, limit: 1000 })).records;
+    const existingByKey = new Map(existingKeyValues.map((kv) => [refToRecordName(kv.fields?.templateKey?.value), kv]));
+    for (const fieldDef of templateFields) {
+      const value = templateValues[fieldDef.keyId] || '';
+      const existing = existingByKey.get(fieldDef.keyId);
+      if (value && existing) {
+        await saveWithChangeLog({ ...existing, fields: { ...existing.fields, value: { value, type: 'STRING' } } });
+      } else if (value && !existing) {
+        const rec = {
+          recordName: uuid('skv'),
+          recordType: 'SourceKeyValue',
+          fields: {
+            source: { value: refValue(activeId, 'Source'), type: 'REFERENCE' },
+            templateKey: { value: refValue(fieldDef.keyId, 'SourceTemplateKey'), type: 'REFERENCE' },
+            value: { value, type: 'STRING' },
+          },
+        };
+        await db.saveRecord(rec);
+        await logRecordCreated(rec);
+      } else if (!value && existing) {
+        await db.deleteRecord(existing.recordName);
+        await logRecordDeleted(existing.recordName, 'SourceKeyValue');
+      }
+    }
 
     // Labels reconcile
     const existingLbl = (await db.query('LabelRelation', { referenceField: 'targetSource', referenceValue: activeId, limit: 500 })).records;
@@ -217,7 +293,7 @@ export default function Sources() {
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
-  }, [activeId, sources, templateId, info, text, refNumbers, bookmarked, isPrivate, labels, reload]);
+  }, [activeId, sources, templateId, repositoryId, info, text, refNumbers, bookmarked, isPrivate, labels, templateFields, templateValues, reload]);
 
   const renderRow = (r) => {
     const s = sourceSummary(r);
@@ -253,6 +329,14 @@ export default function Sources() {
             {templates.map((t) => <option key={t.recordName} value={t.recordName}>{t.name}</option>)}
           </select>
         </Field>
+        <div className="mt-3">
+          <Field label="Repository">
+            <select value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} className={inputClass}>
+              <option value="">— no repository —</option>
+              {repositories.map((repo) => <option key={repo.recordName} value={repo.recordName}>{repo.name}</option>)}
+            </select>
+          </Field>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
           {INFO_FIELDS.map((f) => (
             <Field key={f.id} label={f.label}>
@@ -262,41 +346,38 @@ export default function Sources() {
         </div>
       </Section>
 
+      {templateFields.length > 0 && (
+        <Section title="Template Fields" accent={ACCENTS.info}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {templateFields.map((fieldDef) => (
+              <Field key={fieldDef.keyId} label={fieldDef.label}>
+                <input
+                  value={templateValues[fieldDef.keyId] ?? ''}
+                  onChange={(e) => setTemplateValues((state) => ({ ...state, [fieldDef.keyId]: e.target.value }))}
+                  className={inputClass}
+                />
+              </Field>
+            ))}
+          </div>
+        </Section>
+      )}
+
       <Section title="Source Text" accent={ACCENTS.text}>
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} className={textareaClass}
           placeholder="Type or paste the full source text here…" />
       </Section>
 
-      <Section title={`Referenced Entries · ${referenced.length}`} accent={ACCENTS.refs}>
-        {referenced.length === 0 ? (
-          <Empty title="Not yet referenced" hint="Person and family records that cite this source will show up here." />
-        ) : (
-          <div className="space-y-2">
-            {referenced.map((r) => (
-              <div key={r.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
-                <span className="text-sm">
-                  <span className="text-xs text-muted-foreground mr-2">{r.recordType}</span>
-                  {r.label}
-                </span>
-                <a
-                  href={r.recordType === 'Person' ? `/person/${r.recordName}` : r.recordType === 'Family' ? `/family/${r.recordName}` : '#'}
-                  className="text-xs text-primary hover:underline"
-                >
-                  open
-                </a>
-              </div>
-            ))}
-          </div>
-        )}
+      <Section title="Referenced Entries" accent={ACCENTS.refs}>
+        <SourceCitationsEditor ownerRecordName={activeId} ownerRecordType="Source" ownerRole="source" onChanged={reload} />
       </Section>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
         <div>
           <Section title="Media" accent={ACCENTS.media}>
-            <Empty title="No media present" hint="Manage media in the Media section." />
+            <MediaRelationsEditor ownerRecordName={activeId} ownerRecordType="Source" onChanged={reload} />
           </Section>
           <Section title="Notes" accent={ACCENTS.notes}>
-            <Empty title="No notes present" hint="Add a note about this source." />
+            <NotesEditor ownerRecordName={activeId} ownerRecordType="Source" onChanged={reload} />
           </Section>
         </div>
         <div>

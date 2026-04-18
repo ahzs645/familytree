@@ -4,6 +4,7 @@
  * Uses models/wrap.js for record-to-summary conversion — single source of truth.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { isPublicRecord } from './privacy.js';
 import { personSummary } from '../models/index.js';
 
 /**
@@ -13,16 +14,17 @@ import { personSummary } from '../models/index.js';
 export async function buildAncestorTree(rootRecordName, maxGenerations = 5) {
   const db = getLocalDatabase();
   const root = await db.getRecord(rootRecordName);
-  if (!root) return null;
+  if (!isPublicRecord(root)) return null;
 
   async function recurse(record, gen) {
+    if (!isPublicRecord(record)) return null;
     const node = { person: personSummary(record), father: null, mother: null, generation: gen };
     if (gen >= maxGenerations) return node;
     const parents = await db.getPersonsParents(record.recordName);
     if (parents.length > 0) {
-      const fam = parents[0];
-      if (fam.man) node.father = await recurse(fam.man, gen + 1);
-      if (fam.woman) node.mother = await recurse(fam.woman, gen + 1);
+      const fam = parents.find((p) => isPublicRecord(p.family));
+      if (fam?.man) node.father = await recurse(fam.man, gen + 1);
+      if (fam?.woman) node.mother = await recurse(fam.woman, gen + 1);
     }
     return node;
   }
@@ -37,20 +39,23 @@ export async function buildAncestorTree(rootRecordName, maxGenerations = 5) {
 export async function buildDescendantTree(rootRecordName, maxGenerations = 4) {
   const db = getLocalDatabase();
   const root = await db.getRecord(rootRecordName);
-  if (!root) return null;
+  if (!isPublicRecord(root)) return null;
 
   async function recurse(record, gen) {
+    if (!isPublicRecord(record)) return null;
     const node = { person: personSummary(record), unions: [], generation: gen };
     if (gen >= maxGenerations) return node;
     const families = await db.getPersonsChildrenInformation(record.recordName);
     for (const fam of families) {
+      if (!isPublicRecord(fam.family)) continue;
       const union = {
         familyRecordName: fam.family.recordName,
-        partner: personSummary(fam.partner),
+        partner: isPublicRecord(fam.partner) ? personSummary(fam.partner) : null,
         children: [],
       };
       for (const child of fam.children) {
-        union.children.push(await recurse(child, gen + 1));
+        const childNode = await recurse(child, gen + 1);
+        if (childNode) union.children.push(childNode);
       }
       node.unions.push(union);
     }
@@ -63,10 +68,11 @@ export async function buildDescendantTree(rootRecordName, maxGenerations = 4) {
 /**
  * Flat list of all persons (for picker UIs). Sorted by full name.
  */
-export async function listAllPersons() {
+export async function listAllPersons({ includePrivate = false } = {}) {
   const db = getLocalDatabase();
   const { records } = await db.query('Person', { limit: 100000 });
   return records
+    .filter((record) => includePrivate || isPublicRecord(record))
     .map(personSummary)
     .filter(Boolean)
     .sort((a, b) => a.fullName.localeCompare(b.fullName));
@@ -78,6 +84,7 @@ export async function listAllPersons() {
 export async function findStartPerson() {
   const db = getLocalDatabase();
   const { records } = await db.query('Person', { limit: 100000 });
-  const start = records.find((r) => r.fields?.isStartPerson?.value);
-  return personSummary(start || records[0] || null);
+  const visible = records.filter(isPublicRecord);
+  const start = visible.find((r) => r.fields?.isStartPerson?.value);
+  return personSummary(start || visible[0] || null);
 }

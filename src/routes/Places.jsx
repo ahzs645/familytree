@@ -20,6 +20,7 @@ import {
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
+import { MediaRelationsEditor, NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { Map as MapView } from '../components/ui/Map.jsx';
 
 function uuid(p) {
@@ -412,13 +413,13 @@ export default function Places() {
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
         <div>
           <Section title="Media" accent={ACCENTS.media}>
-            <Empty title="No media present" hint="Open the Media section to manage pictures." />
+            <MediaRelationsEditor ownerRecordName={activeId} ownerRecordType="Place" onChanged={reload} />
           </Section>
           <Section title="Notes" accent={ACCENTS.notes}>
-            <Empty title="No notes present" hint="Add notes about this place." />
+            <NotesEditor ownerRecordName={activeId} ownerRecordType="Place" onChanged={reload} />
           </Section>
           <Section title="Source Citations" accent={ACCENTS.sources}>
-            <Empty title="Source citations" hint="Link sources documenting this place." />
+            <SourceCitationsEditor ownerRecordName={activeId} ownerRecordType="Place" ownerRole="target" onChanged={reload} />
           </Section>
         </div>
         <div>

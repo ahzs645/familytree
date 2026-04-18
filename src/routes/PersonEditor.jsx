@@ -21,6 +21,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
+import { readRef } from '../lib/schema.js';
 import { Gender, lifeSpanLabel } from '../models/index.js';
 import { buildPersonContext } from '../lib/personContext.js';
 import {
@@ -35,6 +36,7 @@ import {
 import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { TypePicker } from '../components/editors/TypePicker.jsx';
+import { AssociateRelationsEditor, MediaRelationsEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -91,6 +93,7 @@ export default function PersonEditor() {
   const [facts, setFacts] = useState([]);
   const [notes, setNotes] = useState([]);
   const [associates, setAssociates] = useState([]);
+  const [related, setRelated] = useState({ media: [], sources: [], todos: [], stories: [], groups: [] });
   const [labels, setLabels] = useState({}); // labelId -> bool
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
@@ -149,6 +152,30 @@ export default function PersonEditor() {
       targetPersonRef: refToRecordName(a.fields?.targetPerson?.value) || '',
       targetName: a.fields?.cached_targetName?.value || '',
     })));
+
+    const [mediaRels, sourceRels, todoRels, storyRels, groupRels] = await Promise.all([
+      db.query('MediaRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+      db.query('SourceRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+      db.query('ToDoRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+      db.query('StoryRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+      db.query('PersonGroupRelation', { referenceField: 'person', referenceValue: id, limit: 500 }),
+    ]);
+    async function hydrate(rels, fieldName, fallbackType) {
+      const out = [];
+      for (const rel of rels.records) {
+        const targetId = readRef(rel.fields?.[fieldName]);
+        const target = targetId ? await db.getRecord(targetId) : null;
+        out.push({ rel, target, type: target?.recordType || fallbackType });
+      }
+      return out;
+    }
+    setRelated({
+      media: await hydrate(mediaRels, 'media', 'Media'),
+      sources: await hydrate(sourceRels, 'source', 'Source'),
+      todos: await hydrate(todoRels, 'todo', 'ToDo'),
+      stories: await hydrate(storyRels, 'story', 'Story'),
+      groups: await hydrate(groupRels, 'personGroup', 'PersonGroup'),
+    });
 
     const labelMap = {};
     for (const lr of lbl.records) {
@@ -366,7 +393,7 @@ export default function PersonEditor() {
               <Section title="Media" accent={ACCENTS.media}
                 controls={<button onClick={() => navigate('/media')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Media</button>}
               >
-                <Empty title="No Media present" hint="Open the Media page to add pictures." />
+                <MediaRelationsEditor ownerRecordName={id} ownerRecordType="Person" onChanged={reload} />
               </Section>
 
               <Section
@@ -421,25 +448,15 @@ export default function PersonEditor() {
 
               <Section title="Source Citations" accent={ACCENTS.sources}
                 controls={<button onClick={() => navigate('/sources')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Sources</button>}>
-                <Empty title="Source citations" hint="Open the Sources page to manage citations for this person." />
+                <SourceCitationsEditor ownerRecordName={id} ownerRecordType="Person" ownerRole="target" onChanged={reload} />
+              </Section>
+
+              <Section title="ToDos, Stories & Groups" accent={ACCENTS.sources}>
+                <RelatedList items={[...related.todos, ...related.stories, ...related.groups]} emptyTitle="No related records" emptyHint="Imported ToDos, stories, and groups linked to this person appear here." />
               </Section>
 
               <Section title="Influential Persons" accent={ACCENTS.influential}>
-                {associates.length === 0 ? (
-                  <Empty title="No influential persons" hint="Add via the legacy editor (Classic UI)." />
-                ) : (
-                  <div className="space-y-2">
-                    {associates.map((a, i) => {
-                      const def = INFLUENTIAL_PERSON_TYPES_PERSON.find((t) => t.id === a.type);
-                      return (
-                        <div key={a.recordName || i} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
-                          <span className="text-sm">{def?.label || a.type || 'Associate'} — {a.targetName || a.targetPersonRef}</span>
-                          <button onClick={() => a.targetPersonRef && navigate(`/person/${a.targetPersonRef}`)} className="text-xs text-primary hover:underline">view</button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                <AssociateRelationsEditor ownerRecordName={id} ownerRecordType="Person" relationTypes={INFLUENTIAL_PERSON_TYPES_PERSON} onChanged={reload} />
               </Section>
 
             </div>
@@ -555,6 +572,22 @@ function ReadOnly({ label, value }) {
 function RemoveBtn({ onClick }) {
   return (
     <button onClick={onClick} className="text-destructive border border-border rounded-md w-7 h-7 text-xs hover:bg-destructive/10">×</button>
+  );
+}
+
+function RelatedList({ items, emptyTitle, emptyHint }) {
+  if (!items?.length) return <Empty title={emptyTitle} hint={emptyHint} />;
+  return (
+    <div className="space-y-2">
+      {items.map(({ rel, target, type }) => (
+        <div key={rel.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
+          <span className="text-sm truncate">
+            <span className="text-xs text-muted-foreground mr-2">{type}</span>
+            {target?.fields?.cached_fullName?.value || target?.fields?.title?.value || target?.fields?.name?.value || target?.recordName || readRef(rel.fields?.target)}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 

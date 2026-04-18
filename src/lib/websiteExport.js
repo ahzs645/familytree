@@ -5,6 +5,7 @@
 import JSZip from 'jszip';
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refToRecordName } from './recordRef.js';
+import { isPublicRecord } from './privacy.js';
 import { personSummary, lifeSpanLabel } from '../models/index.js';
 
 function esc(s) {
@@ -36,10 +37,23 @@ function pageWrap(title, body) {
 
 export async function buildSite() {
   const db = getLocalDatabase();
-  const persons = (await db.query('Person', { limit: 100000 })).records;
-  const families = (await db.query('Family', { limit: 100000 })).records;
-  const childRels = (await db.query('ChildRelation', { limit: 100000 })).records;
-  const personEvents = (await db.query('PersonEvent', { limit: 100000 })).records;
+  const rawPersons = (await db.query('Person', { limit: 100000 })).records;
+  const rawFamilies = (await db.query('Family', { limit: 100000 })).records;
+  const rawChildRels = (await db.query('ChildRelation', { limit: 100000 })).records;
+  const rawPersonEvents = (await db.query('PersonEvent', { limit: 100000 })).records;
+
+  const persons = rawPersons.filter(isPublicRecord);
+  const publicPersonIds = new Set(persons.map((p) => p.recordName));
+  const families = rawFamilies.filter((fam) => isPublicRecord(fam) && familyHasPublicMember(fam, rawChildRels, publicPersonIds));
+  const publicFamilyIds = new Set(families.map((f) => f.recordName));
+  const childRels = rawChildRels.filter((cr) => {
+    const fam = refToRecordName(cr.fields?.family?.value);
+    const ch = refToRecordName(cr.fields?.child?.value);
+    return fam && ch && publicFamilyIds.has(fam) && publicPersonIds.has(ch);
+  });
+  const personEvents = rawPersonEvents.filter((event) => (
+    isPublicRecord(event) && publicPersonIds.has(refToRecordName(event.fields?.person?.value))
+  ));
 
   const personById = new Map(persons.map((p) => [p.recordName, p]));
   const familyById = new Map(families.map((f) => [f.recordName, f]));
@@ -125,6 +139,16 @@ export async function buildSite() {
   }
 
   return zip.generateAsync({ type: 'blob' });
+}
+
+function familyHasPublicMember(family, childRels, publicPersonIds) {
+  const man = refToRecordName(family.fields?.man?.value);
+  const woman = refToRecordName(family.fields?.woman?.value);
+  if ((man && publicPersonIds.has(man)) || (woman && publicPersonIds.has(woman))) return true;
+  return childRels.some((rel) => (
+    refToRecordName(rel.fields?.family?.value) === family.recordName &&
+    publicPersonIds.has(refToRecordName(rel.fields?.child?.value))
+  ));
 }
 
 export async function downloadSite() {

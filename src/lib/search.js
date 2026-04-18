@@ -10,6 +10,7 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { Gender } from '../models/index.js';
+import { FIELD_ALIASES, readConclusionType, readField } from './schema.js';
 
 export const ENTITY_TYPES = [
   { id: 'Person', label: 'Persons' },
@@ -18,6 +19,12 @@ export const ENTITY_TYPES = [
   { id: 'Source', label: 'Sources' },
   { id: 'PersonEvent', label: 'Person Events' },
   { id: 'FamilyEvent', label: 'Family Events' },
+  { id: 'Note', label: 'Notes' },
+  { id: 'ToDo', label: 'ToDos' },
+  { id: 'MediaPicture', label: 'Pictures' },
+  { id: 'SavedChart', label: 'Saved Charts' },
+  { id: 'Scope', label: 'Scopes' },
+  { id: 'ResearchAssistantQuestionInfo', label: 'Research Questions' },
 ];
 
 export const SEARCH_FIELDS = {
@@ -45,24 +52,45 @@ export const SEARCH_FIELDS = {
     { id: 'cached_marriageDate', label: 'Marriage Date', type: 'date' },
   ],
   Place: [
-    { id: 'name', label: 'Name', type: 'text' },
-    { id: 'cached_displayName', label: 'Display Name', type: 'text' },
-    { id: 'geoNameID', label: 'GeoName ID', type: 'text' },
+    { id: 'placeName', label: 'Name', type: 'text', aliases: FIELD_ALIASES.placeName },
+    { id: 'cached_standardizedLocationString', label: 'Display Name', type: 'text', aliases: ['cached_standardizedLocationString', 'cached_displayName', 'cached_normallocationString', 'cached_normalLocationString', 'cached_shortLocationString', 'placeName'] },
+    { id: 'geonameID', label: 'GeoName ID', type: 'text', aliases: FIELD_ALIASES.geonameID },
   ],
   Source: [
-    { id: 'title', label: 'Title', type: 'text' },
-    { id: 'author', label: 'Author', type: 'text' },
+    { id: 'title', label: 'Title', type: 'text', aliases: FIELD_ALIASES.sourceTitle },
+    { id: 'author', label: 'Author', type: 'text', aliases: ['author', 'authorName', 'cached_author'] },
   ],
   PersonEvent: [
-    { id: 'eventType', label: 'Event Type', type: 'text' },
-    { id: 'conclusionType', label: 'Conclusion Type', type: 'text' },
+    { id: 'eventType', label: 'Event Type', type: 'text', aliases: ['eventType', 'conclusionType'] },
+    { id: 'conclusionType', label: 'Conclusion Type', type: 'text', aliases: ['eventType', 'conclusionType'] },
     { id: 'date', label: 'Date', type: 'date' },
-    { id: 'description', label: 'Description', type: 'text' },
+    { id: 'description', label: 'Description', type: 'text', aliases: ['description', 'userDescription', 'userDescription1', 'userDescription2'] },
   ],
   FamilyEvent: [
-    { id: 'eventType', label: 'Event Type', type: 'text' },
+    { id: 'eventType', label: 'Event Type', type: 'text', aliases: ['eventType', 'conclusionType'] },
     { id: 'date', label: 'Date', type: 'date' },
-    { id: 'description', label: 'Description', type: 'text' },
+    { id: 'description', label: 'Description', type: 'text', aliases: ['description', 'userDescription', 'userDescription1', 'userDescription2'] },
+  ],
+  Note: [
+    { id: 'text', label: 'Text', type: 'text', aliases: ['text', 'note', 'title'] },
+  ],
+  ToDo: [
+    { id: 'title', label: 'Title', type: 'text' },
+    { id: 'status', label: 'Status', type: 'text' },
+    { id: 'dueDate', label: 'Due Date', type: 'date' },
+  ],
+  MediaPicture: [
+    { id: 'caption', label: 'Caption', type: 'text', aliases: ['caption', 'title', 'filename'] },
+  ],
+  SavedChart: [
+    { id: 'title', label: 'Title', type: 'text', aliases: ['title', 'name'] },
+  ],
+  Scope: [
+    { id: 'scopeName', label: 'Name', type: 'text', aliases: ['scopeName', 'name'] },
+  ],
+  ResearchAssistantQuestionInfo: [
+    { id: 'infoKey', label: 'Key', type: 'text' },
+    { id: 'infoValue', label: 'Value', type: 'text' },
   ],
 };
 
@@ -73,8 +101,10 @@ export const FILTER_OPS = {
   presence: ['exists', 'missing'],
 };
 
-function fieldValue(record, fieldId) {
-  return record.fields?.[fieldId]?.value;
+function fieldValue(record, filter) {
+  if (filter?.field === 'conclusionType') return readConclusionType(record);
+  const def = SEARCH_FIELDS[record.recordType]?.find((f) => f.id === (filter?.field || filter));
+  return readField(record, def?.aliases || filter?.field || filter);
 }
 
 function matchesText(rawValue, op, target) {
@@ -108,7 +138,7 @@ function matchesDate(rawValue, op, target, target2) {
 }
 
 function matchesFilter(record, filter) {
-  const v = fieldValue(record, filter.field);
+  const v = fieldValue(record, filter);
   switch (filter.op) {
     case 'contains':
     case 'equals':

@@ -3,16 +3,17 @@
  * PersonEvent was `no`/`ro`, FamilyEvent was `oo`/`ao` in the minified code.
  */
 import { BaseRecord } from './BaseRecord.js';
+import { readConclusionType, readField, readRef } from '../lib/schema.js';
 
 export class EventRecord extends BaseRecord {
   /** The event type name (e.g., 'Birth', 'Death', 'Marriage'). */
   eventType() {
-    return this.fieldValue('eventType') || this.fieldValue('conclusionType') || '';
+    return readConclusionType(this.record);
   }
 
   /** The conclusion type name. */
   conclusionType() {
-    return this.fieldValue('conclusionType') || this.eventType();
+    return readConclusionType(this.record);
   }
 
   /** Date string for this event. */
@@ -22,25 +23,22 @@ export class EventRecord extends BaseRecord {
 
   /** Reference to the associated person's record name (for PersonEvents). */
   personRecordName() {
-    const ref = this.fieldValue('person');
-    return ref ? ref.recordName : null;
+    return readRef(this.fieldValue('person'));
   }
 
   /** Reference to the associated family's record name (for FamilyEvents). */
   familyRecordName() {
-    const ref = this.fieldValue('family');
-    return ref ? ref.recordName : null;
+    return readRef(this.fieldValue('family'));
   }
 
   /** Reference to the associated place's record name. */
   placeRecordName() {
-    const ref = this.fieldValue('place') || this.fieldValue('assignedPlace');
-    return ref ? ref.recordName : null;
+    return readRef(this.fieldValue('place') || this.fieldValue('assignedPlace'));
   }
 
   /** User description/notes for this event. */
   description() {
-    return this.fieldValue('description') || this.fieldValue('userDescription') || '';
+    return readField(this.record, ['description', 'userDescription'], '');
   }
 }
 

@@ -8,6 +8,8 @@
  * `ctx` cache built once per run.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { refToRecordName } from './recordRef.js';
+import { FIELD_ALIASES, readField, readRef } from './schema.js';
 
 export const BUILTIN_SCOPES = [
   {
@@ -94,13 +96,21 @@ export const BUILTIN_SCOPES = [
     id: 'places-no-coordinates',
     entityType: 'Place',
     label: 'Places without coordinates',
-    predicate: (r) => !r.fields?.latitude?.value && !r.fields?.longitude?.value,
+    needsCtx: ['placeCoordinateIds'],
+    predicate: (r, ctx) => {
+      const coordinateRef = refToRecordName(r.fields?.coordinate?.value);
+      return (
+        !hasDirectCoordinates(r) &&
+        !(coordinateRef && ctx.coordinateValueIds.has(coordinateRef)) &&
+        !ctx.placeCoordinateIds.has(r.recordName)
+      );
+    },
   },
   {
     id: 'places-no-geoname',
     entityType: 'Place',
     label: 'Places without GeoName ID',
-    predicate: (r) => !r.fields?.geoNameID?.value,
+    predicate: (r) => !readField(r, FIELD_ALIASES.geonameID),
   },
 ];
 
@@ -118,8 +128,8 @@ async function buildCtx(needs) {
     if (needs.includes('parentIds') || needs.includes('marriedIds')) {
       const set = new Set();
       for (const f of families) {
-        const m = f.fields?.man?.value?.recordName;
-        const w = f.fields?.woman?.value?.recordName;
+        const m = readRef(f.fields?.man);
+        const w = readRef(f.fields?.woman);
         if (m) set.add(m);
         if (w) set.add(w);
       }
@@ -131,12 +141,38 @@ async function buildCtx(needs) {
     const { records: rels } = await db.query('ChildRelation', { limit: 100000 });
     const set = new Set();
     for (const r of rels) {
-      const c = r.fields?.child?.value?.recordName;
+      const c = readRef(r.fields?.child);
       if (c) set.add(c);
     }
     ctx.childIds = set;
   }
+  if (needs.includes('placeCoordinateIds')) {
+    const { records: coords } = await db.query('Coordinate', { limit: 100000 });
+    const set = new Set();
+    const coordinateValueIds = new Set();
+    for (const coord of coords) {
+      if (hasCoordinateValues(coord)) coordinateValueIds.add(coord.recordName);
+      const placeId = refToRecordName(coord.fields?.place?.value);
+      if (placeId && hasCoordinateValues(coord)) set.add(placeId);
+    }
+    ctx.placeCoordinateIds = set;
+    ctx.coordinateValueIds = coordinateValueIds;
+  }
   return ctx;
+}
+
+function hasDirectCoordinates(record) {
+  return hasCoordValue(record.fields?.latitude?.value) && hasCoordValue(record.fields?.longitude?.value);
+}
+
+function hasCoordinateValues(record) {
+  return hasCoordValue(record.fields?.latitude?.value) && hasCoordValue(record.fields?.longitude?.value);
+}
+
+function hasCoordValue(value) {
+  if (value == null || value === '') return false;
+  if (typeof value === 'number') return Number.isFinite(value);
+  return Number.isFinite(parseFloat(value));
 }
 
 export async function runScope(scopeId) {
