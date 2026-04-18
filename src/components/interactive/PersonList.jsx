@@ -74,13 +74,15 @@ const shell = { display: 'flex', flexDirection: 'column', height: '100%', border
 const searchBar = { padding: 10, borderBottom: '1px solid hsl(var(--border))' };
 const search = {
   width: '100%',
+  height: 40,
   background: 'hsl(var(--background))',
   color: 'hsl(var(--foreground))',
   border: '1px solid hsl(var(--border))',
   borderRadius: 6,
-  padding: '7px 10px',
-  font: '13px -apple-system, system-ui, sans-serif',
+  padding: '0 12px',
+  font: '14px -apple-system, system-ui, sans-serif',
   outline: 'none',
+  boxSizing: 'border-box',
 };
 const list = { flex: 1, overflow: 'auto' };
 const sectionHeader = {

@@ -17,6 +17,18 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { extractMFTPKGDataset } from './mftpkgExtractor.js';
+import { analyzeGedcomText, importGedcomText } from './gedcomImport.js';
+import {
+  LEGACY_MFT_BINARY_MESSAGE,
+  asciiHeader,
+  decodeGedcomBytes,
+  fileExtension,
+  findGedcomEntryInZip,
+  isGedcomFileName,
+  isSQLiteBytes,
+  isZipBytes,
+  looksLikeGedcomText,
+} from './genealogyFileFormats.js';
 
 // sql.js is loaded dynamically on first use.
 // Both sql-wasm.js and sql-wasm.wasm are served from public/ — fully local, no CDN.
@@ -58,10 +70,21 @@ export class MFTPKGImporter {
     this._progress('loading', 0, 1);
 
     const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
+    return this.importFromBytes(new Uint8Array(arrayBuffer), file.name || 'browser-import');
+  }
+
+  async importFromPackageDirectory({ databaseFile, sourceName = 'MacFamilyTree package', resourceFiles = [] }) {
+    this._progress('loading', 0, 1);
+    const uint8Array = new Uint8Array(await databaseFile.arrayBuffer());
+    if (!isSQLiteBytes(uint8Array)) throw new Error('The selected package database is not a SQLite MacFamilyTree database.');
+    return this._openSQLiteAndImport(uint8Array, sourceName, resourceFiles);
+  }
+
+  async importFromBytes(uint8Array, sourceName = 'browser-import') {
+    const ext = fileExtension(sourceName);
 
     // Check if it's a JSON file first
-    if (file.name.endsWith('.json') || uint8Array[0] === 0x7B /* { */) {
+    if (ext === '.json' || uint8Array[0] === 0x7B /* { */) {
       try {
         const text = new TextDecoder().decode(uint8Array);
         const data = JSON.parse(text);
@@ -74,19 +97,23 @@ export class MFTPKGImporter {
     }
 
     // Check for SQLite magic bytes: "SQLite format 3\0"
-    const header = new TextDecoder().decode(uint8Array.slice(0, 64));
+    const header = asciiHeader(uint8Array);
+
+    if (isGedcomFileName(sourceName) || looksLikeGedcomText(header)) {
+      return this._importGedcomBytes(uint8Array, sourceName);
+    }
 
     // If it's a ZIP (macOS zips .mftpkg packages on drag), extract the database file from it
-    if (uint8Array[0] === 0x50 && uint8Array[1] === 0x4B) { // "PK" = ZIP
+    if (isZipBytes(uint8Array)) {
       this._progress('extracting', 0, 1);
       const JSZip = (await import('jszip')).default;
-      const zip = await JSZip.loadAsync(arrayBuffer);
+      const zip = await JSZip.loadAsync(uint8Array);
 
       // Find the 'database' file inside the ZIP
       let dbEntry = null;
       const resourceEntries = [];
       zip.forEach((path, entry) => {
-        if (!entry.dir && path.endsWith('/database')) {
+        if (!entry.dir && (path.endsWith('/database') || path === 'database')) {
           dbEntry = entry;
         } else if (!entry.dir && path.includes('/resources/')) {
           resourceEntries.push({ path, entry });
@@ -99,11 +126,14 @@ export class MFTPKGImporter {
       }
 
       if (!dbEntry) {
+        const gedEntry = await findGedcomEntryInZip(zip);
+        if (gedEntry) {
+          const gedBytes = await gedEntry.async('uint8array');
+          return this._importGedcomBytes(gedBytes, `${sourceName}:${gedEntry.name}`, { format: 'gedzip' });
+        }
         const files = [];
         zip.forEach((path) => files.push(path));
-        throw new Error(
-          'ZIP does not contain a "database" file. Found: ' + files.slice(0, 10).join(', ')
-        );
+        throw new Error('ZIP/GedZip does not contain a MacFamilyTree database or GEDCOM file. Found: ' + files.slice(0, 10).join(', '));
       }
 
       console.log('[MFTPKGImporter] Extracted database from ZIP:', dbEntry.name);
@@ -115,28 +145,50 @@ export class MFTPKGImporter {
       const SQL = await getSqlJs();
       const db = new SQL.Database(dbBuffer);
       try {
-        return await this._extractAndImport(db, file.name.replace('.zip', ''), resourceFiles);
+        return await this._extractAndImport(db, sourceName.replace(/\.zip$/i, ''), resourceFiles);
       } finally {
         db.close();
       }
     }
 
-    if (!header.startsWith('SQLite format 3')) {
-      throw new Error(
-        'Not a recognized file format. ' +
-        'Drag your .mftpkg file, the "database" file from inside it, or a .json export.'
-      );
+    if (!isSQLiteBytes(uint8Array)) {
+      if (ext === '.mft') throw new Error(LEGACY_MFT_BINARY_MESSAGE);
+      throw new Error('Not a recognized file format. Import .mftpkg, .mftsql, SQLite database, GEDCOM, UTF GEDCOM, GedZip .zip, or .json export files.');
     }
 
+    return this._openSQLiteAndImport(uint8Array, sourceName);
+  }
+
+  async _openSQLiteAndImport(uint8Array, sourceName, resourceFiles = []) {
     this._progress('parsing', 0, 1);
     const SQL = await getSqlJs();
     const db = new SQL.Database(uint8Array);
 
     try {
-      return await this._extractAndImport(db, file.name);
+      return await this._extractAndImport(db, sourceName, resourceFiles);
     } finally {
       db.close();
     }
+  }
+
+  async _importGedcomBytes(uint8Array, sourceName, { format = null } = {}) {
+    this._progress('parsing', 0, 1);
+    const text = decodeGedcomBytes(uint8Array, sourceName);
+    const analysis = analyzeGedcomText(text);
+    if (!analysis.canImport) {
+      const firstError = analysis.issues.find((item) => item.severity === 'error');
+      throw new Error(`GEDCOM has blocking syntax errors${firstError ? `: ${firstError.message}` : ''}`);
+    }
+    this._progress('importing', 0, 1);
+    const total = await importGedcomText(text, { replace: true, sourceName });
+    this._progress('done', total, total);
+    return {
+      total,
+      source: 'gedcom',
+      format: format || fileExtension(sourceName).replace('.', '') || 'gedcom',
+      counts: analysis.counts,
+      warnings: analysis.issues.filter((item) => item.severity !== 'error').map((item) => item.message),
+    };
   }
 
   /**

@@ -6,10 +6,15 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
+import { normalizeConclusionTypeId, PERSON_EVENT_TYPES } from '../../lib/catalogs.js';
 import { MiniTimeline } from '../MiniTimeline.jsx';
 
 function humanizeConclusionLabel(raw) {
   if (!raw) return 'Event';
+  const normalizedId = normalizeConclusionTypeId(raw);
+  const catalogLabel = PERSON_EVENT_TYPES.find((type) => type.id === normalizedId)?.label;
+  if (catalogLabel) return catalogLabel;
+
   // "UniqueID_PersonEvent_Birth---ConclusionPersonEventType" → "Birth"
   // "person-1234---Person" → ignored, use as-is
   const stripped = String(raw).replace(/---.*$/, '');

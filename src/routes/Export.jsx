@@ -7,6 +7,7 @@ import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { listAllPersons, findStartPerson } from '../lib/treeQuery.js';
 import { downloadGedcom } from '../lib/gedcomExport.js';
 import { analyzeGedcomText, importGedcomText } from '../lib/gedcomImport.js';
+import { GEDCOM_ACCEPT, readGedcomTextFromFile } from '../lib/genealogyFileFormats.js';
 import { downloadBackup } from '../lib/backup.js';
 import { analyzeBackupMergeJSON, mergeBackupJSON } from '../lib/mergeImport.js';
 import { downloadSubtreeBackup, removeSubtree } from '../lib/subtree.js';
@@ -62,12 +63,12 @@ export default function Export() {
   const onGedFile = async (file) => {
     if (!file) return;
     setBusy(true);
-    setStatus('Reviewing GEDCOM…');
+    setStatus('Reviewing GEDCOM/GedZip…');
     try {
-      const text = await file.text();
+      const { text, sourceName, format } = await readGedcomTextFromFile(file);
       const analysis = analyzeGedcomText(text);
       setGedIssues(analysis);
-      setPendingGedcom({ fileName: file.name, text, analysis });
+      setPendingGedcom({ fileName: sourceName || file.name, format, text, analysis });
       setStatus(analysis.canImport ? 'GEDCOM ready for review.' : 'GEDCOM has blocking syntax errors.');
     } catch (e) {
       setStatus(`GEDCOM review failed: ${e.message}`);
@@ -78,7 +79,7 @@ export default function Export() {
   const onConfirmGedImport = wrap('Importing GEDCOM…', async () => {
     if (!pendingGedcom) return 'Choose a GEDCOM file first.';
     if (!pendingGedcom.analysis.canImport) return 'GEDCOM has blocking syntax errors. Review issues before importing.';
-    const n = await importGedcomText(pendingGedcom.text);
+    const n = await importGedcomText(pendingGedcom.text, { sourceName: pendingGedcom.fileName });
     await refresh();
     setPendingGedcom(null);
     if (gedRef.current) gedRef.current.value = '';
@@ -139,17 +140,18 @@ export default function Export() {
           <button onClick={wrap('Building GEDCOM…', downloadGedcom)} disabled={busy} className={btn}>Download .ged</button>
         </Card>
 
-        <Card title="GEDCOM import" description="Merge a .ged file from another tool. Records are added (no de-duplication).">
-          <input ref={gedRef} type="file" accept=".ged,text/plain" className="hidden"
+        <Card title="GEDCOM / GedZip import" description="Merge .ged, .uged, .uged16, or GedZip .zip files from another tool. Records are added with new local IDs.">
+          <input ref={gedRef} type="file" accept={GEDCOM_ACCEPT} className="hidden"
             onChange={(e) => onGedFile(e.target.files?.[0])} />
           <button onClick={() => gedRef.current?.click()} disabled={busy} className={btnSecondary}>
-            Choose .ged file…
+            Choose GEDCOM or GedZip…
           </button>
           {(gedIssues || pendingGedcom) && (
             <div className="mt-4 rounded-md border border-border bg-background p-3 text-xs">
               <div className="font-semibold mb-1">GEDCOM review</div>
               <div className="text-muted-foreground mb-2">
                 {pendingGedcom?.fileName && <span className="text-foreground">{pendingGedcom.fileName} · </span>}
+                {pendingGedcom?.format && <span>{pendingGedcom.format} · </span>}
                 {gedIssues.counts.INDI} persons · {gedIssues.counts.FAM} families · {gedIssues.counts.SOUR} sources · {gedIssues.issues.length} issue(s)
               </div>
               <div className="text-muted-foreground mb-2">

@@ -21,7 +21,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
-import { readRef } from '../lib/schema.js';
+import { readConclusionType, readRef } from '../lib/schema.js';
 import { Gender, lifeSpanLabel } from '../models/index.js';
 import { buildPersonContext } from '../lib/personContext.js';
 import {
@@ -32,6 +32,8 @@ import {
   LABELS,
   REFERENCE_NUMBER_FIELDS,
   formatTimestamp,
+  labelForCatalogType,
+  normalizeConclusionTypeId,
 } from '../lib/catalogs.js';
 import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
@@ -132,12 +134,12 @@ export default function PersonEditor() {
 
     setAdditionalNames(an.records.map((a) => ({
       recordName: a.recordName,
-      type: refToRecordName(a.fields?.conclusionType?.value) || a.fields?.type?.value || '',
+      type: normalizeConclusionTypeId(refToRecordName(a.fields?.conclusionType?.value) || a.fields?.type?.value || ''),
       value: a.fields?.name?.value || a.fields?.value?.value || '',
     })));
     setFacts(fact.records.map((f) => ({
       recordName: f.recordName,
-      type: refToRecordName(f.fields?.conclusionType?.value) || '',
+      type: normalizeConclusionTypeId(refToRecordName(f.fields?.conclusionType?.value) || ''),
       value: f.fields?.description?.value || '',
       date: f.fields?.date?.value || '',
     })));
@@ -376,8 +378,8 @@ export default function PersonEditor() {
                 ) : (
                   <div className="space-y-2">
                     {events.map((e) => {
-                      const typeId = refToRecordName(e.fields?.conclusionType?.value) || e.fields?.eventType?.value || '';
-                      const label = PERSON_EVENT_TYPES.find((t) => t.id === typeId)?.label || typeId || 'Event';
+                      const rawType = e.fields?.conclusionType?.value || e.fields?.eventType?.value || '';
+                      const label = labelForCatalogType(PERSON_EVENT_TYPES, rawType, readConclusionType(e) || 'Event');
                       const date = e.fields?.date?.value || '';
                       return (
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
@@ -405,7 +407,7 @@ export default function PersonEditor() {
                 {facts.length === 0 ? (
                   <Empty title="No facts" hint="Use the menu above to add one." />
                 ) : facts.map((it, i) => {
-                  const label = PERSON_FACT_TYPES.find((t) => t.id === it.type)?.label || it.type;
+                  const label = labelForCatalogType(PERSON_FACT_TYPES, it.type, it.type || 'Fact');
                   return (
                     <div key={it.recordName || i} className="flex flex-wrap gap-2 mb-2 items-center">
                       <span className="text-xs font-medium w-[140px] shrink-0">{label}</span>

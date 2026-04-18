@@ -2,6 +2,8 @@
 
 This backlog tracks MacFamilyTree 11 feature gaps that should be brought into the web app. The current pass starts with narrow correctness fixes for existing features; larger desktop-grade workflows are listed here for follow-up implementation.
 
+Detailed bundle audit: [MacFamilyTree 11 Bundle Audit](./macfamilytree-11-bundle-audit.md).
+
 ## Scope
 
 - Include MacFamilyTree desktop parity work that can run locally in the browser or through ordinary web integrations.
@@ -42,6 +44,8 @@ This backlog tracks MacFamilyTree 11 feature gaps that should be brought into th
 - [ ] Native document/file lifecycle equivalents
   - [ ] Expand import/open coverage beyond current `.mftpkg`, inner `database`, JSON, and GEDCOM subset flows.
   - [ ] Add `.uged`, `.uged16`, GedZip, and richer `.mftsql`/`.mft` handling where practical.
+  - [ ] Add package round-trip/export for `.mftpkg`-style database plus resources, thumbnails, and metadata.
+  - [ ] Add GEDCOM media-folder association and explicit encoding selection during import.
   - [ ] Add clearer tree picker/create/rename/delete workflows for local trees.
 - [ ] Publishing target depth
   - [ ] Add FTP/SFTP publishing option for website exports.
@@ -100,6 +104,17 @@ This backlog tracks MacFamilyTree 11 feature gaps that should be brought into th
 - Replace purely heuristic suggestions with persisted research questions and completion state.
 - Surface research context, question rows, answer/completion dates, and per-person completed-question masks.
 - Add options for question generation, filtering, and ToDo creation from research questions.
+
+## DNA Detail
+
+- Add dedicated ATDNA, MTDNA, and YDNA detail views.
+- Track imported raw-data file references, MTDNA SNP differences, and YDNA Y-STR markers.
+- Add export/report coverage for DNA test summaries.
+
+## Localization
+
+- Add a string catalog layer if multi-language UI becomes a product goal.
+- Keep imported localized MacFamilyTree data labels distinct from application UI translations.
 
 ## Current Implementation Fixes
 

@@ -6,6 +6,7 @@ import { buildPersonContext } from '../lib/personContext.js';
 import { downloadRowsAsCsv, downloadRowsAsJson } from '../lib/listExport.js';
 import { loadPersonRows } from '../lib/listData.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
+import { Select } from '../components/ui/Select.jsx';
 
 const EXPORT_COLUMNS = [
   { key: 'fullName', label: 'Name' },
@@ -101,6 +102,19 @@ export default function Persons() {
 
   const controlClass = 'h-10 rounded-md border border-border bg-secondary text-foreground text-sm px-3 outline-none focus:border-primary';
 
+  const filterOptions = [
+    { value: 'all', label: 'All persons' },
+    { value: 'bookmarked', label: 'Bookmarked' },
+    { value: 'start', label: 'Start person' },
+    { value: 'missing-birth', label: 'Missing birth date' },
+    { value: 'missing-death', label: 'Missing death date' },
+  ];
+  const sortOptions = [
+    { value: 'name', label: 'Sort: Name' },
+    { value: 'birth', label: 'Sort: Birth year' },
+    { value: 'death', label: 'Sort: Death year' },
+  ];
+
   return (
     <div className="flex flex-col h-full">
       <header className="border-b border-border bg-card px-4 md:px-5 py-3">
@@ -119,31 +133,23 @@ export default function Persons() {
         </div>
         <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center md:gap-3">
           <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-filter">Filter</label>
-          <select
+          <Select
             id="persons-filter"
             value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            className={`${controlClass} w-full md:w-auto`}
-            aria-label="Filter persons"
-          >
-            <option value="all">All persons</option>
-            <option value="bookmarked">Bookmarked</option>
-            <option value="start">Start person</option>
-            <option value="missing-birth">Missing birth date</option>
-            <option value="missing-death">Missing death date</option>
-          </select>
+            onChange={setFilter}
+            options={filterOptions}
+            ariaLabel="Filter persons"
+            className="w-full md:w-48"
+          />
           <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-sort">Sort</label>
-          <select
+          <Select
             id="persons-sort"
             value={sortKey}
-            onChange={(event) => setSortKey(event.target.value)}
-            className={`${controlClass} w-full md:w-auto`}
-            aria-label="Sort persons"
-          >
-            <option value="name">Sort: Name</option>
-            <option value="birth">Sort: Birth year</option>
-            <option value="death">Sort: Death year</option>
-          </select>
+            onChange={setSortKey}
+            options={sortOptions}
+            ariaLabel="Sort persons"
+            className="w-full md:w-48"
+          />
         </div>
       </header>
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { labelForCatalogType, normalizeConclusionTypeId, PERSON_EVENT_TYPES } from './catalogs.js';
 import { readConclusionType, readField, readLabel, readRef, refType, replaceRefValue, writeRef } from './schema.js';
 
 describe('schema compatibility helpers', () => {
@@ -32,5 +33,10 @@ describe('schema compatibility helpers', () => {
   it('humanizes imported conclusion type references and string types', () => {
     expect(readConclusionType({ fields: { eventType: { value: 'Birth' } } })).toBe('Birth');
     expect(readConclusionType({ fields: { conclusionType: { value: 'UniqueID_PersonEvent_Birth---ConclusionPersonEventType', type: 'REFERENCE' } } })).toBe('Birth');
+  });
+
+  it('normalizes imported conclusion ids before catalog label lookup', () => {
+    expect(normalizeConclusionTypeId('UniqueID_PersonEvent_Education---ConclusionPersonEventType')).toBe('Education');
+    expect(labelForCatalogType(PERSON_EVENT_TYPES, 'UniqueID_PersonEvent_Education---ConclusionPersonEventType')).toBe('Formal Education');
   });
 });

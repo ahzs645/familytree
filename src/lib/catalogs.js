@@ -218,6 +218,28 @@ export function groupedTypeOptions(types) {
   return { common, rest };
 }
 
+export function normalizeConclusionTypeId(raw) {
+  if (raw == null) return '';
+  const value = typeof raw === 'object' && Object.prototype.hasOwnProperty.call(raw, 'value')
+    ? raw.value
+    : raw;
+  const head = String(value).split('---')[0].trim();
+  if (!head) return '';
+
+  const uniqueMatch = head.match(/^UniqueID_(?:PersonEvent|FamilyEvent|PersonFact|AdditionalName)_(.+)$/);
+  if (uniqueMatch) return uniqueMatch[1];
+
+  const conclusionMatch = head.match(/^Conclusion(?:Person|Family)?(?:Event|Fact|AdditionalName)?Type_?(.+)$/);
+  if (conclusionMatch) return conclusionMatch[1];
+
+  return head;
+}
+
+export function labelForCatalogType(types, raw, fallback = '') {
+  const id = normalizeConclusionTypeId(raw);
+  return types.find((t) => t.id === id)?.label || fallback || id;
+}
+
 /** Format an ISO date for the "Last Edited" display. */
 export function formatTimestamp(v) {
   if (!v) return '—';

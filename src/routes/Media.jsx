@@ -7,7 +7,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordDeleted } from '../lib/changeLog.js';
 import { readRef } from '../lib/schema.js';
-import { matchMediaFiles } from '../lib/mediaFolderMatch.js';
+import { createMediaRecordsFromFiles, createMediaURLRecord, matchMediaFiles } from '../lib/mediaFolderMatch.js';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.jsx';
 
@@ -55,6 +55,7 @@ export default function Media() {
   const [relatedMediaIds, setRelatedMediaIds] = useState(null);
   const [subject, setSubject] = useState(null);
   const folderRef = React.useRef(null);
+  const addFilesRef = React.useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -158,6 +159,35 @@ export default function Media() {
     }
   }, [reload]);
 
+  const onAddFiles = useCallback(async (files) => {
+    if (!files?.length) return;
+    setStatus('Adding media files…');
+    try {
+      const result = await createMediaRecordsFromFiles([...files]);
+      await reload();
+      setActiveId(result.records[0]?.recordName || null);
+      setStatus(`Added ${result.created.toLocaleString()} media record${result.created === 1 ? '' : 's'}.`);
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      if (addFilesRef.current) addFilesRef.current.value = '';
+    }
+  }, [reload]);
+
+  const onAddURL = useCallback(async () => {
+    const url = prompt('Media URL:');
+    if (!url) return;
+    setStatus('Adding URL…');
+    try {
+      const record = await createMediaURLRecord(url);
+      await reload();
+      setActiveId(record.recordName);
+      setStatus('Added URL media record.');
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }, [reload]);
+
   const filtered = useMemo(() => {
     const byType = filter === 'all' ? media : media.filter((m) => m.recordType === filter);
     if (!relatedMediaIds) return byType;
@@ -213,12 +243,22 @@ export default function Media() {
           {filtered.length} item{filtered.length === 1 ? '' : 's'}
         </span>
         <input ref={folderRef} type="file" multiple webkitdirectory="" className="hidden" onChange={(e) => onMatchFolder(e.target.files)} />
+        <input
+          ref={addFilesRef}
+          type="file"
+          multiple
+          accept="image/*,application/pdf,audio/*,video/*"
+          className="hidden"
+          onChange={(e) => onAddFiles(e.target.files)}
+        />
         {targetId && (
           <button onClick={clearSubject} style={select}>Clear subject</button>
         )}
         <button onClick={() => setMode(readOnlyGallery ? 'editor' : 'gallery')} style={select}>
           {readOnlyGallery ? 'Edit records' : 'Gallery report'}
         </button>
+        {!readOnlyGallery && <button onClick={() => addFilesRef.current?.click()} style={select}>Add files</button>}
+        {!readOnlyGallery && <button onClick={onAddURL} style={select}>Add URL</button>}
         {!readOnlyGallery && <button onClick={() => folderRef.current?.click()} style={select}>Match media folder</button>}
       </header>
 

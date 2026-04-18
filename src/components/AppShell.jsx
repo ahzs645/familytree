@@ -250,8 +250,9 @@ export function AppShell() {
           />
           <button
             onClick={toggle}
-            className="rounded-md border border-border bg-secondary text-secondary-foreground hover:bg-accent w-9 h-9 md:w-auto md:h-auto md:px-2 md:py-1 text-sm md:text-xs"
+            className="rounded-md border border-border bg-secondary text-secondary-foreground hover:bg-accent flex items-center justify-center w-10 h-10 md:w-9 md:h-9 text-sm md:text-xs"
             title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
             {theme === 'dark' ? '☀︎' : '☾'}
           </button>

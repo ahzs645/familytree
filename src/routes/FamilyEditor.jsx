@@ -12,7 +12,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
-import { readRef } from '../lib/schema.js';
+import { readConclusionType, readRef } from '../lib/schema.js';
 import { listAllPersons } from '../lib/treeQuery.js';
 import { personSummary, familySummary, lifeSpanLabel } from '../models/index.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
@@ -26,6 +26,7 @@ import {
   LABELS,
   REFERENCE_NUMBER_FIELDS,
   formatTimestamp,
+  labelForCatalogType,
 } from '../lib/catalogs.js';
 
 function uuid(p) {
@@ -391,8 +392,8 @@ export default function FamilyEditor() {
                 ) : (
                   <div className="mt-3 space-y-2">
                     {events.map((e) => {
-                      const typeId = refToRecordName(e.fields?.conclusionType?.value) || '';
-                      const label = FAMILY_EVENT_TYPES.find((t) => t.id === typeId)?.label || typeId || 'Event';
+                      const rawType = e.fields?.conclusionType?.value || e.fields?.eventType?.value || '';
+                      const label = labelForCatalogType(FAMILY_EVENT_TYPES, rawType, readConclusionType(e) || 'Event');
                       const date = e.fields?.date?.value || '';
                       return (
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">

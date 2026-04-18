@@ -190,6 +190,28 @@ export function analyzeGedcomText(text) {
   };
 }
 
+export function buildGedcomDataset(text, { sourceName = 'GEDCOM import' } = {}) {
+  const records = parseGedcom(text);
+  const recordMap = Object.fromEntries(records.map((record) => [record.recordName, record]));
+  const counts = records.reduce((acc, record) => {
+    acc[record.recordType] = (acc[record.recordType] || 0) + 1;
+    return acc;
+  }, {});
+  const analysis = analyzeGedcomText(text);
+  return {
+    records: recordMap,
+    assets: [],
+    counts,
+    treeName: sourceName.replace(/\.(ged|uged|uged16|gedcom)$/i, '') || 'GEDCOM import',
+    meta: {
+      sourceName,
+      importFormat: 'gedcom',
+      importedAt: new Date().toISOString(),
+      gedcom: analysis,
+    },
+  };
+}
+
 function stubPerson(id, indi) {
   const fields = {};
   const name = child(indi, 'NAME')?.value || '';
@@ -222,9 +244,13 @@ function stubSource(id, sour) {
   return { recordName: id, recordType: 'Source', fields };
 }
 
-export async function importGedcomText(text) {
-  const records = parseGedcom(text);
+export async function importGedcomText(text, { replace = false, sourceName = 'GEDCOM import' } = {}) {
   const db = getLocalDatabase();
+  if (replace) {
+    const dataset = buildGedcomDataset(text, { sourceName });
+    return db.importDataset(dataset);
+  }
+  const records = parseGedcom(text);
   for (const r of records) await db.saveRecord(r);
   return records.length;
 }
