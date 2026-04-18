@@ -3,6 +3,7 @@
  * Groups persons alphabetically by last-name initial. Supports search filtering.
  */
 import React, { useMemo, useState } from 'react';
+import { lifeSpanLabel } from '../../models/index.js';
 
 export function PersonList({ persons, activeId, onPick }) {
   const [query, setQuery] = useState('');
@@ -54,7 +55,7 @@ export function PersonList({ persons, activeId, onPick }) {
                 <div style={{ color: 'hsl(var(--foreground))', fontSize: 13 }}>{p.fullName}</div>
                 {(p.birthDate || p.deathDate) && (
                   <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
-                    {(p.birthDate || '?').slice(0, 4)} – {(p.deathDate || '').slice(0, 4)}
+                    {lifeSpanLabel(p)}
                   </div>
                 )}
               </div>

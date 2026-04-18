@@ -2,6 +2,7 @@
  * Searchable dropdown for picking the chart's start person.
  */
 import React, { useState, useMemo } from 'react';
+import { lifeSpanLabel } from '../../models/index.js';
 
 export function PersonPicker({ persons, value, onChange }) {
   const [query, setQuery] = useState('');
@@ -58,7 +59,7 @@ export function PersonPicker({ persons, value, onChange }) {
                 <div style={{ color: 'hsl(var(--foreground))', fontSize: 14 }}>{p.fullName}</div>
                 {(p.birthDate || p.deathDate) && (
                   <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
-                    {(p.birthDate || '?').slice(0, 4)} – {(p.deathDate || '').slice(0, 4)}
+                    {lifeSpanLabel(p)}
                   </div>
                 )}
               </div>

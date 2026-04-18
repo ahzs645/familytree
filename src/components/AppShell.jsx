@@ -3,30 +3,42 @@
  * the dark/light toggle drives the chrome.
  */
 import React, { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { cn } from '../lib/utils.js';
 
 const PRIMARY_LINKS = [
   { to: '/', label: 'Home', end: true },
+  { to: '/persons', label: 'Persons' },
   { to: '/tree', label: 'Tree' },
   { to: '/charts', label: 'Charts' },
-  { to: '/map', label: 'Map' },
+  { to: '/views', label: 'Views', aliases: ['/map', '/globe', '/maps-diagram', '/statistic-maps', '/media', '/quiz'] },
+  { to: '/lists', label: 'Lists' },
   { to: '/places', label: 'Places' },
   { to: '/sources', label: 'Sources' },
   { to: '/events', label: 'Events' },
-  { to: '/media', label: 'Media' },
   { to: '/search', label: 'Search' },
+  { to: '/publish', label: 'Publish', aliases: ['/websites', '/books'] },
   { to: '/statistics', label: 'Stats' },
 ];
 
 const MORE_LINKS = [
   { to: '/saved-charts', label: 'Saved charts' },
-  { to: '/globe', label: 'Globe' },
-  { to: '/maps-diagram', label: 'Maps diagram' },
+  { to: '/map', label: 'Virtual Map' },
+  { to: '/globe', label: 'Virtual Globe' },
+  { to: '/maps-diagram', label: 'Statistic Maps' },
+  { to: '/media', label: 'Media Gallery' },
   { to: '/reports', label: 'Reports' },
+  { to: '/marriages', label: 'Marriage list' },
+  { to: '/facts', label: 'Facts list' },
+  { to: '/anniversaries', label: 'Anniversary list' },
+  { to: '/plausibility-list', label: 'Plausibility list' },
+  { to: '/distinctive-persons', label: 'Distinctive persons' },
+  { to: '/person-analysis', label: 'Person analysis' },
+  { to: '/lds-ordinances', label: 'LDS ordinances' },
   { to: '/books', label: 'Books' },
+  { to: '/websites', label: 'Websites' },
   { to: '/todos', label: 'ToDos' },
   { to: '/bookmarks', label: 'Bookmarks' },
   { to: '/change-log', label: 'Change log' },
@@ -41,7 +53,7 @@ const MORE_LINKS = [
   { to: '/world-history', label: 'World history' },
   { to: '/templates', label: 'Templates' },
   { to: '/labels', label: 'Labels' },
-  { to: '/quiz', label: 'Quiz' },
+  { to: '/quiz', label: 'Family Quiz' },
   { to: '/maintenance', label: 'Maintenance' },
   { to: '/backup', label: 'Backup' },
   { to: '/export', label: 'Import & export' },
@@ -50,6 +62,7 @@ const MORE_LINKS = [
 function MoreMenu() {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const location = useLocation();
 
   useEffect(() => {
     if (!open) return;
@@ -94,7 +107,7 @@ function MoreMenu() {
               className={({ isActive }) =>
                 cn(
                   'block px-3 py-1.5 text-xs whitespace-nowrap',
-                  isActive
+                  isActive || location.pathname === l.to
                     ? 'bg-accent text-foreground'
                     : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                 )
@@ -112,6 +125,7 @@ function MoreMenu() {
 export function AppShell() {
   const { hasData, summary, loading } = useDatabaseStatus();
   const { theme, toggle } = useTheme();
+  const location = useLocation();
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
@@ -123,14 +137,15 @@ export function AppShell() {
               key={l.to}
               to={l.to}
               end={l.end}
-              className={({ isActive }) =>
-                cn(
+              className={({ isActive }) => {
+                const active = isActive || l.aliases?.some((alias) => location.pathname === alias || location.pathname.startsWith(`${alias}/`));
+                return cn(
                   'px-3 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors',
-                  isActive
+                  active
                     ? 'text-foreground border-primary'
                     : 'text-muted-foreground border-transparent hover:text-foreground'
-                )
-              }
+                );
+              }}
             >
               {l.label}
             </NavLink>

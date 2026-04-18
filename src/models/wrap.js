@@ -11,6 +11,7 @@ import { PlaceRecord } from './PlaceRecord.js';
 import { SourceRecord } from './SourceRecord.js';
 import { PersonEventRecord, FamilyEventRecord } from './EventRecord.js';
 import { Gender } from './constants.js';
+import { parseEventDate } from '../utils/formatDate.js';
 
 const TYPE_TO_CLASS = {
   Person: PersonRecord,
@@ -89,10 +90,15 @@ export function sourceSummary(input) {
 
 export function lifeSpanLabel(summary) {
   if (!summary) return '';
-  const b = (summary.birthDate || '').slice(0, 4);
-  const d = (summary.deathDate || '').slice(0, 4);
+  const b = yearLabel(summary.birthDate);
+  const d = yearLabel(summary.deathDate);
   if (!b && !d) return '';
   return `${b || '?'} – ${d || ''}`.trim();
+}
+
+function yearLabel(raw) {
+  const parsed = parseEventDate(raw);
+  return parsed?.year == null ? '' : String(parsed.year);
 }
 
 export { Gender };

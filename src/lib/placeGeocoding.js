@@ -3,20 +3,48 @@ import { refValue } from './recordRef.js';
 import { readField, readRef } from './schema.js';
 
 const MAP_PREFS_KEY = 'mapPreferences';
+export const MAP_PREFERENCES_EVENT = 'cloudtreeweb:map-preferences-changed';
+
+export const DEFAULT_MAP_PREFERENCES = {
+  provider: 'nominatim',
+  defaultZoom: 9,
+  batchLimit: 10,
+  basemap: 'auto',
+  showLabels: true,
+  markerClustering: true,
+};
+
+function normalizeMapPreferences(prefs = {}) {
+  const next = { ...DEFAULT_MAP_PREFERENCES, ...prefs };
+  next.defaultZoom = clampNumber(next.defaultZoom, 1, 18, DEFAULT_MAP_PREFERENCES.defaultZoom);
+  next.batchLimit = clampNumber(next.batchLimit, 1, 50, DEFAULT_MAP_PREFERENCES.batchLimit);
+  next.basemap = ['auto', 'positron', 'voyager', 'dark'].includes(next.basemap) ? next.basemap : DEFAULT_MAP_PREFERENCES.basemap;
+  next.showLabels = next.showLabels !== false;
+  next.markerClustering = next.markerClustering !== false;
+  return next;
+}
+
+function clampNumber(value, min, max, fallback) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function announceMapPreferences(prefs) {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(MAP_PREFERENCES_EVENT, { detail: prefs }));
+}
 
 export async function getMapPreferences() {
   const db = getLocalDatabase();
-  return (await db.getMeta(MAP_PREFS_KEY)) || {
-    provider: 'nominatim',
-    defaultZoom: 9,
-    batchLimit: 10,
-  };
+  return normalizeMapPreferences(await db.getMeta(MAP_PREFS_KEY));
 }
 
 export async function saveMapPreferences(prefs) {
   const db = getLocalDatabase();
-  const next = { ...(await getMapPreferences()), ...prefs };
+  const next = normalizeMapPreferences({ ...(await getMapPreferences()), ...prefs });
   await db.setMeta(MAP_PREFS_KEY, next);
+  announceMapPreferences(next);
   return next;
 }
 

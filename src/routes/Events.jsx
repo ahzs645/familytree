@@ -3,6 +3,7 @@
  * date, place, and description. Create new events or delete existing ones.
  */
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
@@ -22,6 +23,7 @@ const KIND_OPTIONS = [
 ];
 
 export default function Events() {
+  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [types, setTypes] = useState({ Person: [], Family: [] });
   const [persons, setPersons] = useState([]);
@@ -200,6 +202,12 @@ export default function Events() {
         </h2>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           {status && <span style={{ color: '#4ade80', fontSize: 12 }}>{status}</span>}
+          <button
+            onClick={() => navigate(`/views/media-gallery?targetId=${encodeURIComponent(active.recordName)}&targetType=${active.recordType}`)}
+            style={smallBtn}
+          >
+            Related media
+          </button>
           <button onClick={onDelete} style={deleteBtn}>Delete</button>
           <button onClick={onSave} disabled={saving} style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
         </div>

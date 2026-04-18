@@ -8,7 +8,8 @@ const GEN_STEP = 225;
 const NODE_SPACING = 240;
 const PARTNER_OFFSET = 178;
 const AVATAR_RADIUS = 46;
-const ROOT_CARD = { w: 285, h: 145 };
+const ROOT_CARD = { w: 230, h: 230 };
+const BAND_LABEL_GUTTER = 310;
 
 export function ThreeDTreeView({
   ancestorTree,
@@ -192,7 +193,7 @@ export function ThreeDTreeView({
     stage.add(makeGrid(palette, layout.bounds));
     for (const band of layout.bands) {
       stage.add(makeGenerationBand(band, palette));
-      stage.add(makeGenerationLabel(band, palette));
+      stage.add(makeGenerationLabel(band));
     }
 
     const nodeById = new Map(layout.nodes.map((node) => [node.id, node]));
@@ -218,16 +219,6 @@ export function ThreeDTreeView({
   return (
     <div style={styles.shell}>
       <div ref={containerRef} style={styles.canvas} />
-      {hasTree && (
-        <div style={styles.generationLegend} aria-hidden="true">
-          {layout.bands.map((band) => (
-            <div key={band.generation} style={legendItemStyle(band.generation)}>
-              <span style={styles.legendTitle}>{generationLabel(band.generation)}</span>
-              <span style={styles.legendMeta}>{band.subtitle || `${band.count} ${band.count === 1 ? 'person' : 'people'}`}</span>
-            </div>
-          ))}
-        </div>
-      )}
       <div style={styles.controls}>
         <button type="button" onClick={() => actionsRef.current.zoom(0.82)} style={styles.iconButton} title="Zoom in">+</button>
         <button type="button" onClick={() => actionsRef.current.zoom(1.18)} style={styles.iconButton} title="Zoom out">-</button>
@@ -373,8 +364,8 @@ function buildBands(nodes, rootX = 0) {
     const minX = Math.min(...group.map((node) => node.x));
     const maxX = Math.max(...group.map((node) => node.x));
     const years = yearRange(group.map((node) => node.person));
-    const width = Math.max(390, maxX - minX + 280);
-    const height = generation === 0 ? 150 : 112;
+    const width = Math.max(390, maxX - minX + 280 + BAND_LABEL_GUTTER);
+    const height = generation === 0 ? 216 : 112;
     const title =
       generation === 0
         ? 'Focus Person'
@@ -383,11 +374,10 @@ function buildBands(nodes, rootX = 0) {
           : `Descendant Generation ${generation}`;
     return {
       generation,
-      x: (minX + maxX) / 2,
+      x: (minX + maxX) / 2 - BAND_LABEL_GUTTER / 2,
       y: -generation * GEN_STEP,
       width,
       height,
-      labelX: Math.max(minX - 10, Math.min(rootX - 430, maxX - 180)),
       title,
       subtitle: years,
       count: group.length,
@@ -451,9 +441,9 @@ function focusBoundsFor(nodes, bands, fallback) {
       x: Math.max(rootX - 200, Math.min(rootX + 200, band.x)),
     }));
   const bounds = boundsFor(focusedNodes, focusedBands);
-  const maxWidth = 1400;
+  const maxWidth = 1500;
   const maxHeight = 860;
-  const centerX = rootX;
+  const centerX = rootX - BAND_LABEL_GUTTER / 2;
   const centerY = rootY + 110;
   const width = Math.min(Math.max(bounds.maxX - bounds.minX, 760), maxWidth);
   const height = Math.min(Math.max(bounds.maxY - bounds.minY, 560), maxHeight);
@@ -578,32 +568,28 @@ function makeBandTexture(band, palette) {
     ctx.lineWidth = 2;
     ctx.strokeStyle = band.generation === 0 ? 'rgba(191, 82, 150, 0.28)' : 'rgba(130, 112, 72, 0.22)';
     ctx.stroke();
+
   });
 }
 
-function makeGenerationLabel(band, palette) {
+function makeGenerationLabel(band) {
   const label = generationLabel(band.generation);
   const sublabel = band.subtitle || `${band.count} ${band.count === 1 ? 'person' : 'people'}`;
-  const texture = makeCanvasTexture(420, 124, (ctx, w, h) => {
-    ctx.fillStyle = 'rgba(255,255,255,0)';
-    ctx.fillRect(0, 0, w, h);
-    roundedRect(ctx, 12, 16, w - 24, h - 28, 16);
-    ctx.fillStyle = 'rgba(255,255,255,0.82)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(100,105,112,0.18)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-    ctx.fillStyle = band.generation === 0 ? 'rgba(157, 58, 117, 0.9)' : 'rgba(76, 70, 38, 0.88)';
-    ctx.font = '800 27px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    ctx.fillText(label, 34, 56);
-    ctx.fillStyle = 'rgba(67, 74, 84, 0.78)';
-    ctx.font = '700 17px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    ctx.fillText(sublabel, 36, 83);
+  const texture = makeCanvasTexture(520, 170, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = band.generation === 0 ? 'rgba(157, 58, 117, 0.54)' : 'rgba(93, 84, 42, 0.58)';
+    ctx.font = '800 42px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+    ctx.fillText(label, 24, 78);
+    ctx.fillStyle = 'rgba(80, 86, 96, 0.62)';
+    ctx.font = '750 25px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+    ctx.fillText(sublabel, 26, 116);
   });
-  const plane = makePlaneFromTexture(texture, 210, 62);
-  plane.position.set(band.labelX, band.y + band.height / 2 + 30, 84);
+  const labelWidth = Math.min(BAND_LABEL_GUTTER - 34, 250);
+  const labelHeight = 82;
+  const plane = makePlaneFromTexture(texture, labelWidth, labelHeight);
+  plane.position.set(band.x - band.width / 2 + BAND_LABEL_GUTTER / 2, band.y + 2, -18);
   plane.material.depthTest = false;
-  plane.renderOrder = 40;
+  plane.renderOrder = 18;
   return plane;
 }
 
@@ -695,10 +681,11 @@ function makeFeaturedNode(node, palette) {
   group.userData.person = node.person;
 
   const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(ROOT_CARD.w * 0.94, ROOT_CARD.h * 0.9),
+    new THREE.CircleGeometry(ROOT_CARD.w * 0.47, 72),
     new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.16, depthWrite: false })
   );
-  shadow.position.set(12, -18, -16);
+  shadow.scale.set(1.04, 0.96, 1);
+  shadow.position.set(10, -16, -16);
   shadow.renderOrder = 2;
   group.add(shadow);
 
@@ -709,25 +696,25 @@ function makeFeaturedNode(node, palette) {
 
   const colors = colorsForGender(node.person?.gender, palette);
   const glow = new THREE.Mesh(
-    new THREE.SphereGeometry(78, 44, 16),
+    new THREE.SphereGeometry(50, 44, 16),
     new THREE.MeshStandardMaterial({
       color: colors.base,
       transparent: true,
-      opacity: 0.42,
+      opacity: 0.5,
       roughness: 0.35,
       emissive: colors.base,
       emissiveIntensity: 0.2,
     })
   );
-  glow.scale.set(1.28, 0.2, 0.36);
-  glow.position.set(-82, 46, 24);
+  glow.scale.set(1.22, 0.24, 0.4);
+  glow.position.set(0, 48, 24);
   group.add(glow);
 
   const head = new THREE.Mesh(
     new THREE.SphereGeometry(30, 36, 24),
     new THREE.MeshStandardMaterial({ color: '#f2d8b9', roughness: 0.42 })
   );
-  head.position.set(-82, 78, 46);
+  head.position.set(0, 80, 46);
   head.castShadow = true;
   group.add(head);
 
@@ -743,10 +730,7 @@ function makeConnector(from, to, type, palette) {
       : palette.descendantLine;
   const z = 2;
   const points = type === 'partner'
-    ? [
-        new THREE.Vector3(edgeX(from, to), from.y + 14, z),
-        new THREE.Vector3(edgeX(to, from), to.y + 14, z),
-      ]
+    ? partnerPoints(from, to, z)
     : orthogonalPoints(from, to, z);
 
   for (let i = 1; i < points.length; i += 1) {
@@ -755,9 +739,23 @@ function makeConnector(from, to, type, palette) {
   return group;
 }
 
+function partnerPoints(from, to, z) {
+  const y = Math.max(partnerLineY(from), partnerLineY(to));
+  return [
+    new THREE.Vector3(edgeX(from, to), y, z),
+    new THREE.Vector3(edgeX(to, from), y, z),
+  ];
+}
+
+function partnerLineY(node) {
+  return node.y + (node.featured ? 38 : 14);
+}
+
 function orthogonalPoints(from, to, z) {
-  const fromEdge = from.y > to.y ? from.y - 72 : from.y + 72;
-  const toEdge = from.y > to.y ? to.y + 72 : to.y - 72;
+  const fromEdgeRadius = nodeVerticalRadius(from);
+  const toEdgeRadius = nodeVerticalRadius(to);
+  const fromEdge = from.y > to.y ? from.y - fromEdgeRadius : from.y + fromEdgeRadius;
+  const toEdge = from.y > to.y ? to.y + toEdgeRadius : to.y - toEdgeRadius;
   const midY = (fromEdge + toEdge) / 2;
   return [
     new THREE.Vector3(from.x, fromEdge, z),
@@ -768,8 +766,12 @@ function orthogonalPoints(from, to, z) {
 }
 
 function edgeX(a, b) {
-  const radius = a.featured ? ROOT_CARD.w / 2 - 18 : 58;
+  const radius = a.featured ? ROOT_CARD.w * 0.44 : 58;
   return a.x + Math.sign(b.x - a.x || 1) * radius;
+}
+
+function nodeVerticalRadius(node) {
+  return node.featured ? ROOT_CARD.h * 0.44 : 72;
 }
 
 function makeTube(a, b, color, radius) {
@@ -811,47 +813,50 @@ function makePersonLabelTexture(person, palette) {
 }
 
 function makeFeaturedTexture(person, palette) {
-  return makeCanvasTexture(760, 390, (ctx, w, h) => {
+  return makeCanvasTexture(560, 560, (ctx, w, h) => {
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = w * 0.42;
+
+    ctx.clearRect(0, 0, w, h);
     ctx.shadowColor = 'rgba(0,0,0,0.2)';
-    ctx.shadowBlur = 24;
-    ctx.shadowOffsetY = 10;
-    roundedRect(ctx, 16, 18, w - 32, h - 42, 34);
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.shadowBlur = 26;
+    ctx.shadowOffsetY = 12;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.91)';
     ctx.fill();
+
     ctx.shadowColor = 'transparent';
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = 'rgba(96, 180, 210, 0.45)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius - 8, 0, Math.PI * 2);
+    ctx.lineCap = 'round';
+    ctx.setLineDash([1, 28]);
+    ctx.lineWidth = 12;
+    ctx.strokeStyle = 'rgba(90, 138, 178, 0.56)';
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius - 2, 0, Math.PI * 2);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(96, 180, 210, 0.25)';
     ctx.stroke();
 
-    const colors = colorsForGender(person?.gender, palette);
-    roundedRect(ctx, 50, 56, 160, 160, 24);
-    ctx.fillStyle = colors.base;
-    ctx.fill();
-    roundedRect(ctx, 62, 68, 136, 136, 18);
-    const grad = ctx.createLinearGradient(62, 68, 198, 204);
-    grad.addColorStop(0, '#2f3339');
-    grad.addColorStop(1, '#aeb7c4');
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.font = '800 56px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(initialsFor(person), 130, 138);
-
-    ctx.textAlign = 'left';
     ctx.fillStyle = '#17191d';
-    ctx.font = '800 48px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    const nameLines = wrapText(ctx, person?.fullName || 'Unknown', 24, 2);
-    nameLines.forEach((line, index) => ctx.fillText(line, 246, 118 + index * 54));
+    ctx.font = '800 44px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+    const nameLines = wrapText(ctx, person?.fullName || 'Unknown', 17, 2);
+    const firstNameY = nameLines.length === 1 ? 346 : 326;
+    nameLines.forEach((line, index) => ctx.fillText(line, cx, firstNameY + index * 48));
 
-    ctx.fillStyle = '#6e7480';
-    ctx.font = '700 31px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    const life = lifeSpanLabel(person) || 'No life dates';
-    ctx.fillText(life, 248, 252);
-    ctx.fillStyle = '#9a717d';
-    ctx.font = '700 24px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    ctx.fillText(genderName(person?.gender), 250, 302);
+    const life = lifeSpanLabel(person);
+    if (life) {
+      ctx.fillStyle = '#747b86';
+      ctx.font = '700 34px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillText(life, cx, 438);
+    }
   });
 }
 
@@ -859,19 +864,6 @@ function colorsForGender(gender, palette) {
   if (gender === Gender.Male) return { base: palette.male, deep: palette.maleDeep };
   if (gender === Gender.Female) return { base: palette.female, deep: palette.femaleDeep };
   return { base: palette.unknown, deep: palette.unknownDeep };
-}
-
-function genderName(gender) {
-  if (gender === Gender.Male) return 'Male';
-  if (gender === Gender.Female) return 'Female';
-  if (gender === Gender.Intersex) return 'Intersex';
-  return 'Unknown gender';
-}
-
-function initialsFor(person) {
-  const first = (person?.firstName || person?.fullName || '?').trim()[0] || '?';
-  const last = (person?.lastName || '').trim()[0] || '';
-  return `${first}${last}`.toUpperCase();
 }
 
 function wrapText(ctx, text, maxChars, maxLines) {
@@ -1034,51 +1026,6 @@ const styles = {
     pointerEvents: 'none',
     background: 'hsl(var(--background) / 0.45)',
   },
-  generationLegend: {
-    position: 'absolute',
-    top: 14,
-    left: 14,
-    display: 'grid',
-    gridTemplateColumns: 'repeat(2, minmax(128px, 1fr))',
-    gap: 6,
-    maxWidth: 340,
-    pointerEvents: 'none',
-  },
-  legendTitle: {
-    display: 'block',
-    color: 'hsl(var(--foreground))',
-    fontSize: 12,
-    fontWeight: 800,
-    lineHeight: 1.1,
-    whiteSpace: 'nowrap',
-  },
-  legendMeta: {
-    display: 'block',
-    marginTop: 2,
-    color: 'hsl(var(--muted-foreground))',
-    fontSize: 10,
-    fontWeight: 700,
-    lineHeight: 1.1,
-    whiteSpace: 'nowrap',
-  },
 };
-
-function legendItemStyle(generation) {
-  const accent = generation === 0
-    ? 'hsl(330 78% 58% / 0.28)'
-    : generation < 0
-      ? 'hsl(46 78% 58% / 0.26)'
-      : 'hsl(305 70% 62% / 0.24)';
-  return {
-    minWidth: 0,
-    border: `1px solid ${accent}`,
-    borderLeft: `4px solid ${accent}`,
-    borderRadius: 7,
-    padding: '7px 9px',
-    background: 'hsl(var(--card) / 0.9)',
-    boxShadow: '0 8px 20px rgb(0 0 0 / 0.08)',
-    backdropFilter: 'blur(10px)',
-  };
-}
 
 export default ThreeDTreeView;

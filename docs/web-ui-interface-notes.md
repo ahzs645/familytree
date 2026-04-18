@@ -134,8 +134,8 @@ I pulled the full `Navigation` tree from the desktop app and mapped it against c
   - Partial: `Statistic Maps` in web is split across `/map` + `/maps-diagram`; there is no dedicated “views” mode shell around each.
 
 - Reports
-  - Implemented: Person Report, Family Report, Ahnentafel, Descendancy, Register, Map, Narrative, Timeline, Today, Status, Saved Reports.
-  - Missing/partial: Person Events Report, Story Report, Kinship Report.
+  - Implemented: Person Report, Person Events Report, Family Report, Ahnentafel, Descendancy, Register, Map, Narrative, Story Report, Kinship Report, Timeline, Today, Status, Saved Reports.
+  - Current web workflow includes per-report header help text, saved report restoration for page/report options, and two-person subject selection for Kinship.
 
 - Lists
   - Implemented: Events List, Places List, Sources List, To-Do List, Changes list.
@@ -151,5 +151,5 @@ I pulled the full `Navigation` tree from the desktop app and mapped it against c
 
 Top priority gaps from this pass (next 2 sprints):
 1. Missing functional sections with no equivalent in web: FamilySearch, Author Info, Web Search, Marriage/Facts/Person/Anniversary dedicated lists.
-2. Report parity gaps: Story/Kinship/Person-Events as dedicated builders.
-3. LDS-oriented and distinction/analysis lists (Distinctive Persons, LDS Ordinances, Person Analysis).
+2. LDS-oriented and distinction/analysis lists (Distinctive Persons, LDS Ordinances, Person Analysis).
+3. Dedicated website builder and explicit Family Tree Book authoring workflow.

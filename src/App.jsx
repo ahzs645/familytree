@@ -3,7 +3,7 @@
  * Each route is code-split with React.lazy so the landing stays small.
  */
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { AppShell } from './components/AppShell.jsx';
 import { ActivePersonProvider } from './contexts/ActivePersonContext.jsx';
 import { DatabaseStatusProvider } from './contexts/DatabaseStatusContext.jsx';
@@ -11,11 +11,15 @@ import { ThemeProvider } from './contexts/ThemeContext.jsx';
 import Home from './routes/Home.jsx';
 
 const Tree = lazy(() => import('./routes/Tree.jsx'));
+const Persons = lazy(() => import('./routes/Persons.jsx'));
+const Lists = lazy(() => import('./routes/Lists.jsx'));
 const Charts = lazy(() => import('./routes/Charts.jsx'));
 const Search = lazy(() => import('./routes/Search.jsx'));
 const Duplicates = lazy(() => import('./routes/Duplicates.jsx'));
 const Reports = lazy(() => import('./routes/Reports.jsx'));
 const Books = lazy(() => import('./routes/Books.jsx'));
+const Publish = lazy(() => import('./routes/Publish.jsx'));
+const Websites = lazy(() => import('./routes/Websites.jsx'));
 const ChangeLog = lazy(() => import('./routes/ChangeLog.jsx'));
 const PersonEditor = lazy(() => import('./routes/PersonEditor.jsx'));
 const FamilyEditor = lazy(() => import('./routes/FamilyEditor.jsx'));
@@ -23,12 +27,20 @@ const Places = lazy(() => import('./routes/Places.jsx'));
 const Sources = lazy(() => import('./routes/Sources.jsx'));
 const Events = lazy(() => import('./routes/Events.jsx'));
 const Media = lazy(() => import('./routes/Media.jsx'));
+const Views = lazy(() => import('./routes/Views.jsx'));
 const MapView = lazy(() => import('./routes/MapView.jsx'));
 const Globe = lazy(() => import('./routes/Globe.jsx'));
 const MapsDiagram = lazy(() => import('./routes/MapsDiagram.jsx'));
 const SavedCharts = lazy(() => import('./routes/SavedCharts.jsx'));
 const Statistics = lazy(() => import('./routes/Statistics.jsx'));
 const Plausibility = lazy(() => import('./routes/Plausibility.jsx'));
+const PlausibilityList = lazy(() => import('./routes/PlausibilityList.jsx'));
+const MarriageList = lazy(() => import('./routes/MarriageList.jsx'));
+const FactsList = lazy(() => import('./routes/FactsList.jsx'));
+const AnniversaryList = lazy(() => import('./routes/AnniversaryList.jsx'));
+const DistinctivePersons = lazy(() => import('./routes/DistinctivePersons.jsx'));
+const PersonAnalysis = lazy(() => import('./routes/PersonAnalysis.jsx'));
+const LdsOrdinances = lazy(() => import('./routes/LdsOrdinances.jsx'));
 const Maintenance = lazy(() => import('./routes/Maintenance.jsx'));
 const Bookmarks = lazy(() => import('./routes/Bookmarks.jsx'));
 const ToDos = lazy(() => import('./routes/ToDos.jsx'));
@@ -85,11 +97,15 @@ export function App() {
             <Route element={<AppShell />}>
               <Route index element={<Home />} />
               <Route path="tree" element={<L><Tree /></L>} />
+              <Route path="persons" element={<L><Persons /></L>} />
+              <Route path="lists" element={<L><Lists /></L>} />
               <Route path="charts" element={<L><Charts /></L>} />
               <Route path="search" element={<L><Search /></L>} />
               <Route path="duplicates" element={<L><Duplicates /></L>} />
               <Route path="reports" element={<L><Reports /></L>} />
               <Route path="books" element={<L><Books /></L>} />
+              <Route path="publish" element={<L><Publish /></L>} />
+              <Route path="websites" element={<L><Websites /></L>} />
               <Route path="change-log" element={<L><ChangeLog /></L>} />
               <Route path="person/:id" element={<L><PersonEditor /></L>} />
               <Route path="family/:id" element={<L><FamilyEditor /></L>} />
@@ -100,9 +116,33 @@ export function App() {
               <Route path="map" element={<L><MapView /></L>} />
               <Route path="globe" element={<L><Globe /></L>} />
               <Route path="maps-diagram" element={<L><MapsDiagram /></L>} />
+              <Route path="statistic-maps" element={<L><MapsDiagram /></L>} />
+              <Route path="views" element={<L><Views /></L>}>
+                <Route index element={<Navigate to="virtual-map" replace />} />
+                <Route path="virtual-map" element={<L><MapView /></L>} />
+                <Route path="map" element={<Navigate to="../virtual-map" replace />} />
+                <Route path="virtual-globe" element={<L><Globe /></L>} />
+                <Route path="globe" element={<Navigate to="../virtual-globe" replace />} />
+                <Route path="statistic-maps" element={<L><MapsDiagram /></L>} />
+                <Route path="maps-diagram" element={<Navigate to="../statistic-maps" replace />} />
+                <Route path="media-gallery" element={<L><Media /></L>} />
+                <Route path="media" element={<Navigate to="../media-gallery" replace />} />
+                <Route path="family-quiz" element={<L><Quiz /></L>} />
+                <Route path="quiz" element={<Navigate to="../family-quiz" replace />} />
+              </Route>
               <Route path="saved-charts" element={<L><SavedCharts /></L>} />
               <Route path="statistics" element={<L><Statistics /></L>} />
               <Route path="plausibility" element={<L><Plausibility /></L>} />
+              <Route path="plausibility-list" element={<L><PlausibilityList /></L>} />
+              <Route path="marriages" element={<L><MarriageList /></L>} />
+              <Route path="marriage-list" element={<L><MarriageList /></L>} />
+              <Route path="facts" element={<L><FactsList /></L>} />
+              <Route path="facts-list" element={<L><FactsList /></L>} />
+              <Route path="anniversaries" element={<L><AnniversaryList /></L>} />
+              <Route path="anniversary-list" element={<L><AnniversaryList /></L>} />
+              <Route path="distinctive-persons" element={<L><DistinctivePersons /></L>} />
+              <Route path="person-analysis" element={<L><PersonAnalysis /></L>} />
+              <Route path="lds-ordinances" element={<L><LdsOrdinances /></L>} />
               <Route path="maintenance" element={<L><Maintenance /></L>} />
               <Route path="bookmarks" element={<L><Bookmarks /></L>} />
               <Route path="todos" element={<L><ToDos /></L>} />

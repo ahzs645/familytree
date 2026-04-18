@@ -35,6 +35,14 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
             <div
               key={it.recordName || it.id}
               onClick={() => onPick(it.recordName || it.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onPick(it.recordName || it.id);
+                }
+              }}
+              role="button"
+              tabIndex={0}
               style={{
                 ...row,
                 background: (it.recordName || it.id) === activeId ? 'hsl(var(--secondary))' : 'transparent',

@@ -3,14 +3,8 @@
  * Colors come from the active theme.
  */
 import React from 'react';
+import { lifeSpanLabel } from '../../models/index.js';
 import { DEFAULT_THEME } from './theme.js';
-
-function lifeSpan(p) {
-  const b = (p?.birthDate || '').slice(0, 4);
-  const d = (p?.deathDate || '').slice(0, 4);
-  if (!b && !d) return '';
-  return `${b || '?'} – ${d || ''}`.trim();
-}
 
 function truncate(s, n) {
   return s.length > n ? s.slice(0, n - 1) + '…' : s;
@@ -28,7 +22,7 @@ export function PersonNode({
   if (!person && !placeholder) return null;
   const colors = theme.gender[person?.gender ?? 0] || theme.gender[0];
   const display = person?.fullName || 'No name recorded';
-  const span = person ? lifeSpan(person) : '';
+  const span = person ? lifeSpanLabel(person) : '';
   const fill = placeholder ? theme.placeholderFill : colors.fill;
   const stroke = highlighted ? '#ffd166' : placeholder ? theme.placeholderStroke : colors.stroke;
   const strokeWidth = highlighted ? 2.5 : 1.5;

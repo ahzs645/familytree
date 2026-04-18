@@ -56,7 +56,7 @@ export default function MapView() {
         lat,
         lng,
         popup: s?.displayName || s?.name || p.recordName,
-        onClick: () => navigate('/places'),
+        onClick: () => navigate(`/places?placeId=${encodeURIComponent(p.recordName)}`),
       });
     }
     return out;
@@ -74,7 +74,7 @@ export default function MapView() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <strong className="text-sm">Map</strong>
+        <strong className="text-sm">Virtual Map</strong>
         <span className="text-xs text-muted-foreground">
           {loading
             ? 'Loading places…'

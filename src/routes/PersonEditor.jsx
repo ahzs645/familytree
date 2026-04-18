@@ -391,7 +391,7 @@ export default function PersonEditor() {
               </Section>
 
               <Section title="Media" accent={ACCENTS.media}
-                controls={<button onClick={() => navigate('/media')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Media</button>}
+                controls={<button onClick={() => navigate(`/views/media-gallery?targetId=${encodeURIComponent(id)}&targetType=Person`)} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Gallery</button>}
               >
                 <MediaRelationsEditor ownerRecordName={id} ownerRecordType="Person" onChanged={reload} />
               </Section>

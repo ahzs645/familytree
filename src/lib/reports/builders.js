@@ -7,13 +7,18 @@ import { buildAncestorTree, buildDescendantTree } from '../treeQuery.js';
 import { buildPersonContext } from '../personContext.js';
 import { getLocalDatabase } from '../LocalDatabase.js';
 import { runPlausibilityChecks } from '../plausibility.js';
-import { readConclusionType, readField, readRef } from '../schema.js';
+import { findRelationshipPath } from '../relationshipPath.js';
+import { readConclusionType, readField, readRef, refType } from '../schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, Gender } from '../../models/index.js';
 import { humanizeType } from '../../utils/humanizeType.js';
 import { block, emptyReport } from './ast.js';
 
 function nameOf(summaryOrPerson) {
   return summaryOrPerson?.fullName || 'No name recorded';
+}
+
+function nameOrFallback(summaryOrPerson, fallback) {
+  return summaryOrPerson?.fullName || fallback || 'No name recorded';
 }
 
 function spanAnnotated(summary) {
@@ -167,6 +172,185 @@ export async function buildFamilyGroupSheet(recordName) {
       report.blocks.push(block.paragraph('No children recorded.'));
     }
   }
+  return report;
+}
+
+/**
+ * PERSON EVENTS — direct person events plus family events from parent/spouse families.
+ */
+export async function buildPersonEventsReport(recordName) {
+  const ctx = await buildPersonContext(recordName);
+  if (!ctx) return emptyReport('Person not found');
+
+  const db = getLocalDatabase();
+  const rows = [];
+  const seenEvents = new Set();
+
+  for (const event of ctx.events) {
+    if (seenEvents.has(event.recordName)) continue;
+    seenEvents.add(event.recordName);
+    rows.push(await eventReportRow(db, event, 'Personal event'));
+  }
+
+  const familyContexts = new Map();
+  for (const family of ctx.parents) {
+    addFamilyContext(familyContexts, family.family?.recordName, parentFamilyContextLabel(family));
+  }
+  for (const family of ctx.families) {
+    addFamilyContext(familyContexts, family.family?.recordName, spouseFamilyContextLabel(family));
+  }
+
+  for (const [familyId, context] of familyContexts.entries()) {
+    const { records } = await db.query('FamilyEvent', {
+      referenceField: 'family',
+      referenceValue: familyId,
+      limit: 1000,
+    });
+    for (const event of records || []) {
+      if (seenEvents.has(event.recordName)) continue;
+      seenEvents.add(event.recordName);
+      rows.push(await eventReportRow(db, event, context));
+    }
+  }
+
+  rows.sort(
+    (a, b) =>
+      String(a[1]).localeCompare(String(b[1])) ||
+      String(a[0]).localeCompare(String(b[0])) ||
+      String(a[4]).localeCompare(String(b[4]))
+  );
+
+  const report = emptyReport(`Person Events — ${nameOf(ctx.selfSummary)}`);
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.paragraph(`${rows.length.toLocaleString()} events for ${nameOf(ctx.selfSummary)}`));
+  report.blocks.push(block.table(['Type', 'Date', 'Place', 'Description', 'Context'], rows));
+  return report;
+}
+
+/**
+ * STORY REPORT — metadata, narrative sections, and related records.
+ */
+export async function buildStoryReport(recordName) {
+  const db = getLocalDatabase();
+  const story = recordName ? await db.getRecord(recordName) : null;
+  if (!story || story.recordType !== 'Story') return emptyReport('Story not found');
+
+  const title = storyTitle(story);
+  const report = emptyReport(`Story Report — ${title}`);
+  report.blocks.push(block.title(report.title, 1));
+
+  report.blocks.push(block.title('Metadata', 2));
+  report.blocks.push(
+    block.table(
+      ['Field', 'Value'],
+      [
+        ['Title', title],
+        ['Subtitle', readField(story, ['subtitle'])],
+        ['Author', readField(story, ['author', 'authorName'])],
+        ['Date', readField(story, ['date', 'dateString'])],
+        ['Record ID', story.recordName],
+        ['Unique ID', readField(story, ['uniqueID', 'identifier'])],
+      ]
+    )
+  );
+
+  const storyText = readField(story, ['text', 'description', 'userDescription'], '');
+  if (storyText) {
+    report.blocks.push(block.title('Story Text', 2));
+    appendTextParagraphs(report, storyText);
+  }
+
+  const { records: sectionRecords } = await db.query('StorySection', {
+    referenceField: 'story',
+    referenceValue: story.recordName,
+    limit: 100000,
+  });
+  const sections = (sectionRecords || []).sort((a, b) => Number(readField(a, ['order'], 0)) - Number(readField(b, ['order'], 0)));
+
+  report.blocks.push(block.title('Sections', 2));
+  if (sections.length === 0) {
+    report.blocks.push(block.paragraph('No story sections recorded.'));
+  } else {
+    sections.forEach((section, index) => {
+      report.blocks.push(block.title(storySectionTitle(section, index), 3));
+      appendTextParagraphs(report, readField(section, ['text', 'description'], ''), 'No section text recorded.');
+    });
+  }
+
+  const relationRows = [];
+  const { records: storyRelations } = await db.query('StoryRelation', {
+    referenceField: 'story',
+    referenceValue: story.recordName,
+    limit: 100000,
+  });
+  for (const relation of storyRelations || []) {
+    relationRows.push(await storyRelationRow(db, relation, 'Story'));
+  }
+
+  for (const [index, section] of sections.entries()) {
+    const { records: sectionRelations } = await db.query('StorySectionRelation', {
+      referenceField: 'storySection',
+      referenceValue: section.recordName,
+      limit: 100000,
+    });
+    const scope = `Section: ${storySectionTitle(section, index)}`;
+    for (const relation of sectionRelations || []) {
+      relationRows.push(await storyRelationRow(db, relation, scope));
+    }
+  }
+
+  relationRows.sort(
+    (a, b) =>
+      String(a[0]).localeCompare(String(b[0])) ||
+      String(a[1]).localeCompare(String(b[1])) ||
+      String(a[2]).localeCompare(String(b[2]))
+  );
+
+  report.blocks.push(block.title('Relations', 2));
+  report.blocks.push(block.table(['Scope', 'Target Type', 'Target', 'Record ID'], relationRows));
+  return report;
+}
+
+/**
+ * KINSHIP REPORT — shortest relationship path between two people.
+ */
+export async function buildKinshipReport(recordA, recordB) {
+  const db = getLocalDatabase();
+  const [personA, personB] = await Promise.all([
+    recordA ? db.getRecord(recordA) : null,
+    recordB ? db.getRecord(recordB) : null,
+  ]);
+  const summaryA = personSummary(personA);
+  const summaryB = personSummary(personB);
+  const labelA = nameOrFallback(summaryA, recordA || 'First person');
+  const labelB = nameOrFallback(summaryB, recordB || 'Second person');
+  const report = emptyReport(`Kinship — ${labelA} to ${labelB}`);
+  report.blocks.push(block.title(report.title, 1));
+
+  if (!recordA || !recordB) {
+    report.blocks.push(block.paragraph('Select two people to calculate kinship.'));
+    return report;
+  }
+
+  const path = await findRelationshipPath(recordA, recordB);
+  if (!path) {
+    report.blocks.push(block.paragraph(`No relationship path found between ${labelA} and ${labelB}.`));
+    report.blocks.push(block.table(['Person A', 'Person B', 'Relationship'], [[labelA, labelB, 'No path found']]));
+    return report;
+  }
+
+  report.blocks.push(block.paragraph(`Relationship: ${path.label || 'Related'}`));
+  report.blocks.push(
+    block.table(
+      ['Step', 'Connection', 'Person', 'Life Span'],
+      path.steps.map((step, index) => [
+        String(index + 1),
+        index === 0 ? 'Start' : pathEdgeLabel(step.edgeFromPrev),
+        nameOf(step.person),
+        lifeSpanLabel(step.person),
+      ])
+    )
+  );
   return report;
 }
 
@@ -575,6 +759,134 @@ async function placeLabel(db, placeId) {
   const place = await db.getRecord(placeId);
   const summary = placeSummary(place);
   return summary?.displayName || summary?.name || placeId;
+}
+
+function familyNameOf(summary) {
+  return summary?.familyName || summary?.recordName || 'Family';
+}
+
+function addFamilyContext(contexts, familyId, label) {
+  if (!familyId) return;
+  const current = contexts.get(familyId);
+  if (!current) {
+    contexts.set(familyId, label || 'Family event');
+    return;
+  }
+  if (label && !current.split('; ').includes(label)) {
+    contexts.set(familyId, `${current}; ${label}`);
+  }
+}
+
+function parentFamilyContextLabel(family) {
+  const parents = [family.man, family.woman].filter(Boolean).map(nameOf).join(' and ');
+  if (parents) return `Child in family of ${parents}`;
+  return `Child in ${familyNameOf(family.familySummary)}`;
+}
+
+function spouseFamilyContextLabel(family) {
+  if (family.partner) return `Family with ${nameOf(family.partner)}`;
+  return familyNameOf(family.familySummary);
+}
+
+async function eventReportRow(db, event, context) {
+  const place = await placeLabel(db, readRef(event.fields?.place) || readRef(event.fields?.assignedPlace));
+  return [
+    eventTypeLabel(event),
+    eventDate(event),
+    place,
+    trimText(eventDescription(event), 140),
+    context || '',
+  ];
+}
+
+function eventTypeLabel(event) {
+  return humanizeType(readConclusionType(event) || readField(event, ['eventType', 'factType', 'type'], 'Event')) || 'Event';
+}
+
+function eventDate(event) {
+  return readField(event, ['date', 'cached_dateAsDate', 'dateString'], '');
+}
+
+function eventDescription(event) {
+  return readField(event, ['description', 'userDescription', 'text', 'note'], '');
+}
+
+function storyTitle(record) {
+  return readField(record, ['title', 'name'], record?.recordName || 'Story');
+}
+
+function storySectionTitle(section, index) {
+  return readField(section, ['title', 'name'], `Section ${index + 1}`);
+}
+
+function appendTextParagraphs(report, text, fallback = '') {
+  const paragraphs = String(text || '')
+    .split(/\n{2,}/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (paragraphs.length === 0) {
+    if (fallback) report.blocks.push(block.paragraph(fallback));
+    return;
+  }
+  for (const paragraph of paragraphs) report.blocks.push(block.paragraph(paragraph));
+}
+
+async function storyRelationRow(db, relation, scope) {
+  const targetId = readRef(relation.fields?.target);
+  const target = targetId ? await db.getRecord(targetId) : null;
+  const targetType = readField(relation, ['targetType'], target?.recordType || refType(relation.fields?.target) || 'Record');
+  return [
+    scope,
+    targetTypeLabel(targetType),
+    recordDisplayLabel(target) || targetId || relation.recordName,
+    targetId || '',
+  ];
+}
+
+function targetTypeLabel(type) {
+  const labels = {
+    Person: 'Person',
+    Family: 'Family',
+    PersonEvent: 'Person Event',
+    FamilyEvent: 'Family Event',
+    MediaPicture: 'Picture',
+    MediaPDF: 'PDF',
+    MediaURL: 'URL',
+    MediaAudio: 'Audio',
+    MediaVideo: 'Video',
+  };
+  return labels[type] || humanizeType(type) || 'Record';
+}
+
+function recordDisplayLabel(record) {
+  if (!record) return '';
+  if (record.recordType === 'Person') return personSummary(record)?.fullName || record.recordName;
+  if (record.recordType === 'Family') return familySummary(record)?.familyName || record.recordName;
+  if (record.recordType === 'Place') return placeSummary(record)?.displayName || placeSummary(record)?.name || record.recordName;
+  if (record.recordType === 'Source') return sourceSummary(record)?.title || record.recordName;
+  if (record.recordType === 'Story') return storyTitle(record);
+  if (record.recordType === 'PersonEvent' || record.recordType === 'FamilyEvent') {
+    return [eventTypeLabel(record), eventDate(record)].filter(Boolean).join(' - ') || record.recordName;
+  }
+  if (String(record.recordType || '').startsWith('Media')) {
+    return readField(record, ['title', 'caption', 'filename', 'url'], record.recordName);
+  }
+  return readField(record, ['title', 'name', 'cached_fullName', 'cached_familyName'], record.recordName);
+}
+
+function pathEdgeLabel(edge) {
+  switch (edge) {
+    case 'parent':
+      return 'Parent of previous';
+    case 'child':
+      return 'Child of previous';
+    case 'spouse':
+      return 'Spouse of previous';
+    case 'self':
+      return 'Self';
+    default:
+      return 'Related';
+  }
 }
 
 function addAnniversary(rows, person, type, rawDate) {

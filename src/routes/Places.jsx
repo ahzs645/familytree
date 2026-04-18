@@ -4,6 +4,7 @@
  * display. Map widget for click-to-set coords. Place Details sub-list.
  */
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
@@ -23,6 +24,7 @@ import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { MediaRelationsEditor, NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { Map as MapView } from '../components/ui/Map.jsx';
 import {
+  MAP_PREFERENCES_EVENT,
   batchLookupMissingCoordinates,
   getMapPreferences,
   lookupGeoNameId,
@@ -74,6 +76,8 @@ function templateFieldsFor(templateId, templates) {
 }
 
 export default function Places() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [places, setPlaces] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -91,6 +95,8 @@ export default function Places() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [mapPrefs, setMapPrefs] = useState({ defaultZoom: 9, batchLimit: 10 });
+  const [placeQueryMessage, setPlaceQueryMessage] = useState(null);
+  const queryPlaceId = searchParams.get('placeId');
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -117,6 +123,27 @@ export default function Places() {
     reload();
     getMapPreferences().then(setMapPrefs);
   }, [reload]);
+
+  useEffect(() => {
+    const onPrefsChanged = (event) => setMapPrefs(event.detail || {});
+    window.addEventListener(MAP_PREFERENCES_EVENT, onPrefsChanged);
+    return () => window.removeEventListener(MAP_PREFERENCES_EVENT, onPrefsChanged);
+  }, []);
+
+  useEffect(() => {
+    if (!queryPlaceId) {
+      setPlaceQueryMessage(null);
+      return;
+    }
+    if (places.length === 0) return;
+    const target = places.find((place) => place.recordName === queryPlaceId);
+    if (target) {
+      setActiveId(queryPlaceId);
+      setPlaceQueryMessage(null);
+    } else {
+      setPlaceQueryMessage(`The linked place record "${queryPlaceId}" was not found in the current Places list.`);
+    }
+  }, [places, queryPlaceId]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -414,6 +441,11 @@ export default function Places() {
           </button>
         </div>
       </div>
+      {placeQueryMessage && (
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {placeQueryMessage}
+        </div>
+      )}
 
       <Section title="Place Name" accent={ACCENTS.name}>
         <Field label="Place Template">
@@ -493,26 +525,18 @@ export default function Places() {
               setLatitude(nL.toFixed(6));
               setLongitude(nl.toFixed(6));
             }}
+            showControls={false}
           />
         </div>
         <div className="text-[11px] text-muted-foreground mt-2">Click on the map to set coordinates, drag the marker to fine-tune.</div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-          <Field label="Default map zoom">
-            <input type="number" min="1" max="18" value={mapPrefs.defaultZoom || 9}
-              onChange={(e) => onPrefsChange({ defaultZoom: +e.target.value || 9 })}
-              className={inputClass} />
-          </Field>
-          <Field label="Batch lookup limit">
-            <input type="number" min="1" max="50" value={mapPrefs.batchLimit || 10}
-              onChange={(e) => onPrefsChange({ batchLimit: +e.target.value || 10 })}
-              className={inputClass} />
-          </Field>
-        </div>
       </Section>
+
+      <MapPreferencesCard preferences={mapPrefs} onChange={onPrefsChange} />
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
         <div>
-          <Section title="Media" accent={ACCENTS.media}>
+          <Section title="Media" accent={ACCENTS.media}
+            controls={<button onClick={() => navigate(`/views/media-gallery?targetId=${encodeURIComponent(activeId)}&targetType=Place`)} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Gallery</button>}>
             <MediaRelationsEditor ownerRecordName={activeId} ownerRecordType="Place" onChanged={reload} />
           </Section>
           <Section title="Notes" accent={ACCENTS.notes}>
@@ -573,6 +597,65 @@ export default function Places() {
       placeholder="Search places…"
       detail={detail}
     />
+  );
+}
+
+function MapPreferencesCard({ preferences, onChange }) {
+  return (
+    <Section title="Map Preferences" accent={ACCENTS.map}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field label="Basemap">
+          <select
+            value={preferences.basemap || 'auto'}
+            onChange={(e) => onChange({ basemap: e.target.value })}
+            className={inputClass}
+          >
+            <option value="auto">Auto theme</option>
+            <option value="positron">Light</option>
+            <option value="voyager">Voyager</option>
+            <option value="dark">Dark</option>
+          </select>
+        </Field>
+        <Field label="Default map zoom">
+          <input
+            type="number"
+            min="1"
+            max="18"
+            value={preferences.defaultZoom || 9}
+            onChange={(e) => onChange({ defaultZoom: +e.target.value || 9 })}
+            className={inputClass}
+          />
+        </Field>
+        <Field label="Batch lookup limit">
+          <input
+            type="number"
+            min="1"
+            max="50"
+            value={preferences.batchLimit || 10}
+            onChange={(e) => onChange({ batchLimit: +e.target.value || 10 })}
+            className={inputClass}
+          />
+        </Field>
+        <div className="flex flex-col justify-end gap-2">
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={preferences.showLabels !== false}
+              onChange={(e) => onChange({ showLabels: e.target.checked })}
+            />
+            Show map labels
+          </label>
+          <label className="inline-flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={preferences.markerClustering !== false}
+              onChange={(e) => onChange({ markerClustering: e.target.checked })}
+            />
+            Cluster dense markers
+          </label>
+        </div>
+      </div>
+    </Section>
   );
 }
 

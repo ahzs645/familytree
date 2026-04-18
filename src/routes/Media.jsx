@@ -2,12 +2,14 @@
  * Media viewer + editor — gallery view of MediaPicture / MediaPDF / MediaURL /
  * MediaAudio / MediaVideo records. Filter by type. Edit caption/description.
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordDeleted } from '../lib/changeLog.js';
 import { readRef } from '../lib/schema.js';
 import { matchMediaFiles } from '../lib/mediaFolderMatch.js';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.jsx';
 
 const MEDIA_TYPES = [
   { id: 'all', label: 'All', match: null },
@@ -22,7 +24,22 @@ function iconFor(type) {
   return { MediaPicture: '🖼', MediaPDF: '📄', MediaURL: '🔗', MediaAudio: '🎵', MediaVideo: '🎬' }[type] || '📎';
 }
 
+function routeForRecord(record) {
+  if (!record) return null;
+  if (record.recordType === 'Person') return `/person/${record.recordName}`;
+  if (record.recordType === 'Family') return `/family/${record.recordName}`;
+  if (record.recordType === 'Place') return `/places?placeId=${encodeURIComponent(record.recordName)}`;
+  if (record.recordType === 'PersonEvent' || record.recordType === 'FamilyEvent') return '/events';
+  if (record.recordType?.startsWith('Media')) return `/views/media-gallery?mediaId=${encodeURIComponent(record.recordName)}`;
+  return null;
+}
+
 export default function Media() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const targetId = searchParams.get('targetId') || searchParams.get('subjectId') || '';
+  const targetType = searchParams.get('targetType') || '';
+  const mediaIdParam = searchParams.get('mediaId') || '';
   const [media, setMedia] = useState([]);
   const [filter, setFilter] = useState('all');
   const [activeId, setActiveId] = useState(null);
@@ -31,6 +48,8 @@ export default function Media() {
   const [status, setStatus] = useState(null);
   const [activeAssets, setActiveAssets] = useState([]);
   const [activeRelations, setActiveRelations] = useState([]);
+  const [relatedMediaIds, setRelatedMediaIds] = useState(null);
+  const [subject, setSubject] = useState(null);
   const folderRef = React.useRef(null);
 
   const reload = useCallback(async () => {
@@ -46,6 +65,26 @@ export default function Media() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      if (!targetId) {
+        setRelatedMediaIds(null);
+        setSubject(null);
+        return;
+      }
+      const db = getLocalDatabase();
+      const [rels, target] = await Promise.all([
+        db.query('MediaRelation', { referenceField: 'target', referenceValue: targetId, limit: 100000 }),
+        db.getRecord(targetId),
+      ]);
+      if (cancel) return;
+      setRelatedMediaIds(new Set(rels.records.map((rel) => readRef(rel.fields?.media)).filter(Boolean)));
+      setSubject(target || { recordName: targetId, recordType: targetType, fields: {} });
+    })();
+    return () => { cancel = true; };
+  }, [targetId, targetType]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -115,12 +154,36 @@ export default function Media() {
     }
   }, [reload]);
 
-  const filtered = filter === 'all' ? media : media.filter((m) => m.recordType === filter);
+  const filtered = useMemo(() => {
+    const byType = filter === 'all' ? media : media.filter((m) => m.recordType === filter);
+    if (!relatedMediaIds) return byType;
+    return byType.filter((m) => relatedMediaIds.has(m.recordName));
+  }, [filter, media, relatedMediaIds]);
   const active = media.find((m) => m.recordName === activeId);
+  const subjectLabel = subject ? recordDisplayLabel(subject) || subject.recordName : '';
+
+  useEffect(() => {
+    if (mediaIdParam && filtered.some((m) => m.recordName === mediaIdParam)) {
+      setActiveId(mediaIdParam);
+      return;
+    }
+    if (activeId && filtered.some((m) => m.recordName === activeId)) return;
+    setActiveId(filtered[0]?.recordName || null);
+  }, [activeId, filtered, mediaIdParam]);
 
   return (
     <div style={shell}>
       <header style={header}>
+        <div style={{ minWidth: 160 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--foreground))' }}>Media Gallery</div>
+          {targetId ? (
+            <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
+              Filtered by {subjectLabel || targetId}
+            </div>
+          ) : (
+            <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>Browse all media records</div>
+          )}
+        </div>
         <select value={filter} onChange={(e) => setFilter(e.target.value)} style={select}>
           {MEDIA_TYPES.map((t) => (
             <option key={t.id} value={t.id}>{t.label}</option>
@@ -130,6 +193,9 @@ export default function Media() {
           {filtered.length} item{filtered.length === 1 ? '' : 's'}
         </span>
         <input ref={folderRef} type="file" multiple webkitdirectory="" className="hidden" onChange={(e) => onMatchFolder(e.target.files)} />
+        {targetId && (
+          <button onClick={() => setSearchParams({})} style={select}>Clear subject</button>
+        )}
         <button onClick={() => folderRef.current?.click()} style={select}>Match media folder</button>
       </header>
 
@@ -137,7 +203,9 @@ export default function Media() {
         <div style={gallery}>
           {filtered.length === 0 && (
             <div style={{ color: 'hsl(var(--muted-foreground))', padding: 40, gridColumn: '1 / -1', textAlign: 'center' }}>
-              {filter !== 'all' ? `No media of type "${filter}" in this tree.` : 'No media in this tree.'}
+              {targetId
+                ? `No related media${filter !== 'all' ? ` of type "${filter}"` : ''} for ${subjectLabel || targetId}.`
+                : filter !== 'all' ? `No media of type "${filter}" in this tree.` : 'No media in this tree.'}
             </div>
           )}
           {filtered.map((m) => {
@@ -146,6 +214,14 @@ export default function Media() {
               <div
                 key={m.recordName}
                 onClick={() => setActiveId(m.recordName)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    setActiveId(m.recordName);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
                 style={{
                   ...tile,
                   borderColor: isActive ? 'hsl(var(--primary))' : 'hsl(var(--border))',
@@ -206,10 +282,18 @@ export default function Media() {
               ) : (
                 <div style={{ display: 'grid', gap: 6 }}>
                   {activeRelations.map(({ rel, target }) => (
-                    <div key={rel.recordName} style={{ fontSize: 12, color: 'hsl(var(--foreground))', background: 'hsl(var(--secondary))', borderRadius: 6, padding: 8 }}>
+                    <button
+                      key={rel.recordName}
+                      type="button"
+                      onClick={() => {
+                        const route = routeForRecord(target);
+                        if (route) navigate(route);
+                      }}
+                      style={{ fontSize: 12, color: 'hsl(var(--foreground))', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 8, textAlign: 'left', cursor: routeForRecord(target) ? 'pointer' : 'default' }}
+                    >
                       <span style={{ color: 'hsl(var(--muted-foreground))', marginRight: 6 }}>{rel.fields?.targetType?.value || target?.recordType || 'Record'}</span>
                       {target?.fields?.cached_fullName?.value || target?.fields?.title?.value || target?.fields?.cached_familyName?.value || target?.recordName || readRef(rel.fields?.target)}
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}

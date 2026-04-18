@@ -14,7 +14,11 @@ export const block = {
   title: (text, level = 1) => ({ kind: 'title', text, level }),
   paragraph: (text) => ({ kind: 'paragraph', text }),
   list: (items) => ({ kind: 'list', items }),
-  table: (columns, rows) => ({ kind: 'table', columns, rows }),
+  table: (columns, rows) => ({
+    kind: 'table',
+    columns: normalizeColumns(columns),
+    rows: normalizeRows(columns, rows),
+  }),
   pageBreak: () => ({ kind: 'pageBreak' }),
   spacer: (size = 12) => ({ kind: 'spacer', size }),
 };
@@ -25,4 +29,22 @@ export function emptyReport(title) {
     createdAt: Date.now(),
     blocks: [],
   };
+}
+
+function normalizeColumns(columns = []) {
+  return columns.map((column) => String(column ?? '').trim() || '-');
+}
+
+function normalizeRows(columns = [], rows = []) {
+  const width = columns.length;
+  return (rows || []).map((row) => {
+    const cells = Array.isArray(row) ? row : [row];
+    return Array.from({ length: width }, (_, index) => normalizeCell(cells[index]));
+  });
+}
+
+function normalizeCell(value) {
+  if (value === undefined || value === null) return '-';
+  const text = String(value);
+  return text.trim() ? text : '-';
 }

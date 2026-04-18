@@ -5,7 +5,7 @@ import React from 'react';
 import { SECTION_KINDS } from '../../lib/books.js';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
 
-export function SectionEditor({ section, persons, onChange, onRemove, onMoveUp, onMoveDown, index, total }) {
+export function SectionEditor({ section, persons, groups = [], sources = [], onChange, onRemove, onMoveUp, onMoveDown, index, total }) {
   const def = SECTION_KINDS.find((k) => k.id === section.kind);
   return (
     <div style={card}>
@@ -21,7 +21,7 @@ export function SectionEditor({ section, persons, onChange, onRemove, onMoveUp, 
         <select value={section.kind} onChange={(e) => onChange({ ...section, kind: e.target.value })} style={input}>
           {SECTION_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
         </select>
-        {section.kind === 'title' && (
+        {(section.kind === 'title' || section.kind === 'cover') && (
           <>
             <input
               value={section.text || ''}
@@ -35,7 +35,40 @@ export function SectionEditor({ section, persons, onChange, onRemove, onMoveUp, 
               placeholder="Subtitle (optional)"
               style={{ ...input, flex: 1 }}
             />
+            {section.kind === 'cover' && (
+              <>
+                <input
+                  value={section.author || ''}
+                  onChange={(e) => onChange({ ...section, author: e.target.value })}
+                  placeholder="Author"
+                  style={{ ...input, flex: 1 }}
+                />
+                <input
+                  value={section.date || ''}
+                  onChange={(e) => onChange({ ...section, date: e.target.value })}
+                  placeholder="Date"
+                  style={{ ...input, width: 110 }}
+                />
+                <input
+                  value={section.publisher || ''}
+                  onChange={(e) => onChange({ ...section, publisher: e.target.value })}
+                  placeholder="Publisher"
+                  style={{ ...input, flex: 1 }}
+                />
+              </>
+            )}
           </>
+        )}
+        {section.kind === 'toc' && (
+          <select
+            value={section.tocStyle || 'numbered'}
+            onChange={(e) => onChange({ ...section, tocStyle: e.target.value })}
+            style={input}
+          >
+            <option value="numbered">Numbered</option>
+            <option value="plain">Plain</option>
+            <option value="compact">Compact</option>
+          </select>
         )}
         {def?.needsPerson && (
           <div style={{ minWidth: 240 }}>
@@ -55,6 +88,30 @@ export function SectionEditor({ section, persons, onChange, onRemove, onMoveUp, 
             onChange={(e) => onChange({ ...section, generations: +e.target.value || 5 })}
             style={{ ...input, width: 70 }}
           />
+        )}
+        {def?.needsGroup && (
+          <select
+            value={section.groupRecordName || ''}
+            onChange={(e) => onChange({ ...section, groupRecordName: e.target.value })}
+            style={{ ...input, minWidth: 220 }}
+          >
+            <option value="">Select group...</option>
+            {groups.map((group) => (
+              <option key={group.recordName} value={group.recordName}>{group.label}</option>
+            ))}
+          </select>
+        )}
+        {def?.needsSource && (
+          <select
+            value={section.sourceRecordName || ''}
+            onChange={(e) => onChange({ ...section, sourceRecordName: e.target.value })}
+            style={{ ...input, minWidth: 220 }}
+          >
+            <option value="">Select source...</option>
+            {sources.map((source) => (
+              <option key={source.recordName} value={source.recordName}>{source.label}</option>
+            ))}
+          </select>
         )}
       </div>
     </div>
