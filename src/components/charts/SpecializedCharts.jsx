@@ -40,7 +40,7 @@ function collectDescendantPersons(tree, out = [], seen = new Set()) {
   return out;
 }
 
-export function CircularAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page }) {
+export function CircularAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange }) {
   const layout = useMemo(() => {
     const { nodes, links } = collectAncestors(tree, generations);
     const cx = 720;
@@ -66,7 +66,7 @@ export function CircularAncestorChart({ tree, generations = 5, onPersonClick, th
 
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
   return (
-    <ChartCanvas theme={theme} page={page}>
+    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
       {layout.links.map((link, i) => (
         <line key={i} x1={link.from.x + theme.nodeWidth / 2} y1={link.from.y + theme.nodeHeight / 2} x2={link.to.x + theme.nodeWidth / 2} y2={link.to.y + theme.nodeHeight / 2} stroke={theme.connector} strokeWidth={theme.connectorWidth} />
       ))}
@@ -77,7 +77,7 @@ export function CircularAncestorChart({ tree, generations = 5, onPersonClick, th
   );
 }
 
-export function DistributionChart({ persons = [], theme = DEFAULT_THEME, page }) {
+export function DistributionChart({ persons = [], theme = DEFAULT_THEME, page, overlays, onOverlaysChange }) {
   const bars = useMemo(() => {
     const counts = new Map();
     for (const person of persons) {
@@ -90,7 +90,7 @@ export function DistributionChart({ persons = [], theme = DEFAULT_THEME, page })
   }, [persons]);
   const max = Math.max(1, ...bars.map((bar) => bar.count));
   return (
-    <ChartCanvas theme={theme} page={page}>
+    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
       <g transform="translate(80,110)">
         <text x={0} y={-32} fill={theme.text} fontSize={18} fontWeight={700} fontFamily={theme.fontFamily}>Birth Distribution</text>
         {bars.map((bar, index) => {
@@ -109,7 +109,7 @@ export function DistributionChart({ persons = [], theme = DEFAULT_THEME, page })
   );
 }
 
-export function TimelineChart({ ancestorTree, descendantTree, theme = DEFAULT_THEME, page }) {
+export function TimelineChart({ ancestorTree, descendantTree, theme = DEFAULT_THEME, page, overlays, onOverlaysChange }) {
   const rows = useMemo(() => {
     const map = new Map();
     for (const node of collectAncestors(ancestorTree, 6).nodes) if (node.person) map.set(node.person.recordName, node.person);
@@ -124,7 +124,7 @@ export function TimelineChart({ ancestorTree, descendantTree, theme = DEFAULT_TH
   const max = Math.max(...rows.map((row) => row.death || row.birth), min + 1);
   const scale = (year) => 220 + ((year - min) / Math.max(1, max - min)) * 760;
   return (
-    <ChartCanvas theme={theme} page={page}>
+    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
       <g transform="translate(30,90)">
         <text x={190} y={-28} fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{min} - {max}</text>
         {rows.map((row, index) => {
@@ -144,11 +144,11 @@ export function TimelineChart({ ancestorTree, descendantTree, theme = DEFAULT_TH
   );
 }
 
-export function GenogramChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, sociogram = false }) {
+export function GenogramChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, sociogram = false, overlays, onOverlaysChange }) {
   const layout = useMemo(() => layoutDescendants(tree, theme), [tree, theme]);
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
   return (
-    <ChartCanvas theme={theme} page={page}>
+    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
       <g transform="translate(40,80)">
         {layout.links.map((link, index) => (
           <path key={index} d={link.d} fill="none" stroke={sociogram ? '#d08c60' : theme.connector} strokeWidth={sociogram ? 2.4 : theme.connectorWidth} strokeDasharray={sociogram ? '6 4' : 'none'} />
@@ -166,7 +166,7 @@ export function GenogramChart({ tree, onPersonClick, theme = DEFAULT_THEME, page
   );
 }
 
-export function FractalAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, variant = 'fractal' }) {
+export function FractalAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, variant = 'fractal', overlays, onOverlaysChange }) {
   const layout = useMemo(() => {
     const nodes = [];
     const links = [];
@@ -191,7 +191,7 @@ export function FractalAncestorChart({ tree, generations = 5, onPersonClick, the
   }, [tree, generations, variant]);
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
   return (
-    <ChartCanvas theme={theme} page={page}>
+    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
       {layout.links.map((link, index) => (
         <path key={index} d={`M ${link.from.x + theme.nodeWidth / 2} ${link.from.y + theme.nodeHeight} L ${link.to.x + theme.nodeWidth / 2} ${link.to.y}`} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
       ))}

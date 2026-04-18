@@ -12,11 +12,14 @@ export function ChartCanvas({
   maxZoom = 4,
   theme = DEFAULT_THEME,
   page = {},
+  overlays = [],
+  onOverlaysChange,
   children,
 }) {
   const svgRef = useRef(null);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const drag = useRef(null);
+  const overlayDrag = useRef(null);
 
   const onWheel = useCallback(
     (e) => {
@@ -47,11 +50,21 @@ export function ChartCanvas({
     drag.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
   };
   const onMouseMove = (e) => {
+    if (overlayDrag.current) {
+      const { id, startX, startY, original } = overlayDrag.current;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      onOverlaysChange?.(
+        overlays.map((overlay) => overlay.id === id ? moveOverlay(original, dx, dy) : overlay)
+      );
+      return;
+    }
     if (!drag.current) return;
     setView((v) => ({ ...v, x: drag.current.vx + (e.clientX - drag.current.x), y: drag.current.vy + (e.clientY - drag.current.y) }));
   };
   const onMouseUp = () => {
     drag.current = null;
+    overlayDrag.current = null;
   };
 
   const reset = () => setView({ x: 0, y: 0, k: 1 });
@@ -114,6 +127,19 @@ export function ChartCanvas({
           </g>
         )}
         <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>{children}</g>
+        <OverlayLayer
+          overlays={overlays}
+          theme={theme}
+          onDragStart={(event, overlay) => {
+            event.stopPropagation();
+            overlayDrag.current = {
+              id: overlay.id,
+              startX: event.clientX,
+              startY: event.clientY,
+              original: overlay,
+            };
+          }}
+        />
       </svg>
       <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6 }}>
         <button onClick={() => setView((v) => ({ ...v, k: Math.min(maxZoom, v.k * 1.2) }))} style={btn}>+</button>
@@ -124,6 +150,74 @@ export function ChartCanvas({
       </div>
     </div>
   );
+}
+
+function OverlayLayer({ overlays, theme, onDragStart }) {
+  if (!Array.isArray(overlays) || overlays.length === 0) return null;
+  return (
+    <g>
+      {overlays.map((overlay) => {
+        if (overlay.type === 'line') {
+          return (
+            <g key={overlay.id} onMouseDown={(event) => onDragStart(event, overlay)} style={{ cursor: 'move' }}>
+              <line
+                x1={overlay.x1}
+                y1={overlay.y1}
+                x2={overlay.x2}
+                y2={overlay.y2}
+                stroke={overlay.color || theme.text}
+                strokeWidth={overlay.strokeWidth || 2}
+              />
+              <line x1={overlay.x1} y1={overlay.y1} x2={overlay.x2} y2={overlay.y2} stroke="transparent" strokeWidth={12} />
+            </g>
+          );
+        }
+        if (overlay.type === 'image') {
+          return (
+            <image
+              key={overlay.id}
+              href={overlay.href}
+              x={overlay.x}
+              y={overlay.y}
+              width={overlay.width || 180}
+              height={overlay.height || 120}
+              preserveAspectRatio="xMidYMid meet"
+              style={{ cursor: 'move' }}
+              onMouseDown={(event) => onDragStart(event, overlay)}
+            />
+          );
+        }
+        return (
+          <text
+            key={overlay.id}
+            x={overlay.x}
+            y={overlay.y}
+            fill={overlay.color || theme.text}
+            fontSize={overlay.fontSize || 18}
+            fontFamily={theme.fontFamily}
+            fontWeight={overlay.bold ? 700 : 500}
+            style={{ cursor: 'move', userSelect: 'none' }}
+            onMouseDown={(event) => onDragStart(event, overlay)}
+          >
+            {overlay.text || 'Text'}
+          </text>
+        );
+      })}
+    </g>
+  );
+}
+
+function moveOverlay(overlay, dx, dy) {
+  if (overlay.type === 'line') {
+    return {
+      ...overlay,
+      x1: overlay.x1 + dx,
+      y1: overlay.y1 + dy,
+      x2: overlay.x2 + dx,
+      y2: overlay.y2 + dy,
+    };
+  }
+  return { ...overlay, x: overlay.x + dx, y: overlay.y + dy };
 }
 
 function exportSize(page = {}) {

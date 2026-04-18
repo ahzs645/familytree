@@ -1,0 +1,330 @@
+{
+  "assets": {
+    "count": 0,
+    "mediaIdentifiers": {
+      "MediaAudio": {
+        "records": 0,
+        "withAssetIds": 0,
+        "withFileIdentifier": 0
+      },
+      "MediaPDF": {
+        "records": 0,
+        "withAssetIds": 0,
+        "withFileIdentifier": 0
+      },
+      "MediaPicture": {
+        "records": 0,
+        "withAssetIds": 0,
+        "withFileIdentifier": 0
+      },
+      "MediaURL": {
+        "records": 0,
+        "withAssetIds": 0,
+        "withFileIdentifier": 0
+      },
+      "MediaVideo": {
+        "records": 0,
+        "withAssetIds": 0,
+        "withFileIdentifier": 0
+      }
+    },
+    "mediaRecordsWithAssetIds": 0,
+    "owners": {}
+  },
+  "charts": {
+    "ancestorNodes5": 27,
+    "chartTypes": [
+      "ancestor",
+      "descendant",
+      "hourglass",
+      "tree",
+      "double-ancestor",
+      "fan",
+      "circular",
+      "symmetrical",
+      "distribution",
+      "timeline",
+      "genogram",
+      "sociogram",
+      "fractal-h-tree",
+      "square-tree",
+      "fractal-tree",
+      "relationship",
+      "virtual"
+    ],
+    "descendantNodes4": 1,
+    "peopleWithTimelineDates": 83,
+    "startPerson": {
+      "name": "احمد رعد جليل",
+      "recordName": "person-575",
+      "uniqueID": "A4849E47-AA8D-494D-94E3-D43214EE7E96"
+    }
+  },
+  "counts": {
+    "AdditionalName": 16,
+    "ChangeLogEntry": 624,
+    "ChangeLogSubEntry": 2073,
+    "ChildRelation": 768,
+    "ConclusionAdditionalNameType": 13,
+    "ConclusionAssociateRelationType": 13,
+    "ConclusionFamilyEventType": 16,
+    "ConclusionPersonEventType": 48,
+    "ConclusionPersonFactType": 19,
+    "Coordinate": 8,
+    "Family": 282,
+    "FamilyEvent": 8,
+    "FamilyTreeInformation": 1,
+    "Label": 3,
+    "LabelRelation": 4,
+    "Note": 3,
+    "Person": 836,
+    "PersonEvent": 136,
+    "PersonFact": 74,
+    "Place": 18,
+    "PlaceKeyValue": 43,
+    "PlaceTemplate": 40,
+    "PlaceTemplateKey": 70,
+    "PlaceTemplateKeyRelation": 175,
+    "ResearchAssistantQuestionInfo": 440,
+    "SavedChart": 2,
+    "Scope": 17,
+    "Source": 11,
+    "SourceKeyValue": 10,
+    "SourceRelation": 12,
+    "SourceTemplate": 88,
+    "SourceTemplateKey": 72,
+    "SourceTemplateKeyRelation": 640,
+    "ToDo": 1,
+    "ToDoRelation": 1
+  },
+  "format": "cloudtreeweb-mft-parity-snapshot",
+  "recordTotal": 6585,
+  "reports": {
+    "changesListRows": 624,
+    "eventsListRows": 144,
+    "factsListRows": 74,
+    "mapRows": 90,
+    "marriageListRows": 8,
+    "mediaGalleryRows": 0,
+    "personsListRows": 836,
+    "placesListRows": 18,
+    "sourcesListRows": 11,
+    "statusRows": {
+      "personsWithoutBirth": 755,
+      "personsWithoutDeath": 827,
+      "placesWithoutCoordinates": 10
+    },
+    "todayRows": 0,
+    "todoListRows": 1
+  },
+  "savedViews": [
+    {
+      "author": "",
+      "bookStatus": null,
+      "chartStatus": null,
+      "hasBookData": false,
+      "hasChartData": false,
+      "hasReportData": false,
+      "hasThumbnail": false,
+      "recordName": "savedchart-1",
+      "recordType": "SavedChart",
+      "reportStatus": null,
+      "title": "Complete Tree Chart حسين حنش علاو"
+    },
+    {
+      "author": "",
+      "bookStatus": null,
+      "chartStatus": null,
+      "hasBookData": false,
+      "hasChartData": false,
+      "hasReportData": false,
+      "hasThumbnail": false,
+      "recordName": "savedchart-2",
+      "recordType": "SavedChart",
+      "reportStatus": null,
+      "title": "Complete Tree Chart حسين حنش علاو"
+    }
+  ],
+  "smartScopes": {
+    "count": 17,
+    "executable": 17,
+    "scopes": [
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Person",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Persons_IsLiving",
+        "name": "All living Persons",
+        "recordName": "scope-37",
+        "resultCount": 827
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Person",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Persons_Ancestors",
+        "name": "Ancestors of احمد رعد جليل",
+        "recordName": "scope-36",
+        "resultCount": 35
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Family",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Families_NumberOfChildren",
+        "name": "Families with one child",
+        "recordName": "scope-23",
+        "resultCount": 70
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Family",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Families_Label",
+        "name": "Label is 'Incomplete'",
+        "recordName": "scope-28",
+        "resultCount": 0
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Source",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Sources_Label",
+        "name": "Label is 'Incomplete'",
+        "recordName": "scope-30",
+        "resultCount": 0
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Person",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Persons_Labels",
+        "name": "Label is 'Incomplete'",
+        "recordName": "scope-32",
+        "resultCount": 4
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Place",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Places_Label",
+        "name": "Label is 'Incomplete'",
+        "recordName": "scope-34",
+        "resultCount": 0
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Family",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Families_MarriageDate",
+        "name": "Married before 1950",
+        "recordName": "scope-35",
+        "resultCount": 2
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Person",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Persons_FamilySearch",
+        "name": "Persons connected to FamilySearch",
+        "recordName": "scope-33",
+        "resultCount": 0
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Person",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Persons_HasPictures",
+        "name": "Persons with at least one picture assigned",
+        "recordName": "scope-27",
+        "resultCount": 0
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Place",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Places_AtLeastOneEvent",
+        "name": "Places with at least one event",
+        "recordName": "scope-31",
+        "resultCount": 14
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Place",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Places_WithoutCoordinates",
+        "name": "Places without coordinates",
+        "recordName": "scope-25",
+        "resultCount": 10
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Source",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Sources_AtLeastOneAssignedEntry",
+        "name": "Sources with at least one assigned entry",
+        "recordName": "scope-29",
+        "resultCount": 11
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "Source",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_Sources_AtLeastOneMedia",
+        "name": "Sources with at least one Media item",
+        "recordName": "scope-21",
+        "resultCount": 0
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "ToDo",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_ToDos_FurtherResearch",
+        "name": "ToDos needing further research",
+        "recordName": "scope-24",
+        "resultCount": 0
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "ToDo",
+        "executable": true,
+        "filterCount": 2,
+        "identifier": "StandardScope_ToDos_FurtherResearchAndPriorityHigh",
+        "name": "ToDos needing further research with high priority",
+        "recordName": "scope-26",
+        "resultCount": 0
+      },
+      {
+        "decodedStatus": "decoded",
+        "entityType": "ToDo",
+        "executable": true,
+        "filterCount": 1,
+        "identifier": "StandardScope_ToDos_AtLeastOneAssignedEntry",
+        "name": "ToDos with at least one assigned entry",
+        "recordName": "scope-22",
+        "resultCount": 1
+      }
+    ]
+  },
+  "sourceName": "Ahmad's Family (Arabic).mftpkg",
+  "version": 1,
+  "warnings": {
+    "archivedPayloads": 0,
+    "total": 0
+  }
+}

@@ -6,6 +6,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordDeleted } from '../lib/changeLog.js';
 import { readRef } from '../lib/schema.js';
+import { matchMediaFiles } from '../lib/mediaFolderMatch.js';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 
 const MEDIA_TYPES = [
@@ -30,6 +31,7 @@ export default function Media() {
   const [status, setStatus] = useState(null);
   const [activeAssets, setActiveAssets] = useState([]);
   const [activeRelations, setActiveRelations] = useState([]);
+  const folderRef = React.useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -101,6 +103,18 @@ export default function Media() {
     setActiveId(null);
   }, [activeId, media, reload]);
 
+  const onMatchFolder = useCallback(async (files) => {
+    if (!files?.length) return;
+    setStatus('Matching media folder…');
+    try {
+      const result = await matchMediaFiles([...files]);
+      await reload();
+      setStatus(`Matched ${result.matched.toLocaleString()} media file${result.matched === 1 ? '' : 's'}.`);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }, [reload]);
+
   const filtered = filter === 'all' ? media : media.filter((m) => m.recordType === filter);
   const active = media.find((m) => m.recordName === activeId);
 
@@ -115,6 +129,8 @@ export default function Media() {
         <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
           {filtered.length} item{filtered.length === 1 ? '' : 's'}
         </span>
+        <input ref={folderRef} type="file" multiple webkitdirectory="" className="hidden" onChange={(e) => onMatchFolder(e.target.files)} />
+        <button onClick={() => folderRef.current?.click()} style={select}>Match media folder</button>
       </header>
 
       <div style={body}>

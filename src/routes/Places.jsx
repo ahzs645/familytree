@@ -22,6 +22,14 @@ import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { MediaRelationsEditor, NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { Map as MapView } from '../components/ui/Map.jsx';
+import {
+  batchLookupMissingCoordinates,
+  getMapPreferences,
+  lookupGeoNameId,
+  lookupPlaceCandidates,
+  placeDetailsFromComponents,
+  saveMapPreferences,
+} from '../lib/placeGeocoding.js';
 
 function uuid(p) {
   return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -82,6 +90,7 @@ export default function Places() {
   const [longitude, setLongitude] = useState('');
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
+  const [mapPrefs, setMapPrefs] = useState({ defaultZoom: 9, batchLimit: 10 });
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -104,7 +113,10 @@ export default function Places() {
     if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
   }, [activeId]);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    reload();
+    getMapPreferences().then(setMapPrefs);
+  }, [reload]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -137,6 +149,8 @@ export default function Places() {
 
     const refs = {};
     for (const fd of REFERENCE_NUMBER_FIELDS) refs[fd.id] = record.fields?.[fd.id]?.value ?? '';
+    refs.geonameID = record.fields?.geonameID?.value || record.fields?.geoNameID?.value || '';
+    refs.lookupProviderId = record.fields?.lookupProviderId?.value || '';
     setRefNumbers(refs);
 
     (async () => {
@@ -210,6 +224,11 @@ export default function Places() {
       if (v == null || v === '') delete nextFields[f.id];
       else nextFields[f.id] = { value: v, type: 'STRING' };
     }
+    if (refNumbers.geonameID) {
+      nextFields.geonameID = { value: refNumbers.geonameID, type: 'STRING' };
+      nextFields.geoNameID = { value: refNumbers.geonameID, type: 'STRING' };
+    }
+    if (refNumbers.lookupProviderId) nextFields.lookupProviderId = { value: refNumbers.lookupProviderId, type: 'STRING' };
 
     // Coordinate — write to separate Coordinate record. Create if missing,
     // delete if both inputs are blank.
@@ -305,6 +324,68 @@ export default function Places() {
     setTimeout(() => setStatus(null), 1500);
   }, [activeId, places, templateId, templateFields, components, details, labels, refNumbers, bookmarked, isPrivate, latitude, longitude, coordinate, reload]);
 
+  const onLookupPlace = useCallback(async () => {
+    const record = places.find((p) => p.recordName === activeId);
+    if (!record) return;
+    const query = Object.values(components).filter(Boolean).join(', ') || placeSummary(record)?.displayName || placeSummary(record)?.name;
+    if (!query) return;
+    setStatus('Looking up place…');
+    try {
+      const candidates = await lookupPlaceCandidates(query, { limit: 1 });
+      const match = candidates[0];
+      if (!match) {
+        setStatus('No lookup match');
+        return;
+      }
+      setLatitude(match.latitude.toFixed(6));
+      setLongitude(match.longitude.toFixed(6));
+      setRefNumbers((refs) => ({ ...refs, lookupProviderId: match.providerId }));
+      setStatus(`Matched ${match.name}`);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }, [activeId, places, components]);
+
+  const onLookupGeoName = useCallback(async () => {
+    const id = prompt('GeoName ID:');
+    if (!id) return;
+    setStatus('Looking up GeoName…');
+    try {
+      const match = await lookupGeoNameId(id);
+      setLatitude(match.latitude.toFixed(6));
+      setLongitude(match.longitude.toFixed(6));
+      setRefNumbers((refs) => ({ ...refs, geonameID: id, geoNameID: id }));
+      setStatus(`GeoName matched ${match.name}`);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }, []);
+
+  const onBatchLookup = useCallback(async () => {
+    const limit = Number(mapPrefs.batchLimit) || 10;
+    if (!confirm(`Lookup coordinates for up to ${limit} places missing coordinates?`)) return;
+    setStatus('Batch lookup running…');
+    try {
+      const changed = await batchLookupMissingCoordinates({ limit });
+      await reload();
+      setStatus(`Batch lookup updated ${changed.length} places.`);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }, [mapPrefs.batchLimit, reload]);
+
+  const onConvertToDetails = useCallback(() => {
+    const generated = placeDetailsFromComponents(components);
+    if (!generated.length) return;
+    setDetails((existing) => [...existing, ...generated]);
+    setStatus(`Added ${generated.length} place detail rows.`);
+  }, [components]);
+
+  const onPrefsChange = useCallback(async (next) => {
+    const saved = await saveMapPreferences(next);
+    setMapPrefs(saved);
+  }, []);
+
   const active = places.find((p) => p.recordName === activeId);
   const lat = parseFloat(latitude);
   const lng = parseFloat(longitude);
@@ -388,13 +469,19 @@ export default function Places() {
             {hasPoint && <div className="text-[11px] text-muted-foreground mt-1">{dmsLon(lng)}</div>}
           </Field>
         </div>
+        <div className="flex flex-wrap gap-2 mt-3">
+          <button onClick={onLookupPlace} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Lookup Place</button>
+          <button onClick={onLookupGeoName} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">GeoName ID</button>
+          <button onClick={onBatchLookup} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Batch Missing</button>
+          <button onClick={onConvertToDetails} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Place to Details</button>
+        </div>
       </Section>
 
       <Section title="Map" accent={ACCENTS.map}>
         <div className="h-80 rounded-md overflow-hidden border border-border">
           <MapView
             center={hasPoint ? [lng, lat] : [0, 20]}
-            zoom={hasPoint ? 9 : 1.5}
+            zoom={hasPoint ? Number(mapPrefs.defaultZoom || 9) : 1.5}
             markers={hasPoint ? [{
               id: 'self', lat, lng, draggable: true,
               onDragEnd: ({ lng: nl, lat: nL }) => {
@@ -409,6 +496,18 @@ export default function Places() {
           />
         </div>
         <div className="text-[11px] text-muted-foreground mt-2">Click on the map to set coordinates, drag the marker to fine-tune.</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+          <Field label="Default map zoom">
+            <input type="number" min="1" max="18" value={mapPrefs.defaultZoom || 9}
+              onChange={(e) => onPrefsChange({ defaultZoom: +e.target.value || 9 })}
+              className={inputClass} />
+          </Field>
+          <Field label="Batch lookup limit">
+            <input type="number" min="1" max="50" value={mapPrefs.batchLimit || 10}
+              onChange={(e) => onPrefsChange({ batchLimit: +e.target.value || 10 })}
+              className={inputClass} />
+          </Field>
+        </div>
       </Section>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
@@ -439,6 +538,9 @@ export default function Places() {
                   <input value={refNumbers[f.id] ?? ''} onChange={(e) => setRefNumbers((s) => ({ ...s, [f.id]: e.target.value }))} className={inputClass} />
                 </Field>
               ))}
+              <Field label="GeoName ID">
+                <input value={refNumbers.geonameID ?? ''} onChange={(e) => setRefNumbers((s) => ({ ...s, geonameID: e.target.value }))} className={inputClass} />
+              </Field>
             </div>
           </Section>
           <Section title="Bookmarks" accent={ACCENTS.bookmarks}>

@@ -329,6 +329,233 @@ export async function buildToDoListReport() {
   return report;
 }
 
+export async function buildRegisterReport(recordName, generations = 4) {
+  const tree = await buildDescendantTree(recordName, generations);
+  if (!tree) return emptyReport('Person not found');
+  const report = emptyReport(`Register Report — ${nameOf(tree.person)}`);
+  report.blocks.push(block.title(report.title, 1));
+  let index = 1;
+  function visit(node, gen) {
+    if (!node?.person || gen > generations) return;
+    const number = index++;
+    report.blocks.push(block.title(`${number}. ${nameOf(node.person)} ${spanAnnotated(node.person)}`.trim(), gen === 0 ? 2 : 3));
+    const spouses = [];
+    const children = [];
+    for (const union of node.unions || []) {
+      if (union.partner) spouses.push(nameOf(union.partner));
+      for (const child of union.children || []) children.push(nameOf(child.person));
+    }
+    if (spouses.length) report.blocks.push(block.paragraph(`Spouse${spouses.length === 1 ? '' : 's'}: ${spouses.join('; ')}`));
+    if (children.length) report.blocks.push(block.list(children.map((child, childIndex) => `${number}.${childIndex + 1} ${child}`)));
+    for (const union of node.unions || []) for (const child of union.children || []) visit(child, gen + 1);
+  }
+  visit(tree, 0);
+  return report;
+}
+
+export async function buildDescendancyReport(recordName, generations = 5) {
+  const tree = await buildDescendantTree(recordName, generations);
+  if (!tree) return emptyReport('Person not found');
+  const rows = [];
+  function visit(node, gen, parent = '') {
+    if (!node?.person || gen > generations) return;
+    rows.push([String(gen + 1), nameOf(node.person), node.person.birthDate || '', node.person.deathDate || '', parent]);
+    for (const union of node.unions || []) {
+      for (const child of union.children || []) visit(child, gen + 1, nameOf(node.person));
+    }
+  }
+  visit(tree, 0);
+  const report = emptyReport(`Descendancy Report — ${nameOf(tree.person)}`);
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.table(['Generation', 'Name', 'Born', 'Died', 'Parent'], rows));
+  return report;
+}
+
+export async function buildNarrativeReport(recordName, generations = 4) {
+  const ctx = await buildPersonContext(recordName);
+  if (!ctx) return emptyReport('Person not found');
+  const report = emptyReport(`Narrative Report — ${nameOf(ctx.selfSummary)}`);
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.paragraph(narrativeSentence(ctx.selfSummary)));
+  for (const parentFamily of ctx.parents) {
+    const parents = [parentFamily.man, parentFamily.woman].filter(Boolean).map(nameOf).join(' and ');
+    if (parents) report.blocks.push(block.paragraph(`${nameOf(ctx.selfSummary)} was a child of ${parents}.`));
+  }
+  for (const family of ctx.families) {
+    if (family.partner) report.blocks.push(block.paragraph(`${nameOf(ctx.selfSummary)} formed a family with ${nameOf(family.partner)}.`));
+    if (family.children.length) report.blocks.push(block.paragraph(`Their recorded children are ${family.children.map(nameOf).join(', ')}.`));
+  }
+  const descendants = await buildDescendantNarrative(recordName, generations);
+  report.blocks.push(...descendants.blocks.slice(1));
+  return report;
+}
+
+export async function buildMediaGalleryReport() {
+  const db = getLocalDatabase();
+  const mediaTypes = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
+  const rows = [];
+  for (const type of mediaTypes) {
+    const { records } = await db.query(type, { limit: 100000 });
+    for (const media of records) {
+      rows.push([
+        type.replace('Media', ''),
+        readField(media, ['title', 'caption', 'filename'], media.recordName),
+        readField(media, ['date'], ''),
+        readField(media, ['url', 'pictureFileIdentifier', 'thumbnailFileIdentifier', 'pdfFileIdentifier', 'audioFileIdentifier', 'videoFileIdentifier'], ''),
+      ]);
+    }
+  }
+  const report = emptyReport('Media Gallery Report');
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.table(['Type', 'Title', 'Date', 'File / URL'], rows.sort((a, b) => a[1].localeCompare(b[1]))));
+  return report;
+}
+
+export async function buildTimelineReport() {
+  const db = getLocalDatabase();
+  const [personEvents, familyEvents] = await Promise.all([
+    db.query('PersonEvent', { limit: 100000 }),
+    db.query('FamilyEvent', { limit: 100000 }),
+  ]);
+  const rows = [];
+  for (const event of [...personEvents.records, ...familyEvents.records]) {
+    rows.push([
+      readField(event, ['date'], ''),
+      readConclusionType(event) || 'Event',
+      await eventOwnerLabel(db, event),
+      await placeLabel(db, readRef(event.fields?.place) || readRef(event.fields?.assignedPlace)),
+      trimText(readField(event, ['description', 'text'], ''), 90),
+    ]);
+  }
+  const report = emptyReport('Timeline Report');
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.table(['Date', 'Type', 'Owner', 'Place', 'Description'], rows.sort((a, b) => String(a[0]).localeCompare(String(b[0])))));
+  return report;
+}
+
+export async function buildStatusReport() {
+  const db = getLocalDatabase();
+  const [persons, places, sources, media, todos] = await Promise.all([
+    db.query('Person', { limit: 100000 }),
+    db.query('Place', { limit: 100000 }),
+    db.query('Source', { limit: 100000 }),
+    db.query('MediaPicture', { limit: 100000 }),
+    db.query('ToDo', { limit: 100000 }),
+  ]);
+  const rows = [
+    ['Persons', persons.records.length],
+    ['Persons without birth date', persons.records.filter((p) => !readField(p, ['cached_birthDate', 'birthDate'])).length],
+    ['Persons without death date', persons.records.filter((p) => !readField(p, ['cached_deathDate', 'deathDate'])).length],
+    ['Places', places.records.length],
+    ['Places without coordinates', places.records.filter((p) => !readField(p, ['coordinate', 'latitude'])).length],
+    ['Sources', sources.records.length],
+    ['Pictures', media.records.length],
+    ['Open ToDos', todos.records.filter((t) => !/done|complete/i.test(readField(t, ['status'], ''))).length],
+  ].map(([name, value]) => [name, Number(value).toLocaleString()]);
+  const report = emptyReport('Status Report');
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.table(['Metric', 'Value'], rows));
+  return report;
+}
+
+export async function buildTodayReport(date = new Date()) {
+  const db = getLocalDatabase();
+  const { records } = await db.query('Person', { limit: 100000 });
+  const key = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const rows = [];
+  for (const person of records) {
+    const summary = personSummary(person);
+    addTodayRow(rows, key, summary, 'Birth', summary?.birthDate);
+    addTodayRow(rows, key, summary, 'Death', summary?.deathDate);
+  }
+  const report = emptyReport('Today Report');
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.table(['Type', 'Person', 'Date'], rows));
+  return report;
+}
+
+export async function buildChangesListReport() {
+  const db = getLocalDatabase();
+  const { records } = await db.query('ChangeLogEntry', { limit: 100000 });
+  const rows = records
+    .map((entry) => [
+      readField(entry, ['timestamp'], ''),
+      readField(entry, ['changeType'], ''),
+      readField(entry, ['targetType'], ''),
+      readField(entry, ['summary'], ''),
+    ])
+    .sort((a, b) => String(b[0]).localeCompare(String(a[0])));
+  const report = emptyReport('Changes List');
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.table(['Date', 'Type', 'Target', 'Summary'], rows));
+  return report;
+}
+
+export async function buildFactsListReport() {
+  const db = getLocalDatabase();
+  const { records } = await db.query('PersonFact', { limit: 100000 });
+  const rows = [];
+  for (const fact of records) {
+    const personId = readRef(fact.fields?.person);
+    const person = personId ? await db.getRecord(personId) : null;
+    rows.push([
+      personSummary(person)?.fullName || personId || '',
+      readConclusionType(fact) || readField(fact, ['factType', 'type'], 'Fact'),
+      readField(fact, ['value', 'description', 'text'], ''),
+      readField(fact, ['date'], ''),
+    ]);
+  }
+  const report = emptyReport('Facts List');
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.table(['Person', 'Fact', 'Value', 'Date'], rows.sort((a, b) => a[0].localeCompare(b[0]))));
+  return report;
+}
+
+export async function buildMarriageListReport() {
+  const db = getLocalDatabase();
+  const { records: families } = await db.query('Family', { limit: 100000 });
+  const rows = [];
+  for (const family of families) {
+    const man = await db.getRecord(readRef(family.fields?.man));
+    const woman = await db.getRecord(readRef(family.fields?.woman));
+    rows.push([
+      personSummary(man)?.fullName || '',
+      personSummary(woman)?.fullName || '',
+      readField(family, ['cached_marriageDate', 'marriageDate'], ''),
+    ]);
+  }
+  const report = emptyReport('Marriage List');
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.table(['Partner 1', 'Partner 2', 'Marriage Date'], rows.sort((a, b) => String(a[2]).localeCompare(String(b[2])))));
+  return report;
+}
+
+export async function buildMapReport() {
+  const db = getLocalDatabase();
+  const [places, coords] = await Promise.all([
+    db.query('Place', { limit: 100000 }),
+    db.query('Coordinate', { limit: 100000 }),
+  ]);
+  const coordByPlace = new Map();
+  for (const coord of coords.records) {
+    const place = readRef(coord.fields?.place);
+    if (place) coordByPlace.set(place, coord);
+  }
+  const rows = places.records.map((place) => {
+    const coord = coordByPlace.get(place.recordName) || null;
+    return [
+      placeSummary(place)?.displayName || placeSummary(place)?.name || place.recordName,
+      readField(coord, ['latitude'], ''),
+      readField(coord, ['longitude'], ''),
+      readField(place, ['geonameID', 'geoNameID'], ''),
+    ];
+  });
+  const report = emptyReport('Map Report');
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.table(['Place', 'Latitude', 'Longitude', 'GeoName ID'], rows));
+  return report;
+}
+
 async function eventOwnerLabel(db, eventRecord) {
   const personId = readRef(eventRecord.fields?.person);
   if (personId) {
@@ -355,6 +582,20 @@ function addAnniversary(rows, person, type, rawDate) {
   if (!person || !match) return;
   const monthDay = `${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
   rows.push([monthDay, type, person.fullName, match[1] || '']);
+}
+
+function addTodayRow(rows, todayKey, person, type, rawDate) {
+  const match = String(rawDate || '').match(/(?:(\d{4})[-./])?(\d{1,2})[-./](\d{1,2})/);
+  if (!person || !match) return;
+  const key = `${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`;
+  if (key === todayKey) rows.push([type, person.fullName, rawDate]);
+}
+
+function narrativeSentence(summary) {
+  const pieces = [`${nameOf(summary)} is recorded in this family tree`];
+  if (summary.birthDate) pieces.push(`born ${summary.birthDate}`);
+  if (summary.deathDate) pieces.push(`died ${summary.deathDate}`);
+  return pieces.join(', ') + '.';
 }
 
 function trimText(value, max) {

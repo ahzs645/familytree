@@ -7,7 +7,7 @@ import { ImportDropZone } from '../components/ImportDropZone.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 
 const SECTIONS = [
-  { to: '/tree', title: 'Interactive Tree', body: 'Alphabetical person list with live search, plus parents / partners / children for the focused person.' },
+  { to: '/tree', title: 'Interactive Tree', body: '3D family explorer with live search, plus parents / partners / children for the focused person.' },
   { to: '/charts', title: 'Charts', body: 'Ancestor, descendant, hourglass, tree, fan, double-ancestor, relationship-path, and configurable virtual-tree views.' },
   { to: '/map', title: 'Map', body: 'Every place in your tree plotted on an interactive base map. Click a marker to jump to its record.' },
   { to: '/places', title: 'Places', body: 'List, search, and edit place records — names, normalized form, GeoName ID, coordinates, place templates.' },

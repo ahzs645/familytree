@@ -12,7 +12,9 @@
     "patch": "node scripts/patch-bundle.js",
     "copy-wasm": "cp node_modules/sql.js/dist/sql-wasm.js public/ && cp node_modules/sql.js/dist/sql-wasm.wasm public/",
     "extract": "node scripts/extract-mftpkg.js",
-    "postinstall": "npm run copy-wasm && npm run patch"
+    "postinstall": "npm run copy-wasm && npm run patch",
+    "parity": "node scripts/validate-mft-parity.mjs",
+    "parity:update": "node scripts/validate-mft-parity.mjs --update"
   },
   "dependencies": {
     "better-sqlite3": "^12.9.0",

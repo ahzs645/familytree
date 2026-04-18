@@ -10,6 +10,7 @@ import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { findRelationshipPath } from '../../lib/relationshipPath.js';
 import { listChartTemplates, saveChartTemplate, deleteChartTemplate, newTemplateId } from '../../lib/chartTemplates.js';
+import { listChartDocuments, saveChartDocument, deleteChartDocument, newChartDocumentId } from '../../lib/chartDocuments.js';
 import { THEMES, getTheme } from './theme.js';
 import { PersonPicker } from './PersonPicker.jsx';
 import { AncestorChart } from './AncestorChart.jsx';
@@ -67,11 +68,13 @@ export function ChartsApp() {
   const [pageSize, setPageSize] = useState('letter');
   const [pageOrientation, setPageOrientation] = useState('landscape');
   const [chartBackground, setChartBackground] = useState('');
+  const [overlays, setOverlays] = useState([]);
   const [ancestorTree, setAncestorTree] = useState(null);
   const [descendantTree, setDescendantTree] = useState(null);
   const [secondAncestorTree, setSecondAncestorTree] = useState(null);
   const [relationshipResult, setRelationshipResult] = useState(null);
   const [templates, setTemplates] = useState([]);
+  const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [empty, setEmpty] = useState(false);
 
@@ -88,18 +91,41 @@ export function ChartsApp() {
   useEffect(() => {
     (async () => {
       const list = await listAllPersons();
+      const docs = await listChartDocuments();
       setPersons(list);
       setTemplates(await listChartTemplates());
+      setDocuments(docs);
+      const requestedDoc = docs.find((doc) => doc.id === searchParams.get('document'));
+      if (requestedDoc) {
+        setChartType(requestedDoc.chartType || 'ancestor');
+        setRootId(requestedDoc.rootId || null);
+        setSecondId(requestedDoc.secondId || null);
+        setThemeId(requestedDoc.themeId || 'auto');
+        setGenerations(requestedDoc.generations || 5);
+        setVirtualSource(requestedDoc.virtual?.source || 'descendant');
+        setVirtualOrientation(requestedDoc.virtual?.orientation || 'vertical');
+        setVirtualHSpacing(requestedDoc.virtual?.hSpacing || 24);
+        setVirtualVSpacing(requestedDoc.virtual?.vSpacing || 110);
+        setChartTitle(requestedDoc.page?.title || '');
+        setChartNote(requestedDoc.page?.note || '');
+        setPageSize(requestedDoc.page?.size || 'letter');
+        setPageOrientation(requestedDoc.page?.orientation || 'landscape');
+        setChartBackground(requestedDoc.page?.backgroundColor || '');
+        setOverlays(Array.isArray(requestedDoc.overlays) ? requestedDoc.overlays : []);
+      }
       if (list.length === 0) {
         setEmpty(true);
         setLoading(false);
         return;
       }
-      if (!rootId || !list.some((p) => p.recordName === rootId)) {
+      const desiredRootId = requestedDoc?.rootId || rootId;
+      if (!desiredRootId || !list.some((p) => p.recordName === desiredRootId)) {
         const start = await findStartPerson();
         const pick = start?.recordName || list[0].recordName;
         setRootId(pick);
         setActivePerson(pick);
+      } else if (requestedDoc?.rootId) {
+        setActivePerson(requestedDoc.rootId);
       }
       setLoading(false);
     })();
@@ -189,10 +215,112 @@ export function ChartsApp() {
     setChartBackground(tpl.page?.backgroundColor || '');
   }, [templates]);
 
+  const currentDocumentState = useCallback((name, id = newChartDocumentId()) => ({
+    id,
+    name,
+    chartType,
+    rootId,
+    secondId,
+    themeId,
+    generations,
+    virtual: {
+      source: virtualSource,
+      orientation: virtualOrientation,
+      hSpacing: virtualHSpacing,
+      vSpacing: virtualVSpacing,
+    },
+    page: {
+      title: chartTitle,
+      note: chartNote,
+      size: pageSize,
+      orientation: pageOrientation,
+      backgroundColor: chartBackground,
+    },
+    overlays,
+  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, overlays]);
+
+  const onSaveDocument = useCallback(async () => {
+    const name = prompt('Name for this chart document:');
+    if (!name) return;
+    await saveChartDocument(currentDocumentState(name));
+    setDocuments(await listChartDocuments());
+  }, [currentDocumentState]);
+
+  const onApplyDocument = useCallback(async (id) => {
+    const doc = documents.find((item) => item.id === id);
+    if (!doc) return;
+    setChartType(doc.chartType || 'ancestor');
+    setRootId(doc.rootId || rootId);
+    setSecondId(doc.secondId || null);
+    setThemeId(doc.themeId || 'auto');
+    setGenerations(doc.generations || 5);
+    setVirtualSource(doc.virtual?.source || 'descendant');
+    setVirtualOrientation(doc.virtual?.orientation || 'vertical');
+    setVirtualHSpacing(doc.virtual?.hSpacing || 24);
+    setVirtualVSpacing(doc.virtual?.vSpacing || 110);
+    setChartTitle(doc.page?.title || '');
+    setChartNote(doc.page?.note || '');
+    setPageSize(doc.page?.size || 'letter');
+    setPageOrientation(doc.page?.orientation || 'landscape');
+    setChartBackground(doc.page?.backgroundColor || '');
+    setOverlays(Array.isArray(doc.overlays) ? doc.overlays : []);
+  }, [documents, rootId]);
+
+  const onDeleteDocument = useCallback(async (id) => {
+    if (!confirm('Delete this chart document?')) return;
+    await deleteChartDocument(id);
+    setDocuments(await listChartDocuments());
+  }, []);
+
   const onDeleteTemplate = useCallback(async (id) => {
     if (!confirm('Delete this template?')) return;
     await deleteChartTemplate(id);
     setTemplates(await listChartTemplates());
+  }, []);
+
+  const addTextOverlay = useCallback(() => {
+    const text = prompt('Text label:', 'Annotation');
+    if (!text) return;
+    setOverlays((items) => [...items, {
+      id: newChartDocumentId(),
+      type: 'text',
+      text,
+      x: 96,
+      y: 120,
+      fontSize: 20,
+      color: theme.text,
+    }]);
+  }, [theme.text]);
+
+  const addLineOverlay = useCallback(() => {
+    setOverlays((items) => [...items, {
+      id: newChartDocumentId(),
+      type: 'line',
+      x1: 120,
+      y1: 160,
+      x2: 300,
+      y2: 160,
+      strokeWidth: 3,
+      color: theme.connector,
+    }]);
+  }, [theme.connector]);
+
+  const addImageOverlay = useCallback(() => {
+    const href = prompt('Image URL:');
+    if (!href) return;
+    setOverlays((items) => [...items, {
+      id: newChartDocumentId(),
+      type: 'image',
+      href,
+      x: 120,
+      y: 140,
+      width: 180,
+      height: 120,
+    }]);
+  }, []);
+
+  const removeLastOverlay = useCallback(() => {
+    setOverlays((items) => items.slice(0, -1));
   }, []);
 
   if (loading) return <div style={loadingStyle}>Loading family data…</div>;
@@ -296,6 +424,31 @@ export function ChartsApp() {
           </div>
         </Field>
 
+        <Field label="Documents">
+          <div style={{ display: 'flex', gap: 4 }}>
+            <select value="" onChange={(e) => e.target.value && onApplyDocument(e.target.value)} style={{ ...selectStyle, minWidth: 140 }}>
+              <option value="">Open…</option>
+              {documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
+            </select>
+            <button onClick={onSaveDocument} style={selectStyle}>Save Doc</button>
+            {documents.length > 0 && (
+              <select value="" onChange={(e) => e.target.value && onDeleteDocument(e.target.value)} style={{ ...selectStyle, width: 64 }}>
+                <option value="">Del…</option>
+                {documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
+              </select>
+            )}
+          </div>
+        </Field>
+
+        <Field label="Overlays">
+          <div style={{ display: 'flex', gap: 4 }}>
+            <button onClick={addTextOverlay} style={selectStyle}>Text</button>
+            <button onClick={addLineOverlay} style={selectStyle}>Line</button>
+            <button onClick={addImageOverlay} style={selectStyle}>Image</button>
+            <button onClick={removeLastOverlay} disabled={overlays.length === 0} style={selectStyle}>Undo</button>
+          </div>
+        </Field>
+
         <span style={{ marginLeft: 'auto', color: theme.textMuted, fontSize: 12 }}>
           Drag · scroll · click a node to re-root
         </span>
@@ -303,10 +456,10 @@ export function ChartsApp() {
 
       <main style={mainStyle}>
         {chartType === 'ancestor' && (
-          <AncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
+          <AncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'descendant' && (
-          <DescendantChart tree={descendantTree} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
+          <DescendantChart tree={descendantTree} onPersonClick={onPersonClick} theme={theme} page={chartPage} overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'hourglass' && (
           <HourglassChart
@@ -316,6 +469,8 @@ export function ChartsApp() {
             onPersonClick={onPersonClick}
             theme={theme}
             page={chartPage}
+            overlays={overlays}
+            onOverlaysChange={setOverlays}
           />
         )}
         {(chartType === 'tree' || chartType === 'symmetrical') && (
@@ -326,6 +481,8 @@ export function ChartsApp() {
             onPersonClick={onPersonClick}
             theme={theme}
             page={chartPage}
+            overlays={overlays}
+            onOverlaysChange={setOverlays}
           />
         )}
         {chartType === 'double-ancestor' && (
@@ -336,37 +493,39 @@ export function ChartsApp() {
             onPersonClick={onPersonClick}
             theme={theme}
             page={chartPage}
+            overlays={overlays}
+            onOverlaysChange={setOverlays}
           />
         )}
         {chartType === 'fan' && (
-          <FanChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
+          <FanChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'circular' && (
-          <CircularAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
+          <CircularAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'distribution' && (
-          <DistributionChart persons={persons} theme={theme} page={chartPage} />
+          <DistributionChart persons={persons} theme={theme} page={chartPage} overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'timeline' && (
-          <TimelineChart ancestorTree={ancestorTree} descendantTree={descendantTree} theme={theme} page={chartPage} />
+          <TimelineChart ancestorTree={ancestorTree} descendantTree={descendantTree} theme={theme} page={chartPage} overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'genogram' && (
-          <GenogramChart tree={descendantTree} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
+          <GenogramChart tree={descendantTree} onPersonClick={onPersonClick} theme={theme} page={chartPage} overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'sociogram' && (
-          <GenogramChart tree={descendantTree} onPersonClick={onPersonClick} theme={theme} page={chartPage} sociogram />
+          <GenogramChart tree={descendantTree} onPersonClick={onPersonClick} theme={theme} page={chartPage} sociogram overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'fractal-h-tree' && (
-          <FractalAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} variant="h-tree" />
+          <FractalAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} variant="h-tree" overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'square-tree' && (
-          <FractalAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} variant="square" />
+          <FractalAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} variant="square" overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'fractal-tree' && (
-          <FractalAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} variant="fractal" />
+          <FractalAncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} variant="fractal" overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'relationship' && (
-          <RelationshipPathChart result={relationshipResult} secondPicked={!!secondId} onPersonClick={onPersonClick} theme={theme} page={chartPage} />
+          <RelationshipPathChart result={relationshipResult} secondPicked={!!secondId} onPersonClick={onPersonClick} theme={theme} page={chartPage} overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'virtual' && (
           <div style={{ display: 'flex', height: '100%' }}>
@@ -402,6 +561,8 @@ export function ChartsApp() {
                 onPersonClick={onPersonClick}
                 theme={theme}
                 page={chartPage}
+                overlays={overlays}
+                onOverlaysChange={setOverlays}
                 options={{ orientation: virtualOrientation, hSpacing: virtualHSpacing, vSpacing: virtualVSpacing }}
               />
             </div>

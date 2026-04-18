@@ -158,6 +158,38 @@ export function parseGedcom(text) {
   return records;
 }
 
+export function analyzeGedcomText(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const issues = [];
+  const counts = { INDI: 0, FAM: 0, SOUR: 0, NOTE: 0, OBJE: 0, unsupportedEvents: 0 };
+  let hasHead = false;
+  let hasTrailer = false;
+  for (const [index, line] of lines.entries()) {
+    if (!line.trim()) continue;
+    const token = tokenizeLine(line);
+    if (!token) {
+      issues.push(issue('error', index + 1, 'Line does not match GEDCOM level/tag syntax.'));
+      continue;
+    }
+    if (token.level === 0 && token.tag === 'HEAD') hasHead = true;
+    if (token.level === 0 && token.tag === 'TRLR') hasTrailer = true;
+    if (token.level === 0 && counts[token.tag] !== undefined) counts[token.tag] += 1;
+    if (token.tag === 'OBJE') counts.OBJE += 1;
+    if (token.level > 0 && /^[A-Z0-9_]+$/.test(token.tag) && token.tag.length >= 3 && !EVENT_TAG_TO_NAME[token.tag] && eventLikeTag(token.tag)) {
+      counts.unsupportedEvents += 1;
+      issues.push(issue('warning', index + 1, `Event-like tag ${token.tag} is not mapped by the importer.`));
+    }
+  }
+  if (!hasHead) issues.push(issue('warning', 0, 'Missing HEAD record.'));
+  if (!hasTrailer) issues.push(issue('warning', 0, 'Missing TRLR record.'));
+  if (counts.OBJE > 0) issues.push(issue('warning', 0, `${counts.OBJE} media object reference(s) found; media files are not imported by the GEDCOM subset importer.`));
+  return {
+    counts,
+    issues,
+    canImport: !issues.some((item) => item.severity === 'error'),
+  };
+}
+
 function stubPerson(id, indi) {
   const fields = {};
   const name = child(indi, 'NAME')?.value || '';
@@ -195,4 +227,12 @@ export async function importGedcomText(text) {
   const db = getLocalDatabase();
   for (const r of records) await db.saveRecord(r);
   return records.length;
+}
+
+function eventLikeTag(tag) {
+  return ['BIRT', 'DEAT', 'MARR', 'DIV', 'EVEN', 'FACT', 'ADOP', 'BURI', 'RESI', 'OCCU', 'CENS', 'IMMI', 'EMIG', 'NATU'].includes(tag);
+}
+
+function issue(severity, line, message) {
+  return { severity, line, message };
 }

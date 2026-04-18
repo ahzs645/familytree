@@ -5,6 +5,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listChartTemplates, deleteChartTemplate, saveChartTemplate, newTemplateId } from '../lib/chartTemplates.js';
+import { listChartDocuments, deleteChartDocument } from '../lib/chartDocuments.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 
 const CHART_LABELS = {
@@ -64,11 +65,13 @@ function importedLayoutStatus(view) {
 
 export default function SavedCharts() {
   const [templates, setTemplates] = useState(null);
+  const [documents, setDocuments] = useState([]);
   const navigate = useNavigate();
 
   const [importedViews, setImportedViews] = useState([]);
   const reloadAll = useCallback(async () => {
     setTemplates(await listChartTemplates());
+    setDocuments(await listChartDocuments());
     const db = getLocalDatabase();
     const { records } = await db.query('SavedChart', { limit: 100000 });
     setImportedViews(records);
@@ -78,6 +81,12 @@ export default function SavedCharts() {
   const onDelete = async (id) => {
     if (!confirm('Delete this saved chart?')) return;
     await deleteChartTemplate(id);
+    reloadAll();
+  };
+
+  const onDeleteDocument = async (id) => {
+    if (!confirm('Delete this chart document?')) return;
+    await deleteChartDocument(id);
     reloadAll();
   };
 
@@ -96,11 +105,44 @@ export default function SavedCharts() {
         <header className="mb-5">
           <h1 className="text-xl font-bold">Saved Charts</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {templates.length + importedViews.length === 0
+            {templates.length + documents.length + importedViews.length === 0
               ? 'No saved charts yet. Configure a chart in Charts and click Save to store the layout.'
-              : `${templates.length + importedViews.length} saved chart configuration${templates.length + importedViews.length === 1 ? '' : 's'}`}
+              : `${templates.length + documents.length + importedViews.length} saved chart configuration${templates.length + documents.length + importedViews.length === 1 ? '' : 's'}`}
           </p>
         </header>
+
+        {documents.length > 0 && (
+          <section className="mb-6">
+            <h2 className="text-sm font-semibold mb-3">Editable Web Chart Documents</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {documents.map((doc) => (
+                <div key={doc.id} className="rounded-lg border border-border bg-card p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider rounded px-2 py-0.5 ${ACCENT[doc.chartType] || 'bg-muted text-muted-foreground'}`}>
+                      {CHART_LABELS[doc.chartType] || doc.chartType}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">{doc.overlays?.length || 0} overlays</span>
+                  </div>
+                  <div className="text-sm font-semibold mb-1 truncate">{doc.name}</div>
+                  <div className="text-xs text-muted-foreground mb-3">
+                    {doc.generations ? `${doc.generations} generations` : ''}
+                    {doc.savedAt && ` · saved ${new Date(doc.savedAt).toLocaleDateString()}`}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => navigate(`/charts?document=${doc.id}`)}
+                      className="flex-1 bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">
+                      Open
+                    </button>
+                    <button onClick={() => onDeleteDocument(doc.id)}
+                      className="border border-border text-destructive rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {templates.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
