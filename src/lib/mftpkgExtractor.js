@@ -617,6 +617,21 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
     const placeId = r.ZPLACE ? makeId('Place', r.ZPLACE) : null;
     if (placeId && records[placeId]) records[placeId].fields.coordinate = ref('Coordinate', r.Z_PK);
   }
+  for (const r of safeRows(query, 'SELECT Z_PK, ZCOORDINATE, ZPLACE, ZGEONAMEID, ZNAME, ZUNIQUEID FROM ZPLACEDETAIL', warnings)) {
+    const f = {};
+    if (r.ZCOORDINATE) f.coordinate = ref('Coordinate', r.ZCOORDINATE);
+    if (r.ZPLACE) f.place = ref('Place', r.ZPLACE);
+    if (r.ZGEONAMEID) {
+      f.geonameID = field(r.ZGEONAMEID);
+      f.geoNameID = field(r.ZGEONAMEID);
+    }
+    if (r.ZNAME) {
+      f.name = field(r.ZNAME);
+      f.placeName = field(r.ZNAME);
+    }
+    if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
+    addRecord(makeId('PlaceDetail', r.Z_PK), 'PlaceDetail', f);
+  }
   for (const table of [
     { table: 'ZPLACETEMPLATE', type: 'PlaceTemplate', cols: 'Z_PK, ZNAME, ZCOUNTRYIDENTIFIER, ZUNIQUEID, ZLOCALIZEABLENAMEKEY' },
     { table: 'ZPLACETEMPLATEKEY', type: 'PlaceTemplateKey', cols: 'Z_PK, ZINTERNATIONALNAME, ZLOCALNAME, ZUNIQUEID' },
