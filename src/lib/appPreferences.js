@@ -1,7 +1,16 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { DEFAULT_FAVORITE_FUNCTIONS } from './functionCatalog.js';
+import {
+  CALENDAR_OPTIONS,
+  DEFAULT_LOCALIZATION,
+  DIRECTION_OPTIONS,
+  NUMBERING_SYSTEM_OPTIONS,
+  normalizeLocale,
+  persistLocalization,
+} from './i18n.js';
 
 const META_KEY = 'appPreferences';
+export const APP_PREFERENCES_EVENT = 'cloudtreeweb:app-preferences-changed';
 
 export const DEFAULT_APP_PREFERENCES = {
   general: {
@@ -16,6 +25,9 @@ export const DEFAULT_APP_PREFERENCES = {
     surnameCase: 'as-entered',
     dateDisplayFormat: 'YYYY-MM-DD',
     readableDateFormats: 'YYYY-MM-DD\nDD MM YYYY\nMM/DD/YYYY',
+  },
+  localization: {
+    ...DEFAULT_LOCALIZATION,
   },
   appearance: {
     accentColor: '#2563eb',
@@ -59,6 +71,7 @@ export async function saveAppPreferences(next) {
   const db = getLocalDatabase();
   const normalized = normalizePreferences(next);
   await db.setMeta(META_KEY, normalized);
+  announcePreferences(normalized);
   return normalized;
 }
 
@@ -77,6 +90,7 @@ export function normalizePreferences(value = {}) {
   merged.functions.favorites = uniqueRoutes(merged.functions.favorites, DEFAULT_FAVORITE_FUNCTIONS);
   merged.functions.hidden = uniqueRoutes(merged.functions.hidden, []);
   merged.functions.emphasized = uniqueRoutes(merged.functions.emphasized, []);
+  merged.localization = normalizeLocalization(merged.localization);
   merged.pdf.margin = clampNumber(merged.pdf.margin, 12, 144, DEFAULT_APP_PREFERENCES.pdf.margin);
   merged.webSearch.openInNewTab = merged.webSearch.openInNewTab !== false;
   return merged;
@@ -100,6 +114,18 @@ function clampNumber(value, min, max, fallback) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   return Math.min(max, Math.max(min, n));
+}
+
+function normalizeLocalization(value = {}) {
+  const directionValues = new Set(DIRECTION_OPTIONS.map((option) => option.value));
+  const numberingValues = new Set(NUMBERING_SYSTEM_OPTIONS.map((option) => option.value));
+  const calendarValues = new Set(CALENDAR_OPTIONS.map((option) => option.value));
+  return {
+    locale: normalizeLocale(value.locale || DEFAULT_LOCALIZATION.locale),
+    direction: directionValues.has(value.direction) ? value.direction : DEFAULT_LOCALIZATION.direction,
+    numberingSystem: numberingValues.has(value.numberingSystem) ? value.numberingSystem : DEFAULT_LOCALIZATION.numberingSystem,
+    calendar: calendarValues.has(value.calendar) ? value.calendar : DEFAULT_LOCALIZATION.calendar,
+  };
 }
 
 function deepMerge(base, override) {
@@ -128,4 +154,10 @@ function setPath(object, path, value) {
 
 function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
+function announcePreferences(preferences) {
+  persistLocalization(preferences?.localization);
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(APP_PREFERENCES_EVENT, { detail: preferences }));
 }

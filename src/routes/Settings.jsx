@@ -7,6 +7,12 @@ import {
   saveAppPreferences,
 } from '../lib/appPreferences.js';
 import { APP_FUNCTIONS, groupedFunctions } from '../lib/functionCatalog.js';
+import {
+  CALENDAR_OPTIONS,
+  DIRECTION_OPTIONS,
+  NUMBERING_SYSTEM_OPTIONS,
+  SUPPORTED_LOCALES,
+} from '../lib/i18n.js';
 import { getMapPreferences, saveMapPreferences } from '../lib/placeGeocoding.js';
 
 const tabs = [
@@ -102,7 +108,7 @@ export default function Settings() {
             <h1 className="text-xl font-bold">Settings</h1>
             <p className="text-sm text-muted-foreground mt-1">Shared defaults for local editing, display, exports, and function shortcuts.</p>
           </div>
-          {status && <span className="ml-auto text-xs text-emerald-500">{status}</span>}
+          {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
           <button onClick={save} className={primaryButton}>Save</button>
           <button onClick={reset} className={secondaryButton}>Reset</button>
         </header>
@@ -142,7 +148,7 @@ export default function Settings() {
         )}
 
         {activeTab === 'formats' && (
-          <Panel title="Names and Dates">
+          <Panel title="Names, Dates, and Locale">
             <Grid>
               <Field label="Name Order">
                 <select value={prefs.formats.nameOrder} onChange={(event) => update('formats', 'nameOrder', event.target.value)} className={inputClass}>
@@ -168,6 +174,28 @@ export default function Settings() {
               </Field>
               <Field label="Readable Date Formats">
                 <textarea value={prefs.formats.readableDateFormats} onChange={(event) => update('formats', 'readableDateFormats', event.target.value)} rows={5} className={inputClass} />
+              </Field>
+              <Field label="Language">
+                <select value={prefs.localization?.locale || 'en'} onChange={(event) => update('localization', 'locale', event.target.value)} className={inputClass}>
+                  {SUPPORTED_LOCALES.map((locale) => (
+                    <option key={locale.value} value={locale.value}>{locale.label} - {locale.nativeLabel}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Text Direction">
+                <select value={prefs.localization?.direction || 'auto'} onChange={(event) => update('localization', 'direction', event.target.value)} className={inputClass}>
+                  {DIRECTION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Numbering System">
+                <select value={prefs.localization?.numberingSystem || 'auto'} onChange={(event) => update('localization', 'numberingSystem', event.target.value)} className={inputClass}>
+                  {NUMBERING_SYSTEM_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
+              </Field>
+              <Field label="Calendar">
+                <select value={prefs.localization?.calendar || 'gregory'} onChange={(event) => update('localization', 'calendar', event.target.value)} className={inputClass}>
+                  {CALENDAR_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                </select>
               </Field>
             </Grid>
           </Panel>

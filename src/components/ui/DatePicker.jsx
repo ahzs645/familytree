@@ -1,11 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { formatInteger, getCurrentLocalization, localeWithExtensions } from '../../lib/i18n.js';
 import { cn } from '../../lib/utils.js';
-
-const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
 
 function pad(n) { return String(n).padStart(2, '0'); }
 
@@ -23,9 +18,9 @@ function formatISO(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-function formatDisplay(date) {
+function formatDisplay(date, locale) {
   if (!date) return '';
-  return `${MONTHS[date.getMonth()].slice(0, 3)} ${date.getDate()}, ${date.getFullYear()}`;
+  return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' }).format(date);
 }
 
 function sameDay(a, b) {
@@ -43,6 +38,14 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', class
   const [viewMonth, setViewMonth] = useState(() => (selected || new Date()).getMonth());
   const buttonRef = useRef(null);
   const popRef = useRef(null);
+  const localization = getCurrentLocalization();
+  const locale = localeWithExtensions(localization);
+  const weekdays = useMemo(() => Array.from({ length: 7 }, (_, index) => (
+    new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(new Date(2020, 5, 7 + index))
+  )), [locale]);
+  const monthTitle = useMemo(() => (
+    new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(new Date(viewYear, viewMonth, 1))
+  ), [locale, viewMonth, viewYear]);
 
   useEffect(() => {
     if (open && selected) {
@@ -104,15 +107,15 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', class
         aria-expanded={open}
         aria-label={ariaLabel}
         className={cn(
-          'w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm pl-3 pr-10 text-left inline-flex items-center relative',
+          'w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm ps-3 pe-10 text-start inline-flex items-center relative',
           'outline-none focus:border-primary focus:ring-2 focus:ring-primary/20',
           'hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed'
         )}
       >
         <span className={cn('truncate flex-1', !selected && 'text-muted-foreground')}>
-          {selected ? formatDisplay(selected) : placeholder}
+          {selected ? formatDisplay(selected, locale) : placeholder}
         </span>
-        <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
+        <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className="absolute end-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
           <path d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm-2 6h12v8H4V8z" />
         </svg>
       </button>
@@ -125,11 +128,11 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', class
         >
           <div className="flex items-center gap-2 mb-2">
             <button type="button" onClick={() => stepMonth(-1)} className="h-8 w-8 rounded-md hover:bg-accent inline-flex items-center justify-center" aria-label="Previous month">‹</button>
-            <div className="flex-1 text-center text-sm font-semibold">{MONTHS[viewMonth]} {viewYear}</div>
+            <div className="flex-1 text-center text-sm font-semibold">{monthTitle}</div>
             <button type="button" onClick={() => stepMonth(1)} className="h-8 w-8 rounded-md hover:bg-accent inline-flex items-center justify-center" aria-label="Next month">›</button>
           </div>
           <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
-            {WEEKDAYS.map((d) => (
+            {weekdays.map((d) => (
               <div key={d} className="text-[11px] font-semibold text-muted-foreground py-1">{d}</div>
             ))}
           </div>
@@ -152,7 +155,7 @@ export function DatePicker({ value, onChange, placeholder = 'Select date', class
                         : 'text-foreground hover:bg-accent'
                   )}
                 >
-                  {date.getDate()}
+                  {formatInteger(date.getDate(), localization)}
                 </button>
               );
             })}

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { compareStrings, formatInteger, getCurrentLocalization, matchesSearchText } from '../../lib/i18n.js';
 
 function defaultValue(row, column) {
   if (column.sortValue) return column.sortValue(row);
@@ -11,7 +12,7 @@ function compareValues(a, b) {
   if (a == null) return -1;
   if (b == null) return 1;
   if (typeof a === 'number' && typeof b === 'number') return a - b;
-  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+  return compareStrings(a, b);
 }
 
 function searchText(row, columns, rowSearchValue) {
@@ -26,16 +27,17 @@ function searchText(row, columns, rowSearchValue) {
 }
 
 export function ListPageHeader({ title, subtitle, count, total, actions, children }) {
+  const localization = getCurrentLocalization();
   return (
     <header className="flex flex-wrap items-end gap-3 px-5 py-3 border-b border-border bg-card">
-      <div className="min-w-0 mr-auto">
+      <div className="min-w-0 me-auto">
         <h1 className="text-base font-semibold truncate">{title}</h1>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       {children}
       <div className="text-xs text-muted-foreground whitespace-nowrap">
-        {typeof count === 'number' ? count.toLocaleString() : 0}
-        {typeof total === 'number' && total !== count ? ` of ${total.toLocaleString()}` : ''} rows
+        {typeof count === 'number' ? formatInteger(count, localization) : 0}
+        {typeof total === 'number' && total !== count ? ` of ${formatInteger(total, localization)}` : ''} rows
       </div>
       {actions}
     </header>
@@ -58,11 +60,12 @@ export function SortableListTable({
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState(initialSortKey || columns.find((column) => column.sortable !== false)?.key || '');
   const [sortDirection, setSortDirection] = useState(initialSortDirection);
+  const localization = getCurrentLocalization();
+  const localizationKey = `${localization.locale}|${localization.direction}|${localization.numberingSystem}|${localization.calendar}`;
 
   const visibleRows = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let next = q
-      ? rows.filter((row) => searchText(row, columns, rowSearchValue).toLowerCase().includes(q))
+    let next = query.trim()
+      ? rows.filter((row) => matchesSearchText(searchText(row, columns, rowSearchValue), query, localization))
       : [...rows];
     const sortColumn = columns.find((column) => column.key === sortKey);
     if (sortColumn && sortColumn.sortable !== false) {
@@ -72,7 +75,7 @@ export function SortableListTable({
       });
     }
     return next;
-  }, [rows, columns, query, rowSearchValue, sortKey, sortDirection]);
+  }, [rows, columns, query, rowSearchValue, sortKey, sortDirection, localizationKey]);
 
   const toggleSort = (column) => {
     if (column.sortable === false) return;
@@ -94,7 +97,7 @@ export function SortableListTable({
           className="w-64 max-w-full bg-background text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary"
         />
         <span className="text-xs text-muted-foreground">
-          {visibleRows.length.toLocaleString()} of {rows.length.toLocaleString()}
+          {formatInteger(visibleRows.length, localization)} of {formatInteger(rows.length, localization)}
         </span>
         {toolbar}
       </div>
@@ -135,7 +138,7 @@ export function SortableListTable({
                     <th
                       key={column.key}
                       scope="col"
-                      className={`text-left text-[11px] uppercase font-semibold tracking-wide text-muted-foreground px-3 py-2 ${column.className || ''}`}
+                      className={`text-start text-[11px] uppercase font-semibold tracking-wide text-muted-foreground px-3 py-2 ${column.className || ''}`}
                     >
                       {column.sortable === false ? (
                         column.label

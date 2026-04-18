@@ -4,7 +4,14 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
-import { DEFAULT_SITE_OPTIONS, SITE_THEMES, downloadSite, validateSiteExport } from '../lib/websiteExport.js';
+import { DEFAULT_SITE_OPTIONS, SITE_THEMES, buildSite, downloadSite, validateSiteExport } from '../lib/websiteExport.js';
+import {
+  DEFAULT_PUBLISH_TARGET,
+  getPublishTarget,
+  postWebsiteToWebhook,
+  savePublishTarget,
+  validatePublishTarget,
+} from '../lib/publishTargets.js';
 
 const buttonPrimary = 'rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold disabled:opacity-50';
 const buttonSecondary = 'rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50';
@@ -18,7 +25,17 @@ export default function Websites() {
   const [status, setStatus] = useState('');
   const [busy, setBusy] = useState(false);
   const [completedStats, setCompletedStats] = useState(null);
+  const [publishTarget, setPublishTarget] = useState(DEFAULT_PUBLISH_TARGET);
   const controllerRef = useRef(null);
+
+  React.useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const target = await getPublishTarget();
+      if (!cancel) setPublishTarget(target);
+    })();
+    return () => { cancel = true; };
+  }, []);
 
   const privacyLabel = useMemo(() => (
     options.includePrivate ? 'Public and private records will be included.' : 'Private records will be filtered from the public site.'
@@ -28,6 +45,10 @@ export default function Websites() {
     setOptions((current) => ({ ...current, [key]: value }));
     setValidation(null);
     setCompletedStats(null);
+  }, []);
+
+  const updatePublishTarget = useCallback((key, value) => {
+    setPublishTarget((current) => ({ ...current, [key]: value }));
   }, []);
 
   const onValidate = useCallback(async () => {
@@ -74,6 +95,70 @@ export default function Websites() {
       setBusy(false);
     }
   }, [options]);
+
+  const onSaveTarget = useCallback(async () => {
+    setBusy(true);
+    setStatus('Saving publish target...');
+    try {
+      const validation = validatePublishTarget(publishTarget);
+      if (!validation.canPublish) {
+        setStatus(`Publish target has issues: ${validation.errors.join(' ')}`);
+        return;
+      }
+      const saved = await savePublishTarget(validation.target);
+      setPublishTarget(saved);
+      setStatus('Publish target saved.');
+    } catch (error) {
+      setStatus(`Publish target save failed: ${error.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [publishTarget]);
+
+  const onPublishTarget = useCallback(async () => {
+    setBusy(true);
+    setCompletedStats(null);
+    setStatus('Preparing publish target...');
+    const controller = new AbortController();
+    controllerRef.current = controller;
+    try {
+      const targetValidation = validatePublishTarget(publishTarget);
+      if (!targetValidation.canPublish) {
+        setStatus(`Publish target has issues: ${targetValidation.errors.join(' ')}`);
+        return;
+      }
+      await savePublishTarget(targetValidation.target);
+      if (targetValidation.target.mode === 'webhook') {
+        const result = await buildSite({
+          ...options,
+          signal: controller.signal,
+          onProgress: setProgress,
+        });
+        await postWebsiteToWebhook({
+          blob: result.blob,
+          target: targetValidation.target,
+          siteTitle: options.siteTitle,
+        });
+        setCompletedStats(result.stats);
+        setStatus(`Published website zip to webhook. ${result.stats.pages.toLocaleString()} pages prepared.`);
+        return;
+      }
+      await downloadSite({
+        ...options,
+        signal: controller.signal,
+        onProgress: setProgress,
+      });
+      setStatus(targetValidation.target.mode === 'download'
+        ? 'Website zip downloaded.'
+        : `Website zip downloaded for ${targetValidation.target.mode.toUpperCase()} upload to ${targetValidation.target.host}${targetValidation.target.remotePath}.`);
+    } catch (error) {
+      if (error.name === 'AbortError') setStatus('Publishing canceled.');
+      else setStatus(`Publishing failed: ${error.message}`);
+    } finally {
+      controllerRef.current = null;
+      setBusy(false);
+    }
+  }, [options, publishTarget]);
 
   const onCancel = useCallback(() => {
     controllerRef.current?.abort();
@@ -167,6 +252,57 @@ export default function Websites() {
                   <span className="text-xs text-muted-foreground">Included media assets are copied into the website zip under assets/media.</span>
                 </span>
               </label>
+            </div>
+
+            <div className="mt-5 rounded-md border border-border bg-background p-4">
+              <h3 className="text-sm font-semibold mb-3">Publish target</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Method">
+                  <select
+                    value={publishTarget.mode}
+                    onChange={(event) => updatePublishTarget('mode', event.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="download">Download</option>
+                    <option value="ftp">FTP</option>
+                    <option value="sftp">SFTP</option>
+                    <option value="webhook">Webhook</option>
+                  </select>
+                </Field>
+                <Field label="Profile name">
+                  <input value={publishTarget.name} onChange={(event) => updatePublishTarget('name', event.target.value)} className={inputClass} />
+                </Field>
+                {(publishTarget.mode === 'ftp' || publishTarget.mode === 'sftp') && (
+                  <>
+                    <Field label="Host">
+                      <input value={publishTarget.host} onChange={(event) => updatePublishTarget('host', event.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="Port">
+                      <input value={publishTarget.port} onChange={(event) => updatePublishTarget('port', event.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="Remote path">
+                      <input value={publishTarget.remotePath} onChange={(event) => updatePublishTarget('remotePath', event.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="Username">
+                      <input value={publishTarget.username} onChange={(event) => updatePublishTarget('username', event.target.value)} className={inputClass} />
+                    </Field>
+                  </>
+                )}
+                {publishTarget.mode === 'webhook' && (
+                  <>
+                    <Field label="Webhook URL">
+                      <input value={publishTarget.webhookUrl} onChange={(event) => updatePublishTarget('webhookUrl', event.target.value)} className={inputClass} />
+                    </Field>
+                    <Field label="Header">
+                      <input value={publishTarget.webhookHeader} onChange={(event) => updatePublishTarget('webhookHeader', event.target.value)} placeholder="Authorization: Bearer token" className={inputClass} />
+                    </Field>
+                  </>
+                )}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button onClick={onSaveTarget} disabled={busy} className={buttonSecondary}>Save target</button>
+                <button onClick={onPublishTarget} disabled={busy || !summary} className={buttonPrimary}>Publish target</button>
+              </div>
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">

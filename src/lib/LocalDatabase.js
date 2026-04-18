@@ -12,6 +12,7 @@
  *   const person = await db.getRecord('person-123');
  */
 import { openDB } from 'idb';
+import { compareStrings, matchesSearchText, startsWithSearchText } from './i18n.js';
 import { refToRecordName } from './recordRef.js';
 
 const DB_NAME = 'cloudtreeweb-local';
@@ -130,7 +131,7 @@ export class LocalDatabase {
           const target = filter.fieldValue.value ?? filter.fieldValue;
           if (filter.comparator === 'EQUALS') return val === target;
           if (filter.comparator === 'NOT_EQUALS') return val !== target;
-          if (filter.comparator === 'BEGINS_WITH') return typeof val === 'string' && val.startsWith(target);
+          if (filter.comparator === 'BEGINS_WITH') return typeof val === 'string' && startsWithSearchText(val, target);
           if (filter.comparator === 'IN') return Array.isArray(target) && target.includes(val);
           return true;
         });
@@ -139,11 +140,10 @@ export class LocalDatabase {
 
     // Apply search (text match on common fields)
     if (options.searchText) {
-      const q = options.searchText.toLowerCase();
       records = records.filter((r) => {
         const fields = r.fields || {};
         return Object.values(fields).some((f) => {
-          if (typeof f.value === 'string') return f.value.toLowerCase().includes(q);
+          if (typeof f.value === 'string') return matchesSearchText(f.value, options.searchText);
           return false;
         });
       });
@@ -155,7 +155,7 @@ export class LocalDatabase {
       records.sort((a, b) => {
         const va = a.fields?.[sort.fieldName]?.value ?? '';
         const vb = b.fields?.[sort.fieldName]?.value ?? '';
-        const cmp = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+        const cmp = typeof va === 'string' ? compareStrings(va, vb) : va - vb;
         return sort.ascending === false ? -cmp : cmp;
       });
     }

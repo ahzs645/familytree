@@ -11,6 +11,14 @@ import { getLocalDatabase } from './LocalDatabase.js';
 import { readConclusionType, readField, readRef } from './schema.js';
 import { isPrivateRecord, isPublicRecord } from './privacy.js';
 import {
+  DEFAULT_LOCALIZATION,
+  compareStrings,
+  directionForLocale,
+  formatInteger,
+  getCurrentLocalization,
+  normalizeLocale,
+} from './i18n.js';
+import {
   familySummary,
   lifeSpanLabel,
   personSummary,
@@ -33,6 +41,10 @@ export const DEFAULT_SITE_OPTIONS = {
   accentColor: '#2563eb',
   includePrivate: false,
   includeAssets: true,
+  locale: DEFAULT_LOCALIZATION.locale,
+  direction: DEFAULT_LOCALIZATION.direction,
+  numberingSystem: DEFAULT_LOCALIZATION.numberingSystem,
+  calendar: DEFAULT_LOCALIZATION.calendar,
 };
 
 function esc(value) {
@@ -47,7 +59,14 @@ function attr(value) {
   return esc(value).replace(/'/g, '&#39;');
 }
 
+function bdi(value) {
+  return `<bdi dir="auto">${esc(value)}</bdi>`;
+}
+
 function normalizeOptions(options = {}) {
+  const currentLocalization = getCurrentLocalization();
+  const locale = normalizeLocale(options.locale || currentLocalization.locale || DEFAULT_SITE_OPTIONS.locale);
+  const directionPreference = options.direction || currentLocalization.direction || DEFAULT_SITE_OPTIONS.direction;
   return {
     ...DEFAULT_SITE_OPTIONS,
     ...options,
@@ -57,6 +76,10 @@ function normalizeOptions(options = {}) {
     tagline: String(options.tagline || '').trim(),
     includePrivate: !!options.includePrivate,
     includeAssets: options.includeAssets !== false,
+    locale,
+    direction: directionForLocale(locale, directionPreference),
+    numberingSystem: options.numberingSystem || currentLocalization.numberingSystem || DEFAULT_SITE_OPTIONS.numberingSystem,
+    calendar: options.calendar || currentLocalization.calendar || DEFAULT_SITE_OPTIONS.calendar,
   };
 }
 
@@ -185,10 +208,10 @@ function validateSnapshot(snapshot, options) {
     errors.push('No publishable people were found. Add people or include private records before exporting.');
   }
   if (missing.length > 0) {
-    warnings.push(`${missing.length.toLocaleString()} reference${missing.length === 1 ? '' : 's'} point to missing records and will be omitted.`);
+    warnings.push(`${formatInteger(missing.length, options)} reference${missing.length === 1 ? '' : 's'} point to missing records and will be omitted.`);
   }
   if (privacyConflicts.length > 0) {
-    warnings.push(`${privacyConflicts.length.toLocaleString()} public record${privacyConflicts.length === 1 ? '' : 's'} link to private records that will be hidden.`);
+    warnings.push(`${formatInteger(privacyConflicts.length, options)} public record${privacyConflicts.length === 1 ? '' : 's'} link to private records that will be hidden.`);
   }
 
   return {
@@ -317,7 +340,7 @@ export async function buildSite(options = {}) {
         phase: 'assets',
         completed: assetCount,
         total: assets.length,
-        message: `Bundled ${assetCount.toLocaleString()} media asset${assetCount === 1 ? '' : 's'}.`,
+        message: `Bundled ${formatInteger(assetCount, normalized)} media asset${assetCount === 1 ? '' : 's'}.`,
       });
     }
   }
@@ -348,19 +371,19 @@ export async function buildSite(options = {}) {
 
 function buildPublishModel(snapshot, options) {
   const include = (record) => !!record && (options.includePrivate || isPublicRecord(record));
-  const persons = snapshot.persons.filter(include).sort(compareBy((record) => personSummary(record)?.fullName || record.recordName));
+  const persons = snapshot.persons.filter(include).sort(compareBy((record) => personSummary(record)?.fullName || record.recordName, options));
   const personIds = new Set(persons.map((record) => record.recordName));
   const childRels = snapshot.childRels.filter((rel) => include(rel) && personIds.has(readRef(rel.fields?.child)));
 
   const families = snapshot.families
     .filter((family) => include(family) && familyHasIncludedMember(family, childRels, personIds))
-    .sort(compareBy((record) => familyLabel(record, { personById: new Map(persons.map((person) => [person.recordName, person])) }) || record.recordName));
+    .sort(compareBy((record) => familyLabel(record, { personById: new Map(persons.map((person) => [person.recordName, person])) }) || record.recordName, options));
   const familyIds = new Set(families.map((record) => record.recordName));
 
-  const places = snapshot.places.filter(include).sort(compareBy(placeLabel));
-  const sources = snapshot.sources.filter(include).sort(compareBy(sourceLabel));
-  const media = snapshot.media.filter(include).sort(compareBy(mediaLabel));
-  const stories = snapshot.stories.filter(include).sort(compareBy(storyLabel));
+  const places = snapshot.places.filter(include).sort(compareBy(placeLabel, options));
+  const sources = snapshot.sources.filter(include).sort(compareBy(sourceLabel, options));
+  const media = snapshot.media.filter(include).sort(compareBy(mediaLabel, options));
+  const stories = snapshot.stories.filter(include).sort(compareBy(storyLabel, options));
 
   const pageRecords = [
     ...persons,
@@ -490,8 +513,8 @@ function groupRecords(records, keyFn) {
   return out;
 }
 
-function compareBy(labelFn) {
-  return (a, b) => String(labelFn(a) || '').localeCompare(String(labelFn(b) || ''));
+function compareBy(labelFn, localization) {
+  return (a, b) => compareStrings(labelFn(a), labelFn(b), localization);
 }
 
 function pagePath(record) {
@@ -513,7 +536,7 @@ function hrefTo(recordName, model, fromFolder = '') {
 
 function linkTo(recordName, label, model, fromFolder = '') {
   const href = hrefTo(recordName, model, fromFolder);
-  return href ? `<a href="${attr(href)}">${esc(label || recordName)}</a>` : esc(label || recordName);
+  return href ? `<a href="${attr(href)}">${bdi(label || recordName)}</a>` : bdi(label || recordName);
 }
 
 function homeHref(path, fromFolder = '') {
@@ -523,7 +546,7 @@ function homeHref(path, fromFolder = '') {
 function pageWrap(title, body, options, fromFolder = '') {
   const cssHref = homeHref('assets/site.css', fromFolder);
   return `<!doctype html>
-<html lang="en">
+<html lang="${attr(options.locale)}" dir="${attr(options.direction)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -533,8 +556,8 @@ function pageWrap(title, body, options, fromFolder = '') {
 <body class="theme-${attr(options.theme)}">
   <header class="site-header">
     <div>
-      <a class="brand" href="${attr(homeHref('index.html', fromFolder))}">${esc(options.siteTitle)}</a>
-      ${options.tagline ? `<p>${esc(options.tagline)}</p>` : ''}
+      <a class="brand" href="${attr(homeHref('index.html', fromFolder))}">${bdi(options.siteTitle)}</a>
+      ${options.tagline ? `<p>${bdi(options.tagline)}</p>` : ''}
     </div>
     <nav>
       <a href="${attr(homeHref('people/index.html', fromFolder))}">People</a>
@@ -561,7 +584,7 @@ function createCSS(options) {
   const border = archive ? '#d8cbb8' : '#e2e8f0';
   return `:root{--bg:${bg};--card:${card};--fg:${fg};--muted:${muted};--border:${border};--accent:${options.accentColor}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.55}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Naskh Arabic",Tahoma,sans-serif;line-height:1.55;text-align:start}
 a{color:var(--accent);text-decoration:none}
 a:hover{text-decoration:underline}
 .site-header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 28px;border-bottom:1px solid var(--border);background:var(--card);position:sticky;top:0}
@@ -584,9 +607,10 @@ p{margin:8px 0}
 .stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px}
 .stat strong{display:block;font-size:24px}
 table{width:100%;border-collapse:collapse;font-size:14px;background:var(--card);border:1px solid var(--border)}
-th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
+th,td{padding:8px 10px;text-align:start;border-bottom:1px solid var(--border);vertical-align:top}
 th{color:var(--muted);font-size:12px;text-transform:uppercase}
-ul{padding-left:22px}
+ul{padding-inline-start:22px}
+bdi{unicode-bidi:isolate}
 .media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
 .media-card img,.media-preview{max-width:100%;border-radius:7px;border:1px solid var(--border);background:#fff}
 .thumb{width:100%;aspect-ratio:4/3;object-fit:cover;margin-bottom:8px}
@@ -597,15 +621,15 @@ footer{border-top:1px solid var(--border);padding:18px;color:var(--muted);font-s
 
 function homePage(model, options) {
   return `<section>
-    <h1>${esc(options.siteTitle)}</h1>
-    ${options.tagline ? `<p class="muted">${esc(options.tagline)}</p>` : ''}
+    <h1>${bdi(options.siteTitle)}</h1>
+    ${options.tagline ? `<p class="muted">${bdi(options.tagline)}</p>` : ''}
     <div class="stats">
-      ${stat('People', model.persons.length)}
-      ${stat('Families', model.families.length)}
-      ${stat('Places', model.places.length)}
-      ${stat('Sources', model.sources.length)}
-      ${stat('Media', model.media.length)}
-      ${stat('Stories', model.stories.length)}
+      ${stat('People', model.persons.length, options)}
+      ${stat('Families', model.families.length, options)}
+      ${stat('Places', model.places.length, options)}
+      ${stat('Sources', model.sources.length, options)}
+      ${stat('Media', model.media.length, options)}
+      ${stat('Stories', model.stories.length, options)}
     </div>
   </section>
   <section>
@@ -615,27 +639,27 @@ function homePage(model, options) {
   </section>`;
 }
 
-function stat(label, value) {
-  return `<div class="stat"><strong>${Number(value).toLocaleString()}</strong><span class="muted">${esc(label)}</span></div>`;
+function stat(label, value, options) {
+  return `<div class="stat"><strong>${formatInteger(value, options)}</strong><span class="muted">${esc(label)}</span></div>`;
 }
 
 function entityIndexPage(title, records, renderItem, model, fromFolder) {
   return `<h1>${esc(title)}</h1>
-    <p class="muted">${records.length.toLocaleString()} ${title.toLowerCase()}</p>
+    <p class="muted">${formatInteger(records.length, model.options)} ${title.toLowerCase()}</p>
     <div class="grid">${records.map((record) => renderItem(record, model, fromFolder)).join('')}</div>`;
 }
 
 function personIndexItem(person, model, fromFolder) {
   const summary = personSummary(person);
   return `<a class="entity-link${isPrivateRecord(person) ? ' private' : ''}" href="${attr(hrefTo(person.recordName, model, fromFolder))}">
-    <strong>${esc(summary?.fullName || person.recordName)}</strong>
+    <strong>${bdi(summary?.fullName || person.recordName)}</strong>
     <span class="muted">${esc(lifeSpanLabel(summary) || 'No lifespan recorded')}</span>
   </a>`;
 }
 
 function familyIndexItem(family, model, fromFolder) {
   return `<a class="entity-link${isPrivateRecord(family) ? ' private' : ''}" href="${attr(hrefTo(family.recordName, model, fromFolder))}">
-    <strong>${esc(familyLabel(family, model) || family.recordName)}</strong>
+    <strong>${bdi(familyLabel(family, model) || family.recordName)}</strong>
     <span class="muted">${esc(readField(family, ['cached_marriageDate', 'marriageDate'], ''))}</span>
   </a>`;
 }
@@ -643,7 +667,7 @@ function familyIndexItem(family, model, fromFolder) {
 function placeIndexItem(place, model, fromFolder) {
   const summary = placeSummary(place);
   return `<a class="entity-link${isPrivateRecord(place) ? ' private' : ''}" href="${attr(hrefTo(place.recordName, model, fromFolder))}">
-    <strong>${esc(summary?.displayName || summary?.name || place.recordName)}</strong>
+    <strong>${bdi(summary?.displayName || summary?.name || place.recordName)}</strong>
     <span class="muted">${esc(summary?.geonameID ? `GeoName ${summary.geonameID}` : 'Place')}</span>
   </a>`;
 }
@@ -651,7 +675,7 @@ function placeIndexItem(place, model, fromFolder) {
 function sourceIndexItem(source, model, fromFolder) {
   const summary = sourceSummary(source);
   return `<a class="entity-link${isPrivateRecord(source) ? ' private' : ''}" href="${attr(hrefTo(source.recordName, model, fromFolder))}">
-    <strong>${esc(summary?.title || source.recordName)}</strong>
+    <strong>${bdi(summary?.title || source.recordName)}</strong>
     <span class="muted">${esc(summary?.date || 'Source')}</span>
   </a>`;
 }

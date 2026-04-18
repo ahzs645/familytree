@@ -21,6 +21,7 @@ import { analyzeGedcomText, importGedcomText } from './gedcomImport.js';
 import {
   LEGACY_MFT_BINARY_MESSAGE,
   asciiHeader,
+  collectGedcomResourceFiles,
   decodeGedcomBytes,
   fileExtension,
   findGedcomEntryInZip,
@@ -109,6 +110,12 @@ export class MFTPKGImporter {
       const JSZip = (await import('jszip')).default;
       const zip = await JSZip.loadAsync(uint8Array);
 
+      const cloudTreeJsonEntry = zip.file('database.json') || zip.file('cloudtreeweb-backup.json') || zip.file('family-data.json');
+      if (cloudTreeJsonEntry) {
+        const data = JSON.parse(await cloudTreeJsonEntry.async('string'));
+        if (data.records) return this.importFromJSON(data);
+      }
+
       // Find the 'database' file inside the ZIP
       let dbEntry = null;
       const resourceEntries = [];
@@ -129,7 +136,8 @@ export class MFTPKGImporter {
         const gedEntry = await findGedcomEntryInZip(zip);
         if (gedEntry) {
           const gedBytes = await gedEntry.async('uint8array');
-          return this._importGedcomBytes(gedBytes, `${sourceName}:${gedEntry.name}`, { format: 'gedzip' });
+          const resourceFiles = await collectGedcomResourceFiles(zip, gedEntry.name);
+          return this._importGedcomBytes(gedBytes, `${sourceName}:${gedEntry.name}`, { format: 'gedzip', resourceFiles });
         }
         const files = [];
         zip.forEach((path) => files.push(path));
@@ -171,7 +179,7 @@ export class MFTPKGImporter {
     }
   }
 
-  async _importGedcomBytes(uint8Array, sourceName, { format = null } = {}) {
+  async _importGedcomBytes(uint8Array, sourceName, { format = null, resourceFiles = [] } = {}) {
     this._progress('parsing', 0, 1);
     const text = decodeGedcomBytes(uint8Array, sourceName);
     const analysis = analyzeGedcomText(text);
@@ -180,7 +188,7 @@ export class MFTPKGImporter {
       throw new Error(`GEDCOM has blocking syntax errors${firstError ? `: ${firstError.message}` : ''}`);
     }
     this._progress('importing', 0, 1);
-    const total = await importGedcomText(text, { replace: true, sourceName });
+    const total = await importGedcomText(text, { replace: true, sourceName, resourceFiles });
     this._progress('done', total, total);
     return {
       total,

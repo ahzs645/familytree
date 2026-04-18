@@ -7,7 +7,14 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordDeleted } from '../lib/changeLog.js';
 import { readRef } from '../lib/schema.js';
-import { createMediaRecordsFromFiles, createMediaURLRecord, matchMediaFiles } from '../lib/mediaFolderMatch.js';
+import {
+  createMediaRecordFromBlob,
+  createMediaRecordsFromFiles,
+  createMediaURLRecord,
+  matchMediaFiles,
+  replaceMediaRecordAsset,
+  replaceMediaRecordImageData,
+} from '../lib/mediaFolderMatch.js';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.jsx';
 
@@ -54,8 +61,16 @@ export default function Media() {
   const [activeRelations, setActiveRelations] = useState([]);
   const [relatedMediaIds, setRelatedMediaIds] = useState(null);
   const [subject, setSubject] = useState(null);
+  const [captureMode, setCaptureMode] = useState(null);
+  const [captureStream, setCaptureStream] = useState(null);
+  const [recording, setRecording] = useState(false);
   const folderRef = React.useRef(null);
   const addFilesRef = React.useRef(null);
+  const replaceFileRef = React.useRef(null);
+  const videoRef = React.useRef(null);
+  const mediaRecorderRef = React.useRef(null);
+  const recorderChunksRef = React.useRef([]);
+  const audioCanceledRef = React.useRef(false);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -70,6 +85,16 @@ export default function Media() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (captureMode !== 'camera' || !videoRef.current || !captureStream) return;
+    videoRef.current.srcObject = captureStream;
+    videoRef.current.play().catch(() => {});
+  }, [captureMode, captureStream]);
+
+  useEffect(() => () => {
+    stopStream(captureStream);
+  }, [captureStream]);
 
   useEffect(() => {
     let cancel = false;
@@ -188,12 +213,190 @@ export default function Media() {
     }
   }, [reload]);
 
+  const active = media.find((m) => m.recordName === activeId);
+
+  const onReplaceFile = useCallback(async (files) => {
+    const file = files?.[0];
+    const m = media.find((r) => r.recordName === activeId);
+    if (!file || !m) return;
+    setStatus('Replacing media file…');
+    try {
+      const next = await replaceMediaRecordAsset(m, file);
+      await reload();
+      setActiveId(next.recordName);
+      setStatus('Media file replaced.');
+    } catch (error) {
+      setStatus(error.message);
+    } finally {
+      if (replaceFileRef.current) replaceFileRef.current.value = '';
+    }
+  }, [activeId, media, reload]);
+
+  const onStartCamera = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setStatus('Camera capture is not available in this browser.');
+      return;
+    }
+    setStatus('Starting camera…');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      setCaptureStream(stream);
+      setCaptureMode('camera');
+      setStatus('Camera ready.');
+    } catch (error) {
+      setStatus(`Camera failed: ${error.message}`);
+    }
+  }, []);
+
+  const onCapturePhoto = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video?.videoWidth || !video?.videoHeight) {
+      setStatus('Camera preview is not ready yet.');
+      return;
+    }
+    setStatus('Capturing photo…');
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const blob = await canvasToBlob(canvas, 'image/png');
+      const record = await createMediaRecordFromBlob(blob, {
+        filename: `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.png`,
+        caption: 'Camera capture',
+        recordType: 'MediaPicture',
+      });
+      stopStream(captureStream);
+      setCaptureStream(null);
+      setCaptureMode(null);
+      await reload();
+      setActiveId(record.recordName);
+      setStatus('Photo captured.');
+    } catch (error) {
+      setStatus(`Photo capture failed: ${error.message}`);
+    }
+  }, [captureStream, reload]);
+
+  const onStartAudioRecording = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setStatus('Audio recording is not available in this browser.');
+      return;
+    }
+    setStatus('Starting audio recorder…');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      const recorder = new MediaRecorder(stream);
+      recorderChunksRef.current = [];
+      audioCanceledRef.current = false;
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size) recorderChunksRef.current.push(event.data);
+      };
+      recorder.onstop = async () => {
+        const canceled = audioCanceledRef.current;
+        stopStream(stream);
+        setCaptureStream(null);
+        setCaptureMode(null);
+        setRecording(false);
+        if (canceled) {
+          setStatus('Audio recording canceled.');
+          return;
+        }
+        try {
+          const type = recorder.mimeType || 'audio/webm';
+          const blob = new Blob(recorderChunksRef.current, { type });
+          const extension = type.includes('mp4') || type.includes('m4a') ? 'm4a' : type.includes('mpeg') ? 'mp3' : 'webm';
+          const record = await createMediaRecordFromBlob(blob, {
+            filename: `recording-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`,
+            caption: 'Audio recording',
+            recordType: 'MediaAudio',
+          });
+          await reload();
+          setActiveId(record.recordName);
+          setStatus('Audio recording saved.');
+        } catch (error) {
+          setStatus(`Audio save failed: ${error.message}`);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      setCaptureStream(stream);
+      setCaptureMode('audio');
+      setRecording(true);
+      recorder.start();
+      setStatus('Recording audio…');
+    } catch (error) {
+      setStatus(`Audio recording failed: ${error.message}`);
+    }
+  }, [reload]);
+
+  const onStopAudioRecording = useCallback(() => {
+    audioCanceledRef.current = false;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+  }, []);
+
+  const onCancelCapture = useCallback(() => {
+    audioCanceledRef.current = true;
+    if (mediaRecorderRef.current?.state && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      return;
+    }
+    stopStream(captureStream);
+    setCaptureStream(null);
+    setCaptureMode(null);
+    setRecording(false);
+    setStatus('Capture canceled.');
+  }, [captureStream]);
+
+  const onEditImage = useCallback(async (operation) => {
+    if (!active || active.recordType !== 'MediaPicture') return;
+    const asset = activeAssets[0];
+    if (!asset?.dataBase64) {
+      setStatus('No local image asset is available to edit.');
+      return;
+    }
+    setStatus(operation === 'rotate' ? 'Rotating image…' : 'Cropping image…');
+    try {
+      const src = `data:${asset.mimeType || 'image/png'};base64,${asset.dataBase64}`;
+      const image = await loadImage(src);
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (operation === 'rotate') {
+        canvas.width = image.naturalHeight;
+        canvas.height = image.naturalWidth;
+        context.translate(canvas.width / 2, canvas.height / 2);
+        context.rotate(Math.PI / 2);
+        context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2);
+      } else {
+        const size = Math.min(image.naturalWidth, image.naturalHeight);
+        const x = Math.floor((image.naturalWidth - size) / 2);
+        const y = Math.floor((image.naturalHeight - size) / 2);
+        canvas.width = size;
+        canvas.height = size;
+        context.drawImage(image, x, y, size, size, 0, 0, size, size);
+      }
+      const mimeType = asset.mimeType === 'image/jpeg' ? 'image/jpeg' : 'image/png';
+      const dataUrl = canvas.toDataURL(mimeType, 0.92);
+      const dataBase64 = dataUrl.split(',')[1] || '';
+      const filename = editedFilename(asset.filename || values.filename || active.recordName, operation, mimeType);
+      const next = await replaceMediaRecordImageData(active, {
+        dataBase64,
+        mimeType,
+        filename,
+        caption: values.caption,
+      });
+      await reload();
+      setActiveId(next.recordName);
+      setStatus(operation === 'rotate' ? 'Image rotated.' : 'Image cropped.');
+    } catch (error) {
+      setStatus(`Image edit failed: ${error.message}`);
+    }
+  }, [active, activeAssets, reload, values.caption, values.filename]);
+
   const filtered = useMemo(() => {
     const byType = filter === 'all' ? media : media.filter((m) => m.recordType === filter);
     if (!relatedMediaIds) return byType;
     return byType.filter((m) => relatedMediaIds.has(m.recordName));
   }, [filter, media, relatedMediaIds]);
-  const active = media.find((m) => m.recordName === activeId);
   const subjectLabel = subject ? recordDisplayLabel(subject) || subject.recordName : '';
 
   const setMode = useCallback((mode) => {
@@ -251,6 +454,13 @@ export default function Media() {
           className="hidden"
           onChange={(e) => onAddFiles(e.target.files)}
         />
+        <input
+          ref={replaceFileRef}
+          type="file"
+          accept="image/*,application/pdf,audio/*,video/*"
+          className="hidden"
+          onChange={(e) => onReplaceFile(e.target.files)}
+        />
         {targetId && (
           <button onClick={clearSubject} style={select}>Clear subject</button>
         )}
@@ -259,6 +469,8 @@ export default function Media() {
         </button>
         {!readOnlyGallery && <button onClick={() => addFilesRef.current?.click()} style={select}>Add files</button>}
         {!readOnlyGallery && <button onClick={onAddURL} style={select}>Add URL</button>}
+        {!readOnlyGallery && <button onClick={onStartCamera} style={select}>Camera</button>}
+        {!readOnlyGallery && <button onClick={onStartAudioRecording} style={select}>Record audio</button>}
         {!readOnlyGallery && <button onClick={() => folderRef.current?.click()} style={select}>Match media folder</button>}
       </header>
 
@@ -319,6 +531,9 @@ export default function Media() {
               </h2>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
                 {status && <span style={{ color: '#4ade80', fontSize: 12, marginRight: 6 }}>{status}</span>}
+                {active.recordType !== 'MediaURL' && <button onClick={() => replaceFileRef.current?.click()} style={deleteBtn}>Replace</button>}
+                {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('rotate')} style={deleteBtn}>Rotate</button>}
+                {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('crop-square')} style={deleteBtn}>Crop</button>}
                 <button onClick={onDelete} style={deleteBtn}>Delete</button>
                 <button onClick={onSave} disabled={saving} style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
               </div>
@@ -374,6 +589,39 @@ export default function Media() {
           </aside>
         ))}
       </div>
+
+      {captureMode && (
+        <div style={modalBackdrop}>
+          <div style={modal}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+              <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>
+                {captureMode === 'camera' ? 'Camera capture' : 'Audio recording'}
+              </h2>
+              <button onClick={onCancelCapture} style={{ ...deleteBtn, marginLeft: 'auto' }}>Cancel</button>
+            </div>
+            {captureMode === 'camera' ? (
+              <>
+                <video ref={videoRef} muted playsInline style={videoPreview} />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+                  <button onClick={onCapturePhoto} style={saveBtn}>Capture photo</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={audioCapturePanel}>
+                  <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                    {recording ? 'Recording from the selected microphone.' : 'Audio recorder is ready.'}
+                  </div>
+                  <div style={recordingDot} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+                  <button onClick={onStopAudioRecording} disabled={!recording} style={saveBtn}>Stop and save</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -389,6 +637,39 @@ const reportTile = { ...tile, minHeight: 150, display: 'flex', flexDirection: 'c
 const detail = { width: 360, borderLeft: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', padding: 20, overflow: 'auto' };
 const saveBtn = { background: 'hsl(var(--primary))', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
 const deleteBtn = { background: 'transparent', color: 'hsl(var(--destructive))', border: '1px solid #3a2d30', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };
+const modalBackdrop = { position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.62)', display: 'grid', placeItems: 'center', padding: 20 };
+const modal = { width: 'min(720px, 94vw)', background: 'hsl(var(--card))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.45)' };
+const videoPreview = { width: '100%', maxHeight: '62vh', background: '#000', borderRadius: 8, border: '1px solid hsl(var(--border))' };
+const audioCapturePanel = { minHeight: 160, border: '1px solid hsl(var(--border))', borderRadius: 8, background: 'hsl(var(--background))', display: 'grid', placeItems: 'center', gap: 12, padding: 20 };
+const recordingDot = { width: 22, height: 22, borderRadius: 999, background: '#ef4444', boxShadow: '0 0 0 8px rgba(239,68,68,0.16)' };
+
+function stopStream(stream) {
+  stream?.getTracks?.().forEach((track) => track.stop());
+}
+
+function canvasToBlob(canvas, type) {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('The browser could not encode this image.'));
+    }, type);
+  });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('The stored image could not be decoded.'));
+    image.src = src;
+  });
+}
+
+function editedFilename(fileName, operation, mimeType) {
+  const ext = mimeType === 'image/jpeg' ? '.jpg' : '.png';
+  const base = String(fileName || 'image').replace(/\.[^.]+$/, '');
+  return `${base}-${operation}${ext}`;
+}
 
 function GalleryDetail({ record, assets, relations, onOpenRelated }) {
   const title = record.fields?.caption?.value || record.fields?.filename?.value || record.fields?.fileName?.value || record.fields?.url?.value || record.recordName;

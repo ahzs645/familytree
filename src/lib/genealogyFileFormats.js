@@ -56,17 +56,20 @@ export async function readGedcomTextFromFile(file) {
     const entry = await findGedcomEntryInZip(zip);
     if (!entry) throw new Error('ZIP/GedZip does not contain a GEDCOM file.');
     const entryBytes = await entry.async('uint8array');
+    const resourceFiles = await collectGedcomResourceFiles(zip, entry.name);
     return {
       text: decodeGedcomBytes(entryBytes, entry.name),
       sourceName: `${file.name}:${entry.name}`,
       format: 'gedzip',
       entryName: entry.name,
+      resourceFiles,
     };
   }
   return {
     text: decodeGedcomBytes(bytes, file.name),
     sourceName: file.name,
     format: fileExtension(file.name).replace('.', '') || 'gedcom',
+    resourceFiles: [],
   };
 }
 
@@ -91,8 +94,37 @@ export async function findGedcomEntryInZip(zip) {
   return null;
 }
 
+export async function collectGedcomResourceFiles(zip, gedcomEntryName = '') {
+  const resources = [];
+  const gedcomPath = normalizeZipPath(gedcomEntryName);
+  zip.forEach((path, entry) => {
+    if (entry.dir) return;
+    const normalized = normalizeZipPath(path);
+    if (normalized === gedcomPath) return;
+    if (isGedcomFileName(path)) return;
+    const name = path.split('/').pop();
+    if (!name || name.startsWith('.')) return;
+    resources.push({ path, name, entry });
+  });
+
+  const files = [];
+  for (const resource of resources) {
+    files.push({
+      path: resource.path,
+      name: resource.name,
+      size: resource.entry._data?.uncompressedSize || 0,
+      bytes: await resource.entry.async('uint8array'),
+    });
+  }
+  return files;
+}
+
 export function asciiHeader(bytes, length = 64) {
   return new TextDecoder('utf-8').decode(bytes.slice(0, length));
+}
+
+function normalizeZipPath(path = '') {
+  return String(path).replace(/^\/+/, '').replace(/\\/g, '/');
 }
 
 function stripBom(text) {

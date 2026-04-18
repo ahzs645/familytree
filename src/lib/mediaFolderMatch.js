@@ -89,6 +89,116 @@ export async function createMediaRecordsFromFiles(files) {
   return { created: saveRecords.length, records: saveRecords };
 }
 
+export async function createMediaRecordFromBlob(blob, {
+  filename = 'captured-media',
+  caption = '',
+  recordType = null,
+} = {}) {
+  const file = blobToNamedFile(blob, filename);
+  const result = await createMediaRecordsFromFiles([file]);
+  const record = result.records[0];
+  if (record && (caption || recordType)) {
+    const db = getLocalDatabase();
+    const next = {
+      ...record,
+      recordType: recordType || record.recordType,
+      fields: {
+        ...(record.fields || {}),
+        ...(caption ? { caption: { value: caption, type: 'STRING' } } : {}),
+      },
+    };
+    await db.saveRecord(next);
+    return next;
+  }
+  return record;
+}
+
+export async function replaceMediaRecordAsset(mediaRecord, fileOrBlob, {
+  filename = '',
+  caption = '',
+  recordType = null,
+} = {}) {
+  if (!mediaRecord?.recordName) throw new Error('Choose a media record before replacing its file.');
+  if (mediaRecord.recordType === 'MediaURL') throw new Error('URL media records do not store replaceable local files.');
+  const db = getLocalDatabase();
+  const file = blobToNamedFile(fileOrBlob, filename || fileOrBlob?.name || mediaRecord.fields?.filename?.value || 'replacement');
+  const nextType = recordType || mediaTypeForFile(file);
+  const assetId = makeAssetId(mediaRecord.recordName);
+  const identifierField = identifierFieldForType(nextType);
+  const priorAssetIds = mediaRecord.fields?.assetIds?.value || [];
+  const nextFields = {
+    ...(mediaRecord.fields || {}),
+    filename: { value: file.name, type: 'STRING' },
+    fileName: { value: file.name, type: 'STRING' },
+    assetIds: { value: [assetId], type: 'LIST' },
+  };
+  for (const fieldName of ['pictureFileIdentifier', 'originalPictureFileIdentifier', 'pdfFileIdentifier', 'audioFileIdentifier', 'videoFileIdentifier']) {
+    delete nextFields[fieldName];
+  }
+  if (caption) nextFields.caption = { value: caption, type: 'STRING' };
+  if (identifierField) nextFields[identifierField] = { value: file.name, type: 'STRING' };
+  const nextRecord = {
+    ...mediaRecord,
+    recordType: nextType,
+    fields: nextFields,
+  };
+  await db.applyRecordTransaction({
+    saveRecords: [nextRecord],
+    saveAssets: [{
+      assetId,
+      ownerRecordName: mediaRecord.recordName,
+      sourceIdentifier: file.name,
+      filename: file.name,
+      mimeType: file.type || mimeTypeForName(file.name),
+      size: file.size,
+      dataBase64: await fileToBase64(file),
+    }],
+    deleteAssetIds: priorAssetIds,
+  });
+  return nextRecord;
+}
+
+export async function replaceMediaRecordImageData(mediaRecord, {
+  dataBase64,
+  mimeType = 'image/png',
+  filename = '',
+  caption = '',
+} = {}) {
+  if (!mediaRecord?.recordName) throw new Error('Choose a picture record before editing its image.');
+  if (mediaRecord.recordType !== 'MediaPicture') throw new Error('Image edits are only available for picture media.');
+  if (!dataBase64) throw new Error('Edited image data is missing.');
+  const db = getLocalDatabase();
+  const assetId = makeAssetId(mediaRecord.recordName);
+  const nextFileName = filename || mediaRecord.fields?.filename?.value || `${mediaRecord.recordName}.png`;
+  const priorAssetIds = mediaRecord.fields?.assetIds?.value || [];
+  const byteLength = Math.ceil((dataBase64.length * 3) / 4);
+  const nextRecord = {
+    ...mediaRecord,
+    fields: {
+      ...(mediaRecord.fields || {}),
+      ...(caption ? { caption: { value: caption, type: 'STRING' } } : {}),
+      filename: { value: nextFileName, type: 'STRING' },
+      fileName: { value: nextFileName, type: 'STRING' },
+      pictureFileIdentifier: { value: nextFileName, type: 'STRING' },
+      assetIds: { value: [assetId], type: 'LIST' },
+    },
+  };
+  await db.applyRecordTransaction({
+    saveRecords: [nextRecord],
+    saveAssets: [{
+      assetId,
+      ownerRecordName: mediaRecord.recordName,
+      sourceIdentifier: nextFileName,
+      filename: nextFileName,
+      mimeType,
+      size: byteLength,
+      dataBase64,
+    }],
+    deleteAssetIds: priorAssetIds,
+  });
+  return nextRecord;
+}
+
 export async function createMediaURLRecord(url, { caption = '' } = {}) {
   const value = String(url || '').trim();
   if (!value) throw new Error('URL is required.');
@@ -103,6 +213,19 @@ export async function createMediaURLRecord(url, { caption = '' } = {}) {
   };
   await db.saveRecord(record);
   return record;
+}
+
+function makeAssetId(recordName) {
+  return `asset-${recordName}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function blobToNamedFile(blob, filename) {
+  const FileCtor = globalThis.File;
+  if (FileCtor && blob instanceof FileCtor && (!filename || blob.name === filename)) return blob;
+  const name = filename || blob?.name || 'media-asset';
+  const type = blob?.type || mimeTypeForName(name);
+  if (!FileCtor) return Object.assign(blob, { name, type, lastModified: Date.now() });
+  return new FileCtor([blob], name, { type });
 }
 
 function findFileForMedia(media, fileIndex) {

@@ -8,9 +8,17 @@ import { listAllPersons, findStartPerson } from '../lib/treeQuery.js';
 import { downloadGedcom } from '../lib/gedcomExport.js';
 import { analyzeGedcomText, importGedcomText } from '../lib/gedcomImport.js';
 import { GEDCOM_ACCEPT, readGedcomTextFromFile } from '../lib/genealogyFileFormats.js';
-import { downloadBackup } from '../lib/backup.js';
+import { downloadBackup, downloadMFTPackage } from '../lib/backup.js';
 import { analyzeBackupMergeJSON, mergeBackupJSON } from '../lib/mergeImport.js';
 import { downloadSubtreeBackup, removeSubtree } from '../lib/subtree.js';
+import { importContactsFile } from '../lib/contactImport.js';
+import {
+  deleteTreeSnapshot,
+  listTreeSnapshots,
+  renameTreeSnapshot,
+  restoreTreeSnapshot,
+  saveCurrentTreeSnapshot,
+} from '../lib/treeLibrary.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 
 function Card({ title, description, children }) {
@@ -36,8 +44,13 @@ export default function Export() {
   const [rollbackNote, setRollbackNote] = useState('');
   const [persons, setPersons] = useState([]);
   const [subtreeRoot, setSubtreeRoot] = useState(null);
+  const [treeSnapshots, setTreeSnapshots] = useState([]);
+  const [snapshotName, setSnapshotName] = useState('');
+  const [selectedSnapshot, setSelectedSnapshot] = useState('');
   const gedRef = useRef(null);
   const mergeRef = useRef(null);
+  const contactsRef = useRef(null);
+  const gedMediaFolderRef = useRef(null);
 
   React.useEffect(() => {
     (async () => {
@@ -45,6 +58,9 @@ export default function Export() {
       setPersons(list);
       const start = await findStartPerson();
       setSubtreeRoot(start?.recordName || list[0]?.recordName || null);
+      const snapshots = await listTreeSnapshots();
+      setTreeSnapshots(snapshots);
+      setSelectedSnapshot((current) => current || snapshots[0]?.id || '');
     })();
   }, []);
 
@@ -65,10 +81,10 @@ export default function Export() {
     setBusy(true);
     setStatus('Reviewing GEDCOM/GedZip…');
     try {
-      const { text, sourceName, format } = await readGedcomTextFromFile(file);
+      const { text, sourceName, format, resourceFiles = [] } = await readGedcomTextFromFile(file);
       const analysis = analyzeGedcomText(text);
       setGedIssues(analysis);
-      setPendingGedcom({ fileName: sourceName || file.name, format, text, analysis });
+      setPendingGedcom({ fileName: sourceName || file.name, format, text, analysis, resourceFiles });
       setStatus(analysis.canImport ? 'GEDCOM ready for review.' : 'GEDCOM has blocking syntax errors.');
     } catch (e) {
       setStatus(`GEDCOM review failed: ${e.message}`);
@@ -79,12 +95,40 @@ export default function Export() {
   const onConfirmGedImport = wrap('Importing GEDCOM…', async () => {
     if (!pendingGedcom) return 'Choose a GEDCOM file first.';
     if (!pendingGedcom.analysis.canImport) return 'GEDCOM has blocking syntax errors. Review issues before importing.';
-    const n = await importGedcomText(pendingGedcom.text, { sourceName: pendingGedcom.fileName });
+    const n = await importGedcomText(pendingGedcom.text, {
+      sourceName: pendingGedcom.fileName,
+      resourceFiles: pendingGedcom.resourceFiles || [],
+    });
     await refresh();
     setPendingGedcom(null);
     if (gedRef.current) gedRef.current.value = '';
+    if (gedMediaFolderRef.current) gedMediaFolderRef.current.value = '';
     return `Imported ${n.toLocaleString()} new records.`;
   });
+
+  const onGedMediaFolder = async (files) => {
+    if (!files?.length || !pendingGedcom) return;
+    setBusy(true);
+    setStatus('Reading GEDCOM media folder…');
+    try {
+      const resourceFiles = await Promise.all([...files].map(async (file) => ({
+        path: file.webkitRelativePath || file.name,
+        name: file.name,
+        size: file.size,
+        bytes: new Uint8Array(await file.arrayBuffer()),
+      })));
+      setPendingGedcom((current) => current ? {
+        ...current,
+        resourceFiles: dedupeResources([...(current.resourceFiles || []), ...resourceFiles]),
+      } : current);
+      setStatus(`Attached ${resourceFiles.length.toLocaleString()} media folder file${resourceFiles.length === 1 ? '' : 's'} for OBJE matching.`);
+    } catch (error) {
+      setStatus(`Media folder read failed: ${error.message}`);
+    } finally {
+      if (gedMediaFolderRef.current) gedMediaFolderRef.current.value = '';
+      setBusy(false);
+    }
+  };
 
   const onBackupMergeFile = async (file) => {
     if (!file) return;
@@ -100,6 +144,22 @@ export default function Export() {
       setStatus(`Backup review failed: ${e.message}`);
     }
     setBusy(false);
+  };
+
+  const onContactsFile = async (file) => {
+    if (!file) return;
+    setBusy(true);
+    setStatus('Importing contacts…');
+    try {
+      const result = await importContactsFile(file);
+      await refresh();
+      setStatus(`Imported ${result.created.toLocaleString()} contact${result.created === 1 ? '' : 's'} as person records.`);
+    } catch (error) {
+      setStatus(`Contacts import failed: ${error.message}`);
+    } finally {
+      if (contactsRef.current) contactsRef.current.value = '';
+      setBusy(false);
+    }
   };
 
   const onConfirmMergeBackup = wrap('Merging backup…', async () => {
@@ -127,6 +187,49 @@ export default function Export() {
     return `Removed ${count.toLocaleString()} subtree records.`;
   });
 
+  const reloadSnapshots = async () => {
+    const snapshots = await listTreeSnapshots();
+    setTreeSnapshots(snapshots);
+    setSelectedSnapshot((current) => snapshots.some((snapshot) => snapshot.id === current) ? current : snapshots[0]?.id || '');
+    return snapshots;
+  };
+
+  const onSaveTreeSnapshot = wrap('Saving tree snapshot…', async () => {
+    const snapshot = await saveCurrentTreeSnapshot(snapshotName);
+    setSnapshotName('');
+    await reloadSnapshots();
+    return `Saved tree snapshot "${snapshot.name}".`;
+  });
+
+  const onRestoreTreeSnapshot = wrap('Restoring tree snapshot…', async () => {
+    if (!selectedSnapshot) return 'Choose a tree snapshot first.';
+    if (!confirm('Replace the current database with this saved tree snapshot?')) return 'Restore canceled.';
+    const result = await restoreTreeSnapshot(selectedSnapshot);
+    await refresh();
+    await reloadSnapshots();
+    return `Restored ${result.records.toLocaleString()} records and ${result.assets.toLocaleString()} assets.`;
+  });
+
+  const onRenameTreeSnapshot = wrap('Renaming tree snapshot…', async () => {
+    if (!selectedSnapshot) return 'Choose a tree snapshot first.';
+    const current = treeSnapshots.find((snapshot) => snapshot.id === selectedSnapshot);
+    const name = prompt('Snapshot name:', current?.name || '');
+    if (!name) return 'Rename canceled.';
+    await renameTreeSnapshot(selectedSnapshot, name);
+    await reloadSnapshots();
+    return 'Tree snapshot renamed.';
+  });
+
+  const onDeleteTreeSnapshot = wrap('Deleting tree snapshot…', async () => {
+    if (!selectedSnapshot) return 'Choose a tree snapshot first.';
+    if (!confirm('Delete this saved tree snapshot?')) return 'Delete canceled.';
+    await deleteTreeSnapshot(selectedSnapshot);
+    await reloadSnapshots();
+    return 'Tree snapshot deleted.';
+  });
+
+  const selectedSnapshotInfo = treeSnapshots.find((snapshot) => snapshot.id === selectedSnapshot);
+
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-2xl mx-auto p-5">
@@ -143,6 +246,14 @@ export default function Export() {
         <Card title="GEDCOM / GedZip import" description="Merge .ged, .uged, .uged16, or GedZip .zip files from another tool. Records are added with new local IDs.">
           <input ref={gedRef} type="file" accept={GEDCOM_ACCEPT} className="hidden"
             onChange={(e) => onGedFile(e.target.files?.[0])} />
+          <input
+            ref={gedMediaFolderRef}
+            type="file"
+            multiple
+            webkitdirectory=""
+            className="hidden"
+            onChange={(e) => onGedMediaFolder(e.target.files)}
+          />
           <button onClick={() => gedRef.current?.click()} disabled={busy} className={btnSecondary}>
             Choose GEDCOM or GedZip…
           </button>
@@ -153,6 +264,9 @@ export default function Export() {
                 {pendingGedcom?.fileName && <span className="text-foreground">{pendingGedcom.fileName} · </span>}
                 {pendingGedcom?.format && <span>{pendingGedcom.format} · </span>}
                 {gedIssues.counts.INDI} persons · {gedIssues.counts.FAM} families · {gedIssues.counts.SOUR} sources · {gedIssues.issues.length} issue(s)
+              </div>
+              <div className="text-muted-foreground mb-2">
+                Media resources ready for OBJE matching: {(pendingGedcom?.resourceFiles?.length || 0).toLocaleString()}.
               </div>
               <div className="text-muted-foreground mb-2">
                 Conflict summary: GEDCOM records are imported with new local IDs, so existing records are not overwritten.
@@ -166,8 +280,11 @@ export default function Export() {
                 <button onClick={onConfirmGedImport} disabled={busy || !pendingGedcom?.analysis.canImport} className={btn}>
                   Import reviewed GEDCOM
                 </button>
+                <button onClick={() => gedMediaFolderRef.current?.click()} disabled={busy || !pendingGedcom} className={btnSecondary}>
+                  Attach media folder…
+                </button>
                 <button
-                  onClick={() => { setPendingGedcom(null); setGedIssues(null); if (gedRef.current) gedRef.current.value = ''; }}
+                  onClick={() => { setPendingGedcom(null); setGedIssues(null); if (gedRef.current) gedRef.current.value = ''; if (gedMediaFolderRef.current) gedMediaFolderRef.current.value = ''; }}
                   disabled={busy}
                   className={btnSecondary}
                 >
@@ -217,6 +334,19 @@ export default function Export() {
           )}
         </Card>
 
+        <Card title="Contacts import" description="Import CSV or vCard contacts as new person records. This is the browser equivalent of MacFamilyTree contact import.">
+          <input
+            ref={contactsRef}
+            type="file"
+            accept=".csv,text/csv,.vcf,.vcard,text/vcard,text/x-vcard"
+            className="hidden"
+            onChange={(e) => onContactsFile(e.target.files?.[0])}
+          />
+          <button onClick={() => contactsRef.current?.click()} disabled={busy} className={btnSecondary}>
+            Choose CSV or vCard…
+          </button>
+        </Card>
+
         <Card title="Subtree export / remove" description="Export or remove a person and their descendant subtree, including related events, facts, notes, labels, media/source relations, and assets.">
           <div className="flex flex-wrap items-end gap-2">
             <div>
@@ -228,8 +358,48 @@ export default function Export() {
           </div>
         </Card>
 
+        <Card title="Tree picker library" description="Save, restore, rename, and delete local tree snapshots without relying on iCloud. Restoring replaces the active database.">
+          <div className="grid gap-3">
+            <div className="flex flex-wrap gap-2">
+              <input
+                value={snapshotName}
+                onChange={(event) => setSnapshotName(event.target.value)}
+                placeholder="Snapshot name"
+                className="min-w-0 flex-1 rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm"
+              />
+              <button onClick={onSaveTreeSnapshot} disabled={busy || !summary} className={btn}>Save current tree</button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={selectedSnapshot}
+                onChange={(event) => setSelectedSnapshot(event.target.value)}
+                className="min-w-[220px] flex-1 rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm"
+              >
+                <option value="">No saved trees</option>
+                {treeSnapshots.map((snapshot) => (
+                  <option key={snapshot.id} value={snapshot.id}>
+                    {snapshot.name} · {snapshot.recordCount.toLocaleString()} records
+                  </option>
+                ))}
+              </select>
+              <button onClick={onRestoreTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Restore</button>
+              <button onClick={onRenameTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Rename</button>
+              <button onClick={onDeleteTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Delete</button>
+            </div>
+            {selectedSnapshotInfo && (
+              <div className="text-xs text-muted-foreground">
+                Selected: {selectedSnapshotInfo.recordCount.toLocaleString()} records · {selectedSnapshotInfo.assetCount.toLocaleString()} assets · updated {new Date(selectedSnapshotInfo.updatedAt).toLocaleString()}
+              </div>
+            )}
+          </div>
+        </Card>
+
         <Card title="Full backup" description="Every record packaged into a single JSON file.">
           <button onClick={wrap('Preparing backup…', downloadBackup)} disabled={busy} className={btn}>Download backup</button>
+        </Card>
+
+        <Card title="CloudTreeWeb .mftpkg package" description="Round-trip package for this app: database.json plus bundled media copies in a .mftpkg zip container.">
+          <button onClick={wrap('Preparing .mftpkg…', downloadMFTPackage)} disabled={busy} className={btn}>Download .mftpkg</button>
         </Card>
 
         <Card title="Publish surfaces" description="Use dedicated publish pages for websites and book bundles. This page stays focused on data transfer.">
@@ -244,4 +414,16 @@ export default function Export() {
       </div>
     </div>
   );
+}
+
+function dedupeResources(resources) {
+  const seen = new Set();
+  const out = [];
+  for (const resource of resources || []) {
+    const key = String(resource.path || resource.name || '').toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(resource);
+  }
+  return out;
 }

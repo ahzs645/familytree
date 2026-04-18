@@ -99,7 +99,7 @@ export function Select({
         aria-expanded={open}
         aria-label={ariaLabel}
         className={cn(
-          'w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm pl-3 pr-8 text-left',
+          'w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm ps-3 pe-8 text-start',
           'outline-none focus:border-primary focus:ring-2 focus:ring-primary/20',
           'hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed',
           'inline-flex items-center relative'
@@ -113,7 +113,7 @@ export function Select({
           viewBox="0 0 20 20"
           fill="currentColor"
           className={cn(
-            'absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform',
+            'absolute end-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform',
             open && 'rotate-180'
           )}
         >
@@ -129,7 +129,7 @@ export function Select({
           onKeyDown={onKeyDown}
           className={cn(
             'absolute z-40 mt-1 min-w-full max-h-64 overflow-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1',
-            align === 'end' ? 'right-0' : 'left-0'
+            align === 'end' ? 'end-0' : 'start-0'
           )}
         >
           {options.map((option, index) => {

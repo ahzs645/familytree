@@ -11,6 +11,7 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { Gender } from '../models/index.js';
 import { FIELD_ALIASES, readConclusionType, readField } from './schema.js';
+import { equalsSearchText, matchesSearchText, startsWithSearchText } from './i18n.js';
 
 export const ENTITY_TYPES = [
   { id: 'Person', label: 'Persons' },
@@ -109,11 +110,9 @@ function fieldValue(record, filter) {
 
 function matchesText(rawValue, op, target) {
   if (rawValue == null) return false;
-  const v = String(rawValue).toLowerCase();
-  const t = String(target).toLowerCase();
-  if (op === 'contains') return v.includes(t);
-  if (op === 'equals') return v === t;
-  if (op === 'startsWith') return v.startsWith(t);
+  if (op === 'contains') return matchesSearchText(rawValue, target);
+  if (op === 'equals') return equalsSearchText(rawValue, target);
+  if (op === 'startsWith') return startsWithSearchText(rawValue, target);
   return false;
 }
 
@@ -160,10 +159,9 @@ function matchesFilter(record, filter) {
 
 function matchesText_anywhere(record, q) {
   const fields = record.fields || {};
-  const lq = q.toLowerCase();
   for (const k of Object.keys(fields)) {
     const val = fields[k]?.value;
-    if (typeof val === 'string' && val.toLowerCase().includes(lq)) return true;
+    if (typeof val === 'string' && matchesSearchText(val, q)) return true;
   }
   return false;
 }

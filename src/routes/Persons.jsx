@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { BdiText } from '../components/BdiText.jsx';
 import { PersonList } from '../components/interactive/PersonList.jsx';
 import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
+import { compareStrings, formatInteger, getCurrentLocalization } from '../lib/i18n.js';
 import { buildPersonContext } from '../lib/personContext.js';
 import { downloadRowsAsCsv, downloadRowsAsJson } from '../lib/listExport.js';
 import { loadPersonRows } from '../lib/listData.js';
@@ -29,6 +31,8 @@ export default function Persons() {
   const isMobile = useIsMobile();
   const { setActivePerson } = useActivePerson();
   const navigate = useNavigate();
+  const localization = getCurrentLocalization();
+  const localizationKey = `${localization.locale}|${localization.direction}|${localization.numberingSystem}|${localization.calendar}`;
 
   const pick = (id) => {
     setActiveId(id);
@@ -58,12 +62,12 @@ export default function Persons() {
       return true;
     });
     next = [...next].sort((a, b) => {
-      if (sortKey === 'birth') return (a.birthYear || 99999) - (b.birthYear || 99999) || a.fullName.localeCompare(b.fullName);
-      if (sortKey === 'death') return (a.deathYear || 99999) - (b.deathYear || 99999) || a.fullName.localeCompare(b.fullName);
-      return a.fullName.localeCompare(b.fullName);
+      if (sortKey === 'birth') return (a.birthYear || 99999) - (b.birthYear || 99999) || compareStrings(a.fullName, b.fullName, localization);
+      if (sortKey === 'death') return (a.deathYear || 99999) - (b.deathYear || 99999) || compareStrings(a.fullName, b.fullName, localization);
+      return compareStrings(a.fullName, b.fullName, localization);
     });
     return next;
-  }, [persons, filter, sortKey]);
+  }, [persons, filter, sortKey, localizationKey]);
 
   useEffect(() => {
     if (!visiblePersons.length) {
@@ -119,10 +123,10 @@ export default function Persons() {
     <div className="flex flex-col h-full">
       <header className="border-b border-border bg-card px-4 md:px-5 py-3">
         <div className="flex items-center gap-2 mb-2 md:mb-3">
-          <div className="min-w-0 mr-auto">
+          <div className="min-w-0 me-auto">
             <h1 className="text-base font-semibold leading-tight">Persons</h1>
             <div className="text-xs text-muted-foreground">
-              {visiblePersons.length.toLocaleString()} of {persons.length.toLocaleString()}
+              {formatInteger(visiblePersons.length, localization)} of {formatInteger(persons.length, localization)}
             </div>
           </div>
           <ExportMenu
@@ -173,8 +177,8 @@ export default function Persons() {
                 </button>
               )}
               <div className="flex flex-wrap items-start gap-3 mb-5">
-                <div className="mr-auto min-w-0">
-                  <h2 className="text-2xl font-semibold truncate">{active.fullName}</h2>
+                <div className="me-auto min-w-0">
+                  <h2 className="text-2xl font-semibold truncate"><BdiText>{active.fullName}</BdiText></h2>
                   <div className="text-sm text-muted-foreground mt-1">
                     {active.genderLabel} · {active.birthDate || 'Birth unknown'} - {active.deathDate || 'Death unknown'}
                   </div>
@@ -188,10 +192,10 @@ export default function Persons() {
               </div>
 
               <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 mb-5">
-                <SummaryBox label="Parents" value={context?.parents?.length || 0} />
-                <SummaryBox label="Partner Families" value={context?.families?.length || 0} />
-                <SummaryBox label="Events" value={context?.events?.length || 0} />
-                <SummaryBox label="Facts" value={context?.facts?.length || 0} />
+                <SummaryBox label="Parents" value={context?.parents?.length || 0} localization={localization} />
+                <SummaryBox label="Partner Families" value={context?.families?.length || 0} localization={localization} />
+                <SummaryBox label="Events" value={context?.events?.length || 0} localization={localization} />
+                <SummaryBox label="Facts" value={context?.facts?.length || 0} localization={localization} />
               </div>
 
               <section className="mb-5">
@@ -201,8 +205,8 @@ export default function Persons() {
                     {context.parents.map((family) => (
                       <div key={family.family.recordName} className="border border-border rounded-md p-3 bg-card text-sm">
                         {[family.man, family.woman].filter(Boolean).map((person) => (
-                          <Link key={person.recordName} to={`/person/${person.recordName}`} className="text-primary mr-3">
-                            {person.fullName}
+                          <Link key={person.recordName} to={`/person/${person.recordName}`} className="text-primary me-3">
+                            <BdiText>{person.fullName}</BdiText>
                           </Link>
                         ))}
                       </div>
@@ -222,11 +226,11 @@ export default function Persons() {
                         <div className="flex flex-wrap items-center gap-2 text-sm">
                           <span className="text-muted-foreground">With</span>
                           {family.partner ? (
-                            <Link to={`/person/${family.partner.recordName}`} className="text-primary">{family.partner.fullName}</Link>
+                            <Link to={`/person/${family.partner.recordName}`} className="text-primary"><BdiText>{family.partner.fullName}</BdiText></Link>
                           ) : (
                             <span>Unknown partner</span>
                           )}
-                          <Link to={`/family/${family.family.recordName}`} className="ml-auto text-xs text-primary">Open family</Link>
+                          <Link to={`/family/${family.family.recordName}`} className="ms-auto text-xs text-primary">Open family</Link>
                         </div>
                         <div className="text-xs text-muted-foreground mt-2">
                           {family.children.length ? `${family.children.length} child${family.children.length === 1 ? '' : 'ren'}` : 'No children recorded'}
@@ -249,11 +253,11 @@ export default function Persons() {
   );
 }
 
-function SummaryBox({ label, value }) {
+function SummaryBox({ label, value, localization }) {
   return (
     <div className="border border-border rounded-md bg-card p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="text-xl font-semibold mt-1">{Number(value || 0).toLocaleString()}</div>
+      <div className="text-xl font-semibold mt-1">{formatInteger(value || 0, localization)}</div>
     </div>
   );
 }
@@ -291,13 +295,13 @@ function ExportMenu({ onCsv, onJson, controlClass }) {
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-20 mt-1 w-40 rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1"
+          className="absolute end-0 top-full z-20 mt-1 w-40 rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1"
         >
           <button
             type="button"
             role="menuitem"
             onClick={() => { setOpen(false); onCsv(); }}
-            className="block w-full text-left px-3 py-2 text-sm hover:bg-accent"
+            className="block w-full text-start px-3 py-2 text-sm hover:bg-accent"
           >
             Export CSV
           </button>
@@ -305,7 +309,7 @@ function ExportMenu({ onCsv, onJson, controlClass }) {
             type="button"
             role="menuitem"
             onClick={() => { setOpen(false); onJson(); }}
-            className="block w-full text-left px-3 py-2 text-sm hover:bg-accent"
+            className="block w-full text-start px-3 py-2 text-sm hover:bg-accent"
           >
             Export JSON
           </button>

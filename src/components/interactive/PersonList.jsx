@@ -3,24 +3,31 @@
  * Groups persons alphabetically by last-name initial. Supports search filtering.
  */
 import React, { useMemo, useState } from 'react';
+import { BdiText } from '../BdiText.jsx';
+import { compareStrings, getCurrentLocalization, graphemes, matchesSearchText, normalizeSearchText } from '../../lib/i18n.js';
 import { lifeSpanLabel } from '../../models/index.js';
 
 export function PersonList({ persons, activeId, onPick }) {
   const [query, setQuery] = useState('');
+  const localization = getCurrentLocalization();
+  const localizationKey = `${localization.locale}|${localization.direction}|${localization.numberingSystem}|${localization.calendar}`;
 
   const sections = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const filtered = q
-      ? persons.filter((p) => p.fullName.toLowerCase().includes(q))
+    const filtered = query.trim()
+      ? persons.filter((p) => matchesSearchText(p.fullName, query, localization))
       : persons;
     const groups = new Map();
     for (const p of filtered) {
-      const initial = (p.lastName || p.fullName || '#')[0]?.toUpperCase() || '#';
+      const firstGrapheme = graphemes(p.lastName || p.fullName || '#')[0] || '#';
+      const normalized = normalizeSearchText(firstGrapheme, localization);
+      const initial = (normalized || firstGrapheme).toLocaleUpperCase(localization.locale);
       if (!groups.has(initial)) groups.set(initial, []);
       groups.get(initial).push(p);
     }
-    return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [persons, query]);
+    return [...groups.entries()]
+      .map(([letter, group]) => [letter, group.sort((a, b) => compareStrings(a.fullName, b.fullName, localization))])
+      .sort(([a], [b]) => compareStrings(a, b, localization));
+  }, [persons, query, localizationKey]);
 
   return (
     <div style={shell}>
@@ -43,7 +50,7 @@ export function PersonList({ persons, activeId, onPick }) {
                 style={{
                   ...row,
                   background: p.recordName === activeId ? 'hsl(var(--secondary))' : 'transparent',
-                  borderLeft: p.recordName === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
+                  borderInlineStart: p.recordName === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
                 }}
                 onMouseEnter={(e) => {
                   if (p.recordName !== activeId) e.currentTarget.style.background = 'hsl(var(--muted))';
@@ -52,7 +59,9 @@ export function PersonList({ persons, activeId, onPick }) {
                   if (p.recordName !== activeId) e.currentTarget.style.background = 'transparent';
                 }}
               >
-                <div style={{ color: 'hsl(var(--foreground))', fontSize: 13 }}>{p.fullName}</div>
+                <div style={{ color: 'hsl(var(--foreground))', fontSize: 13 }}>
+                  <BdiText>{p.fullName}</BdiText>
+                </div>
                 {(p.birthDate || p.deathDate) && (
                   <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
                     {lifeSpanLabel(p)}
@@ -70,7 +79,7 @@ export function PersonList({ persons, activeId, onPick }) {
   );
 }
 
-const shell = { display: 'flex', flexDirection: 'column', height: '100%', borderRight: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
+const shell = { display: 'flex', flexDirection: 'column', height: '100%', borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
 const searchBar = { padding: 10, borderBottom: '1px solid hsl(var(--border))' };
 const search = {
   width: '100%',
@@ -83,6 +92,7 @@ const search = {
   font: '14px -apple-system, system-ui, sans-serif',
   outline: 'none',
   boxSizing: 'border-box',
+  direction: 'auto',
 };
 const list = { flex: 1, overflow: 'auto' };
 const sectionHeader = {

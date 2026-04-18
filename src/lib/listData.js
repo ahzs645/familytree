@@ -3,6 +3,7 @@ import { runPlausibilityChecks } from './plausibility.js';
 import { readConclusionType, readField, readRef } from './schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary, Gender } from '../models/index.js';
 import { parseEventDate, formatEventDate } from '../utils/formatDate.js';
+import { compareStrings, getCurrentLocalization, localeWithExtensions, normalizeSearchText } from './i18n.js';
 
 export const MEDIA_RECORD_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 
@@ -33,7 +34,7 @@ export function formatMonthDay(month, day) {
   if (!month || !day) return '';
   const date = new Date(2000, month - 1, day);
   if (Number.isNaN(date.getTime())) return `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return new Intl.DateTimeFormat(localeWithExtensions(getCurrentLocalization()), { month: 'short', day: 'numeric' }).format(date);
 }
 
 export function anniversaryParts(raw) {
@@ -69,7 +70,7 @@ export async function loadPersonRows() {
       };
     })
     .filter(Boolean)
-    .sort((a, b) => a.fullName.localeCompare(b.fullName));
+    .sort((a, b) => compareStrings(a.fullName, b.fullName));
 }
 
 export async function loadMarriageRows() {
@@ -97,7 +98,7 @@ export async function loadMarriageRows() {
         formattedMarriageDate: formatEventDate(marriageDate),
       };
     })
-    .sort((a, b) => String(a.marriageDate).localeCompare(String(b.marriageDate)));
+    .sort((a, b) => compareStrings(a.marriageDate, b.marriageDate));
 }
 
 export async function loadFactRows() {
@@ -125,7 +126,7 @@ export async function loadFactRows() {
         formattedDate: formatEventDate(date),
       };
     })
-    .sort((a, b) => a.personName.localeCompare(b.personName) || a.factType.localeCompare(b.factType));
+    .sort((a, b) => compareStrings(a.personName, b.personName) || compareStrings(a.factType, b.factType));
 }
 
 export async function loadAnniversaryRows() {
@@ -135,7 +136,7 @@ export async function loadAnniversaryRows() {
     addAnniversary(rows, person, 'Birth', person.birthDate);
     addAnniversary(rows, person, 'Death', person.deathDate);
   }
-  return rows.sort((a, b) => a.monthDay.localeCompare(b.monthDay) || a.personName.localeCompare(b.personName));
+  return rows.sort((a, b) => compareStrings(a.monthDay, b.monthDay) || compareStrings(a.personName, b.personName));
 }
 
 function addAnniversary(rows, person, type, rawDate) {
@@ -305,12 +306,11 @@ export async function loadPersonAnalysisRows() {
         attentionScore: missingDates.length + issues.length + (duplicateRisk === 'High' ? 2 : duplicateRisk === 'Medium' ? 1 : 0),
       };
     })
-    .sort((a, b) => b.attentionScore - a.attentionScore || a.personName.localeCompare(b.personName));
+    .sort((a, b) => b.attentionScore - a.attentionScore || compareStrings(a.personName, b.personName));
 }
 
 function normalizeName(value) {
-  return String(value || '')
-    .toLowerCase()
+  return normalizeSearchText(value)
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim();
 }
@@ -355,7 +355,7 @@ export async function loadLdsOrdinanceRows() {
   return {
     schemaPresent: detectedSchema.size > 0,
     detectedSchema: [...detectedSchema].sort(),
-    rows: rows.sort((a, b) => a.ownerName.localeCompare(b.ownerName) || a.ordinance.localeCompare(b.ordinance)),
+    rows: rows.sort((a, b) => compareStrings(a.ownerName, b.ownerName) || compareStrings(a.ordinance, b.ordinance)),
   };
 }
 

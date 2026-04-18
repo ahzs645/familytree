@@ -4,11 +4,8 @@
  */
 import React from 'react';
 import { lifeSpanLabel } from '../../models/index.js';
+import { textDirection, truncateGraphemes } from '../../lib/i18n.js';
 import { DEFAULT_THEME } from './theme.js';
-
-function truncate(s, n) {
-  return s.length > n ? s.slice(0, n - 1) + '…' : s;
-}
 
 export function PersonNode({
   x,
@@ -23,6 +20,10 @@ export function PersonNode({
   const colors = theme.gender[person?.gender ?? 0] || theme.gender[0];
   const display = person?.fullName || 'No name recorded';
   const span = person ? lifeSpanLabel(person) : '';
+  const displayDirection = textDirection(display, 'ltr');
+  const spanDirection = textDirection(span, displayDirection);
+  const displayX = displayDirection === 'rtl' ? theme.nodeWidth - 12 : 12;
+  const spanX = spanDirection === 'rtl' ? theme.nodeWidth - 12 : 12;
   const fill = placeholder ? theme.placeholderFill : colors.fill;
   const stroke = highlighted ? '#ffd166' : placeholder ? theme.placeholderStroke : colors.stroke;
   const strokeWidth = highlighted ? 2.5 : 1.5;
@@ -43,11 +44,28 @@ export function PersonNode({
         strokeWidth={strokeWidth}
         strokeDasharray={placeholder ? '4 3' : 'none'}
       />
-      <text x={12} y={22} fill={theme.text} fontSize={13} fontFamily={theme.fontFamily} fontWeight={600}>
-        {truncate(display, 22)}
+      <text
+        x={displayX}
+        y={22}
+        fill={theme.text}
+        fontSize={13}
+        fontFamily={theme.fontFamily}
+        fontWeight={600}
+        direction={displayDirection}
+        style={{ unicodeBidi: 'plaintext' }}
+      >
+        {truncateGraphemes(display, 22)}
       </text>
       {span && (
-        <text x={12} y={40} fill={theme.textMuted} fontSize={11} fontFamily={theme.fontFamily}>
+        <text
+          x={spanX}
+          y={40}
+          fill={theme.textMuted}
+          fontSize={11}
+          fontFamily={theme.fontFamily}
+          direction={spanDirection}
+          style={{ unicodeBidi: 'plaintext' }}
+        >
           {span}
         </text>
       )}

@@ -39,6 +39,17 @@ const CLUSTER_SOURCE_ID = 'ctw-marker-cluster-source';
 const CLUSTER_LAYER_ID = 'ctw-marker-clusters';
 const CLUSTER_COUNT_LAYER_ID = 'ctw-marker-cluster-count';
 const POINT_LAYER_ID = 'ctw-marker-points';
+const MAPLIBRE_RTL_TEXT_PLUGIN_URL = 'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/dist/mapbox-gl-rtl-text.js';
+
+let rtlTextPluginRequested = false;
+
+function ensureRtlTextPlugin() {
+  if (rtlTextPluginRequested || typeof maplibregl.setRTLTextPlugin !== 'function') return;
+  rtlTextPluginRequested = true;
+  maplibregl.setRTLTextPlugin(MAPLIBRE_RTL_TEXT_PLUGIN_URL, true).catch(() => {
+    /* Map labels still render; Arabic/Hebrew shaping falls back if the plugin cannot load. */
+  });
+}
 
 function styleUrlFor(theme, preferences) {
   const preferred = preferences.basemap === 'auto'
@@ -187,6 +198,7 @@ export function Map({
   // Initialize map once.
   useEffect(() => {
     if (!containerRef.current) return;
+    ensureRtlTextPlugin();
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: styleUrl,
@@ -409,7 +421,7 @@ export function Map({
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       {showControls ? (
         <div
-          className="absolute left-3 right-3 bottom-3 md:right-auto md:bottom-auto md:top-3 z-10 flex flex-wrap items-center gap-2 rounded-md border border-border bg-card/95 px-2.5 py-2 text-xs shadow-lg backdrop-blur max-w-full md:max-w-[calc(100%-120px)]"
+          className="absolute start-3 end-3 bottom-3 md:end-auto md:bottom-auto md:top-3 z-10 flex flex-wrap items-center gap-2 rounded-md border border-border bg-card/95 px-2.5 py-2 text-xs shadow-lg backdrop-blur max-w-full md:max-w-[calc(100%-120px)]"
           onClick={(event) => event.stopPropagation()}
         >
           <label className="sr-only" htmlFor="map-basemap">Basemap</label>

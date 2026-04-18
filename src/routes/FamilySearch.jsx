@@ -2,6 +2,18 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAppPreferences } from '../lib/appPreferences.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
+import {
+  DEFAULT_FAMILYSEARCH_CONFIG,
+  FAMILYSEARCH_ENVIRONMENTS,
+  buildFamilySearchAuthorizationUrl,
+  compareLocalToFamilySearchPerson,
+  findFamilySearchMatchesByExample,
+  getFamilySearchConfig,
+  mergeFamilySearchPersons,
+  readFamilySearchMergeAnalysis,
+  readFamilySearchPerson,
+  saveFamilySearchConfig,
+} from '../lib/familySearchApi.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { readField } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
@@ -24,8 +36,17 @@ export default function FamilySearch() {
   const [taskType, setTaskType] = useState('match-review');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
+  const [apiStatus, setApiStatus] = useState('');
   const [editingId, setEditingId] = useState('');
   const [editingValue, setEditingValue] = useState('');
+  const [apiConfig, setApiConfig] = useState(DEFAULT_FAMILYSEARCH_CONFIG);
+  const [apiOutput, setApiOutput] = useState(null);
+  const [compareRows, setCompareRows] = useState([]);
+  const [mergeSurvivorId, setMergeSurvivorId] = useState('');
+  const [mergeDuplicateId, setMergeDuplicateId] = useState('');
+  const [mergeReason, setMergeReason] = useState('');
+  const [resourcesToCopy, setResourcesToCopy] = useState('');
+  const [resourcesToDelete, setResourcesToDelete] = useState('');
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -44,6 +65,14 @@ export default function FamilySearch() {
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const config = await getFamilySearchConfig();
+      if (!cancel) setApiConfig(config);
+    })();
+    return () => { cancel = true; };
+  }, []);
 
   const stats = useMemo(() => {
     const matched = people.filter((entry) => entry.familySearchID).length;
@@ -119,6 +148,85 @@ export default function FamilySearch() {
     setTimeout(() => setStatus(''), 1500);
   }, [editingId, editingValue, people, reload]);
 
+  const updateApiConfig = useCallback((key, value) => {
+    setApiConfig((current) => ({ ...current, [key]: value }));
+  }, []);
+
+  const onSaveApiConfig = useCallback(async () => {
+    try {
+      const saved = await saveFamilySearchConfig(apiConfig);
+      setApiConfig(saved);
+      setApiStatus('FamilySearch API settings saved.');
+    } catch (error) {
+      setApiStatus(`Settings save failed: ${error.message}`);
+    }
+  }, [apiConfig]);
+
+  const onOpenAuthorization = useCallback(() => {
+    try {
+      const url = buildFamilySearchAuthorizationUrl(apiConfig, `ctw-${Date.now().toString(36)}`);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setApiStatus('Authorization page opened. Paste the returned access token or exchange the code outside this browser build.');
+    } catch (error) {
+      setApiStatus(error.message);
+    }
+  }, [apiConfig]);
+
+  const onFindMatches = useCallback(async (entry) => {
+    setApiStatus('Calling FamilySearch matches…');
+    try {
+      const output = await findFamilySearchMatchesByExample(apiConfig, entry.record);
+      setApiOutput({ title: `Matches for ${entry.summary.fullName}`, data: output });
+      setCompareRows([]);
+      setApiStatus('FamilySearch matches loaded.');
+    } catch (error) {
+      setApiStatus(`FamilySearch matches failed: ${error.message}`);
+    }
+  }, [apiConfig]);
+
+  const onComparePerson = useCallback(async (entry) => {
+    const personId = entry.familySearchID || prompt('FamilySearch person ID:');
+    if (!personId) return;
+    setApiStatus('Reading FamilySearch person…');
+    try {
+      const remote = await readFamilySearchPerson(apiConfig, personId);
+      setApiOutput({ title: `FamilySearch ${personId}`, data: remote });
+      setCompareRows(compareLocalToFamilySearchPerson(entry.record, remote));
+      setMergeSurvivorId((current) => current || personId);
+      setApiStatus('Comparison ready.');
+    } catch (error) {
+      setApiStatus(`Compare failed: ${error.message}`);
+    }
+  }, [apiConfig]);
+
+  const onReadMergeAnalysis = useCallback(async () => {
+    setApiStatus('Reading merge analysis…');
+    try {
+      const output = await readFamilySearchMergeAnalysis(apiConfig, mergeSurvivorId, mergeDuplicateId);
+      setApiOutput({ title: `Merge ${mergeSurvivorId} <- ${mergeDuplicateId}`, data: output });
+      setApiStatus('Merge analysis loaded.');
+    } catch (error) {
+      setApiStatus(`Merge analysis failed: ${error.message}`);
+    }
+  }, [apiConfig, mergeDuplicateId, mergeSurvivorId]);
+
+  const onSubmitMerge = useCallback(async () => {
+    if (!confirm('Submit this merge plan to FamilySearch? This changes FamilySearch Family Tree data.')) return;
+    setApiStatus('Submitting FamilySearch merge…');
+    try {
+      await mergeFamilySearchPersons(apiConfig, {
+        survivorId: mergeSurvivorId,
+        duplicateId: mergeDuplicateId,
+        reason: mergeReason,
+        resourcesToCopy: lines(resourcesToCopy),
+        resourcesToDelete: lines(resourcesToDelete),
+      });
+      setApiStatus('FamilySearch merge submitted.');
+    } catch (error) {
+      setApiStatus(`Merge failed: ${error.message}`);
+    }
+  }, [apiConfig, mergeDuplicateId, mergeReason, mergeSurvivorId, resourcesToCopy, resourcesToDelete]);
+
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-6xl mx-auto p-5">
@@ -174,6 +282,8 @@ export default function FamilySearch() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button onClick={() => navigate(`/web-search?provider=familysearch&personId=${encodeURIComponent(entry.record.recordName)}`)} className={secondaryButton}>Search</button>
+                      <button onClick={() => onFindMatches(entry)} className={secondaryButton}>API matches</button>
+                      <button onClick={() => onComparePerson(entry)} className={secondaryButton}>Compare</button>
                       <button onClick={() => startEditingId(entry)} className={secondaryButton}>ID</button>
                       <button onClick={() => addTask(entry.record.recordName)} className={secondaryButton}>Task</button>
                       <button onClick={() => navigate(`/person/${entry.record.recordName}`)} className={secondaryButton}>Open</button>
@@ -185,6 +295,85 @@ export default function FamilySearch() {
           </main>
 
           <aside className="space-y-5">
+            <section className="rounded-lg border border-border bg-card p-4">
+              <h2 className="text-base font-semibold mb-3">API connection</h2>
+              <div className="space-y-3">
+                <Field label="Environment">
+                  <select value={apiConfig.environment} onChange={(event) => updateApiConfig('environment', event.target.value)} className={inputClass}>
+                    {Object.entries(FAMILYSEARCH_ENVIRONMENTS).map(([id, env]) => <option key={id} value={id}>{env.label}</option>)}
+                  </select>
+                </Field>
+                <Field label="Client ID">
+                  <input value={apiConfig.clientId} onChange={(event) => updateApiConfig('clientId', event.target.value)} className={inputClass} />
+                </Field>
+                <Field label="Redirect URI">
+                  <input value={apiConfig.redirectUri} onChange={(event) => updateApiConfig('redirectUri', event.target.value)} className={inputClass} />
+                </Field>
+                <Field label="Access token">
+                  <input value={apiConfig.accessToken} onChange={(event) => updateApiConfig('accessToken', event.target.value)} className={inputClass} type="password" />
+                </Field>
+                <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={apiConfig.termsConfirmed}
+                    onChange={(event) => updateApiConfig('termsConfirmed', event.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>I have FamilySearch API access and will follow FamilySearch terms, privacy, and one-person-at-a-time contribution rules.</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={onSaveApiConfig} className={primaryButton}>Save</button>
+                  <button onClick={onOpenAuthorization} className={secondaryButton}>Open auth</button>
+                </div>
+                {apiStatus && <div className="text-xs text-muted-foreground">{apiStatus}</div>}
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-border bg-card p-4">
+              <h2 className="text-base font-semibold mb-3">Compare / merge</h2>
+              {compareRows.length > 0 && (
+                <div className="mb-3 overflow-hidden rounded-md border border-border text-xs">
+                  {compareRows.map((row) => (
+                    <div key={row.field} className="grid grid-cols-[72px_1fr_1fr] gap-2 border-b border-border last:border-b-0 p-2">
+                      <span className="font-medium">{row.field}</span>
+                      <span className={row.status === 'same' ? 'text-emerald-500' : 'text-muted-foreground'}>{row.local || '—'}</span>
+                      <span className={row.status === 'same' ? 'text-emerald-500' : row.status === 'different' ? 'text-amber-500' : 'text-muted-foreground'}>{row.remote || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="space-y-3">
+                <Field label="Survivor ID">
+                  <input value={mergeSurvivorId} onChange={(event) => setMergeSurvivorId(event.target.value)} className={inputClass} />
+                </Field>
+                <Field label="Duplicate ID">
+                  <input value={mergeDuplicateId} onChange={(event) => setMergeDuplicateId(event.target.value)} className={inputClass} />
+                </Field>
+                <Field label="Reason">
+                  <input value={mergeReason} onChange={(event) => setMergeReason(event.target.value)} className={inputClass} />
+                </Field>
+                <Field label="Resources to copy">
+                  <textarea value={resourcesToCopy} onChange={(event) => setResourcesToCopy(event.target.value)} className={inputClass} rows={3} />
+                </Field>
+                <Field label="Resources to delete">
+                  <textarea value={resourcesToDelete} onChange={(event) => setResourcesToDelete(event.target.value)} className={inputClass} rows={3} />
+                </Field>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={onReadMergeAnalysis} className={secondaryButton}>Read analysis</button>
+                  <button onClick={onSubmitMerge} className={primaryButton}>Submit merge</button>
+                </div>
+              </div>
+            </section>
+
+            {apiOutput && (
+              <section className="rounded-lg border border-border bg-card p-4">
+                <h2 className="text-base font-semibold mb-3">{apiOutput.title}</h2>
+                <pre className="max-h-72 overflow-auto rounded-md border border-border bg-background p-3 text-[11px] leading-relaxed">
+                  {JSON.stringify(apiOutput.data, null, 2)}
+                </pre>
+              </section>
+            )}
+
             <section className="rounded-lg border border-border bg-card p-4">
               <h2 className="text-base font-semibold mb-3">FamilySearch ID</h2>
               {editingId ? (
@@ -234,6 +423,10 @@ function taskLabel(type) {
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function lines(value) {
+  return String(value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 }
 
 function Stat({ label, value }) {

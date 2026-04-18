@@ -11,6 +11,7 @@ import { findRelationshipPath } from '../relationshipPath.js';
 import { readConclusionType, readField, readRef, refType } from '../schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, Gender } from '../../models/index.js';
 import { humanizeType } from '../../utils/humanizeType.js';
+import { compareStrings, formatInteger } from '../i18n.js';
 import { block, emptyReport } from './ast.js';
 
 function nameOf(summaryOrPerson) {
@@ -215,14 +216,14 @@ export async function buildPersonEventsReport(recordName) {
 
   rows.sort(
     (a, b) =>
-      String(a[1]).localeCompare(String(b[1])) ||
-      String(a[0]).localeCompare(String(b[0])) ||
-      String(a[4]).localeCompare(String(b[4]))
+      compareStrings(a[1], b[1]) ||
+      compareStrings(a[0], b[0]) ||
+      compareStrings(a[4], b[4])
   );
 
   const report = emptyReport(`Person Events — ${nameOf(ctx.selfSummary)}`);
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.paragraph(`${rows.length.toLocaleString()} events for ${nameOf(ctx.selfSummary)}`));
+  report.blocks.push(block.paragraph(`${formatInteger(rows.length)} events for ${nameOf(ctx.selfSummary)}`));
   report.blocks.push(block.table(['Type', 'Date', 'Place', 'Description', 'Context'], rows));
   return report;
 }
@@ -301,9 +302,9 @@ export async function buildStoryReport(recordName) {
 
   relationRows.sort(
     (a, b) =>
-      String(a[0]).localeCompare(String(b[0])) ||
-      String(a[1]).localeCompare(String(b[1])) ||
-      String(a[2]).localeCompare(String(b[2]))
+      compareStrings(a[0], b[0]) ||
+      compareStrings(a[1], b[1]) ||
+      compareStrings(a[2], b[2])
   );
 
   report.blocks.push(block.title('Relations', 2));
@@ -388,11 +389,11 @@ export async function buildPersonsList() {
   const rows = records
     .map(personSummary)
     .filter(Boolean)
-    .sort((a, b) => a.fullName.localeCompare(b.fullName))
+    .sort((a, b) => compareStrings(a.fullName, b.fullName))
     .map((p) => [p.fullName, genderLabel(p.gender), p.birthDate || '', p.deathDate || '']);
   const report = emptyReport('Persons List');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.paragraph(`${rows.length.toLocaleString()} persons`));
+  report.blocks.push(block.paragraph(`${formatInteger(rows.length)} persons`));
   report.blocks.push(block.table(['Name', 'Gender', 'Born', 'Died'], rows));
   return report;
 }
@@ -403,11 +404,11 @@ export async function buildPlacesList() {
   const rows = records
     .map(placeSummary)
     .filter(Boolean)
-    .sort((a, b) => (a.displayName || a.name || '').localeCompare(b.displayName || b.name || ''))
+    .sort((a, b) => compareStrings(a.displayName || a.name || '', b.displayName || b.name || ''))
     .map((p) => [p.displayName || p.name || '', p.shortName || '', p.geonameID || '']);
   const report = emptyReport('Places List');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.paragraph(`${rows.length.toLocaleString()} places`));
+  report.blocks.push(block.paragraph(`${formatInteger(rows.length)} places`));
   report.blocks.push(block.table(['Place', 'Short Name', 'GeoName ID'], rows));
   return report;
 }
@@ -418,11 +419,11 @@ export async function buildSourcesList() {
   const rows = records
     .map(sourceSummary)
     .filter(Boolean)
-    .sort((a, b) => (a.title || '').localeCompare(b.title || ''))
+    .sort((a, b) => compareStrings(a.title || '', b.title || ''))
     .map((s) => [s.title || '', s.date || '', trimText(s.text || '', 90)]);
   const report = emptyReport('Sources List');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.paragraph(`${rows.length.toLocaleString()} sources`));
+  report.blocks.push(block.paragraph(`${formatInteger(rows.length)} sources`));
   report.blocks.push(block.table(['Title', 'Date', 'Text'], rows));
   return report;
 }
@@ -445,10 +446,10 @@ export async function buildEventsList() {
       readField(ev, ['description', 'userDescription', 'text']) || '',
     ]);
   }
-  rows.sort((a, b) => String(a[1]).localeCompare(String(b[1])));
+  rows.sort((a, b) => compareStrings(a[1], b[1]));
   const report = emptyReport('Events List');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.paragraph(`${rows.length.toLocaleString()} events`));
+  report.blocks.push(block.paragraph(`${formatInteger(rows.length)} events`));
   report.blocks.push(block.table(['Type', 'Date', 'Owner', 'Place', 'Description'], rows));
   return report;
 }
@@ -462,7 +463,7 @@ export async function buildAnniversaryList() {
     addAnniversary(rows, p, 'Birth', p?.birthDate);
     addAnniversary(rows, p, 'Death', p?.deathDate);
   }
-  rows.sort((a, b) => a[0].localeCompare(b[0]) || a[2].localeCompare(b[2]));
+  rows.sort((a, b) => compareStrings(a[0], b[0]) || compareStrings(a[2], b[2]));
   const report = emptyReport('Anniversary List');
   report.blocks.push(block.title(report.title, 1));
   report.blocks.push(block.table(['Month/Day', 'Type', 'Person', 'Year'], rows));
@@ -490,7 +491,7 @@ export async function buildPlausibilityReport() {
   const warnings = await runPlausibilityChecks();
   const report = emptyReport('Plausibility List');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.paragraph(`${warnings.length.toLocaleString()} warnings`));
+  report.blocks.push(block.paragraph(`${formatInteger(warnings.length)} warnings`));
   report.blocks.push(block.table(['Severity', 'Rule', 'Record', 'Message'], warnings.map((w) => [w.severity, w.rule, w.recordName, w.message])));
   return report;
 }
@@ -506,7 +507,7 @@ export async function buildToDoListReport() {
       readField(todo, ['dueDate', 'cached_dueDateAsDate']) || '',
       trimText(readField(todo, ['description', 'text'], ''), 120),
     ])
-    .sort((a, b) => String(a[3]).localeCompare(String(b[3])) || a[0].localeCompare(b[0]));
+    .sort((a, b) => compareStrings(a[3], b[3]) || compareStrings(a[0], b[0]));
   const report = emptyReport('ToDo List');
   report.blocks.push(block.title(report.title, 1));
   report.blocks.push(block.table(['Title', 'Status', 'Priority', 'Due', 'Description'], rows));
@@ -591,7 +592,7 @@ export async function buildMediaGalleryReport() {
   }
   const report = emptyReport('Media Gallery Report');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.table(['Type', 'Title', 'Date', 'File / URL'], rows.sort((a, b) => a[1].localeCompare(b[1]))));
+  report.blocks.push(block.table(['Type', 'Title', 'Date', 'File / URL'], rows.sort((a, b) => compareStrings(a[1], b[1]))));
   return report;
 }
 
@@ -613,7 +614,7 @@ export async function buildTimelineReport() {
   }
   const report = emptyReport('Timeline Report');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.table(['Date', 'Type', 'Owner', 'Place', 'Description'], rows.sort((a, b) => String(a[0]).localeCompare(String(b[0])))));
+  report.blocks.push(block.table(['Date', 'Type', 'Owner', 'Place', 'Description'], rows.sort((a, b) => compareStrings(a[0], b[0]))));
   return report;
 }
 
@@ -635,7 +636,7 @@ export async function buildStatusReport() {
     ['Sources', sources.records.length],
     ['Pictures', media.records.length],
     ['Open ToDos', todos.records.filter((t) => !/done|complete/i.test(readField(t, ['status'], ''))).length],
-  ].map(([name, value]) => [name, Number(value).toLocaleString()]);
+  ].map(([name, value]) => [name, formatInteger(value)]);
   const report = emptyReport('Status Report');
   report.blocks.push(block.title(report.title, 1));
   report.blocks.push(block.table(['Metric', 'Value'], rows));
@@ -668,7 +669,7 @@ export async function buildChangesListReport() {
       readField(entry, ['targetType'], ''),
       readField(entry, ['summary'], ''),
     ])
-    .sort((a, b) => String(b[0]).localeCompare(String(a[0])));
+    .sort((a, b) => compareStrings(b[0], a[0]));
   const report = emptyReport('Changes List');
   report.blocks.push(block.title(report.title, 1));
   report.blocks.push(block.table(['Date', 'Type', 'Target', 'Summary'], rows));
@@ -691,7 +692,7 @@ export async function buildFactsListReport() {
   }
   const report = emptyReport('Facts List');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.table(['Person', 'Fact', 'Value', 'Date'], rows.sort((a, b) => a[0].localeCompare(b[0]))));
+  report.blocks.push(block.table(['Person', 'Fact', 'Value', 'Date'], rows.sort((a, b) => compareStrings(a[0], b[0]))));
   return report;
 }
 
@@ -710,7 +711,7 @@ export async function buildMarriageListReport() {
   }
   const report = emptyReport('Marriage List');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.table(['Partner 1', 'Partner 2', 'Marriage Date'], rows.sort((a, b) => String(a[2]).localeCompare(String(b[2])))));
+  report.blocks.push(block.table(['Partner 1', 'Partner 2', 'Marriage Date'], rows.sort((a, b) => compareStrings(a[2], b[2]))));
   return report;
 }
 

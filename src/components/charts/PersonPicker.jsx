@@ -2,6 +2,8 @@
  * Searchable dropdown for picking the chart's start person.
  */
 import React, { useState, useMemo } from 'react';
+import { BdiText } from '../BdiText.jsx';
+import { matchesSearchText } from '../../lib/i18n.js';
 import { lifeSpanLabel } from '../../models/index.js';
 
 export function PersonPicker({ persons, value, onChange }) {
@@ -9,9 +11,8 @@ export function PersonPicker({ persons, value, onChange }) {
   const [open, setOpen] = useState(false);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return persons.slice(0, 200);
-    return persons.filter((p) => p.fullName.toLowerCase().includes(q)).slice(0, 200);
+    if (!query.trim()) return persons.slice(0, 200);
+    return persons.filter((p) => matchesSearchText(p.fullName, query)).slice(0, 200);
   }, [persons, query]);
 
   const selected = persons.find((p) => p.recordName === value);
@@ -20,9 +21,9 @@ export function PersonPicker({ persons, value, onChange }) {
     <div style={{ position: 'relative', minWidth: 260 }}>
       <button onClick={() => setOpen((v) => !v)} style={triggerStyle}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {selected ? selected.fullName : 'Choose person…'}
+          {selected ? <BdiText>{selected.fullName}</BdiText> : 'Choose person…'}
         </span>
-        <span style={{ color: 'hsl(var(--muted-foreground))', marginLeft: 8 }}>▾</span>
+        <span style={{ color: 'hsl(var(--muted-foreground))', marginInlineStart: 8 }}>▾</span>
       </button>
       {open && (
         <div style={popoverStyle}>
@@ -56,7 +57,7 @@ export function PersonPicker({ persons, value, onChange }) {
                   (e.currentTarget.style.background = p.recordName === value ? 'hsl(var(--secondary))' : 'transparent')
                 }
               >
-                <div style={{ color: 'hsl(var(--foreground))', fontSize: 14 }}>{p.fullName}</div>
+                <div style={{ color: 'hsl(var(--foreground))', fontSize: 14 }}><BdiText>{p.fullName}</BdiText></div>
                 {(p.birthDate || p.deathDate) && (
                   <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
                     {lifeSpanLabel(p)}
@@ -88,8 +89,8 @@ const triggerStyle = {
 const popoverStyle = {
   position: 'absolute',
   top: 'calc(100% + 6px)',
-  left: 0,
-  right: 0,
+  insetInlineStart: 0,
+  insetInlineEnd: 0,
   background: 'hsl(var(--muted))',
   border: '1px solid hsl(var(--border))',
   borderRadius: 8,
@@ -106,6 +107,7 @@ const inputStyle = {
   padding: '10px 12px',
   font: '13px -apple-system, system-ui, sans-serif',
   outline: 'none',
+  direction: 'auto',
 };
 
 export default PersonPicker;

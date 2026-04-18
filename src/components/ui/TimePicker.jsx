@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { getCurrentLocalization, localeWithExtensions } from '../../lib/i18n.js';
 import { cn } from '../../lib/utils.js';
 
 function pad(n) { return String(n).padStart(2, '0'); }
@@ -12,13 +13,14 @@ function parseTime(value) {
   return { h, m };
 }
 
-function formatTime(time, use24) {
+function formatTime(time, use24, locale) {
   if (!time) return '';
   const { h, m } = time;
-  if (use24) return `${pad(h)}:${pad(m)}`;
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour12 = ((h + 11) % 12) + 1;
-  return `${hour12}:${pad(m)} ${period}`;
+  return new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit', hour12: !use24 }).format(new Date(2000, 0, 1, h, m));
+}
+
+function formatPart(value, locale, minDigits = 2) {
+  return new Intl.NumberFormat(locale, { minimumIntegerDigits: minDigits, useGrouping: false }).format(value);
 }
 
 /**
@@ -40,6 +42,8 @@ export function TimePicker({
   const buttonRef = useRef(null);
   const popRef = useRef(null);
   const current = parseTime(value) || { h: 9, m: 0 };
+  const localization = getCurrentLocalization();
+  const locale = localeWithExtensions(localization);
 
   const [h, setH] = useState(current.h);
   const [m, setM] = useState(current.m);
@@ -88,8 +92,8 @@ export function TimePicker({
     commit(next, m);
   };
 
-  const displayHour = use24 ? pad(h) : String(((h + 11) % 12) + 1);
-  const period = h >= 12 ? 'PM' : 'AM';
+  const displayHour = use24 ? formatPart(h, locale) : formatPart(((h + 11) % 12) + 1, locale, 1);
+  const period = new Intl.DateTimeFormat(locale, { hour: 'numeric', hour12: true }).formatToParts(new Date(2000, 0, 1, h, 0)).find((part) => part.type === 'dayPeriod')?.value || (h >= 12 ? 'PM' : 'AM');
 
   return (
     <div className={cn('relative', className)}>
@@ -103,15 +107,15 @@ export function TimePicker({
         aria-expanded={open}
         aria-label={ariaLabel}
         className={cn(
-          'w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm pl-3 pr-10 text-left inline-flex items-center relative',
+          'w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm ps-3 pe-10 text-start inline-flex items-center relative',
           'outline-none focus:border-primary focus:ring-2 focus:ring-primary/20',
           'hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed'
         )}
       >
         <span className={cn('truncate flex-1', !parseTime(value) && 'text-muted-foreground')}>
-          {parseTime(value) ? formatTime(parseTime(value), use24) : placeholder}
+          {parseTime(value) ? formatTime(parseTime(value), use24, locale) : placeholder}
         </span>
-        <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
+        <svg aria-hidden="true" viewBox="0 0 20 20" fill="currentColor" className="absolute end-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-12.25a.75.75 0 00-1.5 0V10c0 .2.08.39.22.53l2.5 2.5a.75.75 0 101.06-1.06l-2.28-2.28V5.75z" clipRule="evenodd" />
         </svg>
       </button>
@@ -126,7 +130,7 @@ export function TimePicker({
           <div className="flex items-center justify-center gap-3">
             <Stepper label={use24 ? 'Hours' : 'Hour'} value={displayHour} onUp={() => bumpH(1)} onDown={() => bumpH(-1)} />
             <div className="text-2xl font-semibold pt-6">:</div>
-            <Stepper label="Minutes" value={pad(m)} onUp={() => bumpM(minuteStep)} onDown={() => bumpM(-minuteStep)} />
+            <Stepper label="Minutes" value={formatPart(m, locale)} onUp={() => bumpM(minuteStep)} onDown={() => bumpM(-minuteStep)} />
             {!use24 && (
               <div className="flex flex-col items-center pt-5">
                 <button

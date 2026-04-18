@@ -11,8 +11,9 @@
  *   "01/08/1990"
  *
  * `parseEventDate` returns { year, month, day } (month/day may be null) or null.
- * `formatEventDate` renders as ISO-ish with the components available.
+ * `formatEventDate` renders with the active locale when possible.
  */
+import { formatInteger, getCurrentLocalization, localeWithExtensions } from '../lib/i18n.js';
 
 const MONTH_NAMES = [
   'january','february','march','april','may','june','july','august','september','october','november','december',
@@ -30,8 +31,6 @@ function toInt(v) {
   const n = parseInt(v, 10);
   return Number.isFinite(n) ? n : null;
 }
-
-function pad2(n) { return String(n).padStart(2, '0'); }
 
 export function parseEventDate(raw) {
   if (raw == null) return null;
@@ -74,12 +73,17 @@ export function parseEventDate(raw) {
   return null;
 }
 
-export function formatEventDate(raw) {
+export function formatEventDate(raw, localization = getCurrentLocalization()) {
   const d = parseEventDate(raw);
   if (!d || d.year == null) return raw ? String(raw) : '';
-  if (d.day && d.month) return `${d.year}-${pad2(d.month)}-${pad2(d.day)}`;
-  if (d.month) return `${d.year}-${pad2(d.month)}`;
-  return String(d.year);
+  const locale = localeWithExtensions(localization);
+  if (d.day && d.month) {
+    return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short', day: 'numeric' }).format(new Date(d.year, d.month - 1, d.day));
+  }
+  if (d.month) {
+    return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short' }).format(new Date(d.year, d.month - 1, 1));
+  }
+  return formatInteger(d.year, localization);
 }
 
 export default formatEventDate;

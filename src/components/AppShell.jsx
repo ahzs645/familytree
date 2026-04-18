@@ -6,6 +6,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
+import { APP_PREFERENCES_EVENT, getAppPreferences } from '../lib/appPreferences.js';
+import { applyDocumentLocalization, formatInteger, resolveLocalization } from '../lib/i18n.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { cn } from '../lib/utils.js';
 
@@ -66,7 +68,7 @@ const MORE_LINKS = [
   { to: '/settings', label: 'Settings' },
 ];
 
-function MoreMenu() {
+function MoreMenu({ links, emphasizedRoutes }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const location = useLocation();
@@ -104,9 +106,9 @@ function MoreMenu() {
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 top-full z-20 mt-1 w-56 max-h-[70vh] overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1"
+          className="absolute end-0 top-full z-20 mt-1 w-56 max-h-[70vh] overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1"
         >
-          {MORE_LINKS.map((l) => (
+          {links.map((l) => (
             <NavLink
               key={l.to}
               to={l.to}
@@ -116,7 +118,9 @@ function MoreMenu() {
                   'block px-3 py-1.5 text-xs whitespace-nowrap',
                   isActive || location.pathname === l.to
                     ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    : emphasizedRoutes.has(l.to)
+                      ? 'text-foreground font-semibold hover:bg-accent'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                 )
               }
             >
@@ -129,7 +133,7 @@ function MoreMenu() {
   );
 }
 
-function MobileMenu() {
+function MobileMenu({ links, emphasizedRoutes }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const location = useLocation();
@@ -142,8 +146,6 @@ function MobileMenu() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open]);
-
-  const allLinks = [...PRIMARY_LINKS, ...MORE_LINKS];
 
   return (
     <div className="relative" ref={ref}>
@@ -166,11 +168,11 @@ function MobileMenu() {
           <div className="fixed inset-0 z-30 bg-black/40" onClick={() => setOpen(false)} />
           <div
             role="menu"
-            className="fixed top-0 right-0 z-40 h-full w-[min(280px,80vw)] overflow-y-auto bg-popover text-popover-foreground shadow-xl border-l border-border py-3"
+            className="fixed top-0 end-0 z-40 h-full w-[min(280px,80vw)] overflow-y-auto bg-popover text-popover-foreground shadow-xl border-s border-border py-3"
             style={{ paddingTop: 'max(12px, env(safe-area-inset-top))', paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
           >
             <div className="px-3 pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Navigate</div>
-            {allLinks.map((l) => (
+            {links.map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}
@@ -181,7 +183,9 @@ function MobileMenu() {
                     'block px-4 py-3 text-base',
                     isActive || location.pathname === l.to
                       ? 'bg-accent text-foreground font-semibold'
-                      : 'text-foreground hover:bg-accent'
+                      : emphasizedRoutes.has(l.to)
+                        ? 'text-foreground font-semibold hover:bg-accent'
+                        : 'text-foreground hover:bg-accent'
                   )
                 }
               >
@@ -200,9 +204,39 @@ export function AppShell() {
   const { theme, toggle } = useTheme();
   const location = useLocation();
   const isMobile = useIsMobile();
+  const [preferences, setPreferences] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAppPreferences().then((next) => {
+      if (!cancelled) {
+        setPreferences(next);
+        applyDocumentLocalization(next.localization);
+      }
+    });
+    const onPreferences = (event) => {
+      setPreferences(event.detail);
+      applyDocumentLocalization(event.detail?.localization);
+    };
+    window.addEventListener(APP_PREFERENCES_EVENT, onPreferences);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(APP_PREFERENCES_EVENT, onPreferences);
+    };
+  }, []);
+
+  const localization = resolveLocalization(preferences?.localization);
+  const recordCountLabel = `${formatInteger(summary?.total || 0, localization)} records`;
+  const hiddenRoutes = new Set(preferences?.functions?.hidden || []);
+  const emphasizedRoutes = new Set(preferences?.functions?.emphasized || []);
+  const visiblePrimaryLinks = PRIMARY_LINKS.filter((link) => link.to === '/' || !hiddenRoutes.has(link.to));
+  const visibleMoreLinks = MORE_LINKS.filter((link) => !hiddenRoutes.has(link.to));
+  const mobileLinks = [...visiblePrimaryLinks, ...visibleMoreLinks].filter((link, index, all) => (
+    all.findIndex((candidate) => candidate.to === link.to) === index
+  ));
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
+    <div className="flex flex-col h-screen bg-background text-foreground" lang={localization.locale} dir={localization.direction}>
       <header
         className="flex items-center gap-3 px-4 md:px-5 h-13 border-b border-border bg-card flex-shrink-0 overflow-hidden"
         style={{ paddingTop: 'env(safe-area-inset-top)' }}
@@ -210,7 +244,7 @@ export function AppShell() {
         <span className="text-sm font-bold text-foreground shrink-0">CloudTreeWeb</span>
         {!isMobile && (
           <nav className="flex gap-1 flex-1 min-w-0 overflow-x-auto items-center [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-            {PRIMARY_LINKS.map((l) => (
+            {visiblePrimaryLinks.map((l) => (
               <NavLink
                 key={l.to}
                 to={l.to}
@@ -221,32 +255,34 @@ export function AppShell() {
                     'px-3 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors',
                     active
                       ? 'text-foreground border-primary'
-                      : 'text-muted-foreground border-transparent hover:text-foreground'
+                      : emphasizedRoutes.has(l.to)
+                        ? 'text-foreground border-transparent hover:text-foreground'
+                        : 'text-muted-foreground border-transparent hover:text-foreground'
                   );
                 }}
               >
                 {l.label}
               </NavLink>
             ))}
-            <MoreMenu />
+            <MoreMenu links={visibleMoreLinks} emphasizedRoutes={emphasizedRoutes} />
           </nav>
         )}
-        <div className="flex items-center gap-2 md:gap-3 ml-auto">
+        <div className="flex items-center gap-2 md:gap-3 ms-auto">
           <span className="text-xs text-muted-foreground hidden sm:flex items-center">
             <span
               className={cn(
-                'inline-block w-2 h-2 rounded-full mr-2',
+                'inline-block w-2 h-2 rounded-full me-2',
                 loading ? 'bg-muted-foreground' : hasData ? 'bg-emerald-500' : 'bg-destructive'
               )}
             />
-            {loading ? 'Loading…' : hasData ? `${summary?.total || 0} records` : 'No data'}
+            {loading ? 'Loading…' : hasData ? recordCountLabel : 'No data'}
           </span>
           <span
             className={cn(
               'sm:hidden inline-block w-2 h-2 rounded-full',
               loading ? 'bg-muted-foreground' : hasData ? 'bg-emerald-500' : 'bg-destructive'
             )}
-            title={loading ? 'Loading…' : hasData ? `${summary?.total || 0} records` : 'No data'}
+            title={loading ? 'Loading…' : hasData ? recordCountLabel : 'No data'}
           />
           <button
             onClick={toggle}
@@ -256,7 +292,7 @@ export function AppShell() {
           >
             {theme === 'dark' ? '☀︎' : '☾'}
           </button>
-          {isMobile && <MobileMenu />}
+          {isMobile && <MobileMenu links={mobileLinks} emphasizedRoutes={emphasizedRoutes} />}
         </div>
       </header>
       <main className="flex-1 relative overflow-hidden">

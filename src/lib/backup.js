@@ -28,14 +28,52 @@ export async function exportBackup() {
 export async function downloadBackup() {
   const data = await exportBackup();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  downloadBlob(blob, `cloudtreeweb-backup-${new Date().toISOString().slice(0, 10)}.json`);
+}
+
+export async function downloadMFTPackage() {
+  const data = await exportBackup();
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  const exportedAt = new Date().toISOString();
+  zip.file('database.json', JSON.stringify(data, null, 2));
+  zip.file('metadata.json', JSON.stringify({
+    format: 'cloudtreeweb-mftpkg',
+    version: 1,
+    exportedAt,
+    recordCount: Object.keys(data.records || {}).length,
+    assetCount: Array.isArray(data.assets) ? data.assets.length : 0,
+    note: 'CloudTreeWeb round-trip package. MacFamilyTree proprietary package internals are not rewritten.',
+  }, null, 2));
+  zip.file('README.txt', [
+    'CloudTreeWeb .mftpkg round-trip package',
+    '',
+    'Import this package back into CloudTreeWeb to restore records and assets.',
+    'The resources folder contains media copies for inspection; database.json is the canonical import payload.',
+  ].join('\n'));
+
+  for (const asset of data.assets || []) {
+    if (!asset?.dataBase64) continue;
+    zip.file(`resources/${safePackageName(asset.filename || asset.sourceIdentifier || asset.assetId)}`, asset.dataBase64, { base64: true });
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  downloadBlob(blob, `cloudtreeweb-${new Date().toISOString().slice(0, 10)}.mftpkg`);
+}
+
+function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `cloudtreeweb-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 200);
+}
+
+function safePackageName(name) {
+  return String(name || 'asset').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 180) || 'asset';
 }
 
 export async function restoreBackup(json) {

@@ -6,9 +6,13 @@ import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 
-const TEST_TYPES = ['Autosomal', 'Y-DNA', 'mtDNA', 'X-DNA', 'Other'];
+const TEST_TYPES = ['Autosomal', 'ATDNA', 'Y-DNA', 'MTDNA', 'mtDNA', 'X-DNA', 'Other'];
 const STATUS_VALUES = ['Ordered', 'Processing', 'Complete', 'Needs Review', 'Archived'];
-const DNA_FIELDS = ['testName', 'testType', 'status', 'lab', 'date', 'kitNumber', 'haplogroup', 'markers', 'matchCount', 'note'];
+const DNA_FIELDS = [
+  'testName', 'testType', 'status', 'lab', 'date', 'kitNumber', 'haplogroup', 'markers', 'matchCount', 'note',
+  'rawDataFileName', 'rawDataSource', 'centimorgans', 'segments', 'relationshipEstimate', 'mtdnaHVR1', 'mtdnaHVR2',
+  'mtdnaCodingRegion', 'mtdnaSnpDifferences', 'ystrMarkerCount', 'ystrMarkers', 'terminalSNP',
+];
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -114,6 +118,7 @@ export default function DNAResults() {
   };
 
   const activePerson = personById.get(values.person);
+  const detailMode = dnaDetailMode(values.testType);
   const detail = active ? (
     <div className="p-5 max-w-4xl">
       <div className="flex items-center gap-2 mb-4">
@@ -157,6 +162,8 @@ export default function DNAResults() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FieldRow label="Markers / SNPs"><input value={values.markers || ''} onChange={(e) => setValues({ ...values, markers: e.target.value })} style={editorInput} /></FieldRow>
           <FieldRow label="Match count"><input value={values.matchCount || ''} onChange={(e) => setValues({ ...values, matchCount: e.target.value })} style={editorInput} /></FieldRow>
+          <FieldRow label="Raw data file"><input value={values.rawDataFileName || ''} onChange={(e) => setValues({ ...values, rawDataFileName: e.target.value })} style={editorInput} /></FieldRow>
+          <FieldRow label="Raw data source"><input value={values.rawDataSource || ''} onChange={(e) => setValues({ ...values, rawDataSource: e.target.value })} style={editorInput} /></FieldRow>
         </div>
         {activePerson && (
           <div className="mt-3 text-xs text-muted-foreground">
@@ -164,6 +171,40 @@ export default function DNAResults() {
           </div>
         )}
       </section>
+
+      {detailMode === 'atdna' && (
+        <section className="border border-border rounded-md bg-card p-3 mb-4">
+          <h3 className="text-sm font-semibold mb-3">ATDNA Details</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FieldRow label="Shared cM"><input value={values.centimorgans || ''} onChange={(e) => setValues({ ...values, centimorgans: e.target.value })} style={editorInput} /></FieldRow>
+            <FieldRow label="Segments"><input value={values.segments || ''} onChange={(e) => setValues({ ...values, segments: e.target.value })} style={editorInput} /></FieldRow>
+            <FieldRow label="Relationship estimate"><input value={values.relationshipEstimate || ''} onChange={(e) => setValues({ ...values, relationshipEstimate: e.target.value })} style={editorInput} /></FieldRow>
+          </div>
+        </section>
+      )}
+
+      {detailMode === 'mtdna' && (
+        <section className="border border-border rounded-md bg-card p-3 mb-4">
+          <h3 className="text-sm font-semibold mb-3">MTDNA Details</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FieldRow label="HVR1"><input value={values.mtdnaHVR1 || ''} onChange={(e) => setValues({ ...values, mtdnaHVR1: e.target.value })} style={editorInput} /></FieldRow>
+            <FieldRow label="HVR2"><input value={values.mtdnaHVR2 || ''} onChange={(e) => setValues({ ...values, mtdnaHVR2: e.target.value })} style={editorInput} /></FieldRow>
+            <FieldRow label="Coding region"><input value={values.mtdnaCodingRegion || ''} onChange={(e) => setValues({ ...values, mtdnaCodingRegion: e.target.value })} style={editorInput} /></FieldRow>
+            <FieldRow label="SNP differences"><textarea value={values.mtdnaSnpDifferences || ''} rows={3} onChange={(e) => setValues({ ...values, mtdnaSnpDifferences: e.target.value })} style={editorTextarea} /></FieldRow>
+          </div>
+        </section>
+      )}
+
+      {detailMode === 'ydna' && (
+        <section className="border border-border rounded-md bg-card p-3 mb-4">
+          <h3 className="text-sm font-semibold mb-3">Y-DNA Details</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FieldRow label="STR marker count"><input value={values.ystrMarkerCount || ''} onChange={(e) => setValues({ ...values, ystrMarkerCount: e.target.value })} style={editorInput} /></FieldRow>
+            <FieldRow label="Terminal SNP"><input value={values.terminalSNP || ''} onChange={(e) => setValues({ ...values, terminalSNP: e.target.value })} style={editorInput} /></FieldRow>
+            <FieldRow label="Y-STR markers"><textarea value={values.ystrMarkers || ''} rows={3} onChange={(e) => setValues({ ...values, ystrMarkers: e.target.value })} style={editorTextarea} /></FieldRow>
+          </div>
+        </section>
+      )}
 
       <section className="border border-border rounded-md bg-card p-3">
         <h3 className="text-sm font-semibold mb-3">Notes</h3>
@@ -191,4 +232,12 @@ export default function DNAResults() {
       </div>
     </div>
   );
+}
+
+function dnaDetailMode(testType) {
+  const value = String(testType || '').toLowerCase();
+  if (value.includes('y-dna') || value.includes('ydna')) return 'ydna';
+  if (value.includes('mtdna') || value.includes('mt-dna')) return 'mtdna';
+  if (value.includes('autosomal') || value.includes('atdna') || value.includes('x-dna')) return 'atdna';
+  return 'atdna';
 }

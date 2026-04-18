@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="favicon.ico" />
@@ -12,6 +12,17 @@
     <script>
       (function () {
         try {
+          var localization = {};
+          try {
+            localization = JSON.parse(localStorage.getItem('cloudtreeweb:localization') || 'null') || {};
+          } catch (e) {}
+          if (localization.locale) document.documentElement.lang = localization.locale;
+          var direction = localization.direction;
+          if (!direction || direction === 'auto') {
+            var language = String(localization.locale || document.documentElement.lang || 'en').toLowerCase().split('-')[0];
+            direction = /^(ar|arc|ckb|dv|fa|he|ku|ps|syr|ur|yi)$/.test(language) ? 'rtl' : 'ltr';
+          }
+          document.documentElement.dir = direction;
           var saved = localStorage.getItem('cloudtreeweb:theme');
           var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           var dark = saved ? saved === 'dark' : prefersDark;

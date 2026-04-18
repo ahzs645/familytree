@@ -5,12 +5,13 @@
  * Loads .strings files from /localizations/{lang}.lproj/ and provides
  * a localize(key, table) function used throughout the app as `_a(key, table)`.
  */
+import { DEFAULT_LOCALIZATION, normalizeLocale, readStoredLocalization } from './i18n.js';
 
 export class Localizer {
   constructor(appController) {
     this.appController = appController;
     this.onLocalizationChange = null;
-    this._locale = 'en';
+    this._locale = readStoredLocalization().locale || DEFAULT_LOCALIZATION.locale;
     this._strings = {};
     this._loadedTables = new Set();
   }
@@ -20,7 +21,7 @@ export class Localizer {
   }
 
   setLocale(locale) {
-    this._locale = locale;
+    this._locale = normalizeLocale(locale);
     this._strings = {};
     this._loadedTables.clear();
     if (this.onLocalizationChange) {
