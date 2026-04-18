@@ -115,3 +115,41 @@ Focus: web version UX gaps and “must-have” interaction improvements (as oppo
   - keep a persistent, discoverable “working set”/scope layer instead of only a one-off filter modal
   - expose named smart filters and smart-filter editing as first-class controls
   - surface list grouping + compact/expanded metadata modes on person/place screens
+
+## 12) Full section inventory from live app (MFT11 Navigation menu)
+
+I pulled the full `Navigation` tree from the desktop app and mapped it against current web routes.
+
+- Edit
+  - Implemented: Interactive Tree, Persons, Persons Groups, Places, Sources, Stories, ToDo List, Media, Change Log, Research Assistant, Search, Database Maintenance.
+  - Partial: Families (no dedicated families list/detail hub; only individual family editor), Edit Smart Filters access.
+  - Missing: FamilySearch, Web Search, Author Information.
+
+- Charts
+  - Implemented: Complete Tree, Hourglass, Ancestor, Double Ancestor, Descendant, Fan, Distribution, Timeline, Relationship, Sociogram, Square, Circular, Symmetrical, Fractal, Genogram, Saved Charts.
+  - Partial: Chart group includes a `Statistics` chart entry (web has a separate Statistics dashboard, not a chart-style variant).
+
+- Views
+  - Implemented: Virtual Tree, Virtual Globe, Statistic Maps (desktop menu item), Media Gallery, Family Quiz.
+  - Partial: `Statistic Maps` in web is split across `/map` + `/maps-diagram`; there is no dedicated “views” mode shell around each.
+
+- Reports
+  - Implemented: Person Report, Family Report, Ahnentafel, Descendancy, Register, Map, Narrative, Timeline, Today, Status, Saved Reports.
+  - Missing/partial: Person Events Report, Story Report, Kinship Report.
+
+- Lists
+  - Implemented: Events List, Places List, Sources List, To-Do List, Changes list.
+  - Partial/missing: Persons List (no dedicated list route), Marriage List, Facts List, Anniversary List, Plausibility List, Distinctive Persons List, Person Analysis, LDS Ordinances List.
+
+- Publish
+  - Implemented: GEDCOM export (route `/export`), static website export (same area as publish workflow).
+  - Missing: dedicated Website builder surface (`Websites`) and explicit Family Tree Book authoring flow (current `/books` is nearest match).
+
+- Favorites
+  - Implemented: bookmarks surface (`/bookmarks`) with grouped record types.
+  - Missing: the multi-category “Favorites” hub with per-function slots shown in desktop.
+
+Top priority gaps from this pass (next 2 sprints):
+1. Missing functional sections with no equivalent in web: FamilySearch, Author Info, Web Search, Marriage/Facts/Person/Anniversary dedicated lists.
+2. Report parity gaps: Story/Kinship/Person-Events as dedicated builders.
+3. LDS-oriented and distinction/analysis lists (Distinctive Persons, LDS Ordinances, Person Analysis).

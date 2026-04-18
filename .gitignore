@@ -18,6 +18,7 @@ public/sections/
 # IDE
 .vscode/
 .idea/
+.claude/
 
 # Playwright
 test-results/

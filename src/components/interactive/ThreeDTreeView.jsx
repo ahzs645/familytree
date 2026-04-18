@@ -190,7 +190,10 @@ export function ThreeDTreeView({
     clickablesRef.current = [];
 
     stage.add(makeGrid(palette, layout.bounds));
-    for (const band of layout.bands) stage.add(makeGenerationBand(band, palette));
+    for (const band of layout.bands) {
+      stage.add(makeGenerationBand(band, palette));
+      stage.add(makeGenerationLabel(band, palette));
+    }
 
     const nodeById = new Map(layout.nodes.map((node) => [node.id, node]));
     for (const link of layout.links) {
@@ -215,6 +218,16 @@ export function ThreeDTreeView({
   return (
     <div style={styles.shell}>
       <div ref={containerRef} style={styles.canvas} />
+      {hasTree && (
+        <div style={styles.generationLegend} aria-hidden="true">
+          {layout.bands.map((band) => (
+            <div key={band.generation} style={legendItemStyle(band.generation)}>
+              <span style={styles.legendTitle}>{generationLabel(band.generation)}</span>
+              <span style={styles.legendMeta}>{band.subtitle || `${band.count} ${band.count === 1 ? 'person' : 'people'}`}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={styles.controls}>
         <button type="button" onClick={() => actionsRef.current.zoom(0.82)} style={styles.iconButton} title="Zoom in">+</button>
         <button type="button" onClick={() => actionsRef.current.zoom(1.18)} style={styles.iconButton} title="Zoom out">-</button>
@@ -336,7 +349,7 @@ function buildInteractiveLayout(ancestorTree, descendantTree, activeId) {
   ));
   const visibleIds = new Set(nodeList.map((node) => node.id));
   const visibleLinks = links.filter((link) => visibleIds.has(link.from) && visibleIds.has(link.to));
-  const bands = buildBands(nodeList);
+  const bands = buildBands(nodeList, rootX);
   const bounds = boundsFor(nodeList, bands);
   const viewBounds = focusBoundsFor(nodeList, bands, bounds);
   return { nodes: nodeList, links: visibleLinks, bands, bounds, viewBounds };
@@ -349,7 +362,7 @@ function mergeRole(a, b) {
   return `${a} ${b}`;
 }
 
-function buildBands(nodes) {
+function buildBands(nodes, rootX = 0) {
   const grouped = new Map();
   for (const node of nodes) {
     if (!grouped.has(node.generation)) grouped.set(node.generation, []);
@@ -374,8 +387,10 @@ function buildBands(nodes) {
       y: -generation * GEN_STEP,
       width,
       height,
+      labelX: Math.max(minX - 10, Math.min(rootX - 430, maxX - 180)),
       title,
       subtitle: years,
+      count: group.length,
     };
   });
 }
@@ -383,8 +398,8 @@ function buildBands(nodes) {
 function yearRange(persons) {
   const years = [];
   for (const person of persons) {
-    const birth = parseInt(String(person?.birthDate || '').slice(0, 4), 10);
-    const death = parseInt(String(person?.deathDate || '').slice(0, 4), 10);
+    const birth = extractYear(person?.birthDate);
+    const death = extractYear(person?.deathDate);
     if (Number.isFinite(birth)) years.push(birth);
     if (Number.isFinite(death)) years.push(death);
   }
@@ -392,6 +407,13 @@ function yearRange(persons) {
   const min = Math.min(...years);
   const max = Math.max(...years);
   return min === max ? String(min) : `${min} - ${max}`;
+}
+
+function extractYear(value) {
+  const match = String(value || '').match(/\b([12]\d{3}|20\d{2})\b/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  return year >= 1000 && year <= 2099 ? year : null;
 }
 
 function boundsFor(nodes, bands) {
@@ -556,14 +578,39 @@ function makeBandTexture(band, palette) {
     ctx.lineWidth = 2;
     ctx.strokeStyle = band.generation === 0 ? 'rgba(191, 82, 150, 0.28)' : 'rgba(130, 112, 72, 0.22)';
     ctx.stroke();
-
-    ctx.fillStyle = band.generation === 0 ? 'rgba(173, 69, 129, 0.42)' : 'rgba(113, 104, 53, 0.44)';
-    ctx.font = '700 28px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    ctx.fillText(band.subtitle || band.title, 58, 106);
-    ctx.fillStyle = 'rgba(83, 89, 96, 0.48)';
-    ctx.font = '700 18px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    ctx.fillText(band.title, 60, 136);
   });
+}
+
+function makeGenerationLabel(band, palette) {
+  const label = generationLabel(band.generation);
+  const sublabel = band.subtitle || `${band.count} ${band.count === 1 ? 'person' : 'people'}`;
+  const texture = makeCanvasTexture(420, 124, (ctx, w, h) => {
+    ctx.fillStyle = 'rgba(255,255,255,0)';
+    ctx.fillRect(0, 0, w, h);
+    roundedRect(ctx, 12, 16, w - 24, h - 28, 16);
+    ctx.fillStyle = 'rgba(255,255,255,0.82)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(100,105,112,0.18)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = band.generation === 0 ? 'rgba(157, 58, 117, 0.9)' : 'rgba(76, 70, 38, 0.88)';
+    ctx.font = '800 27px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+    ctx.fillText(label, 34, 56);
+    ctx.fillStyle = 'rgba(67, 74, 84, 0.78)';
+    ctx.font = '700 17px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+    ctx.fillText(sublabel, 36, 83);
+  });
+  const plane = makePlaneFromTexture(texture, 210, 62);
+  plane.position.set(band.labelX, band.y + band.height / 2 + 30, 84);
+  plane.material.depthTest = false;
+  plane.renderOrder = 40;
+  return plane;
+}
+
+function generationLabel(generation) {
+  if (generation === 0) return 'Focus';
+  if (generation < 0) return `Ancestor ${Math.abs(generation)}`;
+  return `Descendant ${generation}`;
 }
 
 function ancestorBandColor(generation) {
@@ -987,6 +1034,51 @@ const styles = {
     pointerEvents: 'none',
     background: 'hsl(var(--background) / 0.45)',
   },
+  generationLegend: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, minmax(128px, 1fr))',
+    gap: 6,
+    maxWidth: 340,
+    pointerEvents: 'none',
+  },
+  legendTitle: {
+    display: 'block',
+    color: 'hsl(var(--foreground))',
+    fontSize: 12,
+    fontWeight: 800,
+    lineHeight: 1.1,
+    whiteSpace: 'nowrap',
+  },
+  legendMeta: {
+    display: 'block',
+    marginTop: 2,
+    color: 'hsl(var(--muted-foreground))',
+    fontSize: 10,
+    fontWeight: 700,
+    lineHeight: 1.1,
+    whiteSpace: 'nowrap',
+  },
 };
+
+function legendItemStyle(generation) {
+  const accent = generation === 0
+    ? 'hsl(330 78% 58% / 0.28)'
+    : generation < 0
+      ? 'hsl(46 78% 58% / 0.26)'
+      : 'hsl(305 70% 62% / 0.24)';
+  return {
+    minWidth: 0,
+    border: `1px solid ${accent}`,
+    borderLeft: `4px solid ${accent}`,
+    borderRadius: 7,
+    padding: '7px 9px',
+    background: 'hsl(var(--card) / 0.9)',
+    boxShadow: '0 8px 20px rgb(0 0 0 / 0.08)',
+    backdropFilter: 'blur(10px)',
+  };
+}
 
 export default ThreeDTreeView;
