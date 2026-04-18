@@ -4,6 +4,7 @@
  */
 import React, { useState } from 'react';
 import { SimpleCrudList } from '../components/editors/SimpleCrudList.jsx';
+import { humanizeType } from '../utils/humanizeType.js';
 
 const TABS = [
   { id: 'SourceTemplate', label: 'Source Templates', uuidPrefix: 'srctpl' },
@@ -45,7 +46,7 @@ export default function Templates() {
           uuidPrefix={def.uuidPrefix}
           title={def.label}
           fields={FIELDS}
-          displayLabel={(r) => r.fields?.name?.value || r.fields?.typeName?.value || r.fields?.title?.value || r.recordName}
+          displayLabel={(r) => r.fields?.name?.value || r.fields?.title?.value || humanizeType(r.fields?.typeName?.value) || humanizeType(r.recordName)}
           searchPlaceholder={`Search ${def.label.toLowerCase()}…`}
           emptyText={`No ${def.label.toLowerCase()} yet.`}
         />

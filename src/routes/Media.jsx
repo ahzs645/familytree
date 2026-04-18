@@ -121,7 +121,7 @@ export default function Media() {
         <div style={gallery}>
           {filtered.length === 0 && (
             <div style={{ color: 'hsl(var(--muted-foreground))', padding: 40, gridColumn: '1 / -1', textAlign: 'center' }}>
-              No media in this tree {filter !== 'all' ? `of type "${filter}"` : ''}.
+              {filter !== 'all' ? `No media of type "${filter}" in this tree.` : 'No media in this tree.'}
             </div>
           )}
           {filtered.map((m) => {

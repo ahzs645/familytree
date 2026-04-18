@@ -163,8 +163,9 @@ export default function Places() {
         coord = records[0] || null;
       }
       setCoordinate(coord);
-      setLatitude(coord?.fields?.latitude?.value?.toString() ?? '');
-      setLongitude(coord?.fields?.longitude?.value?.toString() ?? '');
+      const roundCoord = (v) => (typeof v === 'number' ? Number(v.toFixed(6)).toString() : '');
+      setLatitude(roundCoord(coord?.fields?.latitude?.value));
+      setLongitude(roundCoord(coord?.fields?.longitude?.value));
     })();
   }, [activeId, places, templates]);
 

@@ -32,19 +32,42 @@ export function Map({
   // Initialize map once.
   useEffect(() => {
     if (!containerRef.current) return;
-    const opts = {
+    const map = new maplibregl.Map({
       container: containerRef.current,
       style: theme === 'dark' ? STYLE_DARK : STYLE_LIGHT,
       center,
       zoom,
       interactive,
-    };
-    if (projection) opts.projection = projection;
-    const map = new maplibregl.Map(opts);
+      renderWorldCopies: !projection,
+    });
     mapRef.current = map;
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+    map.addControl(new maplibregl.NavigationControl({ showCompass: !!projection }), 'top-right');
+    // Globe projection has to be applied after the style has finished parsing;
+    // passing it in the constructor (or calling setProjection from 'load')
+    // leaves the tile manager in mercator mode and no tiles get requested.
+    let projectionTimer = null;
+    const applyProjection = () => {
+      if (projectionTimer) clearTimeout(projectionTimer);
+      projectionTimer = setTimeout(() => {
+        if (projection && typeof map.setProjection === 'function') {
+          try { map.setProjection(projection); } catch { /* older maplibre */ }
+        }
+      }, 100);
+    };
+    map.on('styledata', applyProjection);
     map.on('load', () => setReady(true));
+
+    // The container often measures 0 while Suspense is still resolving the
+    // lazy route, so the canvas gets stuck at its initial size. Watch the
+    // container and resize the map whenever its box changes.
+    const resizeObserver = new ResizeObserver(() => {
+      try { map.resize(); } catch { /* map gone */ }
+    });
+    resizeObserver.observe(containerRef.current);
+
     return () => {
+      resizeObserver.disconnect();
+      if (projectionTimer) clearTimeout(projectionTimer);
       map.remove();
       mapRef.current = null;
       setReady(false);
@@ -52,12 +75,17 @@ export function Map({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Swap basemap when the theme changes.
+  // Swap basemap when the theme changes. setStyle resets the projection,
+  // so re-apply it once the new style finishes loading.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
     map.setStyle(theme === 'dark' ? STYLE_DARK : STYLE_LIGHT);
-  }, [theme]);
+    if (projection && typeof map.setProjection === 'function') {
+      const reapply = () => { try { map.setProjection(projection); } catch { /* ignore */ } };
+      map.once('styledata', reapply);
+    }
+  }, [theme, projection]);
 
   // Forward clicks.
   useEffect(() => {

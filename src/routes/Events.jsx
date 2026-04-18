@@ -10,6 +10,7 @@ import { readConclusionType, readRef } from '../lib/schema.js';
 import { personSummary, placeSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { formatEventDate } from '../utils/formatDate.js';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -150,20 +151,39 @@ export default function Events() {
     return e.recordType === kindFilter;
   });
 
+  const personByName = React.useMemo(() => new Map(persons.map((p) => [p.recordName, p])), [persons]);
+  const familyByName = React.useMemo(() => new Map(families.map((f) => [f.recordName, f])), [families]);
+
   const renderRow = (e) => {
     const t = readConclusionType(e) || 'Event';
-    const d = e.fields?.date?.value || '';
+    const d = formatEventDate(e.fields?.date?.value);
     const subjectRef =
       readRef(e.fields?.person) ||
       readRef(e.fields?.family) ||
       '';
+    let subjectLabel = '';
+    if (e.recordType === 'PersonEvent') {
+      const p = personByName.get(subjectRef);
+      subjectLabel = p ? personSummary(p).fullName : subjectRef;
+    } else {
+      const f = familyByName.get(subjectRef);
+      if (f) {
+        const manRef = readRef(f.fields?.man);
+        const womanRef = readRef(f.fields?.woman);
+        const manName = manRef ? personSummary(personByName.get(manRef))?.fullName : null;
+        const womanName = womanRef ? personSummary(personByName.get(womanRef))?.fullName : null;
+        subjectLabel = [manName, womanName].filter(Boolean).join(' & ') || subjectRef;
+      } else {
+        subjectLabel = subjectRef;
+      }
+    }
     return (
       <div>
         <div style={{ color: 'hsl(var(--foreground))', fontSize: 13 }}>
           {t}{d && <span style={{ color: 'hsl(var(--muted-foreground))' }}> · {d}</span>}
         </div>
         <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
-          {e.recordType === 'PersonEvent' ? 'Person' : 'Family'} {subjectRef && `· ${subjectRef}`}
+          {e.recordType === 'PersonEvent' ? 'Person' : 'Family'} {subjectLabel && `· ${subjectLabel}`}
         </div>
       </div>
     );

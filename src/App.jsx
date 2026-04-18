@@ -3,7 +3,7 @@
  * Each route is code-split with React.lazy so the landing stays small.
  */
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { AppShell } from './components/AppShell.jsx';
 import { ActivePersonProvider } from './contexts/ActivePersonContext.jsx';
 import { DatabaseStatusProvider } from './contexts/DatabaseStatusContext.jsx';
@@ -44,12 +44,29 @@ const Labels = lazy(() => import('./routes/Labels.jsx'));
 const Quiz = lazy(() => import('./routes/Quiz.jsx'));
 const Backup = lazy(() => import('./routes/Backup.jsx'));
 const ExportRoute = lazy(() => import('./routes/Export.jsx'));
-const Classic = lazy(() => import('./routes/Classic.jsx'));
 
 function Fallback() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>
       Loading view…
+    </div>
+  );
+}
+
+function NotFound() {
+  return (
+    <div className="h-full flex flex-col items-center justify-center text-center px-6">
+      <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">404</div>
+      <h1 className="text-2xl font-bold mb-2">Page not found</h1>
+      <p className="text-sm text-muted-foreground mb-5 max-w-md">
+        The page you&rsquo;re looking for doesn&rsquo;t exist. It may have moved, or the link is mistyped.
+      </p>
+      <Link
+        to="/"
+        className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90"
+      >
+        ← Go to Home
+      </Link>
     </div>
   );
 }
@@ -101,7 +118,7 @@ export function App() {
               <Route path="quiz" element={<L><Quiz /></L>} />
               <Route path="backup" element={<L><Backup /></L>} />
               <Route path="export" element={<L><ExportRoute /></L>} />
-              <Route path="classic" element={<L><Classic /></L>} />
+              <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
         </ActivePersonProvider>

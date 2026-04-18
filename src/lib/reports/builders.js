@@ -9,10 +9,11 @@ import { getLocalDatabase } from '../LocalDatabase.js';
 import { runPlausibilityChecks } from '../plausibility.js';
 import { readConclusionType, readField, readRef } from '../schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, Gender } from '../../models/index.js';
+import { humanizeType } from '../../utils/humanizeType.js';
 import { block, emptyReport } from './ast.js';
 
 function nameOf(summaryOrPerson) {
-  return summaryOrPerson?.fullName || 'Unknown';
+  return summaryOrPerson?.fullName || 'No name recorded';
 }
 
 function spanAnnotated(summary) {
@@ -80,7 +81,7 @@ export async function buildPersonSummary(recordName) {
       block.table(
         ['Type', 'Date', 'Description'],
         ctx.events.map((e) => [
-          e.fields?.conclusionType?.value || e.fields?.eventType?.value || 'Event',
+          humanizeType(e.fields?.conclusionType?.value || e.fields?.eventType?.value) || 'Event',
           e.fields?.date?.value || '',
           e.fields?.description?.value || '',
         ])
@@ -101,7 +102,7 @@ export async function buildAncestorNarrative(recordName, generations = 5) {
   report.blocks.push(block.title(report.title, 1));
 
   function line(node) {
-    if (!node || !node.person) return 'Unknown';
+    if (!node || !node.person) return 'No name recorded';
     const p = node.person;
     const years = [];
     if (p.birthDate) years.push('b. ' + p.birthDate);

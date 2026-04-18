@@ -27,7 +27,7 @@ export function PersonNode({
 }) {
   if (!person && !placeholder) return null;
   const colors = theme.gender[person?.gender ?? 0] || theme.gender[0];
-  const display = person?.fullName || 'Unknown';
+  const display = person?.fullName || 'No name recorded';
   const span = person ? lifeSpan(person) : '';
   const fill = placeholder ? theme.placeholderFill : colors.fill;
   const stroke = highlighted ? '#ffd166' : placeholder ? theme.placeholderStroke : colors.stroke;

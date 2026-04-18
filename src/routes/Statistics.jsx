@@ -3,6 +3,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { computeStatistics } from '../lib/statistics.js';
+import { humanizeType } from '../utils/humanizeType.js';
 
 function Card({ title, children }) {
   return (
@@ -64,7 +65,7 @@ export default function Statistics() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
           <Card title="Records">
             {Object.entries(stats.counts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([type, n]) => (
-              <StatLine key={type} label={type} value={n.toLocaleString()} />
+              <StatLine key={type} label={humanizeType(type)} value={n.toLocaleString()} />
             ))}
           </Card>
 

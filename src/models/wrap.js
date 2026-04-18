@@ -39,7 +39,7 @@ export function personSummary(input) {
     recordName: rec.recordName(),
     firstName: rec.firstName(),
     lastName: rec.lastName(),
-    fullName: rec.fullName() || 'Unknown',
+    fullName: rec.fullName() || 'No name recorded',
     gender: rec.gender, // 0=Male, 1=Female, 2=UnknownGender, 3=Intersex
     birthDate: rec.birthDate(),
     deathDate: rec.deathDate(),

@@ -36,7 +36,7 @@ export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT
                 <g key={'p' + i} style={{ cursor: onPersonClick && s.person ? 'pointer' : 'default' }} onClick={() => onPersonClick && s.person && onPersonClick(s.person)}>
                   <circle r={probandRadius} fill={colors.fill} stroke={colors.stroke} strokeWidth={1.5} />
                   <text textAnchor="middle" dy={-2} fill={theme.text} fontSize={13} fontWeight={600} fontFamily={theme.fontFamily}>
-                    {fitText(s.person?.fullName || 'Unknown', 0)}
+                    {fitText(s.person?.fullName || 'No name recorded', 0)}
                   </text>
                 </g>
               );

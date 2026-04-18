@@ -37,7 +37,6 @@ const SECTIONS = [
   { to: '/labels', title: 'Custom labels', body: 'Add custom colored labels beyond the built-in three.' },
   { to: '/backup', title: 'Backup &amp; restore', body: 'Download your entire database as a JSON file. Restore on any device.' },
   { to: '/export', title: 'Import / export', body: 'GEDCOM in/out, full backup, and a static-website export.' },
-  { to: '/classic', title: 'Classic UI', body: 'The original CloudTreeWeb interface, embedded for any editor not yet rebuilt natively.' },
 ];
 
 export function Home() {

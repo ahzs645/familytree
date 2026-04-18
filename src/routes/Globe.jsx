@@ -71,7 +71,7 @@ export default function Globe() {
       <div className="flex-1 relative">
         <MapView
           center={center}
-          zoom={2.5}
+          zoom={1.6}
           markers={points}
           projection={{ type: 'globe' }}
         />
