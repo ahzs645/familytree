@@ -129,9 +129,9 @@ export function AppShell() {
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
-      <header className="flex items-center gap-4 px-5 h-13 border-b border-border bg-card flex-shrink-0">
-        <span className="text-sm font-bold text-foreground mr-2">CloudTreeWeb</span>
-        <nav className="flex gap-1 flex-1 min-w-0 flex-wrap items-center">
+      <header className="flex items-center gap-4 px-5 h-13 border-b border-border bg-card flex-shrink-0 overflow-hidden">
+        <span className="text-sm font-bold text-foreground mr-2 shrink-0">CloudTreeWeb</span>
+        <nav className="flex gap-1 flex-1 min-w-0 overflow-x-auto items-center [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
           {PRIMARY_LINKS.map((l) => (
             <NavLink
               key={l.to}

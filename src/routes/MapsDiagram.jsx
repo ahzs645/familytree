@@ -162,7 +162,7 @@ export default function MapsDiagram() {
               {types.map((t) => <option key={t} value={t}>{t || 'All types'}</option>)}
             </select>
           </label>
-          <div className="flex min-w-[280px] flex-1 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex flex-1 flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>Years {rangeLabel(effectiveRange)}</span>
             <input
               type="range"

@@ -407,15 +407,15 @@ export default function PersonEditor() {
                 ) : facts.map((it, i) => {
                   const label = PERSON_FACT_TYPES.find((t) => t.id === it.type)?.label || it.type;
                   return (
-                    <div key={it.recordName || i} className="grid grid-cols-[140px_1fr_120px_auto] gap-2 mb-2 items-center">
-                      <span className="text-xs font-medium">{label}</span>
+                    <div key={it.recordName || i} className="flex flex-wrap gap-2 mb-2 items-center">
+                      <span className="text-xs font-medium w-[140px] shrink-0">{label}</span>
                       <input value={it.value} placeholder="Value"
                         onChange={(e) => setFacts((a) => a.map((x, j) => j === i ? { ...x, value: e.target.value } : x))}
-                        className={inputClass()}
+                        className={inputClass() + ' flex-1 min-w-[120px]'}
                       />
                       <input value={it.date} placeholder="Date (optional)"
                         onChange={(e) => setFacts((a) => a.map((x, j) => j === i ? { ...x, date: e.target.value } : x))}
-                        className={inputClass()}
+                        className={inputClass() + ' w-[120px] shrink-0'}
                       />
                       <RemoveBtn onClick={() => setFacts((a) => a.filter((_, j) => j !== i))} />
                     </div>
