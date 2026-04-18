@@ -20,6 +20,8 @@ export function ChartCanvas({
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const drag = useRef(null);
   const overlayDrag = useRef(null);
+  const pointers = useRef(new Map());
+  const pinch = useRef(null);
 
   const onWheel = useCallback(
     (e) => {
@@ -46,10 +48,42 @@ export function ChartCanvas({
     return () => svg.removeEventListener('wheel', onWheel);
   }, [onWheel]);
 
-  const onMouseDown = (e) => {
+  const onPointerDown = (e) => {
+    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) { /* noop */ }
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      pinch.current = { dist, k: view.k, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, vx: view.x, vy: view.y };
+      drag.current = null;
+      return;
+    }
+    if (overlayDrag.current) return;
     drag.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y };
   };
-  const onMouseMove = (e) => {
+
+  const onPointerMove = (e) => {
+    if (pointers.current.has(e.pointerId)) {
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    if (pinch.current && pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const svg = svgRef.current;
+      const rect = svg ? svg.getBoundingClientRect() : { left: 0, top: 0 };
+      const cx = (a.x + b.x) / 2 - rect.left;
+      const cy = (a.y + b.y) / 2 - rect.top;
+      const startCx = pinch.current.cx - rect.left;
+      const startCy = pinch.current.cy - rect.top;
+      const nk = Math.min(maxZoom, Math.max(minZoom, pinch.current.k * (dist / pinch.current.dist)));
+      const ratio = nk / pinch.current.k;
+      setView({
+        k: nk,
+        x: cx - (startCx - pinch.current.vx) * ratio,
+        y: cy - (startCy - pinch.current.vy) * ratio,
+      });
+      return;
+    }
     if (overlayDrag.current) {
       const { id, startX, startY, original } = overlayDrag.current;
       const dx = e.clientX - startX;
@@ -62,9 +96,14 @@ export function ChartCanvas({
     if (!drag.current) return;
     setView((v) => ({ ...v, x: drag.current.vx + (e.clientX - drag.current.x), y: drag.current.vy + (e.clientY - drag.current.y) }));
   };
-  const onMouseUp = () => {
-    drag.current = null;
-    overlayDrag.current = null;
+
+  const onPointerUp = (e) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size < 2) pinch.current = null;
+    if (pointers.current.size === 0) {
+      drag.current = null;
+      overlayDrag.current = null;
+    }
   };
 
   const reset = () => setView({ x: 0, y: 0, k: 1 });
@@ -113,11 +152,12 @@ export function ChartCanvas({
         ref={svgRef}
         width="100%"
         height="100%"
-        style={{ cursor: drag.current ? 'grabbing' : 'grab', display: 'block' }}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={onMouseUp}
+        style={{ cursor: drag.current ? 'grabbing' : 'grab', display: 'block', touchAction: 'none' }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onPointerLeave={onPointerUp}
       >
         <rect x="0" y="0" width="100%" height="100%" fill={background} />
         {(page.title || page.note) && (
@@ -159,7 +199,7 @@ function OverlayLayer({ overlays, theme, onDragStart }) {
       {overlays.map((overlay) => {
         if (overlay.type === 'line') {
           return (
-            <g key={overlay.id} onMouseDown={(event) => onDragStart(event, overlay)} style={{ cursor: 'move' }}>
+            <g key={overlay.id} onPointerDown={(event) => onDragStart(event, overlay)} style={{ cursor: 'move' }}>
               <line
                 x1={overlay.x1}
                 y1={overlay.y1}
@@ -183,7 +223,7 @@ function OverlayLayer({ overlays, theme, onDragStart }) {
               height={overlay.height || 120}
               preserveAspectRatio="xMidYMid meet"
               style={{ cursor: 'move' }}
-              onMouseDown={(event) => onDragStart(event, overlay)}
+              onPointerDown={(event) => onDragStart(event, overlay)}
             />
           );
         }
@@ -197,7 +237,7 @@ function OverlayLayer({ overlays, theme, onDragStart }) {
             fontFamily={theme.fontFamily}
             fontWeight={overlay.bold ? 700 : 500}
             style={{ cursor: 'move', userSelect: 'none' }}
-            onMouseDown={(event) => onDragStart(event, overlay)}
+            onPointerDown={(event) => onDragStart(event, overlay)}
           >
             {overlay.text || 'Text'}
           </text>

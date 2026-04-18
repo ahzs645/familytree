@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { PersonList } from '../components/interactive/PersonList.jsx';
 import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
 import { buildPersonContext } from '../lib/personContext.js';
 import { downloadRowsAsCsv, downloadRowsAsJson } from '../lib/listExport.js';
 import { loadPersonRows } from '../lib/listData.js';
+import { useIsMobile } from '../lib/useIsMobile.js';
 
 const EXPORT_COLUMNS = [
   { key: 'fullName', label: 'Name' },
@@ -23,8 +24,15 @@ export default function Persons() {
   const [loading, setLoading] = useState(true);
   const [sortKey, setSortKey] = useState('name');
   const [filter, setFilter] = useState('all');
+  const [mobilePane, setMobilePane] = useState('list');
+  const isMobile = useIsMobile();
   const { setActivePerson } = useActivePerson();
   const navigate = useNavigate();
+
+  const pick = (id) => {
+    setActiveId(id);
+    if (isMobile) setMobilePane('detail');
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -91,44 +99,73 @@ export default function Persons() {
 
   if (loading) return <div className="p-10 text-muted-foreground">Loading persons...</div>;
 
+  const controlClass = 'h-10 rounded-md border border-border bg-secondary text-foreground text-sm px-3 outline-none focus:border-primary';
+
   return (
     <div className="flex flex-col h-full">
-      <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <div className="mr-auto min-w-0">
-          <h1 className="text-base font-semibold">Persons</h1>
-          <div className="text-xs text-muted-foreground mt-1">
-            {visiblePersons.length.toLocaleString()} of {persons.length.toLocaleString()} persons
+      <header className="border-b border-border bg-card px-4 md:px-5 py-3">
+        <div className="flex items-center gap-2 mb-2 md:mb-3">
+          <div className="min-w-0 mr-auto">
+            <h1 className="text-base font-semibold leading-tight">Persons</h1>
+            <div className="text-xs text-muted-foreground">
+              {visiblePersons.length.toLocaleString()} of {persons.length.toLocaleString()}
+            </div>
           </div>
+          <ExportMenu
+            onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)}
+            onJson={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)}
+            controlClass={controlClass}
+          />
         </div>
-        <label className="text-xs text-muted-foreground">Filter</label>
-        <select value={filter} onChange={(event) => setFilter(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
-          <option value="all">All persons</option>
-          <option value="bookmarked">Bookmarked</option>
-          <option value="start">Start person</option>
-          <option value="missing-birth">Missing birth date</option>
-          <option value="missing-death">Missing death date</option>
-        </select>
-        <label className="text-xs text-muted-foreground">Sort</label>
-        <select value={sortKey} onChange={(event) => setSortKey(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
-          <option value="name">Name</option>
-          <option value="birth">Birth year</option>
-          <option value="death">Death year</option>
-        </select>
-        <button onClick={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)} className="bg-secondary text-foreground border border-border rounded-md px-3 py-1.5 text-xs">
-          Export CSV
-        </button>
-        <button onClick={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)} className="bg-secondary text-foreground border border-border rounded-md px-3 py-1.5 text-xs">
-          Export JSON
-        </button>
+        <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center md:gap-3">
+          <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-filter">Filter</label>
+          <select
+            id="persons-filter"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            className={`${controlClass} w-full md:w-auto`}
+            aria-label="Filter persons"
+          >
+            <option value="all">All persons</option>
+            <option value="bookmarked">Bookmarked</option>
+            <option value="start">Start person</option>
+            <option value="missing-birth">Missing birth date</option>
+            <option value="missing-death">Missing death date</option>
+          </select>
+          <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-sort">Sort</label>
+          <select
+            id="persons-sort"
+            value={sortKey}
+            onChange={(event) => setSortKey(event.target.value)}
+            className={`${controlClass} w-full md:w-auto`}
+            aria-label="Sort persons"
+          >
+            <option value="name">Sort: Name</option>
+            <option value="birth">Sort: Birth year</option>
+            <option value="death">Sort: Death year</option>
+          </select>
+        </div>
       </header>
 
       <div className="flex-1 min-h-0 flex overflow-hidden">
-        <div className="w-[min(320px,48vw)] flex-shrink-0">
-          <PersonList persons={visiblePersons} activeId={activeId} onPick={setActiveId} />
-        </div>
+        {(!isMobile || mobilePane === 'list') && (
+          <div className={isMobile ? 'w-full' : 'w-[min(320px,48vw)] flex-shrink-0'}>
+            <PersonList persons={visiblePersons} activeId={activeId} onPick={pick} />
+          </div>
+        )}
+        {(!isMobile || mobilePane === 'detail') && (
         <main className="flex-1 min-w-0 overflow-auto">
           {active ? (
-            <div className="p-6 max-w-5xl">
+            <div className="p-4 md:p-6 max-w-5xl">
+              {isMobile && (
+                <button
+                  type="button"
+                  onClick={() => setMobilePane('list')}
+                  className="mb-3 text-sm text-primary font-semibold py-2 px-1 min-h-10"
+                >
+                  ← Back to list
+                </button>
+              )}
               <div className="flex flex-wrap items-start gap-3 mb-5">
                 <div className="mr-auto min-w-0">
                   <h2 className="text-2xl font-semibold truncate">{active.fullName}</h2>
@@ -200,6 +237,7 @@ export default function Persons() {
             <div className="h-full flex items-center justify-center text-muted-foreground">No persons match the current filters.</div>
           )}
         </main>
+        )}
       </div>
     </div>
   );
@@ -210,6 +248,63 @@ function SummaryBox({ label, value }) {
     <div className="border border-border rounded-md bg-card p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="text-xl font-semibold mt-1">{Number(value || 0).toLocaleString()}</div>
+    </div>
+  );
+}
+
+function ExportMenu({ onCsv, onJson, controlClass }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) setOpen(false);
+    };
+    const onKey = (event) => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={`${controlClass} inline-flex items-center gap-1.5 px-3`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        Export
+        <span aria-hidden="true" className="text-xs">▾</span>
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-20 mt-1 w-40 rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); onCsv(); }}
+            className="block w-full text-left px-3 py-2 text-sm hover:bg-accent"
+          >
+            Export CSV
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => { setOpen(false); onJson(); }}
+            className="block w-full text-left px-3 py-2 text-sm hover:bg-accent"
+          >
+            Export JSON
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

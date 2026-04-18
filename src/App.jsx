@@ -56,6 +56,11 @@ const Labels = lazy(() => import('./routes/Labels.jsx'));
 const Quiz = lazy(() => import('./routes/Quiz.jsx'));
 const Backup = lazy(() => import('./routes/Backup.jsx'));
 const ExportRoute = lazy(() => import('./routes/Export.jsx'));
+const Settings = lazy(() => import('./routes/Settings.jsx'));
+const AuthorInformation = lazy(() => import('./routes/AuthorInformation.jsx'));
+const WebSearch = lazy(() => import('./routes/WebSearch.jsx'));
+const FamilySearch = lazy(() => import('./routes/FamilySearch.jsx'));
+const Favorites = lazy(() => import('./routes/Favorites.jsx'));
 
 function Fallback() {
   return (
@@ -158,6 +163,13 @@ export function App() {
               <Route path="quiz" element={<L><Quiz /></L>} />
               <Route path="backup" element={<L><Backup /></L>} />
               <Route path="export" element={<L><ExportRoute /></L>} />
+              <Route path="settings" element={<L><Settings /></L>} />
+              <Route path="author" element={<L><AuthorInformation /></L>} />
+              <Route path="author-information" element={<L><AuthorInformation /></L>} />
+              <Route path="web-search" element={<L><WebSearch /></L>} />
+              <Route path="familysearch" element={<L><FamilySearch /></L>} />
+              <Route path="family-search" element={<L><FamilySearch /></L>} />
+              <Route path="favorites" element={<L><Favorites /></L>} />
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>

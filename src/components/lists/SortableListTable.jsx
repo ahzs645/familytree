@@ -105,7 +105,28 @@ export function SortableListTable({
             {emptyHint && <div className="text-xs text-muted-foreground mt-1 max-w-lg">{emptyHint}</div>}
           </div>
         ) : (
-          <table className="w-full min-w-[760px] border-collapse text-sm">
+          <>
+          <div className="md:hidden divide-y divide-border">
+            {visibleRows.map((row) => (
+              <div
+                key={rowKey(row)}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={`px-4 py-3 text-sm ${onRowClick ? 'cursor-pointer active:bg-accent/70' : ''}`}
+              >
+                {columns.map((column) => {
+                  const content = column.render ? column.render(row) : String(defaultValue(row, column) ?? '');
+                  if (content === '' || content == null) return null;
+                  return (
+                    <div key={column.key} className="flex gap-2 py-0.5">
+                      <span className="text-[11px] uppercase tracking-wide text-muted-foreground min-w-20 shrink-0 pt-0.5">{column.label}</span>
+                      <span className={`min-w-0 flex-1 ${column.cellClassName || ''}`}>{content}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <table className="hidden md:table w-full min-w-[760px] border-collapse text-sm">
             <thead className="sticky top-0 z-10 bg-card border-b border-border">
               <tr>
                 {columns.map((column) => {
@@ -149,6 +170,7 @@ export function SortableListTable({
               ))}
             </tbody>
           </table>
+          </>
         )}
       </div>
     </div>

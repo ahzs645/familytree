@@ -10,6 +10,7 @@ import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { PersonList } from './PersonList.jsx';
 import { PersonFocus } from './PersonFocus.jsx';
 import { ThreeDTreeView } from './ThreeDTreeView.jsx';
+import { useIsMobile } from '../../lib/useIsMobile.js';
 
 export function InteractiveTreeApp() {
   const [persons, setPersons] = useState([]);
@@ -18,6 +19,8 @@ export function InteractiveTreeApp() {
   const [viewMode, setViewMode] = useState('three');
   const [loading, setLoading] = useState(true);
   const [empty, setEmpty] = useState(false);
+  const [mobilePane, setMobilePane] = useState('list');
+  const isMobile = useIsMobile();
   const { recordName: activeId, setActivePerson } = useActivePerson();
   const navigate = useNavigate();
 
@@ -59,7 +62,10 @@ export function InteractiveTreeApp() {
     };
   }, [activeId]);
 
-  const onPick = useCallback((recordName) => setActivePerson(recordName), [setActivePerson]);
+  const onPick = useCallback((recordName) => {
+    setActivePerson(recordName);
+    setMobilePane('focus');
+  }, [setActivePerson]);
   const openAncestor = useCallback(
     (recordName) => {
       setActivePerson(recordName);
@@ -85,60 +91,89 @@ export function InteractiveTreeApp() {
     );
   }
 
+  const showList = !isMobile || mobilePane === 'list';
+  const showFocus = !isMobile || mobilePane === 'focus';
+
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      <div style={{ width: 'min(280px, 46vw)', flexShrink: 0 }}>
-        <PersonList persons={persons} activeId={activeId} onPick={onPick} />
-      </div>
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={toolbar}>
-          <div style={{ minWidth: 0 }}>
-            <div style={eyebrow}>Interactive Tree</div>
-            <div style={title} title={context?.selfSummary?.fullName || ''}>
-              {context?.selfSummary?.fullName || 'No person selected'}
+      {showList && (
+        <div style={{ width: isMobile ? '100%' : 'min(280px, 46vw)', flexShrink: 0 }}>
+          <PersonList persons={persons} activeId={activeId} onPick={onPick} />
+        </div>
+      )}
+      {showFocus && (
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={toolbar}>
+            {isMobile && (
+              <button
+                type="button"
+                onClick={() => setMobilePane('list')}
+                style={backBtn}
+                aria-label="Back to person list"
+              >
+                ←
+              </button>
+            )}
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={eyebrow}>Interactive Tree</div>
+              <div style={title} title={context?.selfSummary?.fullName || ''}>
+                {context?.selfSummary?.fullName || 'No person selected'}
+              </div>
+            </div>
+            <div style={segmented} role="tablist" aria-label="Tree view mode">
+              <button
+                type="button"
+                onClick={() => setViewMode('three')}
+                style={segment(viewMode === 'three')}
+                aria-selected={viewMode === 'three'}
+              >
+                3D
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('details')}
+                style={segment(viewMode === 'details')}
+                aria-selected={viewMode === 'details'}
+              >
+                Details
+              </button>
             </div>
           </div>
-          <div style={segmented} role="tablist" aria-label="Tree view mode">
-            <button
-              type="button"
-              onClick={() => setViewMode('three')}
-              style={segment(viewMode === 'three')}
-              aria-selected={viewMode === 'three'}
-            >
-              3D
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('details')}
-              style={segment(viewMode === 'details')}
-              aria-selected={viewMode === 'details'}
-            >
-              Details
-            </button>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            {viewMode === 'three' ? (
+              <ThreeDTreeView
+                ancestorTree={trees.ancestor}
+                descendantTree={trees.descendant}
+                activeId={activeId}
+                loading={trees.loading}
+                onPick={onPick}
+              />
+            ) : (
+              <PersonFocus
+                context={context}
+                onPick={onPick}
+                onOpenAncestorChart={openAncestor}
+                onOpenDescendantChart={openDescendant}
+              />
+            )}
           </div>
         </div>
-        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-          {viewMode === 'three' ? (
-            <ThreeDTreeView
-              ancestorTree={trees.ancestor}
-              descendantTree={trees.descendant}
-              activeId={activeId}
-              loading={trees.loading}
-              onPick={onPick}
-            />
-          ) : (
-            <PersonFocus
-              context={context}
-              onPick={onPick}
-              onOpenAncestorChart={openAncestor}
-              onOpenDescendantChart={openDescendant}
-            />
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
+
+const backBtn = {
+  background: 'transparent',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 6,
+  color: 'hsl(var(--foreground))',
+  font: '600 16px -apple-system, system-ui, sans-serif',
+  cursor: 'pointer',
+  width: 40,
+  height: 40,
+  flexShrink: 0,
+};
 
 function EmptyMsg({ text, children }) {
   return (

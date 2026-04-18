@@ -66,4 +66,19 @@
     padding: 1px 5px;
     border-radius: 3px;
   }
+
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+}
+
+/* Prevent iOS zoom-on-focus. Inputs under 16px trigger auto-zoom on Safari.
+ * Placed outside @layer base so it takes precedence over Tailwind's text-* utilities. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }

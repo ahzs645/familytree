@@ -2,6 +2,55 @@
 
 This backlog tracks MacFamilyTree 11 feature gaps that should be brought into the web app. The current pass starts with narrow correctness fixes for existing features; larger desktop-grade workflows are listed here for follow-up implementation.
 
+## Scope
+
+- Include MacFamilyTree desktop parity work that can run locally in the browser or through ordinary web integrations.
+- Exclude CloudTree/iCloud sync, iCloud Drive state, CloudKit sharing, shared-database permissions, share invitations, and iCloud conflict resolution unless explicitly re-scoped later.
+
+## Missing Desktop Sections
+
+- [ ] FamilySearch workspace and integration
+  - [x] Surface existing FamilySearch IDs, unmatched people, and local match status.
+  - [x] Add person search links and external search launch from current person data.
+  - [x] Track local FamilySearch tasks such as match review, record match review, picture download, and ordinance review.
+  - [ ] Add API-backed login/search/compare/merge only after credentials and API terms are confirmed.
+- [ ] Author Information
+  - [x] Add tree-level author/contact/address/copyright metadata.
+  - [x] Add tree icon/cover media reference support.
+  - [ ] Feed author metadata into books, website export, GEDCOM, and report headers where appropriate.
+- [x] Web Search
+  - [x] Add a person-aware external web search pane.
+  - [x] Support search-provider templates and custom URLs.
+  - [x] Support inserting found/typed values into person fields or notes.
+- [x] Favorites hub
+  - [x] Add configurable favorite function shortcuts, not just record bookmarks.
+  - [x] Add category/function enabled and emphasized state.
+  - [x] Keep current record bookmarks as a sub-section.
+- [x] Settings and Preferences
+  - [x] Add general, database/local storage, display, name format, date format, maps, colors, PDF/export, downloads, edit behavior, Web Search, FamilySearch, and function configuration sections.
+  - [x] Store preferences in IndexedDB metadata and let routes read shared defaults.
+  - [x] Add import/export of app preferences.
+- [ ] Native media acquisition equivalents
+  - [ ] Add browser-safe file picker flows for pictures, PDFs, audio, video, and URLs.
+  - [ ] Add camera capture where available through `getUserMedia`.
+  - [ ] Add audio recording where available through `MediaRecorder`.
+  - [ ] Add image edit/enhance basics: crop, rotate, caption, and asset replacement.
+  - [ ] Document unavailable native-only features such as macOS Photos library and scanner integration.
+- [ ] Contacts import equivalent
+  - [ ] Add CSV/vCard import for people.
+  - [ ] Add optional browser Contact Picker support where available.
+- [ ] Native document/file lifecycle equivalents
+  - [ ] Expand import/open coverage beyond current `.mftpkg`, inner `database`, JSON, and GEDCOM subset flows.
+  - [ ] Add `.uged`, `.uged16`, GedZip, and richer `.mftsql`/`.mft` handling where practical.
+  - [ ] Add clearer tree picker/create/rename/delete workflows for local trees.
+- [ ] Publishing target depth
+  - [ ] Add FTP/SFTP publishing option for website exports.
+  - [ ] Add richer website theme management.
+  - [ ] Add publish status history and validation logs.
+- [ ] Desktop-style function configuration
+  - [ ] Add per-category function enable/disable/emphasis/favorite controls.
+  - [ ] Reflect those settings in navigation, Home, and Favorites.
+
 ## Chart Editing
 
 - Add saved chart documents, not only reusable chart templates.
@@ -43,7 +92,7 @@ This backlog tracks MacFamilyTree 11 feature gaps that should be brought into th
 ## Preferences
 
 - Add a settings/preferences surface.
-- Cover general, database/local storage, name formats, date formats, maps, colors, PDF/export defaults, edit/function configuration, downloads, FamilySearch, and CloudTree placeholders or integrations.
+- Cover general, database/local storage, name formats, date formats, maps, colors, PDF/export defaults, edit/function configuration, downloads, and FamilySearch placeholders or integrations. CloudTree/iCloud remains excluded by this pass.
 - Store preferences in IndexedDB metadata so views share defaults.
 
 ## Research Assistant
