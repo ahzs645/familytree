@@ -397,7 +397,7 @@ export default function FamilyEditor() {
                       return (
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
                           <span className="text-sm">{label}{date && <span className="text-muted-foreground"> · {date}</span>}</span>
-                          <button onClick={() => navigate('/events')} className="text-xs text-primary hover:underline">open in Events</button>
+                          <button onClick={() => navigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-primary hover:underline">open in Events</button>
                         </div>
                       );
                     })}

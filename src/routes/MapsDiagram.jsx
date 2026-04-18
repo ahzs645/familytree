@@ -3,7 +3,7 @@
  * with discoverable filters and an event detail panel.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { refToRecordName } from '../lib/recordRef.js';
 import { readConclusionType } from '../lib/schema.js';
@@ -25,7 +25,6 @@ function rangeLabel(range) {
 }
 
 export default function MapsDiagram() {
-  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
   const [filterType, setFilterType] = useState('');
   const [yearRange, setYearRange] = useState(null);
@@ -206,7 +205,7 @@ export default function MapsDiagram() {
           />
         </div>
         <aside className="min-h-0 overflow-auto border-t border-border bg-card p-4 lg:border-l lg:border-t-0">
-          <EventDetail event={detailEvent} selected={!!selectedEvent} onNavigate={navigate} />
+          <EventDetail event={detailEvent} selected={!!selectedEvent} />
           <div className="mt-4">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Event Rows</div>
             <div className="space-y-2">
@@ -238,7 +237,7 @@ export default function MapsDiagram() {
   );
 }
 
-function EventDetail({ event, selected, onNavigate }) {
+function EventDetail({ event, selected }) {
   if (!event) {
     return (
       <div className="rounded-md border border-border bg-background p-4 text-sm text-muted-foreground">
@@ -269,11 +268,10 @@ function EventDetail({ event, selected, onNavigate }) {
         ) : null}
       </dl>
       <div className="mt-4 flex flex-wrap gap-2">
-        <button onClick={() => onNavigate('/events')} className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Open Events</button>
-        <button onClick={() => onNavigate(`/places?placeId=${encodeURIComponent(event.placeId)}`)} className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Open Place</button>
-        <button onClick={() => onNavigate(`/views/media-gallery?targetId=${encodeURIComponent(event.recordName)}&targetType=${event.recordType}`)} className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Related Media</button>
+        <Link to={`/events?eventId=${encodeURIComponent(event.recordName)}`} className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Open Event</Link>
+        <Link to={`/places?placeId=${encodeURIComponent(event.placeId)}`} className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Open Place</Link>
+        <Link to={`/views/media-gallery?targetId=${encodeURIComponent(event.recordName)}&targetType=${event.recordType}`} className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Related Media</Link>
       </div>
     </div>
   );
 }
-

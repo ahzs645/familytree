@@ -35,6 +35,11 @@ const STYLE_URLS = {
   },
 };
 
+const CLUSTER_SOURCE_ID = 'ctw-marker-cluster-source';
+const CLUSTER_LAYER_ID = 'ctw-marker-clusters';
+const CLUSTER_COUNT_LAYER_ID = 'ctw-marker-cluster-count';
+const POINT_LAYER_ID = 'ctw-marker-points';
+
 function styleUrlFor(theme, preferences) {
   const preferred = preferences.basemap === 'auto'
     ? (theme === 'dark' ? 'dark' : 'positron')
@@ -49,29 +54,96 @@ function distanceSq(a, b) {
   return dx * dx + dy * dy;
 }
 
-function clusterMarkers(markers, enabled) {
-  if (!enabled || markers.length < 60) return markers;
-  const precision = markers.length > 450 ? 0 : markers.length > 160 ? 1 : 2;
-  const groups = new globalThis.Map();
-  for (const marker of markers) {
-    if (typeof marker.lng !== 'number' || typeof marker.lat !== 'number') continue;
-    const key = `${marker.lat.toFixed(precision)}:${marker.lng.toFixed(precision)}`;
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(marker);
+function geojsonForMarkers(markers) {
+  return {
+    type: 'FeatureCollection',
+    features: markers.flatMap((marker, markerIndex) => {
+      if (typeof marker.lng !== 'number' || typeof marker.lat !== 'number') return [];
+      return [{
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [marker.lng, marker.lat],
+        },
+        properties: {
+          id: String(marker.id ?? markerIndex),
+          markerIndex,
+          popup: marker.popup || '',
+        },
+      }];
+    }),
+  };
+}
+
+function removeClusterLayers(map) {
+  for (const layerId of [CLUSTER_COUNT_LAYER_ID, CLUSTER_LAYER_ID, POINT_LAYER_ID]) {
+    if (map.getLayer(layerId)) map.removeLayer(layerId);
   }
-  return Array.from(groups.entries()).flatMap(([key, group]) => {
-    if (group.length === 1) return group;
-    const lat = group.reduce((sum, marker) => sum + marker.lat, 0) / group.length;
-    const lng = group.reduce((sum, marker) => sum + marker.lng, 0) / group.length;
-    const names = group.slice(0, 4).map((marker) => marker.popup || marker.id).filter(Boolean);
-    return [{
-      id: `cluster-${key}`,
-      lat,
-      lng,
-      count: group.length,
-      cluster: true,
-      popup: `${group.length} records near this area${names.length ? `: ${names.join(', ')}${group.length > names.length ? '…' : ''}` : ''}`,
-    }];
+  if (map.getSource(CLUSTER_SOURCE_ID)) map.removeSource(CLUSTER_SOURCE_ID);
+}
+
+function addClusterLayers(map, data) {
+  removeClusterLayers(map);
+  map.addSource(CLUSTER_SOURCE_ID, {
+    type: 'geojson',
+    data,
+    cluster: true,
+    clusterMaxZoom: 12,
+    clusterRadius: 48,
+  });
+  map.addLayer({
+    id: CLUSTER_LAYER_ID,
+    type: 'circle',
+    source: CLUSTER_SOURCE_ID,
+    filter: ['has', 'point_count'],
+    paint: {
+      'circle-color': [
+        'step',
+        ['get', 'point_count'],
+        '#2563eb',
+        100,
+        '#0f766e',
+        500,
+        '#7c3aed',
+      ],
+      'circle-radius': [
+        'step',
+        ['get', 'point_count'],
+        18,
+        100,
+        24,
+        500,
+        31,
+      ],
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff',
+    },
+  });
+  map.addLayer({
+    id: CLUSTER_COUNT_LAYER_ID,
+    type: 'symbol',
+    source: CLUSTER_SOURCE_ID,
+    filter: ['has', 'point_count'],
+    layout: {
+      'text-field': ['get', 'point_count_abbreviated'],
+      'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+      'text-size': 12,
+    },
+    paint: {
+      'text-color': '#ffffff',
+    },
+  });
+  map.addLayer({
+    id: POINT_LAYER_ID,
+    type: 'circle',
+    source: CLUSTER_SOURCE_ID,
+    filter: ['!', ['has', 'point_count']],
+    paint: {
+      'circle-color': '#2563eb',
+      'circle-radius': 7,
+      'circle-stroke-width': 2,
+      'circle-stroke-color': '#ffffff',
+    },
   });
 }
 
@@ -92,10 +164,7 @@ export function Map({
   const markerRefs = useRef([]);
   const [ready, setReady] = useState(false);
   const styleUrl = useMemo(() => styleUrlFor(theme, preferences), [theme, preferences]);
-  const renderedMarkers = useMemo(
-    () => clusterMarkers(markers, preferences.markerClustering),
-    [markers, preferences.markerClustering]
-  );
+  const useSourceClustering = preferences.markerClustering && markers.length >= 60 && !markers.some((marker) => marker.draggable);
 
   useEffect(() => {
     let mounted = true;
@@ -182,6 +251,86 @@ export function Map({
     return () => map.off('click', handler);
   }, [onClick]);
 
+  // Dense marker sets use MapLibre's GeoJSON source clustering so pan/zoom
+  // stays smooth and cluster expansion is handled by the map engine.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+
+    let cancelled = false;
+    let popup = null;
+
+    const onClusterClick = async (event) => {
+      const features = map.queryRenderedFeatures(event.point, { layers: [CLUSTER_LAYER_ID] });
+      const clusterId = features[0]?.properties?.cluster_id;
+      const source = map.getSource(CLUSTER_SOURCE_ID);
+      if (clusterId == null || !source?.getClusterExpansionZoom) return;
+      const result = source.getClusterExpansionZoom(clusterId);
+      const nextZoom = typeof result?.then === 'function' ? await result : result;
+      map.easeTo({ center: features[0].geometry.coordinates, zoom: Math.min(nextZoom, 16), duration: 350 });
+    };
+
+    const onPointClick = (event) => {
+      const feature = event.features?.[0];
+      const marker = markers[Number(feature?.properties?.markerIndex)];
+      if (!marker) return;
+      if (marker.onClick) {
+        marker.onClick(marker);
+        return;
+      }
+      if (marker.popup) {
+        popup?.remove();
+        popup = new maplibregl.Popup({ offset: 14 })
+          .setLngLat(feature.geometry.coordinates)
+          .setText(marker.popup)
+          .addTo(map);
+      }
+    };
+
+    const onMouseEnter = () => { map.getCanvas().style.cursor = 'pointer'; };
+    const onMouseLeave = () => { map.getCanvas().style.cursor = ''; };
+
+    const bindLayerEvents = () => {
+      map.on('click', CLUSTER_LAYER_ID, onClusterClick);
+      map.on('click', POINT_LAYER_ID, onPointClick);
+      map.on('mouseenter', CLUSTER_LAYER_ID, onMouseEnter);
+      map.on('mouseleave', CLUSTER_LAYER_ID, onMouseLeave);
+      map.on('mouseenter', POINT_LAYER_ID, onMouseEnter);
+      map.on('mouseleave', POINT_LAYER_ID, onMouseLeave);
+    };
+
+    const unbindLayerEvents = () => {
+      try { map.off('click', CLUSTER_LAYER_ID, onClusterClick); } catch { /* layer gone */ }
+      try { map.off('click', POINT_LAYER_ID, onPointClick); } catch { /* layer gone */ }
+      try { map.off('mouseenter', CLUSTER_LAYER_ID, onMouseEnter); } catch { /* layer gone */ }
+      try { map.off('mouseleave', CLUSTER_LAYER_ID, onMouseLeave); } catch { /* layer gone */ }
+      try { map.off('mouseenter', POINT_LAYER_ID, onMouseEnter); } catch { /* layer gone */ }
+      try { map.off('mouseleave', POINT_LAYER_ID, onMouseLeave); } catch { /* layer gone */ }
+    };
+
+    const renderSource = () => {
+      if (cancelled || !mapRef.current) return;
+      if (!map.isStyleLoaded()) {
+        map.once('idle', renderSource);
+        return;
+      }
+      unbindLayerEvents();
+      try { removeClusterLayers(map); } catch { /* style reset */ }
+      if (!useSourceClustering) return;
+      addClusterLayers(map, geojsonForMarkers(markers));
+      bindLayerEvents();
+    };
+
+    renderSource();
+
+    return () => {
+      cancelled = true;
+      popup?.remove();
+      unbindLayerEvents();
+      try { removeClusterLayers(map); } catch { /* map removed */ }
+    };
+  }, [markers, ready, styleUrl, useSourceClustering]);
+
   // Render markers. Rebuilt from scratch whenever the prop changes — fine for
   // the scales we deal with (hundreds of places max).
   useEffect(() => {
@@ -189,30 +338,21 @@ export function Map({
     if (!map || !ready) return;
     for (const m of markerRefs.current) m.remove();
     markerRefs.current = [];
-    for (const m of renderedMarkers) {
+    if (useSourceClustering) return;
+    for (const m of markers) {
       if (typeof m.lng !== 'number' || typeof m.lat !== 'number') continue;
       const el = document.createElement('div');
       el.setAttribute('role', 'button');
       el.setAttribute('tabindex', '0');
-      el.setAttribute('aria-label', m.cluster ? `${m.count} map records` : (m.popup || 'Map marker'));
+      el.setAttribute('aria-label', m.popup || 'Map marker');
       el.title = m.popup || '';
-      if (m.cluster) {
-        el.textContent = String(m.count);
-        el.style.cssText =
-          'min-width:26px;height:26px;padding:0 6px;border-radius:999px;background:hsl(var(--primary));color:hsl(var(--primary-foreground));border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.45);cursor:pointer;display:flex;align-items:center;justify-content:center;font:700 11px -apple-system,system-ui,sans-serif;';
-      } else {
-        el.style.cssText =
-          'width:14px;height:14px;border-radius:50%;background:hsl(var(--primary));border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);cursor:pointer;';
-      }
+      el.style.cssText =
+        'width:14px;height:14px;border-radius:50%;background:hsl(var(--primary));border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);cursor:pointer;';
       let marker = null;
       const activate = (ev) => {
         ev.stopPropagation();
-        if (m.cluster) {
-          map.easeTo({ center: [m.lng, m.lat], zoom: Math.min((map.getZoom() || zoom) + 2, 12), duration: 350 });
-        } else {
-          if (m.onClick) m.onClick(m);
-          else marker?.togglePopup();
-        }
+        if (m.onClick) m.onClick(m);
+        else marker?.togglePopup();
       };
       el.addEventListener('click', activate);
       el.addEventListener('keydown', (ev) => {
@@ -230,7 +370,7 @@ export function Map({
       }
       markerRefs.current.push(marker);
     }
-  }, [renderedMarkers, ready, zoom]);
+  }, [markers, ready, useSourceClustering]);
 
   // Update center/zoom when the inputs change.
   useEffect(() => {

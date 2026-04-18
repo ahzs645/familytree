@@ -3,7 +3,7 @@
  * MediaAudio / MediaVideo records. Filter by type. Edit caption/description.
  */
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordDeleted } from '../lib/changeLog.js';
 import { readRef } from '../lib/schema.js';
@@ -29,17 +29,21 @@ function routeForRecord(record) {
   if (record.recordType === 'Person') return `/person/${record.recordName}`;
   if (record.recordType === 'Family') return `/family/${record.recordName}`;
   if (record.recordType === 'Place') return `/places?placeId=${encodeURIComponent(record.recordName)}`;
-  if (record.recordType === 'PersonEvent' || record.recordType === 'FamilyEvent') return '/events';
+  if (record.recordType === 'PersonEvent' || record.recordType === 'FamilyEvent') return `/events?eventId=${encodeURIComponent(record.recordName)}`;
   if (record.recordType?.startsWith('Media')) return `/views/media-gallery?mediaId=${encodeURIComponent(record.recordName)}`;
   return null;
 }
 
 export default function Media() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const targetId = searchParams.get('targetId') || searchParams.get('subjectId') || '';
   const targetType = searchParams.get('targetType') || '';
   const mediaIdParam = searchParams.get('mediaId') || '';
+  const explicitMode = searchParams.get('mode');
+  const isViewsGallery = location.pathname.startsWith('/views/media-gallery');
+  const readOnlyGallery = explicitMode ? explicitMode === 'gallery' : isViewsGallery;
   const [media, setMedia] = useState([]);
   const [filter, setFilter] = useState('all');
   const [activeId, setActiveId] = useState(null);
@@ -162,6 +166,20 @@ export default function Media() {
   const active = media.find((m) => m.recordName === activeId);
   const subjectLabel = subject ? recordDisplayLabel(subject) || subject.recordName : '';
 
+  const setMode = useCallback((mode) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('mode', mode);
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
+
+  const clearSubject = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('targetId');
+    next.delete('subjectId');
+    next.delete('targetType');
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
+
   useEffect(() => {
     if (mediaIdParam && filtered.some((m) => m.recordName === mediaIdParam)) {
       setActiveId(mediaIdParam);
@@ -178,10 +196,12 @@ export default function Media() {
           <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--foreground))' }}>Media Gallery</div>
           {targetId ? (
             <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
-              Filtered by {subjectLabel || targetId}
+              {readOnlyGallery ? 'Read-only gallery' : 'Editor'} · filtered by {subjectLabel || targetId}
             </div>
           ) : (
-            <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>Browse all media records</div>
+            <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
+              {readOnlyGallery ? 'Read-only gallery report' : 'Browse and edit media records'}
+            </div>
           )}
         </div>
         <select value={filter} onChange={(e) => setFilter(e.target.value)} style={select}>
@@ -194,13 +214,16 @@ export default function Media() {
         </span>
         <input ref={folderRef} type="file" multiple webkitdirectory="" className="hidden" onChange={(e) => onMatchFolder(e.target.files)} />
         {targetId && (
-          <button onClick={() => setSearchParams({})} style={select}>Clear subject</button>
+          <button onClick={clearSubject} style={select}>Clear subject</button>
         )}
-        <button onClick={() => folderRef.current?.click()} style={select}>Match media folder</button>
+        <button onClick={() => setMode(readOnlyGallery ? 'editor' : 'gallery')} style={select}>
+          {readOnlyGallery ? 'Edit records' : 'Gallery report'}
+        </button>
+        {!readOnlyGallery && <button onClick={() => folderRef.current?.click()} style={select}>Match media folder</button>}
       </header>
 
       <div style={body}>
-        <div style={gallery}>
+        <div style={readOnlyGallery ? galleryReport : gallery}>
           {filtered.length === 0 && (
             <div style={{ color: 'hsl(var(--muted-foreground))', padding: 40, gridColumn: '1 / -1', textAlign: 'center' }}>
               {targetId
@@ -223,7 +246,7 @@ export default function Media() {
                 role="button"
                 tabIndex={0}
                 style={{
-                  ...tile,
+                  ...(readOnlyGallery ? reportTile : tile),
                   borderColor: isActive ? 'hsl(var(--primary))' : 'hsl(var(--border))',
                   background: isActive ? 'hsl(var(--accent))' : 'hsl(var(--card))',
                 }}
@@ -238,7 +261,17 @@ export default function Media() {
           })}
         </div>
 
-        {active && (
+        {active && (readOnlyGallery ? (
+          <GalleryDetail
+            record={active}
+            assets={activeAssets}
+            relations={activeRelations}
+            onOpenRelated={(target) => {
+              const route = routeForRecord(target);
+              if (route) navigate(route);
+            }}
+          />
+        ) : (
           <aside style={detail}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
               <h2 style={{ fontSize: 14, color: 'hsl(var(--foreground))', margin: 0, fontWeight: 600 }}>
@@ -299,7 +332,7 @@ export default function Media() {
               )}
             </FieldRow>
           </aside>
-        )}
+        ))}
       </div>
     </div>
   );
@@ -310,10 +343,55 @@ const header = { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 
 const select = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 10px', fontSize: 12 };
 const body = { flex: 1, display: 'flex', overflow: 'hidden' };
 const gallery = { flex: 1, overflow: 'auto', padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 };
+const galleryReport = { flex: 1, overflow: 'auto', padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 14, alignContent: 'start' };
 const tile = { padding: 14, border: '1px solid hsl(var(--border))', borderRadius: 8, cursor: 'pointer', minHeight: 110, transition: 'border-color 0.15s, background 0.15s' };
+const reportTile = { ...tile, minHeight: 150, display: 'flex', flexDirection: 'column', justifyContent: 'center' };
 const detail = { width: 360, borderLeft: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', padding: 20, overflow: 'auto' };
 const saveBtn = { background: 'hsl(var(--primary))', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
 const deleteBtn = { background: 'transparent', color: 'hsl(var(--destructive))', border: '1px solid #3a2d30', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };
+
+function GalleryDetail({ record, assets, relations, onOpenRelated }) {
+  const title = record.fields?.caption?.value || record.fields?.filename?.value || record.fields?.fileName?.value || record.fields?.url?.value || record.recordName;
+  const description = record.fields?.description?.value || record.fields?.userDescription?.value || '';
+
+  return (
+    <aside style={{ ...detail, width: 420 }}>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{record.recordType.replace('Media', '')}</div>
+        <h2 style={{ fontSize: 16, color: 'hsl(var(--foreground))', margin: '4px 0 0', fontWeight: 700, lineHeight: 1.25 }}>{title}</h2>
+      </div>
+      <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 10, background: 'hsl(var(--background))', marginBottom: 14 }}>
+        <MediaPreview record={record} assets={assets} />
+      </div>
+      {description && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Description</div>
+          <div style={{ color: 'hsl(var(--foreground))', fontSize: 13, lineHeight: 1.55 }}>{description}</div>
+        </div>
+      )}
+      <div>
+        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>Related Entries</div>
+        {relations.length === 0 ? (
+          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>No related entries.</div>
+        ) : (
+          <div style={{ display: 'grid', gap: 6 }}>
+            {relations.map(({ rel, target }) => (
+              <button
+                key={rel.recordName}
+                type="button"
+                onClick={() => onOpenRelated(target)}
+                style={{ fontSize: 12, color: 'hsl(var(--foreground))', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 8, textAlign: 'left', cursor: routeForRecord(target) ? 'pointer' : 'default' }}
+              >
+                <span style={{ color: 'hsl(var(--muted-foreground))', marginRight: 6 }}>{rel.fields?.targetType?.value || target?.recordType || 'Record'}</span>
+                {recordDisplayLabel(target) || target?.recordName || readRef(rel.fields?.target)}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
 
 function MediaPreview({ record, assets }) {
   const asset = assets[0];

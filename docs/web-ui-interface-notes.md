@@ -138,18 +138,18 @@ I pulled the full `Navigation` tree from the desktop app and mapped it against c
   - Current web workflow includes per-report header help text, saved report restoration for page/report options, and two-person subject selection for Kinship.
 
 - Lists
-  - Implemented: Events List, Places List, Sources List, To-Do List, Changes list.
-  - Partial/missing: Persons List (no dedicated list route), Marriage List, Facts List, Anniversary List, Plausibility List, Distinctive Persons List, Person Analysis, LDS Ordinances List.
+  - Implemented: Events List, Places List, Sources List, To-Do List, Changes list, Persons List, Marriage List, Facts List, Anniversary List, Plausibility List, Distinctive Persons, Person Analysis, LDS Ordinances.
+  - Current web workflow includes a `/lists` hub with counts, list cards on Home, sortable table headers for the dedicated list routes, row-level editor links, and schema-gated empty state for LDS ordinances.
 
 - Publish
-  - Implemented: GEDCOM export (route `/export`), static website export (same area as publish workflow).
-  - Missing: dedicated Website builder surface (`Websites`) and explicit Family Tree Book authoring flow (current `/books` is nearest match).
+  - Implemented: GEDCOM export (route `/export`), static website export, dedicated Website builder (`/websites`), explicit Publish hub (`/publish`), and Family Tree Book authoring/export flow (`/books`).
+  - Current web workflow includes site branding/theme options, public/private filtering, media asset bundling, validation/progress/cancel/status states, book cover metadata, TOC styles, report/person-group/source inserts, HTML/PDF export, and website/book bundle export.
 
 - Favorites
   - Implemented: bookmarks surface (`/bookmarks`) with grouped record types.
   - Missing: the multi-category “Favorites” hub with per-function slots shown in desktop.
 
 Top priority gaps from this pass (next 2 sprints):
-1. Missing functional sections with no equivalent in web: FamilySearch, Author Info, Web Search, Marriage/Facts/Person/Anniversary dedicated lists.
-2. LDS-oriented and distinction/analysis lists (Distinctive Persons, LDS Ordinances, Person Analysis).
-3. Dedicated website builder and explicit Family Tree Book authoring workflow.
+1. Missing functional sections with no equivalent in web: FamilySearch, Author Info, Web Search.
+2. Favorites hub parity beyond the current bookmarks route.
+3. Search presets/history and import review depth remain high-value workflow improvements.

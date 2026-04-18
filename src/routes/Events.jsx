@@ -3,7 +3,7 @@
  * date, place, and description. Create new events or delete existing ones.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
@@ -24,6 +24,8 @@ const KIND_OPTIONS = [
 
 export default function Events() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const queryEventId = searchParams.get('eventId');
   const [events, setEvents] = useState([]);
   const [types, setTypes] = useState({ Person: [], Family: [] });
   const [persons, setPersons] = useState([]);
@@ -34,6 +36,7 @@ export default function Events() {
   const [values, setValues] = useState({});
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
+  const [queryMessage, setQueryMessage] = useState(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -65,6 +68,22 @@ export default function Events() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (!queryEventId) {
+      setQueryMessage(null);
+      return;
+    }
+    if (events.length === 0) return;
+    const target = events.find((event) => event.recordName === queryEventId);
+    if (target) {
+      setActiveId(queryEventId);
+      if (kindFilter !== 'all' && kindFilter !== target.recordType) setKindFilter(target.recordType);
+      setQueryMessage(null);
+    } else {
+      setQueryMessage(`The linked event record "${queryEventId}" was not found in this tree.`);
+    }
+  }, [events, kindFilter, queryEventId]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -212,6 +231,11 @@ export default function Events() {
           <button onClick={onSave} disabled={saving} style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
         </div>
       </div>
+      {queryMessage && (
+        <div style={warningBox}>
+          {queryMessage}
+        </div>
+      )}
 
       <div style={grid}>
         <FieldRow label="Type" hint="Matches your ConclusionType library. Free-text is accepted.">
@@ -305,6 +329,11 @@ export default function Events() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {toolbar}
+      {queryMessage && !active && (
+        <div style={{ ...warningBox, margin: 12 }}>
+          {queryMessage}
+        </div>
+      )}
       <div style={{ flex: 1, minHeight: 0 }}>
         <MasterDetailList
           items={filtered}
@@ -326,3 +355,4 @@ const deleteBtn = { background: 'transparent', color: 'hsl(var(--destructive))',
 const toolbarStyle = { display: 'flex', alignItems: 'center', padding: '10px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
 const smallSelect = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 10px', fontSize: 12 };
 const smallBtn = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };
+const warningBox = { border: '1px solid hsl(var(--destructive) / 0.4)', background: 'hsl(var(--destructive) / 0.1)', color: 'hsl(var(--destructive))', borderRadius: 6, padding: '8px 10px', fontSize: 12, marginBottom: 14 };
