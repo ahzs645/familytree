@@ -597,8 +597,8 @@ export function ChartsApp() {
         </div>
       </header>
 
+      <ChartSelectionProvider openPerson={openPersonInPanel}>
       <div style={canvasRowStyle}>
-        <ChartSelectionProvider openPerson={openPersonInPanel}>
       <main style={mainStyle}>
         {chartType === 'ancestor' && (
           <AncestorChart
@@ -825,7 +825,6 @@ export function ChartsApp() {
           </div>
         )}
       </main>
-        </ChartSelectionProvider>
         <PersonSidePanel
           recordName={panelPersonId}
           open={panelOpen}
@@ -833,6 +832,7 @@ export function ChartsApp() {
           onReroot={rerootFromPanel}
         />
       </div>
+      </ChartSelectionProvider>
     </div>
   );
 }

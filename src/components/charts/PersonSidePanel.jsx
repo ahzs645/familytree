@@ -10,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { buildPersonContext } from '../../lib/personContext.js';
 import { lifeSpanLabel, Gender } from '../../models/index.js';
+import { useChartSelection } from './ChartSelectionContext.jsx';
 
 const GENDER_LABEL = {
   [Gender?.Male ?? 0]: 'Male',
@@ -27,6 +28,8 @@ export function PersonSidePanel({
 }) {
   const [context, setContext] = useState(null);
   const [loading, setLoading] = useState(false);
+  const { openPerson } = useChartSelection();
+  const openById = (id) => id && openPerson?.({ recordName: id });
 
   useEffect(() => {
     if (!recordName) {
@@ -65,9 +68,9 @@ export function PersonSidePanel({
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', letterSpacing: 0.4 }}>PERSON</div>
             <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {self?.fullName || (loading ? 'Loading…' : 'No person')}
+              <bdi>{self?.fullName || (loading ? 'Loading…' : 'No person')}</bdi>
             </div>
-            {span && <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>{span}</div>}
+            {span && <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}><bdi>{span}</bdi></div>}
           </div>
           <button onClick={onClose} style={closeBtnStyle} aria-label="Close panel">✕</button>
         </header>
@@ -89,8 +92,8 @@ export function PersonSidePanel({
                 <Section label="Parents">
                   {context.parents.map((fam) => (
                     <div key={fam.family.recordName} style={{ marginBottom: 4 }}>
-                      {fam.man && <PersonLine person={fam.man} onOpen={setOpenId} />}
-                      {fam.woman && <PersonLine person={fam.woman} onOpen={setOpenId} />}
+                      {fam.man && <PersonLine person={fam.man} onOpen={openById} />}
+                      {fam.woman && <PersonLine person={fam.woman} onOpen={openById} />}
                     </div>
                   ))}
                 </Section>
@@ -100,11 +103,11 @@ export function PersonSidePanel({
                 <Section label={context.families.length > 1 ? 'Spouses & children' : 'Spouse & children'}>
                   {context.families.map((fam) => (
                     <div key={fam.family.recordName} style={{ marginBottom: 10 }}>
-                      {fam.partner && <PersonLine person={fam.partner} onOpen={setOpenId} bold />}
+                      {fam.partner && <PersonLine person={fam.partner} onOpen={openById} bold />}
                       {fam.children.length > 0 && (
                         <div style={{ marginInlineStart: 14, marginTop: 2 }}>
                           {fam.children.map((child) => (
-                            <PersonLine key={child.recordName} person={child} onOpen={setOpenId} muted />
+                            <PersonLine key={child.recordName} person={child} onOpen={openById} muted />
                           ))}
                         </div>
                       )}
@@ -153,11 +156,6 @@ export function PersonSidePanel({
       </div>
     </aside>
   );
-
-  function setOpenId() {
-    // Placeholder — we don't allow in-panel navigation from this version.
-    // The user can re-root and re-open if they want to inspect someone else.
-  }
 }
 
 function Section({ label, children }) {
@@ -179,26 +177,49 @@ function Row({ label, value }) {
   return (
     <div style={{ display: 'flex', gap: 8, fontSize: 13, paddingBlock: 2, minWidth: 0 }}>
       <div style={{ color: 'hsl(var(--muted-foreground))', width: 80, flexShrink: 0 }}>{label}</div>
-      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</div>
+      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <bdi>{value}</bdi>
+      </div>
     </div>
   );
 }
 
-function PersonLine({ person, bold, muted }) {
+function PersonLine({ person, bold, muted, onOpen }) {
   const span = lifeSpanLabel(person);
+  const clickable = !!(onOpen && person?.recordName);
+  const Tag = clickable ? 'button' : 'div';
   return (
-    <div style={{
-      fontSize: 13,
-      fontWeight: bold ? 600 : 400,
-      color: muted ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))',
-      paddingBlock: 2,
-      whiteSpace: 'nowrap',
-      overflow: 'hidden',
-      textOverflow: 'ellipsis',
-    }}>
-      {person.fullName}
-      {span && <span style={{ color: 'hsl(var(--muted-foreground))', marginInlineStart: 6 }}>{span}</span>}
-    </div>
+    <Tag
+      type={clickable ? 'button' : undefined}
+      onClick={clickable ? () => onOpen(person.recordName) : undefined}
+      style={{
+        display: 'block',
+        width: '100%',
+        textAlign: 'start',
+        background: 'transparent',
+        border: 'none',
+        padding: 0,
+        margin: 0,
+        font: 'inherit',
+        cursor: clickable ? 'pointer' : 'default',
+        fontSize: 13,
+        fontWeight: bold ? 600 : 400,
+        color: muted ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))',
+        paddingBlock: 2,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+      }}
+      onMouseEnter={clickable ? (e) => { e.currentTarget.style.textDecoration = 'underline'; } : undefined}
+      onMouseLeave={clickable ? (e) => { e.currentTarget.style.textDecoration = 'none'; } : undefined}
+    >
+      <bdi>{person.fullName}</bdi>
+      {span && (
+        <span style={{ color: 'hsl(var(--muted-foreground))', marginInlineStart: 6 }}>
+          <bdi>{span}</bdi>
+        </span>
+      )}
+    </Tag>
   );
 }
 
