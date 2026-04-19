@@ -7,12 +7,34 @@ import { DEFAULT_THEME } from './theme.js';
 import { layoutFan } from './layouts/fanLayout.js';
 
 const PADDING = 40;
+// Approximate width of one character in SVG px, per 1px of font size. Works for
+// the mixed Arabic/Latin label set the tree uses; enough to prevent overflow.
+const CHAR_WIDTH_RATIO = 0.55;
+const MIN_FONT_SIZE = 6;
 
-function fitText(name, gen) {
-  if (!name) return '';
-  // Smaller rings get less room — truncate aggressively.
-  const max = gen <= 1 ? 18 : gen <= 3 ? 14 : gen <= 4 ? 10 : 7;
-  return name.length > max ? name.slice(0, max - 1) + '…' : name;
+function fitFontSize(name, availableWidth, maxSize) {
+  if (!name) return maxSize;
+  const ideal = availableWidth / (name.length * CHAR_WIDTH_RATIO);
+  return Math.max(MIN_FONT_SIZE, Math.min(maxSize, ideal));
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  if (typeof d === 'string') return d;
+  if (d.year) {
+    const parts = [d.day, d.month, d.year].filter(Boolean);
+    return parts.join('.');
+  }
+  return '';
+}
+
+function personSubtext(person, gen) {
+  if (!person) return [];
+  const lines = [];
+  const birth = formatDate(person.birthDate || person.birth);
+  if (birth) lines.push(`Birth ${birth}`);
+  if (gen <= 2 && person.birthPlace) lines.push(String(person.birthPlace).slice(0, 34));
+  return lines;
 }
 
 export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, arcDegrees, page, overlays, onOverlaysChange }) {
@@ -32,24 +54,46 @@ export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT
           {slices.map((s, i) => {
             if (s.proband) {
               const colors = theme.gender[s.person?.gender ?? 0] || theme.gender[0];
+              const sub = personSubtext(s.person, 0);
+              const fullName = s.person?.fullName || 'No name recorded';
+              const nameSize = fitFontSize(fullName, probandRadius * 1.75, 14);
               return (
                 <g key={'p' + i} style={{ cursor: onPersonClick && s.person ? 'pointer' : 'default' }} onClick={() => onPersonClick && s.person && onPersonClick(s.person)}>
                   <circle r={probandRadius} fill={colors.fill} stroke={colors.stroke} strokeWidth={1.5} />
-                  <text textAnchor="middle" dy={-2} fill={theme.text} fontSize={13} fontWeight={600} fontFamily={theme.fontFamily}>
-                    {fitText(s.person?.fullName || 'No name recorded', 0)}
+                  <text textAnchor="middle" dy={-8} fill={theme.text} fontSize={nameSize} fontWeight={600} fontFamily={theme.fontFamily}>
+                    {fullName}
                   </text>
+                  {sub.map((line, li) => (
+                    <text
+                      key={li}
+                      textAnchor="middle"
+                      dy={10 + li * 12}
+                      fill={theme.textMuted}
+                      fontSize={fitFontSize(line, probandRadius * 1.85, 10)}
+                      fontFamily={theme.fontFamily}
+                    >
+                      {line}
+                    </text>
+                  ))}
                 </g>
               );
             }
             const colors = theme.gender[s.person?.gender ?? 0] || theme.gender[0];
             const fill = s.placeholder ? theme.placeholderFill : colors.fill;
             const stroke = s.placeholder ? theme.placeholderStroke : colors.stroke;
-            const tx = Math.cos(s.midAngle) * s.midRadius;
-            const ty = Math.sin(s.midAngle) * s.midRadius;
-            // Rotate text along the arc; flip when on the bottom half so it stays readable.
-            let textAngleDeg = (s.midAngle * 180) / Math.PI;
-            const flip = textAngleDeg > 90 || textAngleDeg < -90;
-            const rotation = flip ? textAngleDeg + 180 : textAngleDeg;
+            const maxFontByGen = s.gen <= 1 ? 14 : s.gen <= 2 ? 12 : s.gen <= 3 ? 11 : 10;
+            // Inner rings: text follows the arc via textPath.
+            // Outer rings (gen >= 3): wedges are too narrow — render text radially.
+            const useArc = s.gen <= 2;
+            const pathId = `fan-arc-${s.gen}-${s.slot}`;
+            const label = s.person?.fullName || '';
+            const arcSpan = Math.abs(s.a1 - s.a0);
+            // Available width for label: along the arc for curved text, along the
+            // ring radial span minus a small margin for radial text.
+            const availableWidth = useArc
+              ? s.midRadius * arcSpan - 8
+              : 80 - 8;
+            const fontSize = fitFontSize(label, availableWidth, maxFontByGen);
             return (
               <g
                 key={i}
@@ -63,17 +107,33 @@ export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT
                   strokeWidth={1}
                   strokeDasharray={s.placeholder ? '3 2' : 'none'}
                 />
-                <g transform={`translate(${tx},${ty}) rotate(${rotation})`}>
-                  <text
-                    textAnchor="middle"
-                    dy={4}
-                    fill={theme.text}
-                    fontSize={s.gen <= 2 ? 11 : 9}
-                    fontFamily={theme.fontFamily}
-                  >
-                    {fitText(s.person?.fullName || '', s.gen)}
-                  </text>
-                </g>
+                {useArc ? (
+                  <>
+                    <defs>
+                      <path id={pathId} d={s.textArcPath} />
+                    </defs>
+                    <text fill={theme.text} fontSize={fontSize} fontFamily={theme.fontFamily}>
+                      <textPath href={`#${pathId}`} startOffset="50%" textAnchor="middle">
+                        {label}
+                      </textPath>
+                    </text>
+                  </>
+                ) : (
+                  (() => {
+                    const tx = Math.cos(s.midAngle) * s.midRadius;
+                    const ty = Math.sin(s.midAngle) * s.midRadius;
+                    const deg = (s.midAngle * 180) / Math.PI;
+                    // Radial text: rotate so it reads outward along the radius.
+                    const rotation = Math.sin(s.midAngle) < 0 ? deg + 90 : deg - 90;
+                    return (
+                      <g transform={`translate(${tx},${ty}) rotate(${rotation})`}>
+                        <text textAnchor="middle" dy={4} fill={theme.text} fontSize={fontSize} fontFamily={theme.fontFamily}>
+                          {label}
+                        </text>
+                      </g>
+                    );
+                  })()
+                )}
               </g>
             );
           })}

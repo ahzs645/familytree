@@ -3,7 +3,7 @@
  * Picks a person, chooses chart type and theme, renders the chart.
  * Supports a second-person picker for Double Ancestor and Relationship Path.
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { listAllPersons, findStartPerson, buildAncestorTree, buildDescendantTree } from '../../lib/treeQuery.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
@@ -28,6 +28,8 @@ import {
   GenogramChart,
   FractalAncestorChart,
 } from './SpecializedCharts.jsx';
+import { ChartSelectionProvider } from './ChartSelectionContext.jsx';
+import { PersonSidePanel } from './PersonSidePanel.jsx';
 
 const CHART_TYPES = [
   { id: 'ancestor', label: 'Ancestor', needsSecond: false },
@@ -77,6 +79,33 @@ export function ChartsApp() {
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [empty, setEmpty] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef(null);
+  const [panelPersonId, setPanelPersonId] = useState(null);
+  const [panelOpen, setPanelOpen] = useState(false);
+
+  const openPersonInPanel = useCallback((person) => {
+    if (!person?.recordName) return;
+    setPanelPersonId(person.recordName);
+    setPanelOpen(true);
+  }, []);
+
+  const closePanel = useCallback(() => setPanelOpen(false), []);
+
+  const rerootFromPanel = useCallback((id) => {
+    if (!id) return;
+    setRootId(id);
+    setActivePerson(id);
+  }, [setActivePerson]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDoc = (e) => {
+      if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [moreOpen]);
 
   const theme = getTheme(themeId, appTheme === 'dark');
   const needsSecond = CHART_TYPES.find((t) => t.id === chartType)?.needsSecond;
@@ -353,107 +382,129 @@ export function ChartsApp() {
           </select>
         </Field>
 
-        <Field label="Theme">
-          <select value={themeId} onChange={(e) => setThemeId(e.target.value)} style={selectStyle}>
-            {THEMES.map((t) => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Generations">
+        <Field label="Gen" hideOnNarrow>
           <input
             type="number"
             min={2}
             max={8}
             value={generations}
             onChange={(e) => setGenerations(Math.min(8, Math.max(2, +e.target.value || 5)))}
-            style={{ ...selectStyle, width: 64 }}
+            style={{ ...selectStyle, width: 60 }}
           />
         </Field>
 
-        <Field label="Title">
-          <input value={chartTitle} onChange={(e) => setChartTitle(e.target.value)} placeholder="Optional title" style={{ ...selectStyle, width: 150 }} />
-        </Field>
+        <div ref={moreRef} style={{ position: 'relative', marginInlineStart: 'auto' }}>
+          <button
+            onClick={() => setMoreOpen((v) => !v)}
+            style={{ ...selectStyle, padding: '8px 12px' }}
+            aria-expanded={moreOpen}
+          >
+            More ▾
+          </button>
+          {moreOpen && (
+            <div style={popoverStyle}>
+              <Section label="Theme">
+                <select value={themeId} onChange={(e) => setThemeId(e.target.value)} style={optionSelect}>
+                  {THEMES.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </Section>
 
-        <Field label="Note">
-          <input value={chartNote} onChange={(e) => setChartNote(e.target.value)} placeholder="Optional note" style={{ ...selectStyle, width: 150 }} />
-        </Field>
+              <Section label="Generations">
+                <input
+                  type="number"
+                  min={2}
+                  max={8}
+                  value={generations}
+                  onChange={(e) => setGenerations(Math.min(8, Math.max(2, +e.target.value || 5)))}
+                  style={optionSelect}
+                />
+              </Section>
 
-        <Field label="Page">
-          <div style={{ display: 'flex', gap: 4 }}>
-            <select value={pageSize} onChange={(e) => setPageSize(e.target.value)} style={selectStyle}>
-              <option value="letter">Letter</option>
-              <option value="a4">A4</option>
-              <option value="legal">Legal</option>
-            </select>
-            <select value={pageOrientation} onChange={(e) => setPageOrientation(e.target.value)} style={selectStyle}>
-              <option value="landscape">Landscape</option>
-              <option value="portrait">Portrait</option>
-            </select>
-            <input value={chartBackground} onChange={(e) => setChartBackground(e.target.value)} placeholder="Background" style={{ ...selectStyle, width: 100 }} title="CSS background color" />
-          </div>
-        </Field>
+              <Section label="Title">
+                <input value={chartTitle} onChange={(e) => setChartTitle(e.target.value)} placeholder="Optional title" style={optionSelect} />
+              </Section>
 
-        <Field label="Templates">
-          <div style={{ display: 'flex', gap: 4 }}>
-            <select
-              value=""
-              onChange={(e) => e.target.value && onApplyTemplate(e.target.value)}
-              style={{ ...selectStyle, minWidth: 140 }}
-            >
-              <option value="">Load saved…</option>
-              {templates.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-            <button onClick={onSaveTemplate} style={selectStyle}>Save</button>
-            {templates.length > 0 && (
-              <select
-                value=""
-                onChange={(e) => e.target.value && onDeleteTemplate(e.target.value)}
-                style={{ ...selectStyle, width: 60 }}
-                title="Delete a saved template"
-              >
-                <option value="">Del…</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name}</option>
-                ))}
-              </select>
-            )}
-          </div>
-        </Field>
+              <Section label="Note">
+                <input value={chartNote} onChange={(e) => setChartNote(e.target.value)} placeholder="Optional note" style={optionSelect} />
+              </Section>
 
-        <Field label="Documents">
-          <div style={{ display: 'flex', gap: 4 }}>
-            <select value="" onChange={(e) => e.target.value && onApplyDocument(e.target.value)} style={{ ...selectStyle, minWidth: 140 }}>
-              <option value="">Open…</option>
-              {documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
-            </select>
-            <button onClick={onSaveDocument} style={selectStyle}>Save Doc</button>
-            {documents.length > 0 && (
-              <select value="" onChange={(e) => e.target.value && onDeleteDocument(e.target.value)} style={{ ...selectStyle, width: 64 }}>
-                <option value="">Del…</option>
-                {documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
-              </select>
-            )}
-          </div>
-        </Field>
+              <Section label="Page">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                  <select value={pageSize} onChange={(e) => setPageSize(e.target.value)} style={optionSelect}>
+                    <option value="letter">Letter</option>
+                    <option value="a4">A4</option>
+                    <option value="legal">Legal</option>
+                  </select>
+                  <select value={pageOrientation} onChange={(e) => setPageOrientation(e.target.value)} style={optionSelect}>
+                    <option value="landscape">Landscape</option>
+                    <option value="portrait">Portrait</option>
+                  </select>
+                </div>
+                <input value={chartBackground} onChange={(e) => setChartBackground(e.target.value)} placeholder="Background color" style={{ ...optionSelect, marginTop: 6 }} title="CSS background color" />
+              </Section>
 
-        <Field label="Overlays">
-          <div style={{ display: 'flex', gap: 4 }}>
-            <button onClick={addTextOverlay} style={selectStyle}>Text</button>
-            <button onClick={addLineOverlay} style={selectStyle}>Line</button>
-            <button onClick={addImageOverlay} style={selectStyle}>Image</button>
-            <button onClick={removeLastOverlay} disabled={overlays.length === 0} style={selectStyle}>Undo</button>
-          </div>
-        </Field>
+              <Section label="Templates">
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <select
+                    value=""
+                    onChange={(e) => e.target.value && onApplyTemplate(e.target.value)}
+                    style={{ ...optionSelect, flex: 1 }}
+                  >
+                    <option value="">Load saved…</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <button onClick={onSaveTemplate} style={optionSelect}>Save</button>
+                </div>
+                {templates.length > 0 && (
+                  <select
+                    value=""
+                    onChange={(e) => e.target.value && onDeleteTemplate(e.target.value)}
+                    style={{ ...optionSelect, marginTop: 6 }}
+                    title="Delete a saved template"
+                  >
+                    <option value="">Delete…</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                )}
+              </Section>
 
-        <span style={{ marginLeft: 'auto', color: theme.textMuted, fontSize: 12 }}>
-          Drag · scroll · click a node to re-root
-        </span>
+              <Section label="Documents">
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <select value="" onChange={(e) => e.target.value && onApplyDocument(e.target.value)} style={{ ...optionSelect, flex: 1 }}>
+                    <option value="">Open…</option>
+                    {documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
+                  </select>
+                  <button onClick={onSaveDocument} style={optionSelect}>Save</button>
+                </div>
+                {documents.length > 0 && (
+                  <select value="" onChange={(e) => e.target.value && onDeleteDocument(e.target.value)} style={{ ...optionSelect, marginTop: 6 }}>
+                    <option value="">Delete…</option>
+                    {documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
+                  </select>
+                )}
+              </Section>
+
+              <Section label="Overlays">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+                  <button onClick={addTextOverlay} style={optionSelect}>Text</button>
+                  <button onClick={addLineOverlay} style={optionSelect}>Line</button>
+                  <button onClick={addImageOverlay} style={optionSelect}>Image</button>
+                  <button onClick={removeLastOverlay} disabled={overlays.length === 0} style={optionSelect}>Undo</button>
+                </div>
+              </Section>
+            </div>
+          )}
+        </div>
       </header>
 
+      <div style={canvasRowStyle}>
+        <ChartSelectionProvider openPerson={openPersonInPanel}>
       <main style={mainStyle}>
         {chartType === 'ancestor' && (
           <AncestorChart tree={ancestorTree} generations={generations} onPersonClick={onPersonClick} theme={theme} page={chartPage} overlays={overlays} onOverlaysChange={setOverlays} />
@@ -483,6 +534,7 @@ export function ChartsApp() {
             page={chartPage}
             overlays={overlays}
             onOverlaysChange={setOverlays}
+            variant={chartType === 'symmetrical' ? 'symmetrical' : 'horizontal'}
           />
         )}
         {chartType === 'double-ancestor' && (
@@ -528,7 +580,7 @@ export function ChartsApp() {
           <RelationshipPathChart result={relationshipResult} secondPicked={!!secondId} onPersonClick={onPersonClick} theme={theme} page={chartPage} overlays={overlays} onOverlaysChange={setOverlays} />
         )}
         {chartType === 'virtual' && (
-          <div style={{ display: 'flex', height: '100%' }}>
+          <div style={{ display: 'flex', height: '100%', minWidth: 0 }}>
             <aside style={{ width: 220, padding: 16, borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', color: 'hsl(var(--foreground))', fontSize: 13 }}>
               <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 8, letterSpacing: 0.4 }}>VIRTUAL TREE OPTIONS</div>
               <label style={{ display: 'block', marginBottom: 10 }}>
@@ -569,14 +621,34 @@ export function ChartsApp() {
           </div>
         )}
       </main>
+        </ChartSelectionProvider>
+        <PersonSidePanel
+          recordName={panelPersonId}
+          open={panelOpen}
+          onClose={closePanel}
+          onReroot={rerootFromPanel}
+        />
+      </div>
     </div>
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, children, hideOnNarrow }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', marginRight: 12 }}>
+    <div
+      className={hideOnNarrow ? 'hidden sm:flex' : 'flex'}
+      style={{ flexDirection: 'column', marginInlineEnd: 12 }}
+    >
       <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function Section({ label, children }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 4, letterSpacing: 0.3 }}>{label}</div>
       {children}
     </div>
   );
@@ -597,7 +669,8 @@ const headerStyle = {
   background: 'hsl(var(--card))',
   flexWrap: 'wrap',
 };
-const mainStyle = { flex: 1, position: 'relative', overflow: 'hidden' };
+const mainStyle = { flex: 1, position: 'relative', overflow: 'hidden', minWidth: 0 };
+const canvasRowStyle = { flex: 1, display: 'flex', minHeight: 0, minWidth: 0 };
 const selectStyle = {
   background: 'hsl(var(--secondary))',
   color: 'hsl(var(--foreground))',
@@ -607,6 +680,21 @@ const selectStyle = {
   font: '13px -apple-system, system-ui, sans-serif',
   outline: 'none',
   cursor: 'pointer',
+};
+const popoverStyle = {
+  position: 'absolute',
+  insetInlineEnd: 0,
+  top: 'calc(100% + 6px)',
+  width: 280,
+  maxHeight: '70vh',
+  overflowY: 'auto',
+  background: 'hsl(var(--card))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 10,
+  padding: 14,
+  boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+  zIndex: 20,
 };
 const optionSelect = {
   width: '100%',

@@ -1,145 +1,43 @@
 /**
- * AppShell — top nav + routed outlet. Uses Tailwind theme tokens so
- * the dark/light toggle drives the chrome.
+ * AppShell — left navigation drawer + routed outlet.
+ * Desktop shows the drawer; mobile keeps the overlay menu pattern.
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { APP_PREFERENCES_EVENT, getAppPreferences } from '../lib/appPreferences.js';
 import { applyDocumentLocalization, formatInteger, resolveLocalization } from '../lib/i18n.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { cn } from '../lib/utils.js';
+import { NavigationDrawer } from './NavigationDrawer.jsx';
 
-const PRIMARY_LINKS = [
+const MOBILE_PRIMARY_LINKS = [
   { to: '/', label: 'Home', end: true },
   { to: '/persons', label: 'Persons' },
   { to: '/tree', label: 'Tree' },
   { to: '/charts', label: 'Charts' },
-  { to: '/views', label: 'Views', aliases: ['/map', '/globe', '/maps-diagram', '/statistic-maps', '/media', '/quiz'] },
+  { to: '/views', label: 'Views' },
   { to: '/lists', label: 'Lists' },
   { to: '/places', label: 'Places' },
   { to: '/sources', label: 'Sources' },
   { to: '/events', label: 'Events' },
   { to: '/search', label: 'Search' },
-  { to: '/publish', label: 'Publish', aliases: ['/websites', '/books'] },
+  { to: '/publish', label: 'Publish' },
   { to: '/statistics', label: 'Stats' },
-  { to: '/favorites', label: 'Favorites', aliases: ['/bookmarks'] },
-];
-
-const MORE_LINKS = [
-  { to: '/saved-charts', label: 'Saved charts' },
-  { to: '/map', label: 'Virtual Map' },
-  { to: '/globe', label: 'Virtual Globe' },
-  { to: '/maps-diagram', label: 'Statistic Maps' },
-  { to: '/media', label: 'Media Gallery' },
-  { to: '/reports', label: 'Reports' },
-  { to: '/marriages', label: 'Marriage list' },
-  { to: '/facts', label: 'Facts list' },
-  { to: '/anniversaries', label: 'Anniversary list' },
-  { to: '/plausibility-list', label: 'Plausibility list' },
-  { to: '/distinctive-persons', label: 'Distinctive persons' },
-  { to: '/person-analysis', label: 'Person analysis' },
-  { to: '/lds-ordinances', label: 'LDS ordinances' },
-  { to: '/books', label: 'Books' },
-  { to: '/websites', label: 'Websites' },
-  { to: '/todos', label: 'ToDos' },
-  { to: '/bookmarks', label: 'Bookmarks' },
-  { to: '/change-log', label: 'Change log' },
-  { to: '/duplicates', label: 'Duplicates' },
-  { to: '/plausibility', label: 'Plausibility' },
-  { to: '/research', label: 'Research' },
-  { to: '/stories', label: 'Stories' },
-  { to: '/groups', label: 'Person groups' },
-  { to: '/dna', label: 'DNA results' },
-  { to: '/repositories', label: 'Repositories' },
-  { to: '/slideshow', label: 'Slideshow' },
-  { to: '/world-history', label: 'World history' },
-  { to: '/templates', label: 'Templates' },
-  { to: '/labels', label: 'Labels' },
-  { to: '/author', label: 'Author information' },
-  { to: '/familysearch', label: 'FamilySearch' },
-  { to: '/web-search', label: 'Web Search' },
   { to: '/favorites', label: 'Favorites' },
-  { to: '/quiz', label: 'Family Quiz' },
-  { to: '/maintenance', label: 'Maintenance' },
-  { to: '/backup', label: 'Backup' },
-  { to: '/export', label: 'Import & export' },
   { to: '/settings', label: 'Settings' },
+  { to: '/export', label: 'Import & export' },
+  { to: '/backup', label: 'Backup' },
 ];
 
-function MoreMenu({ links, emphasizedRoutes }) {
+const DRAWER_COLLAPSED_KEY = 'app.drawer.collapsed';
+
+function MobileMenu({ links }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
   const location = useLocation();
-
-  useEffect(() => {
-    if (!open) return;
-    const onDocClick = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
-    document.addEventListener('mousedown', onDocClick);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDocClick);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          'px-3 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors',
-          open
-            ? 'text-foreground border-primary'
-            : 'text-muted-foreground border-transparent hover:text-foreground'
-        )}
-        aria-haspopup="menu"
-        aria-expanded={open}
-      >
-        More ▾
-      </button>
-      {open ? (
-        <div
-          role="menu"
-          className="absolute end-0 top-full z-20 mt-1 w-56 max-h-[70vh] overflow-y-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1"
-        >
-          {links.map((l) => (
-            <NavLink
-              key={l.to}
-              to={l.to}
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  'block px-3 py-1.5 text-xs whitespace-nowrap',
-                  isActive || location.pathname === l.to
-                    ? 'bg-accent text-foreground'
-                    : emphasizedRoutes.has(l.to)
-                      ? 'text-foreground font-semibold hover:bg-accent'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                )
-              }
-            >
-              {l.label}
-            </NavLink>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function MobileMenu({ links, emphasizedRoutes }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-  const location = useLocation();
-
   useEffect(() => { setOpen(false); }, [location.pathname]);
-
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
@@ -148,7 +46,7 @@ function MobileMenu({ links, emphasizedRoutes }) {
   }, [open]);
 
   return (
-    <div className="relative" ref={ref}>
+    <>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -156,14 +54,9 @@ function MobileMenu({ links, emphasizedRoutes }) {
         aria-label="Open navigation menu"
         aria-expanded={open}
       >
-        <span className="sr-only">Menu</span>
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-          <line x1="3" y1="5" x2="17" y2="5" />
-          <line x1="3" y1="10" x2="17" y2="10" />
-          <line x1="3" y1="15" x2="17" y2="15" />
-        </svg>
+        <Menu size={20} />
       </button>
-      {open ? (
+      {open && (
         <>
           <div className="fixed inset-0 z-30 bg-black/40" onClick={() => setOpen(false)} />
           <div
@@ -178,33 +71,31 @@ function MobileMenu({ links, emphasizedRoutes }) {
                 to={l.to}
                 end={l.end}
                 onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  cn(
-                    'block px-4 py-3 text-base',
-                    isActive || location.pathname === l.to
-                      ? 'bg-accent text-foreground font-semibold'
-                      : emphasizedRoutes.has(l.to)
-                        ? 'text-foreground font-semibold hover:bg-accent'
-                        : 'text-foreground hover:bg-accent'
-                  )
-                }
+                className={({ isActive }) => cn(
+                  'block px-4 py-3 text-base',
+                  isActive || location.pathname === l.to
+                    ? 'bg-accent text-foreground font-semibold'
+                    : 'text-foreground hover:bg-accent'
+                )}
               >
                 {l.label}
               </NavLink>
             ))}
           </div>
         </>
-      ) : null}
-    </div>
+      )}
+    </>
   );
 }
 
 export function AppShell() {
   const { hasData, summary, loading } = useDatabaseStatus();
   const { theme, toggle } = useTheme();
-  const location = useLocation();
   const isMobile = useIsMobile();
   const [preferences, setPreferences] = useState(null);
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem(DRAWER_COLLAPSED_KEY) === '1'; } catch { return false; }
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -225,77 +116,65 @@ export function AppShell() {
     };
   }, []);
 
+  useEffect(() => {
+    try { localStorage.setItem(DRAWER_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch {}
+  }, [collapsed]);
+
   const localization = resolveLocalization(preferences?.localization);
-  const recordCountLabel = `${formatInteger(summary?.total || 0, localization)} records`;
+  const recordCountLabel = loading
+    ? 'Loading…'
+    : hasData
+      ? `${formatInteger(summary?.total || 0, localization)} records`
+      : 'No data';
+  const statusState = loading ? 'loading' : hasData ? 'ok' : 'empty';
   const hiddenRoutes = new Set(preferences?.functions?.hidden || []);
   const emphasizedRoutes = new Set(preferences?.functions?.emphasized || []);
-  const visiblePrimaryLinks = PRIMARY_LINKS.filter((link) => link.to === '/' || !hiddenRoutes.has(link.to));
-  const visibleMoreLinks = MORE_LINKS.filter((link) => !hiddenRoutes.has(link.to));
-  const mobileLinks = [...visiblePrimaryLinks, ...visibleMoreLinks].filter((link, index, all) => (
-    all.findIndex((candidate) => candidate.to === link.to) === index
-  ));
+  const mobileLinks = MOBILE_PRIMARY_LINKS.filter((l) => l.to === '/' || !hiddenRoutes.has(l.to));
 
-  return (
-    <div className="flex flex-col h-screen bg-background text-foreground" lang={localization.locale} dir={localization.direction}>
-      <header
-        className="flex items-center gap-3 px-4 md:px-5 h-13 border-b border-border bg-card flex-shrink-0 overflow-hidden"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
-      >
-        <span className="text-sm font-bold text-foreground shrink-0">CloudTreeWeb</span>
-        {!isMobile && (
-          <nav className="flex gap-1 flex-1 min-w-0 overflow-x-auto items-center [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-            {visiblePrimaryLinks.map((l) => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                end={l.end}
-                className={({ isActive }) => {
-                  const active = isActive || l.aliases?.some((alias) => location.pathname === alias || location.pathname.startsWith(`${alias}/`));
-                  return cn(
-                    'px-3 py-3.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors',
-                    active
-                      ? 'text-foreground border-primary'
-                      : emphasizedRoutes.has(l.to)
-                        ? 'text-foreground border-transparent hover:text-foreground'
-                        : 'text-muted-foreground border-transparent hover:text-foreground'
-                  );
-                }}
-              >
-                {l.label}
-              </NavLink>
-            ))}
-            <MoreMenu links={visibleMoreLinks} emphasizedRoutes={emphasizedRoutes} />
-          </nav>
-        )}
-        <div className="flex items-center gap-2 md:gap-3 ms-auto">
-          <span className="text-xs text-muted-foreground hidden sm:flex items-center">
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-screen bg-background text-foreground" lang={localization.locale} dir={localization.direction}>
+        <header
+          className="flex items-center gap-3 px-4 h-13 border-b border-border bg-card flex-shrink-0"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
+          <span className="text-sm font-bold text-foreground shrink-0">CloudTreeWeb</span>
+          <div className="flex items-center gap-2 ms-auto">
             <span
               className={cn(
-                'inline-block w-2 h-2 rounded-full me-2',
-                loading ? 'bg-muted-foreground' : hasData ? 'bg-emerald-500' : 'bg-destructive'
+                'inline-block w-2 h-2 rounded-full',
+                statusState === 'loading' ? 'bg-muted-foreground' : statusState === 'ok' ? 'bg-emerald-500' : 'bg-destructive'
               )}
+              title={recordCountLabel}
             />
-            {loading ? 'Loading…' : hasData ? recordCountLabel : 'No data'}
-          </span>
-          <span
-            className={cn(
-              'sm:hidden inline-block w-2 h-2 rounded-full',
-              loading ? 'bg-muted-foreground' : hasData ? 'bg-emerald-500' : 'bg-destructive'
-            )}
-            title={loading ? 'Loading…' : hasData ? recordCountLabel : 'No data'}
-          />
-          <button
-            onClick={toggle}
-            className="rounded-md border border-border bg-secondary text-secondary-foreground hover:bg-accent flex items-center justify-center w-10 h-10 md:w-9 md:h-9 text-sm md:text-xs"
-            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          >
-            {theme === 'dark' ? '☀︎' : '☾'}
-          </button>
-          {isMobile && <MobileMenu links={mobileLinks} emphasizedRoutes={emphasizedRoutes} />}
-        </div>
-      </header>
-      <main className="flex-1 relative overflow-hidden">
+            <button
+              onClick={toggle}
+              className="rounded-md border border-border bg-secondary text-secondary-foreground hover:bg-accent flex items-center justify-center w-10 h-10 text-sm"
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? '☀︎' : '☾'}
+            </button>
+            <MobileMenu links={mobileLinks} />
+          </div>
+        </header>
+        <main className="flex-1 relative overflow-hidden">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-screen bg-background text-foreground" lang={localization.locale} dir={localization.direction}>
+      <NavigationDrawer
+        collapsed={collapsed}
+        onToggleCollapsed={() => setCollapsed((v) => !v)}
+        hiddenRoutes={hiddenRoutes}
+        emphasizedRoutes={emphasizedRoutes}
+        recordCountLabel={recordCountLabel}
+        statusState={statusState}
+      />
+      <main className="flex-1 relative overflow-hidden min-w-0">
         <Outlet />
       </main>
     </div>

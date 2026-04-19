@@ -6,6 +6,7 @@ import React from 'react';
 import { lifeSpanLabel } from '../../models/index.js';
 import { textDirection, wrapGraphemes } from '../../lib/i18n.js';
 import { DEFAULT_THEME } from './theme.js';
+import { useChartSelection } from './ChartSelectionContext.jsx';
 
 export function PersonNode({
   x,
@@ -16,6 +17,8 @@ export function PersonNode({
   theme = DEFAULT_THEME,
   highlighted = false,
 }) {
+  const { openPerson } = useChartSelection();
+
   if (!person && !placeholder) return null;
   const colors = theme.gender[person?.gender ?? 0] || theme.gender[0];
   const display = person?.fullName || 'No name recorded';
@@ -30,11 +33,23 @@ export function PersonNode({
   const stroke = highlighted ? '#ffd166' : placeholder ? theme.placeholderStroke : colors.stroke;
   const strokeWidth = highlighted ? 2.5 : 1.5;
 
+  const interactive = (onClick || openPerson) && person;
+
+  const handleClick = () => {
+    if (!person) return;
+    if (openPerson) openPerson(person);
+    else if (onClick) onClick(person);
+  };
+
   return (
     <g
       transform={`translate(${x},${y})`}
-      style={{ cursor: onClick && person ? 'pointer' : 'default' }}
-      onClick={() => onClick && person && onClick(person)}
+      style={{
+        cursor: interactive ? 'pointer' : 'default',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+      }}
+      onClick={handleClick}
     >
       <rect
         width={theme.nodeWidth}

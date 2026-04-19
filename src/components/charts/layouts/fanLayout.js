@@ -14,10 +14,13 @@ const TWO_PI = Math.PI * 2;
 const DEG_TO_RAD = Math.PI / 180;
 
 export function layoutFan(tree, generations, options = {}) {
-  const arcDegrees = options.arcDegrees ?? 270; // default ¾ fan, leaves space below proband
+  const arcDegrees = options.arcDegrees ?? 360; // default full circle, matches MacFamilyTree
   const ringWidth = options.ringWidth ?? 80;
-  const probandRadius = options.probandRadius ?? 60;
-  const startAngle = -arcDegrees / 2 - 90; // center the fan upward (12 o'clock)
+  const probandRadius = options.probandRadius ?? 90;
+  // For a full 360° fan, split vertically: father's half above, mother's half below,
+  // so slot 0 (father) occupies -180°..0° (top) and slot 1 (mother) occupies 0°..180° (bottom).
+  // For partial fans, center the arc upward at 12 o'clock.
+  const startAngle = arcDegrees >= 360 ? -180 : -arcDegrees / 2 - 90;
   const arcRad = arcDegrees * DEG_TO_RAD;
   const startRad = startAngle * DEG_TO_RAD;
 
@@ -40,8 +43,11 @@ export function layoutFan(tree, generations, options = {}) {
         gen,
         slot,
         path: annularSliceD(r0, r1, a0, a1),
+        textArcPath: textArcD(midRadius, a0, a1),
         midAngle,
         midRadius,
+        a0,
+        a1,
         person: node.person,
         placeholder: !node.person,
       });
@@ -58,6 +64,26 @@ export function layoutFan(tree, generations, options = {}) {
   const totalRadius = probandRadius + (generations - 1) * ringWidth;
   const size = totalRadius * 2 + 40;
   return { slices, totalRadius, size, probandRadius };
+}
+
+// Text-baseline arc at mid-radius. For the top half (sin(mid) < 0) the arc runs
+// left-to-right with sweep=1 so text reads naturally. For the bottom half we
+// reverse the endpoints with sweep=0 so the baseline still faces outward.
+function textArcD(r, a0, a1) {
+  const mid = (a0 + a1) / 2;
+  const large = a1 - a0 > Math.PI ? 1 : 0;
+  if (Math.sin(mid) < 0) {
+    const x0 = Math.cos(a0) * r;
+    const y0 = Math.sin(a0) * r;
+    const x1 = Math.cos(a1) * r;
+    const y1 = Math.sin(a1) * r;
+    return `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`;
+  }
+  const x0 = Math.cos(a1) * r;
+  const y0 = Math.sin(a1) * r;
+  const x1 = Math.cos(a0) * r;
+  const y1 = Math.sin(a0) * r;
+  return `M ${x0} ${y0} A ${r} ${r} 0 ${large} 0 ${x1} ${y1}`;
 }
 
 function annularSliceD(r0, r1, a0, a1) {

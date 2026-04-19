@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
 import { PersonNode } from './PersonNode.jsx';
 import { DEFAULT_THEME } from './theme.js';
@@ -6,6 +6,63 @@ import { layoutDescendants } from './layouts/descendantLayout.js';
 
 const NODE_PAD_X = 90;
 const ROW_HEIGHT = 86;
+
+const GENDER_LABELS = { 0: 'Male', 1: 'Female', 2: 'Unknown', 3: 'Intersex' };
+
+const DISTRIBUTION_CATEGORIES = [
+  {
+    id: 'lastNames',
+    title: 'Distribution of Last Names',
+    description: 'Usage of the Last Names in your family tree by year.',
+    sidebarTitle: 'Last Names',
+    extract: (p) => (p.lastName || '').trim() || null,
+  },
+  {
+    id: 'firstNames',
+    title: 'Distribution of First Names',
+    description: 'Usage of the First Names in your family tree by year.',
+    sidebarTitle: 'First Names',
+    extract: (p) => (p.firstName || '').trim() || null,
+  },
+  {
+    id: 'genders',
+    title: 'Distribution of Genders',
+    description: 'Distribution of Genders in your family tree by year.',
+    sidebarTitle: 'Genders',
+    extract: (p) => GENDER_LABELS[p.gender ?? 2] || 'Unknown',
+  },
+  {
+    id: 'birthPlaces',
+    title: 'Distribution of Birth Places',
+    description: 'The Places of Birth in your family tree showing where persons were born.',
+    sidebarTitle: 'Birth Places',
+    extract: (p) => (p.birthPlace || '').split(',')[0]?.trim() || null,
+  },
+  {
+    id: 'birthCountries',
+    title: 'Distribution of Birth Countries',
+    description: 'The Countries of Birth in your family tree showing where persons were born.',
+    sidebarTitle: 'Birth Countries',
+    extract: (p) => {
+      const parts = (p.birthPlace || '').split(',').map((s) => s.trim()).filter(Boolean);
+      return parts.length ? parts[parts.length - 1] : null;
+    },
+  },
+  {
+    id: 'deathPlaces',
+    title: 'Distribution of Death Places',
+    description: 'The Places of Death in your family tree showing where persons died.',
+    sidebarTitle: 'Death Places',
+    extract: (p) => (p.deathPlace || '').split(',')[0]?.trim() || null,
+  },
+];
+
+function normalizeYear(value) {
+  if (!value) return null;
+  if (typeof value === 'number') return value;
+  const match = String(value).match(/(\d{4})/);
+  return match ? Number.parseInt(match[1], 10) : null;
+}
 
 function parseYear(value) {
   const match = String(value || '').match(/(\d{4})/);
@@ -16,11 +73,12 @@ function collectAncestors(tree, maxGenerations = 6) {
   const nodes = [];
   const links = [];
   function visit(node, generation, slot, key, parentKey) {
-    if (!node || generation > maxGenerations) return;
-    nodes.push({ key, person: node.person, generation, slot, placeholder: !node.person });
+    if (generation >= maxGenerations) return;
+    const person = node?.person || null;
+    nodes.push({ key, person, generation, slot, placeholder: !person });
     if (parentKey) links.push({ from: parentKey, to: key });
-    visit(node.father, generation + 1, slot * 2, `${key}F`, key);
-    visit(node.mother, generation + 1, slot * 2 + 1, `${key}M`, key);
+    visit(node?.father || null, generation + 1, slot * 2, `${key}F`, key);
+    visit(node?.mother || null, generation + 1, slot * 2 + 1, `${key}M`, key);
   }
   visit(tree, 0, 0, 'root', null);
   return { nodes, links };
@@ -45,30 +103,55 @@ export function CircularAncestorChart({ tree, generations = 5, onPersonClick, th
     const { nodes, links } = collectAncestors(tree, generations);
     const cx = 720;
     const cy = 480;
-    const radiusStep = 155;
+    // Size the rings so the outermost generation's nodes don't touch each other.
+    const outerSlots = Math.pow(2, Math.max(1, generations - 1));
+    const requiredOuter = (theme.nodeWidth + 20) / (2 * Math.sin(Math.PI / outerSlots));
+    const radiusStep = Math.max(140, requiredOuter / Math.max(1, generations - 1));
     const positioned = new Map();
     for (const node of nodes) {
       if (node.generation === 0) {
-        positioned.set(node.key, { ...node, x: cx - theme.nodeWidth / 2, y: cy - theme.nodeHeight / 2 });
+        positioned.set(node.key, {
+          ...node,
+          x: cx - theme.nodeWidth / 2,
+          y: cy - theme.nodeHeight / 2,
+          angle: 0,
+          radius: 0,
+        });
         continue;
       }
+      // Full 360° split so father's line fills the top half and mother's fills
+      // the bottom half: slot 0 at 12 o'clock, slots advance clockwise.
       const slots = 2 ** node.generation;
-      const angle = -Math.PI / 2 + ((node.slot + 0.5) / slots) * Math.PI * 2;
+      const sliceArc = (Math.PI * 2) / slots;
+      const angle = -Math.PI + (node.slot + 0.5) * sliceArc;
       const radius = node.generation * radiusStep;
       positioned.set(node.key, {
         ...node,
+        angle,
+        radius,
         x: cx + Math.cos(angle) * radius - theme.nodeWidth / 2,
         y: cy + Math.sin(angle) * radius - theme.nodeHeight / 2,
       });
     }
-    return { nodes: [...positioned.values()], links: links.map((link) => ({ from: positioned.get(link.from), to: positioned.get(link.to) })).filter((link) => link.from && link.to) };
+    const positionedLinks = links
+      .map((link) => ({ from: positioned.get(link.from), to: positioned.get(link.to) }))
+      .filter((link) => link.from && link.to);
+    return { nodes: [...positioned.values()], links: positionedLinks, cx, cy };
   }, [tree, generations, theme]);
 
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
   return (
     <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
       {layout.links.map((link, i) => (
-        <line key={i} x1={link.from.x + theme.nodeWidth / 2} y1={link.from.y + theme.nodeHeight / 2} x2={link.to.x + theme.nodeWidth / 2} y2={link.to.y + theme.nodeHeight / 2} stroke={theme.connector} strokeWidth={theme.connectorWidth} />
+        <line
+          key={i}
+          x1={link.from.x + theme.nodeWidth / 2}
+          y1={link.from.y + theme.nodeHeight / 2}
+          x2={link.to.x + theme.nodeWidth / 2}
+          y2={link.to.y + theme.nodeHeight / 2}
+          stroke={theme.connector}
+          strokeWidth={theme.connectorWidth}
+        />
       ))}
       {layout.nodes.map((node) => (
         <PersonNode key={node.key} x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} />
@@ -77,35 +160,141 @@ export function CircularAncestorChart({ tree, generations = 5, onPersonClick, th
   );
 }
 
+function ribbonColor(index) {
+  const palette = [
+    '#2dd4bf', '#38bdf8', '#818cf8', '#a855f7', '#ec4899', '#f97316',
+    '#eab308', '#22c55e', '#14b8a6', '#6366f1', '#d946ef', '#ef4444',
+    '#f59e0b', '#84cc16', '#10b981', '#0ea5e9',
+  ];
+  return palette[index % palette.length];
+}
+
+function buildRibbons(persons, category) {
+  const current = new Date().getFullYear();
+  const bucket = new Map();
+  for (const person of persons) {
+    const value = category.extract(person);
+    if (!value) continue;
+    const birth = normalizeYear(person.birthDate);
+    const death = normalizeYear(person.deathDate);
+    if (!birth && !death) continue;
+    const start = birth ?? death;
+    const end = death ?? current;
+    const entry = bucket.get(value) || { value, min: Infinity, max: -Infinity, count: 0 };
+    entry.min = Math.min(entry.min, start);
+    entry.max = Math.max(entry.max, end);
+    entry.count += 1;
+    bucket.set(value, entry);
+  }
+  return [...bucket.values()]
+    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
+    .slice(0, 16);
+}
+
 export function DistributionChart({ persons = [], theme = DEFAULT_THEME, page, overlays, onOverlaysChange }) {
-  const bars = useMemo(() => {
-    const counts = new Map();
-    for (const person of persons) {
-      const year = parseYear(person.birthDate);
-      if (!year) continue;
-      const century = Math.floor((year - 1) / 100) + 1;
-      counts.set(century, (counts.get(century) || 0) + 1);
-    }
-    return [...counts.entries()].sort((a, b) => a[0] - b[0]).map(([century, count]) => ({ label: `${century}th`, count }));
-  }, [persons]);
-  const max = Math.max(1, ...bars.map((bar) => bar.count));
+  const [categoryId, setCategoryId] = useState(DISTRIBUTION_CATEGORIES[0].id);
+  const category = DISTRIBUTION_CATEGORIES.find((c) => c.id === categoryId) || DISTRIBUTION_CATEGORIES[0];
+
+  const ribbons = useMemo(() => buildRibbons(persons, category), [persons, category]);
+
+  const current = new Date().getFullYear();
+  const minYear = ribbons.length ? Math.floor(Math.min(...ribbons.map((r) => r.min)) / 25) * 25 : 1900;
+  const maxYear = ribbons.length ? Math.ceil(Math.max(...ribbons.map((r) => r.max), current) / 25) * 25 : current;
+  const chartWidth = 960;
+  const chartHeight = 540;
+  const axisX = 90;
+  const plotTop = 110;
+  const plotBottom = plotTop + chartHeight;
+  const plotLeft = axisX + 40;
+  const plotRight = chartWidth + 40;
+  const plotWidth = plotRight - plotLeft;
+  const yearToY = (y) => plotBottom - ((y - minYear) / Math.max(1, maxYear - minYear)) * (plotBottom - plotTop);
+  const gridYears = [];
+  for (let y = minYear; y <= maxYear; y += 25) gridYears.push(y);
+  const ribbonSlot = ribbons.length ? plotWidth / ribbons.length : 0;
+  const ribbonWidth = Math.min(28, Math.max(10, ribbonSlot * 0.45));
+
   return (
-    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
-      <g transform="translate(80,110)">
-        <text x={0} y={-32} fill={theme.text} fontSize={18} fontWeight={700} fontFamily={theme.fontFamily}>Birth Distribution</text>
-        {bars.map((bar, index) => {
-          const width = (bar.count / max) * 720;
-          const y = index * 34;
+    <div style={{ display: 'flex', height: '100%' }}>
+      <div style={{ flex: 1, position: 'relative' }}>
+        <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+          <g>
+            <text x={plotLeft + plotWidth / 2} y={50} textAnchor="middle" fill={theme.text} fontSize={24} fontWeight={700} fontFamily={theme.fontFamily}>{category.title}</text>
+            <text x={plotLeft + plotWidth / 2} y={74} textAnchor="middle" fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{persons.length} people</text>
+
+            {gridYears.map((y) => (
+              <g key={y}>
+                <line x1={plotLeft} y1={yearToY(y)} x2={plotRight} y2={yearToY(y)} stroke={theme.connector} strokeWidth={0.5} opacity={0.4} />
+                <text x={axisX} y={yearToY(y) + 4} textAnchor="end" fill={theme.textMuted} fontSize={11} fontFamily={theme.fontFamily}>{y}</text>
+              </g>
+            ))}
+
+            {ribbons.map((r, i) => {
+              const cx = plotLeft + ribbonSlot * (i + 0.5);
+              const yTop = yearToY(r.max);
+              const yBottom = yearToY(r.min);
+              const color = ribbonColor(i);
+              return (
+                <g key={r.value}>
+                  <rect
+                    x={cx - ribbonWidth / 2}
+                    y={yTop}
+                    width={ribbonWidth}
+                    height={Math.max(4, yBottom - yTop)}
+                    rx={ribbonWidth / 2}
+                    fill={color}
+                    opacity={0.9}
+                  />
+                  <text
+                    x={cx}
+                    y={plotBottom + 18}
+                    textAnchor="middle"
+                    fill={theme.text}
+                    fontSize={11}
+                    fontFamily={theme.fontFamily}
+                    transform={`rotate(-35 ${cx} ${plotBottom + 18})`}
+                  >
+                    {r.value}
+                  </text>
+                </g>
+              );
+            })}
+
+            {ribbons.length === 0 && (
+              <text x={plotLeft + plotWidth / 2} y={plotTop + chartHeight / 2} textAnchor="middle" fill={theme.textMuted} fontSize={14} fontFamily={theme.fontFamily}>
+                No data available for this category.
+              </text>
+            )}
+          </g>
+        </ChartCanvas>
+      </div>
+      <aside style={{ width: 260, borderInlineStart: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', overflowY: 'auto', padding: '12px 0' }}>
+        {DISTRIBUTION_CATEGORIES.map((c) => {
+          const selected = c.id === category.id;
           return (
-            <g key={bar.label} transform={`translate(0,${y})`}>
-              <text x={0} y={18} fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{bar.label}</text>
-              <rect x={70} y={2} width={width} height={22} fill={theme.gender[index % 4]?.fill || '#7aa2ff'} stroke={theme.gender[index % 4]?.stroke || theme.connector} rx={4} />
-              <text x={80 + width} y={18} fill={theme.text} fontSize={12} fontFamily={theme.fontFamily}>{bar.count}</text>
-            </g>
+            <button
+              key={c.id}
+              onClick={() => setCategoryId(c.id)}
+              style={{
+                display: 'block',
+                width: '100%',
+                textAlign: 'start',
+                padding: '10px 16px',
+                border: 'none',
+                borderInlineStart: selected ? '3px solid hsl(var(--primary))' : '3px solid transparent',
+                background: selected ? 'hsl(var(--accent))' : 'transparent',
+                color: 'hsl(var(--foreground))',
+                cursor: 'pointer',
+                font: '13px -apple-system, system-ui, sans-serif',
+              }}
+            >
+              <div style={{ fontWeight: 600, marginBottom: 2 }}>{c.title}</div>
+              <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, lineHeight: 1.35 }}>{c.description}</div>
+            </button>
           );
         })}
-      </g>
-    </ChartCanvas>
+      </aside>
+    </div>
   );
 }
 

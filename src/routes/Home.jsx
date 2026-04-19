@@ -70,7 +70,7 @@ export function Home() {
     (location.hash ? location.hash.replace(/^#/, '') : '');
 
   return (
-    <div className="max-w-5xl mx-auto px-6 py-8 pb-16 h-full overflow-auto">
+    <div className="px-6 py-8 pb-16 h-full overflow-auto">
       <section className="mb-8">
         <h1 className="text-3xl font-bold mb-3">Your family tree, in the browser</h1>
         <p className="text-muted-foreground leading-relaxed max-w-3xl">
@@ -152,7 +152,7 @@ export function Home() {
               role="button"
               tabIndex={0}
               aria-current={focused ? 'true' : undefined}
-              className={`p-4.5 rounded-xl border bg-card cursor-pointer hover:border-muted-foreground/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 ${focused ? 'border-primary' : 'border-border'}`}
+              className={`p-4 rounded-xl border bg-card cursor-pointer hover:border-muted-foreground/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50 ${focused ? 'border-primary' : 'border-border'}`}
             >
               <div className="text-base font-semibold flex justify-between mb-1.5">
                 {s.title} <span className="text-primary">→</span>

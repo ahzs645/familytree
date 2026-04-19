@@ -8,12 +8,42 @@ import { ChartCanvas } from './ChartCanvas.jsx';
 import { PersonNode } from './PersonNode.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutAncestors } from './layouts/ancestorLayout.js';
+import { layoutAncestorsUpward } from './layouts/ancestorUpwardLayout.js';
 import { layoutDescendants } from './layouts/descendantLayout.js';
 
 const PADDING = 30;
 const HALF_GAP = 40;
 
-export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange }) {
+export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, variant = 'horizontal' }) {
+  if (variant === 'symmetrical') {
+    return (
+      <SymmetricalTree
+        ancestorTree={ancestorTree}
+        descendantTree={descendantTree}
+        generations={generations}
+        onPersonClick={onPersonClick}
+        theme={theme}
+        page={page}
+        overlays={overlays}
+        onOverlaysChange={onOverlaysChange}
+      />
+    );
+  }
+  return (
+    <HorizontalTree
+      ancestorTree={ancestorTree}
+      descendantTree={descendantTree}
+      generations={generations}
+      onPersonClick={onPersonClick}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+    />
+  );
+}
+
+function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange }) {
   const layout = useMemo(() => {
     const ancestors = layoutAncestors(ancestorTree, generations, theme);
     const descendants = layoutDescendants(descendantTree, theme);
@@ -29,14 +59,23 @@ export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPer
       })),
     };
 
-    // Descendant layout starts at x=0; shift right of ancestor span.
-    const dx = ancestors.width + HALF_GAP;
-    // Vertical centering: align ancestor proband (rightmost) with descendant root (top-left).
-    const probandY = mirrored.nodes.find((n) => n.id === '0-0')?.y ?? 0;
-    const descRootY = descendants.nodes[0]?.y ?? 0;
+    // Descendant layout starts at x=0; drop the root (same person as the ancestor
+    // proband) and anchor the rest just to the right of it.
+    const rootNode = descendants.nodes[0];
+    const rootId = rootNode?.id;
+    const probandNode = mirrored.nodes.find((n) => n.id === '0-0');
+    const probandX = probandNode?.x ?? 0;
+    const probandY = probandNode?.y ?? 0;
+    const descRootX = rootNode?.x ?? 0;
+    const descRootY = rootNode?.y ?? 0;
+    // Shift so the descendant root position coincides with the proband, then the
+    // root's children fall one generation to its right.
+    const dx = probandX - descRootX;
     const dy = probandY - descRootY;
 
-    const descNodes = descendants.nodes.map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
+    const descNodes = descendants.nodes
+      .filter((n) => n.id !== rootId)
+      .map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
     const descLinks = descendants.links.map((l) => ({
       d: l.d
         .replace(/M ([\d.]+) ([\d.]+)/g, (_m, x, y) => `M ${parseFloat(x) + dx} ${parseFloat(y) + dy}`)
@@ -80,6 +119,55 @@ export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPer
         {layout.descNodes.map((n, i) => (
           <PersonNode
             key={'dn-' + n.id + '-' + i}
+            x={n.x}
+            y={n.y}
+            person={n.person}
+            placeholder={n.placeholder}
+            theme={theme}
+            onClick={onPersonClick}
+          />
+        ))}
+      </g>
+    </ChartCanvas>
+  );
+}
+
+function SymmetricalTree({ ancestorTree, descendantTree, generations, onPersonClick, theme, page, overlays, onOverlaysChange }) {
+  const layout = useMemo(() => {
+    const upper = layoutAncestorsUpward(ancestorTree, generations, theme);
+    const descendants = layoutDescendants(descendantTree, theme);
+
+    const rootNode = descendants.nodes[0];
+    const rootId = rootNode?.id;
+    const dx = rootNode ? (upper.probandX - theme.nodeWidth / 2) - rootNode.x : 0;
+    const dy = rootNode ? upper.probandY - rootNode.y : upper.probandY;
+    const lowerNodes = descendants.nodes
+      .filter((n) => n.id !== rootId)
+      .map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
+    const lowerLinks = descendants.links.map((l) => ({
+      d: l.d
+        .replace(/M ([\d.]+) ([\d.]+)/g, (_m, x, y) => `M ${parseFloat(x) + dx} ${parseFloat(y) + dy}`)
+        .replace(/H ([\d.]+)/g, (_m, x) => `H ${parseFloat(x) + dx}`)
+        .replace(/V ([\d.]+)/g, (_m, y) => `V ${parseFloat(y) + dy}`),
+    }));
+
+    return {
+      nodes: [...upper.nodes, ...lowerNodes],
+      links: [...upper.links, ...lowerLinks],
+    };
+  }, [ancestorTree, descendantTree, generations, theme]);
+
+  if (!ancestorTree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+
+  return (
+    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+      <g transform={`translate(${PADDING},${PADDING})`}>
+        {layout.links.map((l, i) => (
+          <path key={i} d={l.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
+        ))}
+        {layout.nodes.map((n, i) => (
+          <PersonNode
+            key={n.id + '-' + i}
             x={n.x}
             y={n.y}
             person={n.person}
