@@ -14,7 +14,7 @@ import { layoutDescendants } from './layouts/descendantLayout.js';
 const PADDING = 30;
 const HALF_GAP = 40;
 
-export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, variant = 'horizontal' }) {
+export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, variant = 'horizontal', chartCanvasRef, ...overlayProps }) {
   if (variant === 'symmetrical') {
     return (
       <SymmetricalTree
@@ -26,6 +26,8 @@ export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPer
         page={page}
         overlays={overlays}
         onOverlaysChange={onOverlaysChange}
+        chartCanvasRef={chartCanvasRef}
+        {...overlayProps}
       />
     );
   }
@@ -39,11 +41,13 @@ export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPer
       page={page}
       overlays={overlays}
       onOverlaysChange={onOverlaysChange}
+      chartCanvasRef={chartCanvasRef}
+      {...overlayProps}
     />
   );
 }
 
-function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange }) {
+function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const layout = useMemo(() => {
     const ancestors = layoutAncestors(ancestorTree, generations, theme);
     const descendants = layoutDescendants(descendantTree, theme);
@@ -89,7 +93,14 @@ function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPerso
   if (!ancestorTree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
 
   return (
-    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+    <ChartCanvas
+      ref={chartCanvasRef}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+      {...overlayProps}
+    >
       <g transform={`translate(${PADDING},${PADDING})`}>
         {layout.ancestor.links.map((l, i) => {
           const midX = (l.from.x + l.toFather.x) / 2;
@@ -132,7 +143,7 @@ function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPerso
   );
 }
 
-function SymmetricalTree({ ancestorTree, descendantTree, generations, onPersonClick, theme, page, overlays, onOverlaysChange }) {
+function SymmetricalTree({ ancestorTree, descendantTree, generations, onPersonClick, theme, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const layout = useMemo(() => {
     const upper = layoutAncestorsUpward(ancestorTree, generations, theme);
     const descendants = layoutDescendants(descendantTree, theme);
@@ -160,7 +171,14 @@ function SymmetricalTree({ ancestorTree, descendantTree, generations, onPersonCl
   if (!ancestorTree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
 
   return (
-    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+    <ChartCanvas
+      ref={chartCanvasRef}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+      {...overlayProps}
+    >
       <g transform={`translate(${PADDING},${PADDING})`}>
         {layout.links.map((l, i) => (
           <path key={i} d={l.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />

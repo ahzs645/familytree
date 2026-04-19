@@ -11,12 +11,19 @@ import { layoutAncestors } from './layouts/ancestorLayout.js';
 
 const PADDING = 30;
 
-export function AncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange }) {
+export function AncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const { nodes, links } = useMemo(() => layoutAncestors(tree, generations, theme), [tree, generations, theme]);
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
 
   return (
-    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+    <ChartCanvas
+      ref={chartCanvasRef}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+      {...overlayProps}
+    >
       <g transform={`translate(${PADDING},${PADDING})`}>
         {links.map((l, i) => {
           const midX = (l.from.x + l.toFather.x) / 2;

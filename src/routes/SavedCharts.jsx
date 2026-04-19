@@ -191,7 +191,7 @@ export default function SavedCharts() {
                     {view.fields?.author?.value || 'MacFamilyTree import'}
                     {' · '}{importedLayoutStatus(view)}
                   </div>
-                  <button onClick={() => navigate('/charts?type=tree')}
+                  <button onClick={() => navigate(`/charts?imported=${encodeURIComponent(view.recordName)}`)}
                     className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">
                     Open Web Chart
                   </button>

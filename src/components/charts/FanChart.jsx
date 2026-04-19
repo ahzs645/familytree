@@ -37,7 +37,7 @@ function personSubtext(person, gen) {
   return lines;
 }
 
-export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, arcDegrees, page, overlays, onOverlaysChange }) {
+export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, arcDegrees, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const { slices, totalRadius, size, probandRadius } = useMemo(
     () => layoutFan(tree, generations, { arcDegrees }),
     [tree, generations, arcDegrees]
@@ -48,7 +48,14 @@ export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT
   const cy = size / 2;
 
   return (
-    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+    <ChartCanvas
+      ref={chartCanvasRef}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+      {...overlayProps}
+    >
       <g transform={`translate(${PADDING},${PADDING})`}>
         <g transform={`translate(${cx},${cy})`}>
           {slices.map((s, i) => {

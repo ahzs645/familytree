@@ -1,27 +1,43 @@
 /**
  * Pan/zoom SVG container shared by every chart type.
- * Children are rendered inside a <g transform="..."> that responds to wheel + drag.
+ * Children are rendered inside a <g transform="...")> that responds to wheel + drag.
  */
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useImperativeHandle } from 'react';
 import { DEFAULT_THEME } from './theme.js';
+import { exportChartAsPng, exportChartAsSvg, printChartViaPdf } from '../../lib/chartExport.js';
 
-export function ChartCanvas({
-  width = '100%',
-  height = '100%',
-  minZoom = 0.15,
-  maxZoom = 4,
-  theme = DEFAULT_THEME,
-  page = {},
-  overlays = [],
-  onOverlaysChange,
-  children,
-}) {
+export const ChartCanvas = React.forwardRef(function ChartCanvas(
+  {
+    width = '100%',
+    height = '100%',
+    minZoom = 0.15,
+    maxZoom = 4,
+    theme = DEFAULT_THEME,
+    page = {},
+    overlays = [],
+    onOverlaysChange,
+    onOverlaysPreview,
+    onOverlaysCommit,
+    onSelectOverlay,
+    selectedOverlayId,
+    filename,
+    children,
+  },
+  ref
+) {
   const svgRef = useRef(null);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const drag = useRef(null);
   const overlayDrag = useRef(null);
   const pointers = useRef(new Map());
   const pinch = useRef(null);
+
+  const emitOverlays = useCallback((next, options = {}) => {
+    const { finalize = false } = options;
+    const updater = finalize ? onOverlaysCommit : onOverlaysPreview;
+    const callback = updater || onOverlaysChange;
+    callback?.(next, { finalize });
+  }, [onOverlaysChange, onOverlaysPreview, onOverlaysCommit]);
 
   const onWheel = useCallback(
     (e) => {
@@ -48,13 +64,29 @@ export function ChartCanvas({
     return () => svg.removeEventListener('wheel', onWheel);
   }, [onWheel]);
 
+  const finalizeOverlayDrag = () => {
+    if (!overlayDrag.current) return;
+    const next = overlayDrag.current.preview;
+    if (next) {
+      emitOverlays(next, { finalize: true });
+    }
+    overlayDrag.current = null;
+  };
+
   const onPointerDown = (e) => {
-    try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) { /* noop */ }
     pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pointers.current.size === 2) {
+      try { e.currentTarget.setPointerCapture?.(e.pointerId); } catch (_) { /* noop */ }
       const [a, b] = [...pointers.current.values()];
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
-      pinch.current = { dist, k: view.k, cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2, vx: view.x, vy: view.y };
+      pinch.current = {
+        dist,
+        k: view.k,
+        cx: (a.x + b.x) / 2,
+        cy: (a.y + b.y) / 2,
+        vx: view.x,
+        vy: view.y,
+      };
       drag.current = null;
       return;
     }
@@ -88,63 +120,50 @@ export function ChartCanvas({
       const { id, startX, startY, original } = overlayDrag.current;
       const dx = e.clientX - startX;
       const dy = e.clientY - startY;
-      onOverlaysChange?.(
-        overlays.map((overlay) => overlay.id === id ? moveOverlay(original, dx, dy) : overlay)
-      );
+      const next = overlays.map((overlay) => (overlay.id === id ? moveOverlay(original, dx, dy) : overlay));
+      overlayDrag.current.preview = next;
+      emitOverlays(next, { finalize: false });
       return;
     }
     if (!drag.current) return;
-    setView((v) => ({ ...v, x: drag.current.vx + (e.clientX - drag.current.x), y: drag.current.vy + (e.clientY - drag.current.y) }));
+    setView((v) => ({
+      ...v,
+      x: drag.current.vx + (e.clientX - drag.current.x),
+      y: drag.current.vy + (e.clientY - drag.current.y),
+    }));
   };
 
   const onPointerUp = (e) => {
-    pointers.current.delete(e.pointerId);
+    if (overlayDrag.current) {
+      finalizeOverlayDrag();
+    }
+    pointers.current.delete(e?.pointerId);
     if (pointers.current.size < 2) pinch.current = null;
     if (pointers.current.size === 0) {
       drag.current = null;
-      overlayDrag.current = null;
     }
   };
 
-  const reset = () => setView({ x: 0, y: 0, k: 1 });
+  const onReset = () => setView({ x: 0, y: 0, k: 1 });
   const background = page.backgroundColor || theme.background;
 
-  const exportSvg = () => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const clone = svg.cloneNode(true);
-    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    clone.setAttribute('width', exportSize(page).width);
-    clone.setAttribute('height', exportSize(page).height);
-    downloadBlob(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' }), safeFilename(page.title || 'chart', 'svg'));
+  const exportOptions = {
+    page,
+    filename: filename || page.title || 'chart',
   };
 
-  const exportPng = () => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const size = exportSize(page);
-    const clone = svg.cloneNode(true);
-    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    clone.setAttribute('width', size.width);
-    clone.setAttribute('height', size.height);
-    const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = size.width;
-      canvas.height = size.height;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = background;
-      ctx.fillRect(0, 0, size.width, size.height);
-      ctx.drawImage(img, 0, 0, size.width, size.height);
-      URL.revokeObjectURL(url);
-      canvas.toBlob((png) => {
-        if (png) downloadBlob(png, safeFilename(page.title || 'chart', 'png'));
-      }, 'image/png');
-    };
-    img.src = url;
-  };
+  const onExportSvg = () => exportChartAsSvg(svgRef.current, exportOptions);
+  const onExportPng = () => exportChartAsPng(svgRef.current, exportOptions, background);
+  const onPrint = () => printChartViaPdf(svgRef.current, exportOptions);
+
+  useImperativeHandle(ref, () => ({
+    focusRoot: () => onReset(),
+    resetView: () => onReset(),
+    exportSvg: onExportSvg,
+    exportPng: onExportPng,
+    exportPdf: onPrint,
+    print: onPrint,
+  }), [onReset, onExportSvg, onExportPng, onPrint]);
 
   return (
     <div style={{ position: 'relative', width, height, background, overflow: 'hidden' }}>
@@ -170,8 +189,11 @@ export function ChartCanvas({
         <OverlayLayer
           overlays={overlays}
           theme={theme}
+          selectedOverlayId={selectedOverlayId}
+          onSelect={onSelectOverlay}
           onDragStart={(event, overlay) => {
             event.stopPropagation();
+            onSelectOverlay?.(overlay.id);
             overlayDrag.current = {
               id: overlay.id,
               startX: event.clientX,
@@ -182,62 +204,87 @@ export function ChartCanvas({
         />
       </svg>
       <div style={{ position: 'absolute', top: 12, insetInlineEnd: 12, display: 'flex', gap: 6 }}>
-        <button onClick={() => setView((v) => ({ ...v, k: Math.min(maxZoom, v.k * 1.2) }))} style={btn}>+</button>
-        <button onClick={() => setView((v) => ({ ...v, k: Math.max(minZoom, v.k / 1.2) }))} style={btn}>−</button>
-        <button onClick={reset} style={btn}>Reset</button>
-        <button onClick={exportSvg} style={btn}>SVG</button>
-        <button onClick={exportPng} style={btn}>PNG</button>
+        <button onClick={() => setView((v) => ({ ...v, k: Math.min(maxZoom, v.k * 1.2) }))} style={btn}>＋</button>
+        <button onClick={() => setView((v) => ({ ...v, k: Math.max(minZoom, v.k / 1.2) }))} style={btn}>－</button>
+        <button onClick={onReset} style={btn}>Reset</button>
+        <button onClick={onExportSvg} style={btn}>SVG</button>
+        <button onClick={onExportPng} style={btn}>PNG</button>
+        <button onClick={onPrint} style={btn}>PDF</button>
       </div>
     </div>
   );
-}
+});
 
-function OverlayLayer({ overlays, theme, onDragStart }) {
+function OverlayLayer({ overlays, theme, onDragStart, onSelect, selectedOverlayId }) {
   if (!Array.isArray(overlays) || overlays.length === 0) return null;
   return (
     <g>
       {overlays.map((overlay) => {
+        const isSelected = overlay.id === selectedOverlayId;
         if (overlay.type === 'line') {
+          const stroke = isSelected ? '#1e88e5' : (overlay.color || theme.text);
+          const strokeWidth = isSelected ? (overlay.strokeWidth || 2) + 1 : (overlay.strokeWidth || 2);
           return (
-            <g key={overlay.id} onPointerDown={(event) => onDragStart(event, overlay)} style={{ cursor: 'move' }}>
-              <line
-                x1={overlay.x1}
-                y1={overlay.y1}
-                x2={overlay.x2}
-                y2={overlay.y2}
-                stroke={overlay.color || theme.text}
-                strokeWidth={overlay.strokeWidth || 2}
-              />
+            <g
+              key={overlay.id}
+              onPointerDown={(event) => {
+                onSelect?.(overlay.id);
+                onDragStart(event, overlay);
+              }}
+              style={{ cursor: 'move' }}
+            >
+              <line x1={overlay.x1} y1={overlay.y1} x2={overlay.x2} y2={overlay.y2} stroke={stroke} strokeWidth={strokeWidth} />
               <line x1={overlay.x1} y1={overlay.y1} x2={overlay.x2} y2={overlay.y2} stroke="transparent" strokeWidth={12} />
             </g>
           );
         }
+
         if (overlay.type === 'image') {
           return (
-            <image
-              key={overlay.id}
-              href={overlay.href}
-              x={overlay.x}
-              y={overlay.y}
-              width={overlay.width || 180}
-              height={overlay.height || 120}
-              preserveAspectRatio="xMidYMid meet"
-              style={{ cursor: 'move' }}
-              onPointerDown={(event) => onDragStart(event, overlay)}
-            />
+            <g key={overlay.id}>
+              <image
+                href={overlay.href}
+                x={overlay.x}
+                y={overlay.y}
+                width={overlay.width || 180}
+                height={overlay.height || 120}
+                preserveAspectRatio="xMidYMid meet"
+                style={{ cursor: 'move' }}
+                onPointerDown={(event) => {
+                  onSelect?.(overlay.id);
+                  onDragStart(event, overlay);
+                }}
+              />
+              {isSelected && (
+                <rect
+                  x={overlay.x}
+                  y={overlay.y}
+                  width={overlay.width || 180}
+                  height={overlay.height || 120}
+                  fill="none"
+                  stroke="#1e88e5"
+                  strokeDasharray="4 3"
+                  strokeWidth={1.5}
+                />
+              )}
+            </g>
           );
         }
+
         return (
           <text
             key={overlay.id}
             x={overlay.x}
             y={overlay.y}
-            fill={overlay.color || theme.text}
+            fill={isSelected ? '#1e88e5' : (overlay.color || theme.text)}
             fontSize={overlay.fontSize || 18}
             fontFamily={theme.fontFamily}
             fontWeight={overlay.bold ? 700 : 500}
             style={{ cursor: 'move', userSelect: 'none' }}
-            onPointerDown={(event) => onDragStart(event, overlay)}
+            onPointerDown={(event) => {
+              onSelect?.(overlay.id);
+              onDragStart(event, overlay);
+            }}
           >
             {overlay.text || 'Text'}
           </text>
@@ -260,32 +307,6 @@ function moveOverlay(overlay, dx, dy) {
   return { ...overlay, x: overlay.x + dx, y: overlay.y + dy };
 }
 
-function exportSize(page = {}) {
-  const sizes = {
-    letter: [1056, 816],
-    a4: [1123, 794],
-    legal: [1344, 816],
-  };
-  const [landscapeWidth, landscapeHeight] = sizes[page.size] || sizes.letter;
-  if (page.orientation === 'portrait') return { width: landscapeHeight, height: landscapeWidth };
-  return { width: landscapeWidth, height: landscapeHeight };
-}
-
-function safeFilename(base, ext) {
-  return `${String(base || 'chart').replace(/[^\w-]+/g, '_')}.${ext}`;
-}
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 200);
-}
-
 const btn = {
   background: 'hsl(var(--secondary))',
   color: 'hsl(var(--foreground))',
@@ -295,5 +316,7 @@ const btn = {
   font: '13px -apple-system, system-ui, sans-serif',
   cursor: 'pointer',
 };
+
+ChartCanvas.displayName = 'ChartCanvas';
 
 export default ChartCanvas;

@@ -98,7 +98,7 @@ function collectDescendantPersons(tree, out = [], seen = new Set()) {
   return out;
 }
 
-export function CircularAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange }) {
+export function CircularAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const layout = useMemo(() => {
     const { nodes, links } = collectAncestors(tree, generations);
     const cx = 720;
@@ -141,7 +141,14 @@ export function CircularAncestorChart({ tree, generations = 5, onPersonClick, th
 
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
   return (
-    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+    <ChartCanvas
+      ref={chartCanvasRef}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+      {...overlayProps}
+    >
       {layout.links.map((link, i) => (
         <line
           key={i}
@@ -191,7 +198,7 @@ function buildRibbons(persons, category) {
     .slice(0, 16);
 }
 
-export function DistributionChart({ persons = [], theme = DEFAULT_THEME, page, overlays, onOverlaysChange }) {
+export function DistributionChart({ persons = [], theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const [categoryId, setCategoryId] = useState(DISTRIBUTION_CATEGORIES[0].id);
   const category = DISTRIBUTION_CATEGORIES.find((c) => c.id === categoryId) || DISTRIBUTION_CATEGORIES[0];
 
@@ -217,7 +224,14 @@ export function DistributionChart({ persons = [], theme = DEFAULT_THEME, page, o
   return (
     <div style={{ display: 'flex', height: '100%' }}>
       <div style={{ flex: 1, position: 'relative' }}>
-        <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+        <ChartCanvas
+          ref={chartCanvasRef}
+          theme={theme}
+          page={page}
+          overlays={overlays}
+          onOverlaysChange={onOverlaysChange}
+          {...overlayProps}
+        >
           <g>
             <text x={plotLeft + plotWidth / 2} y={50} textAnchor="middle" fill={theme.text} fontSize={24} fontWeight={700} fontFamily={theme.fontFamily}>{category.title}</text>
             <text x={plotLeft + plotWidth / 2} y={74} textAnchor="middle" fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{persons.length} people</text>
@@ -298,7 +312,7 @@ export function DistributionChart({ persons = [], theme = DEFAULT_THEME, page, o
   );
 }
 
-export function TimelineChart({ ancestorTree, descendantTree, theme = DEFAULT_THEME, page, overlays, onOverlaysChange }) {
+export function TimelineChart({ ancestorTree, descendantTree, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const rows = useMemo(() => {
     const map = new Map();
     for (const node of collectAncestors(ancestorTree, 6).nodes) if (node.person) map.set(node.person.recordName, node.person);
@@ -313,7 +327,14 @@ export function TimelineChart({ ancestorTree, descendantTree, theme = DEFAULT_TH
   const max = Math.max(...rows.map((row) => row.death || row.birth), min + 1);
   const scale = (year) => 220 + ((year - min) / Math.max(1, max - min)) * 760;
   return (
-    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+    <ChartCanvas
+      ref={chartCanvasRef}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+      {...overlayProps}
+    >
       <g transform="translate(30,90)">
         <text x={190} y={-28} fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{min} - {max}</text>
         {rows.map((row, index) => {
@@ -333,11 +354,18 @@ export function TimelineChart({ ancestorTree, descendantTree, theme = DEFAULT_TH
   );
 }
 
-export function GenogramChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, sociogram = false, overlays, onOverlaysChange }) {
+export function GenogramChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, sociogram = false, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const layout = useMemo(() => layoutDescendants(tree, theme), [tree, theme]);
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
   return (
-    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+    <ChartCanvas
+      ref={chartCanvasRef}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+      {...overlayProps}
+    >
       <g transform="translate(40,80)">
         {layout.links.map((link, index) => (
           <path key={index} d={link.d} fill="none" stroke={sociogram ? '#d08c60' : theme.connector} strokeWidth={sociogram ? 2.4 : theme.connectorWidth} strokeDasharray={sociogram ? '6 4' : 'none'} />
@@ -355,7 +383,7 @@ export function GenogramChart({ tree, onPersonClick, theme = DEFAULT_THEME, page
   );
 }
 
-export function FractalAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, variant = 'fractal', overlays, onOverlaysChange }) {
+export function FractalAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, variant = 'fractal', overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const layout = useMemo(() => {
     const nodes = [];
     const links = [];
@@ -380,7 +408,14 @@ export function FractalAncestorChart({ tree, generations = 5, onPersonClick, the
   }, [tree, generations, variant]);
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
   return (
-    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+    <ChartCanvas
+      ref={chartCanvasRef}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+      {...overlayProps}
+    >
       {layout.links.map((link, index) => (
         <path key={index} d={`M ${link.from.x + theme.nodeWidth / 2} ${link.from.y + theme.nodeHeight} L ${link.to.x + theme.nodeWidth / 2} ${link.to.y}`} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
       ))}

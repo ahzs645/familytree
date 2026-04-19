@@ -15,7 +15,7 @@ import {
 
 const PADDING = 30;
 
-export function VirtualTreeDiagram({ tree, source = 'descendant', onPersonClick, theme = DEFAULT_THEME, options = {}, page, overlays, onOverlaysChange }) {
+export function VirtualTreeDiagram({ tree, source = 'descendant', onPersonClick, theme = DEFAULT_THEME, options = {}, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const hierarchy = useMemo(() => {
     if (!tree) return null;
     return source === 'ancestor' ? hierarchyFromAncestors(tree) : hierarchyFromDescendants(tree);
@@ -25,7 +25,14 @@ export function VirtualTreeDiagram({ tree, source = 'descendant', onPersonClick,
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
 
   return (
-    <ChartCanvas theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange}>
+    <ChartCanvas
+      ref={chartCanvasRef}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+      {...overlayProps}
+    >
       <g transform={`translate(${PADDING},${PADDING})`}>
         {links.map((l, i) => (
           <path key={i} d={l.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
