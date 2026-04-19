@@ -181,7 +181,7 @@ export function ChartCanvas({
           }}
         />
       </svg>
-      <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 6 }}>
+      <div style={{ position: 'absolute', top: 12, insetInlineEnd: 12, display: 'flex', gap: 6 }}>
         <button onClick={() => setView((v) => ({ ...v, k: Math.min(maxZoom, v.k * 1.2) }))} style={btn}>+</button>
         <button onClick={() => setView((v) => ({ ...v, k: Math.max(minZoom, v.k / 1.2) }))} style={btn}>−</button>
         <button onClick={reset} style={btn}>Reset</button>

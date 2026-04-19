@@ -93,7 +93,7 @@ export default function ChangeLog() {
         >
           {ENTITY_TYPES.map((t) => <option key={t} value={t}>{t || 'All'}</option>)}
         </select>
-        <span className="ml-auto text-xs text-muted-foreground">
+        <span className="ms-auto text-xs text-muted-foreground">
           {loading ? 'Loading…' : `${entries.length} entries`}
         </span>
       </header>
@@ -116,14 +116,14 @@ export default function ChangeLog() {
                 <div key={e.recordName} className="bg-card border border-border rounded-md mb-1.5">
                   <button
                     onClick={() => toggle(e.recordName)}
-                    className="flex items-center w-full px-3 py-2.5 text-left hover:bg-secondary/40 transition-colors"
+                    className="flex items-center w-full px-3 py-2.5 text-start hover:bg-secondary/40 transition-colors"
                   >
                     {kind && <KindBadge kind={kind} />}
-                    <span className="flex-1 ml-3 text-sm">
-                      <span className="text-muted-foreground mr-2">{entityTypeOf(e) || 'Record'}</span>
+                    <span className="flex-1 ms-3 text-sm">
+                      <span className="text-muted-foreground me-2">{entityTypeOf(e) || 'Record'}</span>
                       <span className="text-foreground">{targetLabelOf(e) || targetIdOf(e)}</span>
                     </span>
-                    <span className="text-xs text-muted-foreground mr-3">{formatDate(timestampMillis(e))}</span>
+                    <span className="text-xs text-muted-foreground me-3">{formatDate(timestampMillis(e))}</span>
                     <span className="text-muted-foreground">{isOpen ? '▾' : '▸'}</span>
                   </button>
                   {isOpen && (
@@ -176,7 +176,7 @@ function SubEntries({ subs, entityType, author, targetId }) {
               {subEntryDescription(s, entityType)}
             </span>
             {ts && (
-              <span className="text-[11px] text-muted-foreground ml-2 whitespace-nowrap">
+              <span className="text-[11px] text-muted-foreground ms-2 whitespace-nowrap">
                 {new Date(ts).toLocaleString()}
               </span>
             )}

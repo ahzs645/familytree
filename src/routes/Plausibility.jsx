@@ -33,8 +33,8 @@ export default function Plausibility() {
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Plausibility checker</h1>
-        <span className="text-xs text-muted-foreground ml-2">{warnings.length} warnings</span>
-        <div className="ml-auto flex gap-2">
+        <span className="text-xs text-muted-foreground ms-2">{warnings.length} warnings</span>
+        <div className="ms-auto flex gap-2">
           {[['', 'All'], ['high', `High (${counts.high || 0})`], ['medium', `Medium (${counts.medium || 0})`], ['low', `Low (${counts.low || 0})`]].map(([id, lbl]) => (
             <button key={id} onClick={() => setFilter(id)}
               className={`text-xs px-3 py-1.5 rounded-md border ${filter === id ? 'bg-primary text-primary-foreground border-primary' : 'border-border bg-secondary text-foreground'}`}>

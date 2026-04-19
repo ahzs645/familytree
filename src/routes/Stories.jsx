@@ -154,7 +154,7 @@ export default function Stories() {
     <div className="p-5 max-w-4xl">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-semibold">{storyTitle(active)}</h2>
-        <button onClick={save} disabled={saving} className="ml-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold">{saving ? 'Saving...' : 'Save'}</button>
+        <button onClick={save} disabled={saving} className="ms-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold">{saving ? 'Saving...' : 'Save'}</button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldRow label="Title"><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>
@@ -167,7 +167,7 @@ export default function Stories() {
       <section className="mt-6 border border-border rounded-md p-3 bg-card">
         <div className="flex items-center mb-3">
           <h3 className="text-sm font-semibold">Sections · {storySections.length}</h3>
-          <button onClick={addSection} className="ml-auto bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">Add section</button>
+          <button onClick={addSection} className="ms-auto bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">Add section</button>
         </div>
         <div className="space-y-3">
           {storySections.map((section) => (
@@ -219,7 +219,7 @@ export default function Stories() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Stories</h1>
         <span className="text-xs text-muted-foreground">{stories.length}</span>
-        <button onClick={create} className="ml-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        <button onClick={create} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
       </header>
       <div className="flex-1 min-h-0">
         <MasterDetailList items={stories} activeId={activeId} onPick={setActiveId} renderRow={(s) => <div className="text-sm">{storyTitle(s)}</div>} placeholder="Search stories..." detail={detail} />

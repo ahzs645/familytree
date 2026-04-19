@@ -67,7 +67,7 @@ export default function Slideshow() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Slideshow</h1>
         <span className="text-xs text-muted-foreground">{index + 1} / {media.length}</span>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ms-auto flex items-center gap-2">
           <select value={filter} onChange={(e) => setFilter(e.target.value)}
             className="bg-secondary border border-border rounded-md px-2 py-1 text-xs">
             <option value="all">All media</option>
@@ -94,7 +94,7 @@ export default function Slideshow() {
             <div className="text-xs mt-2">No embedded image; only metadata is in this record.</div>
           </div>
         )}
-        <div className="absolute bottom-4 left-0 right-0 text-center text-sm bg-card/80 backdrop-blur px-4 py-2 mx-auto max-w-md rounded-md">
+        <div className="absolute bottom-4 start-0 end-0 text-center text-sm bg-card/80 backdrop-blur px-4 py-2 mx-auto max-w-md rounded-md">
           {caption}
         </div>
         <button onClick={() => setIndex((i) => (i - 1 + media.length) % media.length)}

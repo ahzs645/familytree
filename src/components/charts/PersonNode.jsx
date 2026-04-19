@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { lifeSpanLabel } from '../../models/index.js';
-import { textDirection, truncateGraphemes } from '../../lib/i18n.js';
+import { textDirection, wrapGraphemes } from '../../lib/i18n.js';
 import { DEFAULT_THEME } from './theme.js';
 
 export function PersonNode({
@@ -24,6 +24,8 @@ export function PersonNode({
   const spanDirection = textDirection(span, displayDirection);
   const displayX = displayDirection === 'rtl' ? theme.nodeWidth - 12 : 12;
   const spanX = spanDirection === 'rtl' ? theme.nodeWidth - 12 : 12;
+  const displayLines = wrapGraphemes(display, 20, 2);
+  const wrappedDisplay = displayLines.length > 1;
   const fill = placeholder ? theme.placeholderFill : colors.fill;
   const stroke = highlighted ? '#ffd166' : placeholder ? theme.placeholderStroke : colors.stroke;
   const strokeWidth = highlighted ? 2.5 : 1.5;
@@ -46,7 +48,7 @@ export function PersonNode({
       />
       <text
         x={displayX}
-        y={22}
+        y={wrappedDisplay ? 17 : 22}
         fill={theme.text}
         fontSize={13}
         fontFamily={theme.fontFamily}
@@ -54,12 +56,14 @@ export function PersonNode({
         direction={displayDirection}
         style={{ unicodeBidi: 'plaintext' }}
       >
-        {truncateGraphemes(display, 22)}
+        {displayLines.map((line, index) => (
+          <tspan key={index} x={displayX} dy={index === 0 ? 0 : 14}>{line}</tspan>
+        ))}
       </text>
       {span && (
         <text
           x={spanX}
-          y={40}
+          y={wrappedDisplay ? 47 : 40}
           fill={theme.textMuted}
           fontSize={11}
           fontFamily={theme.fontFamily}

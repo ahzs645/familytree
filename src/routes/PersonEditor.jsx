@@ -517,7 +517,7 @@ export default function PersonEditor() {
                   <button
                     key={fam.family.recordName}
                     onClick={() => navigate(`/family/${fam.family.recordName}`)}
-                    className="text-left p-3 rounded-md border border-border bg-secondary/30 hover:bg-secondary"
+                    className="text-start p-3 rounded-md border border-border bg-secondary/30 hover:bg-secondary"
                   >
                     <div className="text-xs text-muted-foreground mb-1">Family</div>
                     <div className="text-sm font-medium">{fam.partner?.fullName || 'Unknown partner'}</div>
@@ -544,7 +544,7 @@ function ParentsBlock({ context, onPick }) {
         .filter(Boolean)
         .map((p) => (
           <button key={p.recordName} onClick={() => onPick(p.recordName)}
-            className="text-left p-3 rounded-md border border-border bg-secondary/30 hover:bg-secondary">
+            className="text-start p-3 rounded-md border border-border bg-secondary/30 hover:bg-secondary">
             <div className="text-sm font-medium">{p.fullName}</div>
             <div className="text-xs text-muted-foreground">{lifeSpanLabel(p) || '—'}</div>
           </button>
@@ -584,7 +584,7 @@ function RelatedList({ items, emptyTitle, emptyHint }) {
       {items.map(({ rel, target, type }) => (
         <div key={rel.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
           <span className="text-sm truncate">
-            <span className="text-xs text-muted-foreground mr-2">{type}</span>
+            <span className="text-xs text-muted-foreground me-2">{type}</span>
             {target?.fields?.cached_fullName?.value || target?.fields?.title?.value || target?.fields?.name?.value || target?.recordName || readRef(rel.fields?.target)}
           </span>
         </div>

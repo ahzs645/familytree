@@ -43,7 +43,7 @@ export function MiniTimeline({ events = [], height = 56 }) {
   return (
     <div className="w-full" style={{ height }}>
       <div className="relative w-full" style={{ height: height - 18 }}>
-        <div className="absolute left-0 right-0 top-1/2 h-px bg-border" />
+        <div className="absolute start-0 end-0 top-1/2 h-px bg-border" />
         {points.map((p, i) => {
           const x = ((p.year - start) / range) * 100;
           const color = KIND_COLOR[p.label] || 'hsl(var(--primary))';
@@ -52,7 +52,7 @@ export function MiniTimeline({ events = [], height = 56 }) {
               key={i}
               title={`${p.label} · ${p.raw || p.year}`}
               className="absolute top-1/2 -translate-y-1/2 w-1 h-3 rounded-sm"
-              style={{ left: `calc(${x}% - 2px)`, background: color }}
+              style={{ insetInlineStart: `calc(${x}% - 2px)`, background: color }}
             />
           );
         })}

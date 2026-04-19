@@ -96,7 +96,7 @@ export default function DistinctivePersons() {
   if (loading) return <div className="p-10 text-muted-foreground">Loading distinctive persons...</div>;
 
   const filters = (
-    <div className="ml-auto flex flex-wrap items-center gap-2">
+    <div className="ms-auto flex flex-wrap items-center gap-2">
       <select value={matchMode} onChange={(event) => setMatchMode(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
         <option value="any">Match any rule</option>
         <option value="all">Match all rules</option>

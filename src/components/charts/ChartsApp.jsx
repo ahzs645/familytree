@@ -529,7 +529,7 @@ export function ChartsApp() {
         )}
         {chartType === 'virtual' && (
           <div style={{ display: 'flex', height: '100%' }}>
-            <aside style={{ width: 220, padding: 16, borderRight: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', color: 'hsl(var(--foreground))', fontSize: 13 }}>
+            <aside style={{ width: 220, padding: 16, borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', color: 'hsl(var(--foreground))', fontSize: 13 }}>
               <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 8, letterSpacing: 0.4 }}>VIRTUAL TREE OPTIONS</div>
               <label style={{ display: 'block', marginBottom: 10 }}>
                 <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Source</div>

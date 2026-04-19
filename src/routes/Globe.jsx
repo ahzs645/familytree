@@ -66,7 +66,7 @@ export default function Globe() {
         <span className="text-xs text-muted-foreground">
           {loading ? 'Loading…' : `${points.length} event location${points.length === 1 ? '' : 's'}`}
         </span>
-        <span className="ml-auto text-xs text-muted-foreground">3D projection · drag to rotate · scroll to zoom</span>
+        <span className="ms-auto text-xs text-muted-foreground">3D projection · drag to rotate · scroll to zoom</span>
       </header>
       <div className="flex-1 relative">
         <MapView

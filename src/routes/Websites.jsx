@@ -176,7 +176,7 @@ export default function Websites() {
               Configure and publish a static family website. Data import/export remains in <Link to="/export" className="text-primary hover:underline">Import & Export</Link>.
             </p>
           </div>
-          <Link to="/publish" className="ml-auto rounded-md border border-border bg-secondary px-3 py-2 text-xs font-medium hover:bg-accent">
+          <Link to="/publish" className="ms-auto rounded-md border border-border bg-secondary px-3 py-2 text-xs font-medium hover:bg-accent">
             Publish hub
           </Link>
         </div>

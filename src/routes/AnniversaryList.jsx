@@ -77,7 +77,7 @@ export default function AnniversaryList() {
 
   const filters = (
     <>
-      <label className="text-xs text-muted-foreground ml-auto">Type</label>
+      <label className="text-xs text-muted-foreground ms-auto">Type</label>
       <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
         <option value="">Birth and death</option>
         <option value="Birth">Birth</option>

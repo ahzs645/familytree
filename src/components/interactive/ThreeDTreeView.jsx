@@ -985,7 +985,7 @@ const styles = {
   controls: {
     position: 'absolute',
     top: 12,
-    right: 12,
+    insetInlineEnd: 12,
     display: 'flex',
     gap: 6,
     padding: 6,

@@ -73,7 +73,7 @@ export default function PlausibilityList() {
   if (loading) return <div className="p-10 text-muted-foreground">Running plausibility checks...</div>;
 
   const filters = (
-    <div className="ml-auto flex flex-wrap gap-2">
+    <div className="ms-auto flex flex-wrap gap-2">
       {[['', `All (${warnings.length})`], ['high', `High (${counts.high || 0})`], ['medium', `Medium (${counts.medium || 0})`], ['low', `Low (${counts.low || 0})`]].map(([id, label]) => (
         <button
           key={id}

@@ -34,6 +34,7 @@ import {
 import { renderHTML } from './reports/renderers/html.js';
 import { renderText } from './reports/renderers/text.js';
 import { buildSite } from './websiteExport.js';
+import { compareStrings, formatInteger } from './i18n.js';
 import { personSummary, sourceSummary } from '../models/index.js';
 
 const META_KEY = 'savedBooks';
@@ -214,7 +215,7 @@ async function buildPersonGroupInsert(groupRecordName) {
     const summary = personSummary(person);
     if (summary) people.push(summary);
   }
-  people.sort((a, b) => a.fullName.localeCompare(b.fullName));
+  people.sort((a, b) => compareStrings(a.fullName, b.fullName));
   return [
     block.title(readField(group, ['name', 'title'], 'Person Group'), 2),
     readField(group, ['description', 'userDescription'], '') ? block.paragraph(readField(group, ['description', 'userDescription'], '')) : null,
@@ -289,7 +290,7 @@ export async function downloadBookBundle(book, { includeWebsite = true, siteOpti
       if (entry.dir) continue;
       zip.file(`website/${entry.name}`, await entry.async('arraybuffer'));
       copied += 1;
-      onProgress?.({ phase: 'bundle', completed: copied, total: entries.length, message: `Bundled website file ${copied.toLocaleString()}.` });
+      onProgress?.({ phase: 'bundle', completed: copied, total: entries.length, message: `Bundled website file ${formatInteger(copied)}.` });
     }
   }
 

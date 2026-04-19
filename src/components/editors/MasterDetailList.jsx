@@ -59,7 +59,7 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
                 style={{
                   ...row,
                   background: (it.recordName || it.id) === activeId ? 'hsl(var(--secondary))' : 'transparent',
-                  borderLeft: (it.recordName || it.id) === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
+                  borderInlineStart: (it.recordName || it.id) === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
                 }}
               >
                 {renderRow(it)}
@@ -85,7 +85,7 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
 }
 
 const shell = { display: 'flex', height: '100%' };
-const left = { width: 300, borderRight: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', display: 'flex', flexDirection: 'column', flexShrink: 0 };
+const left = { width: 300, borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', display: 'flex', flexDirection: 'column', flexShrink: 0 };
 const mobileFullPane = { width: '100%', background: 'hsl(var(--card))', display: 'flex', flexDirection: 'column' };
 const mobileBackBar = {
   padding: '8px 12px',

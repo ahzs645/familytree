@@ -34,7 +34,7 @@ function ResultList({ items, columns }) {
       <div className="border border-border rounded-md max-h-72 overflow-auto">
         <table className="w-full text-xs">
           <thead className="sticky top-0 bg-secondary/60 backdrop-blur">
-            <tr>{columns.map((c) => <th key={c.key} className="text-left px-2.5 py-1.5 font-semibold">{c.label}</th>)}</tr>
+            <tr>{columns.map((c) => <th key={c.key} className="text-start px-2.5 py-1.5 font-semibold">{c.label}</th>)}</tr>
           </thead>
           <tbody>
             {items.slice(0, 200).map((it, i) => (

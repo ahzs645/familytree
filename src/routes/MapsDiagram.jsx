@@ -147,7 +147,7 @@ export default function MapsDiagram() {
             {loading ? 'Loading events…' : `${filtered.length} of ${events.length} event location${events.length === 1 ? '' : 's'} plotted`}
           </div>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="ms-auto flex flex-wrap items-center gap-2">
           <Link to="/events" className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Events</Link>
           <Link to="/places" className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Places</Link>
         </div>
@@ -184,7 +184,7 @@ export default function MapsDiagram() {
             />
             <button onClick={() => setYearRange(null)} className="text-xs text-primary hover:underline">Reset years</button>
           </div>
-          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
             <span className="inline-block h-3 w-3 rounded-full border-2 border-white bg-primary shadow" />
             Event location
           </div>
@@ -222,7 +222,7 @@ export default function MapsDiagram() {
                     onFocus={() => setHoveredId(event.recordName)}
                     onBlur={() => setHoveredId(null)}
                     onClick={() => setSelectedId(event.recordName)}
-                    className={`w-full rounded-md border p-2.5 text-left transition-colors ${active ? 'border-primary bg-accent' : 'border-border bg-background hover:bg-accent/60'}`}
+                    className={`w-full rounded-md border p-2.5 text-start transition-colors ${active ? 'border-primary bg-accent' : 'border-border bg-background hover:bg-accent/60'}`}
                   >
                     <div className="text-sm font-medium">{event.conclusionType}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground">{formatEventDate(event.date) || 'Undated'} · {event.placeName}</div>

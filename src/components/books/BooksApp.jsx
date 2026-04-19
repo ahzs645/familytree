@@ -17,6 +17,7 @@ import {
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { readField } from '../../lib/schema.js';
 import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
+import { compareStrings, formatInteger } from '../../lib/i18n.js';
 import { sourceSummary } from '../../models/index.js';
 import { SectionEditor } from './SectionEditor.jsx';
 import { ReportPreview } from '../reports/ReportPreview.jsx';
@@ -59,11 +60,11 @@ export function BooksApp() {
       setGroups(groupRows.records.map((group) => ({
         recordName: group.recordName,
         label: readField(group, ['name', 'title'], group.recordName),
-      })).sort((a, b) => a.label.localeCompare(b.label)));
+      })).sort((a, b) => compareStrings(a.label, b.label)));
       setSources(sourceRows.records.map((source) => ({
         recordName: source.recordName,
         label: sourceSummary(source)?.title || source.recordName,
-      })).sort((a, b) => a.label.localeCompare(b.label)));
+      })).sort((a, b) => compareStrings(a.label, b.label)));
       setLoading(false);
       if (list.length === 0) setEmpty(true);
     })();
@@ -172,8 +173,8 @@ export function BooksApp() {
         signal: controller.signal,
         onProgress: setProgress,
       });
-      const sitePart = result.website ? ` Website pages: ${result.website.pages.toLocaleString()}.` : '';
-      setStatus(`Book bundle downloaded with ${result.sections.toLocaleString()} sections.${sitePart}`);
+      const sitePart = result.website ? ` Website pages: ${formatInteger(result.website.pages)}.` : '';
+      setStatus(`Book bundle downloaded with ${formatInteger(result.sections)} sections.${sitePart}`);
     } catch (error) {
       if (error.name === 'AbortError') setStatus('Book bundle export canceled.');
       else setStatus(`Book bundle export failed: ${error.message}`);
@@ -187,7 +188,7 @@ export function BooksApp() {
   if (empty) {
     return (
       <div style={loadingStyle}>
-        No family data. <a href="/" style={{ color: 'hsl(var(--primary))', marginLeft: 6 }}>Import a .mftpkg</a> first.
+        No family data. <a href="/" style={{ color: 'hsl(var(--primary))', marginInlineStart: 6 }}>Import a .mftpkg</a> first.
       </div>
     );
   }
@@ -211,13 +212,13 @@ export function BooksApp() {
             {savedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
           </select>
         )}
-        <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+        <span style={{ marginInlineStart: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
           Export:
         </span>
         {EXPORT_FORMATS.map((f) => (
           <button key={f.id} onClick={() => onExport(f.id)} style={input}>{f.label}</button>
         ))}
-        <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, marginLeft: 8 }}>
+        <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, marginInlineStart: 8 }}>
           Publish:
         </span>
         <button onClick={onWebHTML} disabled={busy} style={input}>Web HTML</button>
@@ -274,7 +275,7 @@ export function BooksApp() {
 const shell = { display: 'flex', flexDirection: 'column', height: '100%', background: 'hsl(var(--background))' };
 const header = { display: 'flex', gap: 6, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', flexWrap: 'wrap' };
 const body = { flex: 1, display: 'flex', overflow: 'hidden' };
-const leftPane = { width: 360, display: 'flex', flexDirection: 'column', borderRight: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
+const leftPane = { width: 360, display: 'flex', flexDirection: 'column', borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
 const main = { flex: 1, overflow: 'auto' };
 const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer' };
 const statusBar = { display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 14px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))', fontSize: 12 };

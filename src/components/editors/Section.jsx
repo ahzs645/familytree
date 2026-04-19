@@ -59,7 +59,7 @@ export function Section({ title, accent = 'hsl(var(--primary))', icon, controls,
           />
         )}
         <h3 className="text-sm font-semibold text-foreground flex-1">{title}</h3>
-        {controls && <div className="ml-auto">{controls}</div>}
+        {controls && <div className="ms-auto">{controls}</div>}
       </div>
       <div className="p-4">{children}</div>
     </div>

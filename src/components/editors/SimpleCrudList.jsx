@@ -98,7 +98,7 @@ export function SimpleCrudList({
     <div className="p-5 max-w-2xl">
       <div className="flex items-center mb-4">
         <h2 className="text-base font-semibold truncate">{displayLabel(active)}</h2>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ms-auto flex items-center gap-2">
           {status && <span className="text-emerald-500 text-xs">{status}</span>}
           <button onClick={onDelete} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">Delete</button>
           <button onClick={onSave} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
@@ -139,7 +139,7 @@ export function SimpleCrudList({
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">{title}</h1>
         <span className="text-xs text-muted-foreground">{records.length}</span>
-        <button onClick={onCreate} className="ml-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        <button onClick={onCreate} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
       </header>
       <div className="flex-1 min-h-0">
         {records.length === 0 ? (

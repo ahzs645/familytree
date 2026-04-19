@@ -60,7 +60,7 @@ export default function Bookmarks() {
                   const href = t.route === 'person' || t.route === 'family' ? `/${t.route}/${r.recordName}` : `/${t.route}`;
                   return (
                     <button key={r.recordName} onClick={() => navigate(href)}
-                      className="text-left p-3 rounded-md border border-border bg-card hover:bg-secondary/40 transition-colors">
+                      className="text-start p-3 rounded-md border border-border bg-card hover:bg-secondary/40 transition-colors">
                       <div className="text-sm font-medium truncate">★ {label}</div>
                       <div className="text-[11px] text-muted-foreground mt-0.5">{r.recordName}</div>
                     </button>

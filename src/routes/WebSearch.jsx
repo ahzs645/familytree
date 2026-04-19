@@ -115,7 +115,7 @@ export default function WebSearch() {
             <h1 className="text-xl font-bold">Web Search</h1>
             <p className="text-sm text-muted-foreground mt-1">Person-aware search links and quick inserts back into the local tree.</p>
           </div>
-          {status && <span className="ml-auto text-xs text-emerald-500">{status}</span>}
+          {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5">

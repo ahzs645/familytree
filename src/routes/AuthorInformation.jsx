@@ -57,7 +57,7 @@ export default function AuthorInformation() {
             <h1 className="text-xl font-bold">Author Information</h1>
             <p className="text-sm text-muted-foreground mt-1">Tree-level author, contact, copyright, and presentation metadata.</p>
           </div>
-          {status && <span className="ml-auto text-xs text-emerald-500">{status}</span>}
+          {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
           <button onClick={save} className={primaryButton}>Save</button>
         </header>
 

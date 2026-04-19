@@ -201,3 +201,46 @@ export function truncateGraphemes(value, maxLength) {
   if (parts.length <= maxLength) return String(value ?? '');
   return `${parts.slice(0, Math.max(0, maxLength - 1)).join('')}…`;
 }
+
+export function wrapGraphemes(value, maxPerLine, maxLines = 2) {
+  const text = String(value ?? '').trim();
+  if (!text) return [''];
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let current = '';
+
+  const pushCurrent = () => {
+    if (!current) return;
+    lines.push(current);
+    current = '';
+  };
+
+  for (const word of words) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (graphemes(candidate).length <= maxPerLine) {
+      current = candidate;
+      continue;
+    }
+    pushCurrent();
+    if (graphemes(word).length <= maxPerLine) {
+      current = word;
+      continue;
+    }
+    let remaining = word;
+    while (remaining && lines.length < maxLines - 1) {
+      const part = graphemes(remaining);
+      lines.push(part.slice(0, maxPerLine).join(''));
+      remaining = part.slice(maxPerLine).join('');
+    }
+    current = remaining;
+  }
+  pushCurrent();
+
+  const bounded = lines.map((line) => (
+    graphemes(line).length > maxPerLine ? truncateGraphemes(line, maxPerLine) : line
+  ));
+  if (bounded.length <= maxLines) return bounded;
+  const visible = bounded.slice(0, maxLines);
+  visible[maxLines - 1] = truncateGraphemes(visible[maxLines - 1], Math.max(1, maxPerLine));
+  return visible;
+}

@@ -31,7 +31,7 @@ export default function Templates() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-2 px-5 py-3 border-b border-border bg-card flex-wrap">
-        <h1 className="text-base font-semibold mr-2">Templates &amp; Types</h1>
+        <h1 className="text-base font-semibold me-2">Templates &amp; Types</h1>
         {TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`px-3 py-1.5 rounded-md text-xs font-medium ${tab === t.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground border border-border hover:bg-accent'}`}>

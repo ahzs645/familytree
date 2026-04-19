@@ -64,7 +64,7 @@ export default function FactsList() {
 
   const filters = (
     <>
-      <label className="text-xs text-muted-foreground ml-auto">Fact type</label>
+      <label className="text-xs text-muted-foreground ms-auto">Fact type</label>
       <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
         <option value="">All types</option>
         {typeOptions.map((type) => <option key={type} value={type}>{type}</option>)}

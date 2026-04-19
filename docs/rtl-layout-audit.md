@@ -6,15 +6,15 @@ Audit date: 2026-04-18
 
 The app now has locale and direction preferences, root `lang`/`dir` wiring, bidi-safe labels in core list/search/chart paths, localized sorting/search helpers, MapLibre RTL plugin loading, and RTL-aware report/website HTML output.
 
-The remaining RTL work is layout cleanup, not data handling. A scan for physical direction styles still finds `ml-*`, `mr-*`, `text-left`, `text-right`, `borderLeft`, `borderRight`, `marginLeft`, `marginRight`, `paddingLeft`, `paddingRight`, and absolute `left`/`right` placement in route and component files.
+The high-priority physical layout cleanup has been completed. A follow-up scan for physical direction styles now only reports data structure keys (`left`/`right` in chart math), DOM geometry (`getBoundingClientRect().left`), and a generated record id prefix (`mr-imp`) that should stay unchanged.
 
-## Highest Priority Files
+## Completed Files
 
-- `src/routes/Media.jsx` uses physical `marginLeft`, `marginRight`, `borderLeft`, and `textAlign: 'left'` in the gallery detail panel.
-- `src/components/editors/MasterDetailList.jsx` uses `borderLeft` and `borderRight` for the shared master/detail shell.
-- `src/components/books/BooksApp.jsx`, `src/components/charts/ChartsApp.jsx`, `src/components/reports/ReportsApp.jsx`, and `src/components/reports/ReportPreview.jsx` still have physical sidebars, margins, and table alignment.
-- `src/routes/WorldHistory.jsx`, `src/components/MiniTimeline.jsx`, and slideshow controls use absolute `left`/`right` positioning that needs mirrored placement.
-- CRUD-heavy routes such as `ToDos`, `Labels`, `DNAResults`, `SourceRepositories`, `Stories`, `PersonGroups`, `FamilySearch`, and `Favorites` still use `ml-auto`, `mr-auto`, and `text-left`.
+- `src/routes/Media.jsx` now uses logical detail-panel borders.
+- `src/components/editors/MasterDetailList.jsx` now uses logical active-row borders and master/detail pane borders.
+- `src/components/books/BooksApp.jsx`, `src/components/charts/ChartsApp.jsx`, `src/components/reports/ReportsApp.jsx`, and `src/components/reports/ReportPreview.jsx` now use logical sidebars, margins, table alignment, and localized count formatting.
+- `src/routes/WorldHistory.jsx`, `src/components/MiniTimeline.jsx`, and slideshow controls now use logical timeline/absolute placement.
+- CRUD-heavy routes such as `ToDos`, `Labels`, `DNAResults`, `SourceRepositories`, `Stories`, `PersonGroups`, `FamilySearch`, and `Favorites` now use `ms-*`, `me-*`, and `text-start` utilities.
 
 ## Remediation Pattern
 

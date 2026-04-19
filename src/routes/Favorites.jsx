@@ -79,13 +79,13 @@ export default function Favorites() {
             <h1 className="text-xl font-bold">Favorites</h1>
             <p className="text-sm text-muted-foreground mt-1">Favorite functions and bookmarked records.</p>
           </div>
-          {status && <span className="ml-auto text-xs text-emerald-500">{status}</span>}
+          {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
           <button onClick={() => navigate('/settings')} className={secondaryButton}>Settings</button>
         </header>
 
         <section className="rounded-lg border border-border bg-card p-5 mb-5">
           <div className="flex flex-wrap items-end gap-3 mb-4">
-            <div className="mr-auto">
+            <div className="me-auto">
               <h2 className="text-base font-semibold">Favorite Functions</h2>
               <div className="text-xs text-muted-foreground mt-1">{favoriteFunctions.length} shortcuts</div>
             </div>
@@ -131,7 +131,7 @@ export default function Favorites() {
                         const label = summary.fullName || summary.familyName || summary.displayName || summary.name || summary.title || record.recordName;
                         const href = type.route === 'person' || type.route === 'family' ? `/${type.route}/${record.recordName}` : `/${type.route}`;
                         return (
-                          <button key={record.recordName} onClick={() => navigate(href)} className="text-left rounded-md border border-border bg-background p-3 hover:bg-secondary">
+                          <button key={record.recordName} onClick={() => navigate(href)} className="text-start rounded-md border border-border bg-background p-3 hover:bg-secondary">
                             <div className="text-sm font-medium truncate">{label}</div>
                             <div className="text-[11px] text-muted-foreground mt-1">{record.recordType}</div>
                           </button>

@@ -127,23 +127,23 @@ webtrees is the strongest genealogy reference for this work: it has Arabic trans
 - [x] Add a small app i18n layer for active locale, text direction, `Intl.Collator`, `Intl.NumberFormat`, Arabic search normalization, and reusable bidi text isolation.
 - [x] Add language/direction preferences, including locale, direction override, numbering system, and calendar.
 - [x] Set `document.documentElement.lang` and `document.documentElement.dir` from app preferences instead of leaving the app hard-coded to English/LTR.
-- [ ] Replace remaining physical left/right styling with logical equivalents such as `start`/`end`, `ms`/`me`, `ps`/`pe`, `text-start`, `border-inline-start`, and `inset-inline-end`. Current audit: [RTL Layout Audit](./rtl-layout-audit.md).
+- [x] Replace remaining physical left/right styling with logical equivalents such as `start`/`end`, `ms`/`me`, `ps`/`pe`, `text-start`, `border-inline-start`, and `inset-inline-end`. Current audit: [RTL Layout Audit](./rtl-layout-audit.md).
 - [x] Upgrade core people/search/list/report/export paths to use locale-aware collation plus normalized Arabic search keys while preserving original stored values.
 - [x] Make chart and tree labels bidi-safe and avoid UTF-16 string-length truncation.
-- [ ] Add grapheme-aware wrapping or measurement for long chart labels.
+- [x] Add grapheme-aware wrapping or measurement for long chart labels.
 - [x] Add MapLibre RTL text plugin loading so Arabic and Hebrew map labels render correctly.
 - [x] Add `lang`/`dir`, bidi isolation, and logical CSS to static website and report exports.
-- [ ] Audit generated PDFs/reports/books for RTL text, numbers, punctuation, and table alignment.
-- [ ] Add Arabic fixture-driven smoke checks for people lists, search, charts, maps, reports, and exports.
+- [x] Audit generated PDFs/reports/books for RTL text, numbers, punctuation, and table alignment.
+- [ ] Add Arabic fixture-driven browser smoke checks for people lists, charts, maps, reports, and exports.
 
 ### Next Arabic/RTL Work
 
-- [ ] Finish the RTL layout audit across the rest of the app: replace remaining `ml-*`, `mr-*`, `text-left`, `borderLeft`, `borderRight`, and physical timeline/sidebar styles outside the already-converted shell, people, search, and export paths.
-- [ ] Add Arabic fixture smoke data with Arabic names, mixed Arabic/English names, Arabic places, and date-heavy records.
+- [x] Finish the RTL layout audit across the rest of the app: replace remaining `ml-*`, `mr-*`, `text-left`, `borderLeft`, `borderRight`, and physical timeline/sidebar styles outside the already-converted shell, people, search, and export paths.
+- [x] Add Arabic fixture smoke data with Arabic names, mixed Arabic/English names, Arabic places, and date-heavy records.
 - [ ] Verify Arabic fixtures in people list search, sorting/grouping, charts/tree labels, reports, website export, and maps.
-- [ ] Improve chart label wrapping: move beyond bidi-safe grapheme truncation to grapheme-aware wrapping or measured fitting for longer Arabic names.
-- [ ] Audit reports/books/PDF output for RTL table alignment, punctuation flow, numbered lists, localized numbers, and mixed-direction text.
-- [ ] Add regression tests for i18n helpers covering alef variants, ta marbuta, diacritics, tatweel, hamza forms, and mixed-direction matching.
+- [x] Improve chart label wrapping: move beyond bidi-safe grapheme truncation to grapheme-aware wrapping or measured fitting for longer Arabic names.
+- [x] Audit reports/books/PDF output for RTL table alignment, punctuation flow, numbered lists, localized numbers, and mixed-direction text.
+- [x] Add regression tests for i18n helpers covering alef variants, ta marbuta, diacritics, tatweel, hamza forms, and mixed-direction matching.
 
 ## Current Implementation Fixes
 

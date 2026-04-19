@@ -85,7 +85,7 @@ export default function PersonAnalysis() {
   if (loading) return <div className="p-10 text-muted-foreground">Analyzing persons...</div>;
 
   const filters = (
-    <div className="ml-auto flex flex-wrap gap-2">
+    <div className="ms-auto flex flex-wrap gap-2">
       {[
         ['attention', 'Needs attention'],
         ['missing-dates', 'Missing dates'],

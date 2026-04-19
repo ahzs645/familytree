@@ -5,6 +5,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
+import { compareStrings } from '../../lib/i18n.js';
 import { readField } from '../../lib/schema.js';
 import {
   buildPersonSummary,
@@ -320,7 +321,7 @@ export function ReportsApp() {
   if (empty) {
     return (
       <div style={loadingStyle}>
-        No family data. <a href="/" style={{ color: 'hsl(var(--primary))', marginLeft: 6 }}>Import a .mftpkg</a> first.
+        No family data. <a href="/" style={{ color: 'hsl(var(--primary))', marginInlineStart: 6 }}>Import a .mftpkg</a> first.
       </div>
     );
   }
@@ -435,7 +436,7 @@ export function ReportsApp() {
 
 function Field({ label, children }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', marginRight: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', marginInlineEnd: 12 }}>
       <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
       {children}
     </div>
@@ -465,7 +466,7 @@ async function listAllStories() {
   return records
     .map(storySubject)
     .filter(Boolean)
-    .sort((a, b) => a.label.localeCompare(b.label));
+    .sort((a, b) => compareStrings(a.label, b.label));
 }
 
 function storySubject(record) {

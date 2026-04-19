@@ -125,7 +125,7 @@ export default function Quiz() {
             const isWrong = isPicked && c !== q.correct;
             return (
               <button key={c} disabled={!!picked} onClick={() => setPicked(c)}
-                className={`w-full text-left p-3 rounded-md border transition-colors ${
+                className={`w-full text-start p-3 rounded-md border transition-colors ${
                   isCorrect ? 'border-emerald-500 bg-emerald-500/10' :
                   isWrong ? 'border-destructive bg-destructive/10' :
                   isPicked ? 'border-primary bg-primary/10' :

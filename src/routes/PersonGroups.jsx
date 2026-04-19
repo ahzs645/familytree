@@ -105,7 +105,7 @@ export default function PersonGroups() {
     <div className="p-5 max-w-3xl">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-semibold">{groupName(active)}</h2>
-        <button onClick={save} disabled={saving} className="ml-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold">{saving ? 'Saving...' : 'Save'}</button>
+        <button onClick={save} disabled={saving} className="ms-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold">{saving ? 'Saving...' : 'Save'}</button>
       </div>
       <FieldRow label="Group name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} style={editorInput} /></FieldRow>
       <FieldRow label="Color"><input value={values.color || ''} onChange={(e) => setValues({ ...values, color: e.target.value })} style={editorInput} /></FieldRow>
@@ -137,7 +137,7 @@ export default function PersonGroups() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Person Groups</h1>
         <span className="text-xs text-muted-foreground">{groups.length}</span>
-        <button onClick={create} className="ml-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        <button onClick={create} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
       </header>
       <div className="flex-1 min-h-0">
         <MasterDetailList items={groups} activeId={activeId} onPick={setActiveId} renderRow={(g) => <div className="text-sm">{groupName(g)}</div>} placeholder="Search groups..." detail={detail} />

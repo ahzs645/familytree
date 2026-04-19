@@ -353,7 +353,7 @@ export default function FamilyEditor() {
                         <span className="text-xs text-muted-foreground w-6">{i + 1}.</span>
                         <span className="text-sm flex-1 truncate">
                           {c.summary?.fullName || c.childRecordName}
-                          {lifeSpanLabel(c.summary) && <span className="text-muted-foreground ml-2 text-xs">{lifeSpanLabel(c.summary)}</span>}
+                          {lifeSpanLabel(c.summary) && <span className="text-muted-foreground ms-2 text-xs">{lifeSpanLabel(c.summary)}</span>}
                         </span>
                         <button disabled={i === 0} onClick={() => moveChild(i, -1)} className="text-xs text-muted-foreground border border-border rounded-md w-7 h-7 hover:bg-accent disabled:opacity-30">↑</button>
                         <button disabled={i === children.length - 1} onClick={() => moveChild(i, 1)} className="text-xs text-muted-foreground border border-border rounded-md w-7 h-7 hover:bg-accent disabled:opacity-30">↓</button>
@@ -498,7 +498,7 @@ function RelatedList({ items, emptyTitle, emptyHint }) {
       {items.map(({ rel, target, type }) => (
         <div key={rel.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
           <span className="text-sm truncate">
-            <span className="text-xs text-muted-foreground mr-2">{type}</span>
+            <span className="text-xs text-muted-foreground me-2">{type}</span>
             {target?.fields?.cached_fullName?.value || target?.fields?.title?.value || target?.fields?.name?.value || target?.recordName || readRef(rel.fields?.target)}
           </span>
         </div>

@@ -235,7 +235,7 @@ export default function FamilySearch() {
             <h1 className="text-xl font-bold">FamilySearch</h1>
             <p className="text-sm text-muted-foreground mt-1">Local FamilySearch ID review, search launch, and task tracking.</p>
           </div>
-          {status && <span className="ml-auto text-xs text-emerald-500">{status}</span>}
+          {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
         </header>
 
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">

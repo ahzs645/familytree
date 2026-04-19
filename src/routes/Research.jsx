@@ -67,7 +67,7 @@ export default function Research() {
         <h1 className="text-base font-semibold">Research Assistant</h1>
         <span className="text-xs text-muted-foreground">{visible.length} persons with open questions</span>
         <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter…"
-          className="ml-auto bg-secondary border border-border rounded-md px-3 py-1.5 text-sm w-64" />
+          className="ms-auto bg-secondary border border-border rounded-md px-3 py-1.5 text-sm w-64" />
       </header>
       <main className="flex-1 overflow-auto p-5 bg-background">
         <div className="max-w-3xl mx-auto space-y-2">
@@ -105,7 +105,7 @@ export default function Research() {
           ) : visible.slice(0, 200).map((it) => (
             <div key={it.recordName} className="bg-card border border-border rounded-md p-4">
               <div className="flex items-baseline justify-between mb-2">
-                <button onClick={() => navigate(`/person/${it.recordName}`)} className="text-sm font-semibold text-primary hover:underline text-left">
+                <button onClick={() => navigate(`/person/${it.recordName}`)} className="text-sm font-semibold text-primary hover:underline text-start">
                   {it.fullName}
                 </button>
                 <span className="text-xs text-muted-foreground">{it.suggestions.length} open</span>

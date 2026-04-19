@@ -74,7 +74,7 @@ export default function WorldHistory() {
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">World History</h1>
-        <div className="ml-2 max-w-xs">
+        <div className="ms-2 max-w-xs">
           <PersonPicker persons={persons} value={recordName} onChange={(id) => setActivePerson(id)} />
         </div>
         {focusName && (
@@ -88,9 +88,9 @@ export default function WorldHistory() {
           {items.length === 0 ? (
             <div className="text-center text-muted-foreground py-10">Pick a person with dated events to see context.</div>
           ) : (
-            <ol className="border-l-2 border-border ml-4">
+            <ol className="border-s-2 border-border ms-4">
               {items.map((it, i) => (
-                <li key={i} className="relative ml-4 pl-4 pb-4">
+                <li key={i} className="relative ms-4 ps-4 pb-4">
                   <span className={`absolute -left-[7px] top-1 w-3 h-3 rounded-full border-2 ${it.kind === 'person' ? 'bg-primary border-primary' : 'bg-card border-muted-foreground'}`} />
                   <div className="flex items-baseline gap-2">
                     <span className="text-xs text-muted-foreground tabular-nums w-16 flex-shrink-0">
@@ -98,7 +98,7 @@ export default function WorldHistory() {
                     </span>
                     <span className={`text-sm ${it.kind === 'person' ? 'font-semibold text-primary' : 'text-foreground'}`}>{it.title}</span>
                   </div>
-                  <div className="text-xs text-muted-foreground ml-[72px]">
+                  <div className="text-xs text-muted-foreground ms-[72px]">
                     {it.kind === 'person'
                       ? <>{focusName} · {it.sub}</>
                       : <>{it.region} · {it.type}</>}

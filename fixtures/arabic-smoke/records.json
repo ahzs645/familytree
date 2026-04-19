@@ -1,0 +1,89 @@
+{
+  "format": "cloudtreeweb-arabic-smoke-fixture",
+  "localization": {
+    "locale": "ar",
+    "direction": "rtl",
+    "numberingSystem": "arab",
+    "calendar": "gregory"
+  },
+  "records": [
+    {
+      "recordName": "person-ar-1",
+      "recordType": "Person",
+      "fields": {
+        "firstName": { "value": "أحمد", "type": "STRING" },
+        "lastName": { "value": "الجليل", "type": "STRING" },
+        "cached_fullName": { "value": "أحمد Raad الجليل", "type": "STRING" },
+        "cached_birthDate": { "value": "1988-04-12", "type": "STRING" },
+        "cached_deathDate": { "value": "", "type": "STRING" }
+      }
+    },
+    {
+      "recordName": "person-ar-2",
+      "recordType": "Person",
+      "fields": {
+        "firstName": { "value": "فاطمة", "type": "STRING" },
+        "lastName": { "value": "الهاشمي", "type": "STRING" },
+        "cached_fullName": { "value": "فاطمة الهاشمي", "type": "STRING" },
+        "cached_birthDate": { "value": "1961-12-31", "type": "STRING" },
+        "cached_deathDate": { "value": "2022-01-08", "type": "STRING" }
+      }
+    },
+    {
+      "recordName": "person-ar-3",
+      "recordType": "Person",
+      "fields": {
+        "firstName": { "value": "إبراهيم", "type": "STRING" },
+        "lastName": { "value": "بن علي", "type": "STRING" },
+        "cached_fullName": { "value": "إبراهيم بن علي", "type": "STRING" },
+        "cached_birthDate": { "value": "1940", "type": "STRING" },
+        "cached_deathDate": { "value": "", "type": "STRING" }
+      }
+    },
+    {
+      "recordName": "family-ar-1",
+      "recordType": "Family",
+      "fields": {
+        "man": { "value": "person-ar-1---Person", "type": "REFERENCE" },
+        "woman": { "value": "person-ar-2---Person", "type": "REFERENCE" },
+        "cached_familyName": { "value": "عائلة الجليل والهاشمي", "type": "STRING" },
+        "cached_marriageDate": { "value": "2009-08-14", "type": "STRING" }
+      }
+    },
+    {
+      "recordName": "childrel-ar-1",
+      "recordType": "ChildRelation",
+      "fields": {
+        "family": { "value": "family-ar-1---Family", "type": "REFERENCE" },
+        "child": { "value": "person-ar-3---Person", "type": "REFERENCE" }
+      }
+    },
+    {
+      "recordName": "place-ar-1",
+      "recordType": "Place",
+      "fields": {
+        "placeName": { "value": "بغداد", "type": "STRING" },
+        "cached_standardizedLocationString": { "value": "بغداد، العراق", "type": "STRING" },
+        "geonameID": { "value": "98182", "type": "STRING" }
+      }
+    },
+    {
+      "recordName": "event-ar-1",
+      "recordType": "PersonEvent",
+      "fields": {
+        "person": { "value": "person-ar-1---Person", "type": "REFERENCE" },
+        "eventType": { "value": "Birth", "type": "STRING" },
+        "date": { "value": "1988-04-12", "type": "STRING" },
+        "place": { "value": "place-ar-1---Place", "type": "REFERENCE" },
+        "description": { "value": "ولد في بغداد", "type": "STRING" }
+      }
+    }
+  ],
+  "smokeChecks": [
+    "people list search matches أحمد when the query omits hamza or diacritics",
+    "sorting/grouping preserves Arabic names while using locale-aware collation",
+    "charts/tree labels render mixed Arabic and English names with bidi isolation",
+    "reports and website exports include lang=\"ar\" and dir=\"rtl\"",
+    "maps can shape Arabic place labels with the MapLibre RTL text plugin"
+  ]
+}

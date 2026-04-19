@@ -128,8 +128,8 @@ export default function SourceRepositories() {
     <div className="p-5 max-w-4xl">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-semibold truncate">{repoName(active)}</h2>
-        {status && <span className="ml-auto text-xs text-emerald-500">{status}</span>}
-        <button onClick={onDelete} className="ml-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">Delete</button>
+        {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
+        <button onClick={onDelete} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">Delete</button>
         <button onClick={onSave} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
           {saving ? 'Saving...' : 'Save'}
         </button>
@@ -187,7 +187,7 @@ export default function SourceRepositories() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Source Repositories</h1>
         <span className="text-xs text-muted-foreground">{repositories.length}</span>
-        <button onClick={onCreate} className="ml-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        <button onClick={onCreate} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
       </header>
       <div className="flex-1 min-h-0">
         <MasterDetailList
