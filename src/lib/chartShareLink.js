@@ -3,19 +3,19 @@
  *
  * Given an open chart document we walk the referenced persons/families N
  * generations, strip to the minimum fields needed for render (name, dates,
- * gender, parent/child refs), drop media blobs, and compress with json-url.
+ * gender, parent/child refs), drop media blobs, and compress with LZ-string.
  *
  * The resulting token is safe to embed in a URL. The preview route rehydrates
  * this payload into a read-only chart render without hitting IndexedDB.
  */
-import createCodec from '@firstform/json-url';
+import LZString from 'lz-string';
 import { getLocalDatabase } from './LocalDatabase.js';
 import { personSummary } from '../models/index.js';
 
 export const SHARE_PAYLOAD_VERSION = 1;
 export const SHARE_CODEC = 'lzstring';
 
-const codecPromise = Promise.resolve(createCodec(SHARE_CODEC));
+const BASE64_CHUNK_SIZE = 0x8000;
 
 const FIELD_WHITELIST = new Set([
   'firstName',
@@ -29,6 +29,36 @@ const FIELD_WHITELIST = new Set([
   'gender',
   'cached_familyName',
 ]);
+
+function bytesToBinary(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, i + BASE64_CHUNK_SIZE);
+    binary += String.fromCharCode(...chunk);
+  }
+  return binary;
+}
+
+function binaryToBytes(binary) {
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function encodeBase64Url(bytes) {
+  return btoa(bytesToBinary(bytes))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
+function decodeBase64Url(value) {
+  const padding = value.length % 4 === 0 ? '' : '='.repeat(4 - (value.length % 4));
+  const base64 = `${value}${padding}`.replace(/-/g, '+').replace(/_/g, '/');
+  return binaryToBytes(atob(base64));
+}
 
 export async function buildChartSharePayload(chartDoc, {
   generationsUp = chartDoc?.builderConfig?.common?.generations ?? 5,
@@ -88,14 +118,15 @@ export async function buildChartSharePayload(chartDoc, {
 }
 
 export async function encodeSharePayload(payload) {
-  const codec = await codecPromise;
-  return codec.compress(payload);
+  const text = JSON.stringify(payload);
+  return encodeBase64Url(LZString.compressToUint8Array(text));
 }
 
 export async function decodeSharePayload(token) {
   if (!token) throw new Error('Missing share token.');
-  const codec = await codecPromise;
-  return codec.decompress(token);
+  const text = LZString.decompressFromUint8Array(decodeBase64Url(token));
+  if (!text) throw new Error('Unable to decode share token.');
+  return JSON.parse(text);
 }
 
 export async function buildShareUrl(chartDoc, { baseUrl = window.location.origin, basePath = '/' } = {}) {
