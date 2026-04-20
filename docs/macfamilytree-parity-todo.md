@@ -19,7 +19,7 @@ Detailed bundle audit: [MacFamilyTree 11 Bundle Audit](./macfamilytree-11-bundle
 - [ ] Author Information
   - [x] Add tree-level author/contact/address/copyright metadata.
   - [x] Add tree icon/cover media reference support.
-  - [ ] Feed author metadata into books, website export, GEDCOM, and report headers where appropriate.
+  - [x] Feed author metadata into books, website export, GEDCOM, and report headers where appropriate.
 - [x] Web Search
   - [x] Add a person-aware external web search pane.
   - [x] Support search-provider templates and custom URLs.

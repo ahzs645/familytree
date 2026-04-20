@@ -32,12 +32,17 @@ export function renderTo(format, report, { theme } = {}) {
   }
 }
 
-export function downloadReport(format, report, { theme, filenameBase } = {}) {
+export function downloadReport(format, report, { theme, filenameBase, author } = {}) {
   const fmt = EXPORT_FORMATS.find((f) => f.id === format);
   if (!fmt) throw new Error('Unknown format ' + format);
 
+  // Author metadata flows through the AST so all renderers see the same credit
+  // line without fetching asynchronously. Callers can override via options or
+  // leave the AST's own `author` field in place.
+  const decoratedReport = author ? { ...report, author } : report;
+
   if (format === 'pdf') {
-    const html = renderHTML(report, { theme });
+    const html = renderHTML(decoratedReport, { theme });
     const w = window.open('', '_blank');
     if (!w) throw new Error('Popup blocked. Allow popups to export as PDF.');
     w.document.write(html);
@@ -49,7 +54,7 @@ export function downloadReport(format, report, { theme, filenameBase } = {}) {
     return;
   }
 
-  const content = renderTo(format, report, { theme });
+  const content = renderTo(format, decoratedReport, { theme });
   const blob = new Blob([content], { type: fmt.mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

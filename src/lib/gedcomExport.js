@@ -5,6 +5,7 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refToRecordName } from './recordRef.js';
 import { isPublicRecord } from './privacy.js';
+import { getAuthorInfo } from './authorInfo.js';
 import { Gender } from '../models/index.js';
 
 function escape(text) {
@@ -63,15 +64,43 @@ export async function buildGedcom() {
   const sourceIdx = new Map(sources.map((s, i) => [s.recordName, i + 1]));
   const placeIdx = new Map(places.map((p, i) => [p.recordName, i + 1]));
 
+  const author = await safeGetAuthorInfo();
+
   const lines = [];
   // Header
   lines.push('0 HEAD');
   lines.push('1 SOUR CloudTreeWeb');
+  if (author?.organization) lines.push(`2 CORP ${escape(author.organization)}`);
   lines.push('1 GEDC');
   lines.push('2 VERS 5.5.1');
   lines.push('2 FORM LINEAGE-LINKED');
   lines.push('1 CHAR UTF-8');
   lines.push('1 DATE ' + new Date().toISOString().slice(0, 10));
+  if (author?.treeName) lines.push(`1 FILE ${escape(author.treeName)}`);
+  if (author?.copyright) lines.push(`1 COPR ${escape(author.copyright)}`);
+  if (author?.notes) lines.push(`1 NOTE ${escape(author.notes)}`);
+  // Submitter pointer — SUBM record is required by GEDCOM 5.5.1 when author info is present.
+  const hasSubmitter = !!(author && (author.authorName || author.email || author.address1 || author.city || author.phone || author.website));
+  if (hasSubmitter) lines.push('1 SUBM @SUBM1@');
+
+  // Submitter record (GEDCOM 5.5.1: HEAD.SUBM points here)
+  if (hasSubmitter) {
+    lines.push('0 @SUBM1@ SUBM');
+    lines.push(`1 NAME ${escape(author.authorName || author.organization || 'Submitter')}`);
+    const addrLines = [author.address1, author.address2].filter(Boolean);
+    if (addrLines.length || author.city || author.region || author.postalCode || author.country) {
+      const primary = addrLines[0] || '';
+      lines.push(`1 ADDR ${escape(primary)}`);
+      if (addrLines[1]) lines.push(`2 CONT ${escape(addrLines[1])}`);
+      if (author.city) lines.push(`2 CITY ${escape(author.city)}`);
+      if (author.region) lines.push(`2 STAE ${escape(author.region)}`);
+      if (author.postalCode) lines.push(`2 POST ${escape(author.postalCode)}`);
+      if (author.country) lines.push(`2 CTRY ${escape(author.country)}`);
+    }
+    if (author.phone) lines.push(`1 PHON ${escape(author.phone)}`);
+    if (author.email) lines.push(`1 EMAIL ${escape(author.email)}`);
+    if (author.website) lines.push(`1 WWW ${escape(author.website)}`);
+  }
 
   // Persons
   for (const p of persons) {
@@ -168,6 +197,14 @@ export async function buildGedcom() {
 
   lines.push('0 TRLR');
   return lines.join('\n');
+}
+
+async function safeGetAuthorInfo() {
+  try {
+    return await getAuthorInfo();
+  } catch {
+    return null;
+  }
 }
 
 function familyHasPublicMember(family, childRels, publicPersonIds) {

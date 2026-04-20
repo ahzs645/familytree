@@ -37,6 +37,7 @@ import {
 } from '../../lib/reports/builders.js';
 import { applyPageStyle, listSavedReports, saveReport, deleteSavedReport, newReportId } from '../../lib/reports/savedReports.js';
 import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
+import { getAuthorInfo } from '../../lib/authorInfo.js';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
 
@@ -165,7 +166,22 @@ export function ReportsApp() {
   const [loading, setLoading] = useState(true);
   const [reportLoading, setReportLoading] = useState(false);
   const [generationError, setGenerationError] = useState('');
+  const [authorInfo, setAuthorInfo] = useState(null);
   const generationRequestRef = useRef(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAuthorInfo()
+      .then((info) => {
+        if (!cancelled) setAuthorInfo(info);
+      })
+      .catch(() => {
+        if (!cancelled) setAuthorInfo(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const builder = useMemo(() => getReportBuilder(builderId) || REPORT_BUILDERS[0], [builderId]);
   const needsSubject = builder?.needsSubject !== false;
@@ -314,8 +330,8 @@ export function ReportsApp() {
 
   const onExport = useCallback((fmt) => {
     if (!report) return;
-    downloadReport(fmt, report, { filenameBase: report.title });
-  }, [report]);
+    downloadReport(fmt, report, { filenameBase: report.title, author: authorInfo });
+  }, [report, authorInfo]);
 
   if (loading) return <div style={loadingStyle}>Loading…</div>;
   if (empty) {

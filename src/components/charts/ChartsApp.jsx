@@ -13,6 +13,8 @@ import { listChartTemplates, saveChartTemplate, deleteChartTemplate, newTemplate
 import { listChartDocuments, saveChartDocument, deleteChartDocument, newChartDocumentId } from '../../lib/chartDocuments.js';
 import { loadSavedChartDocument } from '../../lib/chartContainerLoader.js';
 import { normalizeChartDocument } from '../../lib/chartDocumentSchema.js';
+import { buildTimelineData } from '../../lib/chartData/timelineBuilder.js';
+import { buildGenogramData } from '../../lib/chartData/genogramBuilder.js';
 import { THEMES, getTheme } from './theme.js';
 import { PersonPicker } from './PersonPicker.jsx';
 import { AncestorChart } from './AncestorChart.jsx';
@@ -33,6 +35,7 @@ import {
 } from './SpecializedCharts.jsx';
 import { ChartSelectionProvider } from './ChartSelectionContext.jsx';
 import { PersonSidePanel } from './PersonSidePanel.jsx';
+import { ChartObjectInspector } from './ChartObjectInspector.jsx';
 
 const CHART_TYPES = [
   { id: 'ancestor', label: 'Ancestor', needsSecond: false },
@@ -74,6 +77,14 @@ export function ChartsApp() {
   const [doubleAncestorLeftGens, setDoubleAncestorLeftGens] = useState(4);
   const [doubleAncestorRightGens, setDoubleAncestorRightGens] = useState(4);
   const [fanArcDegrees, setFanArcDegrees] = useState(180);
+  const [ancestorBranch, setAncestorBranch] = useState('both');
+  const [timelineData, setTimelineData] = useState(null);
+  const [genogramData, setGenogramData] = useState(null);
+  const [currentDocumentId, setCurrentDocumentId] = useState(null);
+  const [currentDocumentName, setCurrentDocumentName] = useState('');
+  const [isDirty, setIsDirty] = useState(false);
+  const [isReadOnly, setIsReadOnly] = useState(false);
+  const dirtyGuardRef = useRef(false);
   const [exportFormat, setExportFormat] = useState('png');
   const [exportScale, setExportScale] = useState(1);
   const [exportIncludeBackground, setExportIncludeBackground] = useState(true);
@@ -122,6 +133,35 @@ export function ChartsApp() {
     selectOverlay,
   } = useChartObjectCommands([]);
 
+  // Dirty tracking — flip isDirty on any change to persisted chart state after
+  // initial mount, unless explicitly suppressed (on load/save). Watched values
+  // cover everything currentDocumentState reads.
+  useEffect(() => {
+    if (dirtyGuardRef.current) {
+      dirtyGuardRef.current = false;
+      return;
+    }
+    setIsDirty(true);
+  }, [
+    chartType, rootId, secondId, themeId, generations, descendantGenerations,
+    hourglassAncestorGens, hourglassDescendantGens, doubleAncestorLeftGens,
+    doubleAncestorRightGens, fanArcDegrees, ancestorBranch, virtualSource,
+    virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle,
+    chartNote, pageSize, pageOrientation, chartBackground,
+    relationshipBloodlineOnly, selectedRelationshipPathId, overlays,
+  ]);
+
+  useEffect(() => {
+    if (!isDirty) return undefined;
+    const handler = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+      return '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
   const openPersonInPanel = useCallback((person) => {
     if (!person?.recordName) return;
     setPanelPersonId(person.recordName);
@@ -156,9 +196,22 @@ export function ChartsApp() {
   };
   const chartTitleOrDefault = chartTitle || 'chart';
 
+  // Edit lifecycle: mark the document dirty whenever any persisted state changes
+  // after the initial mount or after an explicit load/save. The dirtyGuardRef
+  // lets applyDocumentState/onSaveDocument temporarily suppress the next dirty
+  // sweep so loading or saving doesn't instantly flip the flag back on.
+  const suppressDirtyOnce = useCallback(() => {
+    dirtyGuardRef.current = true;
+  }, []);
+
   const applyDocumentState = useCallback((doc, options = {}) => {
     if (!doc || typeof doc !== 'object') return;
     const normalized = normalizeChartDocument(doc);
+    suppressDirtyOnce();
+    setCurrentDocumentId(normalized.id || null);
+    setCurrentDocumentName(normalized.name || '');
+    setIsDirty(false);
+    setIsReadOnly(Boolean(options.readOnly) || Boolean(normalized.importedMac?.sourceRecordName && options.readOnly !== false && options.fromImport));
     const nextGenerations = Math.max(2, Math.min(8, Number(normalized.builderConfig.common.generations) || 5));
     setChartType(normalized.chartType || 'ancestor');
     if (normalized.roots.primaryPersonId) {
@@ -211,7 +264,7 @@ export function ChartsApp() {
       }
 
       if (requestedDoc) {
-        applyDocumentState(requestedDoc);
+        applyDocumentState(requestedDoc, { fromImport: Boolean(importedRecord) });
       }
       if (list.length === 0) {
         setEmpty(true);
@@ -254,7 +307,11 @@ export function ChartsApp() {
     if (!rootId) return;
     let cancelled = false;
     (async () => {
-      const a = await buildAncestorTree(rootId, ancestorDepth);
+      const ancestorOptions = chartType === 'ancestor' || chartType === 'fan' || chartType === 'circular'
+        || chartType === 'fractal-tree' || chartType === 'fractal-h-tree' || chartType === 'square-tree'
+        ? { branch: ancestorBranch }
+        : undefined;
+      const a = await buildAncestorTree(rootId, ancestorDepth, ancestorOptions);
       const d = await buildDescendantTree(rootId, descendantDepth);
       if (!cancelled) {
         setAncestorTree(a);
@@ -264,7 +321,7 @@ export function ChartsApp() {
     return () => {
       cancelled = true;
     };
-  }, [rootId, ancestorDepth, descendantDepth, chartType]);
+  }, [rootId, ancestorDepth, descendantDepth, chartType, ancestorBranch]);
 
   useEffect(() => {
     if (!secondId || !needsSecond) {
@@ -294,6 +351,39 @@ export function ChartsApp() {
       cancelled = true;
     };
   }, [secondId, chartType, generations, doubleAncestorRightGens, needsSecond, rootId, relationshipBloodlineOnly]);
+
+  // Build record-backed timeline/genogram data from chartData builders when the
+  // active chart needs events/facts. The builders query PersonEvent,
+  // FamilyEvent, PersonFact, AssociateRelation so the rendered chart reflects
+  // more than the ancestor/descendant tree skeleton.
+  useEffect(() => {
+    if (chartType !== 'timeline') { setTimelineData(null); return undefined; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await buildTimelineData({ rootPersonId: rootId || null });
+        if (!cancelled) setTimelineData(data);
+      } catch (_error) {
+        if (!cancelled) setTimelineData(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [chartType, rootId]);
+
+  useEffect(() => {
+    if (chartType !== 'genogram' && chartType !== 'sociogram') { setGenogramData(null); return undefined; }
+    if (!rootId) { setGenogramData(null); return undefined; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await buildGenogramData({ rootPersonId: rootId, generations: descendantGenerations });
+        if (!cancelled) setGenogramData(data);
+      } catch (_error) {
+        if (!cancelled) setGenogramData(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [chartType, rootId, descendantGenerations]);
 
   const selectedRelationshipResult = useMemo(() => (
     relationshipPaths.find((path) => path.id === selectedRelationshipPathId) || relationshipPaths[0] || null
@@ -380,11 +470,40 @@ export function ChartsApp() {
   }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, selectedOverlayId]);
 
   const onSaveDocument = useCallback(async () => {
+    if (isReadOnly) {
+      alert('This chart is read-only (imported). Use "Save as new…" to make an editable copy.');
+      return;
+    }
+    if (currentDocumentId) {
+      suppressDirtyOnce();
+      await saveChartDocument(currentDocumentState(currentDocumentName || 'Untitled Chart', currentDocumentId));
+      setDocuments(await listChartDocuments());
+      setIsDirty(false);
+      return;
+    }
     const name = prompt('Name for this chart document:');
     if (!name) return;
-    await saveChartDocument(currentDocumentState(name));
+    suppressDirtyOnce();
+    const id = newChartDocumentId();
+    await saveChartDocument(currentDocumentState(name, id));
+    setCurrentDocumentId(id);
+    setCurrentDocumentName(name);
     setDocuments(await listChartDocuments());
-  }, [currentDocumentState]);
+    setIsDirty(false);
+  }, [currentDocumentState, currentDocumentId, currentDocumentName, isReadOnly, suppressDirtyOnce]);
+
+  const onSaveAsDocument = useCallback(async () => {
+    const name = prompt('Save as new chart — name:', currentDocumentName || '');
+    if (!name) return;
+    suppressDirtyOnce();
+    const id = newChartDocumentId();
+    await saveChartDocument(currentDocumentState(name, id));
+    setCurrentDocumentId(id);
+    setCurrentDocumentName(name);
+    setIsReadOnly(false);
+    setDocuments(await listChartDocuments());
+    setIsDirty(false);
+  }, [currentDocumentState, currentDocumentName, suppressDirtyOnce]);
 
   const onApplyDocument = useCallback((id) => {
     const doc = documents.find((item) => item.id === id);
@@ -411,6 +530,12 @@ export function ChartsApp() {
     }
     setOverlaysPreview(next);
   }, [selectedOverlayId, setOverlaysCommit, setOverlaysPreview]);
+
+  const onUpdateOverlay = useCallback((id, next) => {
+    if (!id) return;
+    const updated = overlays.map((overlay) => (overlay?.id === id ? { ...overlay, ...next } : overlay));
+    setOverlaysCommit(updated, { selectedId: id });
+  }, [overlays, setOverlaysCommit]);
 
   const addTextOverlay = useCallback(() => {
     const text = prompt('Text label:', 'Annotation');
@@ -636,6 +761,18 @@ export function ChartsApp() {
                 </Section>
               )}
 
+              {(chartType === 'ancestor' || chartType === 'fan' || chartType === 'circular' || chartType === 'fractal-tree' || chartType === 'fractal-h-tree' || chartType === 'square-tree') && (
+                <Section label="Ancestor branches">
+                  <select value={ancestorBranch} onChange={(e) => setAncestorBranch(e.target.value)} style={optionSelect}>
+                    <option value="both">Maternal and paternal</option>
+                    <option value="paternal">Only paternal</option>
+                    <option value="maternal">Only maternal</option>
+                    <option value="paternal-from-start">Paternal from start person</option>
+                    <option value="maternal-from-start">Maternal from start person</option>
+                  </select>
+                </Section>
+              )}
+
               {chartType === 'fan' && (
                 <Section label="Fan arc">
                   <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Arc ({fanArcDegrees}°)</div>
@@ -703,13 +840,16 @@ export function ChartsApp() {
                 )}
               </Section>
 
-              <Section label="Documents">
+              <Section label={`Documents${currentDocumentName ? ` — ${currentDocumentName}${isDirty ? ' •' : ''}${isReadOnly ? ' (read-only)' : ''}` : ''}`}>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <select value="" onChange={(e) => e.target.value && onApplyDocument(e.target.value)} style={{ ...optionSelect, flex: 1 }}>
                     <option value="">Open…</option>
                     {documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
                   </select>
-                  <button onClick={onSaveDocument} style={optionSelect}>Save</button>
+                  <button onClick={onSaveDocument} style={optionSelect} disabled={isReadOnly} title={isReadOnly ? 'Read-only — use Save as new' : currentDocumentId ? 'Overwrite existing document' : 'Save new document'}>
+                    {currentDocumentId ? 'Save' : 'Save…'}
+                  </button>
+                  <button onClick={onSaveAsDocument} style={optionSelect} title="Save a new copy">Save as…</button>
                 </div>
                 {documents.length > 0 && (
                   <select value="" onChange={(e) => e.target.value && onDeleteDocument(e.target.value)} style={{ ...optionSelect, marginTop: 6 }}>
@@ -744,6 +884,16 @@ export function ChartsApp() {
                   <button onClick={focusRootInCanvas} style={optionSelect}>Focus root</button>
                 </div>
               </Section>
+
+              {selectedOverlayId && (
+                <Section label="Object inspector">
+                  <ChartObjectInspector
+                    overlays={overlays}
+                    selectedOverlayId={selectedOverlayId}
+                    onUpdateOverlay={onUpdateOverlay}
+                  />
+                </Section>
+              )}
 
               <Section label="Find + Export">
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 6, marginBottom: 6 }}>

@@ -49,8 +49,10 @@ export function renderHTML(report, { theme } = {}) {
   const pageSize = pageStyle.pageSize === 'a4' ? 'A4' : pageStyle.pageSize === 'legal' ? 'legal' : 'letter';
   const orientation = pageStyle.orientation === 'landscape' ? 'landscape' : 'portrait';
   const margin = Number.isFinite(pageStyle.margin) ? Math.max(24, Math.min(96, pageStyle.margin)) : 48;
+  const authorMeta = reportAuthorMeta(report.author);
+  const authorFooter = reportAuthorFooter(report.author);
   return `<!doctype html>
-<html lang="${esc(localization.locale)}" dir="${esc(localization.direction)}"><head><meta charset="utf-8"><title>${esc(report.title)}</title>
+<html lang="${esc(localization.locale)}" dir="${esc(localization.direction)}"><head><meta charset="utf-8"><title>${esc(report.title)}</title>${authorMeta}
 <style>
   ${css}
   @page{size:${pageSize} ${orientation};margin:${margin}px}
@@ -64,8 +66,29 @@ export function renderHTML(report, { theme } = {}) {
   th,td{text-align:start;padding:6px 8px;border-bottom:1px solid currentColor;opacity:.95}
   th{font-weight:600;opacity:.7;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
   bdi{unicode-bidi:isolate}
+  .report-author-footer{margin-top:32px;padding-top:12px;border-top:1px solid currentColor;font-size:11px;opacity:.7;text-align:center}
   @media print{body{padding:0;background:#fff;color:#000}}
 </style></head><body>
 ${report.blocks.map(renderBlock).join('\n')}
+${authorFooter}
 </body></html>`;
+}
+
+function reportAuthorMeta(author) {
+  if (!author) return '';
+  const parts = [];
+  if (author.authorName) parts.push(`<meta name="author" content="${esc(author.authorName)}">`);
+  if (author.copyright) parts.push(`<meta name="copyright" content="${esc(author.copyright)}">`);
+  return parts.join('');
+}
+
+function reportAuthorFooter(author) {
+  if (!author) return '';
+  const parts = [];
+  if (author.authorName) parts.push(bdi(author.authorName));
+  if (author.organization) parts.push(bdi(author.organization));
+  if (author.email) parts.push(bdi(author.email));
+  if (author.copyright) parts.push(bdi(author.copyright));
+  if (!parts.length) return '';
+  return `<footer class="report-author-footer">${parts.join(' · ')}</footer>`;
 }

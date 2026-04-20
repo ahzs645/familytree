@@ -10,11 +10,38 @@ import { personSummary } from '../models/index.js';
 /**
  * Build an ancestor pedigree tree to a given depth.
  * Returns nested { person, father, mother } where missing nodes are null.
+ *
+ * Options:
+ *   - branch: 'both' (default) | 'paternal' | 'maternal'
+ *     | 'paternal-from-start' | 'maternal-from-start'
+ *       Mirrors MacFamilyTree's AncestorChartBuilderConfiguration traversal
+ *       modes: only-paternal and only-maternal follow a single line all the
+ *       way up; the *-from-start variants show both parents at the root and
+ *       then follow only one side above that.
  */
-export async function buildAncestorTree(rootRecordName, maxGenerations = 5) {
+export async function buildAncestorTree(rootRecordName, maxGenerations = 5, options = {}) {
+  const branch = options?.branch || 'both';
   const db = getLocalDatabase();
   const root = await db.getRecord(rootRecordName);
   if (!isPublicRecord(root)) return null;
+
+  function shouldIncludeFather(gen) {
+    if (branch === 'both') return true;
+    if (branch === 'paternal') return true;
+    if (branch === 'maternal') return false;
+    if (branch === 'paternal-from-start') return true;
+    if (branch === 'maternal-from-start') return gen === 0;
+    return true;
+  }
+
+  function shouldIncludeMother(gen) {
+    if (branch === 'both') return true;
+    if (branch === 'maternal') return true;
+    if (branch === 'paternal') return false;
+    if (branch === 'maternal-from-start') return true;
+    if (branch === 'paternal-from-start') return gen === 0;
+    return true;
+  }
 
   async function recurse(record, gen) {
     if (!isPublicRecord(record)) return null;
@@ -23,8 +50,8 @@ export async function buildAncestorTree(rootRecordName, maxGenerations = 5) {
     const parents = await db.getPersonsParents(record.recordName);
     if (parents.length > 0) {
       const fam = parents.find((p) => isPublicRecord(p.family));
-      if (fam?.man) node.father = await recurse(fam.man, gen + 1);
-      if (fam?.woman) node.mother = await recurse(fam.woman, gen + 1);
+      if (fam?.man && shouldIncludeFather(gen)) node.father = await recurse(fam.man, gen + 1);
+      if (fam?.woman && shouldIncludeMother(gen)) node.mother = await recurse(fam.woman, gen + 1);
     }
     return node;
   }

@@ -10,6 +10,7 @@ import JSZip from 'jszip';
 import { getLocalDatabase } from './LocalDatabase.js';
 import { readConclusionType, readField, readRef } from './schema.js';
 import { isPrivateRecord, isPublicRecord } from './privacy.js';
+import { getAuthorInfo } from './authorInfo.js';
 import {
   DEFAULT_LOCALIZATION,
   compareStrings,
@@ -246,6 +247,7 @@ export async function buildSite(options = {}) {
 
   progress(onProgress, { phase: 'loading', completed: 0, total: 1, message: 'Loading tree records...' });
   const snapshot = await loadSnapshot();
+  const author = await safeGetAuthorInfo();
   checkCanceled(signal);
 
   const validation = validateSnapshot(snapshot, normalized);
@@ -254,6 +256,7 @@ export async function buildSite(options = {}) {
   }
 
   const model = buildPublishModel(snapshot, normalized);
+  model.author = author;
   const zip = new JSZip();
   const css = createCSS(normalized);
   zip.file('assets/site.css', css);
@@ -274,7 +277,7 @@ export async function buildSite(options = {}) {
   };
 
   progress(onProgress, { phase: 'pages', completed, total: totalPages, message: 'Writing index pages...' });
-  zip.file('index.html', pageWrap('Home', homePage(model, normalized), normalized, ''));
+  zip.file('index.html', pageWrap('Home', homePage(model, normalized), normalized, '', author));
   markPage('Wrote home page.');
   for (const [folder, title, records, renderer] of [
     ['people', 'People', model.persons, personIndexItem],
@@ -285,44 +288,44 @@ export async function buildSite(options = {}) {
     ['stories', 'Stories', model.stories, storyIndexItem],
   ]) {
     checkCanceled(signal);
-    zip.file(`${folder}/index.html`, pageWrap(title, entityIndexPage(title, records, renderer, model, folder), normalized, folder));
+    zip.file(`${folder}/index.html`, pageWrap(title, entityIndexPage(title, records, renderer, model, folder), normalized, folder, author));
     markPage(`Wrote ${title.toLowerCase()} index.`);
   }
 
   for (const person of model.persons) {
     checkCanceled(signal);
     const title = personSummary(person)?.fullName || person.recordName;
-    zip.file(model.pathById.get(person.recordName), pageWrap(title, personPage(person, model), normalized, 'people'));
+    zip.file(model.pathById.get(person.recordName), pageWrap(title, personPage(person, model), normalized, 'people', author));
     markPage(`Wrote ${title}.`);
   }
   for (const family of model.families) {
     checkCanceled(signal);
     const title = familyLabel(family, model) || family.recordName;
-    zip.file(model.pathById.get(family.recordName), pageWrap(title, familyPage(family, model), normalized, 'families'));
+    zip.file(model.pathById.get(family.recordName), pageWrap(title, familyPage(family, model), normalized, 'families', author));
     markPage(`Wrote ${title}.`);
   }
   for (const place of model.places) {
     checkCanceled(signal);
     const title = placeLabel(place) || place.recordName;
-    zip.file(model.pathById.get(place.recordName), pageWrap(title, placePage(place, model), normalized, 'places'));
+    zip.file(model.pathById.get(place.recordName), pageWrap(title, placePage(place, model), normalized, 'places', author));
     markPage(`Wrote ${title}.`);
   }
   for (const source of model.sources) {
     checkCanceled(signal);
     const title = sourceLabel(source) || source.recordName;
-    zip.file(model.pathById.get(source.recordName), pageWrap(title, sourcePage(source, model), normalized, 'sources'));
+    zip.file(model.pathById.get(source.recordName), pageWrap(title, sourcePage(source, model), normalized, 'sources', author));
     markPage(`Wrote ${title}.`);
   }
   for (const media of model.media) {
     checkCanceled(signal);
     const title = mediaLabel(media) || media.recordName;
-    zip.file(model.pathById.get(media.recordName), pageWrap(title, mediaPage(media, model), normalized, 'media'));
+    zip.file(model.pathById.get(media.recordName), pageWrap(title, mediaPage(media, model), normalized, 'media', author));
     markPage(`Wrote ${title}.`);
   }
   for (const story of model.stories) {
     checkCanceled(signal);
     const title = storyLabel(story) || story.recordName;
-    zip.file(model.pathById.get(story.recordName), pageWrap(title, storyPage(story, model), normalized, 'stories'));
+    zip.file(model.pathById.get(story.recordName), pageWrap(title, storyPage(story, model), normalized, 'stories', author));
     markPage(`Wrote ${title}.`);
   }
 
@@ -543,14 +546,18 @@ function homeHref(path, fromFolder = '') {
   return fromFolder ? `../${path}` : path;
 }
 
-function pageWrap(title, body, options, fromFolder = '') {
+function pageWrap(title, body, options, fromFolder = '', author = null) {
   const cssHref = homeHref('assets/site.css', fromFolder);
+  const metaAuthor = author?.authorName ? `<meta name="author" content="${attr(author.authorName)}">` : '';
+  const metaCopyright = author?.copyright ? `<meta name="copyright" content="${attr(author.copyright)}">` : '';
   return `<!doctype html>
 <html lang="${attr(options.locale)}" dir="${attr(options.direction)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${esc(title)} - ${esc(options.siteTitle)}</title>
+  ${metaAuthor}
+  ${metaCopyright}
   <link rel="stylesheet" href="${attr(cssHref)}">
 </head>
 <body class="theme-${attr(options.theme)}">
@@ -569,9 +576,29 @@ function pageWrap(title, body, options, fromFolder = '') {
     </nav>
   </header>
   <main class="container">${body}</main>
-  <footer>Exported from CloudTreeWeb</footer>
+  <footer>${authorFooterHTML(author)}Exported from CloudTreeWeb</footer>
 </body>
 </html>`;
+}
+
+function authorFooterHTML(author) {
+  if (!author) return '';
+  const parts = [];
+  if (author.authorName) parts.push(`By ${bdi(author.authorName)}`);
+  if (author.organization) parts.push(bdi(author.organization));
+  if (author.email) parts.push(`<a href="mailto:${attr(author.email)}">${bdi(author.email)}</a>`);
+  if (author.website) parts.push(`<a href="${attr(author.website)}">${bdi(author.website)}</a>`);
+  if (author.copyright) parts.push(bdi(author.copyright));
+  if (!parts.length) return '';
+  return `<div class="author-credit">${parts.join(' · ')}</div>`;
+}
+
+async function safeGetAuthorInfo() {
+  try {
+    return await getAuthorInfo();
+  } catch {
+    return null;
+  }
 }
 
 function createCSS(options) {
@@ -616,6 +643,7 @@ bdi{unicode-bidi:isolate}
 .thumb{width:100%;aspect-ratio:4/3;object-fit:cover;margin-bottom:8px}
 .private{border-color:#f59e0b}
 footer{border-top:1px solid var(--border);padding:18px;color:var(--muted);font-size:12px;text-align:center}
+.author-credit{margin-bottom:6px;color:var(--fg);opacity:.85}
 @media (max-width:720px){.site-header{align-items:flex-start;flex-direction:column;position:static}.container{padding:22px 16px 44px}h1{font-size:26px}}`;
 }
 
@@ -632,10 +660,34 @@ function homePage(model, options) {
       ${stat('Stories', model.stories.length, options)}
     </div>
   </section>
+  ${authorHomeSection(model.author)}
   <section>
     <h2>People</h2>
     <div class="grid">${model.persons.slice(0, 24).map((person) => personIndexItem(person, model, '')).join('')}</div>
     ${model.persons.length > 24 ? `<p class="muted"><a href="people/index.html">View all people</a></p>` : ''}
+  </section>`;
+}
+
+function authorHomeSection(author) {
+  if (!author) return '';
+  const hasAny =
+    author.authorName || author.organization || author.email || author.phone ||
+    author.website || author.address1 || author.city || author.copyright || author.notes;
+  if (!hasAny) return '';
+  const lines = [];
+  if (author.authorName) lines.push(`<strong>${bdi(author.authorName)}</strong>`);
+  if (author.organization) lines.push(bdi(author.organization));
+  const addr = [author.address1, author.address2, [author.city, author.region, author.postalCode].filter(Boolean).join(' '), author.country]
+    .filter(Boolean);
+  if (addr.length) lines.push(addr.map((part) => bdi(part)).join('<br>'));
+  if (author.phone) lines.push(bdi(author.phone));
+  if (author.email) lines.push(`<a href="mailto:${attr(author.email)}">${bdi(author.email)}</a>`);
+  if (author.website) lines.push(`<a href="${attr(author.website)}">${bdi(author.website)}</a>`);
+  if (author.notes) lines.push(`<p>${bdi(author.notes)}</p>`);
+  if (author.copyright) lines.push(`<p class="muted">${bdi(author.copyright)}</p>`);
+  return `<section>
+    <h2>About</h2>
+    <div class="card">${lines.map((line) => line.startsWith('<p') ? line : `<p>${line}</p>`).join('')}</div>
   </section>`;
 }
 

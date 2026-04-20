@@ -312,19 +312,50 @@ export function DistributionChart({ persons = [], theme = DEFAULT_THEME, page, o
   );
 }
 
-export function TimelineChart({ ancestorTree, descendantTree, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function TimelineChart({ ancestorTree, descendantTree, timelineData, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+  // When the caller supplies `timelineData` (from `buildTimelineData` in
+  // src/lib/chartData/timelineBuilder.js) we render the full record-backed
+  // timeline including per-row PersonEvent/FamilyEvent markers. Otherwise we
+  // fall back to the legacy tree-scan path that derives rows from birth/death
+  // years only.
+  const hasBuilderRows = Array.isArray(timelineData?.rows) && timelineData.rows.length > 0;
+
   const rows = useMemo(() => {
+    if (hasBuilderRows) {
+      return timelineData.rows
+        .map((row) => ({
+          key: row.id,
+          name: row.name,
+          birth: row.birthYear ?? null,
+          death: row.deathYear ?? null,
+          events: Array.isArray(row.events) ? row.events : [],
+          gender: null,
+        }))
+        .filter((row) => row.birth != null || row.death != null || row.events.length > 0)
+        .sort((a, b) => (a.birth ?? 9999) - (b.birth ?? 9999))
+        .slice(0, 120);
+    }
     const map = new Map();
     for (const node of collectAncestors(ancestorTree, 6).nodes) if (node.person) map.set(node.person.recordName, node.person);
     for (const person of collectDescendantPersons(descendantTree)) map.set(person.recordName, person);
     return [...map.values()]
-      .map((person) => ({ person, birth: parseYear(person.birthDate), death: parseYear(person.deathDate) }))
+      .map((person) => ({
+        key: person.recordName,
+        name: person.fullName,
+        birth: parseYear(person.birthDate),
+        death: parseYear(person.deathDate),
+        events: [],
+        gender: person.gender ?? 0,
+      }))
       .filter((row) => row.birth || row.death)
       .sort((a, b) => (a.birth || 9999) - (b.birth || 9999))
       .slice(0, 80);
-  }, [ancestorTree, descendantTree]);
-  const min = Math.min(...rows.map((row) => row.birth || row.death), new Date().getFullYear());
-  const max = Math.max(...rows.map((row) => row.death || row.birth), min + 1);
+  }, [ancestorTree, descendantTree, timelineData, hasBuilderRows]);
+
+  const currentYear = new Date().getFullYear();
+  const allYears = rows.flatMap((row) => [row.birth, row.death, ...row.events.map((e) => e.year)]).filter((y) => Number.isFinite(y));
+  const min = allYears.length ? Math.min(...allYears) : currentYear;
+  const max = allYears.length ? Math.max(...allYears) : min + 1;
   const scale = (year) => 220 + ((year - min) / Math.max(1, max - min)) * 760;
   return (
     <ChartCanvas
@@ -340,12 +371,24 @@ export function TimelineChart({ ancestorTree, descendantTree, theme = DEFAULT_TH
         {rows.map((row, index) => {
           const y = index * 30;
           const start = row.birth || row.death;
-          const end = row.death || Math.min(max, new Date().getFullYear());
+          const end = row.death || Math.min(max, currentYear);
+          const strokeColor = row.gender != null ? (theme.gender[row.gender]?.stroke || theme.connector) : theme.connector;
           return (
-            <g key={row.person.recordName} transform={`translate(0,${y})`}>
-              <text x={0} y={17} fill={theme.text} fontSize={12} fontFamily={theme.fontFamily}>{row.person.fullName}</text>
-              <line x1={scale(start)} y1={12} x2={scale(end)} y2={12} stroke={theme.gender[row.person.gender ?? 0]?.stroke || theme.connector} strokeWidth={8} strokeLinecap="round" />
-              <text x={scale(end) + 8} y={16} fill={theme.textMuted} fontSize={11} fontFamily={theme.fontFamily}>{start}{row.death ? `-${row.death}` : ''}</text>
+            <g key={row.key} transform={`translate(0,${y})`}>
+              <text x={0} y={17} fill={theme.text} fontSize={12} fontFamily={theme.fontFamily}>{row.name}</text>
+              {start != null && (
+                <>
+                  <line x1={scale(start)} y1={12} x2={scale(end)} y2={12} stroke={strokeColor} strokeWidth={8} strokeLinecap="round" />
+                  <text x={scale(end) + 8} y={16} fill={theme.textMuted} fontSize={11} fontFamily={theme.fontFamily}>{start}{row.death ? `-${row.death}` : ''}</text>
+                </>
+              )}
+              {row.events.map((event) => (
+                event.year != null ? (
+                  <circle key={event.id} cx={scale(event.year)} cy={12} r={4} fill={theme.connector} stroke={theme.background || '#fff'} strokeWidth={1.5}>
+                    <title>{`${event.type || 'event'} ${event.year}${event.placeName ? ` — ${event.placeName}` : ''}`}</title>
+                  </circle>
+                ) : null
+              ))}
             </g>
           );
         })}

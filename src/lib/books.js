@@ -34,6 +34,9 @@ import {
 import { renderHTML } from './reports/renderers/html.js';
 import { renderText } from './reports/renderers/text.js';
 import { buildSite } from './websiteExport.js';
+import { getAuthorInfo } from './authorInfo.js';
+import { listSavedReports } from './reports/savedReports.js';
+import { listChartDocuments } from './chartDocuments.js';
 import { compareStrings, formatInteger } from './i18n.js';
 import { personSummary, sourceSummary } from '../models/index.js';
 
@@ -57,6 +60,8 @@ export const SECTION_KINDS = [
   { id: 'places-list', label: 'Places List' },
   { id: 'sources-list', label: 'Sources List' },
   { id: 'media-gallery', label: 'Media Gallery' },
+  { id: 'saved-report', label: 'Saved Report Embed', needsSavedReport: true },
+  { id: 'saved-chart', label: 'Saved Chart Embed', needsSavedChart: true },
 ];
 
 export function newBookId() {
@@ -92,10 +97,14 @@ export async function deleteBook(id) {
 export async function compileBook(book) {
   const compiled = emptyReport(book.title || 'Untitled Book');
   const tocEntries = []; // collected as we compile so TOC placeholder can materialize
+  const author = await safeGetAuthorInfo();
+  // Attach author info on the compiled AST so renderers (HTML/PDF) can stamp a
+  // single credit line on the document footer.
+  if (author) compiled.author = author;
 
   for (let i = 0; i < (book.sections || []).length; i++) {
     const s = book.sections[i];
-    const sectionBlocks = await sectionToBlocks(s);
+    const sectionBlocks = await sectionToBlocks(s, author);
     // Record TOC entry for the first title in the section
     const firstTitle = sectionBlocks.find((b) => b.kind === 'title');
     if (firstTitle && s.kind !== 'toc') {
@@ -127,21 +136,36 @@ function materializeToc(entries, style = 'numbered') {
   ];
 }
 
-async function sectionToBlocks(section) {
+async function sectionToBlocks(section, author = null) {
   switch (section.kind) {
     case 'cover':
     case 'title': {
       const out = [];
       out.push(block.title(section.text || 'Untitled', 1));
       if (section.subtitle) out.push(block.paragraph(section.subtitle));
+      // Cover/title metadata falls back to tree-level author info so the book
+      // inherits the curator's identity even when the section was created with
+      // only a title. Explicit section values always win.
+      const effectiveAuthor = section.author || author?.authorName || '';
+      const effectivePublisher = section.publisher || author?.organization || '';
       const metadata = [
-        section.author && `Author: ${section.author}`,
+        effectiveAuthor && `Author: ${effectiveAuthor}`,
         section.date && `Date: ${section.date}`,
-        section.publisher && `Publisher: ${section.publisher}`,
+        effectivePublisher && `Publisher: ${effectivePublisher}`,
         section.place && `Place: ${section.place}`,
       ].filter(Boolean);
       if (metadata.length > 0) out.push(block.list(metadata));
       if (section.note) out.push(block.paragraph(section.note));
+      // Only the cover carries the tree copyright/contact colophon to avoid
+      // repeating it on every title insert inside the book.
+      if (section.kind === 'cover' && author) {
+        const colophon = [
+          author.email,
+          author.website,
+          author.copyright,
+        ].filter(Boolean);
+        if (colophon.length > 0) out.push(block.paragraph(colophon.join(' · ')));
+      }
       return out;
     }
     case 'toc':
@@ -199,9 +223,78 @@ async function sectionToBlocks(section) {
       const r = await buildMediaGalleryReport();
       return r.blocks;
     }
+    case 'saved-report':
+      return buildSavedReportInsert(section.savedReportId);
+    case 'saved-chart':
+      return buildSavedChartInsert(section.savedChartId);
     default:
       return [block.paragraph(`Unsupported section: ${section.kind}`)];
   }
+}
+
+async function buildSavedReportInsert(savedReportId) {
+  if (!savedReportId) return [block.paragraph('Saved report embed missing savedReportId.')];
+  const saved = (await listSavedReports()).find((r) => r.id === savedReportId);
+  if (!saved) return [block.paragraph(`Saved report not found: ${savedReportId}.`)];
+  const builderFn = resolveReportBuilder(saved.builderId);
+  if (!builderFn) return [block.paragraph(`Unsupported saved-report builder: ${saved.builderId}.`)];
+  try {
+    const args = argsForSavedReport(saved);
+    const report = await builderFn(...args);
+    const out = [];
+    if (saved.name) out.push(block.title(saved.name, 2));
+    if (Array.isArray(report?.blocks)) out.push(...report.blocks);
+    return out;
+  } catch (error) {
+    return [block.paragraph(`Saved report failed to build: ${error?.message || error}.`)];
+  }
+}
+
+function resolveReportBuilder(builderId) {
+  switch (builderId) {
+    case 'person-summary': return buildPersonSummary;
+    case 'ancestor-narrative': return buildAncestorNarrative;
+    case 'descendant-narrative': return buildDescendantNarrative;
+    case 'narrative-report': return buildNarrativeReport;
+    case 'ahnentafel-report': return buildAhnentafelReport;
+    case 'register-report': return buildRegisterReport;
+    case 'descendancy-report': return buildDescendancyReport;
+    case 'family-group-sheet': return buildFamilyGroupSheet;
+    case 'persons-list': return buildPersonsList;
+    case 'places-list': return buildPlacesList;
+    case 'sources-list': return buildSourcesList;
+    case 'media-gallery': return buildMediaGalleryReport;
+    default: return null;
+  }
+}
+
+function argsForSavedReport(saved) {
+  const gens = Number(saved.options?.generations);
+  if (saved.targetRecordName && Number.isFinite(gens)) return [saved.targetRecordName, gens];
+  if (saved.targetRecordName) return [saved.targetRecordName];
+  return [];
+}
+
+async function buildSavedChartInsert(savedChartId) {
+  if (!savedChartId) return [block.paragraph('Saved chart embed missing savedChartId.')];
+  const doc = (await listChartDocuments()).find((d) => d.id === savedChartId);
+  if (!doc) return [block.paragraph(`Saved chart not found: ${savedChartId}.`)];
+  // Books render to HTML/text/PDF, not SVG — so the embed captures the chart's
+  // metadata rather than a rasterized image. Callers that want an inline
+  // chart image should export the chart separately and insert it via an image
+  // overlay or future media-gallery entry.
+  const out = [];
+  out.push(block.title(doc.name || 'Saved Chart', 2));
+  const details = [
+    doc.chartType && `Type: ${doc.chartType}`,
+    doc.roots?.primaryPersonId && `Subject: ${doc.roots.primaryPersonId}`,
+    doc.roots?.secondaryPersonId && `Partner/pair: ${doc.roots.secondaryPersonId}`,
+    doc.builderConfig?.common?.generations && `Generations: ${doc.builderConfig.common.generations}`,
+    doc.compositorConfig?.themeId && `Theme: ${doc.compositorConfig.themeId}`,
+  ].filter(Boolean);
+  if (details.length > 0) out.push(block.list(details));
+  if (doc.pageSetup?.note) out.push(block.paragraph(doc.pageSetup.note));
+  return out;
 }
 
 async function buildPersonGroupInsert(groupRecordName) {
@@ -322,4 +415,12 @@ function downloadBlob(blob, filename) {
 
 function safeFilename(value) {
   return String(value || 'book').replace(/[^\w-]+/g, '_').replace(/^_+|_+$/g, '') || 'book';
+}
+
+async function safeGetAuthorInfo() {
+  try {
+    return await getAuthorInfo();
+  } catch {
+    return null;
+  }
 }
