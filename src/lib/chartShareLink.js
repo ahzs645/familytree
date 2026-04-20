@@ -10,6 +10,7 @@
  */
 import LZString from 'lz-string';
 import { getLocalDatabase } from './LocalDatabase.js';
+import { buildAncestorTree, buildDescendantTree } from './treeQuery.js';
 import { personSummary } from '../models/index.js';
 
 export const SHARE_PAYLOAD_VERSION = 1;
@@ -112,8 +113,27 @@ export async function buildChartSharePayload(chartDoc, {
   return {
     version: SHARE_PAYLOAD_VERSION,
     chart: trimChartDocument(chartDoc),
+    trees: await buildShareTrees(chartDoc, { generationsUp, generationsDown }),
     persons: Object.fromEntries(persons),
     families: Object.fromEntries(families),
+  };
+}
+
+async function buildShareTrees(chartDoc, { generationsUp, generationsDown }) {
+  const rootId = chartDoc?.roots?.primaryPersonId;
+  const secondId = chartDoc?.roots?.secondaryPersonId;
+  if (!rootId) return {};
+
+  const [ancestorTree, descendantTree, secondAncestorTree] = await Promise.all([
+    buildAncestorTree(rootId, generationsUp),
+    buildDescendantTree(rootId, generationsDown),
+    secondId ? buildAncestorTree(secondId, generationsUp) : Promise.resolve(null),
+  ]);
+
+  return {
+    ancestorTree,
+    descendantTree,
+    secondAncestorTree,
   };
 }
 

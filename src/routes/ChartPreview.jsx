@@ -5,6 +5,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { decodeSharePayload, SHARE_PAYLOAD_VERSION } from '../lib/chartShareLink.js';
+import { getTheme } from '../components/charts/theme.js';
+import { AncestorChart } from '../components/charts/AncestorChart.jsx';
+import { DescendantChart } from '../components/charts/DescendantChart.jsx';
+import { HourglassChart } from '../components/charts/HourglassChart.jsx';
+import { TreeChart } from '../components/charts/TreeChart.jsx';
+import { DoubleAncestorChart } from '../components/charts/DoubleAncestorChart.jsx';
+import { FanChart } from '../components/charts/FanChart.jsx';
+import {
+  CircularAncestorChart,
+  FractalAncestorChart,
+} from '../components/charts/SpecializedCharts.jsx';
 
 export default function ChartPreview() {
   const { token } = useParams();
@@ -48,23 +59,14 @@ export default function ChartPreview() {
 }
 
 function PreviewBody({ payload }) {
-  const { chart, persons, families } = payload;
+  const { chart, persons, families, trees } = payload;
   const rootId = chart?.roots?.primaryPersonId;
   const rootPerson = rootId ? persons[rootId] : null;
-  const indexByRecord = useMemo(() => {
-    const map = new Map();
-    for (const [id, person] of Object.entries(persons || {})) {
-      map.set(id, person);
-    }
-    return map;
-  }, [persons]);
-
-  const ancestors = useMemo(() => buildAncestorPairs(rootId, persons, families), [rootId, persons, families]);
-  const descendants = useMemo(() => buildDescendantList(rootId, persons, families), [rootId, persons, families]);
+  const hasRenderableTree = Boolean(trees?.ancestorTree || trees?.descendantTree);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border bg-card px-5 py-3 flex items-center gap-3">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <header className="shrink-0 border-b border-border bg-card px-5 py-3 flex items-center gap-3">
         <Link to="/" className="text-xs text-muted-foreground hover:underline">CloudTreeWeb</Link>
         <span className="text-muted-foreground">/</span>
         <h1 className="text-base font-semibold">{chart?.name || 'Shared Chart'}</h1>
@@ -73,136 +75,84 @@ function PreviewBody({ payload }) {
         </span>
         <span className="ms-auto text-xs text-muted-foreground">Read-only preview</span>
       </header>
-      <main className="max-w-4xl mx-auto p-6 space-y-8">
-        {rootPerson && (
-          <section className="rounded-xl border border-border bg-card p-5 text-center">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Subject</div>
-            <div className="text-2xl font-bold">{rootPerson.summary?.fullName || rootPerson.recordName}</div>
-            <div className="text-sm text-muted-foreground">
-              {rootPerson.summary?.birthDate || '?'} – {rootPerson.summary?.deathDate || 'present'}
-            </div>
-          </section>
+      <main className="flex-1 min-h-0">
+        {hasRenderableTree ? (
+          <PreviewChart payload={payload} />
+        ) : (
+          <LegacyPreview chart={chart} rootPerson={rootPerson} />
         )}
-        {ancestors.length > 0 && (
-          <section>
-            <h2 className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Ancestors</h2>
-            <div className="grid gap-2">
-              {ancestors.map((row, idx) => (
-                <div key={idx} className="grid grid-cols-[1fr_24px_1fr] items-center gap-2">
-                  <AncestorCell person={row.father} />
-                  <div className="text-xs text-muted-foreground text-center">&</div>
-                  <AncestorCell person={row.mother} />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-        {descendants.length > 0 && (
-          <section>
-            <h2 className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Descendants</h2>
-            <ul className="space-y-1 text-sm">
-              {descendants.slice(0, 200).map((entry) => (
-                <li key={entry.recordName} style={{ paddingInlineStart: entry.depth * 18 }}>
-                  <span className="font-medium">{entry.summary?.fullName || entry.recordName}</span>
-                  <span className="text-xs text-muted-foreground ms-2">
-                    {entry.summary?.birthDate || ''} {entry.summary?.deathDate ? `– ${entry.summary.deathDate}` : ''}
-                  </span>
-                </li>
-              ))}
-              {descendants.length > 200 && (
-                <li className="text-xs text-muted-foreground text-center">… +{descendants.length - 200} more descendants</li>
-              )}
-            </ul>
-          </section>
-        )}
-        <footer className="text-xs text-muted-foreground pt-6 border-t border-border">
-          Chart type: <span className="font-medium">{chart?.chartType || 'unknown'}</span>. Shared link contains no media files.
-          <Link to="/" className="ms-3 text-primary hover:underline">Open CloudTreeWeb</Link>
-        </footer>
       </main>
     </div>
   );
 }
 
-function AncestorCell({ person }) {
-  if (!person) {
-    return <div className="rounded-md border border-dashed border-border bg-background text-center px-2 py-1.5 text-xs text-muted-foreground">Unknown</div>;
+function PreviewChart({ payload }) {
+  const { chart, trees } = payload;
+  const chartType = chart?.chartType || 'ancestor';
+  const theme = useMemo(() => getTheme(chart?.compositorConfig?.themeId || 'auto'), [chart?.compositorConfig?.themeId]);
+  const generations = Number(chart?.builderConfig?.common?.generations) || 5;
+  const page = useMemo(() => {
+    const setup = chart?.pageSetup || {};
+    return {
+      title: setup.title || '',
+      note: setup.note || '',
+      paperSize: setup.paperSize || setup.size || 'letter',
+      orientation: setup.orientation || 'landscape',
+      backgroundColor: setup.backgroundColor || theme.background,
+      margins: setup.margins,
+      printMargins: setup.printMargins,
+      overlap: setup.overlap || 0,
+      cutMarks: Boolean(setup.cutMarks),
+      printPageNumbers: Boolean(setup.printPageNumbers),
+      omitEmptyPages: setup.omitEmptyPages !== false,
+    };
+  }, [chart?.pageSetup, theme]);
+  const overlays = Array.isArray(chart?.compositorConfig?.overlays) ? chart.compositorConfig.overlays : [];
+
+  const common = { theme, page, overlays };
+
+  if (chartType === 'descendant') {
+    return <DescendantChart tree={trees.descendantTree} {...common} />;
   }
+  if (chartType === 'hourglass') {
+    return <HourglassChart ancestorTree={trees.ancestorTree} descendantTree={trees.descendantTree} generations={generations} {...common} />;
+  }
+  if (chartType === 'tree' || chartType === 'symmetrical') {
+    return <TreeChart ancestorTree={trees.ancestorTree} descendantTree={trees.descendantTree} generations={generations} variant={chartType === 'symmetrical' ? 'symmetrical' : 'horizontal'} {...common} />;
+  }
+  if (chartType === 'double-ancestor') {
+    return <DoubleAncestorChart leftTree={trees.ancestorTree} rightTree={trees.secondAncestorTree} leftGenerations={generations} rightGenerations={generations} {...common} />;
+  }
+  if (chartType === 'fan') {
+    return <FanChart tree={trees.ancestorTree} generations={generations} {...common} />;
+  }
+  if (chartType === 'circular') {
+    return <CircularAncestorChart tree={trees.ancestorTree} generations={generations} {...common} />;
+  }
+  if (chartType === 'fractal-h-tree') {
+    return <FractalAncestorChart tree={trees.ancestorTree} generations={generations} variant="h-tree" {...common} />;
+  }
+  if (chartType === 'square-tree') {
+    return <FractalAncestorChart tree={trees.ancestorTree} generations={generations} variant="square" {...common} />;
+  }
+  if (chartType === 'fractal-tree') {
+    return <FractalAncestorChart tree={trees.ancestorTree} generations={generations} variant="fractal" {...common} />;
+  }
+  return <AncestorChart tree={trees.ancestorTree} generations={generations} {...common} />;
+}
+
+function LegacyPreview({ rootPerson }) {
   return (
-    <div className="rounded-md border border-border bg-secondary px-2 py-1.5 text-sm">
-      <div className="font-medium truncate">{person.summary?.fullName || person.recordName}</div>
-      <div className="text-[11px] text-muted-foreground">
-        {person.summary?.birthDate || ''} {person.summary?.deathDate ? `– ${person.summary.deathDate}` : ''}
-      </div>
+    <div className="max-w-4xl mx-auto p-6">
+      {rootPerson ? (
+        <section className="rounded-xl border border-border bg-card p-5 text-center">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Subject</div>
+          <div className="text-2xl font-bold">{rootPerson.summary?.fullName || rootPerson.recordName}</div>
+          <div className="text-sm text-muted-foreground">
+            {rootPerson.summary?.birthDate || '?'} – {rootPerson.summary?.deathDate || 'present'}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
-}
-
-function buildAncestorPairs(rootId, persons, families) {
-  if (!rootId) return [];
-  const out = [];
-  const visited = new Set();
-  // Collect the direct parents by finding families where the root appears as a child.
-  // With only persons/families in the payload, we fall back to scanning families for men/women.
-  // (The builder also emits spouse/parent refs via family records.)
-  const walk = (id, depth = 0) => {
-    if (!id || visited.has(id) || depth > 8) return null;
-    visited.add(id);
-    const parentFamily = findParentFamily(id, families);
-    if (!parentFamily) return null;
-    const fatherId = refId(parentFamily.fields?.man?.value);
-    const motherId = refId(parentFamily.fields?.woman?.value);
-    out.push({
-      father: fatherId ? persons[fatherId] : null,
-      mother: motherId ? persons[motherId] : null,
-    });
-    if (fatherId) walk(fatherId, depth + 1);
-    if (motherId) walk(motherId, depth + 1);
-    return null;
-  };
-  walk(rootId);
-  return out;
-}
-
-function buildDescendantList(rootId, persons, families) {
-  if (!rootId) return [];
-  const out = [];
-  const seen = new Set();
-  const walk = (id, depth) => {
-    if (!id || seen.has(id) || depth > 8) return;
-    seen.add(id);
-    if (depth > 0) {
-      const person = persons[id];
-      if (person) out.push({ ...person, depth });
-    }
-    for (const [, family] of Object.entries(families || {})) {
-      if (refId(family.fields?.man?.value) === id || refId(family.fields?.woman?.value) === id) {
-        // Children live in ChildRelation records, which aren't in the minimal payload.
-        // Walking by spouse lookup isn't possible without child edges, so we stop here.
-      }
-    }
-  };
-  walk(rootId, 0);
-  return out;
-}
-
-function findParentFamily(childId, families) {
-  // Without ChildRelation records we can't resolve true child→family edges.
-  // The share payload leaves ancestor discovery to the direct parent refs
-  // already collected during `buildChartSharePayload`'s visitPerson walk.
-  for (const family of Object.values(families || {})) {
-    if (!family) continue;
-    if (refId(family.fields?.man?.value) === childId || refId(family.fields?.woman?.value) === childId) continue;
-  }
-  return null;
-}
-
-function refId(raw) {
-  if (!raw) return null;
-  if (typeof raw === 'string') {
-    const i = raw.indexOf('---');
-    return i >= 0 ? raw.slice(0, i) : raw;
-  }
-  if (typeof raw === 'object' && raw.value) return refId(raw.value);
-  return null;
 }
