@@ -14,6 +14,7 @@ import {
   deleteCustomFilter,
   runCustomFilter,
   newBlankFilter,
+  availablePathSteps,
 } from '../lib/customScopes.js';
 
 const COMMON_FIELDS_BY_ENTITY = {
@@ -156,6 +157,7 @@ export default function SmartFilters() {
                   <RuleRow
                     key={index}
                     rule={rule}
+                    entityType={selected.entityType}
                     suggestedFields={suggestedFields}
                     onChange={(next) => {
                       const rules = [...selected.rules];
@@ -204,36 +206,82 @@ export default function SmartFilters() {
   );
 }
 
-function RuleRow({ rule, onChange, onRemove, suggestedFields }) {
+function RuleRow({ rule, onChange, onRemove, suggestedFields, entityType }) {
   const operator = FILTER_OPERATORS.find((op) => op.id === rule.operator) || FILTER_OPERATORS[0];
+  const path = Array.isArray(rule.path) ? rule.path : [];
+  const availableSteps = availablePathSteps(pathEntityFor(entityType, path));
   return (
-    <div className="flex flex-wrap gap-2 items-center">
-      <input
-        list="smart-filter-fields"
-        value={rule.field}
-        onChange={(event) => onChange({ ...rule, field: event.target.value })}
-        placeholder="Field name (e.g. lastName)"
-        className={`${input} flex-1 min-w-[180px]`}
-      />
-      <datalist id="smart-filter-fields">
-        {suggestedFields.map((field) => <option key={field} value={field} />)}
-      </datalist>
-      <select
-        value={rule.operator}
-        onChange={(event) => onChange({ ...rule, operator: event.target.value })}
-        className={input + ' w-auto'}
-      >
-        {FILTER_OPERATORS.map((op) => <option key={op.id} value={op.id}>{op.label}</option>)}
-      </select>
-      {operator.takesValue && (
-        <input
-          value={rule.value ?? ''}
-          onChange={(event) => onChange({ ...rule, value: event.target.value })}
-          placeholder="Value"
-          className={`${input} flex-1 min-w-[140px]`}
-        />
+    <div className="rounded-md border border-border bg-background/60 p-2 space-y-2">
+      {path.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1 text-xs">
+          <span className="text-muted-foreground">Through:</span>
+          {path.map((step, i) => (
+            <span key={i} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5">
+              {step}
+              <button
+                type="button"
+                onClick={() => onChange({ ...rule, path: path.slice(0, i) })}
+                className="text-muted-foreground hover:text-destructive"
+                aria-label={`Remove ${step}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
       )}
-      <button onClick={onRemove} className="text-sm text-muted-foreground hover:text-destructive">×</button>
+      <div className="flex flex-wrap gap-2 items-center">
+        {availableSteps.length > 0 && (
+          <select
+            value=""
+            onChange={(event) => {
+              if (!event.target.value) return;
+              onChange({ ...rule, path: [...path, event.target.value] });
+            }}
+            className={input + ' w-auto'}
+            title="Add a hop (e.g. father → birth place)"
+          >
+            <option value="">+ hop…</option>
+            {availableSteps.map((step) => <option key={step} value={step}>{step}</option>)}
+          </select>
+        )}
+        <input
+          list="smart-filter-fields"
+          value={rule.field}
+          onChange={(event) => onChange({ ...rule, field: event.target.value })}
+          placeholder="Field name (e.g. lastName)"
+          className={`${input} flex-1 min-w-[180px]`}
+        />
+        <datalist id="smart-filter-fields">
+          {suggestedFields.map((field) => <option key={field} value={field} />)}
+        </datalist>
+        <select
+          value={rule.operator}
+          onChange={(event) => onChange({ ...rule, operator: event.target.value })}
+          className={input + ' w-auto'}
+        >
+          {FILTER_OPERATORS.map((op) => <option key={op.id} value={op.id}>{op.label}</option>)}
+        </select>
+        {operator.takesValue && (
+          <input
+            value={rule.value ?? ''}
+            onChange={(event) => onChange({ ...rule, value: event.target.value })}
+            placeholder="Value"
+            className={`${input} flex-1 min-w-[140px]`}
+          />
+        )}
+        <button onClick={onRemove} className="text-sm text-muted-foreground hover:text-destructive">×</button>
+      </div>
     </div>
   );
+}
+
+function pathEntityFor(startEntity, path) {
+  let current = startEntity;
+  for (const step of path) {
+    if (step === 'birthPlace' || step === 'deathPlace') current = 'Place';
+    else if (step === 'man' || step === 'woman') current = 'Person';
+    else current = 'Person';
+  }
+  return current;
 }

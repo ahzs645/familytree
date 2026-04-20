@@ -44,6 +44,7 @@ const PersonAnalysis = lazy(() => import('./routes/PersonAnalysis.jsx'));
 const LdsOrdinances = lazy(() => import('./routes/LdsOrdinances.jsx'));
 const Maintenance = lazy(() => import('./routes/Maintenance.jsx'));
 const SmartFilters = lazy(() => import('./routes/SmartFilters.jsx'));
+const CustomTypes = lazy(() => import('./routes/CustomTypes.jsx'));
 const Bookmarks = lazy(() => import('./routes/Bookmarks.jsx'));
 const ToDos = lazy(() => import('./routes/ToDos.jsx'));
 const Stories = lazy(() => import('./routes/Stories.jsx'));
@@ -164,6 +165,7 @@ export function App() {
               <Route path="lds-ordinances" element={<L><LdsOrdinances /></L>} />
               <Route path="maintenance" element={<L><Maintenance /></L>} />
               <Route path="smart-filters" element={<L><SmartFilters /></L>} />
+              <Route path="custom-types" element={<L><CustomTypes /></L>} />
               <Route path="bookmarks" element={<L><Bookmarks /></L>} />
               <Route path="todos" element={<L><ToDos /></L>} />
               <Route path="stories" element={<L><Stories /></L>} />

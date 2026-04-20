@@ -92,6 +92,7 @@ export default function Maintenance() {
             <Link to="/plausibility" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Plausibility Checks</Link>
             <Link to="/labels" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Labels</Link>
             <Link to="/smart-filters" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Smart Filters</Link>
+            <Link to="/custom-types" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Custom Types</Link>
           </div>
         </div>
 
