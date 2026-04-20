@@ -15,6 +15,7 @@ import { loadSavedChartDocument } from '../../lib/chartContainerLoader.js';
 import { normalizeChartDocument } from '../../lib/chartDocumentSchema.js';
 import { buildShareUrl } from '../../lib/chartShareLink.js';
 import { ChartBackgroundSheet } from './ChartBackgroundSheet.jsx';
+import { PageSetupSheet } from '../PageSetupSheet.jsx';
 import { buildTimelineData } from '../../lib/chartData/timelineBuilder.js';
 import { buildGenogramData } from '../../lib/chartData/genogramBuilder.js';
 import { buildDistributionData } from '../../lib/chartData/distributionBuilder.js';
@@ -110,6 +111,13 @@ export function ChartsApp() {
   const [pageOrientation, setPageOrientation] = useState('landscape');
   const [chartBackground, setChartBackground] = useState('');
   const [backgroundSheetOpen, setBackgroundSheetOpen] = useState(false);
+  const [pageSetupSheetOpen, setPageSetupSheetOpen] = useState(false);
+  const [pageMargins, setPageMargins] = useState({ top: 36, right: 36, bottom: 36, left: 36 });
+  const [pagePrintMargins, setPagePrintMargins] = useState({ top: 36, right: 36, bottom: 36, left: 36 });
+  const [pageOverlap, setPageOverlap] = useState(0);
+  const [pageCutMarks, setPageCutMarks] = useState(false);
+  const [pagePrintPageNumbers, setPagePrintPageNumbers] = useState(false);
+  const [pageOmitEmptyPages, setPageOmitEmptyPages] = useState(true);
   const [ancestorTree, setAncestorTree] = useState(null);
   const [descendantTree, setDescendantTree] = useState(null);
   const [secondAncestorTree, setSecondAncestorTree] = useState(null);
@@ -169,6 +177,8 @@ export function ChartsApp() {
     virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle,
     chartNote, pageSize, pageOrientation, chartBackground,
     relationshipBloodlineOnly, selectedRelationshipPathId, overlays,
+    pageMargins, pagePrintMargins, pageOverlap, pageCutMarks,
+    pagePrintPageNumbers, pageOmitEmptyPages,
   ]);
 
   useEffect(() => {
@@ -211,8 +221,15 @@ export function ChartsApp() {
     title: chartTitle,
     note: chartNote,
     size: pageSize,
+    paperSize: pageSize,
     orientation: pageOrientation,
     backgroundColor: chartBackground || theme.background,
+    margins: pageMargins,
+    printMargins: pagePrintMargins,
+    overlap: pageOverlap,
+    cutMarks: pageCutMarks,
+    printPageNumbers: pagePrintPageNumbers,
+    omitEmptyPages: pageOmitEmptyPages,
   };
   const chartTitleOrDefault = chartTitle || 'chart';
 
@@ -250,6 +267,29 @@ export function ChartsApp() {
     setPageSize(normalized.pageSetup.paperSize || 'letter');
     setPageOrientation(normalized.pageSetup.orientation || 'landscape');
     setChartBackground(normalized.pageSetup.backgroundColor || '');
+    setPageMargins({
+      top: normalized.pageSetup.margins?.top ?? 36,
+      right: normalized.pageSetup.margins?.right ?? 36,
+      bottom: normalized.pageSetup.margins?.bottom ?? 36,
+      left: normalized.pageSetup.margins?.left ?? 36,
+    });
+    setPagePrintMargins({
+      top: normalized.pageSetup.printMargins?.top ?? normalized.pageSetup.margins?.top ?? 36,
+      right: normalized.pageSetup.printMargins?.right ?? normalized.pageSetup.margins?.right ?? 36,
+      bottom: normalized.pageSetup.printMargins?.bottom ?? normalized.pageSetup.margins?.bottom ?? 36,
+      left: normalized.pageSetup.printMargins?.left ?? normalized.pageSetup.margins?.left ?? 36,
+    });
+    setPageOverlap(Number(normalized.pageSetup.overlap) || 0);
+    setPageCutMarks(Boolean(normalized.pageSetup.cutMarks));
+    setPagePrintPageNumbers(Boolean(normalized.pageSetup.printPageNumbers));
+    setPageOmitEmptyPages(normalized.pageSetup.omitEmptyPages !== false);
+    if (normalized.exportSettings) {
+      setExportFormat(normalized.exportSettings.format || 'png');
+      setExportScale(Number(normalized.exportSettings.scale) || 1);
+      setExportJpegQuality(Number(normalized.exportSettings.jpegQuality) || 0.92);
+      setExportIncludeBackground(normalized.exportSettings.includeBackground !== false);
+      setExportFileNameTemplate(normalized.exportSettings.fileNameTemplate || '{title}-{date}');
+    }
     const relationshipConfig = normalized.builderConfig.relationship || {};
     setRelationshipBloodlineOnly(Boolean(relationshipConfig.bloodlineOnly));
     setSelectedRelationshipPathId(relationshipConfig.selectedPathId || null);
@@ -542,8 +582,21 @@ export function ChartsApp() {
       paperSize: pageSize,
       orientation: pageOrientation,
       backgroundColor: chartBackground,
+      margins: pageMargins,
+      printMargins: pagePrintMargins,
+      overlap: pageOverlap,
+      cutMarks: pageCutMarks,
+      printPageNumbers: pagePrintPageNumbers,
+      omitEmptyPages: pageOmitEmptyPages,
     },
-  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, selectedOverlayId]);
+    exportSettings: {
+      format: exportFormat,
+      scale: exportScale,
+      includeBackground: exportIncludeBackground,
+      jpegQuality: exportJpegQuality,
+      fileNameTemplate: exportFileNameTemplate,
+    },
+  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, selectedOverlayId, pageMargins, pagePrintMargins, pageOverlap, pageCutMarks, pagePrintPageNumbers, pageOmitEmptyPages, exportFormat, exportScale, exportIncludeBackground, exportJpegQuality, exportFileNameTemplate]);
 
   const buildChartShareUrl = useCallback(async () => {
     const doc = currentDocumentState(currentDocumentName || 'Shared Chart', currentDocumentId || 'shared');
@@ -643,11 +696,42 @@ export function ChartsApp() {
     setIsDirty(false);
   }, [currentDocumentState, currentDocumentName, suppressDirtyOnce, modal]);
 
-  const onApplyDocument = useCallback((id) => {
+  const onApplyDocument = useCallback(async (id) => {
     const doc = documents.find((item) => item.id === id);
     if (!doc) return;
+    if (!(await confirmDiscardIfDirty('load'))) return;
     applyDocumentState(doc, { preserveSelection: false });
-  }, [applyDocumentState, documents]);
+  }, [applyDocumentState, confirmDiscardIfDirty, documents]);
+
+  const onNewChart = useCallback(async () => {
+    if (!(await confirmDiscardIfDirty('new'))) return;
+    suppressDirtyOnce();
+    setCurrentDocumentId(null);
+    setCurrentDocumentName('');
+    setIsReadOnly(false);
+    setIsDirty(false);
+    setFromSource([], { preserveSelection: false });
+    setChartTitle('');
+    setChartNote('');
+    setChartBackground('');
+  }, [confirmDiscardIfDirty, setFromSource, suppressDirtyOnce]);
+
+  const onFinishEditing = useCallback(async () => {
+    if (isDirty) {
+      const save = await modal.confirm('Save changes before finishing?', {
+        title: 'Finish editing',
+        okLabel: 'Save',
+        cancelLabel: 'Discard',
+      });
+      if (save) {
+        await onSaveDocument();
+      } else {
+        suppressDirtyOnce();
+        setIsDirty(false);
+      }
+    }
+    setIsReadOnly(true);
+  }, [isDirty, modal, onSaveDocument, suppressDirtyOnce]);
 
   const onDeleteDocument = useCallback(async (id) => {
     if (!(await modal.confirm('Delete this chart document?', { title: 'Delete chart', okLabel: 'Delete', destructive: true }))) return;
@@ -964,6 +1048,11 @@ export function ChartsApp() {
                   onApply={(value) => { setChartBackground(value); setBackgroundSheetOpen(false); }}
                   onClose={() => setBackgroundSheetOpen(false)}
                 />
+                <div style={{ marginTop: 6 }}>
+                  <button type="button" onClick={() => setPageSetupSheetOpen(true)} style={optionSelect} title="Margins, overlap, cut marks, page numbers, omit empty pages, export format/scale/quality">
+                    Page setup…
+                  </button>
+                </div>
               </Section>
 
               <Section label="Templates">
@@ -1006,6 +1095,10 @@ export function ChartsApp() {
                   </button>
                   <button onClick={onSaveAsDocument} style={optionSelect} title="Save a new copy">Save as…</button>
                 </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6 }}>
+                  <button onClick={onNewChart} style={optionSelect} title="Start a new blank chart. Prompts if there are unsaved changes.">New chart</button>
+                  <button onClick={onFinishEditing} style={optionSelect} disabled={isReadOnly} title="Exit edit mode. Prompts to save unsaved changes, then locks the chart as read-only.">Finish editing</button>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 6 }}>
                   <button
                     onClick={onCopyShareLink}
@@ -1040,34 +1133,34 @@ export function ChartsApp() {
                 )}
               </Section>
 
-              <Section label="Overlays">
+              <Section label={`Overlays${isReadOnly ? ' (read-only)' : ''}`}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-                  <button onClick={addTextOverlay} style={optionSelect}>Text</button>
-                  <button onClick={addLineOverlay} style={optionSelect}>Line</button>
-                  <button onClick={addImageOverlay} style={optionSelect}>Image</button>
-                  <button onClick={removeSelected} disabled={!selectedOverlayId} style={optionSelect}>Delete</button>
+                  <button onClick={addTextOverlay} style={optionSelect} disabled={isReadOnly}>Text</button>
+                  <button onClick={addLineOverlay} style={optionSelect} disabled={isReadOnly}>Line</button>
+                  <button onClick={addImageOverlay} style={optionSelect} disabled={isReadOnly}>Image</button>
+                  <button onClick={removeSelected} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Delete</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 6 }}>
-                  <button onClick={undo} disabled={!hasUndo} style={optionSelect}>Undo</button>
-                  <button onClick={redo} disabled={!hasRedo} style={optionSelect}>Redo</button>
-                  <button onClick={() => alignHorizontal('left')} disabled={!selectedOverlayId} style={optionSelect}>Align left</button>
-                  <button onClick={() => alignHorizontal('center')} disabled={!selectedOverlayId} style={optionSelect}>Align center</button>
+                  <button onClick={undo} disabled={!hasUndo || isReadOnly} style={optionSelect}>Undo</button>
+                  <button onClick={redo} disabled={!hasRedo || isReadOnly} style={optionSelect}>Redo</button>
+                  <button onClick={() => alignHorizontal('left')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Align left</button>
+                  <button onClick={() => alignHorizontal('center')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Align center</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 6 }}>
-                  <button onClick={() => alignVertical('top')} disabled={!selectedOverlayId} style={optionSelect}>Align top</button>
-                  <button onClick={() => alignVertical('middle')} disabled={!selectedOverlayId} style={optionSelect}>Align middle</button>
-                  <button onClick={bringToFront} disabled={!selectedOverlayId} style={optionSelect}>Bring to front</button>
-                  <button onClick={sendToBack} disabled={!selectedOverlayId} style={optionSelect}>Send to back</button>
+                  <button onClick={() => alignVertical('top')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Align top</button>
+                  <button onClick={() => alignVertical('middle')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Align middle</button>
+                  <button onClick={bringToFront} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Bring to front</button>
+                  <button onClick={sendToBack} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Send to back</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 6 }}>
-                  <button onClick={() => distributeEvenly('horizontal')} disabled={!selectedOverlayId} style={optionSelect}>Distribute H</button>
-                  <button onClick={() => distributeEvenly('vertical')} disabled={!selectedOverlayId} style={optionSelect}>Distribute V</button>
+                  <button onClick={() => distributeEvenly('horizontal')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Distribute H</button>
+                  <button onClick={() => distributeEvenly('vertical')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Distribute V</button>
                   <button onClick={focusRootInCanvas} style={optionSelect}>Focus root</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 6 }}>
-                  <button onClick={() => moveAwayFromPageCuts({ paperSize: pageSize, orientation: pageOrientation })} disabled={!overlays.length} style={optionSelect} title="Shift objects that cross a page-tile boundary so they fit inside one page">Away from cuts</button>
-                  <button onClick={() => distributeBorderToBorder('horizontal', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2} style={optionSelect} title="Distribute objects evenly across the page content rect">Border-to-border H</button>
-                  <button onClick={() => distributeBorderToBorder('vertical', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2} style={optionSelect} title="Distribute objects evenly from top to bottom">Border-to-border V</button>
+                  <button onClick={() => moveAwayFromPageCuts({ paperSize: pageSize, orientation: pageOrientation })} disabled={!overlays.length || isReadOnly} style={optionSelect} title="Shift objects that cross a page-tile boundary so they fit inside one page">Away from cuts</button>
+                  <button onClick={() => distributeBorderToBorder('horizontal', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2 || isReadOnly} style={optionSelect} title="Distribute objects evenly across the page content rect">Border-to-border H</button>
+                  <button onClick={() => distributeBorderToBorder('vertical', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2 || isReadOnly} style={optionSelect} title="Distribute objects evenly from top to bottom">Border-to-border V</button>
                 </div>
               </Section>
 
@@ -1480,6 +1573,47 @@ export function ChartsApp() {
         />
       </div>
       </ChartSelectionProvider>
+      {pageSetupSheetOpen && (
+        <PageSetupSheet
+          title="Page setup"
+          pageSetup={{
+            paperSize: pageSize,
+            orientation: pageOrientation,
+            margins: pageMargins,
+            printMargins: pagePrintMargins,
+            overlap: pageOverlap,
+            cutMarks: pageCutMarks,
+            printPageNumbers: pagePrintPageNumbers,
+            omitEmptyPages: pageOmitEmptyPages,
+            backgroundColor: chartBackground,
+          }}
+          exportSettings={{
+            format: exportFormat,
+            scale: exportScale,
+            jpegQuality: exportJpegQuality,
+            includeBackground: exportIncludeBackground,
+          }}
+          onCancel={() => setPageSetupSheetOpen(false)}
+          onApply={(nextPage, nextExport) => {
+            setPageSize(nextPage.paperSize || 'letter');
+            setPageOrientation(nextPage.orientation || 'landscape');
+            setPageMargins(nextPage.margins || pageMargins);
+            setPagePrintMargins(nextPage.printMargins || pagePrintMargins);
+            setPageOverlap(Number(nextPage.overlap) || 0);
+            setPageCutMarks(Boolean(nextPage.cutMarks));
+            setPagePrintPageNumbers(Boolean(nextPage.printPageNumbers));
+            setPageOmitEmptyPages(nextPage.omitEmptyPages !== false);
+            if (nextPage.backgroundColor !== undefined) setChartBackground(nextPage.backgroundColor);
+            if (nextExport) {
+              setExportFormat(nextExport.format || 'png');
+              setExportScale(Number(nextExport.scale) || 1);
+              setExportJpegQuality(Number(nextExport.jpegQuality) || 0.92);
+              setExportIncludeBackground(nextExport.includeBackground !== false);
+            }
+            setPageSetupSheetOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

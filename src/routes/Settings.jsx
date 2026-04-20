@@ -14,7 +14,7 @@ import {
   SUPPORTED_LOCALES,
 } from '../lib/i18n.js';
 import { getMapPreferences, saveMapPreferences } from '../lib/placeGeocoding.js';
-import { NAME_FORMAT_OPTIONS } from '../lib/nameFormat.js';
+import { NAME_FORMAT_OPTIONS, formatName } from '../lib/nameFormat.js';
 import { PLAUSIBILITY_ANALYZERS } from '../lib/plausibility.js';
 import { GEDCOM_ENCODINGS } from '../lib/genealogyFileFormats.js';
 import { useModal } from '../contexts/ModalContext.jsx';
@@ -175,6 +175,7 @@ export default function Settings() {
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+                <NameFormatPreview preset={prefs.formats.nameDisplayFormat} />
               </Field>
               <Field label="Name Sort Format">
                 <select value={prefs.formats.nameSortFormat} onChange={(event) => update('formats', 'nameSortFormat', event.target.value)} className={inputClass}>
@@ -182,6 +183,7 @@ export default function Settings() {
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
+                <NameFormatPreview preset={prefs.formats.nameSortFormat} />
               </Field>
               <Field label="Surname Case">
                 <select value={prefs.formats.surnameCase} onChange={(event) => update('formats', 'surnameCase', event.target.value)} className={inputClass}>
@@ -534,6 +536,17 @@ function FunctionsPanel({ prefs, setPrefs }) {
         ))}
       </div>
     </Panel>
+  );
+}
+
+const SAMPLE_NAME_PARTS = { title: 'Dr.', first: 'Maria', middle: 'Eleanor', last: 'García', suffix: 'Jr.' };
+
+function NameFormatPreview({ preset }) {
+  const rendered = formatName(SAMPLE_NAME_PARTS, preset) || '—';
+  return (
+    <div className="mt-1 text-[11px] text-muted-foreground">
+      Preview: <span className="font-mono text-foreground">{rendered}</span>
+    </div>
   );
 }
 

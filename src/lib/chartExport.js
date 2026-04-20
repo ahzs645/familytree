@@ -7,7 +7,61 @@
  * backward compatibility.
  */
 
-import { normalizePageDimensions } from './pageLayout.js';
+import { normalizePageDimensions, normalizeMargins, computePageTiles } from './pageLayout.js';
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function svgEl(tag, attrs = {}) {
+  const node = document.createElementNS(SVG_NS, tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (value !== undefined && value !== null) node.setAttribute(key, String(value));
+  }
+  return node;
+}
+
+function decorateClone(clone, pageSetup = {}) {
+  const cutMarks = Boolean(pageSetup.cutMarks);
+  const printPageNumbers = Boolean(pageSetup.printPageNumbers);
+  if (!cutMarks && !printPageNumbers) return;
+  const dims = normalizePageDimensions(pageSetup);
+  const margins = normalizeMargins(pageSetup);
+  const tiles = computePageTiles(
+    { x: 0, y: 0, width: dims.width, height: dims.height },
+    pageSetup,
+  );
+  const layer = svgEl('g', { 'data-export-decorations': 'true', 'pointer-events': 'none' });
+  const tickSize = 18;
+  const strokeWidth = 1;
+  const decorateTile = (tile, index) => {
+    const { x, y, width, height } = tile.chart;
+    if (cutMarks) {
+      const corners = [
+        [x, y, x + tickSize, y, x, y + tickSize],
+        [x + width, y, x + width - tickSize, y, x + width, y + tickSize],
+        [x, y + height, x + tickSize, y + height, x, y + height - tickSize],
+        [x + width, y + height, x + width - tickSize, y + height, x + width, y + height - tickSize],
+      ];
+      for (const [cx, cy, hx, hy, vx, vy] of corners) {
+        layer.appendChild(svgEl('line', { x1: cx, y1: cy, x2: hx, y2: hy, stroke: '#000', 'stroke-width': strokeWidth }));
+        layer.appendChild(svgEl('line', { x1: cx, y1: cy, x2: vx, y2: vy, stroke: '#000', 'stroke-width': strokeWidth }));
+      }
+    }
+    if (printPageNumbers) {
+      const pageNoText = svgEl('text', {
+        x: x + width - margins.right / 2,
+        y: y + height - margins.bottom / 2 + 4,
+        'text-anchor': 'end',
+        'font-size': 10,
+        'font-family': 'system-ui, -apple-system, sans-serif',
+        fill: '#666',
+      });
+      pageNoText.textContent = `${index + 1} / ${tiles.length}`;
+      layer.appendChild(pageNoText);
+    }
+  };
+  tiles.forEach(decorateTile);
+  clone.appendChild(layer);
+}
 
 const DEFAULT_FILENAME_TEMPLATE = '{title}-{date}';
 
@@ -79,6 +133,7 @@ export function chartSvgBlob(svgNode, { page = {}, filename = 'chart' } = {}) {
   if (!clone) throw new Error('No SVG node available for chart export.');
   clone.setAttribute('width', size.width);
   clone.setAttribute('height', size.height);
+  decorateClone(clone, toPageSetup(page));
   return new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' });
 }
 
@@ -99,6 +154,7 @@ export function exportChartAsPng(svgNode, options = {}, background = '#ffffff') 
   if (!clone) throw new Error('No SVG node available for chart export.');
   clone.setAttribute('width', size.width);
   clone.setAttribute('height', size.height);
+  decorateClone(clone, toPageSetup(page));
   const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' });
   const url = URL.createObjectURL(blob);
   const img = new Image();
@@ -136,6 +192,7 @@ export function printChartViaPdf(svgNode, options = {}) {
   if (!clone) throw new Error('No SVG node available for chart export.');
   clone.setAttribute('width', size.width);
   clone.setAttribute('height', size.height);
+  decorateClone(clone, toPageSetup(page));
   const html = `\n    <html>\n      <head><title>${safeFilename(filename, 'pdf')}</title></head>\n      <body style="margin:0;background:#fff;display:flex;align-items:center;justify-content:center;">\n        ${clone.outerHTML}\n        <script>\n          window.onload = () => {\n            window.focus();\n            window.print();\n          };\n        </script>\n      </body>\n    </html>\n  `;
   const w = window.open('', '_blank');
   if (!w) throw new Error('Popup blocked. Allow popups to export as PDF.');
