@@ -19,6 +19,7 @@ import { readField } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import { FamilySearchSourceFoldersSheet } from '../components/FamilySearchSourceFoldersSheet.jsx';
 import { FamilySearchBatchDownloadSheet } from '../components/FamilySearchBatchDownloadSheet.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const TASK_META_KEY = 'familySearchTasks';
 
@@ -32,6 +33,7 @@ const TASK_TYPES = [
 
 export default function FamilySearch() {
   const navigate = useNavigate();
+  const modal = useModal();
   const [people, setPeople] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState('unmatched');
@@ -189,7 +191,7 @@ export default function FamilySearch() {
   }, [apiConfig]);
 
   const onComparePerson = useCallback(async (entry) => {
-    const personId = entry.familySearchID || prompt('FamilySearch person ID:');
+    const personId = entry.familySearchID || await modal.prompt('FamilySearch person ID:', '', { title: 'Compare FamilySearch person' });
     if (!personId) return;
     setApiStatus('Reading FamilySearch person…');
     try {
@@ -201,7 +203,7 @@ export default function FamilySearch() {
     } catch (error) {
       setApiStatus(`Compare failed: ${error.message}`);
     }
-  }, [apiConfig]);
+  }, [apiConfig, modal]);
 
   const onReadMergeAnalysis = useCallback(async () => {
     setApiStatus('Reading merge analysis…');
@@ -215,7 +217,7 @@ export default function FamilySearch() {
   }, [apiConfig, mergeDuplicateId, mergeSurvivorId]);
 
   const onSubmitMerge = useCallback(async () => {
-    if (!confirm('Submit this merge plan to FamilySearch? This changes FamilySearch Family Tree data.')) return;
+    if (!(await modal.confirm('Submit this merge plan to FamilySearch? This changes FamilySearch Family Tree data.', { title: 'Submit merge', okLabel: 'Submit' }))) return;
     setApiStatus('Submitting FamilySearch merge…');
     try {
       await mergeFamilySearchPersons(apiConfig, {
@@ -229,7 +231,7 @@ export default function FamilySearch() {
     } catch (error) {
       setApiStatus(`Merge failed: ${error.message}`);
     }
-  }, [apiConfig, mergeDuplicateId, mergeReason, mergeSurvivorId, resourcesToCopy, resourcesToDelete]);
+  }, [apiConfig, mergeDuplicateId, mergeReason, mergeSurvivorId, resourcesToCopy, resourcesToDelete, modal]);
 
   return (
     <div className="h-full overflow-auto bg-background">

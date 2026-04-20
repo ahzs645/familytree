@@ -13,12 +13,14 @@ import {
   saveCustomType,
   deleteCustomType,
 } from '../lib/customTypes.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const input = 'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm';
 const button = 'rounded-md border border-border bg-secondary px-3 py-1.5 text-sm font-medium hover:bg-accent';
 const buttonPrimary = 'rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-semibold';
 
 export default function CustomTypes() {
+  const modal = useModal();
   const [activeCategory, setActiveCategory] = useState(CUSTOM_TYPE_CATEGORIES[0].id);
   const [entries, setEntries] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -43,10 +45,10 @@ export default function CustomTypes() {
   }, [activeCategory, draft, refresh]);
 
   const onDelete = useCallback(async (id) => {
-    if (!confirm('Delete this custom type?')) return;
+    if (!(await modal.confirm('Delete this custom type?', { title: 'Delete type', okLabel: 'Delete', destructive: true }))) return;
     await deleteCustomType(activeCategory, id);
     await refresh();
-  }, [activeCategory, refresh]);
+  }, [activeCategory, refresh, modal]);
 
   const onEditLabel = useCallback(async (entry, label) => {
     if (label === entry.label) return;

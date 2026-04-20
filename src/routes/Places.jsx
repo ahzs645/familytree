@@ -34,6 +34,7 @@ import {
   placeDetailsFromComponents,
   saveMapPreferences,
 } from '../lib/placeGeocoding.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 function uuid(p) {
   return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -79,6 +80,7 @@ function templateFieldsFor(templateId, templates) {
 
 export default function Places() {
   const navigate = useNavigate();
+  const modal = useModal();
   const [searchParams] = useSearchParams();
   const [places, setPlaces] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -378,7 +380,7 @@ export default function Places() {
   }, [activeId, places, components]);
 
   const onLookupGeoName = useCallback(async () => {
-    const id = prompt('GeoName ID:');
+    const id = await modal.prompt('GeoName ID:', '', { title: 'Lookup GeoName', placeholder: 'e.g. 5128581' });
     if (!id) return;
     setStatus('Looking up GeoName…');
     try {
@@ -390,11 +392,11 @@ export default function Places() {
     } catch (error) {
       setStatus(error.message);
     }
-  }, []);
+  }, [modal]);
 
   const onBatchLookup = useCallback(async () => {
     const limit = Number(mapPrefs.batchLimit) || 10;
-    if (!confirm(`Lookup coordinates for up to ${limit} places missing coordinates?`)) return;
+    if (!(await modal.confirm(`Lookup coordinates for up to ${limit} places missing coordinates?`, { title: 'Batch lookup', okLabel: 'Run lookup' }))) return;
     setStatus('Batch lookup running…');
     try {
       const changed = await batchLookupMissingCoordinates({ limit });
@@ -403,7 +405,7 @@ export default function Places() {
     } catch (error) {
       setStatus(error.message);
     }
-  }, [mapPrefs.batchLimit, reload]);
+  }, [mapPrefs.batchLimit, reload, modal]);
 
   const onConvertToDetails = useCallback(() => {
     const generated = placeDetailsFromComponents(components);

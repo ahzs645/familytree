@@ -5,6 +5,7 @@ import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const TEST_TYPES = ['Autosomal', 'ATDNA', 'Y-DNA', 'MTDNA', 'mtDNA', 'X-DNA', 'Other'];
 const STATUS_VALUES = ['Ordered', 'Processing', 'Complete', 'Needs Review', 'Archived'];
@@ -27,6 +28,7 @@ function personLabel(record) {
 }
 
 export default function DNAResults() {
+  const modal = useModal();
   const [results, setResults] = useState([]);
   const [persons, setPersons] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -97,13 +99,14 @@ export default function DNAResults() {
   }, [active, reload, values]);
 
   const onDelete = useCallback(async () => {
-    if (!active || !confirm('Delete this DNA result?')) return;
+    if (!active) return;
+    if (!(await modal.confirm('Delete this DNA result?', { title: 'Delete DNA result', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     await db.deleteRecord(active.recordName);
     await logRecordDeleted(active.recordName, 'DNATestResult');
     setActiveId(null);
     await reload();
-  }, [active, reload]);
+  }, [active, reload, modal]);
 
   const renderRow = (record) => {
     const person = personById.get(readRef(record.fields?.person));

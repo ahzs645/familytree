@@ -46,6 +46,32 @@ export const DEFAULT_APP_PREFERENCES = {
     pageSize: 'letter',
     orientation: 'portrait',
     margin: 48,
+    embedFonts: true,
+    includeBookmarks: true,
+    compressImages: true,
+  },
+  history: {
+    showWorldEventsInTimeline: true,
+    worldHistoryCategories: ['politics', 'science', 'culture'],
+    lifespanYearsBeforeBirth: 5,
+    lifespanYearsAfterDeath: 5,
+  },
+  contentDownload: {
+    autoDownloadHistory: true,
+    autoDownloadFamilySearchSources: false,
+    concurrency: 3,
+    wifiOnly: false,
+  },
+  editControllers: {
+    eventTypesCollapsed: false,
+    factTypesCollapsed: false,
+    defaultEventType: 'Birth',
+    defaultFactType: 'Occupation',
+  },
+  categoryConfigurations: {
+    labelOrder: 'alphabetical',
+    groupOrder: 'custom',
+    hiddenCategories: [],
   },
   exportDefaults: {
     includePrivate: false,

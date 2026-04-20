@@ -22,6 +22,7 @@ import { compareStrings, formatInteger } from '../../lib/i18n.js';
 import { sourceSummary } from '../../models/index.js';
 import { SectionEditor } from './SectionEditor.jsx';
 import { ReportPreview } from '../reports/ReportPreview.jsx';
+import { useModal } from '../../contexts/ModalContext.jsx';
 
 function blankBook() {
   return {
@@ -35,6 +36,7 @@ function blankBook() {
 }
 
 export function BooksApp() {
+  const modal = useModal();
   const [persons, setPersons] = useState([]);
   const [groups, setGroups] = useState([]);
   const [sources, setSources] = useState([]);
@@ -86,18 +88,19 @@ export function BooksApp() {
     };
   }, [book]);
 
-  const guardedExport = useCallback((next, label = 'Export') => {
+  const guardedExport = useCallback(async (next, label = 'Export') => {
     if (validation.errors.length > 0) {
-      const proceed = confirm(
+      const proceed = await modal.confirm(
         `${label} is blocked by ${validation.errors.length} error(s):\n\n` +
         validation.errors.slice(0, 6).map((e) => `• ${e.message}`).join('\n') +
         (validation.errors.length > 6 ? '\n…' : '') +
-        '\n\nProceed anyway?'
+        '\n\nProceed anyway?',
+        { title: label, okLabel: 'Proceed' }
       );
       if (!proceed) return;
     }
-    next();
-  }, [validation.errors]);
+    await next();
+  }, [validation.errors, modal]);
 
   const updateSection = useCallback((i, next) => {
     setBook((b) => ({ ...b, sections: b.sections.map((s, j) => (j === i ? next : s)) }));
@@ -130,13 +133,13 @@ export function BooksApp() {
   }, []);
 
   const onSave = useCallback(async () => {
-    const name = prompt('Save book as:', book.title);
+    const name = await modal.prompt('Save book as:', book.title, { title: 'Save book' });
     if (!name) return;
     const toSave = { ...book, id: book.id || newBookId(), title: name };
     await saveBook(toSave);
     setBook(toSave);
     setSavedBooks(await listBooks());
-  }, [book]);
+  }, [book, modal]);
 
   const onLoad = useCallback(async (id) => {
     const entry = savedBooks.find((b) => b.id === id);
@@ -145,10 +148,10 @@ export function BooksApp() {
   }, [savedBooks]);
 
   const onDelete = useCallback(async (id) => {
-    if (!confirm('Delete this book?')) return;
+    if (!(await modal.confirm('Delete this book?', { title: 'Delete book', okLabel: 'Delete', destructive: true }))) return;
     await deleteBook(id);
     setSavedBooks(await listBooks());
-  }, []);
+  }, [modal]);
 
   const onExport = useCallback((fmt) => {
     if (!compiled) return;
@@ -187,7 +190,7 @@ export function BooksApp() {
     setStatus('Building publish bundle...');
     setProgress(null);
     if (validation.errors.length > 0) {
-      const proceed = confirm(`Bundle is blocked by ${validation.errors.length} error(s). Proceed anyway?`);
+      const proceed = await modal.confirm(`Bundle is blocked by ${validation.errors.length} error(s). Proceed anyway?`, { title: 'Bundle book', okLabel: 'Proceed' });
       if (!proceed) { setBusy(false); return; }
     }
     const controller = new AbortController();
@@ -208,7 +211,7 @@ export function BooksApp() {
       controllerRef.current = null;
       setBusy(false);
     }
-  }, [book]);
+  }, [book, validation.errors.length, modal]);
 
   if (loading) return <div style={loadingStyle}>Loading…</div>;
   if (empty) {

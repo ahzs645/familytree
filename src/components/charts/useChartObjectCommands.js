@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useMemo, useReducer } from 'react';
+import { getContentRect, normalizePageDimensions, computePageTiles } from '../../lib/pageLayout.js';
 
 const MAX_HISTORY = 64;
 
@@ -418,7 +419,6 @@ export function useChartObjectCommands(initialOverlays = []) {
     next.unshift(moving);
     setOverlaysCommit(next, { selectedId });
   }, [overlays, setOverlaysCommit, state.selectedId]);
-
   const distributeEvenly = useCallback((direction = 'horizontal') => {
     if (overlays.length < 3) return;
     const selectedIds = [state.selectedId].filter(Boolean);
@@ -460,6 +460,71 @@ export function useChartObjectCommands(initialOverlays = []) {
     setOverlaysCommit(next);
   }, [overlays, setOverlaysCommit, state.selectedId]);
 
+  const moveAwayFromPageCuts = useCallback((pageSetup = {}) => {
+    if (!overlays.length) return;
+    const { width: pageW, height: pageH } = normalizePageDimensions(pageSetup);
+    const content = getContentRect(pageSetup);
+    const chartBounds = overlays.reduce((acc, overlay) => {
+      const rect = overlayBounds(overlay);
+      acc.minX = Math.min(acc.minX, rect.x);
+      acc.minY = Math.min(acc.minY, rect.y);
+      acc.maxX = Math.max(acc.maxX, rect.x + rect.width);
+      acc.maxY = Math.max(acc.maxY, rect.y + rect.height);
+      return acc;
+    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+    if (!Number.isFinite(chartBounds.minX)) return;
+    const tiles = computePageTiles({
+      x: chartBounds.minX,
+      y: chartBounds.minY,
+      width: Math.max(pageW, chartBounds.maxX - chartBounds.minX),
+      height: Math.max(pageH, chartBounds.maxY - chartBounds.minY),
+    }, pageSetup);
+    if (!tiles.length) return;
+    const next = overlays.map((overlay) => {
+      const rect = overlayBounds(overlay);
+      const tile = tiles.find((t) => rect.centerX >= t.chart.x && rect.centerX <= t.chart.x + t.chart.width
+        && rect.centerY >= t.chart.y && rect.centerY <= t.chart.y + t.chart.height);
+      if (!tile) return overlay;
+      const tileInnerX = tile.chart.x + content.x;
+      const tileInnerY = tile.chart.y + content.y;
+      const tileInnerMaxX = tile.chart.x + tile.chart.width - content.x;
+      const tileInnerMaxY = tile.chart.y + tile.chart.height - content.y;
+      let dx = 0;
+      let dy = 0;
+      if (rect.x < tileInnerX) dx = tileInnerX - rect.x;
+      else if (rect.x + rect.width > tileInnerMaxX) dx = tileInnerMaxX - (rect.x + rect.width);
+      if (rect.y < tileInnerY) dy = tileInnerY - rect.y;
+      else if (rect.y + rect.height > tileInnerMaxY) dy = tileInnerMaxY - (rect.y + rect.height);
+      if (!dx && !dy) return overlay;
+      return moveShape(overlay, dx, dy);
+    });
+    setOverlaysCommit(next);
+  }, [overlays, setOverlaysCommit]);
+
+  const distributeBorderToBorder = useCallback((direction = 'horizontal', pageSetup = {}) => {
+    if (overlays.length < 2) return;
+    const content = getContentRect(pageSetup);
+    if (content.width <= 0 || content.height <= 0) return;
+    const axis = direction === 'vertical' ? 'y' : 'x';
+    const sorted = overlays
+      .map((overlay, index) => ({ overlay, index, rect: overlayBounds(overlay) }))
+      .sort((a, b) => (axis === 'x' ? a.rect.centerX - b.rect.centerX : a.rect.centerY - b.rect.centerY));
+    const rangeStart = axis === 'x' ? content.x : content.y;
+    const rangeEnd = axis === 'x' ? content.x + content.width : content.y + content.height;
+    const gaps = Math.max(1, sorted.length - 1);
+    const step = (rangeEnd - rangeStart) / gaps;
+    const next = overlays.slice();
+    sorted.forEach((entry, order) => {
+      const targetCenter = rangeStart + step * order;
+      const currentCenter = axis === 'x' ? entry.rect.centerX : entry.rect.centerY;
+      const delta = targetCenter - currentCenter;
+      next[entry.index] = axis === 'x'
+        ? moveShape(entry.overlay, delta, 0)
+        : moveShape(entry.overlay, 0, delta);
+    });
+    setOverlaysCommit(next);
+  }, [overlays, setOverlaysCommit]);
+
   return {
     overlays,
     selectedOverlayId: state.selectedId,
@@ -483,5 +548,7 @@ export function useChartObjectCommands(initialOverlays = []) {
     bringToFront,
     sendToBack,
     distributeEvenly,
+    moveAwayFromPageCuts,
+    distributeBorderToBorder,
   };
 }

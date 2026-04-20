@@ -15,12 +15,14 @@ import {
   recordPublishHistoryEntry,
   clearPublishHistory,
 } from '../lib/publishTargets.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const buttonPrimary = 'rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold disabled:opacity-50';
 const buttonSecondary = 'rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50';
 const inputClass = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary';
 
 export default function Websites() {
+  const modal = useModal();
   const { summary } = useDatabaseStatus();
   const [options, setOptions] = useState(DEFAULT_SITE_OPTIONS);
   const [validation, setValidation] = useState(null);
@@ -50,10 +52,10 @@ export default function Websites() {
   }, []);
 
   const onClearHistory = useCallback(async () => {
-    if (!confirm('Clear the publish history?')) return;
+    if (!(await modal.confirm('Clear the publish history?', { title: 'Clear history', okLabel: 'Clear', destructive: true }))) return;
     await clearPublishHistory();
     setPublishHistory([]);
-  }, []);
+  }, [modal]);
 
   const privacyLabel = useMemo(() => (
     options.includePrivate ? 'Public and private records will be included.' : 'Private records will be filtered from the public site.'

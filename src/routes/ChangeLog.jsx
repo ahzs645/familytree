@@ -22,6 +22,7 @@ import {
   purgeChangeLogOlderThan,
   purgeChangeLogForDeletedRecords,
 } from '../lib/changeLog.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const ENTITY_TYPES = ['', 'Person', 'Family', 'PersonEvent', 'FamilyEvent', 'Place', 'Source'];
 
@@ -40,6 +41,7 @@ function dateKey(ms) {
 }
 
 export default function ChangeLog() {
+  const modal = useModal();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
@@ -62,7 +64,7 @@ export default function ChangeLog() {
   }, [filter, reloadTick]);
 
   const runPurge = useCallback(async (window) => {
-    if (!confirm(`${window.label}?\n\nThis cannot be undone.`)) return;
+    if (!(await modal.confirm(`${window.label}?\n\nThis cannot be undone.`, { title: 'Purge change log', okLabel: 'Purge', destructive: true }))) return;
     setPurgeStatus('Purging…');
     try {
       const { removedEntries, removedSubEntries } = await purgeChangeLogOlderThan(window.ms);
@@ -73,10 +75,10 @@ export default function ChangeLog() {
     } catch (error) {
       setPurgeStatus(`Purge failed: ${error?.message || error}`);
     }
-  }, []);
+  }, [modal]);
 
   const runPurgeOrphans = useCallback(async () => {
-    if (!confirm('Purge change-log entries for records that no longer exist?\n\nThis cannot be undone.')) return;
+    if (!(await modal.confirm('Purge change-log entries for records that no longer exist?\n\nThis cannot be undone.', { title: 'Purge orphans', okLabel: 'Purge', destructive: true }))) return;
     setPurgeStatus('Purging orphans…');
     try {
       const { removedEntries, removedSubEntries } = await purgeChangeLogForDeletedRecords();
@@ -87,7 +89,7 @@ export default function ChangeLog() {
     } catch (error) {
       setPurgeStatus(`Purge failed: ${error?.message || error}`);
     }
-  }, []);
+  }, [modal]);
 
   const toggle = useCallback(async (recordName) => {
     setExpanded((prev) => {

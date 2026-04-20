@@ -10,6 +10,22 @@
     <link rel="manifest" href="manifest.json" />
     <title>CloudTreeWeb</title>
     <script>
+      // Unwrap the GitHub Pages SPA redirect from public/404.html
+      // (`/familytree/?p=/view/abc&foo=1` → `/familytree/view/abc?foo=1`)
+      // so BrowserRouter sees the real path on the first render.
+      (function () {
+        try {
+          var params = new URLSearchParams(window.location.search);
+          var p = params.get('p');
+          if (!p) return;
+          params.delete('p');
+          var basePath = window.location.pathname.replace(/\/index\.html$/, '').replace(/\/$/, '');
+          var route = p.replace(/^\/+/, '');
+          var rest = params.toString();
+          var next = basePath + '/' + route + (rest ? '?' + rest : '') + window.location.hash;
+          window.history.replaceState(null, '', next);
+        } catch (e) {}
+      })();
       (function () {
         try {
           var localization = {};

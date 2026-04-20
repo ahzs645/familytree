@@ -24,6 +24,7 @@ import {
   sendTreeSnapshotAsCopy,
 } from '../lib/treeLibrary.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 function Card({ title, description, children }) {
   return (
@@ -40,6 +41,7 @@ const btnSecondary = 'bg-secondary border border-border text-foreground rounded-
 
 export default function Export() {
   const { summary, refresh } = useDatabaseStatus();
+  const modal = useModal();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(null);
   const [gedIssues, setGedIssues] = useState(null);
@@ -219,7 +221,7 @@ export default function Export() {
 
   const onSubtreeRemove = wrap('Removing subtree…', async () => {
     if (!subtreeRoot) return 'Pick a subtree root first.';
-    if (!confirm('Remove this person and descendant subtree from the current database? This cannot be undone from inside the app.')) return;
+    if (!(await modal.confirm('Remove this person and descendant subtree from the current database? This cannot be undone from inside the app.', { title: 'Remove subtree', okLabel: 'Remove', destructive: true }))) return;
     const count = await removeSubtree(subtreeRoot);
     await refresh();
     return `Removed ${count.toLocaleString()} subtree records.`;
@@ -243,7 +245,7 @@ export default function Export() {
   const onSetLabel = wrap('Updating label…', async () => {
     if (!selectedSnapshot) return 'Choose a tree snapshot first.';
     const current = treeSnapshots.find((s) => s.id === selectedSnapshot);
-    const label = prompt('Label (e.g. "active", "draft"):', current?.label || '');
+    const label = await modal.prompt('Label (e.g. "active", "draft"):', current?.label || '', { title: 'Set label' });
     if (label === null) return 'Label canceled.';
     await setTreeSnapshotLabel(selectedSnapshot, label);
     await reloadSnapshots();
@@ -265,7 +267,7 @@ export default function Export() {
 
   const onRestoreTreeSnapshot = wrap('Restoring tree snapshot…', async () => {
     if (!selectedSnapshot) return 'Choose a tree snapshot first.';
-    if (!confirm('Replace the current database with this saved tree snapshot?')) return 'Restore canceled.';
+    if (!(await modal.confirm('Replace the current database with this saved tree snapshot?', { title: 'Restore snapshot', okLabel: 'Replace', destructive: true }))) return 'Restore canceled.';
     const result = await restoreTreeSnapshot(selectedSnapshot);
     await refresh();
     await reloadSnapshots();
@@ -275,7 +277,7 @@ export default function Export() {
   const onRenameTreeSnapshot = wrap('Renaming tree snapshot…', async () => {
     if (!selectedSnapshot) return 'Choose a tree snapshot first.';
     const current = treeSnapshots.find((snapshot) => snapshot.id === selectedSnapshot);
-    const name = prompt('Snapshot name:', current?.name || '');
+    const name = await modal.prompt('Snapshot name:', current?.name || '', { title: 'Rename snapshot' });
     if (!name) return 'Rename canceled.';
     await renameTreeSnapshot(selectedSnapshot, name);
     await reloadSnapshots();
@@ -284,7 +286,7 @@ export default function Export() {
 
   const onDeleteTreeSnapshot = wrap('Deleting tree snapshot…', async () => {
     if (!selectedSnapshot) return 'Choose a tree snapshot first.';
-    if (!confirm('Delete this saved tree snapshot?')) return 'Delete canceled.';
+    if (!(await modal.confirm('Delete this saved tree snapshot?', { title: 'Delete snapshot', okLabel: 'Delete', destructive: true }))) return 'Delete canceled.';
     await deleteTreeSnapshot(selectedSnapshot);
     await reloadSnapshots();
     return 'Tree snapshot deleted.';

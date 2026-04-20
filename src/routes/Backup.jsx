@@ -15,8 +15,10 @@ import {
   deleteBackupSnapshot,
   clearBackupHistory,
 } from '../lib/backup.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 export default function Backup() {
+  const modal = useModal();
   const { summary, refresh } = useDatabaseStatus();
   const fileRef = useRef(null);
   const [status, setStatus] = useState(null);
@@ -63,7 +65,7 @@ export default function Backup() {
   }, [refreshHistory]);
 
   const onRestoreSnapshot = useCallback(async (id) => {
-    if (!confirm('Restore this snapshot? Current data will be replaced.')) return;
+    if (!(await modal.confirm('Restore this snapshot? Current data will be replaced.', { title: 'Restore snapshot', okLabel: 'Restore', destructive: true }))) return;
     setBusy(true);
     setStatus('Restoring snapshot…');
     try {
@@ -74,19 +76,19 @@ export default function Backup() {
       setStatus(`Restore failed: ${error?.message || error}`);
     }
     setBusy(false);
-  }, [refresh]);
+  }, [refresh, modal]);
 
   const onDeleteSnapshot = useCallback(async (id) => {
-    if (!confirm('Delete this snapshot?')) return;
+    if (!(await modal.confirm('Delete this snapshot?', { title: 'Delete snapshot', okLabel: 'Delete', destructive: true }))) return;
     await deleteBackupSnapshot(id);
     await refreshHistory();
-  }, [refreshHistory]);
+  }, [refreshHistory, modal]);
 
   const onClearHistory = useCallback(async () => {
-    if (!confirm('Clear all in-app snapshots?')) return;
+    if (!(await modal.confirm('Clear all in-app snapshots?', { title: 'Clear history', okLabel: 'Clear', destructive: true }))) return;
     await clearBackupHistory();
     await refreshHistory();
-  }, [refreshHistory]);
+  }, [refreshHistory, modal]);
 
   const onExport = useCallback(async () => {
     setBusy(true);

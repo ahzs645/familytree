@@ -5,6 +5,7 @@ import { readLabel, readRef } from '../lib/schema.js';
 import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.jsx';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -41,6 +42,7 @@ function toHexColor(value) {
 }
 
 export default function Labels() {
+  const modal = useModal();
   const [labels, setLabels] = useState([]);
   const [relations, setRelations] = useState([]);
   const [targets, setTargets] = useState(new Map());
@@ -127,7 +129,7 @@ export default function Labels() {
     const message = activeRelations.length
       ? `Delete this label and remove ${activeRelations.length} label assignment(s)?`
       : 'Delete this label?';
-    if (!confirm(message)) return;
+    if (!(await modal.confirm(message, { title: 'Delete label', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     await db.applyRecordTransaction({
       deleteRecordNames: [active.recordName, ...activeRelations.map((rel) => rel.recordName)],
@@ -135,7 +137,7 @@ export default function Labels() {
     await logRecordDeleted(active.recordName, 'Label');
     setActiveId(null);
     await reload();
-  }, [active, activeRelations, reload]);
+  }, [active, activeRelations, reload, modal]);
 
   const renderRow = (record) => {
     const display = readLabel(record);

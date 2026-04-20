@@ -13,6 +13,7 @@ import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { formatEventDate } from '../utils/formatDate.js';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -25,6 +26,7 @@ const KIND_OPTIONS = [
 
 export default function Events() {
   const navigate = useNavigate();
+  const modal = useModal();
   const [searchParams] = useSearchParams();
   const queryEventId = searchParams.get('eventId');
   const [events, setEvents] = useState([]);
@@ -160,13 +162,13 @@ export default function Events() {
   const onDelete = useCallback(async () => {
     const ev = events.find((e) => e.recordName === activeId);
     if (!ev) return;
-    if (!confirm('Delete this event?')) return;
+    if (!(await modal.confirm('Delete this event?', { title: 'Delete event', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     await db.deleteRecord(ev.recordName);
     await logRecordDeleted(ev.recordName, ev.recordType);
     await reload();
     setActiveId(null);
-  }, [activeId, events, reload]);
+  }, [activeId, events, reload, modal]);
 
   const filtered = events.filter((e) => {
     if (kindFilter === 'all') return true;

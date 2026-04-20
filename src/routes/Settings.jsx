@@ -17,11 +17,17 @@ import { getMapPreferences, saveMapPreferences } from '../lib/placeGeocoding.js'
 import { NAME_FORMAT_OPTIONS } from '../lib/nameFormat.js';
 import { PLAUSIBILITY_ANALYZERS } from '../lib/plausibility.js';
 import { GEDCOM_ENCODINGS } from '../lib/genealogyFileFormats.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const tabs = [
   { id: 'general', label: 'General' },
   { id: 'formats', label: 'Formats' },
   { id: 'maps', label: 'Maps' },
+  { id: 'pdf', label: 'PDF' },
+  { id: 'history', label: 'History' },
+  { id: 'content-download', label: 'Content Download' },
+  { id: 'edit-controllers', label: 'Edit Controllers' },
+  { id: 'categories', label: 'Categories' },
   { id: 'export', label: 'Export' },
   { id: 'privacy', label: 'Privacy' },
   { id: 'plausibility', label: 'Plausibility' },
@@ -30,6 +36,7 @@ const tabs = [
 ];
 
 export default function Settings() {
+  const modal = useModal();
   const { theme, setTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('general');
   const [prefs, setPrefs] = useState(null);
@@ -75,12 +82,12 @@ export default function Settings() {
   }, [mapPrefs, prefs]);
 
   const reset = useCallback(async () => {
-    if (!confirm('Reset application preferences?')) return;
+    if (!(await modal.confirm('Reset application preferences?', { title: 'Reset preferences', okLabel: 'Reset', destructive: true }))) return;
     const next = await resetAppPreferences();
     setPrefs(next);
     setStatus('Reset');
     setTimeout(() => setStatus(''), 1500);
-  }, []);
+  }, [modal]);
 
   const exportPrefs = useCallback(() => {
     const blob = new Blob([JSON.stringify(preferenceDownloadPayload(prefs), null, 2)], { type: 'application/json' });
@@ -239,6 +246,110 @@ export default function Settings() {
               </Field>
               <Switch label="Show Labels" checked={mapPrefs.showLabels} onChange={(value) => updateMap('showLabels', value)} />
               <Switch label="Marker Clustering" checked={mapPrefs.markerClustering} onChange={(value) => updateMap('markerClustering', value)} />
+            </Grid>
+          </Panel>
+        )}
+
+        {activeTab === 'pdf' && (
+          <Panel title="PDF output">
+            <Grid>
+              <Field label="Page size">
+                <select value={prefs.pdf.pageSize} onChange={(event) => update('pdf', 'pageSize', event.target.value)} className={inputClass}>
+                  <option value="letter">Letter</option>
+                  <option value="a4">A4</option>
+                  <option value="legal">Legal</option>
+                </select>
+              </Field>
+              <Field label="Orientation">
+                <select value={prefs.pdf.orientation} onChange={(event) => update('pdf', 'orientation', event.target.value)} className={inputClass}>
+                  <option value="portrait">Portrait</option>
+                  <option value="landscape">Landscape</option>
+                </select>
+              </Field>
+              <Field label="Margin (px)">
+                <input type="number" min={12} max={144} value={prefs.pdf.margin} onChange={(event) => update('pdf', 'margin', Number(event.target.value))} className={inputClass} />
+              </Field>
+              <Switch label="Embed fonts" checked={prefs.pdf.embedFonts !== false} onChange={(value) => update('pdf', 'embedFonts', value)} />
+              <Switch label="Include bookmarks (TOC)" checked={prefs.pdf.includeBookmarks !== false} onChange={(value) => update('pdf', 'includeBookmarks', value)} />
+              <Switch label="Compress images" checked={prefs.pdf.compressImages !== false} onChange={(value) => update('pdf', 'compressImages', value)} />
+            </Grid>
+          </Panel>
+        )}
+
+        {activeTab === 'history' && (
+          <Panel title="History &amp; world events">
+            <Grid>
+              <Switch label="Show world events in person timeline" checked={prefs.history?.showWorldEventsInTimeline !== false} onChange={(value) => update('history', 'showWorldEventsInTimeline', value)} />
+              <Field label="Years shown before birth">
+                <input type="number" min={0} max={50} value={prefs.history?.lifespanYearsBeforeBirth ?? 5} onChange={(event) => update('history', 'lifespanYearsBeforeBirth', Number(event.target.value))} className={inputClass} />
+              </Field>
+              <Field label="Years shown after death">
+                <input type="number" min={0} max={50} value={prefs.history?.lifespanYearsAfterDeath ?? 5} onChange={(event) => update('history', 'lifespanYearsAfterDeath', Number(event.target.value))} className={inputClass} />
+              </Field>
+              <Field label="Categories (comma-separated)">
+                <input
+                  type="text"
+                  value={(prefs.history?.worldHistoryCategories || []).join(', ')}
+                  onChange={(event) => update('history', 'worldHistoryCategories', event.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
+                  className={inputClass}
+                />
+              </Field>
+            </Grid>
+          </Panel>
+        )}
+
+        {activeTab === 'content-download' && (
+          <Panel title="Content download manager">
+            <Grid>
+              <Switch label="Auto-download world history assets" checked={prefs.contentDownload?.autoDownloadHistory !== false} onChange={(value) => update('contentDownload', 'autoDownloadHistory', value)} />
+              <Switch label="Auto-download FamilySearch source images" checked={!!prefs.contentDownload?.autoDownloadFamilySearchSources} onChange={(value) => update('contentDownload', 'autoDownloadFamilySearchSources', value)} />
+              <Field label="Parallel download concurrency">
+                <input type="number" min={1} max={12} value={prefs.contentDownload?.concurrency ?? 3} onChange={(event) => update('contentDownload', 'concurrency', Number(event.target.value))} className={inputClass} />
+              </Field>
+              <Switch label="Wi-Fi only (mobile)" checked={!!prefs.contentDownload?.wifiOnly} onChange={(value) => update('contentDownload', 'wifiOnly', value)} />
+            </Grid>
+          </Panel>
+        )}
+
+        {activeTab === 'edit-controllers' && (
+          <Panel title="Edit controllers">
+            <Grid>
+              <Switch label="Collapse event-type groups by default" checked={!!prefs.editControllers?.eventTypesCollapsed} onChange={(value) => update('editControllers', 'eventTypesCollapsed', value)} />
+              <Switch label="Collapse fact-type groups by default" checked={!!prefs.editControllers?.factTypesCollapsed} onChange={(value) => update('editControllers', 'factTypesCollapsed', value)} />
+              <Field label="Default event type">
+                <input type="text" value={prefs.editControllers?.defaultEventType || 'Birth'} onChange={(event) => update('editControllers', 'defaultEventType', event.target.value)} className={inputClass} />
+              </Field>
+              <Field label="Default fact type">
+                <input type="text" value={prefs.editControllers?.defaultFactType || 'Occupation'} onChange={(event) => update('editControllers', 'defaultFactType', event.target.value)} className={inputClass} />
+              </Field>
+            </Grid>
+          </Panel>
+        )}
+
+        {activeTab === 'categories' && (
+          <Panel title="Category configurations">
+            <Grid>
+              <Field label="Label order">
+                <select value={prefs.categoryConfigurations?.labelOrder || 'alphabetical'} onChange={(event) => update('categoryConfigurations', 'labelOrder', event.target.value)} className={inputClass}>
+                  <option value="alphabetical">Alphabetical</option>
+                  <option value="custom">Custom (manual)</option>
+                  <option value="usage">By usage count</option>
+                </select>
+              </Field>
+              <Field label="Group order">
+                <select value={prefs.categoryConfigurations?.groupOrder || 'custom'} onChange={(event) => update('categoryConfigurations', 'groupOrder', event.target.value)} className={inputClass}>
+                  <option value="custom">Custom</option>
+                  <option value="alphabetical">Alphabetical</option>
+                </select>
+              </Field>
+              <Field label="Hidden categories (comma-separated)">
+                <input
+                  type="text"
+                  value={(prefs.categoryConfigurations?.hiddenCategories || []).join(', ')}
+                  onChange={(event) => update('categoryConfigurations', 'hiddenCategories', event.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
+                  className={inputClass}
+                />
+              </Field>
             </Grid>
           </Panel>
         )}

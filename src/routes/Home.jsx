@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ImportDropZone } from '../components/ImportDropZone.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 import { loadSampleTree } from '../lib/sampleTree.js';
 import {
   deleteTreeSnapshot,
@@ -73,6 +74,7 @@ export function Home() {
   const navigate = useNavigate();
   const location = useLocation();
   const { hasData, summary, refresh, clear } = useDatabaseStatus();
+  const modal = useModal();
   const focusRoute =
     location.state?.focusRoute ||
     new URLSearchParams(location.search).get('focusRoute') ||
@@ -104,31 +106,31 @@ export function Home() {
   });
 
   const onRename = withBusy(async (snapshot) => {
-    const name = prompt('Rename tree:', snapshot.name);
+    const name = await modal.prompt('Rename tree:', snapshot.name, { title: 'Rename tree' });
     if (!name) return;
     await renameTreeSnapshot(snapshot.id, name);
     await reload();
   });
 
   const onLabel = withBusy(async (snapshot) => {
-    const label = prompt('Label (active, draft, archived…):', snapshot.label || '');
+    const label = await modal.prompt('Label (active, draft, archived…):', snapshot.label || '', { title: 'Set label' });
     if (label === null) return;
     await setTreeSnapshotLabel(snapshot.id, label);
     await reload();
   });
 
   const onRestore = withBusy(async (snapshot) => {
-    if (!confirm(`Replace the current database with "${snapshot.name}"?`)) return;
+    if (!(await modal.confirm(`Replace the current database with "${snapshot.name}"?`, { title: 'Open tree', okLabel: 'Replace' }))) return;
     await restoreTreeSnapshot(snapshot.id);
     await refresh();
     await reload();
   });
 
   const onDelete = withBusy(async (snapshot) => {
-    const answer = prompt(`Type the tree name to permanently delete it:\n\n${snapshot.name}`);
+    const answer = await modal.prompt(`Type the tree name to permanently delete it:\n\n${snapshot.name}`, '', { title: 'Delete tree', okLabel: 'Delete', placeholder: snapshot.name });
     if (answer === null) return;
     if (answer.trim() !== snapshot.name.trim()) {
-      alert('Name did not match — delete canceled.');
+      await modal.alert('Name did not match — delete canceled.');
       return;
     }
     await deleteTreeSnapshot(snapshot.id);
@@ -232,7 +234,7 @@ export function Home() {
           </div>
           <button
             onClick={async () => {
-              if (confirm('Clear all local data?')) await clear();
+              if (await modal.confirm('Clear all local data?', { title: 'Clear data', okLabel: 'Clear', destructive: true })) await clear();
             }}
             className="rounded-md border border-border bg-transparent text-destructive px-3 py-2 text-xs hover:bg-destructive/10"
           >

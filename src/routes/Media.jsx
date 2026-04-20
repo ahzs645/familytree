@@ -17,6 +17,7 @@ import {
 } from '../lib/mediaFolderMatch.js';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const MEDIA_TYPES = [
   { id: 'all', label: 'All', match: null },
@@ -44,6 +45,7 @@ function routeForRecord(record) {
 export default function Media() {
   const navigate = useNavigate();
   const location = useLocation();
+  const modal = useModal();
   const [searchParams, setSearchParams] = useSearchParams();
   const targetId = searchParams.get('targetId') || searchParams.get('subjectId') || '';
   const targetType = searchParams.get('targetType') || '';
@@ -164,13 +166,13 @@ export default function Media() {
   const onDelete = useCallback(async () => {
     const m = media.find((r) => r.recordName === activeId);
     if (!m) return;
-    if (!confirm('Delete this media record?')) return;
+    if (!(await modal.confirm('Delete this media record?', { title: 'Delete media', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     await db.deleteRecord(m.recordName);
     await logRecordDeleted(m.recordName, m.recordType);
     await reload();
     setActiveId(null);
-  }, [activeId, media, reload]);
+  }, [activeId, media, reload, modal]);
 
   const onMatchFolder = useCallback(async (files) => {
     if (!files?.length) return;
@@ -200,7 +202,7 @@ export default function Media() {
   }, [reload]);
 
   const onAddURL = useCallback(async () => {
-    const url = prompt('Media URL:');
+    const url = await modal.prompt('Media URL:', '', { title: 'Add media URL', placeholder: 'https://…' });
     if (!url) return;
     setStatus('Adding URL…');
     try {
@@ -211,7 +213,7 @@ export default function Media() {
     } catch (error) {
       setStatus(error.message);
     }
-  }, [reload]);
+  }, [reload, modal]);
 
   const active = media.find((m) => m.recordName === activeId);
 

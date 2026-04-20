@@ -7,6 +7,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../../lib/changeLog.js';
 import { MasterDetailList } from './MasterDetailList.jsx';
+import { useModal } from '../../contexts/ModalContext.jsx';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -24,6 +25,7 @@ export function SimpleCrudList({
   emptyText = `No ${recordType} records yet.`,
   extraDefaults = {},
 }) {
+  const modal = useModal();
   const [records, setRecords] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [values, setValues] = useState({});
@@ -64,13 +66,13 @@ export function SimpleCrudList({
 
   const onDelete = useCallback(async () => {
     if (!activeId) return;
-    if (!confirm('Delete this record?')) return;
+    if (!(await modal.confirm('Delete this record?', { title: 'Delete record', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     await db.deleteRecord(activeId);
     await logRecordDeleted(activeId, recordType);
     setActiveId(null);
     await reload();
-  }, [activeId, recordType, reload]);
+  }, [activeId, recordType, reload, modal]);
 
   const onSave = useCallback(async () => {
     const r = records.find((x) => x.recordName === activeId);

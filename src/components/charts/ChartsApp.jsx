@@ -31,6 +31,7 @@ import { RelationshipPathChart } from './RelationshipPathChart.jsx';
 import { VirtualTreeDiagram } from './VirtualTreeDiagram.jsx';
 import { VirtualTree3D, SYMBOL_MODES, COLOR_MODES, DOF_DEFAULTS } from './VirtualTree3D.jsx';
 import { useChartObjectCommands } from './useChartObjectCommands.js';
+import { useModal } from '../../contexts/ModalContext.jsx';
 import {
   CircularAncestorChart,
   DistributionChart,
@@ -63,6 +64,7 @@ const CHART_TYPES = [
 ];
 
 export function ChartsApp() {
+  const modal = useModal();
   const [searchParams] = useSearchParams();
   const { recordName: sharedRootId, setActivePerson } = useActivePerson();
   const [persons, setPersons] = useState([]);
@@ -146,6 +148,8 @@ export function ChartsApp() {
     bringToFront,
     sendToBack,
     distributeEvenly,
+    moveAwayFromPageCuts,
+    distributeBorderToBorder,
     selectOverlay,
   } = useChartObjectCommands([]);
 
@@ -470,7 +474,7 @@ export function ChartsApp() {
   );
 
   const onSaveTemplate = useCallback(async () => {
-    const name = prompt('Name for this chart template:');
+    const name = await modal.prompt('Name for this chart template:', '', { title: 'Save chart template' });
     if (!name) return;
     const tpl = {
       id: newTemplateId(),
@@ -484,11 +488,18 @@ export function ChartsApp() {
     };
     await saveChartTemplate(tpl);
     setTemplates(await listChartTemplates());
-  }, [chartType, themeId, generations, chartTitle, chartNote, pageSize, pageOrientation, chartBackground]);
+  }, [chartType, themeId, generations, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, modal]);
+
+  const confirmDiscardIfDirty = useCallback(async (action = 'load') => {
+    if (!isDirty) return true;
+    const verb = action === 'new' ? 'start a new chart' : action === 'load' ? 'load this chart' : 'continue';
+    return await modal.confirm(`You have unsaved changes. Save changes to chart?\n\nClick Cancel to keep editing, OK to discard changes and ${verb}.`, { title: 'Unsaved changes', okLabel: 'Discard changes' });
+  }, [isDirty, modal]);
 
   const onApplyTemplate = useCallback(async (id) => {
     const tpl = templates.find((t) => t.id === id);
     if (!tpl) return;
+    if (!(await confirmDiscardIfDirty('load'))) return;
     setChartType(tpl.chartType);
     setThemeId(tpl.themeId);
     setGenerations(tpl.generations);
@@ -497,7 +508,7 @@ export function ChartsApp() {
     setPageSize(tpl.page?.size || 'letter');
     setPageOrientation(tpl.page?.orientation || 'landscape');
     setChartBackground(tpl.page?.backgroundColor || '');
-  }, [templates]);
+  }, [templates, confirmDiscardIfDirty]);
 
   const currentDocumentState = useCallback((name, id = newChartDocumentId()) => normalizeChartDocument({
     id,
@@ -534,29 +545,71 @@ export function ChartsApp() {
     },
   }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, selectedOverlayId]);
 
+  const buildChartShareUrl = useCallback(async () => {
+    const doc = currentDocumentState(currentDocumentName || 'Shared Chart', currentDocumentId || 'shared');
+    return buildShareUrl(doc, {
+      baseUrl: window.location.origin,
+      basePath: import.meta.env?.BASE_URL || '/',
+    });
+  }, [currentDocumentState, currentDocumentName, currentDocumentId]);
+
   const onCopyShareLink = useCallback(async () => {
     if (!rootId) {
-      alert('Select a root person before creating a share link.');
+      await modal.alert('Select a root person before creating a share link.');
       return;
     }
     try {
-      const doc = currentDocumentState(currentDocumentName || 'Shared Chart', currentDocumentId || 'shared');
-      const { url, token } = await buildShareUrl(doc, {
-        baseUrl: window.location.origin,
-        basePath: import.meta.env?.BASE_URL || '/',
-      });
+      const { url, token } = await buildChartShareUrl();
       await navigator.clipboard?.writeText(url).catch(() => {});
       const size = Math.round(token.length / 1024 * 10) / 10;
-      alert(`Share link copied to clipboard.\n\nToken size: ~${size}KB\nOpens at: /view/<token>`);
+      await modal.alert(`Share link copied to clipboard.\n\nToken size: ~${size}KB\nOpens at: /view/<token>`, { title: 'Share link' });
     } catch (error) {
       console.error('[ChartsApp] share-link failed', error);
-      alert(`Share link failed: ${error.message}`);
+      await modal.alert(`Share link failed: ${error.message}`, { title: 'Share link failed' });
     }
-  }, [rootId, currentDocumentState, currentDocumentName, currentDocumentId]);
+  }, [rootId, buildChartShareUrl, modal]);
+
+  const onShareChart = useCallback(async () => {
+    if (!rootId) {
+      await modal.alert('Select a root person before sharing.');
+      return;
+    }
+    try {
+      const { url } = await buildChartShareUrl();
+      const title = currentDocumentName || chartTitle || 'Family chart';
+      if (navigator.share) {
+        await navigator.share({ title, text: `View ${title}`, url });
+        return;
+      }
+      await navigator.clipboard?.writeText(url).catch(() => {});
+      await modal.alert(`Share dialog not supported on this browser. Link copied:\n\n${url}`, { title: 'Share' });
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      console.error('[ChartsApp] share failed', error);
+      await modal.alert(`Share failed: ${error.message}`, { title: 'Share failed' });
+    }
+  }, [rootId, buildChartShareUrl, currentDocumentName, chartTitle, modal]);
+
+  const onShareByEmail = useCallback(async () => {
+    if (!rootId) {
+      await modal.alert('Select a root person before sharing.');
+      return;
+    }
+    try {
+      const { url } = await buildChartShareUrl();
+      const title = currentDocumentName || chartTitle || 'Family chart';
+      const subject = encodeURIComponent(title);
+      const body = encodeURIComponent(`${title}\n\n${url}`);
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    } catch (error) {
+      console.error('[ChartsApp] share-email failed', error);
+      await modal.alert(`Email share failed: ${error.message}`, { title: 'Email share failed' });
+    }
+  }, [rootId, buildChartShareUrl, currentDocumentName, chartTitle, modal]);
 
   const onSaveDocument = useCallback(async () => {
     if (isReadOnly) {
-      alert('This chart is read-only (imported). Use "Save as new…" to make an editable copy.');
+      await modal.alert('This chart is read-only (imported). Use "Save as new…" to make an editable copy.', { title: 'Read-only chart' });
       return;
     }
     if (currentDocumentId) {
@@ -566,7 +619,7 @@ export function ChartsApp() {
       setIsDirty(false);
       return;
     }
-    const name = prompt('Name for this chart document:');
+    const name = await modal.prompt('Name for this chart document:', '', { title: 'Save chart document' });
     if (!name) return;
     suppressDirtyOnce();
     const id = newChartDocumentId();
@@ -575,10 +628,10 @@ export function ChartsApp() {
     setCurrentDocumentName(name);
     setDocuments(await listChartDocuments());
     setIsDirty(false);
-  }, [currentDocumentState, currentDocumentId, currentDocumentName, isReadOnly, suppressDirtyOnce]);
+  }, [currentDocumentState, currentDocumentId, currentDocumentName, isReadOnly, suppressDirtyOnce, modal]);
 
   const onSaveAsDocument = useCallback(async () => {
-    const name = prompt('Save as new chart — name:', currentDocumentName || '');
+    const name = await modal.prompt('Save as new chart — name:', currentDocumentName || '', { title: 'Save as new chart' });
     if (!name) return;
     suppressDirtyOnce();
     const id = newChartDocumentId();
@@ -588,7 +641,7 @@ export function ChartsApp() {
     setIsReadOnly(false);
     setDocuments(await listChartDocuments());
     setIsDirty(false);
-  }, [currentDocumentState, currentDocumentName, suppressDirtyOnce]);
+  }, [currentDocumentState, currentDocumentName, suppressDirtyOnce, modal]);
 
   const onApplyDocument = useCallback((id) => {
     const doc = documents.find((item) => item.id === id);
@@ -597,16 +650,16 @@ export function ChartsApp() {
   }, [applyDocumentState, documents]);
 
   const onDeleteDocument = useCallback(async (id) => {
-    if (!confirm('Delete this chart document?')) return;
+    if (!(await modal.confirm('Delete this chart document?', { title: 'Delete chart', okLabel: 'Delete', destructive: true }))) return;
     await deleteChartDocument(id);
     setDocuments(await listChartDocuments());
-  }, []);
+  }, [modal]);
 
   const onDeleteTemplate = useCallback(async (id) => {
-    if (!confirm('Delete this template?')) return;
+    if (!(await modal.confirm('Delete this template?', { title: 'Delete template', okLabel: 'Delete', destructive: true }))) return;
     await deleteChartTemplate(id);
     setTemplates(await listChartTemplates());
-  }, []);
+  }, [modal]);
 
   const onOverlaysChange = useCallback((next, meta = {}) => {
     if (meta?.finalize) {
@@ -622,21 +675,21 @@ export function ChartsApp() {
     setOverlaysCommit(updated, { selectedId: id });
   }, [overlays, setOverlaysCommit]);
 
-  const addTextOverlay = useCallback(() => {
-    const text = prompt('Text label:', 'Annotation');
+  const addTextOverlay = useCallback(async () => {
+    const text = await modal.prompt('Text label:', 'Annotation', { title: 'Add text' });
     if (!text) return;
     addText({ text, x: 96, y: 120, fontSize: 20, color: theme.text });
-  }, [addText, theme.text]);
+  }, [addText, theme.text, modal]);
 
   const addLineOverlay = useCallback(() => {
     addLine({ x1: 120, y1: 160, x2: 300, y2: 160, strokeWidth: 3, color: theme.connector });
   }, [addLine, theme.connector]);
 
-  const addImageOverlay = useCallback(() => {
-    const href = prompt('Image URL:');
+  const addImageOverlay = useCallback(async () => {
+    const href = await modal.prompt('Image URL:', '', { title: 'Add image', placeholder: 'https://…' });
     if (!href) return;
     addImage(href, { x: 120, y: 140, width: 180, height: 120 });
-  }, [addImage]);
+  }, [addImage, modal]);
 
   const focusRootInCanvas = useCallback(() => {
     chartCanvasRef.current?.focusRoot?.();
@@ -953,14 +1006,32 @@ export function ChartsApp() {
                   </button>
                   <button onClick={onSaveAsDocument} style={optionSelect} title="Save a new copy">Save as…</button>
                 </div>
-                <button
-                  onClick={onCopyShareLink}
-                  style={{ ...optionSelect, marginTop: 6, width: '100%' }}
-                  title="Create a compressed read-only link that anyone can open — no tree data leaves your browser until they visit the URL."
-                  disabled={!rootId}
-                >
-                  Copy share link
-                </button>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 6 }}>
+                  <button
+                    onClick={onCopyShareLink}
+                    style={optionSelect}
+                    title="Copy a compressed read-only link to the clipboard."
+                    disabled={!rootId}
+                  >
+                    Copy link
+                  </button>
+                  <button
+                    onClick={onShareChart}
+                    style={optionSelect}
+                    title="Open the system share sheet (iOS/macOS/Android) or copy if unsupported."
+                    disabled={!rootId}
+                  >
+                    Share…
+                  </button>
+                  <button
+                    onClick={onShareByEmail}
+                    style={optionSelect}
+                    title="Open a new email with the share link."
+                    disabled={!rootId}
+                  >
+                    Email
+                  </button>
+                </div>
                 {documents.length > 0 && (
                   <select value="" onChange={(e) => e.target.value && onDeleteDocument(e.target.value)} style={{ ...optionSelect, marginTop: 6 }}>
                     <option value="">Delete…</option>
@@ -992,6 +1063,11 @@ export function ChartsApp() {
                   <button onClick={() => distributeEvenly('horizontal')} disabled={!selectedOverlayId} style={optionSelect}>Distribute H</button>
                   <button onClick={() => distributeEvenly('vertical')} disabled={!selectedOverlayId} style={optionSelect}>Distribute V</button>
                   <button onClick={focusRootInCanvas} style={optionSelect}>Focus root</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 6 }}>
+                  <button onClick={() => moveAwayFromPageCuts({ paperSize: pageSize, orientation: pageOrientation })} disabled={!overlays.length} style={optionSelect} title="Shift objects that cross a page-tile boundary so they fit inside one page">Away from cuts</button>
+                  <button onClick={() => distributeBorderToBorder('horizontal', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2} style={optionSelect} title="Distribute objects evenly across the page content rect">Border-to-border H</button>
+                  <button onClick={() => distributeBorderToBorder('vertical', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2} style={optionSelect} title="Distribute objects evenly from top to bottom">Border-to-border V</button>
                 </div>
               </Section>
 

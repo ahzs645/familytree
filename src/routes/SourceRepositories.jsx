@@ -5,6 +5,7 @@ import { readRef } from '../lib/schema.js';
 import { sourceSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const REPOSITORY_FIELDS = [
   'name',
@@ -35,6 +36,7 @@ function sourceTitle(record) {
 }
 
 export default function SourceRepositories() {
+  const modal = useModal();
   const [repositories, setRepositories] = useState([]);
   const [sources, setSources] = useState([]);
   const [activeId, setActiveId] = useState(null);
@@ -101,7 +103,7 @@ export default function SourceRepositories() {
     const message = linkedSources.length
       ? `Delete this repository and detach it from ${linkedSources.length} source record(s)?`
       : 'Delete this repository?';
-    if (!confirm(message)) return;
+    if (!(await modal.confirm(message, { title: 'Delete repository', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     for (const source of linkedSources) {
       const fields = { ...source.fields };
@@ -112,7 +114,7 @@ export default function SourceRepositories() {
     await logRecordDeleted(active.recordName, 'SourceRepository');
     setActiveId(null);
     await reload();
-  }, [active, linkedSources, reload]);
+  }, [active, linkedSources, reload, modal]);
 
   const renderRow = (record) => {
     const count = sources.filter((source) => readRef(source.fields?.sourceRepository) === record.recordName).length;

@@ -17,6 +17,7 @@ import {
   newBlankFilter,
   availablePathSteps,
 } from '../lib/customScopes.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const COMMON_FIELDS_BY_ENTITY = {
   Person: ['firstName', 'lastName', 'gender', 'cached_birthDate', 'cached_deathDate', 'birthPlace', 'deathPlace', 'thumbnailFileIdentifier', 'isBookmarked'],
@@ -39,6 +40,7 @@ const button = 'rounded-md border border-border bg-secondary px-3 py-1.5 text-sm
 const buttonPrimary = 'rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-semibold';
 
 export default function SmartFilters() {
+  const modal = useModal();
   const [filters, setFilters] = useState([]);
   const [selected, setSelected] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -83,11 +85,11 @@ export default function SmartFilters() {
   }, [selected, refresh]);
 
   const onDelete = useCallback(async (id) => {
-    if (!confirm('Delete this smart filter?')) return;
+    if (!(await modal.confirm('Delete this smart filter?', { title: 'Delete smart filter', okLabel: 'Delete', destructive: true }))) return;
     await deleteCustomFilter(id);
     if (selected?.id === id) setSelected(null);
     await refresh();
-  }, [selected, refresh]);
+  }, [selected, refresh, modal]);
 
   const onRun = useCallback(async () => {
     if (!selected) return;

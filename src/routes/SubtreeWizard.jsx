@@ -18,6 +18,7 @@ import {
   removeSubtree,
 } from '../lib/subtree.js';
 import { compareStrings, getCurrentLocalization } from '../lib/i18n.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 function downloadJson(filename, payload) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -33,6 +34,7 @@ function downloadJson(filename, payload) {
 
 export default function SubtreeWizard() {
   const navigate = useNavigate();
+  const modal = useModal();
   const [allPersons, setAllPersons] = useState([]);
   const [working, setWorking] = useState(new Set());
   const [leftSelection, setLeftSelection] = useState(new Set());
@@ -115,7 +117,7 @@ export default function SubtreeWizard() {
 
   const removeWorkingSet = async () => {
     if (working.size === 0) return;
-    if (!confirm(`Remove ${working.size} persons and their attached records from the database? This cannot be undone.`)) return;
+    if (!(await modal.confirm(`Remove ${working.size} persons and their attached records from the database? This cannot be undone.`, { title: 'Remove subtree', okLabel: 'Remove', destructive: true }))) return;
     setBusy(true);
     try {
       let removed = 0;
@@ -125,6 +127,29 @@ export default function SubtreeWizard() {
       }
       setWorking(new Set());
       setStatus(`Removed ${removed} records.`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const exportAndRemove = async () => {
+    if (working.size === 0) { setStatus('Select at least one person.'); return; }
+    if (!(await modal.confirm(
+      `Export ${working.size} persons (and their subtree) to a JSON file, then remove them from the current database?\n\nThis mirrors the Mac "Slice" flow. The export happens first — if it succeeds, the remove runs. The operation cannot be undone from here.`,
+      { title: 'Slice subtree (export then remove)', okLabel: 'Slice', destructive: true },
+    ))) return;
+    setBusy(true);
+    try {
+      const roots = [...working];
+      const backups = await Promise.all(roots.map((id) => exportSubtreeBackup(id)));
+      const merged = mergeBackups(backups);
+      downloadJson(`cloudtreeweb-subtree-slice-${Date.now()}.json`, merged);
+      let removed = 0;
+      for (const id of working) removed += await removeSubtree(id);
+      setWorking(new Set());
+      setStatus(`Sliced: exported ${Object.keys(merged.records).length} records, then removed ${removed}.`);
+    } catch (err) {
+      setStatus(`Slice failed before remove: ${err.message}. Nothing was removed.`);
     } finally {
       setBusy(false);
     }
@@ -158,6 +183,9 @@ export default function SubtreeWizard() {
         </button>
         <button onClick={removeWorkingSet} disabled={busy || working.size === 0} className="border border-destructive text-destructive rounded-md px-3 py-1.5 hover:bg-destructive/10 disabled:opacity-50">
           Remove subtree
+        </button>
+        <button onClick={exportAndRemove} disabled={busy || working.size === 0} className="border border-border rounded-md px-3 py-1.5 hover:bg-accent disabled:opacity-50" title="Mac 'Slice': export then remove">
+          Slice (export then remove)
         </button>
         {status ? <span className="text-muted-foreground ms-2">{status}</span> : null}
       </div>

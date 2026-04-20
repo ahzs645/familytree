@@ -11,19 +11,46 @@ const TABS = [
   { id: 'SourceTemplateKey', label: 'Source Template Keys', uuidPrefix: 'srctplkey' },
   { id: 'SourceTemplateKeyRelation', label: 'Source Template Key Relations', uuidPrefix: 'srctplrel' },
   { id: 'PlaceTemplate', label: 'Place Templates', uuidPrefix: 'plctpl' },
+  { id: 'PlaceTemplateKey', label: 'Place Template Keys', uuidPrefix: 'plctplkey' },
+  { id: 'PlaceTemplateKeyRelation', label: 'Place Template Key Relations', uuidPrefix: 'plctplrel' },
   { id: 'ConclusionPersonEventType', label: 'Person Event Types', uuidPrefix: 'cpet' },
   { id: 'ConclusionFamilyEventType', label: 'Family Event Types', uuidPrefix: 'cfet' },
   { id: 'ConclusionPersonFactType', label: 'Person Fact Types', uuidPrefix: 'cpft' },
   { id: 'ConclusionAdditionalNameType', label: 'Additional Name Types', uuidPrefix: 'cant' },
 ];
 
-const FIELDS = [
+const BASE_FIELDS = [
   { id: 'name', label: 'Name' },
   { id: 'typeName', label: 'Type name' },
   { id: 'title', label: 'Display title' },
   { id: 'order', label: 'Order', type: 'number' },
   { id: 'description', label: 'Description', kind: 'textarea', rows: 3 },
 ];
+
+const FIELDS_BY_TYPE = {
+  PlaceTemplate: [
+    ...BASE_FIELDS,
+    { id: 'countryIdentifier', label: 'Country (ISO)' },
+    { id: 'localizeableNameKey', label: 'Localizable name key' },
+    { id: 'citationFormat', label: 'Citation format', kind: 'textarea', rows: 2 },
+  ],
+  PlaceTemplateKey: [
+    ...BASE_FIELDS,
+    { id: 'internationalName', label: 'International name' },
+    { id: 'localName', label: 'Local name' },
+  ],
+  SourceTemplate: [
+    ...BASE_FIELDS,
+    { id: 'citationFormat', label: 'Citation format', kind: 'textarea', rows: 2 },
+    { id: 'fullCitationFormat', label: 'Full citation format', kind: 'textarea', rows: 2 },
+    { id: 'shortCitationFormat', label: 'Short citation format', kind: 'textarea', rows: 2 },
+  ],
+  SourceTemplateKey: [
+    ...BASE_FIELDS,
+    { id: 'internationalName', label: 'International name' },
+    { id: 'placeholder', label: 'Placeholder' },
+  ],
+};
 
 export default function Templates() {
   const [tab, setTab] = useState(TABS[0].id);
@@ -45,7 +72,7 @@ export default function Templates() {
           recordType={def.id}
           uuidPrefix={def.uuidPrefix}
           title={def.label}
-          fields={FIELDS}
+          fields={FIELDS_BY_TYPE[def.id] || BASE_FIELDS}
           displayLabel={(r) => r.fields?.name?.value || r.fields?.title?.value || humanizeType(r.fields?.typeName?.value) || humanizeType(r.recordName)}
           searchPlaceholder={`Search ${def.label.toLowerCase()}…`}
           emptyText={`No ${def.label.toLowerCase()} yet.`}

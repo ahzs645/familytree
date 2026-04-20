@@ -15,6 +15,7 @@ import { BulkActionBar } from '../components/lists/BulkActionBar.jsx';
 import { ColumnChooser } from '../components/lists/ColumnChooser.jsx';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { logRecordDeleted } from '../lib/changeLog.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const EXPORT_COLUMNS = [
   { key: 'fullName', label: 'Name' },
@@ -44,6 +45,7 @@ export default function Persons() {
   const isMobile = useIsMobile();
   const { setActivePerson } = useActivePerson();
   const navigate = useNavigate();
+  const modal = useModal();
   const localization = getCurrentLocalization();
   const localizationKey = `${localization.locale}|${localization.direction}|${localization.numberingSystem}|${localization.calendar}`;
 
@@ -72,7 +74,7 @@ export default function Persons() {
 
   const bulkDelete = async () => {
     if (!selection.count) return;
-    if (!confirm(`Delete ${selection.count} selected ${selection.count === 1 ? 'person' : 'persons'}? This cannot be undone.`)) return;
+    if (!(await modal.confirm(`Delete ${selection.count} selected ${selection.count === 1 ? 'person' : 'persons'}? This cannot be undone.`, { title: 'Delete persons', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     for (const id of selection.selectedIds) {
       await db.deleteRecord(id);

@@ -40,6 +40,7 @@ import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
 import { getAuthorInfo } from '../../lib/authorInfo.js';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
+import { useModal } from '../../contexts/ModalContext.jsx';
 
 const DEFAULT_PAGE_STYLE = {
   paginate: false,
@@ -149,6 +150,7 @@ export function applyReportContentOptions(report, options = {}) {
 }
 
 export function ReportsApp() {
+  const modal = useModal();
   const [persons, setPersons] = useState([]);
   const [stories, setStories] = useState([]);
   const [targetId, setTargetId] = useState(null);
@@ -300,7 +302,7 @@ export function ReportsApp() {
   }, []);
 
   const onSave = useCallback(async () => {
-    const name = prompt('Name for this report:');
+    const name = await modal.prompt('Name for this report:', '', { title: 'Save report' });
     if (!name) return;
     await saveReport(createSavedReportPayload({
       name,
@@ -311,7 +313,7 @@ export function ReportsApp() {
       pageStyle,
     }));
     setSavedList(await listSavedReports());
-  }, [builderId, targetId, secondTargetId, options, pageStyle]);
+  }, [builderId, targetId, secondTargetId, options, pageStyle, modal]);
 
   const onApplySaved = useCallback(async (id) => {
     const entry = savedList.find((r) => r.id === id);
@@ -329,10 +331,10 @@ export function ReportsApp() {
   }, [savedList]);
 
   const onDelete = useCallback(async (id) => {
-    if (!confirm('Delete this saved report?')) return;
+    if (!(await modal.confirm('Delete this saved report?', { title: 'Delete report', okLabel: 'Delete', destructive: true }))) return;
     await deleteSavedReport(id);
     setSavedList(await listSavedReports());
-  }, []);
+  }, [modal]);
 
   const onExport = useCallback((fmt) => {
     if (!report) return;

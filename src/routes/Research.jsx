@@ -6,11 +6,13 @@ import { useNavigate } from 'react-router-dom';
 import { generateResearchSuggestions } from '../lib/researchSuggestions.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { readRef } from '../lib/schema.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const STATE_KEY = 'researchAssistantState';
 const JOURNAL_KEY = 'researchJournal';
 
 export default function Research() {
+  const modal = useModal();
   const [items, setItems] = useState(null);
   const [imported, setImported] = useState([]);
   const [state, setState] = useState({ done: {}, ignored: {}, ignoredEntities: {} });
@@ -59,7 +61,7 @@ export default function Research() {
     setJournalDraft('');
   };
   const removeJournalEntry = async (id) => {
-    if (!confirm('Delete this research log entry?')) return;
+    if (!(await modal.confirm('Delete this research log entry?', { title: 'Delete entry', okLabel: 'Delete', destructive: true }))) return;
     await persistJournal(journal.filter((entry) => entry.id !== id));
   };
 

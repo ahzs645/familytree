@@ -12,10 +12,12 @@ import {
 } from '../lib/familySearchSourceFolders.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { sourceSummary } from '../models/index.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 function uuid() { return `fs-folder-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
 
 export function FamilySearchSourceFoldersSheet({ open, onClose }) {
+  const modal = useModal();
   const [folders, setFolders] = useState([]);
   const [refs, setRefs] = useState([]);
   const [sources, setSources] = useState([]);
@@ -54,14 +56,14 @@ export function FamilySearchSourceFoldersSheet({ open, onClose }) {
   };
 
   const onRenameFolder = async (folder) => {
-    const name = prompt('Rename folder:', folder.name);
+    const name = await modal.prompt('Rename folder:', folder.name, { title: 'Rename folder' });
     if (!name || name === folder.name) return;
     await upsertFamilySearchSourceFolder({ ...folder, name });
     await reload();
   };
 
   const onDeleteFolder = async (folder) => {
-    if (!confirm(`Delete folder "${folder.name}"? Sources will be unassigned.`)) return;
+    if (!(await modal.confirm(`Delete folder "${folder.name}"? Sources will be unassigned.`, { title: 'Delete folder', okLabel: 'Delete', destructive: true }))) return;
     await deleteFamilySearchSourceFolder(folder.id);
     await reload();
   };
@@ -77,7 +79,7 @@ export function FamilySearchSourceFoldersSheet({ open, onClose }) {
 
   const onEditTags = async (sourceRecordName) => {
     const existing = refs.find((ref) => ref.sourceRecordName === sourceRecordName);
-    const input = prompt('Tags (comma-separated):', (existing?.tags || []).join(', ')) ?? null;
+    const input = await modal.prompt('Tags (comma-separated):', (existing?.tags || []).join(', '), { title: 'Edit tags' });
     if (input === null) return;
     const tags = input.split(',').map((tag) => tag.trim()).filter(Boolean);
     await setFamilySearchSourceReferenceTags(sourceRecordName, {

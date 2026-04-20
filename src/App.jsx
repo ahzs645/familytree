@@ -8,6 +8,7 @@ import { AppShell } from './components/AppShell.jsx';
 import { ActivePersonProvider } from './contexts/ActivePersonContext.jsx';
 import { DatabaseStatusProvider } from './contexts/DatabaseStatusContext.jsx';
 import { ThemeProvider } from './contexts/ThemeContext.jsx';
+import { ModalProvider } from './contexts/ModalContext.jsx';
 import Home from './routes/Home.jsx';
 import { startBackupScheduler } from './lib/backup.js';
 import { useObjectDeepLink } from './lib/deepLinks.js';
@@ -120,6 +121,7 @@ export function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <ThemeProvider>
+       <ModalProvider>
        <DatabaseStatusProvider>
         <ActivePersonProvider>
           <DeepLinkHandler />
@@ -205,6 +207,7 @@ export function App() {
           </Routes>
         </ActivePersonProvider>
        </DatabaseStatusProvider>
+       </ModalProvider>
       </ThemeProvider>
     </BrowserRouter>
   );

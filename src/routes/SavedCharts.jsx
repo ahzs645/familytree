@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { listChartTemplates, deleteChartTemplate, saveChartTemplate, newTemplateId } from '../lib/chartTemplates.js';
 import { listChartDocuments, deleteChartDocument } from '../lib/chartDocuments.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const CHART_LABELS = {
   ancestor: 'Ancestor',
@@ -64,6 +65,7 @@ function importedLayoutStatus(view) {
 }
 
 export default function SavedCharts() {
+  const modal = useModal();
   const [templates, setTemplates] = useState(null);
   const [documents, setDocuments] = useState([]);
   const navigate = useNavigate();
@@ -79,19 +81,19 @@ export default function SavedCharts() {
   useEffect(() => { reloadAll(); }, [reloadAll]);
 
   const onDelete = async (id) => {
-    if (!confirm('Delete this saved chart?')) return;
+    if (!(await modal.confirm('Delete this saved chart?', { title: 'Delete chart', okLabel: 'Delete', destructive: true }))) return;
     await deleteChartTemplate(id);
     reloadAll();
   };
 
   const onDeleteDocument = async (id) => {
-    if (!confirm('Delete this chart document?')) return;
+    if (!(await modal.confirm('Delete this chart document?', { title: 'Delete document', okLabel: 'Delete', destructive: true }))) return;
     await deleteChartDocument(id);
     reloadAll();
   };
 
   const onDuplicate = async (tpl) => {
-    const name = prompt('Name for the copy:', `${tpl.name} (copy)`);
+    const name = await modal.prompt('Name for the copy:', `${tpl.name} (copy)`, { title: 'Duplicate chart' });
     if (!name) return;
     await saveChartTemplate({ ...tpl, id: newTemplateId(), name });
     reloadAll();

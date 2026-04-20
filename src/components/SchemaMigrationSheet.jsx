@@ -14,8 +14,10 @@ import {
   markDatasetSchemaVersion,
   runMigrations,
 } from '../lib/datasetMigration.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 export function SchemaMigrationSheet() {
+  const modal = useModal();
   const [state, setState] = useState({ loading: true, fromVersion: null, steps: [] });
   const [readOnly, setReadOnly] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -66,7 +68,7 @@ export function SchemaMigrationSheet() {
   };
 
   const onMigrateWithoutBackup = async () => {
-    if (!confirm('Migrate without a backup? If something goes wrong the old data will not be recoverable.')) return;
+    if (!(await modal.confirm('Migrate without a backup? If something goes wrong the old data will not be recoverable.', { title: 'Migrate without backup', okLabel: 'Proceed', destructive: true }))) return;
     setBusy(true);
     setError(null);
     try {

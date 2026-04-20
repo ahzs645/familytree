@@ -10,6 +10,7 @@ import { applySearchReplace, previewSearchReplace, replaceableFields, undoLastSe
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { FilterRow } from './FilterRow.jsx';
 import { SearchResults } from './SearchResults.jsx';
+import { useModal } from '../../contexts/ModalContext.jsx';
 
 const SAVED_SEARCHES_KEY = 'savedSearches';
 
@@ -42,6 +43,7 @@ function newFilter(entityType) {
 }
 
 export function SearchApp() {
+  const modal = useModal();
   const [entityType, setEntityType] = useState('Person');
   const [textQuery, setTextQuery] = useState('');
   const [filters, setFilters] = useState([]);
@@ -65,7 +67,7 @@ export function SearchApp() {
   useEffect(() => { loadSaved(); }, [loadSaved]);
 
   const onSaveSearch = useCallback(async () => {
-    const name = prompt('Save this search as:');
+    const name = await modal.prompt('Save this search as:', '', { title: 'Save search' });
     if (!name) return;
     const db = getLocalDatabase();
     const list = Array.isArray(await db.getMeta(SAVED_SEARCHES_KEY)) ? await db.getMeta(SAVED_SEARCHES_KEY) : [];
@@ -80,7 +82,7 @@ export function SearchApp() {
     const next = [...list, entry];
     await db.setMeta(SAVED_SEARCHES_KEY, next);
     setSavedSearches(next);
-  }, [entityType, textQuery, filters]);
+  }, [entityType, textQuery, filters, modal]);
 
   const onLoadSearch = useCallback((id) => {
     const entry = savedSearches.find((s) => s.id === id);
@@ -92,16 +94,16 @@ export function SearchApp() {
   }, [savedSearches]);
 
   const onDeleteSearch = useCallback(async (id) => {
-    if (!confirm('Delete saved search?')) return;
+    if (!(await modal.confirm('Delete saved search?', { title: 'Delete saved search', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     const list = Array.isArray(await db.getMeta(SAVED_SEARCHES_KEY)) ? await db.getMeta(SAVED_SEARCHES_KEY) : [];
     const next = list.filter((s) => s.id !== id);
     await db.setMeta(SAVED_SEARCHES_KEY, next);
     setSavedSearches(next);
-  }, []);
+  }, [modal]);
 
-  const onSaveAsSmartFilter = useCallback(() => {
-    const name = prompt('Smart filter name:');
+  const onSaveAsSmartFilter = useCallback(async () => {
+    const name = await modal.prompt('Smart filter name:', '', { title: 'Save as smart filter' });
     if (!name) return;
     const rules = searchFiltersToScopeRules(filters, textQuery);
     navigate('/smart-filters', {
@@ -114,7 +116,7 @@ export function SearchApp() {
         },
       },
     });
-  }, [entityType, filters, textQuery, navigate]);
+  }, [entityType, filters, textQuery, navigate, modal]);
 
   const replaceFields = useMemo(() => replaceableFields(entityType), [entityType]);
 
@@ -195,7 +197,7 @@ export function SearchApp() {
 
   const onApplyReplace = useCallback(async () => {
     if (!replacePreview?.changes?.length) return;
-    if (!confirm(`Apply ${replacePreview.total.toLocaleString()} replacement${replacePreview.total === 1 ? '' : 's'}?`)) return;
+    if (!(await modal.confirm(`Apply ${replacePreview.total.toLocaleString()} replacement${replacePreview.total === 1 ? '' : 's'}?`, { title: 'Apply replacements', okLabel: 'Apply' }))) return;
     setRunning(true);
     setReplaceStatus('Applying replacements…');
     try {
@@ -208,7 +210,7 @@ export function SearchApp() {
     } finally {
       setRunning(false);
     }
-  }, [replacePreview, onRun]);
+  }, [replacePreview, onRun, modal]);
 
   const onUndoReplace = useCallback(async () => {
     setRunning(true);

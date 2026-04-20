@@ -14,6 +14,7 @@ import {
   reformatNames,
   mediaSizeReport,
 } from '../lib/maintenance.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 function Card({ title, description, children }) {
   return (
@@ -56,6 +57,7 @@ const inputClass = 'bg-background text-foreground border border-border rounded-m
 
 export default function Maintenance() {
   const navigate = useNavigate();
+  const modal = useModal();
   const { refresh } = useDatabaseStatus();
   const [unreadable, setUnreadable] = useState(null);
   const [dateChanges, setDateChanges] = useState(null);
@@ -119,7 +121,7 @@ export default function Maintenance() {
             </button>
             <button className={btnPrimary} disabled={busy || !dateChanges?.length}
               onClick={wrap(async () => {
-                if (!confirm(`Apply to ${dateChanges.length} records?`)) return;
+                if (!(await modal.confirm(`Apply to ${dateChanges.length} records?`, { title: 'Apply date reformat', okLabel: 'Apply' }))) return;
                 await reformatAllDates(dateFormat, { dryRun: false });
                 setDateChanges(null);
                 await refresh();
@@ -153,7 +155,7 @@ export default function Maintenance() {
             </button>
             <button className={btnPrimary} disabled={busy || !nameChanges?.length}
               onClick={wrap(async () => {
-                if (!confirm(`Rewrite ${nameChanges.length} names?`)) return;
+                if (!(await modal.confirm(`Rewrite ${nameChanges.length} names?`, { title: 'Rewrite names', okLabel: 'Apply' }))) return;
                 await reformatNames({ field: nameField, mode: nameMode, dryRun: false });
                 setNameChanges(null);
                 await refresh();
@@ -171,7 +173,7 @@ export default function Maintenance() {
             <button className={btnSecondary} disabled={busy} onClick={wrap(async () => setEmpty(await auditEmptyEntries()))}>Scan</button>
             <button className={btnPrimary} disabled={busy || !empty?.length}
               onClick={wrap(async () => {
-                if (!confirm(`Delete ${empty.length} empty records?`)) return;
+                if (!(await modal.confirm(`Delete ${empty.length} empty records?`, { title: 'Delete empty records', okLabel: 'Delete', destructive: true }))) return;
                 await removeEmptyEntries({ dryRun: false });
                 setEmpty(null);
                 await refresh();

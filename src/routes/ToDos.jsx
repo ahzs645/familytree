@@ -6,6 +6,7 @@ import { personSummary, sourceSummary, placeSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { ToDoWizardSheet } from '../components/ToDoWizardSheet.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 const TARGET_TYPES = ['Person', 'Family', 'Source', 'Place', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
 
@@ -26,6 +27,7 @@ function targetLabel(record) {
 }
 
 export default function ToDos() {
+  const modal = useModal();
   const [todos, setTodos] = useState([]);
   const [relations, setRelations] = useState([]);
   const [targetsByType, setTargetsByType] = useState({});
@@ -90,7 +92,8 @@ export default function ToDos() {
   };
 
   const onDelete = async () => {
-    if (!active || !confirm('Delete this ToDo?')) return;
+    if (!active) return;
+    if (!(await modal.confirm('Delete this ToDo?', { title: 'Delete ToDo', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     const deleteNames = [active.recordName, ...activeRelations.map((r) => r.recordName)];
     await db.applyRecordTransaction({ deleteRecordNames: deleteNames });

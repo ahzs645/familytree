@@ -220,14 +220,45 @@ function findPageShape(node) {
       const size = firstString(candidate, ['size', 'paperSize', 'format', 'formatName']) || node.size;
       const orientation = firstString(candidate, ['orientation', 'portraitLandscape']) || node.orientation;
       const backgroundColor = firstString(candidate, ['background', 'backgroundColor', 'backgroundColorHex']) || node.backgroundColor;
+      const margins = candidate.margins && typeof candidate.margins === 'object' ? candidate.margins : {};
       return {
         size: size || 'letter',
         orientation: orientation || 'landscape',
         backgroundColor: backgroundColor || '',
+        margins: {
+          top: toNumber(margins.top) ?? toNumber(candidate.marginTop) ?? 36,
+          right: toNumber(margins.right) ?? toNumber(candidate.marginRight) ?? 36,
+          bottom: toNumber(margins.bottom) ?? toNumber(candidate.marginBottom) ?? 36,
+          left: toNumber(margins.left) ?? toNumber(candidate.marginLeft) ?? 36,
+        },
+        overlap: toNumber(candidate.overlap) ?? 0,
+        cutMarks: Boolean(candidate.cutMarks ?? candidate.printCutMarks),
+        printPageNumbers: Boolean(candidate.printPageNumbers ?? candidate.pageNumbers),
+        omitEmptyPages: candidate.omitEmptyPages !== false,
       };
     }
   }
-  return { size: 'letter', orientation: 'landscape', backgroundColor: '' };
+  return {
+    size: 'letter',
+    orientation: 'landscape',
+    backgroundColor: '',
+    margins: { top: 36, right: 36, bottom: 36, left: 36 },
+    overlap: 0,
+    cutMarks: false,
+    printPageNumbers: false,
+    omitEmptyPages: true,
+  };
+}
+
+function captureCompositorPayload(decoded) {
+  if (!decoded || typeof decoded !== 'object') return null;
+  const compositor = decoded.chartCompositor || decoded.compositor || decoded.chartCompositorObjectsContainer || null;
+  const theme = decoded.theme || decoded.style?.theme || decoded.chartTheme || null;
+  const style = decoded.style || decoded.chartStyle || decoded.chartCompositorStyle || null;
+  const builder = decoded.chartBuilder || decoded.builder || decoded.chartBuilderItemsContainer || null;
+  const reportNodes = decoded.reportNodesContainer || decoded.reportNodes || null;
+  if (!compositor && !theme && !style && !builder && !reportNodes) return null;
+  return { compositor, theme, style, builder, reportNodes };
 }
 
 function findNumeric(node, keyNames) {
@@ -301,6 +332,7 @@ function inferFromDecodedPayload(decoded, record) {
     || undefined;
 
   const page = findPageShape(decoded);
+  const compositorPayload = captureCompositorPayload(decoded);
   const overlays = collectOverlays(decoded).map((overlay, index) => ({
     id: overlay.id || `overlay-${index}-${Math.random().toString(36).slice(2, 7)}`,
     ...overlay,
@@ -325,6 +357,19 @@ function inferFromDecodedPayload(decoded, record) {
       orientation: page.orientation || 'landscape',
       backgroundColor: page.backgroundColor || '',
     },
+    pageSetup: {
+      paperSize: page.size || 'letter',
+      orientation: page.orientation || 'landscape',
+      backgroundColor: page.backgroundColor || '',
+      margins: page.margins,
+      overlap: page.overlap,
+      cutMarks: page.cutMarks,
+      printPageNumbers: page.printPageNumbers,
+      omitEmptyPages: page.omitEmptyPages,
+      title,
+      note,
+    },
+    compositorPayload,
     overlays,
   };
 }
@@ -385,6 +430,7 @@ export function mapSavedChartRecordToDocument(record) {
     generations: mapped.generations || DEFAULT_GENERATIONS,
     virtual: mapped.virtual,
     page: mapped.page,
+    pageSetup: mapped.pageSetup,
     title: mapped.page?.title || record.fields.title?.value || record.fields.name?.value || '',
     note: mapped.page?.note || record.fields.subtitle?.value || '',
     overlays: mapped.overlays || [],
@@ -393,6 +439,7 @@ export function mapSavedChartRecordToDocument(record) {
       sourceRecordType: record.recordType,
       sourceStatus: decoded?.status || (record.fields.chartObjectsContainerData?.value ? 'stored' : 'missing'),
       decodedPayloadSummary: decoded?.summary || null,
+      compositorPayload: mapped.compositorPayload || null,
     },
     metadata: {
       sourceRecordName: record.recordName,
