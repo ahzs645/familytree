@@ -27,9 +27,43 @@ window.__cloudtreeweb = {
   React,
 };
 
+const LOADED_URL_KEY = 'cloudtreeweb-loaded-url';
+
+function getDatasetUrlFromQuery() {
+  try {
+    const raw = new URLSearchParams(window.location.search).get('url');
+    if (!raw) return null;
+    return new URL(raw, window.location.href).href;
+  } catch {
+    return null;
+  }
+}
+
+async function loadFromUrl(db, url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
+  const data = await res.json();
+  const count = await db.importDataset(data);
+  localStorage.setItem('cloudtreeweb-has-imported', '1');
+  localStorage.setItem(LOADED_URL_KEY, url);
+  console.log(`[CloudTreeWeb] loaded ${count} records from ${url}`);
+}
+
 async function autoLoadIfEmpty() {
   const db = getLocalDatabase();
   await db.open();
+  const queryUrl = getDatasetUrlFromQuery();
+
+  if (queryUrl) {
+    if (localStorage.getItem(LOADED_URL_KEY) === queryUrl && (await db.hasData())) return;
+    try {
+      await loadFromUrl(db, queryUrl);
+    } catch (err) {
+      console.error('[CloudTreeWeb] failed to load dataset from ?url=', err);
+    }
+    return;
+  }
+
   if (await db.hasData()) return;
   if (localStorage.getItem('cloudtreeweb-has-imported')) return;
   try {
