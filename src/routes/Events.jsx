@@ -12,6 +12,7 @@ import { personSummary, placeSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { formatEventDate } from '../utils/formatDate.js';
+import { DatePicker } from '../components/ui/DatePicker.jsx';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -249,11 +250,11 @@ export default function Events() {
             {availableTypes.map((t) => <option key={t.id} value={t.label} />)}
           </datalist>
         </FieldRow>
-        <FieldRow label="Date" hint="YYYY, YYYY-MM, or YYYY-MM-DD.">
-          <input
+        <FieldRow label="Date" hint="Supports ABT, BEF, AFT, BET…AND, FROM…TO, EST, CAL, INT, and BC era.">
+          <DatePicker
             value={values.date ?? ''}
-            onChange={(e) => setValues({ ...values, date: e.target.value })}
-            style={editorInput}
+            onChange={(v) => setValues({ ...values, date: v })}
+            placeholder="YYYY, YYYY-MM, or YYYY-MM-DD"
           />
         </FieldRow>
         {active.recordType === 'PersonEvent' ? (

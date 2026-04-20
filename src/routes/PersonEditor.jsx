@@ -39,6 +39,7 @@ import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { TypePicker } from '../components/editors/TypePicker.jsx';
 import { AssociateRelationsEditor, MediaRelationsEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
+import { isRecordLocked, setRecordLocked } from '../lib/recordLock.js';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -280,7 +281,18 @@ export default function PersonEditor() {
           {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
         </div>
         {status && <span className="text-emerald-500 text-xs">{status}</span>}
-        <button disabled={saving} onClick={onSave} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        {record ? (
+          <button
+            type="button"
+            onClick={() => setRecord((r) => setRecordLocked(r, !isRecordLocked(r)))}
+            className={`border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent ${isRecordLocked(record) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' : ''}`}
+            aria-pressed={isRecordLocked(record)}
+            title={isRecordLocked(record) ? 'Record is locked — editing is prevented until you unlock it.' : 'Lock this record to prevent accidental edits.'}
+          >
+            {isRecordLocked(record) ? '🔒 Locked' : '🔓 Unlocked'}
+          </button>
+        ) : null}
+        <button disabled={saving || (record && isRecordLocked(record))} onClick={onSave} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
           {saving ? 'Saving…' : 'Save changes'}
         </button>
       </header>

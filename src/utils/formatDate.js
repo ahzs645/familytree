@@ -14,6 +14,7 @@
  * `formatEventDate` renders with the active locale when possible.
  */
 import { formatInteger, getCurrentLocalization, localeWithExtensions } from '../lib/i18n.js';
+import { parseQualifiedDate, hasQualifier, PREFIX, ERA, isRangePrefix } from '../lib/dateQualifiers.js';
 
 const MONTH_NAMES = [
   'january','february','march','april','may','june','july','august','september','october','november','december',
@@ -73,7 +74,7 @@ export function parseEventDate(raw) {
   return null;
 }
 
-export function formatEventDate(raw, localization = getCurrentLocalization()) {
+function formatAtomicDate(raw, localization) {
   const d = parseEventDate(raw);
   if (!d || d.year == null) return raw ? String(raw) : '';
   const locale = localeWithExtensions(localization);
@@ -84,6 +85,38 @@ export function formatEventDate(raw, localization = getCurrentLocalization()) {
     return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short' }).format(new Date(d.year, d.month - 1, 1));
   }
   return formatInteger(d.year, localization);
+}
+
+const PREFIX_PROSE = {
+  [PREFIX.ABT]: 'about',
+  [PREFIX.CAL]: 'calculated',
+  [PREFIX.EST]: 'estimated',
+  [PREFIX.BEF]: 'before',
+  [PREFIX.AFT]: 'after',
+  [PREFIX.INT]: 'interpreted',
+};
+
+export function formatEventDate(raw, localization = getCurrentLocalization()) {
+  if (!raw) return '';
+  if (!hasQualifier(raw)) {
+    return formatAtomicDate(raw, localization);
+  }
+  const { prefix, date1, date2, era, phrase } = parseQualifiedDate(raw);
+  const d1 = date1 ? formatAtomicDate(date1, localization) : '';
+  const d2 = date2 ? formatAtomicDate(date2, localization) : '';
+  let text;
+  if (isRangePrefix(prefix)) {
+    const sep = prefix === PREFIX.BET ? 'and' : 'to';
+    const lead = prefix === PREFIX.BET ? 'between' : 'from';
+    text = [lead, d1, d2 ? sep : '', d2].filter(Boolean).join(' ');
+  } else if (prefix) {
+    text = `${PREFIX_PROSE[prefix] || prefix.toLowerCase()} ${d1}`.trim();
+  } else {
+    text = d1;
+  }
+  if (era === ERA.BC && text) text = `${text} BC`;
+  if (phrase) text = text ? `${text} (${phrase})` : `(${phrase})`;
+  return text;
 }
 
 export default formatEventDate;

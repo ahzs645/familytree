@@ -8,6 +8,12 @@ import {
   normalizeLocale,
   persistLocalization,
 } from './i18n.js';
+import {
+  DEFAULT_DISPLAY_FORMAT,
+  DEFAULT_SORT_FORMAT,
+  NAME_FORMAT_LABELS,
+  setActiveNameFormats,
+} from './nameFormat.js';
 
 const META_KEY = 'appPreferences';
 export const APP_PREFERENCES_EVENT = 'cloudtreeweb:app-preferences-changed';
@@ -23,6 +29,8 @@ export const DEFAULT_APP_PREFERENCES = {
   formats: {
     nameOrder: 'given-family',
     surnameCase: 'as-entered',
+    nameDisplayFormat: DEFAULT_DISPLAY_FORMAT,
+    nameSortFormat: DEFAULT_SORT_FORMAT,
     dateDisplayFormat: 'YYYY-MM-DD',
     readableDateFormats: 'YYYY-MM-DD\nDD MM YYYY\nMM/DD/YYYY',
   },
@@ -45,6 +53,29 @@ export const DEFAULT_APP_PREFERENCES = {
     gedcomEncoding: 'utf-8',
     websiteTheme: 'classic',
   },
+  privacy: {
+    hideMarkedPrivate: true,
+    hideLivingPersons: false,
+    hideLivingDetailsOnly: false,
+    livingPersonThresholdYears: 110,
+  },
+  plausibility: {
+    enabled: {
+      'death-before-birth': true,
+      'lifespan-over-120': true,
+      'birth-year-suspicious': true,
+      'marriage-too-young': true,
+      'parent-too-young': true,
+      'parent-too-old': true,
+      'child-after-parent-death': true,
+    },
+    thresholds: {
+      maxLifespan: 120,
+      minMarriageAge: 12,
+      minParentAge: 12,
+      maxParentAge: 70,
+    },
+  },
   webSearch: {
     provider: 'familysearch',
     customUrl: '',
@@ -64,7 +95,12 @@ export const DEFAULT_APP_PREFERENCES = {
 
 export async function getAppPreferences() {
   const db = getLocalDatabase();
-  return normalizePreferences(await db.getMeta(META_KEY));
+  const prefs = normalizePreferences(await db.getMeta(META_KEY));
+  setActiveNameFormats({
+    display: prefs.formats.nameDisplayFormat,
+    sort: prefs.formats.nameSortFormat,
+  });
+  return prefs;
 }
 
 export async function saveAppPreferences(next) {
@@ -93,6 +129,8 @@ export function normalizePreferences(value = {}) {
   merged.localization = normalizeLocalization(merged.localization);
   merged.pdf.margin = clampNumber(merged.pdf.margin, 12, 144, DEFAULT_APP_PREFERENCES.pdf.margin);
   merged.webSearch.openInNewTab = merged.webSearch.openInNewTab !== false;
+  if (!NAME_FORMAT_LABELS[merged.formats.nameDisplayFormat]) merged.formats.nameDisplayFormat = DEFAULT_DISPLAY_FORMAT;
+  if (!NAME_FORMAT_LABELS[merged.formats.nameSortFormat]) merged.formats.nameSortFormat = DEFAULT_SORT_FORMAT;
   return merged;
 }
 
@@ -158,6 +196,10 @@ function isPlainObject(value) {
 
 function announcePreferences(preferences) {
   persistLocalization(preferences?.localization);
+  setActiveNameFormats({
+    display: preferences?.formats?.nameDisplayFormat,
+    sort: preferences?.formats?.nameSortFormat,
+  });
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(APP_PREFERENCES_EVENT, { detail: preferences }));
 }

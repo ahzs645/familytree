@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { runPlausibilityChecks } from '../lib/plausibility.js';
+import { getAppPreferences } from '../lib/appPreferences.js';
 
 const SEV_COLORS = {
   high: 'text-destructive border-destructive/40',
@@ -19,7 +20,8 @@ export default function Plausibility() {
   useEffect(() => {
     let cancel = false;
     (async () => {
-      const w = await runPlausibilityChecks();
+      const prefs = await getAppPreferences();
+      const w = await runPlausibilityChecks(prefs.plausibility);
       if (!cancel) setWarnings(w);
     })();
     return () => { cancel = true; };

@@ -12,6 +12,7 @@ import { SourceRecord } from './SourceRecord.js';
 import { PersonEventRecord, FamilyEventRecord } from './EventRecord.js';
 import { Gender } from './constants.js';
 import { parseEventDate } from '../utils/formatDate.js';
+import { formatDisplayName, formatSortName, getActiveDisplayFormat, DEFAULT_DISPLAY_FORMAT } from '../lib/nameFormat.js';
 
 const TYPE_TO_CLASS = {
   Person: PersonRecord,
@@ -36,11 +37,14 @@ export function personSummary(input) {
   if (!input) return null;
   const rec = input instanceof PersonRecord ? input : new PersonRecord(input);
   if (!rec.record) return null;
+  const preset = getActiveDisplayFormat();
+  const formatted = preset !== DEFAULT_DISPLAY_FORMAT ? formatDisplayName(rec.record) : '';
   return {
     recordName: rec.recordName(),
     firstName: rec.firstName(),
     lastName: rec.lastName(),
-    fullName: rec.fullName() || 'No name recorded',
+    fullName: formatted || rec.fullName() || 'No name recorded',
+    fullNameForSorting: formatSortName(rec.record) || rec.fullNameForSorting(),
     gender: rec.gender, // 0=Male, 1=Female, 2=UnknownGender, 3=Intersex
     birthDate: rec.birthDate(),
     deathDate: rec.deathDate(),

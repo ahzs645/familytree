@@ -1,5 +1,162 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 
+export const CONFLICT_RESOLUTION = Object.freeze({
+  KEEP_EXISTING: 'existing',
+  USE_INCOMING: 'incoming',
+  RENAME_INCOMING: 'rename',
+});
+
+/**
+ * Build a per-record conflict plan — for every incoming record that shares
+ * an ID with an existing record, list the fields that differ (name + old +
+ * new value). Returns:
+ *   {
+ *     conflicts: [{ recordName, recordType, fields: [{ name, existing, incoming }] }],
+ *     newRecords: [records with no existing collision],
+ *     assetCollisions: [assetId, ...],
+ *   }
+ *
+ * Callers can then render a conflict sheet and pass resolutions into
+ * `mergeBackupJSONWithResolutions`.
+ */
+export async function planMerge(json) {
+  if (!json || json.format !== 'cloudtreeweb-backup' || !json.records) {
+    throw new Error('File is not a CloudTreeWeb backup.');
+  }
+  const db = getLocalDatabase();
+  const incoming = Object.values(json.records);
+  const conflicts = [];
+  const newRecords = [];
+
+  for (const record of incoming) {
+    const existing = await db.getRecord(record.recordName);
+    if (!existing) {
+      newRecords.push(record);
+      continue;
+    }
+    const fieldDiffs = [];
+    const names = new Set([
+      ...Object.keys(existing.fields || {}),
+      ...Object.keys(record.fields || {}),
+    ]);
+    for (const name of names) {
+      const left = existing.fields?.[name]?.value;
+      const right = record.fields?.[name]?.value;
+      if (!valuesEqual(left, right)) {
+        fieldDiffs.push({ name, existing: left, incoming: right });
+      }
+    }
+    if (fieldDiffs.length === 0) {
+      // Identical payload — nothing to do; counts as "keep existing".
+      continue;
+    }
+    conflicts.push({
+      recordName: record.recordName,
+      recordType: record.recordType,
+      fields: fieldDiffs,
+    });
+  }
+
+  const assetCollisions = [];
+  for (const asset of json.assets || []) {
+    if (!asset?.assetId) continue;
+    const existing = await db.getAsset(asset.assetId);
+    if (existing) assetCollisions.push(asset.assetId);
+  }
+
+  return { conflicts, newRecords, assetCollisions };
+}
+
+function valuesEqual(a, b) {
+  if (a === b) return true;
+  if (a == null || b == null) return a == null && b == null;
+  if (typeof a === 'object' || typeof b === 'object') {
+    try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+  }
+  return String(a) === String(b);
+}
+
+/**
+ * Apply a merge plan honoring per-record resolutions.
+ * resolutions is a map: recordName → CONFLICT_RESOLUTION value.
+ * Missing keys default to KEEP_EXISTING (safe).
+ */
+export async function mergeBackupJSONWithResolutions(json, resolutions, options = {}) {
+  const db = getLocalDatabase();
+  const incoming = Object.values(json.records || {});
+  const nameMap = new Map();
+  const saveRecords = [];
+
+  for (const record of incoming) {
+    const existing = await db.getRecord(record.recordName);
+    if (!existing) {
+      saveRecords.push(structuredCloneSafe(record));
+      continue;
+    }
+    const choice = resolutions?.[record.recordName] || CONFLICT_RESOLUTION.KEEP_EXISTING;
+    if (choice === CONFLICT_RESOLUTION.KEEP_EXISTING) continue;
+    if (choice === CONFLICT_RESOLUTION.USE_INCOMING) {
+      saveRecords.push(structuredCloneSafe(record));
+      continue;
+    }
+    if (choice === CONFLICT_RESOLUTION.RENAME_INCOMING) {
+      const newName = uniqueRecordName(record.recordName);
+      nameMap.set(record.recordName, newName);
+      saveRecords.push({ ...structuredCloneSafe(record), recordName: newName });
+    }
+  }
+
+  const assetIdMap = new Map();
+  const saveAssets = [];
+  for (const asset of json.assets || []) {
+    if (!asset?.assetId) continue;
+    const existing = await db.getAsset(asset.assetId);
+    if (!existing) {
+      saveAssets.push(structuredCloneSafe(asset));
+      continue;
+    }
+    const choice = resolutions?.[`asset:${asset.assetId}`] || CONFLICT_RESOLUTION.KEEP_EXISTING;
+    if (choice === CONFLICT_RESOLUTION.KEEP_EXISTING) continue;
+    if (choice === CONFLICT_RESOLUTION.USE_INCOMING) {
+      saveAssets.push(structuredCloneSafe(asset));
+      continue;
+    }
+    if (choice === CONFLICT_RESOLUTION.RENAME_INCOMING) {
+      const newId = uniqueAssetId(asset.assetId);
+      assetIdMap.set(asset.assetId, newId);
+      saveAssets.push({ ...structuredCloneSafe(asset), assetId: newId });
+    }
+  }
+
+  const rewritten = saveRecords.map((record) => rewriteRecord(record, nameMap, assetIdMap));
+  const logEntry = buildMergeLogEntry({
+    records: rewritten.length,
+    assets: saveAssets.length,
+    renamed: nameMap.size,
+    assetRenamed: assetIdMap.size,
+    rollbackNote: options.rollbackNote || '',
+    exportedAt: json.exportedAt || '',
+  });
+  await db.applyRecordTransaction({ saveRecords: [...rewritten, logEntry], saveAssets });
+  await appendMergeHistory(db, {
+    importedAt: new Date().toISOString(),
+    records: rewritten.length,
+    assets: saveAssets.length,
+    renamed: nameMap.size,
+    assetRenamed: assetIdMap.size,
+    rollbackNote: options.rollbackNote || '',
+    exportedAt: json.exportedAt || null,
+    resolvedConflicts: Object.keys(resolutions || {}).length,
+  });
+  return {
+    records: rewritten.length,
+    assets: saveAssets.length,
+    renamed: nameMap.size,
+    assetRenamed: assetIdMap.size,
+    resolvedConflicts: Object.keys(resolutions || {}).length,
+  };
+}
+
 export async function analyzeBackupMergeJSON(json) {
   if (!json || json.format !== 'cloudtreeweb-backup' || !json.records) {
     throw new Error('File is not a CloudTreeWeb backup.');

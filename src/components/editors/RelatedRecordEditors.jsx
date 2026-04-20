@@ -3,6 +3,13 @@ import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../../lib/changeLog.js';
 import { readRef, writeRef } from '../../lib/schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary } from '../../models/index.js';
+import {
+  CERTAINTY,
+  CERTAINTY_LABELS,
+  CERTAINTY_AXES,
+  certaintySortKey,
+  readCertainty,
+} from '../../lib/sourceCertainty.js';
 
 const MEDIA_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 const CITABLE_TARGET_TYPES = ['Person', 'Family', 'Place', 'PersonEvent', 'FamilyEvent', ...MEDIA_TYPES];
@@ -170,6 +177,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
   const [pool, setPool] = useState([]);
   const [selectedType, setSelectedType] = useState(ownerRole === 'source' ? 'Person' : 'Source');
   const [selectedId, setSelectedId] = useState('');
+  const [sortByCertainty, setSortByCertainty] = useState(false);
   const [drafts, setDrafts] = useState({});
 
   const poolTypes = useMemo(() => ownerRole === 'source' ? CITABLE_TARGET_TYPES : ['Source'], [ownerRole]);
@@ -194,6 +202,9 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
       {
         page: rel.fields?.page?.value || '',
         citation: rel.fields?.citation?.value || rel.fields?.text?.value || '',
+        sourceQuality: readCertainty(rel, 'sourceQuality'),
+        informationQuality: readCertainty(rel, 'informationQuality'),
+        evidenceQuality: readCertainty(rel, 'evidenceQuality'),
       },
     ])));
   }, [ownerRecordName, poolTypes, queryField, relatedField]);
@@ -238,6 +249,11 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
       delete fields.citation;
       delete fields.text;
     }
+    for (const { key } of CERTAINTY_AXES) {
+      const v = draft[key];
+      if (v && v !== CERTAINTY.DONT_KNOW) fields[key] = { value: v, type: 'STRING' };
+      else delete fields[key];
+    }
     await saveWithChangeLog({ ...rel, fields });
     await reload();
     onChanged?.();
@@ -251,42 +267,75 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
     onChanged?.();
   }, [onChanged, reload]);
 
+  const orderedRelations = useMemo(() => {
+    if (!sortByCertainty) return relations;
+    return [...relations].sort((a, b) => certaintySortKey(b.rel) - certaintySortKey(a.rel));
+  }, [relations, sortByCertainty]);
+
   return (
     <div>
       {relations.length === 0 ? (
         <Empty title="No source citations" hint={ownerRole === 'source' ? 'Attach this source to people, families, places, events, or media.' : 'Attach sources that document this entry.'} />
       ) : (
-        <div className="space-y-2 mb-3">
-          {relations.map(({ rel, target }) => {
-            const draft = drafts[rel.recordName] || {};
-            return (
-              <RelationRow
-                key={rel.recordName}
-                rel={rel}
-                target={target}
-                typeLabel={target?.recordType || rel.fields?.targetType?.value || 'Record'}
-                label={recordDisplayLabel(target) || readRef(rel.fields?.[relatedField])}
-                onRemove={() => removeRelation(rel)}
-              >
-                <div className="grid grid-cols-[120px_1fr_auto] gap-2 mt-2">
-                  <input
-                    value={draft.page || ''}
-                    onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, page: e.target.value } }))}
-                    className={inputClass}
-                    placeholder="Page"
-                  />
-                  <input
-                    value={draft.citation || ''}
-                    onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, citation: e.target.value } }))}
-                    className={inputClass}
-                    placeholder="Citation text"
-                  />
-                  <button onClick={() => saveRelation(rel)} className={buttonClass}>Save</button>
-                </div>
-              </RelationRow>
-            );
-          })}
-        </div>
+        <>
+          {relations.length > 1 ? (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+              <input
+                type="checkbox"
+                checked={sortByCertainty}
+                onChange={(e) => setSortByCertainty(e.target.checked)}
+              />
+              Sort by certainty
+            </label>
+          ) : null}
+          <div className="space-y-2 mb-3">
+            {orderedRelations.map(({ rel, target }) => {
+              const draft = drafts[rel.recordName] || {};
+              return (
+                <RelationRow
+                  key={rel.recordName}
+                  rel={rel}
+                  target={target}
+                  typeLabel={target?.recordType || rel.fields?.targetType?.value || 'Record'}
+                  label={recordDisplayLabel(target) || readRef(rel.fields?.[relatedField])}
+                  onRemove={() => removeRelation(rel)}
+                >
+                  <div className="grid grid-cols-[120px_1fr_auto] gap-2 mt-2">
+                    <input
+                      value={draft.page || ''}
+                      onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, page: e.target.value } }))}
+                      className={inputClass}
+                      placeholder="Page"
+                    />
+                    <input
+                      value={draft.citation || ''}
+                      onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, citation: e.target.value } }))}
+                      className={inputClass}
+                      placeholder="Citation text"
+                    />
+                    <button onClick={() => saveRelation(rel)} className={buttonClass}>Save</button>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mt-2" role="group" aria-label="Citation certainty">
+                    {CERTAINTY_AXES.map(({ key, label }) => (
+                      <label key={key} className="text-[11px] text-muted-foreground">
+                        <span className="block mb-0.5">{label} quality</span>
+                        <select
+                          value={draft[key] || CERTAINTY.DONT_KNOW}
+                          onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, [key]: e.target.value } }))}
+                          className={inputClass}
+                        >
+                          {Object.entries(CERTAINTY_LABELS).map(([value, text]) => (
+                            <option key={value} value={value}>{text}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ))}
+                  </div>
+                </RelationRow>
+              );
+            })}
+          </div>
+        </>
       )}
       <div className="grid grid-cols-[130px_1fr_auto] gap-2">
         <select value={selectedType} onChange={(e) => { setSelectedType(e.target.value); setSelectedId(''); }} className={inputClass}>

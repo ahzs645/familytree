@@ -11,6 +11,8 @@ import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { lifeSpanLabel } from '../models/index.js';
 import { WORLD_EVENTS } from '../lib/worldHistory.js';
 
+const CATEGORY_STORAGE_KEY = 'worldHistory.enabledCategories';
+
 function yearOf(s) { const m = String(s || '').match(/(\d{4})/); return m ? parseInt(m[1], 10) : null; }
 
 export default function WorldHistory() {
@@ -18,6 +20,33 @@ export default function WorldHistory() {
   const navigate = useNavigate();
   const [persons, setPersons] = useState([]);
   const [context, setContext] = useState(null);
+  const [enabledCategories, setEnabledCategories] = useState(() => {
+    try {
+      const raw = localStorage.getItem(CATEGORY_STORAGE_KEY);
+      if (raw) return new Set(JSON.parse(raw));
+    } catch {}
+    return null; // null = all enabled
+  });
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+
+  const allCategories = [...new Set(WORLD_EVENTS.map((e) => e.kind))].sort();
+
+  useEffect(() => {
+    if (enabledCategories === null) return;
+    try { localStorage.setItem(CATEGORY_STORAGE_KEY, JSON.stringify([...enabledCategories])); } catch {}
+  }, [enabledCategories]);
+
+  const isEnabled = (cat) => enabledCategories === null ? true : enabledCategories.has(cat);
+  const toggleCategory = (cat) => {
+    setEnabledCategories((prev) => {
+      const current = prev ? new Set(prev) : new Set(allCategories);
+      if (current.has(cat)) current.delete(cat);
+      else current.add(cat);
+      return current;
+    });
+  };
+  const enableAll = () => setEnabledCategories(null);
+  const disableAll = () => setEnabledCategories(new Set());
 
   useEffect(() => {
     let cancel = false;
@@ -58,7 +87,7 @@ export default function WorldHistory() {
 
   const items = [
     ...personEvents,
-    ...WORLD_EVENTS.filter((e) => !personRange || (e.year >= personRange[0] && e.year <= personRange[1] + 50)).map((e) => ({
+    ...WORLD_EVENTS.filter((e) => isEnabled(e.kind)).filter((e) => !personRange || (e.year >= personRange[0] && e.year <= personRange[1] + 50)).map((e) => ({
       kind: 'world',
       year: e.year,
       end: e.end,
@@ -82,6 +111,33 @@ export default function WorldHistory() {
             Showing alongside {focusName}{lifeSpanLabel(context?.selfSummary) && ` · ${lifeSpanLabel(context?.selfSummary)}`}
           </span>
         )}
+        <div className="ms-auto relative">
+          <button
+            type="button"
+            onClick={() => setCategoryMenuOpen((v) => !v)}
+            className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            Categories ({enabledCategories === null ? allCategories.length : enabledCategories.size}/{allCategories.length})
+          </button>
+          {categoryMenuOpen ? (
+            <div className="absolute end-0 mt-1 w-64 bg-popover border border-border rounded-md shadow-lg z-20 p-2">
+              <div className="flex gap-2 mb-2">
+                <button type="button" onClick={enableAll} className="flex-1 border border-border rounded-md px-2 py-1 text-xs hover:bg-accent">All</button>
+                <button type="button" onClick={disableAll} className="flex-1 border border-border rounded-md px-2 py-1 text-xs hover:bg-accent">None</button>
+              </div>
+              <ul className="max-h-72 overflow-y-auto">
+                {allCategories.map((cat) => (
+                  <li key={cat}>
+                    <label className="flex items-center gap-2 px-2 py-1 text-xs rounded hover:bg-accent cursor-pointer">
+                      <input type="checkbox" checked={isEnabled(cat)} onChange={() => toggleCategory(cat)} />
+                      <span>{cat}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
       </header>
       <main className="flex-1 overflow-auto p-5 bg-background">
         <div className="max-w-3xl mx-auto">

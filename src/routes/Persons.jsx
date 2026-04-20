@@ -9,6 +9,12 @@ import { downloadRowsAsCsv, downloadRowsAsJson } from '../lib/listExport.js';
 import { loadPersonRows } from '../lib/listData.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { Select } from '../components/ui/Select.jsx';
+import { useListSelection } from '../components/lists/useListSelection.js';
+import { useColumnVisibility } from '../components/lists/useColumnVisibility.js';
+import { BulkActionBar } from '../components/lists/BulkActionBar.jsx';
+import { ColumnChooser } from '../components/lists/ColumnChooser.jsx';
+import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { logRecordDeleted } from '../lib/changeLog.js';
 
 const EXPORT_COLUMNS = [
   { key: 'fullName', label: 'Name' },
@@ -18,6 +24,13 @@ const EXPORT_COLUMNS = [
   { key: 'bookmarked', label: 'Bookmarked' },
   { key: 'startPerson', label: 'Start Person' },
   { key: 'id', label: 'Record ID' },
+];
+
+const LIST_COLUMNS = [
+  { key: 'fullName', label: 'Name', alwaysVisible: true },
+  { key: 'lifespan', label: 'Lifespan' },
+  { key: 'bookmarked', label: 'Bookmarked marker' },
+  { key: 'startPerson', label: 'Start-person marker' },
 ];
 
 export default function Persons() {
@@ -52,6 +65,28 @@ export default function Persons() {
       cancelled = true;
     };
   }, []);
+
+  const allVisibleIds = useMemo(() => persons.map((p) => p.id), [persons]);
+  const selection = useListSelection(allVisibleIds);
+  const columnVisibility = useColumnVisibility('persons', LIST_COLUMNS);
+
+  const bulkDelete = async () => {
+    if (!selection.count) return;
+    if (!confirm(`Delete ${selection.count} selected ${selection.count === 1 ? 'person' : 'persons'}? This cannot be undone.`)) return;
+    const db = getLocalDatabase();
+    for (const id of selection.selectedIds) {
+      await db.deleteRecord(id);
+      await logRecordDeleted(id, 'Person');
+    }
+    selection.clear();
+    const rows = await loadPersonRows();
+    setPersons(rows);
+  };
+
+  const bulkExport = () => {
+    const rows = persons.filter((p) => selection.isSelected(p.id));
+    downloadRowsAsCsv('persons-selected', rows, EXPORT_COLUMNS);
+  };
 
   const visiblePersons = useMemo(() => {
     let next = persons.filter((person) => {
@@ -129,6 +164,12 @@ export default function Persons() {
               {formatInteger(visiblePersons.length, localization)} of {formatInteger(persons.length, localization)}
             </div>
           </div>
+          <ColumnChooser
+            columns={LIST_COLUMNS}
+            isVisible={columnVisibility.isVisible}
+            onToggle={columnVisibility.toggle}
+            onReset={columnVisibility.resetToDefaults}
+          />
           <ExportMenu
             onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)}
             onJson={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)}
@@ -159,8 +200,23 @@ export default function Persons() {
 
       <div className="flex-1 min-h-0 flex overflow-hidden">
         {(!isMobile || mobilePane === 'list') && (
-          <div className={isMobile ? 'w-full' : 'w-[min(320px,48vw)] flex-shrink-0'}>
-            <PersonList persons={visiblePersons} activeId={activeId} onPick={pick} />
+          <div className={isMobile ? 'w-full' : 'w-[min(320px,48vw)] flex-shrink-0 flex flex-col'}>
+            {selection.count > 0 ? (
+              <div className="px-3 pt-3">
+                <BulkActionBar count={selection.count} onClear={selection.clear}>
+                  <button type="button" onClick={bulkExport} className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent">Export CSV</button>
+                  <button type="button" onClick={bulkDelete} className="border border-destructive text-destructive rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10">Delete</button>
+                </BulkActionBar>
+              </div>
+            ) : null}
+            <PersonList
+              persons={visiblePersons}
+              activeId={activeId}
+              onPick={pick}
+              selection={new Set(selection.selectedIds)}
+              onToggleSelect={selection.toggle}
+              visibleColumns={new Set(columnVisibility.visibleColumns.map((c) => c.key))}
+            />
           </div>
         )}
         {(!isMobile || mobilePane === 'detail') && (

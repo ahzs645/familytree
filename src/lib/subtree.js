@@ -1,6 +1,49 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refToRecordName } from './recordRef.js';
 
+/**
+ * Collect the recordNames of every ancestor of `personId` up to the given
+ * generation depth. Used by the subtree wizard's "Add Ancestors" button.
+ */
+export async function collectAncestorIds(personId, maxDepth = 5) {
+  const db = getLocalDatabase();
+  const result = new Set();
+  async function walk(id, depth) {
+    if (!id || depth > maxDepth || result.has(id)) return;
+    result.add(id);
+    const parents = await db.getPersonsParents(id);
+    for (const fam of parents) {
+      if (fam.man?.recordName) await walk(fam.man.recordName, depth + 1);
+      if (fam.woman?.recordName) await walk(fam.woman.recordName, depth + 1);
+    }
+  }
+  await walk(personId, 0);
+  result.delete(personId);
+  return [...result];
+}
+
+/**
+ * Collect the recordNames of every descendant of `personId` up to the given
+ * generation depth. Used by the subtree wizard's "Add Descendants" button.
+ */
+export async function collectDescendantIds(personId, maxDepth = 5) {
+  const db = getLocalDatabase();
+  const result = new Set();
+  async function walk(id, depth) {
+    if (!id || depth > maxDepth || result.has(id)) return;
+    result.add(id);
+    const families = await db.getPersonsChildrenInformation(id);
+    for (const fam of families) {
+      for (const child of fam.children) {
+        await walk(child.recordName, depth + 1);
+      }
+    }
+  }
+  await walk(personId, 0);
+  result.delete(personId);
+  return [...result];
+}
+
 export async function collectSubtreeRecordNames(rootPersonRecordName) {
   const db = getLocalDatabase();
   const names = new Set();

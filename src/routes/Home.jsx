@@ -5,6 +5,7 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ImportDropZone } from '../components/ImportDropZone.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
+import { loadSampleTree } from '../lib/sampleTree.js';
 
 const SECTIONS = [
   { to: '/tree', title: 'Interactive Tree', body: '3D family explorer with live search, plus parents / partners / children for the focused person.' },
@@ -81,6 +82,22 @@ export function Home() {
 
       <section className="mb-8">
         <ImportDropZone onImported={() => navigate('/tree')} />
+        {!hasData ? (
+          <div className="mt-3 flex items-center justify-center gap-3 text-sm">
+            <span className="text-muted-foreground">or</span>
+            <button
+              type="button"
+              onClick={async () => {
+                const count = await loadSampleTree();
+                if (count) navigate('/tree');
+              }}
+              className="bg-secondary border border-border rounded-md px-3 py-1.5 hover:bg-accent"
+            >
+              Load sample tree
+            </button>
+            <span className="text-xs text-muted-foreground">A small demo family (3 generations, 8 persons) with Arabic and English names.</span>
+          </div>
+        ) : null}
       </section>
 
       {hasData && summary && (

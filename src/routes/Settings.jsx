@@ -14,12 +14,16 @@ import {
   SUPPORTED_LOCALES,
 } from '../lib/i18n.js';
 import { getMapPreferences, saveMapPreferences } from '../lib/placeGeocoding.js';
+import { NAME_FORMAT_OPTIONS } from '../lib/nameFormat.js';
+import { PLAUSIBILITY_ANALYZERS } from '../lib/plausibility.js';
 
 const tabs = [
   { id: 'general', label: 'General' },
   { id: 'formats', label: 'Formats' },
   { id: 'maps', label: 'Maps' },
   { id: 'export', label: 'Export' },
+  { id: 'privacy', label: 'Privacy' },
+  { id: 'plausibility', label: 'Plausibility' },
   { id: 'integrations', label: 'Integrations' },
   { id: 'functions', label: 'Functions' },
 ];
@@ -157,6 +161,20 @@ export default function Settings() {
                   <option value="display">Stored Display Name</option>
                 </select>
               </Field>
+              <Field label="Name Display Format">
+                <select value={prefs.formats.nameDisplayFormat} onChange={(event) => update('formats', 'nameDisplayFormat', event.target.value)} className={inputClass}>
+                  {NAME_FORMAT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Name Sort Format">
+                <select value={prefs.formats.nameSortFormat} onChange={(event) => update('formats', 'nameSortFormat', event.target.value)} className={inputClass}>
+                  {NAME_FORMAT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </Field>
               <Field label="Surname Case">
                 <select value={prefs.formats.surnameCase} onChange={(event) => update('formats', 'surnameCase', event.target.value)} className={inputClass}>
                   <option value="as-entered">As Entered</option>
@@ -265,6 +283,53 @@ export default function Settings() {
               <button onClick={() => fileRef.current?.click()} className={secondaryButton}>Import Preferences</button>
               <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => importPrefs(event.target.files?.[0])} />
             </div>
+          </Panel>
+        )}
+
+        {activeTab === 'privacy' && (
+          <Panel title="Privacy">
+            <Grid>
+              <Switch label="Hide Marked-Private Records" checked={prefs.privacy.hideMarkedPrivate !== false} onChange={(value) => update('privacy', 'hideMarkedPrivate', value)} />
+              <Switch label="Hide Living Persons" checked={!!prefs.privacy.hideLivingPersons} onChange={(value) => update('privacy', 'hideLivingPersons', value)} />
+              <Switch label="Mask Details Only (Keep Person Visible)" checked={!!prefs.privacy.hideLivingDetailsOnly} onChange={(value) => update('privacy', 'hideLivingDetailsOnly', value)} />
+              <Field label="Living Person Threshold (years)">
+                <input type="number" min="1" max="200" value={prefs.privacy.livingPersonThresholdYears} onChange={(event) => update('privacy', 'livingPersonThresholdYears', Number(event.target.value))} className={inputClass} />
+              </Field>
+            </Grid>
+            <p className="mt-3 text-xs text-muted-foreground">
+              These defaults apply to GEDCOM and website exports. A person is considered living when no death date is recorded and their birth year is within the threshold.
+            </p>
+          </Panel>
+        )}
+
+        {activeTab === 'plausibility' && (
+          <Panel title="Plausibility Analyzers">
+            <div className="space-y-2">
+              {PLAUSIBILITY_ANALYZERS.map((a) => (
+                <label key={a.id} className="flex items-center gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={prefs.plausibility?.enabled?.[a.id] !== false}
+                    onChange={(e) => update('plausibility', 'enabled', { ...(prefs.plausibility?.enabled || {}), [a.id]: e.target.checked })}
+                  />
+                  <span className="flex-1">{a.label}</span>
+                </label>
+              ))}
+            </div>
+            <Grid>
+              <Field label="Max lifespan (years)">
+                <input type="number" min="1" max="200" value={prefs.plausibility.thresholds.maxLifespan} onChange={(e) => update('plausibility', 'thresholds', { ...prefs.plausibility.thresholds, maxLifespan: Number(e.target.value) })} className={inputClass} />
+              </Field>
+              <Field label="Min marriage age">
+                <input type="number" min="1" max="50" value={prefs.plausibility.thresholds.minMarriageAge} onChange={(e) => update('plausibility', 'thresholds', { ...prefs.plausibility.thresholds, minMarriageAge: Number(e.target.value) })} className={inputClass} />
+              </Field>
+              <Field label="Min parent age">
+                <input type="number" min="1" max="50" value={prefs.plausibility.thresholds.minParentAge} onChange={(e) => update('plausibility', 'thresholds', { ...prefs.plausibility.thresholds, minParentAge: Number(e.target.value) })} className={inputClass} />
+              </Field>
+              <Field label="Max parent age">
+                <input type="number" min="1" max="100" value={prefs.plausibility.thresholds.maxParentAge} onChange={(e) => update('plausibility', 'thresholds', { ...prefs.plausibility.thresholds, maxParentAge: Number(e.target.value) })} className={inputClass} />
+              </Field>
+            </Grid>
           </Panel>
         )}
 

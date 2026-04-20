@@ -9,7 +9,7 @@
 import JSZip from 'jszip';
 import { getLocalDatabase } from './LocalDatabase.js';
 import { readConclusionType, readField, readRef } from './schema.js';
-import { isPrivateRecord, isPublicRecord } from './privacy.js';
+import { isPrivateRecord, isPublicRecord, isLiving, maskLivingDetails } from './privacy.js';
 import { getAuthorInfo } from './authorInfo.js';
 import {
   DEFAULT_LOCALIZATION,
@@ -41,6 +41,9 @@ export const DEFAULT_SITE_OPTIONS = {
   theme: 'classic',
   accentColor: '#2563eb',
   includePrivate: false,
+  hideLiving: false,
+  hideLivingDetailsOnly: false,
+  livingThresholdYears: 110,
   includeAssets: true,
   locale: DEFAULT_LOCALIZATION.locale,
   direction: DEFAULT_LOCALIZATION.direction,
@@ -76,6 +79,9 @@ function normalizeOptions(options = {}) {
     siteTitle: String(options.siteTitle || DEFAULT_SITE_OPTIONS.siteTitle).trim() || DEFAULT_SITE_OPTIONS.siteTitle,
     tagline: String(options.tagline || '').trim(),
     includePrivate: !!options.includePrivate,
+    hideLiving: !!options.hideLiving,
+    hideLivingDetailsOnly: !!options.hideLivingDetailsOnly,
+    livingThresholdYears: Number.isFinite(+options.livingThresholdYears) ? +options.livingThresholdYears : DEFAULT_SITE_OPTIONS.livingThresholdYears,
     includeAssets: options.includeAssets !== false,
     locale,
     direction: directionForLocale(locale, directionPreference),
@@ -373,8 +379,20 @@ export async function buildSite(options = {}) {
 }
 
 function buildPublishModel(snapshot, options) {
-  const include = (record) => !!record && (options.includePrivate || isPublicRecord(record));
-  const persons = snapshot.persons.filter(include).sort(compareBy((record) => personSummary(record)?.fullName || record.recordName, options));
+  const include = (record) => {
+    if (!record) return false;
+    if (!options.includePrivate && isPrivateRecord(record)) return false;
+    if (options.hideLiving && !options.hideLivingDetailsOnly && isLiving(record, options.livingThresholdYears)) return false;
+    return true;
+  };
+  const livingMaskPolicy = {
+    hideMarkedPrivate: !options.includePrivate,
+    hideLivingPersons: options.hideLiving,
+    hideLivingDetailsOnly: options.hideLivingDetailsOnly,
+    livingPersonThresholdYears: options.livingThresholdYears,
+  };
+  const applyMask = (record) => (options.hideLivingDetailsOnly ? maskLivingDetails(record, livingMaskPolicy) : record);
+  const persons = snapshot.persons.filter(include).map(applyMask).sort(compareBy((record) => personSummary(record)?.fullName || record.recordName, options));
   const personIds = new Set(persons.map((record) => record.recordName));
   const childRels = snapshot.childRels.filter((rel) => include(rel) && personIds.has(readRef(rel.fields?.child)));
 

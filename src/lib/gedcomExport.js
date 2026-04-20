@@ -4,7 +4,7 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refToRecordName } from './recordRef.js';
-import { isPublicRecord } from './privacy.js';
+import { isPublicRecord, isLiving, maskLivingDetails, DEFAULT_PRIVACY_POLICY } from './privacy.js';
 import { getAuthorInfo } from './authorInfo.js';
 import { Gender } from '../models/index.js';
 
@@ -29,7 +29,16 @@ function eventTag(conclusion) {
   return EVENT_TAG[conclusion] || FAMILY_EVENT_TAG[conclusion] || 'EVEN';
 }
 
-export async function buildGedcom() {
+export async function buildGedcom(exportOptions = {}) {
+  const policy = {
+    ...DEFAULT_PRIVACY_POLICY,
+    hideLivingPersons: !!exportOptions.hideLiving,
+    hideLivingDetailsOnly: !!exportOptions.hideLivingDetailsOnly,
+    livingPersonThresholdYears: Number.isFinite(+exportOptions.livingThresholdYears) ? +exportOptions.livingThresholdYears : DEFAULT_PRIVACY_POLICY.livingPersonThresholdYears,
+  };
+  const passesLiving = (record) => !policy.hideLivingPersons || policy.hideLivingDetailsOnly || !isLiving(record, policy.livingPersonThresholdYears);
+  const maskIfNeeded = (record) => (policy.hideLivingDetailsOnly ? maskLivingDetails(record, policy) : record);
+
   const db = getLocalDatabase();
   const rawPersons = (await db.query('Person', { limit: 100000 })).records;
   const rawFamilies = (await db.query('Family', { limit: 100000 })).records;
@@ -40,7 +49,7 @@ export async function buildGedcom() {
   const rawNotes = (await db.query('Note', { limit: 100000 })).records;
   const rawChildRels = (await db.query('ChildRelation', { limit: 100000 })).records;
 
-  const persons = rawPersons.filter(isPublicRecord);
+  const persons = rawPersons.filter((record) => isPublicRecord(record) && passesLiving(record)).map(maskIfNeeded);
   const publicPersonIds = new Set(persons.map((p) => p.recordName));
   const families = rawFamilies.filter((fam) => isPublicRecord(fam) && familyHasPublicMember(fam, rawChildRels, publicPersonIds));
   const publicFamilyIds = new Set(families.map((f) => f.recordName));

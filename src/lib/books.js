@@ -39,8 +39,25 @@ import { listSavedReports } from './reports/savedReports.js';
 import { listChartDocuments } from './chartDocuments.js';
 import { compareStrings, formatInteger } from './i18n.js';
 import { personSummary, sourceSummary } from '../models/index.js';
+import {
+  formatBibliography,
+  formatCitation,
+  CITATION_MODE,
+  DEFAULT_LONG_CITATION,
+  DEFAULT_NORMAL_CITATION,
+} from './citationFormat.js';
 
 const META_KEY = 'savedBooks';
+
+export const TITLE_PAGE_PRESETS = [
+  { id: 'title-subtitle-author-date', label: 'Title · Subtitle · Author · Date' },
+  { id: 'title-subtitle-image-author-date', label: 'Title · Subtitle · Image · Author · Date' },
+  { id: 'title-subtitle-crest-author-date', label: 'Title · Subtitle · Family Crest · Author · Date' },
+  { id: 'image-title-subtitle-crest-author-date', label: 'Image · Title · Subtitle · Family Crest · Author · Date' },
+  { id: 'crest-title-subtitle-author-date', label: 'Family Crest · Title · Subtitle · Author · Date' },
+];
+
+export const DEFAULT_TITLE_PAGE_PRESET = TITLE_PAGE_PRESETS[0].id;
 
 export const SECTION_KINDS = [
   { id: 'cover', label: 'Cover Page' },
@@ -59,6 +76,8 @@ export const SECTION_KINDS = [
   { id: 'persons-list', label: 'Persons List' },
   { id: 'places-list', label: 'Places List' },
   { id: 'sources-list', label: 'Sources List' },
+  { id: 'bibliography', label: 'Bibliography (long citations)' },
+  { id: 'footnotes', label: 'Footnotes (short citations)' },
   { id: 'media-gallery', label: 'Media Gallery' },
   { id: 'saved-report', label: 'Saved Report Embed', needsSavedReport: true },
   { id: 'saved-chart', label: 'Saved Chart Embed', needsSavedChart: true },
@@ -139,35 +158,8 @@ function materializeToc(entries, style = 'numbered') {
 async function sectionToBlocks(section, author = null) {
   switch (section.kind) {
     case 'cover':
-    case 'title': {
-      const out = [];
-      out.push(block.title(section.text || 'Untitled', 1));
-      if (section.subtitle) out.push(block.paragraph(section.subtitle));
-      // Cover/title metadata falls back to tree-level author info so the book
-      // inherits the curator's identity even when the section was created with
-      // only a title. Explicit section values always win.
-      const effectiveAuthor = section.author || author?.authorName || '';
-      const effectivePublisher = section.publisher || author?.organization || '';
-      const metadata = [
-        effectiveAuthor && `Author: ${effectiveAuthor}`,
-        section.date && `Date: ${section.date}`,
-        effectivePublisher && `Publisher: ${effectivePublisher}`,
-        section.place && `Place: ${section.place}`,
-      ].filter(Boolean);
-      if (metadata.length > 0) out.push(block.list(metadata));
-      if (section.note) out.push(block.paragraph(section.note));
-      // Only the cover carries the tree copyright/contact colophon to avoid
-      // repeating it on every title insert inside the book.
-      if (section.kind === 'cover' && author) {
-        const colophon = [
-          author.email,
-          author.website,
-          author.copyright,
-        ].filter(Boolean);
-        if (colophon.length > 0) out.push(block.paragraph(colophon.join(' · ')));
-      }
-      return out;
-    }
+    case 'title':
+      return buildTitlePage(section, author);
     case 'toc':
       // Placeholder — materialized after all sections compile so page numbers are consistent.
       return [{ kind: '__toc_placeholder__', tocStyle: section.tocStyle || 'numbered' }];
@@ -219,6 +211,10 @@ async function sectionToBlocks(section, author = null) {
       const r = await buildSourcesList();
       return r.blocks;
     }
+    case 'bibliography':
+      return buildBibliographyInsert(section.config);
+    case 'footnotes':
+      return buildFootnotesInsert(section.config);
     case 'media-gallery': {
       const r = await buildMediaGalleryReport();
       return r.blocks;
@@ -316,6 +312,87 @@ async function buildPersonGroupInsert(groupRecordName) {
       ? block.table(['Name', 'Born', 'Died'], people.map((person) => [person.fullName, person.birthDate || '', person.deathDate || '']))
       : block.paragraph('No members recorded.'),
   ].filter(Boolean);
+}
+
+function buildTitlePage(section, author) {
+  const preset = section.titlePreset || DEFAULT_TITLE_PAGE_PRESET;
+  const out = [];
+  const effectiveAuthor = section.author || author?.authorName || '';
+  const effectivePublisher = section.publisher || author?.organization || '';
+  const title = section.text || 'Untitled';
+  const subtitle = section.subtitle || '';
+  const date = section.date || '';
+  const image = section.imageCaption || section.image || '';
+  const crest = section.crestCaption || (author?.crest ? 'Family Crest' : '');
+
+  const metadata = [
+    effectiveAuthor && `Author: ${effectiveAuthor}`,
+    date && `Date: ${date}`,
+    effectivePublisher && `Publisher: ${effectivePublisher}`,
+    section.place && `Place: ${section.place}`,
+  ].filter(Boolean);
+
+  const emit = (tokens) => {
+    for (const token of tokens) {
+      if (token === 'Title') out.push(block.title(title, 1));
+      else if (token === 'SubTitle' && subtitle) out.push(block.paragraph(subtitle));
+      else if (token === 'Image' && image) out.push(block.paragraph(`[Image: ${image}]`));
+      else if (token === 'FamilyCrest' && crest) out.push(block.paragraph(`[Family Crest: ${crest}]`));
+      else if (token === 'Metadata' && metadata.length > 0) out.push(block.list(metadata));
+    }
+  };
+
+  switch (preset) {
+    case 'title-subtitle-image-author-date':
+      emit(['Title', 'SubTitle', 'Image', 'Metadata']); break;
+    case 'title-subtitle-crest-author-date':
+      emit(['Title', 'SubTitle', 'FamilyCrest', 'Metadata']); break;
+    case 'image-title-subtitle-crest-author-date':
+      emit(['Image', 'Title', 'SubTitle', 'FamilyCrest', 'Metadata']); break;
+    case 'crest-title-subtitle-author-date':
+      emit(['FamilyCrest', 'Title', 'SubTitle', 'Metadata']); break;
+    case 'title-subtitle-author-date':
+    default:
+      emit(['Title', 'SubTitle', 'Metadata']); break;
+  }
+  if (section.note) out.push(block.paragraph(section.note));
+  if (section.kind === 'cover' && author) {
+    const colophon = [author.email, author.website, author.copyright].filter(Boolean);
+    if (colophon.length > 0) out.push(block.paragraph(colophon.join(' · ')));
+  }
+  return out;
+}
+
+async function buildBibliographyInsert(config) {
+  const db = getLocalDatabase();
+  const { records } = await db.query('Source', { limit: 100000 });
+  const sorted = [...records].sort((a, b) => compareStrings(
+    readField(a, ['author', 'title'], ''),
+    readField(b, ['author', 'title'], ''),
+  ));
+  const entries = formatBibliography(sorted, { ...DEFAULT_LONG_CITATION, ...(config || {}) });
+  const out = [block.title('Bibliography', 2)];
+  if (entries.length === 0) out.push(block.paragraph('No sources recorded.'));
+  else out.push(block.list(entries));
+  return out;
+}
+
+async function buildFootnotesInsert(config) {
+  const db = getLocalDatabase();
+  const { records } = await db.query('Source', { limit: 100000 });
+  const sorted = [...records].sort((a, b) => compareStrings(
+    readField(a, ['title'], ''),
+    readField(b, ['title'], ''),
+  ));
+  const cfg = { ...DEFAULT_NORMAL_CITATION, ...(config || {}) };
+  const entries = sorted.map((record, index) => {
+    const text = formatCitation(record, CITATION_MODE.NORMAL, cfg);
+    return text ? `${index + 1}. ${text}` : '';
+  }).filter(Boolean);
+  const out = [block.title('Footnotes', 2)];
+  if (entries.length === 0) out.push(block.paragraph('No sources recorded.'));
+  else out.push(block.list(entries));
+  return out;
 }
 
 async function buildSourceInsert(sourceRecordName) {

@@ -17,7 +17,44 @@ function yearOf(s) {
   return m ? parseInt(m[1], 10) : null;
 }
 
-export async function runPlausibilityChecks() {
+export const PLAUSIBILITY_ANALYZERS = Object.freeze([
+  { id: 'death-before-birth', label: 'Death before birth', defaultEnabled: true },
+  { id: 'lifespan-over-120', label: 'Lifespan over N years', defaultEnabled: true, threshold: 'maxLifespan' },
+  { id: 'birth-year-suspicious', label: 'Birth year before 1000', defaultEnabled: true },
+  { id: 'marriage-too-young', label: 'Marriage under age N', defaultEnabled: true, threshold: 'minMarriageAge' },
+  { id: 'parent-too-young', label: 'Parent under age N', defaultEnabled: true, threshold: 'minParentAge' },
+  { id: 'parent-too-old', label: 'Parent over age N', defaultEnabled: true, threshold: 'maxParentAge' },
+  { id: 'child-after-parent-death', label: 'Child born after parent death', defaultEnabled: true },
+]);
+
+export const DEFAULT_PLAUSIBILITY_CONFIG = Object.freeze({
+  enabled: {
+    'death-before-birth': true,
+    'lifespan-over-120': true,
+    'birth-year-suspicious': true,
+    'marriage-too-young': true,
+    'parent-too-young': true,
+    'parent-too-old': true,
+    'child-after-parent-death': true,
+  },
+  thresholds: {
+    maxLifespan: 120,
+    minMarriageAge: 12,
+    minParentAge: 12,
+    maxParentAge: 70,
+  },
+});
+
+function resolveConfig(config) {
+  const base = DEFAULT_PLAUSIBILITY_CONFIG;
+  return {
+    enabled: { ...base.enabled, ...(config?.enabled || {}) },
+    thresholds: { ...base.thresholds, ...(config?.thresholds || {}) },
+  };
+}
+
+export async function runPlausibilityChecks(config) {
+  const { enabled, thresholds } = resolveConfig(config);
   const db = getLocalDatabase();
   const persons = (await db.query('Person', { limit: 100000 })).records;
   const families = (await db.query('Family', { limit: 100000 })).records;
@@ -26,24 +63,22 @@ export async function runPlausibilityChecks() {
   const personById = new Map(persons.map((p) => [p.recordName, p]));
   const warnings = [];
 
-  // Per-person rules
   for (const p of persons) {
     const f = p.fields || {};
     const sum = personSummary(p);
     const by = yearOf(f.cached_birthDate?.value);
     const dy = yearOf(f.cached_deathDate?.value);
-    if (by && dy && dy < by) {
+    if (enabled['death-before-birth'] && by && dy && dy < by) {
       warnings.push(rule('death-before-birth', 'high', p, `${sum.fullName}: died (${dy}) before born (${by})`));
     }
-    if (by && dy && dy - by > 120) {
+    if (enabled['lifespan-over-120'] && by && dy && dy - by > thresholds.maxLifespan) {
       warnings.push(rule('lifespan-over-120', 'medium', p, `${sum.fullName}: lifespan ${dy - by} years`));
     }
-    if (by && by < 1000) {
+    if (enabled['birth-year-suspicious'] && by && by < 1000) {
       warnings.push(rule('birth-year-suspicious', 'low', p, `${sum.fullName}: birth year ${by} is suspiciously early`));
     }
   }
 
-  // Family-based rules
   for (const fam of families) {
     const manId = refToRecordName(fam.fields?.man?.value);
     const womanId = refToRecordName(fam.fields?.woman?.value);
@@ -51,18 +86,16 @@ export async function runPlausibilityChecks() {
     const woman = personById.get(womanId);
     const my = yearOf(fam.fields?.cached_marriageDate?.value);
 
-    // Marriage age
-    if (my) {
+    if (my && enabled['marriage-too-young']) {
       for (const p of [man, woman]) {
         if (!p) continue;
         const by = yearOf(p.fields?.cached_birthDate?.value);
-        if (by && my - by < 12) {
+        if (by && my - by < thresholds.minMarriageAge) {
           warnings.push(rule('marriage-too-young', 'high', p, `${personSummary(p).fullName}: married at age ${my - by}`));
         }
       }
     }
 
-    // Children + parent vitals
     const rels = childRels.filter((r) => refToRecordName(r.fields?.family?.value) === fam.recordName);
     for (const rel of rels) {
       const childId = refToRecordName(rel.fields?.child?.value);
@@ -74,14 +107,13 @@ export async function runPlausibilityChecks() {
         if (!parent) continue;
         const pby = yearOf(parent.fields?.cached_birthDate?.value);
         const pdy = yearOf(parent.fields?.cached_deathDate?.value);
-        if (pby && cby - pby < 12) {
+        if (enabled['parent-too-young'] && pby && cby - pby < thresholds.minParentAge) {
           warnings.push(rule('parent-too-young', 'high', parent, `${personSummary(parent).fullName}: had child at age ${cby - pby}`));
         }
-        if (pby && cby - pby > 70) {
+        if (enabled['parent-too-old'] && pby && cby - pby > thresholds.maxParentAge) {
           warnings.push(rule('parent-too-old', 'medium', parent, `${personSummary(parent).fullName}: had child at age ${cby - pby}`));
         }
-        if (pdy && cby > pdy + 1) {
-          // Allow +1 for posthumous birth
+        if (enabled['child-after-parent-death'] && pdy && cby > pdy + 1) {
           warnings.push(rule('child-after-parent-death', 'high', parent, `${personSummary(parent).fullName}: child born ${cby - pdy} years after death`));
         }
       }

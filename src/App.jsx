@@ -59,6 +59,7 @@ const Labels = lazy(() => import('./routes/Labels.jsx'));
 const Quiz = lazy(() => import('./routes/Quiz.jsx'));
 const Backup = lazy(() => import('./routes/Backup.jsx'));
 const ExportRoute = lazy(() => import('./routes/Export.jsx'));
+const SubtreeWizard = lazy(() => import('./routes/SubtreeWizard.jsx'));
 const Settings = lazy(() => import('./routes/Settings.jsx'));
 const AuthorInformation = lazy(() => import('./routes/AuthorInformation.jsx'));
 const WebSearch = lazy(() => import('./routes/WebSearch.jsx'));
@@ -180,6 +181,7 @@ export function App() {
               <Route path="quiz" element={<L><Quiz /></L>} />
               <Route path="backup" element={<L><Backup /></L>} />
               <Route path="export" element={<L><ExportRoute /></L>} />
+              <Route path="subtree" element={<L><SubtreeWizard /></L>} />
               <Route path="settings" element={<L><Settings /></L>} />
               <Route path="author" element={<L><AuthorInformation /></L>} />
               <Route path="author-information" element={<L><AuthorInformation /></L>} />

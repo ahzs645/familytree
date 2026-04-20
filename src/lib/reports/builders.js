@@ -10,6 +10,7 @@ import { runPlausibilityChecks } from '../plausibility.js';
 import { findRelationshipPath } from '../relationshipPath.js';
 import { readConclusionType, readField, readRef, refType } from '../schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, Gender } from '../../models/index.js';
+import { describeBirth, describeDeath, describeMarriage } from './narrativeTemplates.js';
 import { humanizeType } from '../../utils/humanizeType.js';
 import { compareStrings, formatInteger } from '../i18n.js';
 import { block, emptyReport } from './ast.js';
@@ -561,15 +562,22 @@ export async function buildNarrativeReport(recordName, generations = 4) {
   if (!ctx) return emptyReport('Person not found');
   const report = emptyReport(`Narrative Report — ${nameOf(ctx.selfSummary)}`);
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.paragraph(narrativeSentence(ctx.selfSummary)));
+  const self = ctx.selfSummary;
+  const birth = describeBirth(self);
+  if (birth) report.blocks.push(block.paragraph(birth));
   for (const parentFamily of ctx.parents) {
     const parents = [parentFamily.man, parentFamily.woman].filter(Boolean).map(nameOf).join(' and ');
-    if (parents) report.blocks.push(block.paragraph(`${nameOf(ctx.selfSummary)} was a child of ${parents}.`));
+    if (parents) report.blocks.push(block.paragraph(`${nameOf(self)} was a child of ${parents}.`));
   }
   for (const family of ctx.families) {
-    if (family.partner) report.blocks.push(block.paragraph(`${nameOf(ctx.selfSummary)} formed a family with ${nameOf(family.partner)}.`));
+    if (family.partner) {
+      const marriageDate = family.familySummary?.marriageDate || '';
+      report.blocks.push(block.paragraph(describeMarriage(self, family.partner, marriageDate, '')));
+    }
     if (family.children.length) report.blocks.push(block.paragraph(`Their recorded children are ${family.children.map(nameOf).join(', ')}.`));
   }
+  const death = describeDeath(self);
+  if (death) report.blocks.push(block.paragraph(death));
   const descendants = await buildDescendantNarrative(recordName, generations);
   report.blocks.push(...descendants.blocks.slice(1));
   return report;

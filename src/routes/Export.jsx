@@ -18,6 +18,9 @@ import {
   renameTreeSnapshot,
   restoreTreeSnapshot,
   saveCurrentTreeSnapshot,
+  setTreeSnapshotFavorite,
+  setTreeSnapshotLabel,
+  sendTreeSnapshotAsCopy,
 } from '../lib/treeLibrary.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 
@@ -47,6 +50,9 @@ export default function Export() {
   const [treeSnapshots, setTreeSnapshots] = useState([]);
   const [snapshotName, setSnapshotName] = useState('');
   const [selectedSnapshot, setSelectedSnapshot] = useState('');
+  const [snapshotSortBy, setSnapshotSortBy] = useState(() => {
+    try { return localStorage.getItem('treeLibrary.sortBy') || 'updatedAt'; } catch { return 'updatedAt'; }
+  });
   const gedRef = useRef(null);
   const mergeRef = useRef(null);
   const contactsRef = useRef(null);
@@ -58,11 +64,15 @@ export default function Export() {
       setPersons(list);
       const start = await findStartPerson();
       setSubtreeRoot(start?.recordName || list[0]?.recordName || null);
-      const snapshots = await listTreeSnapshots();
+      const snapshots = await listTreeSnapshots({ sortBy: snapshotSortBy });
       setTreeSnapshots(snapshots);
       setSelectedSnapshot((current) => current || snapshots[0]?.id || '');
     })();
-  }, []);
+  }, [snapshotSortBy]);
+
+  React.useEffect(() => {
+    try { localStorage.setItem('treeLibrary.sortBy', snapshotSortBy); } catch {}
+  }, [snapshotSortBy]);
 
   const wrap = (label, fn) => async () => {
     setBusy(true);
@@ -188,11 +198,35 @@ export default function Export() {
   });
 
   const reloadSnapshots = async () => {
-    const snapshots = await listTreeSnapshots();
+    const snapshots = await listTreeSnapshots({ sortBy: snapshotSortBy });
     setTreeSnapshots(snapshots);
     setSelectedSnapshot((current) => snapshots.some((snapshot) => snapshot.id === current) ? current : snapshots[0]?.id || '');
     return snapshots;
   };
+
+  const onToggleFavorite = wrap('Updating favorite…', async () => {
+    if (!selectedSnapshot) return 'Choose a tree snapshot first.';
+    const current = treeSnapshots.find((s) => s.id === selectedSnapshot);
+    await setTreeSnapshotFavorite(selectedSnapshot, !current?.favorite);
+    await reloadSnapshots();
+    return current?.favorite ? 'Removed from favorites.' : 'Marked as favorite.';
+  });
+
+  const onSetLabel = wrap('Updating label…', async () => {
+    if (!selectedSnapshot) return 'Choose a tree snapshot first.';
+    const current = treeSnapshots.find((s) => s.id === selectedSnapshot);
+    const label = prompt('Label (e.g. "active", "draft"):', current?.label || '');
+    if (label === null) return 'Label canceled.';
+    await setTreeSnapshotLabel(selectedSnapshot, label);
+    await reloadSnapshots();
+    return 'Label updated.';
+  });
+
+  const onSendAsCopy = wrap('Exporting snapshot…', async () => {
+    if (!selectedSnapshot) return 'Choose a tree snapshot first.';
+    await sendTreeSnapshotAsCopy(selectedSnapshot);
+    return 'Snapshot exported as a JSON copy.';
+  });
 
   const onSaveTreeSnapshot = wrap('Saving tree snapshot…', async () => {
     const snapshot = await saveCurrentTreeSnapshot(snapshotName);
@@ -371,6 +405,16 @@ export default function Export() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <select
+                value={snapshotSortBy}
+                onChange={(event) => setSnapshotSortBy(event.target.value)}
+                className="rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm"
+                aria-label="Sort snapshots"
+              >
+                <option value="updatedAt">Sort: Change date</option>
+                <option value="name">Sort: Name</option>
+                <option value="favorites">Sort: Favorites first</option>
+              </select>
+              <select
                 value={selectedSnapshot}
                 onChange={(event) => setSelectedSnapshot(event.target.value)}
                 className="min-w-[220px] flex-1 rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm"
@@ -378,12 +422,17 @@ export default function Export() {
                 <option value="">No saved trees</option>
                 {treeSnapshots.map((snapshot) => (
                   <option key={snapshot.id} value={snapshot.id}>
-                    {snapshot.name} · {snapshot.recordCount.toLocaleString()} records
+                    {snapshot.favorite ? '★ ' : ''}{snapshot.name}{snapshot.label ? ` [${snapshot.label}]` : ''} · {snapshot.recordCount.toLocaleString()} records
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <button onClick={onRestoreTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Restore</button>
               <button onClick={onRenameTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Rename</button>
+              <button onClick={onToggleFavorite} disabled={busy || !selectedSnapshot} className={btnSecondary}>Favorite</button>
+              <button onClick={onSetLabel} disabled={busy || !selectedSnapshot} className={btnSecondary}>Label</button>
+              <button onClick={onSendAsCopy} disabled={busy || !selectedSnapshot} className={btnSecondary}>Send as Copy</button>
               <button onClick={onDeleteTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Delete</button>
             </div>
             {selectedSnapshotInfo && (

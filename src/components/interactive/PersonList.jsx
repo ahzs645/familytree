@@ -7,7 +7,8 @@ import { BdiText } from '../BdiText.jsx';
 import { compareStrings, getCurrentLocalization, graphemes, matchesSearchText, normalizeSearchText } from '../../lib/i18n.js';
 import { lifeSpanLabel } from '../../models/index.js';
 
-export function PersonList({ persons, activeId, onPick }) {
+export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null }) {
+  const showColumn = (key) => !visibleColumns || visibleColumns.has(key);
   const [query, setQuery] = useState('');
   const localization = getCurrentLocalization();
   const localizationKey = `${localization.locale}|${localization.direction}|${localization.numberingSystem}|${localization.calendar}`;
@@ -43,32 +44,63 @@ export function PersonList({ persons, activeId, onPick }) {
         {sections.map(([letter, group]) => (
           <div key={letter}>
             <div style={sectionHeader}>{letter}</div>
-            {group.map((p) => (
-              <div
-                key={p.recordName}
-                onClick={() => onPick(p.recordName)}
-                style={{
-                  ...row,
-                  background: p.recordName === activeId ? 'hsl(var(--secondary))' : 'transparent',
-                  borderInlineStart: p.recordName === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
-                }}
-                onMouseEnter={(e) => {
-                  if (p.recordName !== activeId) e.currentTarget.style.background = 'hsl(var(--muted))';
-                }}
-                onMouseLeave={(e) => {
-                  if (p.recordName !== activeId) e.currentTarget.style.background = 'transparent';
-                }}
-              >
-                <div style={{ color: 'hsl(var(--foreground))', fontSize: 13 }}>
-                  <BdiText>{p.fullName}</BdiText>
-                </div>
-                {(p.birthDate || p.deathDate) && (
-                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
-                    {lifeSpanLabel(p)}
+            {group.map((p) => {
+              const isSelected = selection?.has(p.recordName);
+              return (
+                <div
+                  key={p.recordName}
+                  onClick={(event) => {
+                    if (onToggleSelect && (event.metaKey || event.ctrlKey || event.shiftKey)) {
+                      onToggleSelect(p.recordName, { range: event.shiftKey });
+                      return;
+                    }
+                    onPick(p.recordName);
+                  }}
+                  style={{
+                    ...row,
+                    background: p.recordName === activeId ? 'hsl(var(--secondary))' : isSelected ? 'hsl(var(--primary) / 0.08)' : 'transparent',
+                    borderInlineStart: p.recordName === activeId ? '3px solid hsl(var(--primary))' : isSelected ? '3px solid hsl(var(--primary) / 0.5)' : '3px solid transparent',
+                    display: onToggleSelect ? 'flex' : 'block',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (p.recordName !== activeId && !isSelected) e.currentTarget.style.background = 'hsl(var(--muted))';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (p.recordName !== activeId && !isSelected) e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  {onToggleSelect ? (
+                    <input
+                      type="checkbox"
+                      checked={!!isSelected}
+                      onClick={(event) => event.stopPropagation()}
+                      onChange={(event) => onToggleSelect(p.recordName, { range: event.nativeEvent?.shiftKey })}
+                      aria-label={`Select ${p.fullName}`}
+                    />
+                  ) : null}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {showColumn('fullName') ? (
+                      <div style={{ color: 'hsl(var(--foreground))', fontSize: 13 }}>
+                        <BdiText>{p.fullName}</BdiText>
+                      </div>
+                    ) : null}
+                    {showColumn('lifespan') && (p.birthDate || p.deathDate) ? (
+                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
+                        {lifeSpanLabel(p)}
+                      </div>
+                    ) : null}
+                    {showColumn('bookmarked') && p.bookmarked ? (
+                      <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>★ Bookmarked</div>
+                    ) : null}
+                    {showColumn('startPerson') && p.startPerson ? (
+                      <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>✓ Start person</div>
+                    ) : null}
                   </div>
-                )}
-              </div>
-            ))}
+                </div>
+              );
+            })}
           </div>
         ))}
         {sections.length === 0 && (

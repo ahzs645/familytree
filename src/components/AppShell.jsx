@@ -12,6 +12,9 @@ import { applyDocumentLocalization, formatInteger, resolveLocalization } from '.
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { cn } from '../lib/utils.js';
 import { NavigationDrawer } from './NavigationDrawer.jsx';
+import { CommandPalette } from './CommandPalette.jsx';
+import { useKeyboardShortcuts } from '../lib/useKeyboardShortcuts.js';
+import { useNavigate } from 'react-router-dom';
 
 const MOBILE_PRIMARY_LINKS = [
   { to: '/', label: 'Home', end: true },
@@ -92,9 +95,22 @@ export function AppShell() {
   const { hasData, summary, loading } = useDatabaseStatus();
   const { theme, toggle } = useTheme();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [preferences, setPreferences] = useState(null);
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(DRAWER_COLLAPSED_KEY) === '1'; } catch { return false; }
+  });
+
+  useKeyboardShortcuts({
+    'ctrl+f': () => navigate('/search'),
+    'g t': () => navigate('/tree'),
+    'g p': () => navigate('/persons'),
+    'g c': () => navigate('/charts'),
+    'g s': () => navigate('/search'),
+    'g b': () => navigate('/bookmarks'),
+    'g r': () => navigate('/reports'),
+    'g ,': () => navigate('/settings'),
+    '?': () => navigate('/settings'),
   });
 
   useEffect(() => {
@@ -131,9 +147,12 @@ export function AppShell() {
   const emphasizedRoutes = new Set(preferences?.functions?.emphasized || []);
   const mobileLinks = MOBILE_PRIMARY_LINKS.filter((l) => l.to === '/' || !hiddenRoutes.has(l.to));
 
+  const palette = <CommandPalette />;
+
   if (isMobile) {
     return (
       <div className="flex flex-col h-screen bg-background text-foreground" lang={localization.locale} dir={localization.direction}>
+        {palette}
         <header
           className="flex items-center gap-3 px-4 h-13 border-b border-border bg-card flex-shrink-0"
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
@@ -166,6 +185,7 @@ export function AppShell() {
 
   return (
     <div className="flex h-screen bg-background text-foreground" lang={localization.locale} dir={localization.direction}>
+      {palette}
       <NavigationDrawer
         collapsed={collapsed}
         onToggleCollapsed={() => setCollapsed((v) => !v)}
