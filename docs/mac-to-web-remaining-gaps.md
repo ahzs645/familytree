@@ -320,3 +320,165 @@ This document's gaps are primarily **cross-cutting maintenance tooling** and **m
 5. **Welcome / Tree Library UI** (#4) — per-tree favorite/label/rename/sort/delete on Home. Direct user-visible polish.
 
 Deferred (track but don't block): AI image editing (#8), Scanner/AppleMediaLibrary sheets (#9, #10, intentionally native-only), Automator/AppleScript (#17, not in bundle), Memoji (#18, not in bundle).
+
+---
+
+## Second-pass findings (2026-04-19)
+
+Scope: a second sweep specifically looking for surfaces not captured by this doc, the chart parity audit, the views parity audit, or items already landed this session (Smart Filter authoring, Custom Types, Backup retention/scheduler/history, Change Log purge, Maintenance hub). Evidence paths:
+
+- `Contents/Frameworks/MacFamilyTreeCore.framework/Versions/A/Resources/en.lproj/*.strings`
+- `Contents/Resources/en.lproj/*.strings` and `Contents/Resources/Base.lproj/*.nib`
+- Symbol dump: `strings .../MacFamilyTreeCore` (117482 lines, saved to `/tmp/mft_core_strings.txt`)
+
+### 2P.1 Date qualifiers (ABT / BEF / AFT / BET / ranges) in the web DatePicker — **missing**
+
+- Mac evidence: `CoreDateParser.strings` defines `_DateParser_DatePrefixes_Estimates` (`About; After; Before; CA; CIRCA; ABT; INT; EST; CAL; BEF; AFT; Pre; Post; Prior To; By; Perhaps; ~; ?`), `_RangePrefixes` (`Bet; Between; From`), `_RangeSeparators` (`and; to`), and `_EraAD` / `_EraBC`. The date picker NIBs split the sheet into four modes: `DatePickerSheetDayMonthYearContentView`, `DatePickerSheetMonthYearContentView`, `DatePickerSheetYearContentView`, `DatePickerSheetRangeContentView`, plus `DatePickerSheetPrefixesAndSuffixesControl.nib`. `CoreDateParser.strings` exposes `_DatePicker_SelectFullDateButton`, `_SelectMonthYearEraButton`, `_SelectMonthEraButton`, `_SelectDateRangeExplanation`.
+- Web evidence: `src/components/ui/DatePicker.jsx` accepts a single ISO string and has no prefix/suffix/range/era model. Grep for `BEF|AFT|ABT|Estimate|Circa` in `src/` returns only the `DNAResults.jsx` `relationshipEstimate` field (unrelated) and `Maintenance.jsx` "before/after" time-window buttons.
+- Classification: **missing** (genealogically critical — without qualifiers every GEDCOM round-trip loses `BEF 1820` / `ABT 1650` / `BET 1701 AND 1704`).
+- Why it deserves attention: Mac's date model is the vocabulary GEDCOM 5.5.1 uses. Any imported tree with qualifiers silently drops the qualifier on edit.
+
+### 2P.2 Person NameFormat presets — **missing**
+
+- Mac evidence: Symbol table lists nine `_Person_NameFormat_*` enum members (`Title_FirstName_MiddleName_LastName_Suffix`, `LastName_Suffix_FirstName_MiddleName`, `LastName_Suffix_Comma_FirstName_MiddleName`, `Title_LastName_MiddleName_FirstName_Suffix`, `Title_Comma_FirstName_Suffix_Bracket_MiddleName_Bracket`, etc.). NIB: `PreferencePaneNameFormat.nib`. Selector `allAvailablePersonNameFormatEnumNumbers`, preference `defaultNameFormatFromPreferences` / `defaultNameFormatForSortingFromPreferences` (separate display vs. sort format).
+- Web evidence: Grep for `nameFormat|formatName` returns only `Maintenance.jsx` (bulk reformat) + `maintenance.js` (the audit job). No per-user display format, no sort format. Existing `src/lib/personContext.js` always composes "First Last".
+- Classification: **missing**.
+- Why it deserves attention: "Last, First" is required for most library/archive conventions; Arabic trees commonly want `Title FirstName LastName` with title first. Single-line win in Settings.
+
+### 2P.3 Additional-name types (13 stock variants + AdoptiveName / ArtistsName etc.) with preference — **partial**
+
+- Mac evidence: `CoreAdditionalNames.strings` ships 13 stock types (`_AdditionalName_MaidenName` "Name at Birth", `ArtistsName`, `Other`, `MarriedName`, `DoubleBarrelledName`, `FamilyName`, `NameVariation`, `Nickname`, `AdoptiveName`, `FormalName`, `ReligiousName`, `Title`, `ProfessionalName`) plus `_Prefix_MaidenName_ForMale/ForFemale` ("né" / "née") and a `_Person_AdditionalNamePreferenceConfiguration_` enum (All / OnlyMarriedName / OnlyFamilyName / OnlyNickName / None) governing which additional name renders on charts.
+- Web evidence: `additionalName` hits show `src/lib/customTypes.js` (this session's Custom Types editor — covers the list) and `src/lib/mftpkgExtractor.js` (import path). The Person editor `PersonEditor.jsx` surfaces additional names, but the **display preference** (which variant to show on a chart label) does not exist — grep for `AdditionalNamePreference` returns zero.
+- Classification: **partial**.
+- Why: chart labels and narrative reports both consult this preference; without it we always pick the primary name. Two-hour fix in chart renderers + Settings.
+
+### 2P.4 Source Certainty / Quality levels (Original / Derivative / DontKnow) — **missing**
+
+- Mac evidence: `CoreSourceRelations.strings` (symbols 22596–23222 of the dump): `_SourceRelation_Quality_DontKnow`, `_Derivative`, `_Original`, plus three independent axes — `SourceQuality`, `InformationQuality`, `EvidenceQuality` — edited in `EditSourceRelationCertaintySettingsCertaintyViewContentController` (NIB: `EditSourceRelationsSheet.nib`). Selector `localizedCertaintyDescription`, sort key `valueToSortByCertainty`, and list sort option `_EditSourceRelationsContentController_Sorting_ByCertainty`.
+- Web evidence: Grep for `certainty|confidence|SourceQuality|_Quality_` in `src/` returns nothing related — `confidence` only appears in FamilySearch imports. `PersonEditor.jsx` has 3 citation rows but no certainty UI.
+- Classification: **missing**.
+- Why it deserves attention: Evidence Explained / GPS workflows require all three certainty axes; this is the single biggest unmet ask for serious researchers. Schema-small (three enum fields on `sourceRelation`).
+
+### 2P.5 Narrative report sentence templates (per-locale, per-gender, per-tense) — **partial**
+
+- Mac evidence: `CoreNarrativeReport.strings` contains ~600 `NarrativeReportGenerator_<Event>|<Gender>|<Slots>` templates such as `BirthEvent|Male|Place|Date` = "He was born in @Place@ on @Date@". Events: Birth, Christening, Residence, Occupation, Marriage, Death, Burial, Education, plus Occupation with PastTense / PresentTense and Age slot. Configuration keys `_NarrativeReportBuilderConfiguration_ShowBirthInfo / ShowChristeningInfo / ShowParentsOfPersonInfov2 / ShowBrothersAndSistersInfo / ShowPartnersOfPersonInfo / ShowChildsInfo`. Selectors `prepareAndReturnNarrativeReportGeneratorForConfigurationForPerson:`, `stringForNarrativeReportItem:hintsMask:`.
+- Web evidence: `src/lib/reports/builders.js` and `src/components/reports/ReportsApp.jsx` mention "narrative", but no template table. Grep of the repo for `NarrativeReportGenerator_` finds zero. Reports emit field lists, not prose.
+- Classification: **partial** (report exists as a listing; does not produce prose).
+- Why: On Mac the narrative report is the flagship output. Without gendered templates the web report is visibly thinner than any competitor. This is several hundred strings — worth a dedicated PR.
+
+### 2P.6 Privacy model depth — **partial**
+
+- Mac evidence: Multiple privacy concepts in the symbol table: `hidePrivateInformation` (system-wide), `hideLivingPersonDetails`, `hideInfoMarkedAsPrivate`, `showOnlyLivingPersons`, `shouldPersonBeIncludedDueToPrivacy:`, `showConfigurationOptionsForHidePrivateInformation`, `supportsConfigurationOfHidePrivateInformation`, `localizedPrivateInformationHasBeenHiddenStringForDisplay`, `exportPrivateFlags`, `alsoShowIsPrivateFlag`, `generatePrivateFlagsForBaseObject:atTagLevel:`, and a `FlatIsPrivateLockIcon` asset. `EditCommon_PrivateFlagLabel`, `_ObjectProperty_BaseObject_isPrivate`.
+- Web evidence: `src/lib/privacy.js` (13 lines) only reads a single boolean. The flag is never propagated to charts, reports, or website export. Grep in the 23 matching files shows chart builders do not consult it.
+- Classification: **partial**.
+- Why: Mac cleanly separates "living person" (compute from birth year) from "marked private" from "hide at render". The web path treats all three as one boolean and never actually hides anything — a real privacy leak if a user ships their tree to `websiteExport.js`.
+
+### 2P.7 Multi-axis citation model (long/short/bracket/font modes) — **partial**
+
+- Mac evidence: Properties `longCitationBracketMode`, `longCitationEnabled`, `longCitationFontMode`, `longCitationOrder`, `longCitationTrailingMode`, and matching `normalCitation*` siblings. Selectors `getExampleCitationsWithLocalizationManager:`, `citationStringForCitationMode:ofPlace:outputMode:`, `applyCitationsString:toTemplate:withCitationsMode:`. NIBs `EditSourceTemplatesSheet.nib`, `EditSourceTemplateKeysSheet.nib` (template editing), `EditPlaceTemplatesSheetCitationsView.nib`. Strings `_BookEditor_...Citation_*`, `_Book_Citation_Style_*`.
+- Web evidence: `citation|Citation` appears in 15 files but as a simple "citation = source + page + note" row. No short vs. long form, no brackets/font toggle, no template-driven rendering.
+- Classification: **partial**.
+- Why it deserves attention: Books route needs two citation styles (footnote vs. bibliography). `src/lib/books.js` currently cannot render a proper bibliography because of this.
+
+### 2P.8 Column chooser on list widgets — **missing**
+
+- Mac evidence: Large list NIBs — `LargeSectionedMultiColumnPersonListWidget.nib`, `LargeSectionedMultiColumnFamilyListWidget.nib`, `LargeSectionedMultiColumnPlaceListWidget.nib`, `LargeSectionedMultiColumnSourceListWidget.nib`, `LargeSectionedMultiColumnToDoListWidget.nib` — all expose per-column visibility menus via `NSTableView`'s header context menu.
+- Web evidence: Grep for `columnChooser|visibleColumns|columnPicker` returns **no matches** in `src/`. Lists in `Persons.jsx`, `Places.jsx`, etc. use fixed column layouts.
+- Classification: **missing**.
+- Why: Power users building genealogy lists want to show/hide birth place, change date, FamilySearch ID, GEDCOM ID, etc. Generic header-dropdown.
+
+### 2P.9 Per-list sort profile presets (beyond single sort key) — **partial**
+
+- Mac evidence: Each list has a typed set of sort options: `_EditNotesContentController_Sorting_ByCreationDate/ByChangeDate/ByText`; `_BaseEditEventsContentController_Sorting_ByTypeAndDate/ByTypeName/ByDate/ByDescription`; `_EditToDosContentController_Sorting_ByTitle/ByDueDate/ByStatus/ByPriority/ByType`; `_EditSourceRelationsContentController_Sorting_ByTitle/ByCertainty/ByDate/ByPage`; `_EditPlaceEventsAtPlaceContentController_Sorting_ByType/ByDate`.
+- Web evidence: `Persons.jsx` has three sort options (name / birth / death). Other list routes use static order. Grep shows no shared `useSortProfile` hook.
+- Classification: **partial**.
+- Why: Cheap to implement; user-visible everywhere; unblocks list-view certainty sort (#2P.4) and change-log sort.
+
+### 2P.10 Read-only / locked record state (beyond full-DB read-only) — **partial**
+
+- Mac evidence: The symbol table has tree-wide `isInReadOnlyMode`, `zonesAreReadOnly`, `cloudKitReadOnlyMode`, and `setReadOnly:` on individual objects. `shouldBeMarkedAsCompletedDueToDataEnteredInObject:inContext:` and `markAsCompletedForAllQuestions:` suggest a "completed" flag at the object level. `_FamilySearchPersonCompareHandler_LockedHeader` and `_PinnedButLockedToFamilySearch` show record-level locking when pinned to FamilySearch.
+- Web evidence: Grep for `readOnly` in `src/` finds only `Home.jsx`, `Favorites.jsx`, `FamilyEditor.jsx`, `gedcomImport.js`, `Settings.jsx` — all at the form-field level. No per-record lock, no "marked complete" column.
+- Classification: **partial** (tree-wide only).
+- Why: Useful for long collaborative trees where a researcher wants to freeze verified ancestors. Add `isLocked` to base record and make editors respect it.
+
+### 2P.11 Name format for sorting vs. display — **missing**
+
+- Mac evidence: Preferences split display format (`defaultNameFormatFromPreferences`) from sort format (`defaultNameFormatForSortingFromPreferences`, plus `databaseNameFormatForSortingIncludesPrefix`). Two separate menus in `PreferencePaneNameFormat.nib`.
+- Web evidence: Repo compares with `compareStrings(a.fullName, b.fullName)` using the primary name. No sort-name override.
+- Classification: **missing**.
+- Why: Users in regions that sort by family/last name (most genealogy apps default to this) cannot set it. Paired with 2P.2.
+
+### 2P.12 Keyboard shortcuts beyond per-component `onKeyDown` — **missing (confirmed; previous doc flagged it briefly, not actioned)**
+
+- Mac evidence: `MainMenu.nib` binds `⌘N` new tree, `⌘F` search, `⌘S` save, `⌘P` print, `⌘,` preferences, `⌘B` bookmarks, etc. No scripting layer though (Automator/AppleScript absent per the primary doc #17).
+- Web evidence: `useHotkeys|useKeyboard|commandPalette|cmd\+k` returns **no matches**. Seven files have ad-hoc `onKeyDown` for dropdown menus.
+- Classification: **missing**.
+- Why: Previously listed in the primary doc (#16) but not prioritized. Flagging again because a command palette (`⌘K`) would unblock navigation across the 25+ routes the web app now has; no single list is browsable from the keyboard.
+
+### 2P.13 Range/tree comparison and diff — **not a gap upstream**
+
+- Mac evidence: Grep of the symbol dump for `TreeDiff|CompareTree|Diff_Sheet` returns only `runCompare_PersonRoleChild/Parent/Partner/Initial` — these are internal FamilySearch-compare selectors, not a general tree-vs-tree diff.
+- Web evidence: n/a.
+- Classification: **not a gap** (Mac does not ship a tree-diff view either).
+- Why this deserves a line: to close the door on the "tree comparison" task item — the Mac app does not have that feature, so the web app does not need it.
+
+### 2P.14 Notification center / activity feed — **not a gap upstream**
+
+- Mac evidence: The only `NotificationCenter` matches are `startObservingUserDefaultsAndNotificationCenterForCacheChanges` (internal NSNotificationCenter). No user-visible activity feed.
+- Web evidence: n/a.
+- Classification: **not a gap**.
+
+### 2P.15 Diagnostics / log viewer — **not a gap upstream**
+
+- Mac evidence: Grep for `Diagnostic|LogViewer|ConsolePane|DebugPane` returns zero hits — Mac uses `os_log` / Console.app, not an in-app pane.
+- Web evidence: n/a.
+- Classification: **not a gap**.
+
+### 2P.16 Printing distinct from export — **partial**
+
+- Mac evidence: `showUIForPrinting`, `supportsPageSetup`, `setDefaultPaginationInformationInChartsObjectsContainerBeforeEditOrUneditedPrinting:`, `omitEmptyPagesWhenPrintingOrExporting`. NIBs honor `NSPrintInfo` dialogs (page setup + printer sheet).
+- Web evidence: `chartExport.js` → `printChartViaPdf` opens a new window and calls `window.print()`; `reports/export.js` labels PDF as "PDF (via print)". This works but there is no Page Setup modal, no paginated preview, no "omit empty pages" toggle wired to the flow.
+- Classification: **partial**.
+- Why: Already half-present in `pageLayout.js`; surfacing `omitEmptyPagesWhenPrintingOrExporting` in a Page Setup modal is a ~150-line change.
+
+### 2P.17 Batch operations on multi-selected persons — **missing**
+
+- Mac evidence: `additionalConfigurationFromMultiSelectedObjects`, `sectionedListControllerShouldAllowMultiSelection:`, `resumeUpdatingFurtherSelectedObjectsForMultiSelection`. List widgets and chart editor both honor multi-select; right-click menu exposes "Add Label to Selected", "Delete Selected", "Export Selected" across persons/families/places/sources/todos.
+- Web evidence: `Persons.jsx` has row selection for a detail view but no `selectedIds` set, no bulk-action bar. Grep of the repo for `selectedIds|selectionSet|batchDelete|bulkAssign` returns nothing relevant.
+- Classification: **missing**.
+- Why: Label-to-many and delete-many are routine cleanup tasks; the lack is a visible efficiency gap. Pair with the Column Chooser gap (#2P.8) as one "list widget upgrade" PR.
+
+### 2P.18 WorldHistory category selector — **partial** (already listed in primary doc #24, reconfirmed)
+
+- Mac evidence: `HistoryDatabaseCategorySelectorView.nib`, `HistoryDatabaseEventsSelectorView.nib`. ~40 categories with independent on/off.
+- Web evidence: `src/routes/WorldHistory.jsx` — grep of the file shows no `category` or `toggle` keys. Events render as a flat list.
+- Classification: **partial**.
+- Why: Reconfirming because this is a low-lift addition and was not yet promoted out of the primary doc.
+
+### 2P.19 Welcome window "label a tree" and per-tree sort/favorite — **partial** (already in primary doc #4, reconfirmed)
+
+- Mac evidence: `_StartupWindow_LabelMenu`, `_MarkAsFavorite`, `_SortConfig_MainSorting_ByName/ByChangeDate/AlsoSortByFavorites`, `_SendFileShareSheet`.
+- Web evidence: Home tree list is unsorted/unlabeled.
+- Reconfirming — still open.
+
+### 2P.20 Book Title Page Setup presets — **missing**
+
+- Mac evidence: `_BookEditor_BookConfiguration_BookTitlePageSetup_*` — five presets: `Title_SubTitle_Author_Date`, `Title_SubTitle_Image_Author_Date`, `Title_SubTitle_FamilyCrest_Author_Date`, `Image_Title_SubTitle_FamilyCrest_Author_Date`, `FamilyCrest_Title_SubTitle_Author_Date`. NIB `BookCustomTitleConfigurationSheet.nib`.
+- Web evidence: `src/lib/books.js` — grep returns no `titlePage|BookTitle|FamilyCrest` keys.
+- Classification: **missing**.
+- Why: Books route currently emits a bare title page; offering five named presets is a 30-minute layout change.
+
+---
+
+## Second-pass "Next 3 to implement"
+
+Chosen for "achievable in one session each" and highest user-visible impact per hour:
+
+1. **Date qualifier support in the DatePicker (#2P.1).** Extend `src/components/ui/DatePicker.jsx` to accept `{ value, prefix, suffix, era, range }`, persist GEDCOM-style tokens (`ABT 1820`, `BET 1701 AND 1704`, `BEF 1900`), and render them. Gate on `DateParser` strings (shipped list of prefixes). Touches PersonEditor/FamilyEditor event rows, GEDCOM import/export parsers, and the reports renderer. One session because the token vocabulary is fixed and the UI is a single popover widget.
+
+2. **Source Certainty triplet (#2P.4).** Add `sourceQuality` / `informationQuality` / `evidenceQuality` enums (`DontKnow` / `Derivative` / `Original`) to the `sourceRelation` schema; surface a compact 3-dropdown panel under each citation in `PersonEditor.jsx` and `FamilyEditor.jsx`; add "Sort by certainty" to the source list. Single session because it is mostly schema plus a three-select form fragment — no renderer changes required.
+
+3. **Narrative report prose (#2P.5).** Port a minimal slice of `CoreNarrativeReport.strings` (Birth, Marriage, Death, Residence, Occupation for Male/Female, with slots `Name|Date|Year|Place|Age`). Bundle the strings table in `src/lib/reports/narrativeTemplates.js`, wire into `builders.js`. This is the highest-visibility gap the second-pass uncovered and is exactly one session if we limit to five event types and one locale.
+
+Deferred from this pass (not one-session work): Privacy model depth (2P.6 requires touching every chart builder), Multi-axis citation model (2P.7 requires a template language), Column chooser + multi-select batch ops (2P.8 + 2P.17 — cleanest as a combined list-widget PR next session), Name format presets (2P.2/2P.11 — safe but small user win; bundle with a Settings PR).
+
