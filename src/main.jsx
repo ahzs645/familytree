@@ -39,14 +39,25 @@ function getDatasetUrlFromQuery() {
   }
 }
 
-async function loadFromUrl(db, url) {
+async function loadFromUrl(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
-  const data = await res.json();
-  const count = await db.importDataset(data);
+  const contentType = res.headers.get('content-type') || '';
+  const sourceName = decodeURIComponent(new URL(url).pathname.split('/').pop() || 'remote-import');
+  const { MFTPKGImporter } = await import('./lib/MFTPKGImporter.js');
+  const importer = new MFTPKGImporter();
+
+  let result;
+  if (contentType.includes('application/json') || sourceName.endsWith('.json')) {
+    result = await importer.importFromJSON(await res.json());
+  } else {
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    result = await importer.importFromBytes(bytes, sourceName);
+  }
+
   localStorage.setItem('cloudtreeweb-has-imported', '1');
   localStorage.setItem(LOADED_URL_KEY, url);
-  console.log(`[CloudTreeWeb] loaded ${count} records from ${url}`);
+  console.log(`[CloudTreeWeb] loaded ${result.total || 0} records from ${url}`);
 }
 
 async function autoLoadIfEmpty() {
@@ -57,7 +68,7 @@ async function autoLoadIfEmpty() {
   if (queryUrl) {
     if (localStorage.getItem(LOADED_URL_KEY) === queryUrl && (await db.hasData())) return;
     try {
-      await loadFromUrl(db, queryUrl);
+      await loadFromUrl(queryUrl);
     } catch (err) {
       console.error('[CloudTreeWeb] failed to load dataset from ?url=', err);
     }
