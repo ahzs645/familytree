@@ -11,8 +11,9 @@
       if (path.startsWith(base)) {
         var route = path.slice(base.length);
         if (route && route !== 'index.html') {
-          var search = window.location.search || '';
-          window.location.replace(base + '?p=/' + route + (search ? '&' + search.slice(1) : ''));
+          var params = new URLSearchParams(window.location.search);
+          params.set('p', '/' + route);
+          window.location.replace(base + '?' + params.toString() + window.location.hash);
         }
       }
     </script>

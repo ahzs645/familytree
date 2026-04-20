@@ -29,6 +29,23 @@ window.__cloudtreeweb = {
 
 const LOADED_URL_KEY = 'cloudtreeweb-loaded-url';
 
+function currentRoutePath() {
+  try {
+    const basePath = new URL(import.meta.env?.BASE_URL || '/', window.location.origin).pathname.replace(/\/?$/, '/');
+    let path = window.location.pathname;
+    if (basePath !== '/' && path.startsWith(basePath)) {
+      path = path.slice(basePath.length);
+    }
+    return path.replace(/^\/+/, '');
+  } catch {
+    return window.location.pathname.replace(/^\/+/, '');
+  }
+}
+
+function isSharePreviewRoute() {
+  return currentRoutePath().startsWith('view/');
+}
+
 function getDatasetUrlFromQuery() {
   try {
     const raw = new URLSearchParams(window.location.search).get('url');
@@ -61,6 +78,8 @@ async function loadFromUrl(url) {
 }
 
 async function autoLoadIfEmpty() {
+  if (isSharePreviewRoute()) return;
+
   const db = getLocalDatabase();
   await db.open();
   const queryUrl = getDatasetUrlFromQuery();

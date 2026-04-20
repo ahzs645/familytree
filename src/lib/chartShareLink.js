@@ -5,9 +5,8 @@
  * generations, strip to the minimum fields needed for render (name, dates,
  * gender, parent/child refs), drop media blobs, and compress with json-url.
  *
- * The resulting token is safe to embed in a URL (`/view/<token>`). The preview
- * route rehydrates this payload into a read-only chart render without hitting
- * IndexedDB.
+ * The resulting token is safe to embed in a URL. The preview route rehydrates
+ * this payload into a read-only chart render without hitting IndexedDB.
  */
 import createCodec from '@firstform/json-url';
 import { getLocalDatabase } from './LocalDatabase.js';
@@ -102,9 +101,16 @@ export async function decodeSharePayload(token) {
 export async function buildShareUrl(chartDoc, { baseUrl = window.location.origin, basePath = '/' } = {}) {
   const payload = await buildChartSharePayload(chartDoc);
   const token = await encodeSharePayload(payload);
-  const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
-  const url = `${baseUrl.replace(/\/$/, '')}${normalizedBase}view/${encodeURIComponent(token)}`;
+  const url = buildShareLinkUrl(token, { baseUrl, basePath });
   return { url, token, payload };
+}
+
+export function buildShareLinkUrl(token, { baseUrl = window.location.origin, basePath = '/' } = {}) {
+  if (!token) throw new Error('Missing share token.');
+  const normalizedBase = basePath.endsWith('/') ? basePath : `${basePath}/`;
+  const urlBase = `${baseUrl.replace(/\/$/, '')}${normalizedBase}`;
+  const params = new URLSearchParams({ p: `/view/${encodeURIComponent(token)}` });
+  return `${urlBase}?${params.toString()}`;
 }
 
 function trimChartDocument(doc) {
