@@ -13,6 +13,7 @@ import { listChartTemplates, saveChartTemplate, deleteChartTemplate, newTemplate
 import { listChartDocuments, saveChartDocument, deleteChartDocument, newChartDocumentId } from '../../lib/chartDocuments.js';
 import { loadSavedChartDocument } from '../../lib/chartContainerLoader.js';
 import { normalizeChartDocument } from '../../lib/chartDocumentSchema.js';
+import { buildShareUrl } from '../../lib/chartShareLink.js';
 import { buildTimelineData } from '../../lib/chartData/timelineBuilder.js';
 import { buildGenogramData } from '../../lib/chartData/genogramBuilder.js';
 import { buildDistributionData } from '../../lib/chartData/distributionBuilder.js';
@@ -523,6 +524,26 @@ export function ChartsApp() {
     },
   }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, selectedOverlayId]);
 
+  const onCopyShareLink = useCallback(async () => {
+    if (!rootId) {
+      alert('Select a root person before creating a share link.');
+      return;
+    }
+    try {
+      const doc = currentDocumentState(currentDocumentName || 'Shared Chart', currentDocumentId || 'shared');
+      const { url, token } = await buildShareUrl(doc, {
+        baseUrl: window.location.origin,
+        basePath: import.meta.env?.BASE_URL || '/',
+      });
+      await navigator.clipboard?.writeText(url).catch(() => {});
+      const size = Math.round(token.length / 1024 * 10) / 10;
+      alert(`Share link copied to clipboard.\n\nToken size: ~${size}KB\nOpens at: /view/<token>`);
+    } catch (error) {
+      console.error('[ChartsApp] share-link failed', error);
+      alert(`Share link failed: ${error.message}`);
+    }
+  }, [rootId, currentDocumentState, currentDocumentName, currentDocumentId]);
+
   const onSaveDocument = useCallback(async () => {
     if (isReadOnly) {
       alert('This chart is read-only (imported). Use "Save as new…" to make an editable copy.');
@@ -905,6 +926,14 @@ export function ChartsApp() {
                   </button>
                   <button onClick={onSaveAsDocument} style={optionSelect} title="Save a new copy">Save as…</button>
                 </div>
+                <button
+                  onClick={onCopyShareLink}
+                  style={{ ...optionSelect, marginTop: 6, width: '100%' }}
+                  title="Create a compressed read-only link that anyone can open — no tree data leaves your browser until they visit the URL."
+                  disabled={!rootId}
+                >
+                  Copy share link
+                </button>
                 {documents.length > 0 && (
                   <select value="" onChange={(e) => e.target.value && onDeleteDocument(e.target.value)} style={{ ...optionSelect, marginTop: 6 }}>
                     <option value="">Delete…</option>

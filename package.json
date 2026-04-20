@@ -31,6 +31,7 @@
     "three": "^0.184.0"
   },
   "devDependencies": {
+    "@firstform/json-url": "file:./vendor/json-url",
     "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.5.0",
     "playwright": "^1.59.1",

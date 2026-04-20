@@ -16,6 +16,7 @@ import {
 import { getMapPreferences, saveMapPreferences } from '../lib/placeGeocoding.js';
 import { NAME_FORMAT_OPTIONS } from '../lib/nameFormat.js';
 import { PLAUSIBILITY_ANALYZERS } from '../lib/plausibility.js';
+import { GEDCOM_ENCODINGS } from '../lib/genealogyFileFormats.js';
 
 const tabs = [
   { id: 'general', label: 'General' },
@@ -261,11 +262,22 @@ export default function Settings() {
               <Field label="PDF Margin">
                 <input type="number" min="12" max="144" value={prefs.pdf.margin} onChange={(event) => update('pdf', 'margin', Number(event.target.value))} className={inputClass} />
               </Field>
-              <Field label="GEDCOM Encoding">
+              <Field label="GEDCOM Encoding (Export)">
                 <select value={prefs.exportDefaults.gedcomEncoding} onChange={(event) => update('exportDefaults', 'gedcomEncoding', event.target.value)} className={inputClass}>
                   <option value="utf-8">UTF-8</option>
                   <option value="utf-16">UTF-16</option>
                   <option value="ansi">ANSI</option>
+                </select>
+              </Field>
+              <Field label="GEDCOM Encoding (Import)">
+                <select
+                  value={prefs.importDefaults?.gedcomEncoding || 'auto'}
+                  onChange={(event) => update('importDefaults', 'gedcomEncoding', event.target.value)}
+                  className={inputClass}
+                >
+                  {GEDCOM_ENCODINGS.map((option) => (
+                    <option key={option.id} value={option.id}>{option.label}</option>
+                  ))}
                 </select>
               </Field>
               <Field label="Website Theme">

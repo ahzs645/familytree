@@ -83,6 +83,73 @@ export const SECTION_KINDS = [
   { id: 'saved-chart', label: 'Saved Chart Embed', needsSavedChart: true },
 ];
 
+/**
+ * Walk a book document and collect structural issues without compiling it.
+ * Returns `{ errors, warnings }` where errors block export.
+ */
+export async function validateBook(book) {
+  const errors = [];
+  const warnings = [];
+  if (!book || !Array.isArray(book.sections) || book.sections.length === 0) {
+    errors.push({ sectionIndex: -1, message: 'Book has no sections.' });
+    return { errors, warnings };
+  }
+
+  const db = getLocalDatabase();
+  const existsCache = new Map();
+  const exists = async (recordName) => {
+    if (!recordName) return false;
+    if (existsCache.has(recordName)) return existsCache.get(recordName);
+    const record = await db.getRecord(recordName);
+    const value = !!record;
+    existsCache.set(recordName, value);
+    return value;
+  };
+
+  for (let i = 0; i < book.sections.length; i++) {
+    const section = book.sections[i];
+    const kind = section?.kind;
+    const def = SECTION_KINDS.find((s) => s.id === kind);
+    if (!def) {
+      errors.push({ sectionIndex: i, message: `Unknown section kind: ${kind}` });
+      continue;
+    }
+    if (def.needsPerson) {
+      if (!section.targetRecordName) {
+        errors.push({ sectionIndex: i, message: `${def.label}: no person selected.` });
+      } else if (!(await exists(section.targetRecordName))) {
+        errors.push({ sectionIndex: i, message: `${def.label}: person ${section.targetRecordName} no longer exists.` });
+      }
+    }
+    if (def.needsGenerations) {
+      const g = Number(section.generations);
+      if (!Number.isFinite(g) || g <= 0) warnings.push({ sectionIndex: i, message: `${def.label}: using default generations.` });
+      else if (g > 12) warnings.push({ sectionIndex: i, message: `${def.label}: ${g} generations may produce a very long report.` });
+    }
+    if (def.needsGroup) {
+      if (!section.groupRecordName) errors.push({ sectionIndex: i, message: `${def.label}: no group selected.` });
+      else if (!(await exists(section.groupRecordName))) errors.push({ sectionIndex: i, message: `${def.label}: group missing.` });
+    }
+    if (def.needsSource) {
+      if (!section.sourceRecordName) errors.push({ sectionIndex: i, message: `${def.label}: no source selected.` });
+      else if (!(await exists(section.sourceRecordName))) errors.push({ sectionIndex: i, message: `${def.label}: source missing.` });
+    }
+    if (kind === 'saved-report' && !section.savedReportId) {
+      errors.push({ sectionIndex: i, message: 'Saved Report Embed: no saved report selected.' });
+    }
+    if (kind === 'saved-chart' && !section.savedChartId) {
+      errors.push({ sectionIndex: i, message: 'Saved Chart Embed: no saved chart selected.' });
+    }
+    if (kind === 'cover' || kind === 'title') {
+      if (!(section.text || '').trim()) warnings.push({ sectionIndex: i, message: `${def.label}: empty title.` });
+    }
+  }
+
+  const tocCount = book.sections.filter((s) => s?.kind === 'toc').length;
+  if (tocCount > 1) warnings.push({ sectionIndex: -1, message: `Book has ${tocCount} Table of Contents sections.` });
+  return { errors, warnings };
+}
+
 export function newBookId() {
   return 'book-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 }

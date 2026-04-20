@@ -10,6 +10,8 @@ import { DatabaseStatusProvider } from './contexts/DatabaseStatusContext.jsx';
 import { ThemeProvider } from './contexts/ThemeContext.jsx';
 import Home from './routes/Home.jsx';
 import { startBackupScheduler } from './lib/backup.js';
+import { useObjectDeepLink } from './lib/deepLinks.js';
+import { SchemaMigrationSheet } from './components/SchemaMigrationSheet.jsx';
 
 const Tree = lazy(() => import('./routes/Tree.jsx'));
 const Persons = lazy(() => import('./routes/Persons.jsx'));
@@ -65,6 +67,7 @@ const AuthorInformation = lazy(() => import('./routes/AuthorInformation.jsx'));
 const WebSearch = lazy(() => import('./routes/WebSearch.jsx'));
 const FamilySearch = lazy(() => import('./routes/FamilySearch.jsx'));
 const Favorites = lazy(() => import('./routes/Favorites.jsx'));
+const ChartPreview = lazy(() => import('./routes/ChartPreview.jsx'));
 
 function Fallback() {
   return (
@@ -96,6 +99,11 @@ function L({ children }) {
   return <Suspense fallback={<Fallback />}>{children}</Suspense>;
 }
 
+function DeepLinkHandler() {
+  useObjectDeepLink();
+  return null;
+}
+
 export function App() {
   useEffect(() => {
     // Scheduled in-app backups — settings stored in IndexedDB meta.
@@ -114,7 +122,10 @@ export function App() {
       <ThemeProvider>
        <DatabaseStatusProvider>
         <ActivePersonProvider>
+          <DeepLinkHandler />
+          <SchemaMigrationSheet />
           <Routes>
+            <Route path="view/:token" element={<L><ChartPreview /></L>} />
             <Route element={<AppShell />}>
               <Route index element={<Home />} />
               <Route path="tree" element={<L><Tree /></L>} />

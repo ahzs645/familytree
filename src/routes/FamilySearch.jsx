@@ -17,6 +17,8 @@ import {
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { readField } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
+import { FamilySearchSourceFoldersSheet } from '../components/FamilySearchSourceFoldersSheet.jsx';
+import { FamilySearchBatchDownloadSheet } from '../components/FamilySearchBatchDownloadSheet.jsx';
 
 const TASK_META_KEY = 'familySearchTasks';
 
@@ -47,6 +49,8 @@ export default function FamilySearch() {
   const [mergeReason, setMergeReason] = useState('');
   const [resourcesToCopy, setResourcesToCopy] = useState('');
   const [resourcesToDelete, setResourcesToDelete] = useState('');
+  const [sourceFoldersOpen, setSourceFoldersOpen] = useState(false);
+  const [batchDownloadOpen, setBatchDownloadOpen] = useState(false);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -236,7 +240,17 @@ export default function FamilySearch() {
             <p className="text-sm text-muted-foreground mt-1">Local FamilySearch ID review, search launch, and task tracking.</p>
           </div>
           {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
+          <div className={`${status ? '' : 'ms-auto'} flex gap-2`}>
+            <button onClick={() => setSourceFoldersOpen(true)} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1.5">
+              Manage Sources…
+            </button>
+            <button onClick={() => setBatchDownloadOpen(true)} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1.5">
+              Auto-Download Relatives…
+            </button>
+          </div>
         </header>
+        <FamilySearchSourceFoldersSheet open={sourceFoldersOpen} onClose={() => setSourceFoldersOpen(false)} />
+        <FamilySearchBatchDownloadSheet open={batchDownloadOpen} onClose={() => setBatchDownloadOpen(false)} />
 
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
           <Stat label="People" value={stats.total} />

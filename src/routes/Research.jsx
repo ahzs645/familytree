@@ -12,7 +12,7 @@ const STATE_KEY = 'researchAssistantState';
 export default function Research() {
   const [items, setItems] = useState(null);
   const [imported, setImported] = useState([]);
-  const [state, setState] = useState({ done: {}, ignored: {} });
+  const [state, setState] = useState({ done: {}, ignored: {}, ignoredEntities: {} });
   const [filter, setFilter] = useState('');
   const navigate = useNavigate();
 
@@ -52,20 +52,34 @@ export default function Research() {
   const visible = (filter
     ? items.filter((i) => i.suggestions.some((s) => s.toLowerCase().includes(filter.toLowerCase())) || i.fullName.toLowerCase().includes(filter.toLowerCase()))
     : items
-  ).map((item) => ({
-    ...item,
-    suggestions: item.suggestions.filter((suggestion) => {
-      const key = generatedKey(item.recordName, suggestion);
-      return !state.done[key] && !state.ignored[key];
-    }),
-  })).filter((item) => item.suggestions.length > 0);
-  const importedOpen = imported.filter(({ row }) => !state.done[row.recordName] && !state.ignored[row.recordName]);
+  ).filter((item) => !state.ignoredEntities[item.recordName])
+    .map((item) => ({
+      ...item,
+      suggestions: item.suggestions.filter((suggestion) => {
+        const key = generatedKey(item.recordName, suggestion);
+        return !state.done[key] && !state.ignored[key];
+      }),
+    })).filter((item) => item.suggestions.length > 0);
+  const importedOpen = imported.filter(({ row, target }) => {
+    if (state.done[row.recordName] || state.ignored[row.recordName]) return false;
+    if (target?.recordName && state.ignoredEntities[target.recordName]) return false;
+    return true;
+  });
 
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Research Assistant</h1>
         <span className="text-xs text-muted-foreground">{visible.length} persons with open questions</span>
+        {Object.keys(state.ignoredEntities).length > 0 && (
+          <button
+            onClick={() => persistState((prev) => ({ ...prev, ignoredEntities: {} }))}
+            className="text-xs text-muted-foreground hover:text-foreground border border-border bg-secondary rounded-md px-2 py-1"
+            title="Restore all previously silenced persons"
+          >
+            {Object.keys(state.ignoredEntities).length} silenced · reset
+          </button>
+        )}
         <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter…"
           className="ms-auto bg-secondary border border-border rounded-md px-3 py-1.5 text-sm w-64" />
       </header>
@@ -104,11 +118,20 @@ export default function Research() {
             <div className="text-center text-muted-foreground py-10">No matching suggestions.</div>
           ) : visible.slice(0, 200).map((it) => (
             <div key={it.recordName} className="bg-card border border-border rounded-md p-4">
-              <div className="flex items-baseline justify-between mb-2">
+              <div className="flex items-baseline justify-between mb-2 gap-2">
                 <button onClick={() => navigate(`/person/${it.recordName}`)} className="text-sm font-semibold text-primary hover:underline text-start">
                   {it.fullName}
                 </button>
-                <span className="text-xs text-muted-foreground">{it.suggestions.length} open</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{it.suggestions.length} open</span>
+                  <button
+                    onClick={() => mark(it.recordName, 'ignoredEntities')}
+                    title="Ignore all questions for this person"
+                    className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-muted-foreground hover:text-foreground"
+                  >
+                    Ignore all
+                  </button>
+                </div>
               </div>
               <ul className="text-sm text-muted-foreground space-y-1">
                 {it.suggestions.map((s, i) => {
@@ -140,5 +163,6 @@ function normalizeState(value) {
   return {
     done: { ...(value?.done || {}) },
     ignored: { ...(value?.ignored || {}) },
+    ignoredEntities: { ...(value?.ignoredEntities || {}) },
   };
 }

@@ -18,6 +18,16 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { extractMFTPKGDataset } from './mftpkgExtractor.js';
 import { analyzeGedcomText, importGedcomText } from './gedcomImport.js';
+import { getAppPreferences } from './appPreferences.js';
+
+async function getPreferredGedcomEncoding() {
+  try {
+    const prefs = await getAppPreferences();
+    return prefs?.importDefaults?.gedcomEncoding || 'auto';
+  } catch {
+    return 'auto';
+  }
+}
 import {
   LEGACY_MFT_BINARY_MESSAGE,
   asciiHeader,
@@ -179,9 +189,10 @@ export class MFTPKGImporter {
     }
   }
 
-  async _importGedcomBytes(uint8Array, sourceName, { format = null, resourceFiles = [] } = {}) {
+  async _importGedcomBytes(uint8Array, sourceName, { format = null, resourceFiles = [], encoding } = {}) {
     this._progress('parsing', 0, 1);
-    const text = decodeGedcomBytes(uint8Array, sourceName);
+    const resolvedEncoding = encoding || await getPreferredGedcomEncoding();
+    const text = decodeGedcomBytes(uint8Array, sourceName, { encoding: resolvedEncoding });
     const analysis = analyzeGedcomText(text);
     if (!analysis.canImport) {
       const firstError = analysis.issues.find((item) => item.severity === 'error');
@@ -196,6 +207,7 @@ export class MFTPKGImporter {
       format: format || fileExtension(sourceName).replace('.', '') || 'gedcom',
       counts: analysis.counts,
       warnings: analysis.issues.filter((item) => item.severity !== 'error').map((item) => item.message),
+      issues: analysis.issues,
     };
   }
 

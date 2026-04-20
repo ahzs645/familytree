@@ -39,13 +39,90 @@ export function looksLikeGedcomText(text = '') {
   return /(^|\n)\s*0\s+HEAD\b/.test(text) || /(^|\n)\s*0\s+@[^@]+@\s+(INDI|FAM|SOUR|NOTE)\b/.test(text);
 }
 
-export function decodeGedcomBytes(bytes, fileName = '') {
+export const GEDCOM_ENCODINGS = [
+  { id: 'auto', label: 'Auto-detect' },
+  { id: 'utf-8', label: 'UTF-8 (modern, default)' },
+  { id: 'utf-16le', label: 'UTF-16 LE' },
+  { id: 'utf-16be', label: 'UTF-16 BE' },
+  { id: 'windows-1252', label: 'Windows-1252 (legacy Windows)' },
+  { id: 'macroman', label: 'MacRoman (legacy Mac)' },
+  { id: 'ansel', label: 'ANSEL (legacy GEDCOM)' },
+];
+
+export function extractGedcomCharTag(bytes, limit = 4096) {
+  try {
+    const head = new TextDecoder('utf-8', { fatal: false }).decode(bytes.slice(0, limit));
+    const match = head.match(/(^|\n)\s*1\s+CHAR\s+([^\r\n]+)/i);
+    return match ? match[2].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+export function gedcomEncodingFromCharTag(tag) {
+  if (!tag) return null;
+  const normalized = tag.toLowerCase().replace(/[\s_]/g, '-');
+  if (/^utf-?8$/.test(normalized)) return 'utf-8';
+  if (/^utf-?16(le)?$/.test(normalized)) return 'utf-16le';
+  if (/^utf-?16be$/.test(normalized)) return 'utf-16be';
+  if (/^ansi$|windows|cp1252|ibmpc|ibm-pc/.test(normalized)) return 'windows-1252';
+  if (/macintosh|macroman|mac-roman/.test(normalized)) return 'macroman';
+  if (/^ansel$/.test(normalized)) return 'ansel';
+  return null;
+}
+
+export function decodeGedcomBytes(bytes, fileName = '', { encoding = 'auto' } = {}) {
   const ext = fileExtension(fileName);
+  if (encoding && encoding !== 'auto') {
+    return stripBom(decodeWithEncoding(bytes, encoding));
+  }
   if (bytes?.[0] === 0xff && bytes?.[1] === 0xfe) return stripBom(new TextDecoder('utf-16le').decode(bytes));
   if (bytes?.[0] === 0xfe && bytes?.[1] === 0xff) return stripBom(decodeUtf16BE(bytes.slice(2)));
   if (bytes?.[0] === 0xef && bytes?.[1] === 0xbb && bytes?.[2] === 0xbf) return stripBom(new TextDecoder('utf-8').decode(bytes));
   if (ext === '.uged16') return stripBom(new TextDecoder('utf-16le').decode(bytes));
+  const charTag = extractGedcomCharTag(bytes);
+  const fromTag = gedcomEncodingFromCharTag(charTag);
+  if (fromTag && fromTag !== 'utf-8') {
+    return stripBom(decodeWithEncoding(bytes, fromTag));
+  }
   return stripBom(new TextDecoder('utf-8').decode(bytes));
+}
+
+function decodeWithEncoding(bytes, encoding) {
+  if (encoding === 'utf-16be') return decodeUtf16BE(bytes);
+  if (encoding === 'ansel') return decodeAnsel(bytes);
+  if (encoding === 'macroman') {
+    try { return new TextDecoder('macintosh').decode(bytes); }
+    catch { return new TextDecoder('windows-1252').decode(bytes); }
+  }
+  try {
+    return new TextDecoder(encoding, { fatal: false }).decode(bytes);
+  } catch {
+    return new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+  }
+}
+
+// ANSEL → Unicode fallback. Full ANSEL support requires a combining-diacritic
+// mapping; for our purposes this covers ASCII passthrough plus a handful of
+// the most common extended points so the text is legible without mojibake.
+const ANSEL_FALLBACK = {
+  0xA1: '\u0141', 0xA2: '\u00D8', 0xA3: '\u0110', 0xA4: '\u00DE', 0xA5: '\u00C6', 0xA6: '\u0152', 0xA7: '\u02B9',
+  0xA8: '\u00B7', 0xA9: '\u266D', 0xAA: '\u00AE', 0xAB: '\u00B1', 0xAC: '\u01A0', 0xAD: '\u01AF', 0xAE: '\u02BC',
+  0xB0: '\u02BB', 0xB1: '\u0142', 0xB2: '\u00F8', 0xB3: '\u0111', 0xB4: '\u00FE', 0xB5: '\u00E6', 0xB6: '\u0153',
+  0xB7: '\u02BA', 0xB8: '\u0131', 0xB9: '\u00A3', 0xBA: '\u00F0', 0xBC: '\u01A1', 0xBD: '\u01B0',
+  0xC0: '\u00B0', 0xC1: '\u2113', 0xC2: '\u2117', 0xC3: '\u00A9', 0xC4: '\u266F', 0xC5: '\u00BF', 0xC6: '\u00A1',
+  0xCF: '\u00DF',
+};
+
+function decodeAnsel(bytes) {
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 1) {
+    const b = bytes[i];
+    if (b < 0x80) out += String.fromCharCode(b);
+    else if (ANSEL_FALLBACK[b]) out += ANSEL_FALLBACK[b];
+    else out += '?';
+  }
+  return out;
 }
 
 export async function readGedcomTextFromFile(file) {

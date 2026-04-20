@@ -13,6 +13,7 @@ import {
   newBookId,
   downloadBookHTML,
   downloadBookBundle,
+  validateBook,
 } from '../../lib/books.js';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { readField } from '../../lib/schema.js';
@@ -45,6 +46,7 @@ export function BooksApp() {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
   const [progress, setProgress] = useState(null);
+  const [validation, setValidation] = useState({ errors: [], warnings: [] });
   const controllerRef = React.useRef(null);
 
   useEffect(() => {
@@ -73,13 +75,29 @@ export function BooksApp() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const r = await compileBook(book);
-      if (!cancelled) setCompiled(r);
+      const [r, v] = await Promise.all([compileBook(book), validateBook(book)]);
+      if (!cancelled) {
+        setCompiled(r);
+        setValidation(v);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [book]);
+
+  const guardedExport = useCallback((next, label = 'Export') => {
+    if (validation.errors.length > 0) {
+      const proceed = confirm(
+        `${label} is blocked by ${validation.errors.length} error(s):\n\n` +
+        validation.errors.slice(0, 6).map((e) => `• ${e.message}`).join('\n') +
+        (validation.errors.length > 6 ? '\n…' : '') +
+        '\n\nProceed anyway?'
+      );
+      if (!proceed) return;
+    }
+    next();
+  }, [validation.errors]);
 
   const updateSection = useCallback((i, next) => {
     setBook((b) => ({ ...b, sections: b.sections.map((s, j) => (j === i ? next : s)) }));
@@ -134,36 +152,44 @@ export function BooksApp() {
 
   const onExport = useCallback((fmt) => {
     if (!compiled) return;
-    downloadReport(fmt, compiled, { filenameBase: book.title });
-  }, [compiled, book.title]);
+    guardedExport(() => downloadReport(fmt, compiled, { filenameBase: book.title }), `Export as ${fmt.toUpperCase()}`);
+  }, [compiled, book.title, guardedExport]);
 
   const onWebHTML = useCallback(async () => {
-    setBusy(true);
-    setStatus('Exporting web HTML...');
-    try {
-      await downloadBookHTML(book, { filenameBase: book.title });
-      setStatus('Book HTML downloaded.');
-    } catch (error) {
-      setStatus(`Book HTML export failed: ${error.message}`);
-    }
-    setBusy(false);
-  }, [book]);
+    guardedExport(async () => {
+      setBusy(true);
+      setStatus('Exporting web HTML...');
+      try {
+        await downloadBookHTML(book, { filenameBase: book.title });
+        setStatus('Book HTML downloaded.');
+      } catch (error) {
+        setStatus(`Book HTML export failed: ${error.message}`);
+      }
+      setBusy(false);
+    }, 'Web HTML export');
+  }, [book, guardedExport]);
 
   const onPDF = useCallback(() => {
     if (!compiled) return;
-    setStatus('Opening PDF preview...');
-    try {
-      downloadReport('pdf', compiled, { filenameBase: book.title });
-      setStatus('PDF preview opened.');
-    } catch (error) {
-      setStatus(`PDF preview failed: ${error.message}`);
-    }
-  }, [book.title, compiled]);
+    guardedExport(() => {
+      setStatus('Opening PDF preview...');
+      try {
+        downloadReport('pdf', compiled, { filenameBase: book.title });
+        setStatus('PDF preview opened.');
+      } catch (error) {
+        setStatus(`PDF preview failed: ${error.message}`);
+      }
+    }, 'PDF preview');
+  }, [book.title, compiled, guardedExport]);
 
   const onBundle = useCallback(async () => {
     setBusy(true);
     setStatus('Building publish bundle...');
     setProgress(null);
+    if (validation.errors.length > 0) {
+      const proceed = confirm(`Bundle is blocked by ${validation.errors.length} error(s). Proceed anyway?`);
+      if (!proceed) { setBusy(false); return; }
+    }
     const controller = new AbortController();
     controllerRef.current = controller;
     try {
@@ -226,6 +252,25 @@ export function BooksApp() {
         <button onClick={onBundle} disabled={busy} style={input}>Website/book bundle</button>
         {busy && controllerRef.current && <button onClick={() => controllerRef.current?.abort()} style={input}>Cancel</button>}
       </header>
+
+      {(validation.errors.length > 0 || validation.warnings.length > 0) && (
+        <div style={{
+          padding: '8px 16px',
+          borderBottom: '1px solid hsl(var(--border))',
+          background: validation.errors.length > 0 ? 'hsl(var(--destructive) / 0.08)' : 'hsl(var(--secondary))',
+          fontSize: 12,
+          color: validation.errors.length > 0 ? 'hsl(var(--destructive))' : 'hsl(var(--muted-foreground))',
+        }}>
+          <strong>
+            {validation.errors.length > 0
+              ? `${validation.errors.length} error${validation.errors.length === 1 ? '' : 's'}`
+              : `${validation.warnings.length} warning${validation.warnings.length === 1 ? '' : 's'}`}
+          </strong>
+          {': '}
+          {(validation.errors.length > 0 ? validation.errors : validation.warnings).slice(0, 3).map((v) => v.message).join(' · ')}
+          {(validation.errors.length + validation.warnings.length) > 3 && ' …'}
+        </div>
+      )}
 
       <div style={body}>
         <aside style={leftPane}>

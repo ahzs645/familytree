@@ -39,6 +39,7 @@ import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { TypePicker } from '../components/editors/TypePicker.jsx';
 import { AssociateRelationsEditor, MediaRelationsEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
+import { OldestAncestorsWidget } from '../components/editors/OldestAncestorsWidget.jsx';
 import { isRecordLocked, setRecordLocked } from '../lib/recordLock.js';
 
 function uuid(prefix) {
@@ -303,6 +304,11 @@ export default function PersonEditor() {
           {context && (
             <Section title="Parents" accent={ACCENTS.parents}>
               <ParentsBlock context={context} onPick={(rn) => navigate(`/person/${rn}`)} />
+            </Section>
+          )}
+          {record?.recordName && (
+            <Section title="Oldest Ancestors" accent={ACCENTS.parents}>
+              <OldestAncestorsWidget recordName={record.recordName} />
             </Section>
           )}
 

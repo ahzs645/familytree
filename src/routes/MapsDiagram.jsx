@@ -31,6 +31,9 @@ export default function MapsDiagram() {
   const [selectedId, setSelectedId] = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [playing, setPlaying] = useState(false);
+  const [stepYears, setStepYears] = useState(5);
+  const [allYears, setAllYears] = useState(false);
 
   useEffect(() => {
     let cancel = false;
@@ -99,13 +102,31 @@ export default function MapsDiagram() {
     return [Math.min(...years), Math.max(...years)];
   }, [events]);
 
-  const effectiveRange = yearRange || yearBounds;
+  const effectiveRange = allYears ? yearBounds : (yearRange || yearBounds);
 
   const filtered = useMemo(() => events.filter((e) => {
     if (filterType && e.conclusionType !== filterType) return false;
-    if (Number.isFinite(e.year) && (e.year < effectiveRange[0] || e.year > effectiveRange[1])) return false;
+    if (!allYears && Number.isFinite(e.year) && (e.year < effectiveRange[0] || e.year > effectiveRange[1])) return false;
     return true;
-  }), [events, filterType, effectiveRange]);
+  }), [events, filterType, effectiveRange, allYears]);
+
+  useEffect(() => {
+    if (!playing) return undefined;
+    const id = setInterval(() => {
+      setYearRange((range) => {
+        const current = range || yearBounds;
+        const span = Math.max(1, current[1] - current[0]);
+        let nextStart = current[0] + stepYears;
+        if (nextStart + span > yearBounds[1]) nextStart = yearBounds[0];
+        return [nextStart, Math.min(yearBounds[1], nextStart + span)];
+      });
+    }, 1200);
+    return () => clearInterval(id);
+  }, [playing, stepYears, yearBounds]);
+
+  useEffect(() => {
+    if (allYears) setPlaying(false);
+  }, [allYears]);
 
   useEffect(() => {
     if (selectedId && !filtered.some((event) => event.recordName === selectedId)) setSelectedId(null);
@@ -183,6 +204,28 @@ export default function MapsDiagram() {
               aria-label="Maximum year"
             />
             <button onClick={() => setYearRange(null)} className="text-xs text-primary hover:underline">Reset years</button>
+            <button
+              onClick={() => setPlaying((p) => !p)}
+              disabled={allYears}
+              className="rounded-md border border-border bg-secondary px-2 py-1 text-xs disabled:opacity-50"
+              title="Animate across the selected year range"
+            >
+              {playing ? '⏸ Stop Slideshow' : '▶ Start Slideshow'}
+            </button>
+            <label className="flex items-center gap-1 text-xs">
+              step
+              <select
+                value={stepYears}
+                onChange={(e) => setStepYears(Number(e.target.value))}
+                className="rounded-md border border-border bg-secondary px-1 py-0.5 text-xs"
+              >
+                {[1, 2, 5, 10, 25].map((n) => <option key={n} value={n}>{n}y</option>)}
+              </select>
+            </label>
+            <label className="flex items-center gap-1 text-xs">
+              <input type="checkbox" checked={allYears} onChange={(e) => setAllYears(e.target.checked)} />
+              Show all Years
+            </label>
           </div>
           <div className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
             <span className="inline-block h-3 w-3 rounded-full border-2 border-white bg-primary shadow" />

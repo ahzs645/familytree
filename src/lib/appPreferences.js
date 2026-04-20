@@ -53,6 +53,9 @@ export const DEFAULT_APP_PREFERENCES = {
     gedcomEncoding: 'utf-8',
     websiteTheme: 'classic',
   },
+  importDefaults: {
+    gedcomEncoding: 'auto',
+  },
   privacy: {
     hideMarkedPrivate: true,
     hideLivingPersons: false,

@@ -5,12 +5,20 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { IMPORT_ACCEPT } from '../lib/genealogyFileFormats.js';
 import { cn } from '../lib/utils.js';
+import { GedcomImportReviewSheet } from './GedcomImportReviewSheet.jsx';
 
 export function ImportDropZone({ onImported }) {
   const fileInputRef = useRef(null);
   const [dragOver, setDragOver] = useState(false);
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState(false);
+  const [reviewResult, setReviewResult] = useState(null);
+
+  const captureReview = (result) => {
+    if (result?.source === 'gedcom' && Array.isArray(result.issues) && result.issues.length > 0) {
+      setReviewResult(result);
+    }
+  };
 
   const updateProgress = (pct, text) => {
     setProgress({ pct, text });
@@ -56,6 +64,7 @@ export function ImportDropZone({ onImported }) {
           result = await importer.importFromFile(file);
         }
         updateProgress(100, `Imported ${result.total || 0} records`);
+        captureReview(result);
         onImported?.(result);
       } catch (err) {
         console.error(err);
@@ -70,32 +79,69 @@ export function ImportDropZone({ onImported }) {
     updateProgress(5, 'Scanning package folder…');
     const files = await readAllDirectoryFiles(entry);
     const databaseItem = files.find((item) => item.file.name === 'database' || item.path.endsWith('/database'));
-    if (!databaseItem) {
-      setProgress({ pct: 100, text: 'No “database” file inside that package folder.' });
+    const gedcomItem = files.find((item) => /\.(ged|uged|uged16|gedcom)$/i.test(item.file.name));
+
+    if (!databaseItem && !gedcomItem) {
+      setProgress({ pct: 100, text: 'No database or GEDCOM file found in that folder.' });
       setError(true);
       return;
     }
 
-    updateProgress(10, 'Loading SQLite engine…');
+    updateProgress(10, 'Loading importer…');
     const { MFTPKGImporter } = await import('../lib/MFTPKGImporter.js');
     const importer = new MFTPKGImporter();
     configureImporterProgress(importer);
     try {
-      const resourceItems = files.filter((item) => item.path.includes('/resources/') || item.path.includes('/mediathumbs/'));
+      if (databaseItem) {
+        const resourceItems = files.filter((item) => item.path.includes('/resources/') || item.path.includes('/mediathumbs/'));
+        const resourceFiles = [];
+        for (const item of resourceItems) {
+          resourceFiles.push({
+            path: item.path,
+            name: item.file.name,
+            bytes: new Uint8Array(await item.file.arrayBuffer()),
+          });
+        }
+        const result = await importer.importFromPackageDirectory({
+          databaseFile: databaseItem.file,
+          sourceName: entry.name || 'MacFamilyTree package',
+          resourceFiles,
+        });
+        updateProgress(100, `Imported ${result.total || 0} records`);
+        captureReview(result);
+        onImported?.(result);
+        return;
+      }
+
+      // GEDCOM + sibling media folder drop: bundle every non-GEDCOM file as resourceFiles.
+      const mediaItems = files.filter((item) => item !== gedcomItem);
+      updateProgress(20, `Reading ${mediaItems.length} media file${mediaItems.length === 1 ? '' : 's'}…`);
       const resourceFiles = [];
-      for (const item of resourceItems) {
+      for (const item of mediaItems) {
         resourceFiles.push({
           path: item.path,
           name: item.file.name,
           bytes: new Uint8Array(await item.file.arrayBuffer()),
         });
       }
-      const result = await importer.importFromPackageDirectory({
-        databaseFile: databaseItem.file,
-        sourceName: entry.name || 'MacFamilyTree package',
-        resourceFiles,
-      });
+      const gedBytes = new Uint8Array(await gedcomItem.file.arrayBuffer());
+      const result = await importer.importFromBytes(gedBytes, gedcomItem.file.name);
+      // importFromBytes routes through _importGedcomBytes but does not currently
+      // thread external resourceFiles for the folder case — fall back to the
+      // dedicated helper when available.
+      if (importer._importGedcomBytes && resourceFiles.length > 0) {
+        try {
+          const gedResult = await importer._importGedcomBytes(gedBytes, gedcomItem.file.name, { resourceFiles });
+          updateProgress(100, `Imported ${gedResult.total || 0} records`);
+          captureReview(gedResult);
+          onImported?.(gedResult);
+          return;
+        } catch (err) {
+          console.warn('[ImportDropZone] GEDCOM folder import with resources failed, falling back to bare import', err);
+        }
+      }
       updateProgress(100, `Imported ${result.total || 0} records`);
+      captureReview(result);
       onImported?.(result);
     } catch (err) {
       console.error(err);
@@ -125,6 +171,10 @@ export function ImportDropZone({ onImported }) {
   const isDone = progress?.pct === 100 && !error;
 
   return (
+    <>
+    {reviewResult && (
+      <GedcomImportReviewSheet result={reviewResult} onClose={() => setReviewResult(null)} />
+    )}
     <div
       className={cn(
         'rounded-xl border-2 border-dashed p-8 cursor-pointer transition-colors',
@@ -145,6 +195,9 @@ export function ImportDropZone({ onImported }) {
         className="hidden"
         onChange={(e) => e.target.files[0] && handleFile(e.target.files[0])}
       />
+      <p className="sr-only">
+        You can also drop a folder containing a GEDCOM file plus its associated media files.
+      </p>
       <h2 className="text-lg font-semibold mb-2">Import Family Tree</h2>
       <p className="text-sm text-muted-foreground leading-relaxed">
         Drop a <code>.mftpkg</code> folder, <code>.mftsql</code> file, SQLite <code>database</code>, GEDCOM
@@ -170,9 +223,19 @@ export function ImportDropZone({ onImported }) {
           >
             {progress.text}
           </div>
+          {reviewResult?.issues?.length > 0 && !error && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setReviewResult(reviewResult); }}
+              className="mt-2 text-xs text-primary hover:underline"
+            >
+              Review {reviewResult.issues.length} GEDCOM import issue{reviewResult.issues.length === 1 ? '' : 's'} →
+            </button>
+          )}
         </div>
       )}
     </div>
+    </>
   );
 }
 

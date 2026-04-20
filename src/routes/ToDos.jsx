@@ -5,6 +5,7 @@ import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary, sourceSummary, placeSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { ToDoWizardSheet } from '../components/ToDoWizardSheet.jsx';
 
 const TARGET_TYPES = ['Person', 'Family', 'Source', 'Place', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
 
@@ -34,6 +35,7 @@ export default function ToDos() {
   const [targetId, setTargetId] = useState('');
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -216,8 +218,16 @@ export default function ToDos() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">ToDos</h1>
         <span className="text-xs text-muted-foreground">{todos.length}</span>
-        <button onClick={onCreate} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        <button onClick={() => setWizardOpen(true)} className="ms-auto border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
+          ToDo Wizard…
+        </button>
+        <button onClick={onCreate} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
       </header>
+      <ToDoWizardSheet
+        open={wizardOpen}
+        onClose={() => setWizardOpen(false)}
+        onCreated={() => reload()}
+      />
       <div className="flex-1 min-h-0">
         <MasterDetailList items={todos} activeId={activeId} onPick={setActiveId} renderRow={renderRow} placeholder="Search todos..." detail={detail} />
       </div>

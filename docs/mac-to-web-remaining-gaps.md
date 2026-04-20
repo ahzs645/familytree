@@ -482,3 +482,112 @@ Chosen for "achievable in one session each" and highest user-visible impact per 
 
 Deferred from this pass (not one-session work): Privacy model depth (2P.6 requires touching every chart builder), Multi-axis citation model (2P.7 requires a template language), Column chooser + multi-select batch ops (2P.8 + 2P.17 — cleanest as a combined list-widget PR next session), Name format presets (2P.2/2P.11 — safe but small user win; bundle with a Settings PR).
 
+---
+
+## Third-pass findings (2026-04-20)
+
+Driven from a fresh sweep of `Contents/Resources/en.lproj/*.strings` (Localizable, Edit, EditMediaPanes, ChartPanes, ReportPanes, DatabaseMaintenance, FamilySearch, ResearchAssistantPane, RecordSheets, ScanPictureSheet, InteractiveTreePaneStrings) plus `Contents/Resources/Base.lproj/*.nib`. Items below are not present in passes 1 or 2.
+
+### 3P.1 GEDCOM import issues analyzer sheet — **partial**
+
+- Mac evidence: `GedcomImporterIssuesAnalyzerSheet.nib` with strings `_GedcomImporterIssuesAnalyzerSheet_Title` "GEDCOM Import Issues", `_NoUnparsableGEDCOMTagsFoundMessage`, `_NoUnparsableDatesFoundMessage`; plus `_GedcomImporterWarningSheet_HeaderTitle` "GEDCOM Import Warnings".
+- Web state: `src/lib/gedcomImport.js:360-386` collects `issues[]` with severity/line/message and returns `canImport`, but I find no UI that surfaces the list after a successful import — `ImportDropZone.jsx` only blocks on errors. Unparsable dates never appear as a reviewable list.
+- **Recommendation:** Add a post-import `GedcomImportReviewSheet.jsx` that shows the warning table (unparsed tags, unreadable dates per record) with "Jump to record" actions, gated behind the existing `issues` array.
+
+### 3P.2 GEDCOM custom character-encoding chooser — **missing**
+
+- Mac evidence: `GedcomCustomEncodingSheet.nib`, `_GedcomCustomEncodingSheet_Title` "GEDCOM Character Encoding".
+- Web state: `gedcomImport.js` parses as UTF-8 only; legacy ANSEL / Windows-1252 / UTF-16 files will mojibake silently. No CHAR header handler visible.
+- **Recommendation:** Detect `1 CHAR` in the header and, when not UTF-8/ASCII, present an encoding picker (`TextDecoder` covers windows-1252 and utf-16; ANSEL needs a small lookup table).
+
+### 3P.3 Narrative report speech synthesis — **missing**
+
+- Mac evidence: `_NarrativeReportPane_SpeakButton` "Speak", `_NarrativeReportPane_NoLanguageFoundMessage` — reads narrative aloud via macOS voices.
+- Web state: no `speechSynthesis` / `SpeechSynthesisUtterance` references under `src/`.
+- **Recommendation:** Single Play/Stop button in `ReportsApp` narrative view that feeds the rendered prose through Web Speech API; degrade gracefully when the API is absent.
+
+### 3P.4 Research Assistant — persisted "Ignore" decisions — **missing**
+
+- Mac evidence: `_ResearchAssistantPane_QuestionList_IgnoreObjectForFurtherQuestionsMenuItem`, `_IgnoreThisQuestionMenuItem`, `_IgnorePersonOption`, `_IgnoreFamilyOption`.
+- Web state: grep for `ignoreQuestion` / `researchIgnore` in `src/` returns nothing; `researchSuggestions.js` re-derives suggestions on every open with no exclusion set.
+- **Recommendation:** Persist an ignore set `{ entityId, questionKey }` in IndexedDB settings and filter at render time. Trivial to add once the key shape is stable.
+
+### 3P.5 ToDo Wizard — **missing**
+
+- Mac evidence: `_EditToDoPane_WizardButton` "ToDo Wizard", `ToDoWizardSheet.nib`, `_ToDosWizardSheet_Title`. Generates canned research ToDos (verify birth, find marriage record, locate obituary, etc.) for a selected person based on missing events/sources.
+- Web state: `src/routes/ToDos.jsx` only supports manual add. Related `researchSuggestions.js` could feed this but is not wired.
+- **Recommendation:** Merge `researchSuggestions` output into a "Generate ToDos from gaps" wizard — reuses existing plausibility/missing-field logic.
+
+### 3P.6 Maps Diagram year slideshow / "Show all Years" — **missing**
+
+- Mac evidence: `_MapDiagramPane_StartSlideshow`, `_MapDiagramPane_StopSlideshow`, `_MapDiagramPane_ShowAllYearsButton`.
+- Web state: `src/routes/MapsDiagram.jsx` grep shows no `Slideshow` / `ShowAllYears` controls. Time-window filter exists but no autoplay.
+- **Recommendation:** Add play/pause with configurable step (decade/year) that advances the year filter and replays events on the map.
+
+### 3P.7 FamilySearch "Manage Sources" + Source Folders + Reference Tags — **missing**
+
+- Mac evidence: `_ManageFamilySearchSourcesButton` and NIBs `FamilySearchSourceFoldersSheet.nib`, `FamilySearchSourceFoldersView.nib`, `FamilySearchCreateOrUpdateSourceFolderSheet.nib`, `FamilySearchEditSourceReferenceTagsWidget.nib`, `FamilySearchCreateOrEditSourceDescriptionSheet.nib`.
+- Web state: `FamilySearch.jsx` route exists but no FS-specific source manager; `familySearchApi.js` has no folder or tag helpers.
+- **Recommendation:** Ship only if FS source-reference parity is needed; defer otherwise. Prior audits list FS workflows but not the source-management branch specifically.
+
+### 3P.8 FamilySearch "Ask for reason" + "Auto-download relatives" sheets — **missing**
+
+- Mac evidence: `FamilySearchAskForReasonSheet.nib`, `_FamilySearchAskForReasonSheet_Title` "Provide Reason for Change" (required audit trail when applying edits). `FamilySearchPersonBatchDownloadSheet.nib`, `_FamilySearchPersonBatchDownloadSheet_Title` "Auto-Download Relatives" (batch import N generations from a matched FS person).
+- Web state: neither concept appears in `src/routes/FamilySearch.jsx`.
+- **Recommendation:** The reason prompt is low-effort and increases parity when users apply FS merges; the batch downloader is a bigger piece and can wait.
+
+### 3P.9 "Oldest Ancestors" widget — **missing**
+
+- Mac evidence: `_OldestAncestorsWidget_SelectPerson` — side panel that surfaces the oldest known ancestor along each line for the selected person.
+- Web state: `src/lib/statistics.js` computes aggregate stats but no per-person oldest-ancestor drill-down widget is wired into `PersonEditor.jsx`.
+- **Recommendation:** Reuse existing ancestor walker from `relationshipPath.js`; show a compact 4–6 row list in the person sidebar.
+
+### 3P.10 iCloud-style share-as-link publish — **missing**
+
+- Mac evidence: `_MyDocumentController_iCloudSharing_Message`, `_iCloudSharing_CopyDownloadLinkToClipboard` — publish the current tree and get a sharable download link.
+- Web state: the loader already accepts `?url=` (see commit `8e47dac`), but there is no counterpart "publish current tree and copy link" — users must upload to their own hosting first.
+- **Recommendation:** A one-click "Copy shareable link" that uploads a serialized snapshot to a configurable endpoint (e.g., a user-provided gist / S3 / Pastebin-like target) and returns a `?url=` deep link.
+
+### 3P.11 Object-level deep link / Handoff parity — **missing**
+
+- Mac evidence: `_MyDocumentController_Handoff_ObjectNotFoundMessage` — deep-link by `{treeId, objectRef}`.
+- Web state: the router loads trees but does not route to a specific person/family/source via URL. Grep confirms no `Handoff` / `deepLink` refs.
+- **Recommendation:** Extend the query-string loader to accept `&person=<id>` (and family/source/place/media) and route into the correct editor on boot.
+
+### 3P.12 Chart editor "Edit Background" — **partial**
+
+- Mac evidence: `_EditChartPane_EditBackgroundButton` is a dedicated background editor (color, gradient, image, PDF).
+- Web state: `ChartsApp.jsx` surfaces `addImage`, `addLine`, `addText` but grep did not return a dedicated "editBackground" action.
+- **Recommendation:** Split background styling into its own dialog rather than mixing it into the compositor theme.
+
+### 3P.13 Multi-path relationship finder configuration — **partial**
+
+- Mac evidence: `FindRelationshipPathsConfigurationWidget.nib` — UI to tune how many paths to find, depth limits, inclusion of half/step relations.
+- Web state: `src/lib/relationshipPath.js` returns a single shortest path; no configuration surface for alternative paths or half-blood toggles.
+- **Recommendation:** Expose depth / alt-path count / half-blood flags on `RelationshipChartPane` so users can explore degenerate cases (common in endogamous trees).
+
+### 3P.14 Database migration dialog — **missing**
+
+- Mac evidence: `_DatabaseMigration_MessageText` "Family Tree Migration" with auto-backup-before-migrate and a change list.
+- Web state: schema versioning in `src/lib/schema.js` exists but there is no user-visible migration modal. Silent upgrades risk data loss if a user opens a newer-schema file on an older deploy.
+- **Recommendation:** Detect stored-schema < runtime-schema on load and require explicit "Migrate (backup first)" / "Open read-only" choice.
+
+### 3P.15 Book validation "has errors" sheet — **missing**
+
+- Mac evidence: `BookHasErrorsSheet.nib`.
+- Web state: `src/routes/Books.jsx` + `src/lib/books.js` generate books but there's no pre-export validation sheet (missing sections, broken references, empty pages).
+- **Recommendation:** Small validator that walks the book document and returns fixable issues; block export only on hard errors.
+
+### 3P.16 GEDCOM-adjacent: GedZip media-folder import — **partial**
+
+- Mac evidence: `_MyDocument_GEDCOMImportSelectMediaFolderMessage` — pick the folder of pictures paired with the GEDCOM.
+- Web state: `gedcomImport.js:382` mentions GedZip bundles but the `ImportDropZone` only accepts a single file. Drag-and-drop of a GEDCOM + sibling media folder is not supported.
+- **Recommendation:** Accept a folder drop (webkitdirectory) and resolve `OBJE` file references relative to the folder root.
+
+### Third-pass "Next 3 to implement"
+
+1. **Research Assistant ignore persistence (#3P.4).** Pure data layer — add `researchIgnores` to preferences, filter before render. One small PR.
+2. **Post-import review sheet (#3P.1).** The data is already collected; all that's missing is a list view rendered after a successful import. High-trust win for users debugging messy GEDCOMs.
+3. **Object-level deep linking (#3P.11).** Minor router change on top of existing `?url=` support; unlocks shareable "look at this person" links that the team will actually use.
+
+Deferred: encoding chooser (3P.2) is small but benefits a narrow set of users; TTS (3P.3) is fun but cosmetic; maps slideshow (3P.6) and ToDo wizard (3P.5) are each one solid session but lower urgency than the three above.
