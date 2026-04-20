@@ -14,6 +14,10 @@
 import { openDB } from 'idb';
 import { compareStrings, matchesSearchText, startsWithSearchText } from './i18n.js';
 import { refToRecordName } from './recordRef.js';
+import {
+  DATASET_SCHEMA_VERSION_META_KEY,
+  datasetSchemaVersionForImport,
+} from './datasetSchemaVersion.js';
 
 const DB_NAME = 'cloudtreeweb-local';
 export const LOCAL_DB_VERSION = 3;
@@ -251,6 +255,7 @@ export class LocalDatabase {
     }
 
     // Save metadata
+    await this.setMeta(DATASET_SCHEMA_VERSION_META_KEY, datasetSchemaVersionForImport(dataset));
     if (dataset.meta) {
       await this.setMeta('importInfo', dataset.meta);
     }

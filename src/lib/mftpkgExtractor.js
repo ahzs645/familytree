@@ -1,5 +1,6 @@
 import { normalizeColor } from './schema.js';
 import { decodeNSKeyedArchive } from './nsKeyedArchive.js';
+import { DATASET_SCHEMA_VERSION } from './datasetSchemaVersion.js';
 
 const RECORD_TYPE_MAP = {
   additionalname: 'AdditionalName',
@@ -935,6 +936,7 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
   const skippedResources = resourceFiles.length - assets.length;
 
   return {
+    datasetSchemaVersion: DATASET_SCHEMA_VERSION,
     records,
     assets,
     zones: {
@@ -946,6 +948,7 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
     },
     meta: {
       source: sourceName || 'browser-import',
+      datasetSchemaVersion: DATASET_SCHEMA_VERSION,
       importedAt: new Date().toISOString(),
       counts,
       assetCount: assets.length,

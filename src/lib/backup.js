@@ -4,11 +4,13 @@
  * contents.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { getStoredDatasetSchemaVersion } from './datasetMigration.js';
 
 export async function exportBackup() {
   const db = getLocalDatabase();
   const summary = await db.getSummary();
   const assets = await db.listAllAssets();
+  const datasetSchemaVersion = await getStoredDatasetSchemaVersion();
   const records = {};
   for (const type of Object.keys(summary?.types || {})) {
     const { records: list } = await db.query(type, { limit: 1000000 });
@@ -17,6 +19,7 @@ export async function exportBackup() {
   return {
     format: 'cloudtreeweb-backup',
     version: 2,
+    datasetSchemaVersion,
     exportedAt: new Date().toISOString(),
     counts: summary?.types || {},
     assetCount: assets.length,
@@ -83,6 +86,7 @@ export async function restoreBackup(json) {
   const db = getLocalDatabase();
   await db.importDataset({
     records: json.records,
+    datasetSchemaVersion: json.datasetSchemaVersion,
     assets: Array.isArray(json.assets) ? json.assets : [],
     meta: {
       source: 'backup',

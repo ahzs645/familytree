@@ -4,6 +4,7 @@
  * (no media) so it fits the landing bundle and loads in one frame.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { DATASET_SCHEMA_VERSION } from './datasetSchemaVersion.js';
 
 function uuid(prefix) {
   return `${prefix}-sample-${Math.random().toString(36).slice(2, 10)}`;
@@ -94,6 +95,7 @@ export async function loadSampleTree() {
   const dataset = {
     format: 'cloudtreeweb-backup',
     version: 2,
+    datasetSchemaVersion: DATASET_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     records: Object.fromEntries(records.map((r) => [r.recordName, r])),
     assets: [],

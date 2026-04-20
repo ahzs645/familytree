@@ -4,6 +4,7 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refValue } from './recordRef.js';
+import { DATASET_SCHEMA_VERSION } from './datasetSchemaVersion.js';
 import { Gender } from '../models/index.js';
 
 function tokenizeLine(line) {
@@ -396,12 +397,14 @@ export function buildGedcomDataset(text, { sourceName = 'GEDCOM import', mediaFi
   }, {});
   const analysis = analyzeGedcomText(text);
   return {
+    datasetSchemaVersion: DATASET_SCHEMA_VERSION,
     records: recordMap,
     assets,
     counts,
     treeName: sourceName.replace(/\.(ged|uged|uged16|gedcom)$/i, '') || 'GEDCOM import',
     meta: {
       sourceName,
+      datasetSchemaVersion: DATASET_SCHEMA_VERSION,
       importFormat: 'gedcom',
       importedAt: new Date().toISOString(),
       gedcom: analysis,

@@ -6,15 +6,14 @@
  * persisted) so users never lose data to a silent upgrade.
  */
 import React, { useEffect, useState } from 'react';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import {
   DATASET_SCHEMA_VERSION,
   describeMigrationPlan,
   getStoredDatasetSchemaVersion,
-  markDatasetSchemaVersion,
   runMigrations,
 } from '../lib/datasetMigration.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { exportBackup } from '../lib/backup.js';
 
 export function SchemaMigrationSheet() {
   const modal = useModal();
@@ -139,13 +138,7 @@ function Banner({ children }) {
 }
 
 async function snapshotBackup() {
-  const db = getLocalDatabase();
-  const dataset = await db.exportDataset?.();
-  if (!dataset) {
-    // Fallback to marking the version only; if no exporter exists, still stamp.
-    await markDatasetSchemaVersion();
-    return;
-  }
+  const dataset = await exportBackup();
   const blob = new Blob([JSON.stringify(dataset, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

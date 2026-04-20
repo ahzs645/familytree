@@ -7,21 +7,25 @@
  * on-disk rewrite kicks in.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import {
+  DATASET_SCHEMA_VERSION,
+  DATASET_SCHEMA_VERSION_META_KEY,
+  normalizeDatasetSchemaVersion,
+} from './datasetSchemaVersion.js';
 
-export const DATASET_SCHEMA_VERSION = 1;
-const META_KEY = 'datasetSchemaVersion';
+export { DATASET_SCHEMA_VERSION };
 
 export async function getStoredDatasetSchemaVersion() {
   const db = getLocalDatabase();
-  const value = Number(await db.getMeta(META_KEY));
-  if (Number.isFinite(value) && value >= 0) return value;
+  const value = normalizeDatasetSchemaVersion(await db.getMeta(DATASET_SCHEMA_VERSION_META_KEY), null);
+  if (value !== null) return value;
   if (await db.hasData()) return 0;
   return DATASET_SCHEMA_VERSION;
 }
 
 export async function markDatasetSchemaVersion(version = DATASET_SCHEMA_VERSION) {
   const db = getLocalDatabase();
-  await db.setMeta(META_KEY, Number(version));
+  await db.setMeta(DATASET_SCHEMA_VERSION_META_KEY, normalizeDatasetSchemaVersion(version));
 }
 
 export async function describeMigrationPlan(fromVersion, toVersion = DATASET_SCHEMA_VERSION) {
