@@ -27,6 +27,7 @@ import { DoubleAncestorChart } from './DoubleAncestorChart.jsx';
 import { FanChart } from './FanChart.jsx';
 import { RelationshipPathChart } from './RelationshipPathChart.jsx';
 import { VirtualTreeDiagram } from './VirtualTreeDiagram.jsx';
+import { VirtualTree3D, SYMBOL_MODES, COLOR_MODES, DOF_DEFAULTS } from './VirtualTree3D.jsx';
 import { useChartObjectCommands } from './useChartObjectCommands.js';
 import {
   CircularAncestorChart,
@@ -85,6 +86,10 @@ export function ChartsApp() {
   const [distributionData, setDistributionData] = useState(null);
   const [distributionType, setDistributionType] = useState('gender');
   const [virtualTreeData, setVirtualTreeData] = useState(null);
+  const [virtualViewMode, setVirtualViewMode] = useState('2d');
+  const [virtualSymbolMode, setVirtualSymbolMode] = useState('sphere');
+  const [virtualColorMode, setVirtualColorMode] = useState('gender');
+  const [virtualDof, setVirtualDof] = useState(DOF_DEFAULTS);
   const [currentDocumentId, setCurrentDocumentId] = useState(null);
   const [currentDocumentName, setCurrentDocumentName] = useState('');
   const [isDirty, setIsDirty] = useState(false);
@@ -429,6 +434,14 @@ export function ChartsApp() {
   const selectedRelationshipResult = useMemo(() => (
     relationshipPaths.find((path) => path.id === selectedRelationshipPathId) || relationshipPaths[0] || null
   ), [relationshipPaths, selectedRelationshipPathId]);
+
+  // Record names participating in the currently selected relationship path,
+  // for highlighting inside the Virtual Tree 3D renderer.
+  const relationshipPathIds = useMemo(() => {
+    const steps = selectedRelationshipResult?.steps;
+    if (!Array.isArray(steps)) return [];
+    return steps.map((step) => step.recordName).filter(Boolean);
+  }, [selectedRelationshipResult]);
 
   const onPersonClick = useCallback(
     (p) => {
@@ -1206,6 +1219,77 @@ export function ChartsApp() {
             <aside style={{ width: 220, padding: 16, borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', color: 'hsl(var(--foreground))', fontSize: 13 }}>
               <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 8, letterSpacing: 0.4 }}>VIRTUAL TREE OPTIONS</div>
               <label style={{ display: 'block', marginBottom: 10 }}>
+                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Renderer</div>
+                <select value={virtualViewMode} onChange={(e) => setVirtualViewMode(e.target.value)} style={optionSelect}>
+                  <option value="2d">2D (SVG)</option>
+                  <option value="3d">3D (Three.js — experimental)</option>
+                </select>
+              </label>
+              {virtualViewMode === '3d' && (
+                <>
+                  <label style={{ display: 'block', marginBottom: 10 }}>
+                    <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Symbol mode</div>
+                    <select value={virtualSymbolMode} onChange={(e) => setVirtualSymbolMode(e.target.value)} style={optionSelect}>
+                      {SYMBOL_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ display: 'block', marginBottom: 10 }}>
+                    <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Color mode</div>
+                    <select value={virtualColorMode} onChange={(e) => setVirtualColorMode(e.target.value)} style={optionSelect}>
+                      {COLOR_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
+                    </select>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12 }}>
+                    <input
+                      type="checkbox"
+                      checked={virtualDof.enabled}
+                      onChange={(e) => setVirtualDof((d) => ({ ...d, enabled: e.target.checked }))}
+                    />
+                    Depth of field
+                  </label>
+                  {virtualDof.enabled && (
+                    <>
+                      <label style={{ display: 'block', marginBottom: 8 }}>
+                        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Focus ({Math.round(virtualDof.focus)})</div>
+                        <input
+                          type="range"
+                          min={100}
+                          max={2000}
+                          step={10}
+                          value={virtualDof.focus}
+                          onChange={(e) => setVirtualDof((d) => ({ ...d, focus: +e.target.value }))}
+                          style={{ width: '100%' }}
+                        />
+                      </label>
+                      <label style={{ display: 'block', marginBottom: 8 }}>
+                        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Aperture ({virtualDof.aperture.toFixed(5)})</div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={0.001}
+                          step={0.00005}
+                          value={virtualDof.aperture}
+                          onChange={(e) => setVirtualDof((d) => ({ ...d, aperture: +e.target.value }))}
+                          style={{ width: '100%' }}
+                        />
+                      </label>
+                      <label style={{ display: 'block', marginBottom: 10 }}>
+                        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Max blur ({virtualDof.maxblur.toFixed(3)})</div>
+                        <input
+                          type="range"
+                          min={0}
+                          max={0.05}
+                          step={0.001}
+                          value={virtualDof.maxblur}
+                          onChange={(e) => setVirtualDof((d) => ({ ...d, maxblur: +e.target.value }))}
+                          style={{ width: '100%' }}
+                        />
+                      </label>
+                    </>
+                  )}
+                </>
+              )}
+              <label style={{ display: 'block', marginBottom: 10 }}>
                 <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Source</div>
                 <select value={virtualSource} onChange={(e) => setVirtualSource(e.target.value)} style={optionSelect}>
                   <option value="descendant">Descendants</option>
@@ -1229,18 +1313,29 @@ export function ChartsApp() {
               </label>
             </aside>
             <div style={{ flex: 1, position: 'relative' }}>
-              <VirtualTreeDiagram
-                chartCanvasRef={chartCanvasRef}
-                tree={virtualSource === 'ancestor' ? ancestorTree : descendantTree}
-                source={virtualSource}
-                virtualTreeData={virtualTreeData}
-                onPersonClick={onPersonClick}
-                theme={theme}
-                page={chartPage}
-                overlays={overlays}
-                {...overlayChartProps}
-                options={{ orientation: virtualOrientation, hSpacing: virtualHSpacing, vSpacing: virtualVSpacing }}
-              />
+              {virtualViewMode === '3d' ? (
+                <VirtualTree3D
+                  virtualTreeData={virtualTreeData}
+                  symbolMode={virtualSymbolMode}
+                  colorMode={virtualColorMode}
+                  relationshipPathIds={relationshipPathIds}
+                  dof={virtualDof}
+                  onPick={(id) => openPersonInPanel({ recordName: id })}
+                />
+              ) : (
+                <VirtualTreeDiagram
+                  chartCanvasRef={chartCanvasRef}
+                  tree={virtualSource === 'ancestor' ? ancestorTree : descendantTree}
+                  source={virtualSource}
+                  virtualTreeData={virtualTreeData}
+                  onPersonClick={onPersonClick}
+                  theme={theme}
+                  page={chartPage}
+                  overlays={overlays}
+                  {...overlayChartProps}
+                  options={{ orientation: virtualOrientation, hSpacing: virtualHSpacing, vSpacing: virtualVSpacing }}
+                />
+              )}
             </div>
           </div>
         )}
