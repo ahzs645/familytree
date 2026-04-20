@@ -615,7 +615,10 @@ export function ChartsApp() {
       const { url, token } = await buildChartShareUrl();
       await navigator.clipboard?.writeText(url).catch(() => {});
       const size = Math.round(token.length / 1024 * 10) / 10;
-      await modal.alert(`Share link copied to clipboard.\n\nToken size: ~${size}KB\nOpens at: /view/<token>`, { title: 'Share link' });
+      modal.toast(`Token size: ~${size}KB\nLink length: ${url.length.toLocaleString()} characters`, {
+        title: 'Share link copied',
+        kind: 'success',
+      });
     } catch (error) {
       console.error('[ChartsApp] share-link failed', error);
       await modal.alert(`Share link failed: ${error.message}`, { title: 'Share link failed' });

@@ -6,6 +6,7 @@
  * Usage:
  *   const modal = useModal();
  *   await modal.alert('Saved.');
+ *   modal.toast('Saved.');
  *   if (!(await modal.confirm('Delete?'))) return;
  *   const name = await modal.prompt('Rename:', existing);
  */
@@ -21,7 +22,9 @@ export function useModal() {
 
 export function ModalProvider({ children }) {
   const [stack, setStack] = useState([]);
+  const [toasts, setToasts] = useState([]);
   const idRef = useRef(0);
+  const toastIdRef = useRef(0);
 
   const push = useCallback((modal) => {
     const id = ++idRef.current;
@@ -36,6 +39,10 @@ export function ModalProvider({ children }) {
       if (m) m.resolve(value);
       return s.filter((x) => x.id !== id);
     });
+  }, []);
+
+  const closeToast = useCallback((id) => {
+    setToasts((s) => s.filter((x) => x.id !== id));
   }, []);
 
   const api = useMemo(() => ({
@@ -61,6 +68,20 @@ export function ModalProvider({ children }) {
         placeholder: opts.placeholder,
         multiline: !!opts.multiline,
       }),
+    toast: (message, opts = {}) => {
+      const id = ++toastIdRef.current;
+      setToasts((s) => [
+        ...s,
+        {
+          id,
+          message,
+          title: opts.title,
+          kind: opts.kind || 'default',
+          duration: opts.duration ?? 4500,
+        },
+      ]);
+      return id;
+    },
   }), [push]);
 
   return (
@@ -69,7 +90,53 @@ export function ModalProvider({ children }) {
       {stack.map((m) => (
         <ModalView key={m.id} modal={m} onClose={(v) => close(m.id, v)} />
       ))}
+      <div className="fixed bottom-4 left-4 right-4 sm:left-auto z-[80] flex flex-col items-stretch sm:items-end gap-2 pointer-events-none">
+        {toasts.map((toast) => (
+          <ToastView key={toast.id} toast={toast} onClose={() => closeToast(toast.id)} />
+        ))}
+      </div>
     </ModalContext.Provider>
+  );
+}
+
+function ToastView({ toast, onClose }) {
+  useEffect(() => {
+    if (!Number.isFinite(toast.duration) || toast.duration <= 0) return undefined;
+    const t = setTimeout(onClose, toast.duration);
+    return () => clearTimeout(t);
+  }, [onClose, toast.duration]);
+
+  const accentClass = toast.kind === 'success'
+    ? 'border-l-primary'
+    : toast.kind === 'error'
+      ? 'border-l-destructive'
+      : 'border-l-muted-foreground';
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={`pointer-events-auto w-full sm:w-96 rounded-lg border border-border border-l-4 ${accentClass} bg-card px-4 py-3 shadow-lg`}
+    >
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          {toast.title && (
+            <div className="text-sm font-semibold text-foreground leading-5">{toast.title}</div>
+          )}
+          <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-5">
+            {toast.message}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close notification"
+          className="shrink-0 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+        >
+          x
+        </button>
+      </div>
+    </div>
   );
 }
 
