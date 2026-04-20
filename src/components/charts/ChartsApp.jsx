@@ -68,6 +68,17 @@ export function ChartsApp() {
   const [virtualOrientation, setVirtualOrientation] = useState('vertical');
   const [virtualHSpacing, setVirtualHSpacing] = useState(24);
   const [virtualVSpacing, setVirtualVSpacing] = useState(110);
+  const [descendantGenerations, setDescendantGenerations] = useState(5);
+  const [hourglassAncestorGens, setHourglassAncestorGens] = useState(4);
+  const [hourglassDescendantGens, setHourglassDescendantGens] = useState(3);
+  const [doubleAncestorLeftGens, setDoubleAncestorLeftGens] = useState(4);
+  const [doubleAncestorRightGens, setDoubleAncestorRightGens] = useState(4);
+  const [fanArcDegrees, setFanArcDegrees] = useState(180);
+  const [exportFormat, setExportFormat] = useState('png');
+  const [exportScale, setExportScale] = useState(1);
+  const [exportIncludeBackground, setExportIncludeBackground] = useState(true);
+  const [exportJpegQuality, setExportJpegQuality] = useState(0.92);
+  const [exportFileNameTemplate, setExportFileNameTemplate] = useState('{title}-{date}');
   const [chartTitle, setChartTitle] = useState('');
   const [chartNote, setChartNote] = useState('');
   const [pageSize, setPageSize] = useState('letter');
@@ -223,12 +234,28 @@ export function ChartsApp() {
   }, []);
 
   // Build trees as inputs change.
+  // Ancestor depth follows the relevant per-chart ancestor count so hourglass
+  // can keep its ancestor ring small while the main ancestor chart uses the
+  // user's full `generations` slider. Descendant depth follows the matching
+  // per-chart descendant count so descendant/genogram/sociogram charts no
+  // longer get silently clamped to 4 generations.
+  const ancestorDepth = chartType === 'hourglass'
+    ? hourglassAncestorGens
+    : chartType === 'double-ancestor'
+      ? doubleAncestorLeftGens
+      : generations;
+  const descendantDepth = chartType === 'hourglass'
+    ? hourglassDescendantGens
+    : chartType === 'descendant' || chartType === 'genogram' || chartType === 'sociogram' || chartType === 'tree' || chartType === 'symmetrical'
+      ? descendantGenerations
+      : descendantGenerations;
+
   useEffect(() => {
     if (!rootId) return;
     let cancelled = false;
     (async () => {
-      const a = await buildAncestorTree(rootId, generations);
-      const d = await buildDescendantTree(rootId, Math.min(generations, 4));
+      const a = await buildAncestorTree(rootId, ancestorDepth);
+      const d = await buildDescendantTree(rootId, descendantDepth);
       if (!cancelled) {
         setAncestorTree(a);
         setDescendantTree(d);
@@ -237,7 +264,7 @@ export function ChartsApp() {
     return () => {
       cancelled = true;
     };
-  }, [rootId, generations]);
+  }, [rootId, ancestorDepth, descendantDepth, chartType]);
 
   useEffect(() => {
     if (!secondId || !needsSecond) {
@@ -249,7 +276,7 @@ export function ChartsApp() {
     let cancelled = false;
     (async () => {
       if (chartType === 'double-ancestor') {
-        const a2 = await buildAncestorTree(secondId, generations);
+        const a2 = await buildAncestorTree(secondId, doubleAncestorRightGens);
         if (!cancelled) setSecondAncestorTree(a2);
       } else if (chartType === 'relationship') {
         const result = await findRelationshipPaths(rootId, secondId, { bloodlineOnly: relationshipBloodlineOnly });
@@ -266,7 +293,7 @@ export function ChartsApp() {
     return () => {
       cancelled = true;
     };
-  }, [secondId, chartType, generations, needsSecond, rootId, relationshipBloodlineOnly]);
+  }, [secondId, chartType, generations, doubleAncestorRightGens, needsSecond, rootId, relationshipBloodlineOnly]);
 
   const selectedRelationshipResult = useMemo(() => (
     relationshipPaths.find((path) => path.id === selectedRelationshipPathId) || relationshipPaths[0] || null
@@ -431,6 +458,14 @@ export function ChartsApp() {
     focusRootInCanvas();
   }, [focusRootInCanvas, findText, persons, setActivePerson]);
 
+  const exportSettings = useMemo(() => ({
+    format: exportFormat,
+    scale: exportScale,
+    includeBackground: exportIncludeBackground,
+    jpegQuality: exportJpegQuality,
+    fileNameTemplate: exportFileNameTemplate,
+  }), [exportFormat, exportScale, exportIncludeBackground, exportJpegQuality, exportFileNameTemplate]);
+
   const overlayChartProps = useMemo(
     () => ({
       onOverlaysChange,
@@ -439,8 +474,9 @@ export function ChartsApp() {
       selectedOverlayId,
       onSelectOverlay: selectOverlay,
       filename: chartTitleOrDefault,
+      exportSettings,
     }),
-    [onOverlaysChange, setOverlaysCommit, setOverlaysPreview, selectedOverlayId, selectOverlay, chartTitleOrDefault]
+    [onOverlaysChange, setOverlaysCommit, setOverlaysPreview, selectedOverlayId, selectOverlay, chartTitleOrDefault, exportSettings]
   );
 
   if (loading) return <div style={loadingStyle}>Loading family data…</div>;
@@ -528,6 +564,92 @@ export function ChartsApp() {
                   style={optionSelect}
                 />
               </Section>
+
+              {(chartType === 'descendant' || chartType === 'tree' || chartType === 'symmetrical' || chartType === 'genogram' || chartType === 'sociogram') && (
+                <Section label="Descendant generations">
+                  <input
+                    type="number"
+                    min={1}
+                    max={8}
+                    value={descendantGenerations}
+                    onChange={(e) => setDescendantGenerations(Math.min(8, Math.max(1, +e.target.value || 5)))}
+                    style={optionSelect}
+                  />
+                </Section>
+              )}
+
+              {chartType === 'hourglass' && (
+                <Section label="Hourglass generations">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    <label style={{ display: 'block' }}>
+                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Ancestors</div>
+                      <input
+                        type="number"
+                        min={1}
+                        max={8}
+                        value={hourglassAncestorGens}
+                        onChange={(e) => setHourglassAncestorGens(Math.min(8, Math.max(1, +e.target.value || 4)))}
+                        style={optionSelect}
+                      />
+                    </label>
+                    <label style={{ display: 'block' }}>
+                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Descendants</div>
+                      <input
+                        type="number"
+                        min={1}
+                        max={8}
+                        value={hourglassDescendantGens}
+                        onChange={(e) => setHourglassDescendantGens(Math.min(8, Math.max(1, +e.target.value || 3)))}
+                        style={optionSelect}
+                      />
+                    </label>
+                  </div>
+                </Section>
+              )}
+
+              {chartType === 'double-ancestor' && (
+                <Section label="Double ancestor generations">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    <label style={{ display: 'block' }}>
+                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Left / Father</div>
+                      <input
+                        type="number"
+                        min={1}
+                        max={8}
+                        value={doubleAncestorLeftGens}
+                        onChange={(e) => setDoubleAncestorLeftGens(Math.min(8, Math.max(1, +e.target.value || 4)))}
+                        style={optionSelect}
+                      />
+                    </label>
+                    <label style={{ display: 'block' }}>
+                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Right / Mother</div>
+                      <input
+                        type="number"
+                        min={1}
+                        max={8}
+                        value={doubleAncestorRightGens}
+                        onChange={(e) => setDoubleAncestorRightGens(Math.min(8, Math.max(1, +e.target.value || 4)))}
+                        style={optionSelect}
+                      />
+                    </label>
+                  </div>
+                </Section>
+              )}
+
+              {chartType === 'fan' && (
+                <Section label="Fan arc">
+                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Arc ({fanArcDegrees}°)</div>
+                  <input
+                    type="range"
+                    min={90}
+                    max={360}
+                    step={15}
+                    value={fanArcDegrees}
+                    onChange={(e) => setFanArcDegrees(+e.target.value)}
+                    style={{ width: '100%' }}
+                  />
+                </Section>
+              )}
 
               <Section label="Title">
                 <input value={chartTitle} onChange={(e) => setChartTitle(e.target.value)} placeholder="Optional title" style={optionSelect} />
@@ -633,9 +755,61 @@ export function ChartsApp() {
                   />
                   <button onClick={onFindPerson} style={optionSelect}>Find</button>
                 </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
+                  <label style={{ display: 'block' }}>
+                    <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Format</div>
+                    <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={optionSelect}>
+                      <option value="png">PNG</option>
+                      <option value="jpeg">JPEG</option>
+                    </select>
+                  </label>
+                  <label style={{ display: 'block' }}>
+                    <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Scale ({exportScale.toFixed(2)}×)</div>
+                    <input
+                      type="range"
+                      min={0.25}
+                      max={4}
+                      step={0.25}
+                      value={exportScale}
+                      onChange={(e) => setExportScale(+e.target.value)}
+                      style={{ width: '100%' }}
+                    />
+                  </label>
+                </div>
+                {exportFormat === 'jpeg' && (
+                  <label style={{ display: 'block', marginBottom: 6 }}>
+                    <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>JPEG quality ({Math.round(exportJpegQuality * 100)}%)</div>
+                    <input
+                      type="range"
+                      min={0.1}
+                      max={1}
+                      step={0.05}
+                      value={exportJpegQuality}
+                      onChange={(e) => setExportJpegQuality(+e.target.value)}
+                      style={{ width: '100%' }}
+                    />
+                  </label>
+                )}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: 12 }}>
+                  <input
+                    type="checkbox"
+                    checked={exportIncludeBackground}
+                    onChange={(e) => setExportIncludeBackground(e.target.checked)}
+                  />
+                  Include background
+                </label>
+                <label style={{ display: 'block', marginBottom: 6 }}>
+                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>File name template</div>
+                  <input
+                    value={exportFileNameTemplate}
+                    onChange={(e) => setExportFileNameTemplate(e.target.value)}
+                    placeholder="{title}-{date}"
+                    style={optionSelect}
+                  />
+                </label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                   <button onClick={exportSvg} style={optionSelect}>Save SVG</button>
-                  <button onClick={exportPng} style={optionSelect}>Save PNG</button>
+                  <button onClick={exportPng} style={optionSelect}>Save {exportFormat === 'jpeg' ? 'JPEG' : 'PNG'}</button>
                   <button onClick={exportPdf} style={optionSelect}>Save PDF</button>
                 </div>
               </Section>
@@ -675,7 +849,7 @@ export function ChartsApp() {
             chartCanvasRef={chartCanvasRef}
             ancestorTree={ancestorTree}
             descendantTree={descendantTree}
-            generations={generations}
+            generations={hourglassAncestorGens}
             onPersonClick={onPersonClick}
             theme={theme}
             page={chartPage}
@@ -702,7 +876,8 @@ export function ChartsApp() {
             chartCanvasRef={chartCanvasRef}
             leftTree={ancestorTree}
             rightTree={secondAncestorTree}
-            generations={generations}
+            leftGenerations={doubleAncestorLeftGens}
+            rightGenerations={doubleAncestorRightGens}
             onPersonClick={onPersonClick}
             theme={theme}
             page={chartPage}
@@ -715,6 +890,7 @@ export function ChartsApp() {
             chartCanvasRef={chartCanvasRef}
             tree={ancestorTree}
             generations={generations}
+            arcDegrees={fanArcDegrees}
             onPersonClick={onPersonClick}
             theme={theme}
             page={chartPage}

@@ -21,6 +21,7 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
     onSelectOverlay,
     selectedOverlayId,
     filename,
+    exportSettings,
     children,
   },
   ref
@@ -150,6 +151,8 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
   const exportOptions = {
     page,
     filename: filename || page.title || 'chart',
+    exportSettings,
+    fileNameTemplate: exportSettings?.fileNameTemplate,
   };
 
   const onExportSvg = () => exportChartAsSvg(svgRef.current, exportOptions);

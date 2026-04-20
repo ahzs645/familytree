@@ -12,10 +12,25 @@ import { layoutAncestors } from './layouts/ancestorLayout.js';
 const PADDING = 30;
 const COUPLE_GAP = 80;
 
-export function DoubleAncestorChart({ leftTree, rightTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function DoubleAncestorChart({
+  leftTree,
+  rightTree,
+  generations = 4,
+  leftGenerations,
+  rightGenerations,
+  onPersonClick,
+  theme = DEFAULT_THEME,
+  page,
+  overlays,
+  onOverlaysChange,
+  chartCanvasRef,
+  ...overlayProps
+}) {
+  const leftCount = Number.isFinite(leftGenerations) ? leftGenerations : generations;
+  const rightCount = Number.isFinite(rightGenerations) ? rightGenerations : generations;
   const layout = useMemo(() => {
-    const left = layoutAncestors(leftTree, generations, theme);
-    const right = layoutAncestors(rightTree, generations, theme);
+    const left = layoutAncestors(leftTree, leftCount, theme);
+    const right = layoutAncestors(rightTree, rightCount, theme);
 
     // Both layouts grow left→right. Mirror the LEFT one so it grows right→left.
     const leftMirrored = {
@@ -49,7 +64,7 @@ export function DoubleAncestorChart({ leftTree, rightTree, generations = 4, onPe
         : null;
 
     return { left: leftMirrored, right: rightShifted, marriage };
-  }, [leftTree, rightTree, generations, theme]);
+  }, [leftTree, rightTree, leftCount, rightCount, theme]);
 
   if (!leftTree || !rightTree) {
     return <div style={{ padding: 24, color: theme.textMuted }}>Pick two persons (a couple) to chart.</div>;
