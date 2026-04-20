@@ -1,6 +1,8 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 
 const META_KEY = 'websitePublishTarget';
+const HISTORY_META_KEY = 'websitePublishHistory';
+const HISTORY_MAX_ENTRIES = 50;
 
 export const DEFAULT_PUBLISH_TARGET = {
   mode: 'download',
@@ -54,6 +56,38 @@ export function validatePublishTarget(target) {
     if (!/^https?:\/\//i.test(normalized.webhookUrl)) errors.push('Webhook URL must start with http:// or https://.');
   }
   return { target: normalized, errors, canPublish: errors.length === 0 };
+}
+
+/**
+ * Publish history — append-only log so the Websites route can surface past
+ * publishes with their target, status, and any validation warnings. Entries
+ * are persisted in the local meta store so they survive reloads.
+ */
+export async function listPublishHistory() {
+  const list = await getLocalDatabase().getMeta(HISTORY_META_KEY);
+  return Array.isArray(list) ? list : [];
+}
+
+export async function recordPublishHistoryEntry(entry) {
+  const db = getLocalDatabase();
+  const current = await listPublishHistory();
+  const stamped = {
+    id: `publish-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    timestamp: new Date().toISOString(),
+    mode: entry?.mode || 'download',
+    targetName: entry?.targetName || '',
+    status: entry?.status || 'unknown',
+    siteTitle: entry?.siteTitle || '',
+    validationLog: Array.isArray(entry?.validationLog) ? entry.validationLog : [],
+    message: entry?.message || '',
+  };
+  const next = [stamped, ...current].slice(0, HISTORY_MAX_ENTRIES);
+  await db.setMeta(HISTORY_META_KEY, next);
+  return stamped;
+}
+
+export async function clearPublishHistory() {
+  await getLocalDatabase().setMeta(HISTORY_META_KEY, []);
 }
 
 export async function postWebsiteToWebhook({ blob, target, siteTitle }) {

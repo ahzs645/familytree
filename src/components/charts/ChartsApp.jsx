@@ -15,6 +15,8 @@ import { loadSavedChartDocument } from '../../lib/chartContainerLoader.js';
 import { normalizeChartDocument } from '../../lib/chartDocumentSchema.js';
 import { buildTimelineData } from '../../lib/chartData/timelineBuilder.js';
 import { buildGenogramData } from '../../lib/chartData/genogramBuilder.js';
+import { buildDistributionData } from '../../lib/chartData/distributionBuilder.js';
+import { buildVirtualTreeData } from '../../lib/chartData/virtualTreeBuilder.js';
 import { THEMES, getTheme } from './theme.js';
 import { PersonPicker } from './PersonPicker.jsx';
 import { AncestorChart } from './AncestorChart.jsx';
@@ -80,6 +82,9 @@ export function ChartsApp() {
   const [ancestorBranch, setAncestorBranch] = useState('both');
   const [timelineData, setTimelineData] = useState(null);
   const [genogramData, setGenogramData] = useState(null);
+  const [distributionData, setDistributionData] = useState(null);
+  const [distributionType, setDistributionType] = useState('gender');
+  const [virtualTreeData, setVirtualTreeData] = useState(null);
   const [currentDocumentId, setCurrentDocumentId] = useState(null);
   const [currentDocumentName, setCurrentDocumentName] = useState('');
   const [isDirty, setIsDirty] = useState(false);
@@ -384,6 +389,42 @@ export function ChartsApp() {
     })();
     return () => { cancelled = true; };
   }, [chartType, rootId, descendantGenerations]);
+
+  useEffect(() => {
+    if (chartType !== 'distribution') { setDistributionData(null); return undefined; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await buildDistributionData({ distributionType });
+        if (!cancelled) setDistributionData(data);
+      } catch (_error) {
+        if (!cancelled) setDistributionData(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [chartType, distributionType]);
+
+  useEffect(() => {
+    if (chartType !== 'virtual') { setVirtualTreeData(null); return undefined; }
+    if (!rootId) { setVirtualTreeData(null); return undefined; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await buildVirtualTreeData({
+          rootPersonId: rootId,
+          collectMode: virtualSource,
+          generations,
+          hSpacing: virtualHSpacing,
+          vSpacing: virtualVSpacing,
+          orientation: virtualOrientation,
+        });
+        if (!cancelled) setVirtualTreeData(data);
+      } catch (_error) {
+        if (!cancelled) setVirtualTreeData(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [chartType, rootId, virtualSource, generations, virtualHSpacing, virtualVSpacing, virtualOrientation]);
 
   const selectedRelationshipResult = useMemo(() => (
     relationshipPaths.find((path) => path.id === selectedRelationshipPathId) || relationshipPaths[0] || null
@@ -1064,6 +1105,7 @@ export function ChartsApp() {
           <DistributionChart
             chartCanvasRef={chartCanvasRef}
             persons={persons}
+            distributionData={distributionData}
             theme={theme}
             page={chartPage}
             overlays={overlays}
@@ -1191,6 +1233,7 @@ export function ChartsApp() {
                 chartCanvasRef={chartCanvasRef}
                 tree={virtualSource === 'ancestor' ? ancestorTree : descendantTree}
                 source={virtualSource}
+                virtualTreeData={virtualTreeData}
                 onPersonClick={onPersonClick}
                 theme={theme}
                 page={chartPage}

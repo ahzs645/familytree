@@ -198,11 +198,25 @@ function buildRibbons(persons, category) {
     .slice(0, 16);
 }
 
-export function DistributionChart({ persons = [], theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function DistributionChart({ persons = [], distributionData, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const [categoryId, setCategoryId] = useState(DISTRIBUTION_CATEGORIES[0].id);
   const category = DISTRIBUTION_CATEGORIES.find((c) => c.id === categoryId) || DISTRIBUTION_CATEGORIES[0];
 
-  const ribbons = useMemo(() => buildRibbons(persons, category), [persons, category]);
+  // When a caller supplies `distributionData` from `buildDistributionData`
+  // (src/lib/chartData/distributionBuilder.js) we prefer its record-backed
+  // buckets + year ranges; this unlocks fact-based categories (occupation,
+  // illness, eye color, etc.) that the tree-derived path can't compute.
+  // The builder's per-bucket minYear/maxYear map straight to ribbon min/max.
+  const ribbons = useMemo(() => {
+    if (Array.isArray(distributionData?.items) && distributionData.items.length > 0) {
+      return distributionData.items
+        .filter((item) => item.minYear != null && item.maxYear != null)
+        .map((item) => ({ value: item.label, min: item.minYear, max: item.maxYear, count: item.count }))
+        .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
+        .slice(0, 16);
+    }
+    return buildRibbons(persons, category);
+  }, [persons, category, distributionData]);
 
   const current = new Date().getFullYear();
   const minYear = ribbons.length ? Math.floor(Math.min(...ribbons.map((r) => r.min)) / 25) * 25 : 1900;

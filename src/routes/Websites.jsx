@@ -11,6 +11,9 @@ import {
   postWebsiteToWebhook,
   savePublishTarget,
   validatePublishTarget,
+  listPublishHistory,
+  recordPublishHistoryEntry,
+  clearPublishHistory,
 } from '../lib/publishTargets.js';
 
 const buttonPrimary = 'rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold disabled:opacity-50';
@@ -26,6 +29,7 @@ export default function Websites() {
   const [busy, setBusy] = useState(false);
   const [completedStats, setCompletedStats] = useState(null);
   const [publishTarget, setPublishTarget] = useState(DEFAULT_PUBLISH_TARGET);
+  const [publishHistory, setPublishHistory] = useState([]);
   const controllerRef = useRef(null);
 
   React.useEffect(() => {
@@ -33,8 +37,22 @@ export default function Websites() {
     (async () => {
       const target = await getPublishTarget();
       if (!cancel) setPublishTarget(target);
+      const history = await listPublishHistory();
+      if (!cancel) setPublishHistory(history);
     })();
     return () => { cancel = true; };
+  }, []);
+
+  const appendHistory = useCallback(async (entry) => {
+    await recordPublishHistoryEntry(entry);
+    const refreshed = await listPublishHistory();
+    setPublishHistory(refreshed);
+  }, []);
+
+  const onClearHistory = useCallback(async () => {
+    if (!confirm('Clear the publish history?')) return;
+    await clearPublishHistory();
+    setPublishHistory([]);
   }, []);
 
   const privacyLabel = useMemo(() => (
@@ -125,6 +143,14 @@ export default function Websites() {
       const targetValidation = validatePublishTarget(publishTarget);
       if (!targetValidation.canPublish) {
         setStatus(`Publish target has issues: ${targetValidation.errors.join(' ')}`);
+        await appendHistory({
+          mode: targetValidation.target.mode,
+          targetName: targetValidation.target.name,
+          status: 'failed-validation',
+          siteTitle: options.siteTitle,
+          validationLog: targetValidation.errors.map((message) => ({ severity: 'error', message })),
+          message: 'Publish target failed validation.',
+        });
         return;
       }
       await savePublishTarget(targetValidation.target);
@@ -141,6 +167,14 @@ export default function Websites() {
         });
         setCompletedStats(result.stats);
         setStatus(`Published website zip to webhook. ${result.stats.pages.toLocaleString()} pages prepared.`);
+        await appendHistory({
+          mode: 'webhook',
+          targetName: targetValidation.target.name,
+          status: 'success',
+          siteTitle: options.siteTitle,
+          validationLog: [],
+          message: `Webhook delivery succeeded. ${result.stats.pages} pages.`,
+        });
         return;
       }
       await downloadSite({
@@ -148,17 +182,34 @@ export default function Websites() {
         signal: controller.signal,
         onProgress: setProgress,
       });
-      setStatus(targetValidation.target.mode === 'download'
+      const doneMessage = targetValidation.target.mode === 'download'
         ? 'Website zip downloaded.'
-        : `Website zip downloaded for ${targetValidation.target.mode.toUpperCase()} upload to ${targetValidation.target.host}${targetValidation.target.remotePath}.`);
+        : `Website zip downloaded for ${targetValidation.target.mode.toUpperCase()} upload to ${targetValidation.target.host}${targetValidation.target.remotePath}.`;
+      setStatus(doneMessage);
+      await appendHistory({
+        mode: targetValidation.target.mode,
+        targetName: targetValidation.target.name,
+        status: 'success',
+        siteTitle: options.siteTitle,
+        validationLog: [],
+        message: doneMessage,
+      });
     } catch (error) {
-      if (error.name === 'AbortError') setStatus('Publishing canceled.');
-      else setStatus(`Publishing failed: ${error.message}`);
+      const failMessage = error.name === 'AbortError' ? 'Publishing canceled.' : `Publishing failed: ${error.message}`;
+      setStatus(failMessage);
+      await appendHistory({
+        mode: publishTarget?.mode || 'download',
+        targetName: publishTarget?.name || '',
+        status: error.name === 'AbortError' ? 'canceled' : 'failed',
+        siteTitle: options.siteTitle,
+        validationLog: [],
+        message: failMessage,
+      });
     } finally {
       controllerRef.current = null;
       setBusy(false);
     }
-  }, [options, publishTarget]);
+  }, [options, publishTarget, appendHistory]);
 
   const onCancel = useCallback(() => {
     controllerRef.current?.abort();
@@ -355,9 +406,53 @@ export default function Websites() {
         {status && (
           <div className="mt-4 rounded-md border border-border bg-card p-3 text-sm">{status}</div>
         )}
+
+        <section className="mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-base font-semibold">Publish history</h2>
+            {publishHistory.length > 0 && (
+              <button onClick={onClearHistory} className={buttonSecondary}>Clear</button>
+            )}
+          </div>
+          {publishHistory.length === 0 ? (
+            <div className="rounded-md border border-border bg-card p-3 text-sm text-muted-foreground">
+              No publishes recorded yet.
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {publishHistory.map((entry) => (
+                <li key={entry.id} className="rounded-md border border-border bg-card p-3 text-sm">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className={`inline-block text-xs px-2 py-0.5 rounded ${statusBadgeClass(entry.status)}`}>
+                      {entry.status}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{new Date(entry.timestamp).toLocaleString()}</span>
+                    <span className="text-xs text-muted-foreground">· {entry.mode}</span>
+                    {entry.targetName && <span className="text-xs text-muted-foreground">· {entry.targetName}</span>}
+                    {entry.siteTitle && <span className="text-xs text-muted-foreground">· {entry.siteTitle}</span>}
+                  </div>
+                  {entry.message && <div className="text-sm">{entry.message}</div>}
+                  {Array.isArray(entry.validationLog) && entry.validationLog.length > 0 && (
+                    <ul className="mt-1 text-xs text-muted-foreground">
+                      {entry.validationLog.map((log, index) => (
+                        <li key={index}>· [{log.severity}] {log.message}</li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       </div>
     </div>
   );
+}
+
+function statusBadgeClass(status) {
+  if (status === 'success') return 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200';
+  if (status === 'canceled') return 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200';
+  return 'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-200';
 }
 
 function Field({ label, children }) {

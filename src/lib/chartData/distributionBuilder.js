@@ -103,37 +103,64 @@ export async function buildDistributionData(config = {}) {
     getAllPersonFacts(),
   ]);
 
+  // Each bucket accumulates count + a min/max year range derived from the
+  // contributing persons, so renderers that want a ribbon-style timeline
+  // visualization (like the web DistributionChart) can draw per-category
+  // bars without re-scanning the records.
   const buckets = new Map();
-  const increment = (key) => {
+  const increment = (key, { birth, death } = {}) => {
     if (!key) return;
-    buckets.set(key, (buckets.get(key) || 0) + 1);
+    const existing = buckets.get(key) || { count: 0, min: Infinity, max: -Infinity };
+    existing.count += 1;
+    if (Number.isFinite(birth)) {
+      if (birth < existing.min) existing.min = birth;
+      if (birth > existing.max) existing.max = birth;
+    }
+    if (Number.isFinite(death)) {
+      if (death < existing.min) existing.min = death;
+      if (death > existing.max) existing.max = death;
+    }
+    buckets.set(key, existing);
   };
 
   const type = normalized.distributionType;
   const factField = FACT_FIELD_BY_TYPE[type];
+  const personById = new Map();
+  for (const person of persons) {
+    if (person?.recordName) personById.set(person.recordName, person);
+  }
 
   if (factField) {
     for (const fact of facts) {
       const factType = readField(fact, ['factType', 'type']);
       if (factType && String(factType).toLowerCase() !== factField.toLowerCase()) continue;
-      const value = readField(fact, ['value', 'text', 'name']);
-      increment(value || 'Unknown');
+      const value = readField(fact, ['value', 'text', 'name']) || 'Unknown';
+      const personRef = fact?.fields?.person?.value;
+      const person = personRef && typeof personRef === 'string'
+        ? personById.get(personRef.split('---')[0])
+        : null;
+      const birth = person ? readBirthYear(person) : null;
+      const death = person ? readDeathYear(person) : null;
+      increment(value, { birth, death });
     }
-  } else if (type === 'birthPlace' || type === 'birthCountry') {
-    for (const person of persons) increment(bucketKeyForPerson(person, type, placeIndex));
-  } else if (type === 'deathPlace' || type === 'deathCountry') {
-    for (const person of persons) increment(bucketKeyForPerson(person, type, placeIndex));
   } else {
-    for (const person of persons) increment(bucketKeyForPerson(person, type, placeIndex));
+    for (const person of persons) {
+      const key = bucketKeyForPerson(person, type, placeIndex);
+      const birth = readBirthYear(person);
+      const death = readDeathYear(person);
+      increment(key, { birth, death });
+    }
   }
 
-  const total = [...buckets.values()].reduce((sum, n) => sum + n, 0) || 1;
+  const total = [...buckets.values()].reduce((sum, b) => sum + b.count, 0) || 1;
   const items = [...buckets.entries()]
-    .filter(([, count]) => count >= normalized.minBucketSize)
-    .map(([label, count]) => ({
+    .filter(([, bucket]) => bucket.count >= normalized.minBucketSize)
+    .map(([label, bucket]) => ({
       label,
-      count,
-      fraction: count / total,
+      count: bucket.count,
+      fraction: bucket.count / total,
+      minYear: Number.isFinite(bucket.min) ? bucket.min : null,
+      maxYear: Number.isFinite(bucket.max) ? bucket.max : null,
     }))
     .sort((a, b) => b.count - a.count);
 
