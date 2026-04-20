@@ -397,8 +397,17 @@ export function TimelineChart({ ancestorTree, descendantTree, timelineData, them
   );
 }
 
-export function GenogramChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, sociogram = false, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function GenogramChart({ tree, genogramData, onPersonClick, theme = DEFAULT_THEME, page, sociogram = false, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const layout = useMemo(() => layoutDescendants(tree, theme), [tree, theme]);
+  // Index builder-output nodes by person record name so we can annotate each
+  // layout node with its event/fact counts without reshaping the layout.
+  const builderByPersonId = useMemo(() => {
+    const map = new Map();
+    if (Array.isArray(genogramData?.nodes)) {
+      for (const node of genogramData.nodes) if (node?.id) map.set(node.id, node);
+    }
+    return map;
+  }, [genogramData]);
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
   return (
     <ChartCanvas
@@ -413,14 +422,42 @@ export function GenogramChart({ tree, onPersonClick, theme = DEFAULT_THEME, page
         {layout.links.map((link, index) => (
           <path key={index} d={link.d} fill="none" stroke={sociogram ? '#d08c60' : theme.connector} strokeWidth={sociogram ? 2.4 : theme.connectorWidth} strokeDasharray={sociogram ? '6 4' : 'none'} />
         ))}
-        {layout.nodes.map((node, index) => (
-          <g key={`${node.id}-${index}`}>
-            <PersonNode x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} />
-            {sociogram && !node.placeholder && (
-              <circle cx={node.x + theme.nodeWidth - 14} cy={node.y + 14} r={5} fill="#d08c60" />
-            )}
-          </g>
-        ))}
+        {layout.nodes.map((node, index) => {
+          const builderNode = node.person?.recordName ? builderByPersonId.get(node.person.recordName) : null;
+          const eventCount = builderNode?.events?.length || 0;
+          const factCount = builderNode?.facts?.length || 0;
+          return (
+            <g key={`${node.id}-${index}`}>
+              <PersonNode x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} />
+              {sociogram && !node.placeholder && (
+                <circle cx={node.x + theme.nodeWidth - 14} cy={node.y + 14} r={5} fill="#d08c60" />
+              )}
+              {!node.placeholder && (eventCount > 0 || factCount > 0) && (
+                <g>
+                  <rect
+                    x={node.x + theme.nodeWidth - 36}
+                    y={node.y + theme.nodeHeight - 18}
+                    width={32}
+                    height={14}
+                    rx={7}
+                    fill={theme.connector}
+                    opacity={0.85}
+                  />
+                  <text
+                    x={node.x + theme.nodeWidth - 20}
+                    y={node.y + theme.nodeHeight - 8}
+                    textAnchor="middle"
+                    fontSize={10}
+                    fontFamily={theme.fontFamily}
+                    fill={theme.background || '#fff'}
+                  >
+                    {eventCount ? `E${eventCount}` : ''}{eventCount && factCount ? ' ' : ''}{factCount ? `F${factCount}` : ''}
+                  </text>
+                </g>
+              )}
+            </g>
+          );
+        })}
       </g>
     </ChartCanvas>
   );

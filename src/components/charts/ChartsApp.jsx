@@ -1075,6 +1075,7 @@ export function ChartsApp() {
             chartCanvasRef={chartCanvasRef}
             ancestorTree={ancestorTree}
             descendantTree={descendantTree}
+            timelineData={timelineData}
             theme={theme}
             page={chartPage}
             overlays={overlays}
@@ -1085,6 +1086,7 @@ export function ChartsApp() {
           <GenogramChart
             chartCanvasRef={chartCanvasRef}
             tree={descendantTree}
+            genogramData={genogramData}
             onPersonClick={onPersonClick}
             theme={theme}
             page={chartPage}
@@ -1096,6 +1098,7 @@ export function ChartsApp() {
           <GenogramChart
             chartCanvasRef={chartCanvasRef}
             tree={descendantTree}
+            genogramData={genogramData}
             onPersonClick={onPersonClick}
             theme={theme}
             page={chartPage}
