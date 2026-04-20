@@ -8,11 +8,14 @@ import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { readRef } from '../lib/schema.js';
 
 const STATE_KEY = 'researchAssistantState';
+const JOURNAL_KEY = 'researchJournal';
 
 export default function Research() {
   const [items, setItems] = useState(null);
   const [imported, setImported] = useState([]);
   const [state, setState] = useState({ done: {}, ignored: {}, ignoredEntities: {} });
+  const [journal, setJournal] = useState([]);
+  const [journalDraft, setJournalDraft] = useState('');
   const [filter, setFilter] = useState('');
   const navigate = useNavigate();
 
@@ -23,6 +26,7 @@ export default function Research() {
       const db = getLocalDatabase();
       const rows = await db.query('ResearchAssistantQuestionInfo', { limit: 100000 });
       const savedState = await db.getMeta(STATE_KEY);
+      const savedJournal = await db.getMeta(JOURNAL_KEY);
       const hydrated = [];
       for (const row of rows.records) {
         const targetId = readRef(row.fields?.target);
@@ -33,10 +37,31 @@ export default function Research() {
         setItems(list);
         setImported(hydrated);
         setState(normalizeState(savedState));
+        setJournal(Array.isArray(savedJournal) ? savedJournal : []);
       }
     })();
     return () => { cancel = true; };
   }, []);
+
+  const persistJournal = async (next) => {
+    setJournal(next);
+    await getLocalDatabase().setMeta(JOURNAL_KEY, next);
+  };
+  const addJournalEntry = async () => {
+    const text = journalDraft.trim();
+    if (!text) return;
+    const entry = {
+      id: `rj-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      createdAt: new Date().toISOString(),
+      text,
+    };
+    await persistJournal([entry, ...journal]);
+    setJournalDraft('');
+  };
+  const removeJournalEntry = async (id) => {
+    if (!confirm('Delete this research log entry?')) return;
+    await persistJournal(journal.filter((entry) => entry.id !== id));
+  };
 
   if (!items) return <div className="p-10 text-muted-foreground">Analyzing tree…</div>;
   const persistState = async (next) => {
@@ -85,6 +110,53 @@ export default function Research() {
       </header>
       <main className="flex-1 overflow-auto p-5 bg-background">
         <div className="max-w-3xl mx-auto space-y-2">
+          <section className="mb-6">
+            <h2 className="text-sm font-semibold mb-2">Research Log · {journal.length}</h2>
+            <p className="text-xs text-muted-foreground mb-2">
+              Free-text journal of what you investigated, what you found, and what you concluded. Separate from ToDos — these are narrative notes, not tasks.
+            </p>
+            <div className="bg-card border border-border rounded-md p-3 mb-3">
+              <textarea
+                value={journalDraft}
+                onChange={(e) => setJournalDraft(e.target.value)}
+                placeholder="Checked 1891 census for Agnes McDonald — no match. Try Glasgow registry next."
+                className="w-full min-h-20 bg-background border border-border rounded-md p-2 text-sm"
+              />
+              <div className="flex justify-end mt-2">
+                <button
+                  type="button"
+                  onClick={addJournalEntry}
+                  disabled={!journalDraft.trim()}
+                  className="text-xs bg-primary text-primary-foreground rounded-md px-3 py-1.5 font-semibold disabled:opacity-60"
+                >
+                  Add log entry
+                </button>
+              </div>
+            </div>
+            {journal.length === 0 ? (
+              <div className="text-xs text-muted-foreground">No log entries yet.</div>
+            ) : (
+              <ul className="space-y-2">
+                {journal.map((entry) => (
+                  <li key={entry.id} className="bg-card border border-border rounded-md p-3">
+                    <div className="flex items-start justify-between gap-3 mb-1">
+                      <div className="text-[11px] text-muted-foreground">
+                        {new Date(entry.createdAt).toLocaleString()}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeJournalEntry(entry.id)}
+                        className="text-[11px] text-muted-foreground hover:text-destructive"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    <div className="text-sm whitespace-pre-wrap">{entry.text}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
           {importedOpen.length > 0 && (
             <section className="mb-6">
               <h2 className="text-sm font-semibold mb-2">Imported MacFamilyTree Questions · {importedOpen.length}</h2>

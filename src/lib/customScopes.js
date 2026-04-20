@@ -180,6 +180,10 @@ function ruleMatchesRecord(rule, record) {
   return applyOperator(rule.operator, value, rule.value);
 }
 
+function isGroup(rule) {
+  return rule && Array.isArray(rule.rules);
+}
+
 /**
  * Evaluate a single rule, following its optional path (array of step ids)
  * from the input record. A rule matches if ANY record reachable via the
@@ -190,6 +194,10 @@ function ruleMatchesRecord(rule, record) {
  * always satisfy `missing` vacuously.
  */
 async function ruleMatchesWithPath(rule, record, db, entityType) {
+  if (isGroup(rule)) {
+    const subFilter = { match: rule.match === 'any' ? 'any' : 'all', rules: rule.rules, entityType };
+    return evaluateFilterAsync(subFilter, record, db);
+  }
   const path = Array.isArray(rule.path) ? rule.path.filter(Boolean) : [];
   if (path.length === 0) return ruleMatchesRecord(rule, record);
   const reached = await followPath(record, path, db, entityType);
@@ -215,9 +223,12 @@ async function ruleMatchesWithPath(rule, record, db, entityType) {
  * callers that already have a record in hand and don't need hop traversal.
  */
 export function evaluateFilter(filter, record) {
-  const rules = Array.isArray(filter?.rules) ? filter.rules.filter((r) => r?.field) : [];
+  const rules = Array.isArray(filter?.rules) ? filter.rules.filter((r) => isGroup(r) || r?.field) : [];
   if (rules.length === 0) return true;
-  const check = (rule) => ruleMatchesRecord(rule, record);
+  const check = (rule) => {
+    if (isGroup(rule)) return evaluateFilter({ match: rule.match, rules: rule.rules }, record);
+    return ruleMatchesRecord(rule, record);
+  };
   return filter.match === 'any' ? rules.some(check) : rules.every(check);
 }
 
@@ -226,7 +237,7 @@ export function evaluateFilter(filter, record) {
  * rule has a path. Mirrors Mac's `ScopesEditSheet` path-navigating filters.
  */
 export async function evaluateFilterAsync(filter, record, db) {
-  const rules = Array.isArray(filter?.rules) ? filter.rules.filter((r) => r?.field) : [];
+  const rules = Array.isArray(filter?.rules) ? filter.rules.filter((r) => isGroup(r) || r?.field) : [];
   if (rules.length === 0) return true;
   if (filter.match === 'any') {
     for (const rule of rules) {
@@ -273,11 +284,22 @@ export async function deleteCustomFilter(id) {
   await db.setMeta(META_KEY, all.filter((filter) => filter.id !== id));
 }
 
+function filterUsesAsyncPath(rules) {
+  for (const rule of rules || []) {
+    if (isGroup(rule)) {
+      if (filterUsesAsyncPath(rule.rules)) return true;
+      continue;
+    }
+    if (Array.isArray(rule.path) && rule.path.length > 0) return true;
+  }
+  return false;
+}
+
 export async function runCustomFilter(filter) {
   if (!filter?.entityType) return { records: [], total: 0 };
   const db = getLocalDatabase();
   const { records } = await db.query(filter.entityType, { limit: 100000 });
-  const hasPathRule = (filter.rules || []).some((rule) => Array.isArray(rule.path) && rule.path.length > 0);
+  const hasPathRule = filterUsesAsyncPath(filter.rules);
   if (!hasPathRule) {
     const matched = records.filter((record) => evaluateFilter(filter, record));
     return { entityType: filter.entityType, filter, records: matched, total: matched.length };

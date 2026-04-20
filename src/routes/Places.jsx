@@ -23,6 +23,8 @@ import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { MediaRelationsEditor, NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { Map as MapView } from '../components/ui/Map.jsx';
+import { BatchPlaceLookupSheet } from '../components/BatchPlaceLookupSheet.jsx';
+import { PlaceConvertToDetailSheet } from '../components/PlaceConvertToDetailSheet.jsx';
 import {
   MAP_PREFERENCES_EVENT,
   batchLookupMissingCoordinates,
@@ -96,6 +98,8 @@ export default function Places() {
   const [status, setStatus] = useState(null);
   const [mapPrefs, setMapPrefs] = useState({ defaultZoom: 9, batchLimit: 10 });
   const [placeQueryMessage, setPlaceQueryMessage] = useState(null);
+  const [showBatchSheet, setShowBatchSheet] = useState(false);
+  const [showConvertSheet, setShowConvertSheet] = useState(false);
   const queryPlaceId = searchParams.get('placeId');
 
   const reload = useCallback(async () => {
@@ -504,8 +508,10 @@ export default function Places() {
         <div className="flex flex-wrap gap-2 mt-3">
           <button onClick={onLookupPlace} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Lookup Place</button>
           <button onClick={onLookupGeoName} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">GeoName ID</button>
-          <button onClick={onBatchLookup} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Batch Missing</button>
-          <button onClick={onConvertToDetails} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Place to Details</button>
+          <button onClick={onBatchLookup} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title={`Quick lookup for up to ${Number(mapPrefs.batchLimit) || 10} places missing coordinates`}>Batch Missing</button>
+          <button onClick={() => setShowBatchSheet(true)} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title="Review and lookup places missing coordinates one by one">Batch Sheet…</button>
+          <button onClick={onConvertToDetails} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title="Generate PlaceDetail rows from the current place components">Place to Details</button>
+          <button onClick={() => setShowConvertSheet(true)} disabled={!activeId} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title="Collapse this Place into a PlaceDetail of a parent place">Convert to Detail…</button>
         </div>
       </Section>
 
@@ -589,14 +595,33 @@ export default function Places() {
   }
 
   return (
-    <MasterDetailList
-      items={places}
-      activeId={activeId}
-      onPick={setActiveId}
-      renderRow={renderRow}
-      placeholder="Search places…"
-      detail={detail}
-    />
+    <>
+      <MasterDetailList
+        items={places}
+        activeId={activeId}
+        onPick={setActiveId}
+        renderRow={renderRow}
+        placeholder="Search places…"
+        detail={detail}
+      />
+      {showBatchSheet && (
+        <BatchPlaceLookupSheet
+          onClose={() => setShowBatchSheet(false)}
+          onDone={() => { reload(); }}
+        />
+      )}
+      {showConvertSheet && activeId && (
+        <PlaceConvertToDetailSheet
+          placeRecordName={activeId}
+          onClose={() => setShowConvertSheet(false)}
+          onConverted={async () => {
+            setShowConvertSheet(false);
+            setActiveId(null);
+            await reload();
+          }}
+        />
+      )}
+    </>
   );
 }
 

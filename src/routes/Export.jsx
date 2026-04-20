@@ -9,7 +9,8 @@ import { downloadGedcom } from '../lib/gedcomExport.js';
 import { analyzeGedcomText, importGedcomText } from '../lib/gedcomImport.js';
 import { GEDCOM_ACCEPT, readGedcomTextFromFile } from '../lib/genealogyFileFormats.js';
 import { downloadBackup, downloadMFTPackage } from '../lib/backup.js';
-import { analyzeBackupMergeJSON, mergeBackupJSON } from '../lib/mergeImport.js';
+import { analyzeBackupMergeJSON, mergeBackupJSON, planMerge, mergeBackupJSONWithResolutions } from '../lib/mergeImport.js';
+import { MergeConflictSheet } from '../components/MergeConflictSheet.jsx';
 import { downloadSubtreeBackup, removeSubtree } from '../lib/subtree.js';
 import { importContactsFile } from '../lib/contactImport.js';
 import {
@@ -45,6 +46,7 @@ export default function Export() {
   const [pendingGedcom, setPendingGedcom] = useState(null);
   const [pendingMerge, setPendingMerge] = useState(null);
   const [rollbackNote, setRollbackNote] = useState('');
+  const [conflictPlan, setConflictPlan] = useState(null);
   const [persons, setPersons] = useState([]);
   const [subtreeRoot, setSubtreeRoot] = useState(null);
   const [treeSnapshots, setTreeSnapshots] = useState([]);
@@ -172,16 +174,42 @@ export default function Export() {
     }
   };
 
-  const onConfirmMergeBackup = wrap('Merging backup…', async () => {
-    if (!pendingMerge) return 'Choose a backup file first.';
-    const result = await mergeBackupJSON(pendingMerge.json, { rollbackNote });
+  const finalizeMerge = async (result) => {
     await refresh();
     setPendingMerge(null);
     setRollbackNote('');
+    setConflictPlan(null);
     if (mergeRef.current) mergeRef.current.value = '';
     const assetPart = result.assetRenamed ? ` ${result.assetRenamed.toLocaleString()} colliding asset IDs were renamed.` : '';
-    return `Merged ${result.records.toLocaleString()} records and ${result.assets.toLocaleString()} assets. ${result.renamed.toLocaleString()} colliding record names were renamed.${assetPart}`;
+    const renamedPart = result.renamed ? `${result.renamed.toLocaleString()} colliding record names were renamed.` : '';
+    const resolvedPart = result.resolvedConflicts ? ` Resolved ${result.resolvedConflicts.toLocaleString()} conflict${result.resolvedConflicts === 1 ? '' : 's'}.` : '';
+    return `Merged ${result.records.toLocaleString()} records and ${result.assets.toLocaleString()} assets.${resolvedPart} ${renamedPart}${assetPart}`.trim();
+  };
+
+  const onConfirmMergeBackup = wrap('Reviewing merge conflicts…', async () => {
+    if (!pendingMerge) return 'Choose a backup file first.';
+    const plan = await planMerge(pendingMerge.json);
+    if ((plan.conflicts?.length || 0) === 0 && (plan.assetCollisions?.length || 0) === 0) {
+      const result = await mergeBackupJSON(pendingMerge.json, { rollbackNote });
+      return finalizeMerge(result);
+    }
+    setConflictPlan(plan);
+    return `${plan.conflicts.length} conflict${plan.conflicts.length === 1 ? '' : 's'} to resolve.`;
   });
+
+  const onApplyResolutions = async (resolutions) => {
+    if (!pendingMerge) return;
+    setBusy(true);
+    setStatus('Applying merge…');
+    try {
+      const result = await mergeBackupJSONWithResolutions(pendingMerge.json, resolutions, { rollbackNote });
+      setStatus(await finalizeMerge(result));
+    } catch (error) {
+      setStatus(`Merge failed: ${error.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const onSubtreeExport = wrap('Exporting subtree…', async () => {
     if (!subtreeRoot) return 'Pick a subtree root first.';
@@ -461,6 +489,13 @@ export default function Export() {
 
         {status && <div className="rounded-md border border-border bg-card p-3 text-sm">{status}</div>}
       </div>
+      {conflictPlan && (
+        <MergeConflictSheet
+          plan={conflictPlan}
+          onApply={onApplyResolutions}
+          onCancel={() => setConflictPlan(null)}
+        />
+      )}
     </div>
   );
 }

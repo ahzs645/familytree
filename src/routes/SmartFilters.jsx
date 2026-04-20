@@ -6,6 +6,7 @@
  * scopes (`smartScopes.js:BUILTIN_SCOPES`) remain read-only.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   CUSTOM_FILTER_ENTITY_TYPES,
   FILTER_OPERATORS,
@@ -42,6 +43,8 @@ export default function SmartFilters() {
   const [selected, setSelected] = useState(null);
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const refresh = useCallback(async () => {
     const list = await listCustomFilters();
@@ -49,6 +52,17 @@ export default function SmartFilters() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // Accept a draft filter passed via navigation state (e.g. "Save current
+  // search as smart filter" from SearchApp) and open it in the editor.
+  useEffect(() => {
+    const draft = location.state?.draftFilter;
+    if (draft) {
+      setSelected({ ...newBlankFilter(draft.entityType || 'Person'), ...draft });
+      setPreview(null);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location, navigate]);
 
   const onNew = () => {
     const blank = newBlankFilter('Person');
@@ -153,32 +167,12 @@ export default function SmartFilters() {
               </div>
 
               <div className="space-y-2">
-                {(selected.rules || []).map((rule, index) => (
-                  <RuleRow
-                    key={index}
-                    rule={rule}
-                    entityType={selected.entityType}
-                    suggestedFields={suggestedFields}
-                    onChange={(next) => {
-                      const rules = [...selected.rules];
-                      rules[index] = next;
-                      setSelected({ ...selected, rules });
-                    }}
-                    onRemove={() => {
-                      const rules = selected.rules.filter((_, i) => i !== index);
-                      setSelected({ ...selected, rules });
-                    }}
-                  />
-                ))}
-                <button
-                  onClick={() => setSelected({
-                    ...selected,
-                    rules: [...(selected.rules || []), { field: '', operator: 'exists', value: '' }],
-                  })}
-                  className={button}
-                >
-                  + Add rule
-                </button>
+                <RuleList
+                  rules={selected.rules || []}
+                  entityType={selected.entityType}
+                  suggestedFields={suggestedFields}
+                  onChange={(rules) => setSelected({ ...selected, rules })}
+                />
               </div>
 
               <div className="flex items-center gap-2 pt-2 border-t border-border">
@@ -202,6 +196,71 @@ export default function SmartFilters() {
           )}
         </section>
       </div>
+    </div>
+  );
+}
+
+function RuleList({ rules, entityType, suggestedFields, onChange }) {
+  const update = (index, next) => {
+    const list = [...rules];
+    list[index] = next;
+    onChange(list);
+  };
+  const remove = (index) => onChange(rules.filter((_, i) => i !== index));
+  const addRule = () => onChange([...rules, { field: '', operator: 'exists', value: '' }]);
+  const addGroup = () => onChange([...rules, { match: 'any', rules: [{ field: '', operator: 'exists', value: '' }] }]);
+  return (
+    <div className="space-y-2">
+      {rules.map((rule, index) => (
+        Array.isArray(rule.rules) ? (
+          <GroupRow
+            key={index}
+            rule={rule}
+            entityType={entityType}
+            suggestedFields={suggestedFields}
+            onChange={(next) => update(index, next)}
+            onRemove={() => remove(index)}
+          />
+        ) : (
+          <RuleRow
+            key={index}
+            rule={rule}
+            entityType={entityType}
+            suggestedFields={suggestedFields}
+            onChange={(next) => update(index, next)}
+            onRemove={() => remove(index)}
+          />
+        )
+      ))}
+      <div className="flex gap-2">
+        <button onClick={addRule} className={button}>+ Add rule</button>
+        <button onClick={addGroup} className={button}>+ Add group</button>
+      </div>
+    </div>
+  );
+}
+
+function GroupRow({ rule, entityType, suggestedFields, onChange, onRemove }) {
+  return (
+    <div className="rounded-md border-2 border-primary/30 bg-background/40 p-2 space-y-2">
+      <div className="flex items-center gap-2 text-xs">
+        <span className="font-semibold text-muted-foreground uppercase tracking-wide">Group · Match</span>
+        <label className="flex items-center gap-1">
+          <input type="radio" checked={rule.match !== 'any'} onChange={() => onChange({ ...rule, match: 'all' })} />
+          all
+        </label>
+        <label className="flex items-center gap-1">
+          <input type="radio" checked={rule.match === 'any'} onChange={() => onChange({ ...rule, match: 'any' })} />
+          any
+        </label>
+        <button onClick={onRemove} className="ms-auto text-sm text-muted-foreground hover:text-destructive" title="Remove group">×</button>
+      </div>
+      <RuleList
+        rules={rule.rules || []}
+        entityType={entityType}
+        suggestedFields={suggestedFields}
+        onChange={(rules) => onChange({ ...rule, rules })}
+      />
     </div>
   );
 }

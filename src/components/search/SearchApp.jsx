@@ -3,11 +3,36 @@
  * Pick entity type, build filter rows, run search, view results.
  */
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ENTITY_TYPES, SEARCH_FIELDS, FILTER_OPS, runSearch } from '../../lib/search.js';
 import { listAllScopes, runScope } from '../../lib/smartScopes.js';
 import { applySearchReplace, previewSearchReplace, replaceableFields, undoLastSearchReplace } from '../../lib/searchReplace.js';
+import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { FilterRow } from './FilterRow.jsx';
 import { SearchResults } from './SearchResults.jsx';
+
+const SAVED_SEARCHES_KEY = 'savedSearches';
+
+function searchFiltersToScopeRules(filters, textQuery) {
+  const rules = [];
+  if (textQuery && textQuery.trim()) {
+    rules.push({ field: '*', operator: 'contains', value: textQuery.trim() });
+  }
+  for (const f of filters || []) {
+    if (!f?.field) continue;
+    if (f.op === 'exists') rules.push({ field: f.field, operator: 'exists', value: '' });
+    else if (f.op === 'missing') rules.push({ field: f.field, operator: 'missing', value: '' });
+    else if (f.op === 'equals') rules.push({ field: f.field, operator: 'equals', value: f.value || '' });
+    else if (f.op === 'contains' || f.op === 'startsWith') rules.push({ field: f.field, operator: 'contains', value: f.value || '' });
+    else if (f.op === 'before') rules.push({ field: f.field, operator: 'lt', value: f.value || '' });
+    else if (f.op === 'after') rules.push({ field: f.field, operator: 'gt', value: f.value || '' });
+    else if (f.op === 'between') {
+      rules.push({ field: f.field, operator: 'gt', value: f.value || '' });
+      rules.push({ field: f.field, operator: 'lt', value: f.value2 || '' });
+    }
+  }
+  return rules;
+}
 
 function newFilter(entityType) {
   const fields = SEARCH_FIELDS[entityType] || [];
@@ -30,6 +55,66 @@ export function SearchApp() {
   const [wholeField, setWholeField] = useState(false);
   const [replacePreview, setReplacePreview] = useState(null);
   const [replaceStatus, setReplaceStatus] = useState('');
+  const [savedSearches, setSavedSearches] = useState([]);
+  const navigate = useNavigate();
+
+  const loadSaved = useCallback(async () => {
+    const list = await getLocalDatabase().getMeta(SAVED_SEARCHES_KEY);
+    setSavedSearches(Array.isArray(list) ? list : []);
+  }, []);
+  useEffect(() => { loadSaved(); }, [loadSaved]);
+
+  const onSaveSearch = useCallback(async () => {
+    const name = prompt('Save this search as:');
+    if (!name) return;
+    const db = getLocalDatabase();
+    const list = Array.isArray(await db.getMeta(SAVED_SEARCHES_KEY)) ? await db.getMeta(SAVED_SEARCHES_KEY) : [];
+    const entry = {
+      id: `ss-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      name,
+      entityType,
+      textQuery,
+      filters,
+      savedAt: new Date().toISOString(),
+    };
+    const next = [...list, entry];
+    await db.setMeta(SAVED_SEARCHES_KEY, next);
+    setSavedSearches(next);
+  }, [entityType, textQuery, filters]);
+
+  const onLoadSearch = useCallback((id) => {
+    const entry = savedSearches.find((s) => s.id === id);
+    if (!entry) return;
+    setEntityType(entry.entityType || 'Person');
+    setTextQuery(entry.textQuery || '');
+    setFilters(entry.filters || []);
+    setResult(null);
+  }, [savedSearches]);
+
+  const onDeleteSearch = useCallback(async (id) => {
+    if (!confirm('Delete saved search?')) return;
+    const db = getLocalDatabase();
+    const list = Array.isArray(await db.getMeta(SAVED_SEARCHES_KEY)) ? await db.getMeta(SAVED_SEARCHES_KEY) : [];
+    const next = list.filter((s) => s.id !== id);
+    await db.setMeta(SAVED_SEARCHES_KEY, next);
+    setSavedSearches(next);
+  }, []);
+
+  const onSaveAsSmartFilter = useCallback(() => {
+    const name = prompt('Smart filter name:');
+    if (!name) return;
+    const rules = searchFiltersToScopeRules(filters, textQuery);
+    navigate('/smart-filters', {
+      state: {
+        draftFilter: {
+          name,
+          entityType,
+          match: 'all',
+          rules: rules.length ? rules : [{ field: '', operator: 'exists', value: '' }],
+        },
+      },
+    });
+  }, [entityType, filters, textQuery, navigate]);
 
   const replaceFields = useMemo(() => replaceableFields(entityType), [entityType]);
 

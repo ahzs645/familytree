@@ -1,11 +1,19 @@
 /**
  * Home route — import card + live tree stats + shortcut cards.
  */
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ImportDropZone } from '../components/ImportDropZone.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { loadSampleTree } from '../lib/sampleTree.js';
+import {
+  deleteTreeSnapshot,
+  listTreeSnapshots,
+  renameTreeSnapshot,
+  restoreTreeSnapshot,
+  setTreeSnapshotFavorite,
+  setTreeSnapshotLabel,
+} from '../lib/treeLibrary.js';
 
 const SECTIONS = [
   { to: '/tree', title: 'Interactive Tree', body: '3D family explorer with live search, plus parents / partners / children for the focused person.' },
@@ -64,11 +72,68 @@ const LIST_SECTIONS = [
 export function Home() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { hasData, summary, clear } = useDatabaseStatus();
+  const { hasData, summary, refresh, clear } = useDatabaseStatus();
   const focusRoute =
     location.state?.focusRoute ||
     new URLSearchParams(location.search).get('focusRoute') ||
     (location.hash ? location.hash.replace(/^#/, '') : '');
+
+  const [sortBy, setSortBy] = useState(() => {
+    try { return localStorage.getItem('treeLibrary.homeSortBy') || 'favorites'; } catch { return 'favorites'; }
+  });
+  const [snapshots, setSnapshots] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  const reload = useCallback(async () => {
+    setSnapshots(await listTreeSnapshots({ sortBy }));
+  }, [sortBy]);
+
+  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    try { localStorage.setItem('treeLibrary.homeSortBy', sortBy); } catch {}
+  }, [sortBy]);
+
+  const withBusy = (fn) => async (...args) => {
+    setBusy(true);
+    try { await fn(...args); } finally { setBusy(false); }
+  };
+
+  const onFavorite = withBusy(async (snapshot) => {
+    await setTreeSnapshotFavorite(snapshot.id, !snapshot.favorite);
+    await reload();
+  });
+
+  const onRename = withBusy(async (snapshot) => {
+    const name = prompt('Rename tree:', snapshot.name);
+    if (!name) return;
+    await renameTreeSnapshot(snapshot.id, name);
+    await reload();
+  });
+
+  const onLabel = withBusy(async (snapshot) => {
+    const label = prompt('Label (active, draft, archived…):', snapshot.label || '');
+    if (label === null) return;
+    await setTreeSnapshotLabel(snapshot.id, label);
+    await reload();
+  });
+
+  const onRestore = withBusy(async (snapshot) => {
+    if (!confirm(`Replace the current database with "${snapshot.name}"?`)) return;
+    await restoreTreeSnapshot(snapshot.id);
+    await refresh();
+    await reload();
+  });
+
+  const onDelete = withBusy(async (snapshot) => {
+    const answer = prompt(`Type the tree name to permanently delete it:\n\n${snapshot.name}`);
+    if (answer === null) return;
+    if (answer.trim() !== snapshot.name.trim()) {
+      alert('Name did not match — delete canceled.');
+      return;
+    }
+    await deleteTreeSnapshot(snapshot.id);
+    await reload();
+  });
 
   return (
     <div className="px-6 py-8 pb-16 h-full overflow-auto">
@@ -99,6 +164,60 @@ export function Home() {
           </div>
         ) : null}
       </section>
+
+      {snapshots.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">My Family Trees</h2>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-secondary border border-border rounded-md px-2 py-1 text-xs"
+              aria-label="Sort trees"
+            >
+              <option value="favorites">Favorites first</option>
+              <option value="updatedAt">Change date</option>
+              <option value="name">Name</option>
+            </select>
+          </div>
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
+            {snapshots.map((snapshot) => (
+              <li key={snapshot.id} className="p-4 rounded-xl border border-border bg-card">
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold truncate">
+                      {snapshot.favorite && <span aria-hidden className="text-yellow-500 me-1">★</span>}
+                      {snapshot.name}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      {snapshot.recordCount.toLocaleString()} records · {snapshot.assetCount.toLocaleString()} assets
+                      {snapshot.label ? ` · ${snapshot.label}` : ''}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Updated {new Date(snapshot.updatedAt).toLocaleString()}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onFavorite(snapshot)}
+                    disabled={busy}
+                    title={snapshot.favorite ? 'Unmark favorite' : 'Mark as favorite'}
+                    className="text-lg text-muted-foreground hover:text-yellow-500"
+                  >
+                    {snapshot.favorite ? '★' : '☆'}
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-3">
+                  <button onClick={() => onRestore(snapshot)} disabled={busy} className="text-xs bg-primary text-primary-foreground rounded-md px-2.5 py-1 font-medium">Open</button>
+                  <button onClick={() => onRename(snapshot)} disabled={busy} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1 hover:bg-accent">Rename</button>
+                  <button onClick={() => onLabel(snapshot)} disabled={busy} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1 hover:bg-accent">Label</button>
+                  <button onClick={() => onDelete(snapshot)} disabled={busy} className="text-xs border border-border bg-transparent text-destructive rounded-md px-2.5 py-1 hover:bg-destructive/10 ms-auto">Delete</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {hasData && summary && (
         <section className="mb-8 p-5 rounded-xl border border-border bg-card flex items-center gap-5">

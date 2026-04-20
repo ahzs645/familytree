@@ -167,7 +167,13 @@ export function ReportsApp() {
   const [reportLoading, setReportLoading] = useState(false);
   const [generationError, setGenerationError] = useState('');
   const [authorInfo, setAuthorInfo] = useState(null);
+  const [speaking, setSpeaking] = useState(false);
   const generationRequestRef = useRef(0);
+  const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
+
+  useEffect(() => () => {
+    if (speechSupported) window.speechSynthesis.cancel();
+  }, [speechSupported]);
 
   useEffect(() => {
     let cancelled = false;
@@ -333,6 +339,24 @@ export function ReportsApp() {
     downloadReport(fmt, report, { filenameBase: report.title, author: authorInfo });
   }, [report, authorInfo]);
 
+  const onSpeak = useCallback(() => {
+    if (!speechSupported) return;
+    const synth = window.speechSynthesis;
+    if (speaking) {
+      synth.cancel();
+      setSpeaking(false);
+      return;
+    }
+    const text = reportToSpeech(report);
+    if (!text) return;
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.onend = () => setSpeaking(false);
+    utterance.onerror = () => setSpeaking(false);
+    synth.cancel();
+    synth.speak(utterance);
+    setSpeaking(true);
+  }, [report, speaking, speechSupported]);
+
   if (loading) return <div style={loadingStyle}>Loading…</div>;
   if (empty) {
     return (
@@ -422,6 +446,19 @@ export function ReportsApp() {
           </div>
         </Field>
 
+        {speechSupported && (
+          <Field label="Speak">
+            <button
+              onClick={onSpeak}
+              disabled={!report || reportLoading}
+              style={input}
+              title={speaking ? 'Stop speaking' : 'Read this report aloud'}
+            >
+              {speaking ? 'Stop' : 'Play'}
+            </button>
+          </Field>
+        )}
+
         <Field label="Saved">
           <div style={{ display: 'flex', gap: 4 }}>
             <select value="" onChange={(e) => e.target.value && onApplySaved(e.target.value)} style={{ ...input, minWidth: 120 }}>
@@ -483,6 +520,34 @@ async function listAllStories() {
     .map(storySubject)
     .filter(Boolean)
     .sort((a, b) => compareStrings(a.label, b.label));
+}
+
+function reportToSpeech(report) {
+  if (!report?.blocks?.length) return '';
+  const lines = [];
+  if (report.title) lines.push(report.title);
+  for (const block of report.blocks) {
+    switch (block.kind) {
+      case 'title':
+        if (block.text) lines.push(block.text);
+        break;
+      case 'paragraph':
+        if (block.text) lines.push(block.text);
+        break;
+      case 'list':
+        for (const item of block.items || []) if (item) lines.push(item);
+        break;
+      case 'table':
+        for (const row of block.rows || []) {
+          const cells = row.filter((c) => c != null && String(c).trim());
+          if (cells.length) lines.push(cells.join(', '));
+        }
+        break;
+      default:
+        break;
+    }
+  }
+  return lines.join('. ').slice(0, 32000);
 }
 
 function storySubject(record) {
