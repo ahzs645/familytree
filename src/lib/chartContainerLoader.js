@@ -6,6 +6,7 @@
  */
 
 import { getLocalDatabase } from './LocalDatabase.js';
+import { normalizeChartDocument } from './chartDocumentSchema.js';
 
 const DEFAULT_GENERATIONS = 5;
 
@@ -374,8 +375,9 @@ export function mapSavedChartRecordToDocument(record) {
   const payload = decoded?.status === 'decoded' ? decoded.decoded : fallbackPayload;
   const mapped = inferFromDecodedPayload(payload || decoded, record);
 
-  return {
+  return normalizeChartDocument({
     id: record.recordName,
+    name: mapped.page?.title || record.fields.title?.value || record.fields.name?.value || 'Imported Saved Chart',
     chartType: mapped.chartType || 'ancestor',
     rootId: mapped.rootId || undefined,
     secondId: mapped.secondId || undefined,
@@ -386,11 +388,17 @@ export function mapSavedChartRecordToDocument(record) {
     title: mapped.page?.title || record.fields.title?.value || record.fields.name?.value || '',
     note: mapped.page?.note || record.fields.subtitle?.value || '',
     overlays: mapped.overlays || [],
+    importedMac: {
+      sourceRecordName: record.recordName,
+      sourceRecordType: record.recordType,
+      sourceStatus: decoded?.status || (record.fields.chartObjectsContainerData?.value ? 'stored' : 'missing'),
+      decodedPayloadSummary: decoded?.summary || null,
+    },
     metadata: {
       sourceRecordName: record.recordName,
       sourceRecordType: record.recordType,
       sourceStatus: decoded?.status || (record.fields.chartObjectsContainerData?.value ? 'stored' : 'missing'),
       sourcePayloadRaw: record.fields.chartObjectsContainerData?.value || null,
     },
-  };
+  });
 }

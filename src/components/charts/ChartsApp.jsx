@@ -12,6 +12,7 @@ import { findRelationshipPaths } from '../../lib/relationshipPath.js';
 import { listChartTemplates, saveChartTemplate, deleteChartTemplate, newTemplateId } from '../../lib/chartTemplates.js';
 import { listChartDocuments, saveChartDocument, deleteChartDocument, newChartDocumentId } from '../../lib/chartDocuments.js';
 import { loadSavedChartDocument } from '../../lib/chartContainerLoader.js';
+import { normalizeChartDocument } from '../../lib/chartDocumentSchema.js';
 import { THEMES, getTheme } from './theme.js';
 import { PersonPicker } from './PersonPicker.jsx';
 import { AncestorChart } from './AncestorChart.jsx';
@@ -146,28 +147,29 @@ export function ChartsApp() {
 
   const applyDocumentState = useCallback((doc, options = {}) => {
     if (!doc || typeof doc !== 'object') return;
-    const nextGenerations = Math.max(2, Math.min(8, Number(doc.generations) || 5));
-    setChartType(doc.chartType || 'ancestor');
-    if (doc.rootId) {
-      setRootId(doc.rootId);
-      setActivePerson(doc.rootId);
+    const normalized = normalizeChartDocument(doc);
+    const nextGenerations = Math.max(2, Math.min(8, Number(normalized.builderConfig.common.generations) || 5));
+    setChartType(normalized.chartType || 'ancestor');
+    if (normalized.roots.primaryPersonId) {
+      setRootId(normalized.roots.primaryPersonId);
+      setActivePerson(normalized.roots.primaryPersonId);
     }
-    setSecondId(doc.secondId || null);
-    setThemeId(doc.themeId || 'auto');
+    setSecondId(normalized.roots.secondaryPersonId || null);
+    setThemeId(normalized.compositorConfig.themeId || 'auto');
     setGenerations(nextGenerations);
-    setVirtualSource(doc.virtual?.source || 'descendant');
-    setVirtualOrientation(doc.virtual?.orientation || 'vertical');
-    setVirtualHSpacing(doc.virtual?.hSpacing || 24);
-    setVirtualVSpacing(doc.virtual?.vSpacing || 110);
-    setChartTitle(doc.page?.title || doc.name || '');
-    setChartNote(doc.page?.note || '');
-    setPageSize(doc.page?.size || 'letter');
-    setPageOrientation(doc.page?.orientation || 'landscape');
-    setChartBackground(doc.page?.backgroundColor || '');
-    const relationshipConfig = doc.builderConfig?.relationship || doc.relationship || {};
+    setVirtualSource(normalized.builderConfig.virtual?.source || 'descendant');
+    setVirtualOrientation(normalized.builderConfig.virtual?.orientation || 'vertical');
+    setVirtualHSpacing(normalized.builderConfig.virtual?.hSpacing || 24);
+    setVirtualVSpacing(normalized.builderConfig.virtual?.vSpacing || 110);
+    setChartTitle(normalized.pageSetup.title || normalized.name || '');
+    setChartNote(normalized.pageSetup.note || '');
+    setPageSize(normalized.pageSetup.paperSize || 'letter');
+    setPageOrientation(normalized.pageSetup.orientation || 'landscape');
+    setChartBackground(normalized.pageSetup.backgroundColor || '');
+    const relationshipConfig = normalized.builderConfig.relationship || {};
     setRelationshipBloodlineOnly(Boolean(relationshipConfig.bloodlineOnly));
     setSelectedRelationshipPathId(relationshipConfig.selectedPathId || null);
-    setFromSource(Array.isArray(doc.overlays) ? doc.overlays : [], {
+    setFromSource(Array.isArray(normalized.compositorConfig.overlays) ? normalized.compositorConfig.overlays : [], {
       preserveSelection: options.preserveSelection ?? false,
     });
   }, [setActivePerson, setFromSource]);
@@ -205,14 +207,15 @@ export function ChartsApp() {
         setLoading(false);
         return;
       }
-      const desiredRootId = requestedDoc?.rootId || rootId;
+      const requestedRootId = requestedDoc ? normalizeChartDocument(requestedDoc).roots.primaryPersonId : null;
+      const desiredRootId = requestedRootId || rootId;
       if (!desiredRootId || !list.some((p) => p.recordName === desiredRootId)) {
         const start = await findStartPerson();
         const pick = start?.recordName || list[0].recordName;
         setRootId(pick);
         setActivePerson(pick);
-      } else if (requestedDoc?.rootId) {
-        setActivePerson(requestedDoc.rootId);
+      } else if (requestedRootId) {
+        setActivePerson(requestedRootId);
       }
       setLoading(false);
     })();
@@ -314,30 +317,13 @@ export function ChartsApp() {
     setChartBackground(tpl.page?.backgroundColor || '');
   }, [templates]);
 
-  const currentDocumentState = useCallback((name, id = newChartDocumentId()) => ({
+  const currentDocumentState = useCallback((name, id = newChartDocumentId()) => normalizeChartDocument({
     id,
     name,
     chartType,
-    rootId,
-    secondId,
-    themeId,
-    generations,
-    virtual: {
-      source: virtualSource,
-      orientation: virtualOrientation,
-      hSpacing: virtualHSpacing,
-      vSpacing: virtualVSpacing,
-    },
-    page: {
-      title: chartTitle,
-      note: chartNote,
-      size: pageSize,
-      orientation: pageOrientation,
-      backgroundColor: chartBackground,
-    },
-    relationship: {
-      bloodlineOnly: relationshipBloodlineOnly,
-      selectedPathId: selectedRelationshipPathId,
+    roots: {
+      primaryPersonId: rootId,
+      secondaryPersonId: secondId,
     },
     builderConfig: {
       common: { generations },
@@ -345,9 +331,26 @@ export function ChartsApp() {
         bloodlineOnly: relationshipBloodlineOnly,
         selectedPathId: selectedRelationshipPathId,
       },
+      virtual: {
+        source: virtualSource,
+        orientation: virtualOrientation,
+        hSpacing: virtualHSpacing,
+        vSpacing: virtualVSpacing,
+      },
     },
-    overlays,
-  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays]);
+    compositorConfig: {
+      themeId,
+      overlays,
+      selectedObjectIds: selectedOverlayId ? [selectedOverlayId] : [],
+    },
+    pageSetup: {
+      title: chartTitle,
+      note: chartNote,
+      paperSize: pageSize,
+      orientation: pageOrientation,
+      backgroundColor: chartBackground,
+    },
+  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, selectedOverlayId]);
 
   const onSaveDocument = useCallback(async () => {
     const name = prompt('Name for this chart document:');

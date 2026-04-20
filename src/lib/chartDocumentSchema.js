@@ -93,19 +93,19 @@ export function createDefaultBuilderConfig(chartType = 'ancestor', raw = {}) {
   }
 
   config.relationship = {
+    ...relationship,
     bloodlineOnly: Boolean(relationship.bloodlineOnly),
     selectedPathId: relationship.selectedPathId || null,
     maxDepth: numberOrDefault(relationship.maxDepth, 12),
     maxPaths: numberOrDefault(relationship.maxPaths, 12),
-    ...relationship,
   };
 
   config.virtual = {
+    ...virtual,
     source: virtual.source === 'ancestor' ? 'ancestor' : 'descendant',
     orientation: virtual.orientation || 'vertical',
     hSpacing: clampNumber(virtual.hSpacing, 8, 200, 24),
     vSpacing: clampNumber(virtual.vSpacing, 50, 260, 110),
-    ...virtual,
   };
 
   config.activeChart = chartType;
@@ -115,6 +115,7 @@ export function createDefaultBuilderConfig(chartType = 'ancestor', raw = {}) {
 export function createDefaultCompositorConfig(raw = {}) {
   const existing = raw.compositorConfig && typeof raw.compositorConfig === 'object' ? raw.compositorConfig : {};
   return {
+    ...existing,
     themeId: existing.themeId || raw.themeId || 'auto',
     layoutMode: existing.layoutMode || raw.layoutMode || 'auto',
     objectStyles: { ...(existing.objectStyles || {}) },
@@ -125,7 +126,6 @@ export function createDefaultCompositorConfig(raw = {}) {
         ? raw.overlays
         : [],
     selectedObjectIds: Array.isArray(existing.selectedObjectIds) ? existing.selectedObjectIds : [],
-    ...existing,
   };
 }
 
@@ -133,6 +133,7 @@ export function createDefaultPageSetup(raw = {}) {
   const existing = raw.pageSetup && typeof raw.pageSetup === 'object' ? raw.pageSetup : {};
   const legacyPage = raw.page && typeof raw.page === 'object' ? raw.page : {};
   return {
+    ...existing,
     paperSize: existing.paperSize || legacyPage.size || 'letter',
     orientation: existing.orientation || legacyPage.orientation || 'landscape',
     width: numberOrNull(existing.width),
@@ -150,19 +151,18 @@ export function createDefaultPageSetup(raw = {}) {
     backgroundColor: existing.backgroundColor || legacyPage.backgroundColor || '',
     title: existing.title || legacyPage.title || raw.title || '',
     note: existing.note || legacyPage.note || raw.note || '',
-    ...existing,
   };
 }
 
 export function createDefaultExportSettings(raw = {}) {
   const existing = raw.exportSettings && typeof raw.exportSettings === 'object' ? raw.exportSettings : {};
   return {
+    ...existing,
     format: existing.format || 'png',
     scale: clampNumber(existing.scale, 0.25, 4, 1),
     includeBackground: existing.includeBackground !== false,
     jpegQuality: clampNumber(existing.jpegQuality, 0.1, 1, 0.92),
     fileNameTemplate: existing.fileNameTemplate || '{title}-{date}',
-    ...existing,
   };
 }
 

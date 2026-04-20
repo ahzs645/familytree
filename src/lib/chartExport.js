@@ -1,19 +1,54 @@
 /**
  * Shared export helpers for chart canvas outputs.
+ *
+ * Consumes schema V2 `pageSetup` (paper size, orientation, custom width/height,
+ * margins) and `exportSettings` (format, scale, jpegQuality, includeBackground,
+ * fileNameTemplate) when provided; falls back to legacy `page` shape for
+ * backward compatibility.
  */
 
-const DEFAULT_PAGE = 'letter';
+import { normalizePageDimensions } from './pageLayout.js';
+
+const DEFAULT_FILENAME_TEMPLATE = '{title}-{date}';
+
+function toPageSetup(page = {}) {
+  if (page && (page.paperSize || page.width || page.height || page.margins)) return page;
+  if (!page) return {};
+  return {
+    paperSize: page.size,
+    orientation: page.orientation,
+    width: page.width,
+    height: page.height,
+    backgroundColor: page.backgroundColor,
+    title: page.title,
+    note: page.note,
+  };
+}
 
 export function getChartExportPageSize(page = {}) {
-  const { size = DEFAULT_PAGE, orientation = 'landscape' } = page;
-  const sizes = {
-    letter: [1056, 816],
-    a4: [1123, 794],
-    legal: [1344, 816],
+  const dims = normalizePageDimensions(toPageSetup(page));
+  return { width: dims.width, height: dims.height };
+}
+
+function resolveExportSettings(options = {}) {
+  const raw = options.exportSettings || {};
+  return {
+    format: raw.format || options.format || 'png',
+    scale: Number.isFinite(raw.scale) ? raw.scale : 1,
+    includeBackground: raw.includeBackground !== false,
+    jpegQuality: Number.isFinite(raw.jpegQuality) ? raw.jpegQuality : 0.92,
+    fileNameTemplate: raw.fileNameTemplate || DEFAULT_FILENAME_TEMPLATE,
   };
-  const [width, height] = sizes[size] || sizes[DEFAULT_PAGE];
-  if (orientation === 'portrait') return { width: height, height: width };
-  return { width, height };
+}
+
+export function resolveFileNameFromTemplate(template, context = {}) {
+  const isoDate = new Date().toISOString().slice(0, 10);
+  const map = {
+    '{title}': context.title || 'chart',
+    '{date}': isoDate,
+    '{name}': context.name || context.title || 'chart',
+  };
+  return String(template || DEFAULT_FILENAME_TEMPLATE).replace(/\{(title|date|name)\}/g, (match) => map[match] ?? match);
 }
 
 export function safeFilename(base, ext) {
@@ -55,7 +90,11 @@ export function exportChartAsSvg(svgNode, options = {}) {
 
 export function exportChartAsPng(svgNode, options = {}, background = '#ffffff') {
   const { page = {}, filename = 'chart' } = options;
+  const settings = resolveExportSettings(options);
   const size = getChartExportPageSize(page);
+  const scale = Math.max(0.25, Math.min(4, settings.scale || 1));
+  const outWidth = Math.round(size.width * scale);
+  const outHeight = Math.round(size.height * scale);
   const clone = cloneSvgNode(svgNode);
   if (!clone) throw new Error('No SVG node available for chart export.');
   clone.setAttribute('width', size.width);
@@ -65,18 +104,23 @@ export function exportChartAsPng(svgNode, options = {}, background = '#ffffff') 
   const img = new Image();
   img.onload = () => {
     const canvas = document.createElement('canvas');
-    canvas.width = size.width;
-    canvas.height = size.height;
+    canvas.width = outWidth;
+    canvas.height = outHeight;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = background;
-    ctx.fillRect(0, 0, size.width, size.height);
-    ctx.drawImage(img, 0, 0, size.width, size.height);
+    if (settings.includeBackground) {
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, outWidth, outHeight);
+    }
+    ctx.drawImage(img, 0, 0, outWidth, outHeight);
     URL.revokeObjectURL(url);
-    canvas.toBlob((png) => {
-      if (png) {
-        downloadBlob(png, safeFilename(filename, 'png'));
+    const mime = settings.format === 'jpeg' || settings.format === 'jpg' ? 'image/jpeg' : 'image/png';
+    const ext = mime === 'image/jpeg' ? 'jpg' : 'png';
+    const outName = resolveFileNameFromTemplate(options.fileNameTemplate || settings.fileNameTemplate, { title: filename, name: filename });
+    canvas.toBlob((image) => {
+      if (image) {
+        downloadBlob(image, safeFilename(outName, ext));
       }
-    }, 'image/png');
+    }, mime, mime === 'image/jpeg' ? settings.jpegQuality : undefined);
   };
   img.onerror = () => {
     URL.revokeObjectURL(url);
