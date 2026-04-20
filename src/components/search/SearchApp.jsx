@@ -262,6 +262,34 @@ export function SearchApp() {
         <button onClick={onRun} disabled={running} style={{ ...input, cursor: 'pointer', marginTop: 14, background: 'hsl(var(--primary))' }}>
           {running ? 'Running…' : 'Search'}
         </button>
+
+        <Field label="Saved searches">
+          <div style={{ display: 'flex', gap: 4 }}>
+            <select
+              value=""
+              onChange={(e) => e.target.value && onLoadSearch(e.target.value)}
+              style={{ ...input, cursor: 'pointer', minWidth: 180 }}
+            >
+              <option value="">{savedSearches.length ? 'Load saved…' : 'No saved searches'}</option>
+              {savedSearches.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <button onClick={onSaveSearch} style={{ ...input, cursor: 'pointer' }} title="Persist the current search">Save</button>
+            {savedSearches.length > 0 && (
+              <select
+                value=""
+                onChange={(e) => e.target.value && onDeleteSearch(e.target.value)}
+                style={{ ...input, cursor: 'pointer', width: 80 }}
+                title="Delete a saved search"
+              >
+                <option value="">Del…</option>
+                {savedSearches.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            )}
+            <button onClick={onSaveAsSmartFilter} style={{ ...input, cursor: 'pointer' }} title="Open this search in the Smart Filter editor">
+              → Smart Filter
+            </button>
+          </div>
+        </Field>
       </header>
 
       <div style={filterPanel}>
