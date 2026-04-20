@@ -74,7 +74,7 @@ function PreviewBody({ payload }) {
   const hasRenderableTree = Boolean(trees?.ancestorTree || trees?.descendantTree);
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="bg-background text-foreground flex flex-col overflow-hidden" style={{ height: '100dvh', minHeight: '100vh' }}>
       <header className="shrink-0 border-b border-border bg-card px-5 py-3 flex items-center gap-3">
         <Link to="/" className="text-xs text-muted-foreground hover:underline">CloudTreeWeb</Link>
         <span className="text-muted-foreground">/</span>
@@ -84,7 +84,7 @@ function PreviewBody({ payload }) {
         </span>
         <span className="ms-auto text-xs text-muted-foreground">Read-only preview</span>
       </header>
-      <main className="flex-1 min-h-0">
+      <main className="flex-1 min-h-0 overflow-hidden">
         {hasRenderableTree ? (
           <PreviewChart payload={payload} />
         ) : (
