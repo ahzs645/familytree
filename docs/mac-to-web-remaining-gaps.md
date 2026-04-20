@@ -591,3 +591,42 @@ Driven from a fresh sweep of `Contents/Resources/en.lproj/*.strings` (Localizabl
 3. **Object-level deep linking (#3P.11).** Minor router change on top of existing `?url=` support; unlocks shareable "look at this person" links that the team will actually use.
 
 Deferred: encoding chooser (3P.2) is small but benefits a narrow set of users; TTS (3P.3) is fun but cosmetic; maps slideshow (3P.6) and ToDo wizard (3P.5) are each one solid session but lower urgency than the three above.
+
+---
+
+## Fourth-pass reconciliation (2026-04-20)
+
+Verified during an implementation sweep. Several items the earlier passes flagged as **missing / partial** are now actually shipped — worth recording so the next audit doesn't re-propose them.
+
+### Already implemented (recorded here for the record)
+- **2P.1 Date qualifiers (ABT/BEF/AFT/BET/FROM…TO/CAL/EST/INT + BC + phrase)** — `src/components/ui/DatePicker.jsx` + `src/lib/dateQualifiers.js`. DatePicker has qualifier dropdown, era toggle, range selector, INT phrase field.
+- **2P.4 Source Certainty triplet** — `src/lib/sourceCertainty.js` (CERTAINTY enum + axes + `certaintySortKey`) + `src/components/editors/RelatedRecordEditors.jsx:205-272` wires Original/Derivative/DontKnow dropdowns into citations and sorts relations by combined certainty.
+- **2P.5 Narrative prose templates** — `src/lib/reports/narrativeTemplates.js` (Birth/Marriage/Death/Residence/Occupation × Male/Female/Unknown × slot fallbacks) + `builders.js:13,566-579` uses `describeBirth`, `describeDeath`, `describeMarriage` in the narrative report builder.
+- **#1 Custom type editors** — `src/routes/CustomTypes.jsx` + `src/lib/customTypes.js` — event/fact/additional-name/ToDo/influential-relation types.
+- **#6 Change Log purge tools** — delivered in commit `cb08fa6`.
+- **#11 Subtree wizard** — `src/routes/SubtreeWizard.jsx` + `src/lib/subtree.js`.
+- **#15 Bookmarks hub** — `src/routes/Bookmarks.jsx`.
+- **#19 LDS Ordinances** — `src/routes/LdsOrdinances.jsx`.
+- **#25 Plausibility configuration** — `Settings.jsx` Plausibility tab + `src/lib/plausibility.js`.
+- **#26 Person groups** — `src/routes/PersonGroups.jsx`.
+
+### Delivered in this session
+- **3P.1, 3P.2, 3P.4, 3P.5, 3P.6, 3P.7/3P.8, 3P.9, 3P.10, 3P.11, 3P.12, 3P.13, 3P.14, 3P.15, 3P.16** — see commit history and the files under `src/components/` and `src/lib/` named after each feature.
+
+### Still open (confirmed missing after this pass)
+- **#2 Smart Filter authoring** — `src/routes/SmartFilters.jsx` exists but lacks a compound filter-component builder; named "smart filters" only cover built-in scopes today.
+- **#3 Saved searches** — no persistence of multi-criteria search state; still a good pairing with #2.
+- **#4 Welcome multi-tree library UI** — per-tree label/favorite/sort/rename/delete-with-confirm not yet on `Home.jsx`.
+- **#5 Backup pane retention + history browser** — `Backup.jsx` still a single-shot JSON export.
+- **#7 Conflict resolution UI on merge** — `MergeConflictSheet.jsx` exists but isn't wired into the merge progress flow.
+- **#12 Slideshow configuration depth** — `Slideshow.jsx` route exists; needs `SlideshowConfigurationSheet` parity (interval, transitions, per-media selection).
+- **#13 Batch Place Lookup sheet** — missing as a dedicated modal; geocoding helpers exist under `placeGeocoding.js`.
+- **#16 Keyboard shortcuts palette** — `src/lib/useKeyboardShortcuts.js` is per-view only; no global palette / help sheet.
+- **#20 Research log** — no journal-style log separate from ToDos.
+- **#27 Place Convert-to-Detail** — no sheet to collapse a Place into a detail of its parent.
+- **3P.3 Narrative TTS** — not yet wired.
+
+### Fourth-pass "Next 3"
+1. **#2 Smart Filter authoring sheet** — compound filter builder + "Save current search as smart filter". Pairs naturally with #3 in the same PR.
+2. **#4 Welcome multi-tree actions** — rename / favorite / sort / delete-with-typed-confirm on `Home.jsx`.
+3. **#16 Global keyboard shortcut palette** — single sheet listing bindings, with `?`-style toggle. Prior audit flagged it; still nothing global.

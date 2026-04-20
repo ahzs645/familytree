@@ -18,6 +18,7 @@ export async function findRelationshipPaths(startRecordName, endRecordName, opti
     maxDepth = 12,
     maxPaths = 12,
     maxQueue = 5000,
+    excludeNonBiological = false,
   } = options;
   const db = getLocalDatabase();
   const [start, end] = await Promise.all([db.getRecord(startRecordName), db.getRecord(endRecordName)]);
@@ -43,7 +44,7 @@ export async function findRelationshipPaths(startRecordName, endRecordName, opti
     if (!current || traversedEdges >= maxDepth) continue;
 
     const visitedInPath = new Set(path.map((step) => step.recordName));
-    const neighbors = await getNeighbors(db, current, { includeSpouses });
+    const neighbors = await getNeighbors(db, current, { includeSpouses, excludeNonBiological });
     for (const { neighbor, edge, record } of neighbors) {
       if (!neighbor || visitedInPath.has(neighbor)) continue;
       if (record) recordCache.set(neighbor, record);
@@ -66,7 +67,7 @@ export async function findRelationshipPaths(startRecordName, endRecordName, opti
 }
 
 async function getNeighbors(db, recordName, options = {}) {
-  const { includeSpouses = true } = options;
+  const { includeSpouses = true, excludeNonBiological = false } = options;
   const out = [];
   const seen = new Set();
   const push = (record, edge) => {
@@ -79,6 +80,7 @@ async function getNeighbors(db, recordName, options = {}) {
   const parents = await db.getPersonsParents(recordName);
   for (const fam of parents) {
     if (!isPublicRecord(fam.family)) continue;
+    if (excludeNonBiological && !isBiologicalChildLink(fam)) continue;
     push(fam.man, 'parent');
     push(fam.woman, 'parent');
   }
@@ -92,6 +94,15 @@ async function getNeighbors(db, recordName, options = {}) {
     }
   }
   return out;
+}
+
+// Treat a parent relation as biological unless it explicitly marks itself as
+// adopted/step/foster. Real-world ChildRelation records frequently omit the
+// type for simple biological cases, so absence ≈ biological.
+function isBiologicalChildLink(fam) {
+  const marker = fam?.family?.fields?.childRelationType?.value || fam?.relationType || null;
+  if (!marker) return true;
+  return !/adopt|step|foster|guardian/i.test(String(marker));
 }
 
 function hydratePath(steps, recordCache) {

@@ -14,6 +14,7 @@ import { listChartDocuments, saveChartDocument, deleteChartDocument, newChartDoc
 import { loadSavedChartDocument } from '../../lib/chartContainerLoader.js';
 import { normalizeChartDocument } from '../../lib/chartDocumentSchema.js';
 import { buildShareUrl } from '../../lib/chartShareLink.js';
+import { ChartBackgroundSheet } from './ChartBackgroundSheet.jsx';
 import { buildTimelineData } from '../../lib/chartData/timelineBuilder.js';
 import { buildGenogramData } from '../../lib/chartData/genogramBuilder.js';
 import { buildDistributionData } from '../../lib/chartData/distributionBuilder.js';
@@ -106,12 +107,16 @@ export function ChartsApp() {
   const [pageSize, setPageSize] = useState('letter');
   const [pageOrientation, setPageOrientation] = useState('landscape');
   const [chartBackground, setChartBackground] = useState('');
+  const [backgroundSheetOpen, setBackgroundSheetOpen] = useState(false);
   const [ancestorTree, setAncestorTree] = useState(null);
   const [descendantTree, setDescendantTree] = useState(null);
   const [secondAncestorTree, setSecondAncestorTree] = useState(null);
   const [relationshipPaths, setRelationshipPaths] = useState([]);
   const [selectedRelationshipPathId, setSelectedRelationshipPathId] = useState(null);
   const [relationshipBloodlineOnly, setRelationshipBloodlineOnly] = useState(false);
+  const [relationshipMaxPaths, setRelationshipMaxPaths] = useState(12);
+  const [relationshipMaxDepth, setRelationshipMaxDepth] = useState(12);
+  const [relationshipExcludeNonBiological, setRelationshipExcludeNonBiological] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -347,7 +352,12 @@ export function ChartsApp() {
         const a2 = await buildAncestorTree(secondId, doubleAncestorRightGens);
         if (!cancelled) setSecondAncestorTree(a2);
       } else if (chartType === 'relationship') {
-        const result = await findRelationshipPaths(rootId, secondId, { bloodlineOnly: relationshipBloodlineOnly });
+        const result = await findRelationshipPaths(rootId, secondId, {
+          bloodlineOnly: relationshipBloodlineOnly,
+          maxPaths: relationshipMaxPaths,
+          maxDepth: relationshipMaxDepth,
+          excludeNonBiological: relationshipExcludeNonBiological,
+        });
         if (!cancelled) {
           const paths = result.paths || [];
           setRelationshipPaths(paths);
@@ -361,7 +371,7 @@ export function ChartsApp() {
     return () => {
       cancelled = true;
     };
-  }, [secondId, chartType, generations, doubleAncestorRightGens, needsSecond, rootId, relationshipBloodlineOnly]);
+  }, [secondId, chartType, generations, doubleAncestorRightGens, needsSecond, rootId, relationshipBloodlineOnly, relationshipMaxPaths, relationshipMaxDepth, relationshipExcludeNonBiological]);
 
   // Build record-backed timeline/genogram data from chartData builders when the
   // active chart needs events/facts. The builders query PersonEvent,
@@ -705,6 +715,12 @@ export function ChartsApp() {
           <RelationshipPathControls
             bloodlineOnly={relationshipBloodlineOnly}
             onBloodlineOnlyChange={setRelationshipBloodlineOnly}
+            maxPaths={relationshipMaxPaths}
+            onMaxPathsChange={setRelationshipMaxPaths}
+            maxDepth={relationshipMaxDepth}
+            onMaxDepthChange={setRelationshipMaxDepth}
+            excludeNonBiological={relationshipExcludeNonBiological}
+            onExcludeNonBiologicalChange={setRelationshipExcludeNonBiological}
             paths={relationshipPaths}
             selectedPathId={selectedRelationshipPathId}
             onSelectedPathChange={setSelectedRelationshipPathId}
@@ -883,7 +899,18 @@ export function ChartsApp() {
                     <option value="portrait">Portrait</option>
                   </select>
                 </div>
-                <input value={chartBackground} onChange={(e) => setChartBackground(e.target.value)} placeholder="Background color" style={{ ...optionSelect, marginTop: 6 }} title="CSS background color" />
+                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                  <input value={chartBackground} onChange={(e) => setChartBackground(e.target.value)} placeholder="CSS value or click Edit…" style={{ ...optionSelect, flex: 1 }} title="CSS background color" />
+                  <button type="button" onClick={() => setBackgroundSheetOpen(true)} style={optionSelect} title="Color / gradient / image background editor">
+                    Edit…
+                  </button>
+                </div>
+                <ChartBackgroundSheet
+                  open={backgroundSheetOpen}
+                  value={chartBackground}
+                  onApply={(value) => { setChartBackground(value); setBackgroundSheetOpen(false); }}
+                  onClose={() => setBackgroundSheetOpen(false)}
+                />
               </Section>
 
               <Section label="Templates">
@@ -1396,6 +1423,12 @@ function Field({ label, children, hideOnNarrow }) {
 function RelationshipPathControls({
   bloodlineOnly,
   onBloodlineOnlyChange,
+  maxPaths,
+  onMaxPathsChange,
+  maxDepth,
+  onMaxDepthChange,
+  excludeNonBiological,
+  onExcludeNonBiologicalChange,
   paths,
   selectedPathId,
   onSelectedPathChange,
@@ -1412,6 +1445,39 @@ function RelationshipPathControls({
           disabled={disabled}
         />
         <span>Bloodlines only</span>
+      </label>
+      <label style={relationshipToggleStyle} title="Skip paths that cross adopted or step relationships.">
+        <input
+          type="checkbox"
+          checked={excludeNonBiological}
+          onChange={(event) => onExcludeNonBiologicalChange(event.target.checked)}
+          disabled={disabled}
+        />
+        <span>Full-blood only</span>
+      </label>
+      <label style={{ display: 'flex', flexDirection: 'column', fontSize: 11 }}>
+        <span style={{ color: 'hsl(var(--muted-foreground))' }}>Max paths</span>
+        <input
+          type="number"
+          min={1}
+          max={40}
+          value={maxPaths}
+          onChange={(event) => onMaxPathsChange(Math.max(1, Math.min(40, Number(event.target.value) || 1)))}
+          disabled={disabled}
+          style={{ ...selectStyle, width: 60 }}
+        />
+      </label>
+      <label style={{ display: 'flex', flexDirection: 'column', fontSize: 11 }}>
+        <span style={{ color: 'hsl(var(--muted-foreground))' }}>Max depth</span>
+        <input
+          type="number"
+          min={2}
+          max={24}
+          value={maxDepth}
+          onChange={(event) => onMaxDepthChange(Math.max(2, Math.min(24, Number(event.target.value) || 2)))}
+          disabled={disabled}
+          style={{ ...selectStyle, width: 60 }}
+        />
       </label>
       <select
         value={selectedPathId || ''}
