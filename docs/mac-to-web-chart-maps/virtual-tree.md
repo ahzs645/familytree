@@ -1,21 +1,26 @@
 # Interactive / Virtual Tree map
 
 ## Mac evidence
-- `showVirtualTreeChart:` selector and `InteractiveTreePane.nib` references are explicit.
-- `VirtualTreeDiagramPane` and `VirtualTreeDiagramPane_Navigation` indicate a dedicated pane with controls for rotation/zoom/nav.
-- Native flow sits under chart function pane and shares chart builder/compositor pipeline.
+- `Interactive Tree` and `Virtual Tree` are separate Mac surfaces.
+- Interactive Tree evidence includes `InteractiveTreePane`, `InteractiveTreeView`, `InteractiveTreeViewTreeBuilder`, `InteractiveTreeViewFlatViewer`, `InteractiveTreeView3DViewer`, and `interactiveTreeClicked:`.
+- Virtual Tree evidence includes `showVirtualTreeChart:`, `VirtualTreeDiagramPane`, `VirtualTreeView`, `VirtualTreeBuilder`, `VirtualTreeConfiguration`, `VirtualTreeMetalRenderer`, `VirtualTreePersonObject`, `VirtualTreeFamilyObject`, `VirtualTreeConnectionObject`, and Metal draw/compute encoder classes.
+- `VirtualTreeDiagramPane_Navigation.nib` wires `rotationTrackingView` and `zoomTrackingView` to `trackingViewDelegate`.
+- `CoreVirtualTree.strings` exposes collect modes, relationship path controls, person/family symbols, color modes, connection colors/widths, depth of field, shadows, light/dark appearance, and AR controls.
 
 ## Web implementation today
 - Switch entry: `id: 'virtual'`.
-- Render path: `VirtualTreeDiagram` + options sidebar in `ChartsApp.jsx`.
+- Render path: `VirtualTreeDiagram` plus options sidebar in `ChartsApp.jsx`.
 - Layout: `layoutVirtualTree` in `src/components/charts/layouts/virtualTreeLayout.js` and tree conversion helpers.
-- Persisted virtual settings currently tracked in document state (`virtual.source`, `virtual.orientation`, `virtual.hSpacing`, `virtual.vSpacing`).
+- Persisted virtual settings currently track `virtual.source`, `virtual.orientation`, `virtual.hSpacing`, and `virtual.vSpacing`.
+- Separate interactive tree route exists at `/tree`, with `InteractiveTreeApp.jsx` and `ThreeDTreeView.jsx` using Three.js and `OrbitControls`.
 
 ## Mac ⇄ web mapping
-- `showVirtualTreeChart:` -> `chartType === 'virtual'` with source/orientation options.
-- Current virtual settings already align better than several other modes, but import side still drops compositor style/state.
+- Mac `showVirtualTreeChart:` -> web `chartType === 'virtual'`.
+- Mac `VirtualTreeBuilder` -> web `layoutVirtualTree`, but the web renderer is still SVG/configurable hierarchy rather than Metal/3D.
+- Mac `VirtualTreeMetalRenderer` and encoder classes -> closest web target is a future Three.js/WebGL virtual tree, not the current `ChartCanvas` static chart renderer.
+- Mac relationship-path highlighting -> not yet represented in web virtual-tree state.
 
 ## Parity focus
-- Expand virtual-tree settings to restore native equivalents (if any) from container payload: page-like metadata, background/path style, labels/spacing presets.
-- Replace manual button controls with structured navigation/rotation controls if native `VirtualTreeDiagramPane_Navigation` keys are reintroduced.
-- Ensure virtual tree participates in share/read-only/edit lifecycle and realign commands.
+- Decide whether `/charts?type=virtual` remains a 2D configurable hierarchy or becomes a Three.js virtual-tree view.
+- Add collect mode, symbol mode, color mode, connection style, relationship-path display, and navigation state to the persisted virtual config.
+- If implementing full parity, reuse the existing Three.js route patterns from `ThreeDTreeView.jsx` rather than extending the SVG chart renderer.

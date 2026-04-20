@@ -14,6 +14,7 @@ This directory contains one implementation map per chart mode exposed by the web
 - [symmetrical-tree.md](symmetrical-tree.md)
 - [distribution.md](distribution.md)
 - [timeline.md](timeline.md)
+- [statistics.md](statistics.md)
 - [genogram.md](genogram.md)
 - [sociogram.md](sociogram.md)
 - [fractal-h-tree.md](fractal-h-tree.md)
@@ -21,6 +22,7 @@ This directory contains one implementation map per chart mode exposed by the web
 - [fractal-tree.md](fractal-tree.md)
 - [relationship-path.md](relationship-path.md)
 - [virtual-tree.md](virtual-tree.md)
+- [saved-charts.md](saved-charts.md)
 
 Legend used in each file:
 - Mac-native evidence names come from string keys, selectors, and nib/module clues in the extraction file.

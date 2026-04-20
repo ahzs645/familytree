@@ -1,17 +1,20 @@
 # Fractal H-Tree chart map
 
 ## Mac evidence
-- Not represented in extracted Mac chart keys.
+- Native chart name is exposed as `FractalHTreeChartPane`, `_FunctionTitle_FractalHTreeChartPaneName`, and `FractalHTreeChartMaskIcon`.
+- Core builder symbols include `BaseFractalChartsBuilder`, `BaseFractalChartsBuilderConfiguration`, `FractalHTreeChartsBuilder`, `FractalHTreeChartsBuilderConfiguration`, and `FractalChartPersonBuilderItem`.
+- The shared fractal symbol `alignFractalTreeSubItemsOfItem:withPreviousItem:withNormalizedIncomingVector:inContainer:withMaximumGeneration:` indicates recursive vector-based placement.
 
 ## Web implementation today
 - Switch entry: `id: 'fractal-h-tree'`.
 - Render path: `FractalAncestorChart` variant `'h-tree'` from `SpecializedCharts.jsx`.
-- Layout is in `layout` block inside `FractalAncestorChart`.
+- Layout is in the local `layout` block inside `FractalAncestorChart`.
 
 ## Mac ⇄ web mapping
-- No direct native evidence in current extraction snapshot.
-- This appears to be a custom/experimental web variant.
+- Mac `FractalHTreeChartsBuilder` -> web `FractalAncestorChart` with `variant='h-tree'`.
+- Mac base fractal builder/configuration -> web currently has only generation count and generic theme/page settings.
 
 ## Parity focus
-- Keep as web-only unless future bundle scan confirms an equivalent.
-- Ensure document/template schema records `chartType` and any variant-specific fields for round-trip stability.
+- Persist fractal variant and layout parameters explicitly in chart documents/templates.
+- If imported payloads expose a fractal builder class name, map `FractalHTreeChart` to `chartType: 'fractal-h-tree'`.
+- Keep shared static chart editor/export/page lifecycle aligned with the regular chart compositor.

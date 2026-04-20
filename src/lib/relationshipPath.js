@@ -1,77 +1,132 @@
 /**
- * Find the shortest kinship path between two persons by BFS over the
- * Family graph. Each step is either "parent" (up) or "child" (down) or
- * "spouse" (sideways). Returns a list of nodes with edge labels.
+ * Find kinship paths between two persons over the Family graph.
+ * Each step is either "parent" (up), "child" (down), or "spouse" (sideways).
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { isPublicRecord } from './privacy.js';
 import { personSummary } from '../models/index.js';
 
 export async function findRelationshipPath(startRecordName, endRecordName) {
+  const result = await findRelationshipPaths(startRecordName, endRecordName, { maxPaths: 1 });
+  return result.paths[0] || null;
+}
+
+export async function findRelationshipPaths(startRecordName, endRecordName, options = {}) {
+  const {
+    bloodlineOnly = false,
+    includeSpouses = !bloodlineOnly,
+    maxDepth = 12,
+    maxPaths = 12,
+    maxQueue = 5000,
+  } = options;
   const db = getLocalDatabase();
   const [start, end] = await Promise.all([db.getRecord(startRecordName), db.getRecord(endRecordName)]);
-  if (!isPublicRecord(start) || !isPublicRecord(end)) return null;
+  if (!isPublicRecord(start) || !isPublicRecord(end)) return { paths: [], selectedPathId: null };
   if (startRecordName === endRecordName) {
-    return { steps: [{ recordName: startRecordName, edgeFromPrev: 'self', person: personSummary(start) }], label: 'Same person' };
+    const path = hydratePath([{ recordName: startRecordName, edgeFromPrev: 'self' }], new Map([[startRecordName, start]]));
+    return { paths: [path], selectedPathId: path.id };
   }
-  const visited = new Map(); // recordName → { prev, edge }
-  visited.set(startRecordName, { prev: null, edge: null });
-  const queue = [startRecordName];
 
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (current === endRecordName) break;
+  const queue = [[{ recordName: startRecordName, edgeFromPrev: null }]];
+  const found = [];
+  const seenPathIds = new Set();
+  const recordCache = new Map([
+    [startRecordName, start],
+    [endRecordName, end],
+  ]);
+  let cursor = 0;
 
-    const neighbors = await getNeighbors(db, current);
-    for (const { neighbor, edge } of neighbors) {
-      if (visited.has(neighbor)) continue;
-      visited.set(neighbor, { prev: current, edge });
-      queue.push(neighbor);
+  while (cursor < queue.length && found.length < maxPaths && cursor < maxQueue) {
+    const path = queue[cursor++];
+    const current = path[path.length - 1]?.recordName;
+    const traversedEdges = path.length - 1;
+    if (!current || traversedEdges >= maxDepth) continue;
+
+    const visitedInPath = new Set(path.map((step) => step.recordName));
+    const neighbors = await getNeighbors(db, current, { includeSpouses });
+    for (const { neighbor, edge, record } of neighbors) {
+      if (!neighbor || visitedInPath.has(neighbor)) continue;
+      if (record) recordCache.set(neighbor, record);
+      const nextPath = [...path, { recordName: neighbor, edgeFromPrev: edge }];
+      if (neighbor === endRecordName) {
+        const hydrated = hydratePath(nextPath, recordCache);
+        if (!seenPathIds.has(hydrated.id)) {
+          seenPathIds.add(hydrated.id);
+          found.push(hydrated);
+          if (found.length >= maxPaths) break;
+        }
+        continue;
+      }
+      if (nextPath.length - 1 < maxDepth && queue.length < maxQueue) queue.push(nextPath);
     }
   }
 
-  if (!visited.has(endRecordName)) return null;
-
-  // Reconstruct path
-  const path = [];
-  let cursor = endRecordName;
-  while (cursor) {
-    const entry = visited.get(cursor);
-    path.unshift({ recordName: cursor, edgeFromPrev: entry.edge });
-    cursor = entry.prev;
-  }
-
-  // Hydrate person summaries
-  const hydrated = [];
-  for (const step of path) {
-    const r = await db.getRecord(step.recordName);
-    hydrated.push({
-      ...step,
-      person: r ? personSummary(r) : null,
-    });
-  }
-  return { steps: hydrated, label: relationshipLabel(hydrated) };
+  const paths = found.sort(comparePaths);
+  return { paths, selectedPathId: paths[0]?.id || null };
 }
 
-async function getNeighbors(db, recordName) {
+async function getNeighbors(db, recordName, options = {}) {
+  const { includeSpouses = true } = options;
   const out = [];
+  const seen = new Set();
+  const push = (record, edge) => {
+    if (!isPublicRecord(record) || seen.has(record.recordName)) return;
+    seen.add(record.recordName);
+    out.push({ neighbor: record.recordName, edge, record });
+  };
+
   // Parents (up)
   const parents = await db.getPersonsParents(recordName);
   for (const fam of parents) {
     if (!isPublicRecord(fam.family)) continue;
-    if (isPublicRecord(fam.man)) out.push({ neighbor: fam.man.recordName, edge: 'parent' });
-    if (isPublicRecord(fam.woman)) out.push({ neighbor: fam.woman.recordName, edge: 'parent' });
+    push(fam.man, 'parent');
+    push(fam.woman, 'parent');
   }
   // Children + spouses (down + sideways)
   const families = await db.getPersonsChildrenInformation(recordName);
   for (const fam of families) {
     if (!isPublicRecord(fam.family)) continue;
-    if (isPublicRecord(fam.partner)) out.push({ neighbor: fam.partner.recordName, edge: 'spouse' });
+    if (includeSpouses) push(fam.partner, 'spouse');
     for (const child of fam.children) {
-      if (isPublicRecord(child)) out.push({ neighbor: child.recordName, edge: 'child' });
+      push(child, 'child');
     }
   }
   return out;
+}
+
+function hydratePath(steps, recordCache) {
+  const hydratedSteps = steps.map((step) => {
+    const record = recordCache.get(step.recordName);
+    return {
+      ...step,
+      person: record ? personSummary(record) : null,
+    };
+  });
+  const edgeCounts = countEdges(hydratedSteps);
+  const id = hydratedSteps.map((step) => `${step.edgeFromPrev || 'start'}:${step.recordName}`).join('|');
+  return {
+    id,
+    steps: hydratedSteps,
+    label: relationshipLabel(hydratedSteps),
+    edgeCounts,
+    bloodlineOnly: edgeCounts.spouse === 0,
+  };
+}
+
+function countEdges(steps) {
+  const counts = { parent: 0, child: 0, spouse: 0 };
+  for (const step of steps || []) {
+    if (step.edgeFromPrev in counts) counts[step.edgeFromPrev]++;
+  }
+  return counts;
+}
+
+function comparePaths(a, b) {
+  const lengthDiff = a.steps.length - b.steps.length;
+  if (lengthDiff) return lengthDiff;
+  const spouseDiff = (a.edgeCounts?.spouse || 0) - (b.edgeCounts?.spouse || 0);
+  if (spouseDiff) return spouseDiff;
+  return String(a.id).localeCompare(String(b.id));
 }
 
 /**

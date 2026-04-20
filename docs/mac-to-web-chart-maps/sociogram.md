@@ -1,17 +1,21 @@
 # Sociogram chart map
 
 ## Mac evidence
-- No explicit `sociogram` key appears in extracted chart panes.
+- Native chart name is exposed as `SociogramChartPane`, `_FunctionTitle_SociogramChartPaneName`, `SociogramChartMaskIcon`, and `SociogramChart`.
+- Core builder symbols include `SociogramChartBuilder`, `SociogramChartBuilderConfiguration`, `SociogramPersonChartBuilderItem`, and `SociogramAssociatedPersonChartBuilderItem`.
+- Core config keys include `_SociogramChartBuilderConfiguration_ShowParents`, `_ShowGrandparents`, `_ShowPartners`, `_ShowChildren`, `_ShowAssociateRelationsOfStartPerson`, `_ShowAssociateRelationsOfPartners`, `_ShowAssociateRelationsOfChildren`, and `_AssociatedPersonsSpacing`.
 
 ## Web implementation today
 - Switch entry: `id: 'sociogram'`.
 - Render path: `GenogramChart` with `sociogram` flag enabled in `ChartsApp.jsx`.
-- Uses same source (`descendantTree`) as genogram.
+- Uses the same descendant source as genogram and applies dashed/colored connector styling.
 
 ## Mac ⇄ web mapping
-- No native anchor currently in extraction; currently implemented as a web variant of genogram style.
-- Style is currently a hard-coded overlay of color/dash, not payload-driven.
+- Mac `SociogramChartBuilder` -> web `chartType === 'sociogram'`.
+- Mac `SociogramAssociatedPersonChartBuilderItem` -> web currently has no associated/influential person item model.
+- Mac neighborhood toggles -> web currently hard-codes a descendant-source view.
 
 ## Parity focus
-- If native equivalent is added in future extract, map to new style fields (`sociogram` colors/edge style/dash rules).
-- In web-only mode, keep consistent exporter/session behavior with other chart types.
+- Build a true social-neighborhood source: parents, grandparents, partners, children, and associate relations behind separate toggles.
+- Add associated/influential person spacing and item styling to chart document state.
+- Import/preserve sociogram builder/class hints from Mac saved-chart payloads when available.

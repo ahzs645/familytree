@@ -1,7 +1,10 @@
 # Timeline chart map
 
 ## Mac evidence
-- No explicit timeline chart label appears in extracted strings/selectors.
+- Native chart name is exposed as `TimelineChartPane`, `_FunctionTitle_TimelineChartPaneName`, `TimelineChartMaskIcon`, and `TimelineChart`.
+- Core builder symbols include `TimelineChartBuilder`, `TimelineChartBuilderConfiguration`, `TimelinePersonChartBuilderItem`, `TimelineHistoryPersonChartBuilderItem`, `TimelineItemGroupChartBuilderItem`, and `TimelineChartBuilder_HistoryPersons_Key`.
+- Core style/config symbols include `TimelineBarChartCompositorStyleConfiguration`, `TimelineFromToChartCompositorStyleConfiguration`, and `TimelineBoxBackgroundGroupBuilderItemGeneratorChartCompositorObjectConfiguration`.
+- `CoreCharts.strings` exposes grouping by birth/death country or place, last name, gender, or sort-by-date, plus `CollapseAllGroupsForBestFit`, history/famous-person groups, from/to dates, graph/bar/text/event-marker options.
 
 ## Web implementation today
 - Switch entry: `id: 'timeline'`.
@@ -9,9 +12,11 @@
 - Render path: `TimelineChart` in `src/components/charts/SpecializedCharts.jsx`.
 
 ## Mac ⇄ web mapping
-- No direct native proof in the current extraction file.
-- Current web implementation should be treated as an advanced chart visualization not yet represented in current Mac chart map.
+- Mac `TimelineChartBuilder` -> web timeline chart generation.
+- Mac timeline item groups/history persons -> web currently has no persisted timeline group item model.
+- Mac bar/from-to compositor styles -> web currently renders simplified timeline rows.
 
 ## Parity focus
-- Confirm native timeline equivalence before allocating native-style schema mapping.
-- Preserve generic editor/export parity (read-only prompts, shared save flows) so any non-native charts still respect app-wide behavior.
+- Build timeline from person events, family events, optional history events, and date ranges, not only ancestor/descendant nodes.
+- Persist grouping mode, date range, collapse-for-fit, marker mode, and style fields in chart documents.
+- Add support for famous/history rows if those records are available from imported data.

@@ -63,7 +63,21 @@ Detailed bundle audit: [MacFamilyTree 11 Bundle Audit](./macfamilytree-11-bundle
 - [x] Add object editing for chart overlays: text, images, lines, and selectable objects.
 - [x] Add alignment, bring-to-front/send-to-back, undo/redo, and delete controls.
 - [x] Add background editing, richer chart theme/style controls, and pagination/page setup.
-- Add export/share flows for image, PDF, print, and browser-native sharing where available.
+- [ ] Add export/share flows for image, PDF, print, and browser-native sharing where available.
+- [ ] Bring chart behavior closer to MacFamilyTree 11 chart pipeline. AI task list: [AI chart/view parity task list](./ai-chart-view-parity-task-list.md). Research packet: [MacFamilyTree chart parity implementation research](./mac-to-web-chart-implementation-research.md).
+  - [x] Relationship path parity: multiple paths, bloodline-only toggle, selected path state, path reset, and direct relationship-path tests.
+  - [ ] Chart document schema expansion: `builderConfig`, `compositorConfig`, `exportSettings`, richer `pageSetup`, per-chart options, and migration from current shallow documents.
+  - [ ] Page/export/share parity: margins, page overlap, page numbers, cut marks, omit-empty-pages behavior, JPEG quality, scaling, background toggle, and browser-native share fallback.
+  - [ ] Distribution, timeline, and statistics aggregation builders from real `PersonEvent`, `FamilyEvent`, and `PersonFact` records instead of summary-only chart inputs.
+  - [ ] Genogram real data builder with family structure, fact/event/label markers, and genogram-specific symbol options.
+  - [ ] Sociogram real data builder from `AssociateRelation` plus toggles for parents, grandparents, partners, children, siblings, and associate relation classes.
+  - [ ] Interactive Tree actions: add relatives, edit/delete person/family routing, node context menu, flat viewer, and camera presets.
+  - [ ] Full Virtual Tree WebGL feature using Three.js, with person/family/connection scene objects, relationship path highlighting, color modes, symbols, depth-of-field/camera controls, and snapshot/export.
+
+## Broader Views Audit
+
+- [ ] Audit non-chart MacFamilyTree views from `/Users/ahmadjalil/Downloads/family tree/app/MacFamilyTree 11/Contents` and compare them to web routes for Views, Lists, Tree, Places, Statistics, Reports, Books, Publish, Media, Sources, and person/family editors.
+- [ ] Produce `docs/mac-to-web-views-parity-audit.md` with Mac evidence, current web coverage, gaps, and implementation order.
 
 ## Reports And Books
 

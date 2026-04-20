@@ -8,7 +8,7 @@ import { useSearchParams } from 'react-router-dom';
 import { listAllPersons, findStartPerson, buildAncestorTree, buildDescendantTree } from '../../lib/treeQuery.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
-import { findRelationshipPath } from '../../lib/relationshipPath.js';
+import { findRelationshipPaths } from '../../lib/relationshipPath.js';
 import { listChartTemplates, saveChartTemplate, deleteChartTemplate, newTemplateId } from '../../lib/chartTemplates.js';
 import { listChartDocuments, saveChartDocument, deleteChartDocument, newChartDocumentId } from '../../lib/chartDocuments.js';
 import { loadSavedChartDocument } from '../../lib/chartContainerLoader.js';
@@ -75,7 +75,9 @@ export function ChartsApp() {
   const [ancestorTree, setAncestorTree] = useState(null);
   const [descendantTree, setDescendantTree] = useState(null);
   const [secondAncestorTree, setSecondAncestorTree] = useState(null);
-  const [relationshipResult, setRelationshipResult] = useState(null);
+  const [relationshipPaths, setRelationshipPaths] = useState([]);
+  const [selectedRelationshipPathId, setSelectedRelationshipPathId] = useState(null);
+  const [relationshipBloodlineOnly, setRelationshipBloodlineOnly] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -162,6 +164,9 @@ export function ChartsApp() {
     setPageSize(doc.page?.size || 'letter');
     setPageOrientation(doc.page?.orientation || 'landscape');
     setChartBackground(doc.page?.backgroundColor || '');
+    const relationshipConfig = doc.builderConfig?.relationship || doc.relationship || {};
+    setRelationshipBloodlineOnly(Boolean(relationshipConfig.bloodlineOnly));
+    setSelectedRelationshipPathId(relationshipConfig.selectedPathId || null);
     setFromSource(Array.isArray(doc.overlays) ? doc.overlays : [], {
       preserveSelection: options.preserveSelection ?? false,
     });
@@ -234,7 +239,8 @@ export function ChartsApp() {
   useEffect(() => {
     if (!secondId || !needsSecond) {
       setSecondAncestorTree(null);
-      setRelationshipResult(null);
+      setRelationshipPaths([]);
+      setSelectedRelationshipPathId(null);
       return;
     }
     let cancelled = false;
@@ -243,14 +249,25 @@ export function ChartsApp() {
         const a2 = await buildAncestorTree(secondId, generations);
         if (!cancelled) setSecondAncestorTree(a2);
       } else if (chartType === 'relationship') {
-        const r = await findRelationshipPath(rootId, secondId);
-        if (!cancelled) setRelationshipResult(r);
+        const result = await findRelationshipPaths(rootId, secondId, { bloodlineOnly: relationshipBloodlineOnly });
+        if (!cancelled) {
+          const paths = result.paths || [];
+          setRelationshipPaths(paths);
+          setSelectedRelationshipPathId((current) => {
+            if (current && paths.some((path) => path.id === current)) return current;
+            return result.selectedPathId || paths[0]?.id || null;
+          });
+        }
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [secondId, chartType, generations, needsSecond, rootId]);
+  }, [secondId, chartType, generations, needsSecond, rootId, relationshipBloodlineOnly]);
+
+  const selectedRelationshipResult = useMemo(() => (
+    relationshipPaths.find((path) => path.id === selectedRelationshipPathId) || relationshipPaths[0] || null
+  ), [relationshipPaths, selectedRelationshipPathId]);
 
   const onPersonClick = useCallback(
     (p) => {
@@ -318,8 +335,19 @@ export function ChartsApp() {
       orientation: pageOrientation,
       backgroundColor: chartBackground,
     },
+    relationship: {
+      bloodlineOnly: relationshipBloodlineOnly,
+      selectedPathId: selectedRelationshipPathId,
+    },
+    builderConfig: {
+      common: { generations },
+      relationship: {
+        bloodlineOnly: relationshipBloodlineOnly,
+        selectedPathId: selectedRelationshipPathId,
+      },
+    },
     overlays,
-  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, overlays]);
+  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays]);
 
   const onSaveDocument = useCallback(async () => {
     const name = prompt('Name for this chart document:');
@@ -432,6 +460,22 @@ export function ChartsApp() {
           <Field label={chartType === 'relationship' ? 'Compare to' : 'Partner'}>
             <PersonPicker persons={persons} value={secondId} onChange={setSecondId} />
           </Field>
+        )}
+
+        {chartType === 'relationship' && (
+          <RelationshipPathControls
+            bloodlineOnly={relationshipBloodlineOnly}
+            onBloodlineOnlyChange={setRelationshipBloodlineOnly}
+            paths={relationshipPaths}
+            selectedPathId={selectedRelationshipPathId}
+            onSelectedPathChange={setSelectedRelationshipPathId}
+            onReset={() => {
+              setSecondId(null);
+              setRelationshipPaths([]);
+              setSelectedRelationshipPathId(null);
+            }}
+            disabled={!secondId}
+          />
         )}
 
         <Field label="Type">
@@ -773,7 +817,8 @@ export function ChartsApp() {
         {chartType === 'relationship' && (
           <RelationshipPathChart
             chartCanvasRef={chartCanvasRef}
-            result={relationshipResult}
+            result={selectedRelationshipResult}
+            pathCount={relationshipPaths.length}
             secondPicked={!!secondId}
             onPersonClick={onPersonClick}
             theme={theme}
@@ -849,6 +894,47 @@ function Field({ label, children, hideOnNarrow }) {
   );
 }
 
+function RelationshipPathControls({
+  bloodlineOnly,
+  onBloodlineOnlyChange,
+  paths,
+  selectedPathId,
+  onSelectedPathChange,
+  onReset,
+  disabled,
+}) {
+  return (
+    <div style={relationshipControlsStyle}>
+      <label style={relationshipToggleStyle}>
+        <input
+          type="checkbox"
+          checked={bloodlineOnly}
+          onChange={(event) => onBloodlineOnlyChange(event.target.checked)}
+          disabled={disabled}
+        />
+        <span>Bloodlines only</span>
+      </label>
+      <select
+        value={selectedPathId || ''}
+        onChange={(event) => onSelectedPathChange(event.target.value || null)}
+        disabled={disabled || paths.length === 0}
+        style={{ ...selectStyle, minWidth: 180 }}
+        title="Relationship path"
+      >
+        <option value="">{disabled ? 'Pick compare person' : paths.length ? 'Select path...' : 'No path found'}</option>
+        {paths.map((path, index) => (
+          <option key={path.id} value={path.id}>
+            {index + 1}. {path.label} ({path.steps.length - 1} step{path.steps.length === 2 ? '' : 's'})
+          </option>
+        ))}
+      </select>
+      <button type="button" onClick={onReset} disabled={disabled} style={selectStyle}>
+        Reset
+      </button>
+    </div>
+  );
+}
+
 function Section({ label, children }) {
   return (
     <div style={{ marginBottom: 12 }}>
@@ -875,6 +961,21 @@ const headerStyle = {
 };
 const mainStyle = { flex: 1, position: 'relative', overflow: 'hidden', minWidth: 0 };
 const canvasRowStyle = { flex: 1, display: 'flex', minHeight: 0, minWidth: 0 };
+const relationshipControlsStyle = {
+  display: 'flex',
+  alignItems: 'flex-end',
+  gap: 8,
+  marginInlineEnd: 12,
+};
+const relationshipToggleStyle = {
+  minHeight: 34,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  color: 'hsl(var(--foreground))',
+  font: '13px -apple-system, system-ui, sans-serif',
+  whiteSpace: 'nowrap',
+};
 const selectStyle = {
   background: 'hsl(var(--secondary))',
   color: 'hsl(var(--foreground))',

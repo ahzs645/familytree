@@ -1,19 +1,22 @@
 # Genogram chart map
 
 ## Mac evidence
-- No clear genogram/nomenclature match in extracted chart button keys.
-- Native style groups include person/group/link/event/background blocks, so generic mapping may still apply.
+- Native chart name is exposed as `GenogramChartPane`, `_FunctionTitle_GenogramChartPaneName`, `GenogramChartMaskIcon`, and `GenogramChart`.
+- App/menu evidence includes `createGenogramChart:` and `_BasePersonAwareEditPane_CreateGenogramChartMenu`.
+- Core builder symbols include `GenogramChartBuilder`, `GenogramChartBuilderConfiguration`, `GenogramPersonBuilderItemGeneratorChartCompositorObject`, and `GenogramPersonBuilderItemGeneratorChartCompositorObjectConfiguration`.
+- Core config keys include `_GenogramPersonBuilderItemGeneratorChartCompositorObjectConfiguration_EventPosition`, `_..._EventPosition_Right`, `_..._EventsPosition_Below`, `_..._EventsBackground`, `_..._EventsBackground_None`, and `_..._EventsBackground_Filled`.
 
 ## Web implementation today
 - Switch entry: `id: 'genogram'`.
 - Render path: `GenogramChart` in `src/components/charts/SpecializedCharts.jsx`.
-- Layout from `layoutDescendants` with connector/path stroke styling.
+- Layout currently derives from descendant layout with altered connector/path styling.
 
 ## Mac ⇄ web mapping
-- No direct selector evidence in current decompile snapshot.
-- Could be covered indirectly by generic chart/object config system if payload fields are generic enough.
+- Mac `GenogramChartBuilder` -> web `chartType === 'genogram'`.
+- Mac genogram person generator -> web should support event/fact placement around person boxes.
+- Mac event background/position options -> currently not represented in web document state.
 
 ## Parity focus
-- Preserve and rehydrate generic node/line style fields from container payload into genogram render options.
-- Decide whether genogram is native-implemented under another chart type in future passes.
-- Add missing edit/session UI parity and export path controls.
+- Add genogram options for event/fact visibility, event position, and event background style.
+- Preserve and rehydrate node/line/event style fields from container payload into `GenogramChart`.
+- Use person events/facts rather than only descendant tree structure when building genogram detail.

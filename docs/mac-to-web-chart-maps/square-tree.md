@@ -1,16 +1,20 @@
 # Square Tree chart map
 
 ## Mac evidence
-- Not represented in extracted chart pane labels.
+- Native chart name is exposed as `FractalHVTreeChartPane`, `_FunctionTitle_FractalHVTreeChartPaneName`, `FractalHVTreeChartMaskIcon`, and `FractalHVTreeChart`.
+- The extraction note maps this mode label to `Square Tree`.
+- Core builder symbols include `FractalHVTreeChartsBuilder`, `FractalHVTreeChartsBuilderConfiguration`, `BaseFractalChartsBuilder`, and `FractalChartPersonBuilderItem`.
 
 ## Web implementation today
 - Switch entry: `id: 'square-tree'`.
-- Render path: `FractalAncestorChart` variant `'square'`.
+- Render path: `FractalAncestorChart` variant `'square'` in `src/components/charts/SpecializedCharts.jsx`.
 
 ## Mac ⇄ web mapping
-- No direct native mapping in current decompile output.
-- Generic mapping fallback can still pass through shared theme/background fields only.
+- Mac `FractalHVTreeChart` -> web `chartType === 'square-tree'`.
+- Mac `FractalHVTreeChartsBuilder` -> web square/fractal recursive layout variant.
+- Mac builder configuration is not currently mapped into document state.
 
 ## Parity focus
-- Keep this variant scoped as web-only.
-- Add explicit persistence for variant controls if/when available from imports.
+- Map imported `FractalHVTreeChart` hints to `square-tree` instead of treating it as an unknown chart.
+- Persist square-tree variant configuration explicitly.
+- Preserve generic chart compositor/page/export metadata on save/load.

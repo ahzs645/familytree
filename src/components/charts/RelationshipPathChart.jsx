@@ -16,7 +16,7 @@ const EDGE_GLYPH = {
   spouse: '↔ spouse',
 };
 
-export function RelationshipPathChart({ result, secondPicked, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function RelationshipPathChart({ result, pathCount = 0, secondPicked, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   if (!secondPicked) {
     return <div style={{ padding: 24, color: theme.textMuted }}>Pick a second person to compare against.</div>;
   }
@@ -25,7 +25,7 @@ export function RelationshipPathChart({ result, secondPicked, onPersonClick, the
   }
 
   const stepWidth = theme.nodeWidth + STEP_GAP;
-  const y = 40;
+  const y = pathCount > 1 ? 64 : 40;
 
   return (
     <ChartCanvas
@@ -40,6 +40,11 @@ export function RelationshipPathChart({ result, secondPicked, onPersonClick, the
         <text x={0} y={20} fill={theme.text} fontSize={16} fontWeight={600} fontFamily={theme.fontFamily}>
           Relationship: {result.label}
         </text>
+        {pathCount > 1 && (
+          <text x={0} y={40} fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>
+            {pathCount} possible paths found. Showing selected path.
+          </text>
+        )}
         {result.steps.map((step, i) => {
           const x = i * stepWidth;
           return (
