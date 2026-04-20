@@ -1,0 +1,322 @@
+# MacFamilyTree 11 remaining gaps audit
+
+This document is intentionally **narrow**: it only catalogs surfaces not already covered by the earlier parity audits.
+
+Do **not** duplicate items from these docs when extending the backlog:
+
+- `docs/mac-to-web-chart-parity-audit.md` — all chart modes, chart document schema, builder/compositor, page/export/share.
+- `docs/mac-to-web-views-parity-audit.md` — persons/families/places/media/sources/todos/research/search/settings/favorites/FamilySearch/reports/books/publish/author.
+- `docs/macfamilytree-parity-todo.md` — active backlog (FamilySearch deep workflows, Photos/scanner docs, Contact Picker, richer file lifecycle, desktop function configuration, chart share flows, Arabic smoke checks).
+
+Evidence source paths:
+
+- Bundle: `/Users/ahmadjalil/Downloads/family tree/app/MacFamilyTree 11/Contents`
+- App-level strings: `Contents/Resources/en.lproj/*.strings`
+- Framework strings: `Contents/Frameworks/MacFamilyTreeCore.framework/Versions/A/Resources/en.lproj/*.strings`
+- NIB filenames: `Contents/Resources/Base.lproj/*.nib`
+- Framework symbol strings: `strings Contents/Frameworks/MacFamilyTreeCore.framework/Versions/A/MacFamilyTreeCore`
+
+## Executive summary
+
+The chart and views audits cover the breadth of MacFamilyTree surfaces, but several **edit-adjacent** and **housekeeping** panes are either shallow or entirely absent in the web app. The biggest uncovered clusters are (a) Database Maintenance depth — only 3 of ~15 Mac tools exist; (b) a true Smart Filters / saved-search editor (only evaluation lives in `smartScopes.js`, no authoring UI); (c) the Welcome/startup multi-tree library UI with rename/favorite/sort/label; (d) the Backup pane — web has single-shot JSON export/import, Mac has configurable backup frequency, retention, multi-tree backup browser, and restore-per-date; (e) AI image editing (colorize / background remove / restore) which is never mentioned in the existing audits. Also newly surfaced: a full Change Log purge tool, conflict resolution UI for merge/import, and a number of modal flows the Mac uses (Apple Media Library sheet, Scanner sheet, Slice/Subtree export wizard, Slideshow configuration) that deserve documentation even if some are intentionally out of scope in a browser.
+
+## Gaps grouped by functional area
+
+Each entry: concrete Mac evidence, current web state (grep'd in `src/`), classification (**present / partial / missing**), and a one-line recommendation.
+
+---
+
+### 1. Database Maintenance depth
+
+The existing views audit does not audit Database Maintenance beyond acknowledging its route exists. Mac's `DatabaseMaintenance.strings` (`Contents/Resources/en.lproj/DatabaseMaintenance.strings`) and NIBs (`DatabaseMaintenancePane.nib`, `DatabaseMaintenanceDateFormats.nib`, `DatabaseMaintenanceEmptyEntries.nib`, `DatabaseMaintenanceFailedDates.nib`, `DatabaseMaintenanceFamilyGenderSwitch.nib`, `DatabaseMaintenanceNameFormats.nib`, `DatabaseMaintenanceOptimizeMedia.nib`) expose at least 15 distinct tools. Web `src/routes/Maintenance.jsx` + `src/lib/maintenance.js` implements about 6.
+
+- **Find unreadable dates** — `_DatabaseMaintenance_FailedDatesButton`. **Partial.** Web has `auditUnreadableDates` but no per-entry manual-fix sheet.
+- **Adjust date format (mass re-format)** — `_DatabaseMaintenance_DateFormatsButton`, `_DatabaseMaintenanceDateFormats_AdjustDatesCompletedInformative`. **Partial.** Web's `reformatAllDates` exists, but no before/after preview per record.
+- **Reformat names** — `_DatabaseMaintenance_NameFormatsButton`. **Present.**
+- **Empty entries** — `_DatabaseMaintenance_EmptyEntriesButton`. **Present.**
+- **Family gender switch** — `_DatabaseMaintenance_FamilyGenderSwitchButton`. **Present** (audit only; no swap-in-place commit pathway visible).
+- **Find duplicate entries** — `_DatabaseMaintenance_DuplicateSearchButton`. **Partial.** Covered by `src/components/duplicates/DuplicatesApp.jsx` but not surfaced from the Maintenance pane.
+- **Search and Replace** — `_DatabaseMaintenance_SearchAndReplaceButton`. **Partial.** `src/lib/searchReplace.js` exists; not linked from Maintenance.
+- **Optimize Media** — `_DatabaseMaintenance_OptimizeMediaButton`, `DatabaseMaintenanceOptimizeMedia.nib`. **Partial.** Web has `mediaSizeReport` but no compress/strip EXIF flow.
+- **Manage Person/Family Event Types** — `_DatabaseMaintenance_EditPersonEventTypesButton`, `_EditFamilyEventTypesButton`, `_EditPersonFactTypesButton`. **Missing.** No custom-event-type editor in web (`ConclusionType_Menus_ManageEventTypes`).
+- **Manage Custom Additional Name Types** — `_DatabaseMaintenance_EditAdditionalNameTypesButton`. **Missing.** See `CoreAdditionalNames.strings` for the 13 stock types (`_AdditionalName_MaidenName`, `_Nickname`, etc.) — web uses free-text.
+- **Manage Custom ToDo Types / Priorities / Statuses** — `_EditToDoPriorityTypesButton`, `_EditToDoStatusTypesButton`, `_EditToDoTypeTypesButton`. **Missing.** Web's ToDos route uses free-text.
+- **Manage Custom Influential Relation Types** — `_EditAssociateRelationConclusionTypesButton`. **Missing.**
+- **Source Templates editor** — `_EditSourceTemplateTypesButton`, `EditSourceTemplatesSheet.nib`, `EditSourceTemplateKeysSheet.nib`. **Partial.** `src/routes/Templates.jsx` exists but has not been audited.
+- **Place Templates editor** — `_EditPlaceTemplateTypesButton`, `EditPlaceTemplatesSheet.nib`, `EditPlaceTemplateKeysSheet.nib`. **Partial.**
+- **Find GeoName IDs for Places** — `_DatabaseMaintenance_FindGeoNameIDsForPlacesButton`. **Missing** from Maintenance pane. (Adjacent work is tracked under Places in the existing audit but not hooked up to Maintenance.)
+- **Export Subtree** — `_DatabaseMaintenance_ExportSubtreeButton`, NIBs `SliceSheet.nib`, `SliceProgressView.nib`, `SliceExportSubtreeFinishedView.nib`, strings `CoreSlice.strings`. **Partial.** `src/lib/subtree.js` exists; not wired into a progress-aware wizard.
+- **Remove Subtree** — `_DatabaseMaintenance_RemoveSubtreeButton`, `SliceRemoveSubtreeFinishedView.nib`. **Missing.**
+- **Merge with other Family Tree** — `_DatabaseMaintenance_MergeButton`, NIBs `MergeSheet.nib`, `MergeSelectMergeModeView.nib`, `MergeSelectDatabaseView.nib`, `MergeProgressView.nib`, `MergeFailedView.nib`, `MergeFinishedView.nib`, strings `CoreMerge.strings`. **Partial.** `src/lib/mergeImport.js` exists but without progress / conflict-resolution sheet.
+
+**Recommendation:** Treat Maintenance as its own backlog. Promote it from "audit-only dry runs" to a wired-together hub that navigates into Duplicates, Search & Replace, Subtree, Merge, Templates, and a new Custom Types editor.
+
+---
+
+### 2. Smart Filters authoring UI (separate from runtime)
+
+- Mac evidence: `CoreScopes.strings` — `_Scopes_EditScopes_HeaderTitle` "Edit Smart Filters", `_Scopes_EditScope_Add_Filter` "Add Filter Component…", `_Scopes_SaveAsScope` "Save as Smart Filter…", `_Scopes_NewScope` "New Smart Filter", `_Scopes_ResetSearch`. NIBs: `ScopesEditSheet.nib`, `EditFiltersViewAddFilterWidget.nib`, `SearchPaneAddFilterContextMenuWidget.nib`.
+- Scopes cover 13 entity types: Person, Family, Place, Source, BaseMedia, ToDo, Note, PersonEvent, FamilyEvent, PersonFact, Story, PersonGroup.
+- Web state: `src/lib/smartScopes.js` executes built-in scopes; `src/components/search/SearchApp.jsx` uses them read-only. No "Edit Smart Filters" sheet, no "Save current search as Smart Filter", no filter-component builder.
+- **Missing.** Existing views audit line 414 briefly notes this ("No Scopes edit sheet") but it has not yet been prioritized.
+- **Recommendation:** Add a Smart Filter authoring sheet that (a) saves current `SearchApp` state as a named scope, (b) lets the user compound filter components with and/or grouping, (c) makes scopes selectable from any list widget, not just Search.
+
+---
+
+### 3. Saved searches / named queries
+
+- Mac evidence: Smart Filters double as saved searches on Mac — `_Scopes_SaveScope`, `_Scopes_EditScopes_DiscardUnsavedSearchAlertMessageText`.
+- Web state: Grep for `savedSearch`, `SaveSearch` in `src/` — no results. `SearchApp.jsx` does not persist multi-criteria search configurations.
+- **Missing.** Not explicitly called out by either existing audit.
+- **Recommendation:** Pair this with #2 — a saved search IS a smart filter; persist in IndexedDB metadata and surface in a "Recent & Saved Searches" drawer.
+
+---
+
+### 4. Welcome / startup multi-tree library UI
+
+- Mac evidence: `WelcomeWindow.nib` plus 6 `WelcomeWindowDatabases*FileWidget.nib` variants. `CoreStartupWindow.strings`:
+  - `_AvailableDatabasesView_LocalSectionName` "My Family Trees"
+  - `_StartupWindow_LabelMenu` "Label", `_StartupWindow_MarkAsFavorite`
+  - `_StartupWindow_SortConfig_MainSorting_ByName`, `_ByChangeDate`, `_AlsoSortByFavorites`
+  - `_StartupWindow_SendFileShareSheet` "Send File as Copy"
+  - `_StartupWindow_BackupSettings` per-tree
+  - `_WelcomeWindow_RenameButton`, `_WelcomeWindow_DeleteMessage`, `_WelcomeWindow_ImportGEDCOMButton`, `_WelcomeWindow_ManageBackupsButton`, `_WelcomeWindow_NewTreeButton`, `_WelcomeWindow_RevealInFinderButton`.
+- Web state: `src/lib/treeLibrary.js` exists and `Home.jsx` has a tree picker. Grep showed no "StartupWindow" parity. Existing views audit line 466 notes this but does not enumerate per-tree actions (label, favorite, sort, duplicate, send-as-copy).
+- **Partial.** Current web shows trees as a flat list; lacks label, favorite, sort mode, rename-tree validation, and per-tree backup settings entry point.
+- **Recommendation:** Expand `Home.jsx` tree section (or add `/trees` route) with per-tree favorite, rename, label, delete with typed confirmation, sort (by name / change date / favorite first), and inline "Backup Settings" action.
+
+---
+
+### 5. Backup pane depth
+
+- Mac evidence: `CoreBackupRestoreManager.strings` — `_BackupType_None`, `_Local`, `_LocalAndCustomBackupURL`, `_iCloudDrive`, `_BackupsToKeep` (retention policy), `_ManualSaveTime` / `_AutoSaveTime` / `_CloudKitSaveTime` each selectable from Never / Always / 5/10/15/20/30 min / 1/2/6 hours. NIB: `BackupConfigurationSheet.nib`. `OrganizeBackupsSheet.nib` — `_OrganizeBackupsSheet_Title` "Restore & Manage Backups", selectable per-tree backup history.
+- Web state: `src/routes/Backup.jsx` is a single JSON export/import. No retention policy, no auto-backup trigger, no backup history browser, no per-tree scope.
+- **Partial.** Existing audits say nothing about backup configuration/history.
+- **Recommendation:** Add `BackupSettings.jsx` modal: backup-on-save toggle, retention count, destination (IndexedDB blob vs download), and a history list with restore-per-entry. `BroadcastChannel` / `navigator.storage.estimate()` can surface quota.
+
+---
+
+### 6. Change Log purge tools
+
+- Mac evidence: `_ChangeLogPurgeButton`, `_ChangeLogPurgeButton_PurgeAll`, `_ChangeLogPurgeButton_PurgeAllChangeLogEntriesOfDeletedObjects`, `_ChangeLogPurgeButton_PurgeOlderThanLastYear/Month/Week/Day/Hour`. `_ChangeLogDeleteButton` per-entry. NIBs: `ChangeLogPane.nib`, `ChangeLogWidget.nib`.
+- Web state: `src/routes/ChangeLog.jsx` displays entries. Grep for "purge" in `src/` returns nothing.
+- **Partial.** Existing views audit mentions ChangeLog route but not the purge model.
+- **Recommendation:** Add a purge menu with time-window presets and "purge entries of deleted objects".
+
+---
+
+### 7. Conflict resolution UI for merge/import
+
+- Mac evidence: `CoreMerge.strings` — `_Merge_Conflict_HeaderText`, `_Merge_Conflict_Explanation`, `_Merge_Conflict_LeftSideUserIdentification_CurrentFamilyTree_With_MFTPKG_From_File`, `_Merge_QueryMatchingObject_PersonToMerge_Header`. NIBs: `ConflictResolutionControllerMacUserInterface.nib`, `MergeSelectEntityForDuplicateMergeContentView.nib`, `MergeSheet.nib`. Localizable.strings: `_ConflictResolutionControllerMacUserInterfaceConflictView_UseLeftVersionButton` / `_UseRightVersionButton` / `_ResolveButton`.
+- Web state: Grep for `conflict` in `src/` — only shows `duplicates/DuplicatesApp.jsx` which is an in-tree duplicate merger, not an import-time three-way conflict resolver. `mergeImport.js` likely auto-merges.
+- **Missing.** Neither existing audit covers this.
+- **Recommendation:** Before committing import (GEDCOM or another mftpkg), present a side-by-side conflict sheet driven by the differing fields — pair with #1's "Merge with other Family Tree" wizard.
+
+---
+
+### 8. AI image editing (colorize / restore / background remove)
+
+- Mac evidence: `CoreImageEditingController.strings` — `_ImageEditingControllerImageSettings_ExecuteBackgroundRemove`, `_ImageColorizationController_ColorizationMode_*` (DeOldify, DDColor artistic, disco variants), `_ImageEditingController_Colorize_UploadWarningInformative` (Synium-hosted service). NIB: `ImageEditingSheet.nib`.
+- Web state: Grep for `colorize`, `Colorization`, `Background Remove`, `AI image` — **no results** in `src/`. `src/components/ImageEditing*` does basic crop/rotate (already tracked in `macfamilytree-parity-todo.md`).
+- **Missing.** Not covered by any existing audit.
+- **Recommendation:** Document as out-of-scope for the browser (requires paid Synium API or a self-hosted ONNX/WASM model). If any parity is desired, pick one: client-side background removal via `@imgly/background-removal` (WASM).
+
+---
+
+### 9. Apple Media Library sheet
+
+- Mac evidence: NIB `AppleMediaLibrarySheet.nib`; strings `_AppleMediaLibrarySheet_Title` "Add Media from Photos", `_AllPhotosSection`, `_SmartAlbumsSection`, `_CollectionsSection`.
+- Web state: Grep — no match. `ImportDropZone.jsx` covers generic file picker only.
+- **Missing.** `macfamilytree-parity-todo.md` only asks to "document unavailable native-only features."
+- **Recommendation:** Explicitly document as unreachable in the browser (Photos.app access requires native APIs). If any bridge is desired, use the File System Access API with a user-chosen iCloud Photos mirror folder.
+
+---
+
+### 10. Scanner sheet
+
+- Mac evidence: NIB `ScanPictureSheet.nib`; strings `ScanPictureSheetStrings.strings` — `_ScanPictureSheet_Title` "Scan Image", `_ScanPictureSheet_Flatbed`, `_ColorMode_BlackWhite/Grayscale/Color`.
+- Web state: No scanner path.
+- **Missing.** Tracked obliquely in `macfamilytree-parity-todo.md` under "unavailable native-only features."
+- **Recommendation:** Document as out of scope for browser (no ImageCaptureCore equivalent). Allow manual photo upload + EXIF preservation as the replacement.
+
+---
+
+### 11. Subtree slice wizard (extract / remove)
+
+- Mac evidence: NIBs `SliceSheet.nib`, `SliceProgressView.nib`, `SliceExportSubtreeFinishedView.nib`, `SliceRemoveSubtreeFinishedView.nib`. `CoreSlice.strings` — `_Slice_ExportSubtree_*`, `_Slice_RemoveSubtree_*`. Left/right picker ("Available Persons" / "Persons to be Exported"), "Add Descendants of Person", "Add Ancestors of Person".
+- Web state: `src/lib/subtree.js` has logic; no interactive picker UI.
+- **Partial.**
+- **Recommendation:** Promote subtree to a wizard route with selection columns matching Mac's flow.
+
+---
+
+### 12. Slideshow configuration depth
+
+- Mac evidence: NIB `SlideshowConfigurationSheet.nib`. Strings: `_SlideshowConfigurationSheet_Title`, `_MediaGalleryPane_ConfigureSlideshowButton`, `_StartSlideshowButton`, `_MapDiagramPane_StartSlideshow` (map-context slideshow is a thing).
+- Web state: `src/routes/Slideshow.jsx` exists. Not covered in depth by views audit (line 293 just acknowledges it).
+- **Partial.**
+- **Recommendation:** Add interval, caption-on/off, loop, random, per-event filter, and map-mode slideshow.
+
+---
+
+### 13. Batch Place Lookup sheet
+
+- Mac evidence: NIB `BatchPlaceLookupSheet.nib`. Addressed implicitly by `_DatabaseMaintenance_FindGeoNameIDsForPlacesButton` but the sheet itself is a UI.
+- Web state: Likely handled piecewise in Places route; no dedicated batch UI visible.
+- **Partial.** `macfamilytree-parity-todo.md` "Places and Geocoding" section has this TODO item.
+- **Recommendation:** Already tracked — call out the sheet name for implementer reference.
+
+---
+
+### 14. Image Editing sheet (core) and Record* sheets
+
+- Mac evidence: `ImageEditingSheet.nib`, `RecordPictureSheet.nib`, `RecordAudioSheet.nib`, `RecordVideoSheet.nib`.
+- Web state: Camera capture + `MediaRecorder` already in `macfamilytree-parity-todo.md` (marked done). Dedicated "Record Video" UI was not called out.
+- **Partial.**
+- **Recommendation:** Confirm Record Video flow exists; if not, add it alongside the already-done audio recorder.
+
+---
+
+### 15. Quick Access / Bookmarks editor sheet
+
+- Mac evidence: NIB `QuickAccessControllerEditBookmarks.nib`. Strings: `_QuickAccessControllerEditBookmarksDialog_HeaderTitle` "Manage Bookmarks", separate editors for `_EditBookmarkedPersons/Families/Sources/Medias/Places`.
+- Web state: `src/routes/Bookmarks.jsx` — but read-only per-record `isBookmarked` flag. Existing views audit line 467 mentions this.
+- **Partial.**
+- **Recommendation:** Add reorder + grouping in `Bookmarks.jsx` (lift the noted audit item from views-audit backlog).
+
+---
+
+### 16. Keyboard shortcuts / MainMenu parity
+
+- Mac evidence: `MainMenu.nib`. Tooltips in `Localizable.strings`: `_MainWindow_BookmarksButtonTooltip`, `_LabelsButtonTooltip`, `_BackupButtonTooltip`, `_CloudTreeButtonTooltip`. Mac binds full menu with Cmd-shortcuts.
+- Web state: No keyboard shortcut layer found in `src/`. No `useHotkeys`, no command palette.
+- **Missing.** Neither existing audit covers keyboard shortcuts.
+- **Recommendation:** Add a small `useKeyboardShortcuts` hook + `/shortcuts` help page listing bindings. Good candidates: `⌘K` command palette, `⌘F` focus search, `B` bookmark, `N` new person.
+
+---
+
+### 17. Automation / AppleScript / Shortcuts / Automator
+
+- Mac evidence: Framework strings do not show AppleScript/Automator classes (`strings` grep for `Automator|AppleScript` on `MacFamilyTreeCore` returned no matches in this pass). Mac 11 appears to not ship a public scripting API.
+- Web state: n/a.
+- **Missing, but also missing upstream.** No action needed — document as not-a-gap.
+
+---
+
+### 18. Memoji / sticker / emoji set for persons
+
+- Mac evidence: Framework grep for `Memoji|Sticker|ImageSticker` — **no matches**. Mac app does not appear to ship a dedicated Memoji feature.
+- Web state: n/a.
+- **Not a gap.** The user hypothesis here is not supported by the bundle.
+
+---
+
+### 19. Ordinance tracking (LDS) outside FamilySearch
+
+- Mac evidence: NIBs `FamilySearchOrdinanceOpportunitiesListPane.nib`, `FamilySearchOrdinancesReservationListPane.nib`, `FamilySearchPersonOrdinancesContentView.nib`, `FamilySearchOrdinancesPolicySheet.nib`; strings file `CoreLDSOrdinancesListReport.strings`; report `_FunctionTitle_LDSOrdinancesListReportPaneName` "LDS Ordinances List".
+- Web state: `src/routes/LdsOrdinances.jsx` exists.
+- **Present.** All of Mac's LDS UI is FamilySearch-backed; the standalone list report is covered by the web `LdsOrdinances.jsx` route. No separate non-FamilySearch LDS pane exists on Mac.
+- **Not a gap.** Further depth (reservation status, temple assignment) is already tracked under FamilySearch backlog.
+
+---
+
+### 20. Research log separate from ToDos
+
+- Mac evidence: `ResearchAssistantPane.strings`, NIBs `ResearchAssistantOptionsPresenter.nib`, `ResearchAssistantPane_QuestionList.nib`. Adjacent to ToDos but distinct.
+- Web state: `src/routes/Research.jsx` exists.
+- **Present.** Already audited.
+- **Not a gap.**
+
+---
+
+### 21. Tutorial / first-run demo tree
+
+- Mac evidence: `Contents/Resources/Sample Tree.mftpkg` ships in the bundle. Strings: `_EditPlaceholderPane_NewTreeWelcomeMessage` "Welcome to MacFamilyTree 11! To start your research, we recommend to use the Interactive Tree." No dedicated "tutorial" NIB found.
+- Web state: `ImportDropZone.jsx` is shown on `Home.jsx` when no tree is present.
+- **Partial.** No "load sample tree" button in the web UI.
+- **Recommendation:** Ship an Arabic-friendly sample `.mftpkg` (the Arabic fixture from `macfamilytree-parity-todo.md`) and add a "Load Sample Tree" CTA on first run.
+
+---
+
+### 22. Content Download Manager (geographic DB)
+
+- Mac evidence: NIB `PreferencePaneContentDownloadManager.nib`. Strings `CoreContentDownloadManager.strings` — `_ManageDownloadsTitle`, `GeographicDatabaseTitleKey`, Small/Medium/Huge variants, `_EstimatedDownloadSize`.
+- Web state: Web uses remote geocoding (Nominatim / MapLibre), no downloaded geo DB. Grep for `ContentDownload` — no match.
+- **Not a gap in this form**, but document why: browser geocoding is always online.
+- **Recommendation:** Add a one-liner in `Settings.jsx` explaining that place lookups are online-only and no download management is needed.
+
+---
+
+### 23. Family Tree Com / CloudTree web management sheets
+
+- Mac evidence: `MacFamilyTreeComLoginView.nib`, `MacFamilyTreeComTreesListView.nib`, `MacFamilyTreeComEditTreeSheet.nib`, `MacFamilyTreeComEditUserSheet.nib`, `MacFamilyTreeComRegisterNewTreeSheet.nib`, `MacFamilyTreeComRegisterNewUserSheet.nib`, `ManageMacFamilyTreeComSheet.nib`, `MacFamilyTreeComWebSiteExportPublishSheet.nib`.
+- Web state: n/a — browser target has no relationship to the closed CloudTree/MFT.com service.
+- **Explicitly out of scope** per `macfamilytree-parity-todo.md` line 10. Document for completeness.
+
+---
+
+### 24. History Database (World History) preference / event picker
+
+- Mac evidence: NIBs `HistoryDatabaseCategorySelectorView.nib`, `HistoryDatabaseEventsSelectorView.nib`, `HistoryEventsWidget.nib`, `HistoryWidget.nib`, `PreferencePaneHistory.nib`. Strings `CoreHistoryDatabase.strings` — ~40 categories (Wars, Technology, USA Presidents, Germany Chancellors, Aviation, Apple Inc., Mormon History, Custom).
+- Web state: `src/routes/WorldHistory.jsx` exists. Not audited for category filter or toggle persistence.
+- **Partial.** Existing views audit line 63 mentions World History only in passing.
+- **Recommendation:** Add a category-selector sheet so users can toggle which World History packs appear on charts/timelines.
+
+---
+
+### 25. Plausibility configuration
+
+- Mac evidence: `CorePlausibilityAnalyzer.strings` — 10+ named analyzers (`PersonEvents`, `Lifetime`, `Child Birth Dates`, etc.) and NIB `PlausibilityWidget.nib` for per-person surfaced warnings.
+- Web state: `src/routes/Plausibility.jsx`, `src/lib/plausibility.js`. Not audited for per-analyzer enable/disable.
+- **Partial.**
+- **Recommendation:** Add per-analyzer on/off toggles and thresholds (min marriage age, max lifetime) in Settings.
+
+---
+
+### 26. Person Group selection / bulk assign sheet
+
+- Mac evidence: NIBs `PersonGroupSelectionSheet.nib`, `ManagePersonGroupPersonsSheet.nib`, `PersonRelativesSelectionSheet.nib`. Strings `CorePersonGroupSelection.strings` — left/right column picker with "Add Ancestors/Descendants of Person".
+- Web state: `src/routes/PersonGroups.jsx`. Views audit line 88 already flags this.
+- **Partial.** Already tracked — keeping here for cross-reference.
+
+---
+
+### 27. Place Convert-to-Detail sheet
+
+- Mac evidence: NIB `PlaceConvertToPlaceDetailSheet.nib`; strings `_PlaceConvertToPlaceDetailSheet_*` referenced by place lookup.
+- Web state: No such flow.
+- **Missing.** Already flagged under `macfamilytree-parity-todo.md` Places section.
+
+---
+
+### 28. Category/function configuration (preferences)
+
+- Mac evidence: NIB `PreferencePaneCategoryConfigurations.nib`. Strings `_PaneCategoryBaseFunction_Enabled`, `_Emphasized`, `_Favorite` with `_PaneCategoryFunction` framework class.
+- Web state: `src/routes/Favorites.jsx` surfaces favorites but does not allow per-function enable/disable or emphasis.
+- **Partial.** `macfamilytree-parity-todo.md` line 56 has this as open.
+- **Not a new gap** — cross-reference to existing backlog.
+
+---
+
+## Cross-reference notes
+
+To avoid rework, these items are **already on the backlog** or in an existing audit; do not re-raise them:
+
+- Author Information, FamilySearch deep workflows, Contact Picker, richer publishing (`macfamilytree-parity-todo.md`).
+- Chart builder/compositor schema, saved chart depth, page/export/share flow, relationship path multi-path (`mac-to-web-chart-parity-audit.md`).
+- Person editor depth, Places/Sources/Media/ToDos/Research depth, Favorites/Bookmarks, Settings preferences (`mac-to-web-views-parity-audit.md`).
+- Arabic / RTL smoke tests (`macfamilytree-parity-todo.md`).
+
+This document's gaps are primarily **cross-cutting maintenance tooling** and **modal wizards** that the earlier audits stopped short of cataloging.
+
+---
+
+## Prioritized next 5 items to implement
+
+1. **Smart Filter authoring sheet** (#2 + #3) — unlocks saved searches; Mac exposes this across 13 entity types. Highest reuse. Build on `smartScopes.js` + `SearchApp.jsx`.
+2. **Database Maintenance hub expansion** (#1) — wire existing `Duplicates`, `searchReplace.js`, `subtree.js`, `mergeImport.js` into the Maintenance route, then add Custom Types editors. Low-risk, high visibility.
+3. **Backup pane depth** (#5) — retention policy + backup history + per-tree scope. Users expect this and the current single-shot JSON is a known soft spot.
+4. **Change Log purge controls** (#6) — small, self-contained, matches Mac's exact time-window preset UI.
+5. **Welcome / Tree Library UI** (#4) — per-tree favorite/label/rename/sort/delete on Home. Direct user-visible polish.
+
+Deferred (track but don't block): AI image editing (#8), Scanner/AppleMediaLibrary sheets (#9, #10, intentionally native-only), Automator/AppleScript (#17, not in bundle), Memoji (#18, not in bundle).

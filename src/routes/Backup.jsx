@@ -1,9 +1,20 @@
 /**
  * Backup / Restore — full IndexedDB export to a JSON file, and import back.
  */
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
-import { downloadBackup, restoreBackup } from '../lib/backup.js';
+import {
+  downloadBackup,
+  restoreBackup,
+  BACKUP_INTERVALS,
+  getBackupSettings,
+  saveBackupSettings,
+  listBackupHistory,
+  takeBackupSnapshot,
+  restoreBackupSnapshot,
+  deleteBackupSnapshot,
+  clearBackupHistory,
+} from '../lib/backup.js';
 
 export default function Backup() {
   const { summary, refresh } = useDatabaseStatus();
@@ -12,6 +23,70 @@ export default function Backup() {
   const [busy, setBusy] = useState(false);
   const [pendingFile, setPendingFile] = useState(null);
   const [typedConfirm, setTypedConfirm] = useState('');
+  const [settings, setSettings] = useState(null);
+  const [history, setHistory] = useState([]);
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const [loadedSettings, loadedHistory] = await Promise.all([getBackupSettings(), listBackupHistory()]);
+      if (cancel) return;
+      setSettings(loadedSettings);
+      setHistory(loadedHistory);
+    })();
+    return () => { cancel = true; };
+  }, []);
+
+  const refreshHistory = useCallback(async () => {
+    setHistory(await listBackupHistory());
+  }, []);
+
+  const updateSetting = useCallback(async (partial) => {
+    const next = await saveBackupSettings(partial);
+    setSettings(next);
+    // Notify the root scheduler (in App.jsx) so it picks up the new interval
+    // without requiring a page reload.
+    window.dispatchEvent(new CustomEvent('cloudtreeweb:backup-settings-changed'));
+  }, []);
+
+  const onTakeSnapshot = useCallback(async () => {
+    setBusy(true);
+    setStatus('Taking snapshot…');
+    try {
+      const entry = await takeBackupSnapshot({ reason: 'manual' });
+      await refreshHistory();
+      setStatus(`Snapshot saved (${entry.recordCount.toLocaleString()} records).`);
+    } catch (error) {
+      setStatus(`Snapshot failed: ${error?.message || error}`);
+    }
+    setBusy(false);
+  }, [refreshHistory]);
+
+  const onRestoreSnapshot = useCallback(async (id) => {
+    if (!confirm('Restore this snapshot? Current data will be replaced.')) return;
+    setBusy(true);
+    setStatus('Restoring snapshot…');
+    try {
+      const restored = await restoreBackupSnapshot(id);
+      await refresh();
+      setStatus(`Restored ${restored.records.toLocaleString()} records from snapshot.`);
+    } catch (error) {
+      setStatus(`Restore failed: ${error?.message || error}`);
+    }
+    setBusy(false);
+  }, [refresh]);
+
+  const onDeleteSnapshot = useCallback(async (id) => {
+    if (!confirm('Delete this snapshot?')) return;
+    await deleteBackupSnapshot(id);
+    await refreshHistory();
+  }, [refreshHistory]);
+
+  const onClearHistory = useCallback(async () => {
+    if (!confirm('Clear all in-app snapshots?')) return;
+    await clearBackupHistory();
+    await refreshHistory();
+  }, [refreshHistory]);
 
   const onExport = useCallback(async () => {
     setBusy(true);
@@ -84,6 +159,84 @@ export default function Backup() {
             className="border border-border bg-secondary text-foreground rounded-md px-4 py-2 text-sm font-semibold hover:bg-accent disabled:opacity-60">
             Choose backup file…
           </button>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-5 mb-4">
+          <h2 className="text-sm font-semibold mb-2">Scheduled snapshots</h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            In-app snapshots live inside the browser database — handy for quick rollbacks, but don't replace the downloaded backup for offsite safety. Media assets are omitted from in-app snapshots to keep storage lean.
+          </p>
+          {settings && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <label className="block">
+                <div className="text-xs text-muted-foreground mb-1">Auto-snapshot interval</div>
+                <select
+                  value={settings.intervalId}
+                  onChange={(e) => updateSetting({ intervalId: e.target.value })}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                >
+                  {BACKUP_INTERVALS.map((opt) => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <div className="text-xs text-muted-foreground mb-1">Retention ({settings.retention} kept)</div>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={settings.retention}
+                  onChange={(e) => updateSetting({ retention: Number(e.target.value) })}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                />
+              </label>
+              <label className="flex items-center gap-2 pt-6">
+                <input
+                  type="checkbox"
+                  checked={settings.backupOnSave}
+                  onChange={(e) => updateSetting({ backupOnSave: e.target.checked })}
+                />
+                <span className="text-sm">Snapshot on save</span>
+              </label>
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={onTakeSnapshot} disabled={busy}
+              className="border border-border bg-secondary text-foreground rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:opacity-60">
+              Take snapshot now
+            </button>
+            {history.length > 0 && (
+              <button onClick={onClearHistory} disabled={busy}
+                className="border border-border bg-secondary text-foreground rounded-md px-3 py-1.5 text-sm font-medium hover:bg-accent">
+                Clear all
+              </button>
+            )}
+          </div>
+
+          {history.length === 0 ? (
+            <div className="mt-3 text-xs text-muted-foreground">No snapshots yet.</div>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {history.map((entry) => (
+                <li key={entry.id} className="flex items-center gap-3 rounded-md border border-border bg-background p-2 text-sm">
+                  <span className="flex-1">
+                    <div className="font-medium">{new Date(entry.timestamp).toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {entry.reason} · {entry.recordCount.toLocaleString()} records
+                      {entry.assetCount ? ` · ${entry.assetCount.toLocaleString()} assets` : ''}
+                    </div>
+                  </span>
+                  <button onClick={() => onRestoreSnapshot(entry.id)} disabled={busy}
+                    className="border border-border bg-secondary rounded-md px-2 py-1 text-xs font-medium hover:bg-accent">
+                    Restore
+                  </button>
+                  <button onClick={() => onDeleteSnapshot(entry.id)} disabled={busy}
+                    className="border border-border bg-secondary rounded-md px-2 py-1 text-xs font-medium hover:bg-accent">
+                    Delete
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         {status && (

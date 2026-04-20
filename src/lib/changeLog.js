@@ -134,3 +134,58 @@ export async function logRecordDeleted(recordName, recordType, { author = 'You' 
   };
   await db.saveRecord(entry);
 }
+
+/**
+ * Purge change-log entries older than a cutoff, mirroring Mac's
+ * `_ChangeLogPurgeButton_PurgeOlderThanLast{Hour,Day,Week,Month,Year}` buttons.
+ * Also supports "purge entries whose target record no longer exists".
+ *
+ * Returns { removedEntries, removedSubEntries } so callers can surface a
+ * confirmation message.
+ */
+export const PURGE_WINDOWS = [
+  { id: 'hour', label: 'Purge older than last hour', ms: 60 * 60 * 1000 },
+  { id: 'day', label: 'Purge older than last day', ms: 24 * 60 * 60 * 1000 },
+  { id: 'week', label: 'Purge older than last week', ms: 7 * 24 * 60 * 60 * 1000 },
+  { id: 'month', label: 'Purge older than last month', ms: 30 * 24 * 60 * 60 * 1000 },
+  { id: 'year', label: 'Purge older than last year', ms: 365 * 24 * 60 * 60 * 1000 },
+];
+
+export async function purgeChangeLogOlderThan(windowMs) {
+  const db = getLocalDatabase();
+  const cutoff = Date.now() - Number(windowMs || 0);
+  const { records: entries } = await db.query('ChangeLogEntry', { limit: 1000000 });
+  const doomed = entries.filter((record) => {
+    const ts = Date.parse(record?.fields?.timestamp?.value || '');
+    return Number.isFinite(ts) && ts < cutoff;
+  });
+  return deleteChangeLogEntries(db, doomed);
+}
+
+export async function purgeChangeLogForDeletedRecords() {
+  const db = getLocalDatabase();
+  const { records: entries } = await db.query('ChangeLogEntry', { limit: 1000000 });
+  const checks = await Promise.all(entries.map(async (entry) => {
+    const targetRef = entry?.fields?.target?.value;
+    if (!targetRef || typeof targetRef !== 'string') return null;
+    const targetName = targetRef.split('---')[0];
+    const target = targetName ? await db.getRecord(targetName) : null;
+    return target ? null : entry;
+  }));
+  const doomed = checks.filter(Boolean);
+  return deleteChangeLogEntries(db, doomed);
+}
+
+async function deleteChangeLogEntries(db, entries) {
+  if (!entries.length) return { removedEntries: 0, removedSubEntries: 0 };
+  const entryNames = new Set(entries.map((entry) => entry.recordName));
+  const { records: allSubs } = await db.query('ChangeLogSubEntry', { limit: 1000000 });
+  const doomedSubs = allSubs.filter((sub) => {
+    const ref = sub?.fields?.changeLogEntry?.value;
+    if (!ref || typeof ref !== 'string') return false;
+    return entryNames.has(ref.split('---')[0]);
+  });
+  for (const sub of doomedSubs) await db.deleteRecord(sub.recordName);
+  for (const entry of entries) await db.deleteRecord(entry.recordName);
+  return { removedEntries: entries.length, removedSubEntries: doomedSubs.length };
+}

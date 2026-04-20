@@ -3,7 +3,7 @@
  * Each tool runs as a dry-run first, then offers an Apply button.
  */
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import {
   auditUnreadableDates,
@@ -78,6 +78,22 @@ export default function Maintenance() {
       <div className="max-w-3xl mx-auto p-5">
         <h1 className="text-xl font-bold mb-1">Database Maintenance</h1>
         <p className="text-sm text-muted-foreground mb-5">Audit and clean up your tree. Each tool previews changes first.</p>
+
+        <div className="rounded-lg border border-border bg-card p-4 mb-4">
+          <h2 className="text-sm font-semibold mb-2">Related tools</h2>
+          <p className="text-xs text-muted-foreground mb-3">Hub links to maintenance workflows that live elsewhere in the app.</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+            <Link to="/duplicates" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Duplicates</Link>
+            <Link to="/search" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Search &amp; Replace</Link>
+            <Link to="/export" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Merge / Import</Link>
+            <Link to="/backup" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Backup / Restore</Link>
+            <Link to="/places" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Places &amp; Geocoding</Link>
+            <Link to="/change-log" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Change Log / Purge</Link>
+            <Link to="/plausibility" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Plausibility Checks</Link>
+            <Link to="/labels" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Labels</Link>
+            <Link to="/smart-filters" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Smart Filters</Link>
+          </div>
+        </div>
 
         <Card title="Find Unreadable Dates" description="Lists event dates that don't parse as a valid date.">
           <button className={btnSecondary} disabled={busy} onClick={wrap(async () => setUnreadable(await auditUnreadableDates()))}>Scan</button>

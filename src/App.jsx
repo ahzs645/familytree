@@ -2,13 +2,14 @@
  * Top-level React SPA. BrowserRouter + shared providers + AppShell outlet.
  * Each route is code-split with React.lazy so the landing stays small.
  */
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { AppShell } from './components/AppShell.jsx';
 import { ActivePersonProvider } from './contexts/ActivePersonContext.jsx';
 import { DatabaseStatusProvider } from './contexts/DatabaseStatusContext.jsx';
 import { ThemeProvider } from './contexts/ThemeContext.jsx';
 import Home from './routes/Home.jsx';
+import { startBackupScheduler } from './lib/backup.js';
 
 const Tree = lazy(() => import('./routes/Tree.jsx'));
 const Persons = lazy(() => import('./routes/Persons.jsx'));
@@ -42,6 +43,7 @@ const DistinctivePersons = lazy(() => import('./routes/DistinctivePersons.jsx'))
 const PersonAnalysis = lazy(() => import('./routes/PersonAnalysis.jsx'));
 const LdsOrdinances = lazy(() => import('./routes/LdsOrdinances.jsx'));
 const Maintenance = lazy(() => import('./routes/Maintenance.jsx'));
+const SmartFilters = lazy(() => import('./routes/SmartFilters.jsx'));
 const Bookmarks = lazy(() => import('./routes/Bookmarks.jsx'));
 const ToDos = lazy(() => import('./routes/ToDos.jsx'));
 const Stories = lazy(() => import('./routes/Stories.jsx'));
@@ -93,6 +95,18 @@ function L({ children }) {
 }
 
 export function App() {
+  useEffect(() => {
+    // Scheduled in-app backups — settings stored in IndexedDB meta.
+    // The Backup.jsx route reconfigures via its own updateSetting calls;
+    // this root scheduler is the one that actually fires snapshots.
+    const scheduler = startBackupScheduler();
+    const onSettingsChanged = () => scheduler.reconfigure?.();
+    window.addEventListener('cloudtreeweb:backup-settings-changed', onSettingsChanged);
+    return () => {
+      window.removeEventListener('cloudtreeweb:backup-settings-changed', onSettingsChanged);
+      scheduler.stop();
+    };
+  }, []);
   return (
     <BrowserRouter>
       <ThemeProvider>
@@ -149,6 +163,7 @@ export function App() {
               <Route path="person-analysis" element={<L><PersonAnalysis /></L>} />
               <Route path="lds-ordinances" element={<L><LdsOrdinances /></L>} />
               <Route path="maintenance" element={<L><Maintenance /></L>} />
+              <Route path="smart-filters" element={<L><SmartFilters /></L>} />
               <Route path="bookmarks" element={<L><Bookmarks /></L>} />
               <Route path="todos" element={<L><ToDos /></L>} />
               <Route path="stories" element={<L><Stories /></L>} />

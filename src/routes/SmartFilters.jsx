@@ -1,0 +1,239 @@
+/**
+ * Smart Filters — user authoring UI for custom scopes.
+ *
+ * Mac reference: `ScopesEditSheet.nib`, `_Scopes_EditScopes_HeaderTitle`.
+ * This is the editor for filters stored via `customScopes.js`; built-in
+ * scopes (`smartScopes.js:BUILTIN_SCOPES`) remain read-only.
+ */
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  CUSTOM_FILTER_ENTITY_TYPES,
+  FILTER_OPERATORS,
+  listCustomFilters,
+  saveCustomFilter,
+  deleteCustomFilter,
+  runCustomFilter,
+  newBlankFilter,
+} from '../lib/customScopes.js';
+
+const COMMON_FIELDS_BY_ENTITY = {
+  Person: ['firstName', 'lastName', 'gender', 'cached_birthDate', 'cached_deathDate', 'birthPlace', 'deathPlace', 'thumbnailFileIdentifier', 'isBookmarked'],
+  Family: ['man', 'woman', 'marriedDate', 'divorcedDate', 'marriagePlace'],
+  PersonEvent: ['person', 'eventType', 'cached_date', 'place', 'description'],
+  FamilyEvent: ['family', 'eventType', 'cached_date', 'place'],
+  Place: ['placeName', 'cached_normallocationString', 'latitude', 'longitude', 'geonameID'],
+  Source: ['title', 'cached_title', 'publication', 'author'],
+  Repository: ['name', 'address'],
+  Story: ['title', 'text'],
+  ToDo: ['title', 'done', 'priority', 'dueDate'],
+  Media: ['filename', 'description'],
+  Label: ['name', 'color'],
+  PersonGroup: ['name'],
+  Research: ['title', 'question', 'done'],
+};
+
+const input = 'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm';
+const button = 'rounded-md border border-border bg-secondary px-3 py-1.5 text-sm font-medium hover:bg-accent';
+const buttonPrimary = 'rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-semibold';
+
+export default function SmartFilters() {
+  const [filters, setFilters] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    const list = await listCustomFilters();
+    setFilters(list);
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const onNew = () => {
+    const blank = newBlankFilter('Person');
+    setSelected(blank);
+    setPreview(null);
+  };
+
+  const onSave = useCallback(async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const saved = await saveCustomFilter(selected);
+      setSelected(saved);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }, [selected, refresh]);
+
+  const onDelete = useCallback(async (id) => {
+    if (!confirm('Delete this smart filter?')) return;
+    await deleteCustomFilter(id);
+    if (selected?.id === id) setSelected(null);
+    await refresh();
+  }, [selected, refresh]);
+
+  const onRun = useCallback(async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const result = await runCustomFilter(selected);
+      setPreview(result);
+    } finally {
+      setBusy(false);
+    }
+  }, [selected]);
+
+  const suggestedFields = useMemo(() => (
+    selected ? (COMMON_FIELDS_BY_ENTITY[selected.entityType] || []) : []
+  ), [selected]);
+
+  return (
+    <div className="h-full overflow-auto bg-background">
+      <div className="max-w-5xl mx-auto p-5 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4">
+        <aside>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold">Smart filters</h2>
+            <button onClick={onNew} className={button}>+ New</button>
+          </div>
+          {filters.length === 0 ? (
+            <div className="text-xs text-muted-foreground">No custom filters yet.</div>
+          ) : (
+            <ul className="space-y-1">
+              {filters.map((filter) => (
+                <li key={filter.id}>
+                  <button
+                    onClick={() => { setSelected(filter); setPreview(null); }}
+                    className={`block w-full text-start px-3 py-2 rounded-md border ${selected?.id === filter.id ? 'border-primary bg-accent' : 'border-border bg-card hover:bg-accent/40'}`}
+                  >
+                    <div className="text-sm font-medium">{filter.name}</div>
+                    <div className="text-xs text-muted-foreground">{filter.entityType} · {filter.rules?.length ?? 0} rules</div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
+
+        <section>
+          {!selected ? (
+            <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+              Pick a filter on the left or click <em>+ New</em> to author one.
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border bg-card p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <input
+                  value={selected.name}
+                  onChange={(e) => setSelected({ ...selected, name: e.target.value })}
+                  className={`${input} text-base font-semibold`}
+                  placeholder="Filter name"
+                />
+                <select
+                  value={selected.entityType}
+                  onChange={(e) => setSelected({ ...selected, entityType: e.target.value })}
+                  className={input + ' w-auto'}
+                >
+                  {CUSTOM_FILTER_ENTITY_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-3 text-sm">
+                <span className="text-muted-foreground">Match</span>
+                <label className="flex items-center gap-1">
+                  <input type="radio" checked={selected.match !== 'any'} onChange={() => setSelected({ ...selected, match: 'all' })} />
+                  all rules
+                </label>
+                <label className="flex items-center gap-1">
+                  <input type="radio" checked={selected.match === 'any'} onChange={() => setSelected({ ...selected, match: 'any' })} />
+                  any rule
+                </label>
+              </div>
+
+              <div className="space-y-2">
+                {(selected.rules || []).map((rule, index) => (
+                  <RuleRow
+                    key={index}
+                    rule={rule}
+                    suggestedFields={suggestedFields}
+                    onChange={(next) => {
+                      const rules = [...selected.rules];
+                      rules[index] = next;
+                      setSelected({ ...selected, rules });
+                    }}
+                    onRemove={() => {
+                      const rules = selected.rules.filter((_, i) => i !== index);
+                      setSelected({ ...selected, rules });
+                    }}
+                  />
+                ))}
+                <button
+                  onClick={() => setSelected({
+                    ...selected,
+                    rules: [...(selected.rules || []), { field: '', operator: 'exists', value: '' }],
+                  })}
+                  className={button}
+                >
+                  + Add rule
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2 border-t border-border">
+                <button onClick={onSave} disabled={busy} className={buttonPrimary}>Save</button>
+                <button onClick={onRun} disabled={busy} className={button}>Preview matches</button>
+                <button onClick={() => onDelete(selected.id)} disabled={busy} className={button}>Delete</button>
+              </div>
+
+              {preview && (
+                <div className="rounded-md border border-border bg-background p-3">
+                  <div className="text-sm font-semibold mb-1">{preview.total.toLocaleString()} matches</div>
+                  <ul className="text-xs text-muted-foreground max-h-48 overflow-auto">
+                    {preview.records.slice(0, 40).map((record) => (
+                      <li key={record.recordName}>{record.recordName}</li>
+                    ))}
+                    {preview.total > 40 && <li>… and {preview.total - 40} more</li>}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function RuleRow({ rule, onChange, onRemove, suggestedFields }) {
+  const operator = FILTER_OPERATORS.find((op) => op.id === rule.operator) || FILTER_OPERATORS[0];
+  return (
+    <div className="flex flex-wrap gap-2 items-center">
+      <input
+        list="smart-filter-fields"
+        value={rule.field}
+        onChange={(event) => onChange({ ...rule, field: event.target.value })}
+        placeholder="Field name (e.g. lastName)"
+        className={`${input} flex-1 min-w-[180px]`}
+      />
+      <datalist id="smart-filter-fields">
+        {suggestedFields.map((field) => <option key={field} value={field} />)}
+      </datalist>
+      <select
+        value={rule.operator}
+        onChange={(event) => onChange({ ...rule, operator: event.target.value })}
+        className={input + ' w-auto'}
+      >
+        {FILTER_OPERATORS.map((op) => <option key={op.id} value={op.id}>{op.label}</option>)}
+      </select>
+      {operator.takesValue && (
+        <input
+          value={rule.value ?? ''}
+          onChange={(event) => onChange({ ...rule, value: event.target.value })}
+          placeholder="Value"
+          className={`${input} flex-1 min-w-[140px]`}
+        />
+      )}
+      <button onClick={onRemove} className="text-sm text-muted-foreground hover:text-destructive">×</button>
+    </div>
+  );
+}

@@ -17,6 +17,11 @@ import {
   timestampMillis,
   subEntryDescription,
 } from '../lib/changeLogQuery.js';
+import {
+  PURGE_WINDOWS,
+  purgeChangeLogOlderThan,
+  purgeChangeLogForDeletedRecords,
+} from '../lib/changeLog.js';
 
 const ENTITY_TYPES = ['', 'Person', 'Family', 'PersonEvent', 'FamilyEvent', 'Place', 'Source'];
 
@@ -40,6 +45,8 @@ export default function ChangeLog() {
   const [filter, setFilter] = useState('');
   const [expanded, setExpanded] = useState(new Set());
   const [subs, setSubs] = useState({});
+  const [purgeStatus, setPurgeStatus] = useState('');
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     let cancel = false;
@@ -52,7 +59,35 @@ export default function ChangeLog() {
       }
     })();
     return () => { cancel = true; };
-  }, [filter]);
+  }, [filter, reloadTick]);
+
+  const runPurge = useCallback(async (window) => {
+    if (!confirm(`${window.label}?\n\nThis cannot be undone.`)) return;
+    setPurgeStatus('Purging…');
+    try {
+      const { removedEntries, removedSubEntries } = await purgeChangeLogOlderThan(window.ms);
+      setPurgeStatus(`Removed ${removedEntries} entries and ${removedSubEntries} sub-entries.`);
+      setSubs({});
+      setExpanded(new Set());
+      setReloadTick((n) => n + 1);
+    } catch (error) {
+      setPurgeStatus(`Purge failed: ${error?.message || error}`);
+    }
+  }, []);
+
+  const runPurgeOrphans = useCallback(async () => {
+    if (!confirm('Purge change-log entries for records that no longer exist?\n\nThis cannot be undone.')) return;
+    setPurgeStatus('Purging orphans…');
+    try {
+      const { removedEntries, removedSubEntries } = await purgeChangeLogForDeletedRecords();
+      setPurgeStatus(`Removed ${removedEntries} orphan entries and ${removedSubEntries} sub-entries.`);
+      setSubs({});
+      setExpanded(new Set());
+      setReloadTick((n) => n + 1);
+    } catch (error) {
+      setPurgeStatus(`Purge failed: ${error?.message || error}`);
+    }
+  }, []);
 
   const toggle = useCallback(async (recordName) => {
     setExpanded((prev) => {
@@ -97,6 +132,28 @@ export default function ChangeLog() {
           {loading ? 'Loading…' : `${entries.length} entries`}
         </span>
       </header>
+
+      <div className="px-5 py-2 border-b border-border bg-background flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-muted-foreground me-1">Purge:</span>
+        {PURGE_WINDOWS.map((w) => (
+          <button
+            key={w.id}
+            onClick={() => runPurge(w)}
+            className="rounded-md border border-border bg-secondary px-2.5 py-1 hover:bg-accent"
+            title={w.label}
+          >
+            {w.id}
+          </button>
+        ))}
+        <button
+          onClick={runPurgeOrphans}
+          className="rounded-md border border-border bg-secondary px-2.5 py-1 hover:bg-accent"
+          title="Purge entries whose target record no longer exists"
+        >
+          orphans
+        </button>
+        {purgeStatus && <span className="text-muted-foreground ms-2">{purgeStatus}</span>}
+      </div>
 
       <main className="flex-1 overflow-auto p-5 bg-background">
         {!loading && entries.length === 0 && (
