@@ -2,7 +2,7 @@
  * Top-level React SPA. BrowserRouter + shared providers + AppShell outlet.
  * Each route is code-split with React.lazy so the landing stays small.
  */
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { AppShell } from './components/AppShell.jsx';
 import { ActivePersonProvider } from './contexts/ActivePersonContext.jsx';
@@ -12,6 +12,7 @@ import { ModalProvider } from './contexts/ModalContext.jsx';
 import Home from './routes/Home.jsx';
 import { startBackupScheduler } from './lib/backup.js';
 import { useObjectDeepLink } from './lib/deepLinks.js';
+import { getShareTokenFromHash } from './lib/shareRoute.js';
 import { SchemaMigrationSheet } from './components/SchemaMigrationSheet.jsx';
 
 const Tree = lazy(() => import('./routes/Tree.jsx'));
@@ -105,6 +106,21 @@ function DeepLinkHandler() {
   return null;
 }
 
+function SharePreviewGate({ children }) {
+  const [hash, setHash] = useState(() => window.location.hash);
+
+  useEffect(() => {
+    const onHashChange = () => setHash(window.location.hash);
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const token = getShareTokenFromHash(hash);
+  if (!token) return children;
+
+  return <L><ChartPreview token={token} /></L>;
+}
+
 export function App() {
   useEffect(() => {
     // Scheduled in-app backups — settings stored in IndexedDB meta.
@@ -126,6 +142,7 @@ export function App() {
         <ActivePersonProvider>
           <DeepLinkHandler />
           <SchemaMigrationSheet />
+          <SharePreviewGate>
           <Routes>
             <Route path="view/:token" element={<L><ChartPreview /></L>} />
             <Route element={<AppShell />}>
@@ -205,6 +222,7 @@ export function App() {
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
+          </SharePreviewGate>
         </ActivePersonProvider>
        </DatabaseStatusProvider>
        </ModalProvider>

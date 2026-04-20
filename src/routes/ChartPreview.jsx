@@ -17,8 +17,13 @@ import {
   FractalAncestorChart,
 } from '../components/charts/SpecializedCharts.jsx';
 
-export default function ChartPreview() {
-  const { token } = useParams();
+export default function ChartPreview(props) {
+  return <ChartPreviewContent {...props} />;
+}
+
+export function ChartPreviewContent({ token: tokenOverride }) {
+  const { token: routeToken } = useParams();
+  const token = tokenOverride || routeToken;
   const [state, setState] = useState({ status: 'loading', payload: null, error: null });
 
   useEffect(() => {
@@ -59,9 +64,13 @@ export default function ChartPreview() {
 }
 
 function PreviewBody({ payload }) {
-  const { chart, persons, families, trees } = payload;
+  const { chart, trees } = payload;
+  const persons = payload.persons || {};
+  const families = payload.families || {};
   const rootId = chart?.roots?.primaryPersonId;
-  const rootPerson = rootId ? persons[rootId] : null;
+  const rootPerson = payload.rootPerson || (rootId ? persons[rootId] : null);
+  const personCount = payload.counts?.persons ?? Object.keys(persons).length;
+  const familyCount = payload.counts?.families ?? Object.keys(families).length;
   const hasRenderableTree = Boolean(trees?.ancestorTree || trees?.descendantTree);
 
   return (
@@ -71,7 +80,7 @@ function PreviewBody({ payload }) {
         <span className="text-muted-foreground">/</span>
         <h1 className="text-base font-semibold">{chart?.name || 'Shared Chart'}</h1>
         <span className="text-xs text-muted-foreground">
-          {Object.keys(persons || {}).length.toLocaleString()} persons · {Object.keys(families || {}).length.toLocaleString()} families
+          {personCount.toLocaleString()} persons · {familyCount.toLocaleString()} families
         </span>
         <span className="ms-auto text-xs text-muted-foreground">Read-only preview</span>
       </header>
@@ -142,14 +151,15 @@ function PreviewChart({ payload }) {
 }
 
 function LegacyPreview({ rootPerson }) {
+  const summary = rootPerson?.summary || rootPerson;
   return (
     <div className="max-w-4xl mx-auto p-6">
       {rootPerson ? (
         <section className="rounded-xl border border-border bg-card p-5 text-center">
           <div className="text-xs uppercase tracking-wide text-muted-foreground">Subject</div>
-          <div className="text-2xl font-bold">{rootPerson.summary?.fullName || rootPerson.recordName}</div>
+          <div className="text-2xl font-bold">{summary?.fullName || rootPerson.recordName}</div>
           <div className="text-sm text-muted-foreground">
-            {rootPerson.summary?.birthDate || '?'} – {rootPerson.summary?.deathDate || 'present'}
+            {summary?.birthDate || '?'} – {summary?.deathDate || 'present'}
           </div>
         </section>
       ) : null}

@@ -10,6 +10,7 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
 import { getLocalDatabase } from './lib/LocalDatabase.js';
+import { getShareTokenFromHash } from './lib/shareRoute.js';
 
 // Expose debug handles for the console.
 import { AppController } from './lib/AppController.js';
@@ -43,7 +44,7 @@ function currentRoutePath() {
 }
 
 function isSharePreviewRoute() {
-  return currentRoutePath().startsWith('view/');
+  return currentRoutePath().startsWith('view/') || Boolean(getShareTokenFromHash());
 }
 
 function getDatasetUrlFromQuery() {
