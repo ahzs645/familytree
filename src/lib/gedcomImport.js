@@ -5,6 +5,7 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refValue } from './recordRef.js';
 import { DATASET_SCHEMA_VERSION } from './datasetSchemaVersion.js';
+import { compareIssues, hasBlockingIssues, makeValidationIssue } from './validationIssues.js';
 import { Gender } from '../models/index.js';
 
 function tokenizeLine(line) {
@@ -360,31 +361,48 @@ export function analyzeGedcomText(text) {
   const lines = String(text || '').split(/\r?\n/);
   const issues = [];
   const counts = { INDI: 0, FAM: 0, SOUR: 0, NOTE: 0, OBJE: 0, unsupportedEvents: 0 };
+  const declaredXrefs = new Map();
+  const pointerRefs = [];
   let hasHead = false;
   let hasTrailer = false;
   for (const [index, line] of lines.entries()) {
     if (!line.trim()) continue;
     const token = tokenizeLine(line);
     if (!token) {
-      issues.push(issue('error', index + 1, 'Line does not match GEDCOM level/tag syntax.'));
+      issues.push(issue('error', index + 1, 'gedcom-syntax', 'Line does not match GEDCOM level/tag syntax.'));
       continue;
     }
     if (token.level === 0 && token.tag === 'HEAD') hasHead = true;
     if (token.level === 0 && token.tag === 'TRLR') hasTrailer = true;
     if (token.level === 0 && counts[token.tag] !== undefined && token.tag !== 'OBJE') counts[token.tag] += 1;
     if (token.tag === 'OBJE') counts.OBJE += 1;
+    if (token.xref) {
+      if (declaredXrefs.has(token.xref)) {
+        issues.push(issue('error', index + 1, 'duplicate-xref', `Duplicate XREF ${token.xref}; first declared on line ${declaredXrefs.get(token.xref).line}.`, { refs: [token.xref] }));
+      } else {
+        declaredXrefs.set(token.xref, { line: index + 1, tag: token.tag });
+      }
+    }
+    if (isPointerValue(token.value)) {
+      pointerRefs.push({ line: index + 1, tag: token.tag, value: token.value });
+    }
     if (token.level > 0 && /^[A-Z0-9_]+$/.test(token.tag) && token.tag.length >= 3 && !EVENT_TAG_TO_NAME[token.tag] && eventLikeTag(token.tag)) {
       counts.unsupportedEvents += 1;
-      issues.push(issue('warning', index + 1, `Event-like tag ${token.tag} is not mapped by the importer.`));
+      issues.push(issue('warning', index + 1, 'unsupported-event-tag', `Event-like tag ${token.tag} is not mapped by the importer.`, { refs: [token.tag] }));
     }
   }
-  if (!hasHead) issues.push(issue('warning', 0, 'Missing HEAD record.'));
-  if (!hasTrailer) issues.push(issue('warning', 0, 'Missing TRLR record.'));
-  if (counts.OBJE > 0) issues.push(issue('warning', 0, `${counts.OBJE} media object reference(s) found; matching GedZip resources or an attached media folder will be imported as media assets.`));
+  for (const ref of pointerRefs) {
+    if (!declaredXrefs.has(ref.value)) {
+      issues.push(issue('warning', ref.line, 'unresolved-xref', `${ref.tag} points to missing record ${ref.value}.`, { refs: [ref.value] }));
+    }
+  }
+  if (!hasHead) issues.push(issue('warning', 0, 'missing-head', 'Missing HEAD record.'));
+  if (!hasTrailer) issues.push(issue('warning', 0, 'missing-trailer', 'Missing TRLR record.'));
+  if (counts.OBJE > 0) issues.push(issue('warning', 0, 'media-resource-matching', `${counts.OBJE} media object reference(s) found; matching GedZip resources or an attached media folder will be imported as media assets.`));
   return {
     counts,
-    issues,
-    canImport: !issues.some((item) => item.severity === 'error'),
+    issues: issues.sort(compareIssues),
+    canImport: !hasBlockingIssues(issues),
   };
 }
 
@@ -459,6 +477,17 @@ function eventLikeTag(tag) {
   return ['BIRT', 'DEAT', 'MARR', 'DIV', 'EVEN', 'FACT', 'ADOP', 'BURI', 'RESI', 'OCCU', 'CENS', 'IMMI', 'EMIG', 'NATU'].includes(tag);
 }
 
-function issue(severity, line, message) {
-  return { severity, line, message };
+function isPointerValue(value) {
+  return /^@[^@]+@$/.test(String(value || '').trim());
+}
+
+function issue(severity, line, code, message, extra = {}) {
+  return makeValidationIssue({
+    scope: 'gedcom-import',
+    severity,
+    line,
+    code,
+    message,
+    ...extra,
+  });
 }

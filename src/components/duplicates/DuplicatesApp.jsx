@@ -2,7 +2,14 @@
  * DuplicatesApp — scan for duplicate persons/families/sources and merge them.
  */
 import React, { useState, useCallback } from 'react';
-import { findDuplicatePersons, findDuplicateFamilies, findDuplicateSources } from '../../lib/duplicates.js';
+import {
+  clearSkippedDuplicatePairs,
+  findDuplicateFamilies,
+  findDuplicatePersons,
+  findDuplicateSources,
+  getSkippedDuplicatePairs,
+  skipDuplicatePair,
+} from '../../lib/duplicates.js';
 import { MergePair } from './MergePair.jsx';
 
 const SCANS = [
@@ -15,18 +22,32 @@ export function DuplicatesApp() {
   const [kind, setKind] = useState('Person');
   const [pairs, setPairs] = useState([]);
   const [scanning, setScanning] = useState(false);
-  const [skipped, setSkipped] = useState(new Set());
+  const [skippedCount, setSkippedCount] = useState(0);
 
   const onScan = useCallback(async () => {
     setScanning(true);
     const scan = SCANS.find((s) => s.id === kind);
-    const result = await scan.run();
+    const [result, skippedPairs] = await Promise.all([scan.run(), getSkippedDuplicatePairs(kind)]);
     setPairs(result);
-    setSkipped(new Set());
+    setSkippedCount(skippedPairs.length);
     setScanning(false);
   }, [kind]);
 
-  const visible = pairs.filter((p, i) => !skipped.has(i));
+  const onSkipPair = useCallback(async (pair) => {
+    await skipDuplicatePair(kind, pair.a, pair.b);
+    setPairs((current) => current.filter((item) => item !== pair));
+    setSkippedCount((count) => count + 1);
+  }, [kind]);
+
+  const onClearSkipped = useCallback(async () => {
+    setScanning(true);
+    await clearSkippedDuplicatePairs(kind);
+    const scan = SCANS.find((s) => s.id === kind);
+    const result = await scan.run();
+    setPairs(result);
+    setSkippedCount(0);
+    setScanning(false);
+  }, [kind]);
 
   return (
     <div style={shell}>
@@ -39,8 +60,13 @@ export function DuplicatesApp() {
         <button onClick={onScan} disabled={scanning} style={{ ...input, background: 'hsl(var(--primary))', cursor: 'pointer' }}>
           {scanning ? 'Scanning…' : 'Scan'}
         </button>
+        {skippedCount > 0 && (
+          <button onClick={onClearSkipped} disabled={scanning} style={input}>
+            Show {skippedCount} skipped
+          </button>
+        )}
         <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
-          {pairs.length > 0 && `${visible.length} of ${pairs.length} candidate pair${pairs.length === 1 ? '' : 's'}`}
+          {pairs.length > 0 && `${pairs.length} candidate pair${pairs.length === 1 ? '' : 's'}`}
         </span>
       </header>
 
@@ -50,17 +76,15 @@ export function DuplicatesApp() {
             Pick an entity type and click <strong>Scan</strong> to find potential duplicates.
           </div>
         )}
-        {visible.map((pair, i) => {
-          const realIndex = pairs.indexOf(pair);
+        {pairs.map((pair) => {
           return (
             <MergePair
               key={pair.a.recordName + '|' + pair.b.recordName}
               pair={pair}
               onMerged={() => {
-                const next = pairs.filter((_, j) => j !== realIndex);
-                setPairs(next);
+                setPairs((current) => current.filter((item) => item !== pair));
               }}
-              onSkip={() => setSkipped(new Set([...skipped, realIndex]))}
+              onSkip={() => onSkipPair(pair)}
             />
           );
         })}

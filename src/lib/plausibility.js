@@ -4,6 +4,7 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refToRecordName } from './recordRef.js';
+import { compareIssues, makeValidationIssue } from './validationIssues.js';
 import { personSummary } from '../models/index.js';
 
 function parseDate(s) {
@@ -120,10 +121,16 @@ export async function runPlausibilityChecks(config) {
     }
   }
 
-  return warnings.sort((a, b) => severityOrder(b.severity) - severityOrder(a.severity));
+  return warnings.sort(compareIssues);
 }
 
 function rule(id, severity, record, message) {
-  return { rule: id, severity, recordName: record.recordName, recordType: record.recordType, message };
+  return makeValidationIssue({
+    scope: 'plausibility',
+    code: id,
+    severity,
+    recordName: record.recordName,
+    recordType: record.recordType,
+    message,
+  });
 }
-function severityOrder(s) { return { high: 3, medium: 2, low: 1 }[s] || 0; }

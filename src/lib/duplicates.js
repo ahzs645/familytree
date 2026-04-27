@@ -16,6 +16,7 @@ import { planReferenceRewrite, countReferencesTo } from './referenceGraph.js';
 const PERSON_THRESHOLD = 0.85;
 const SOURCE_THRESHOLD = 0.85;
 const MIN_FIELD_SIM = 0.7;
+const SKIPPED_DUPLICATE_PAIRS_META = 'duplicateSkippedPairs';
 
 function normalize(s) {
   return (s || '').toString().toLowerCase().trim().replace(/\s+/g, ' ');
@@ -139,7 +140,7 @@ export async function findDuplicatePersons(threshold = PERSON_THRESHOLD) {
     }
   }
   pairs.sort((x, y) => y.score - x.score);
-  return pairs;
+  return filterSkippedDuplicatePairs('Person', pairs);
 }
 
 export async function findDuplicateFamilies() {
@@ -168,7 +169,7 @@ export async function findDuplicateFamilies() {
       }
     }
   }
-  return pairs;
+  return filterSkippedDuplicatePairs('Family', pairs);
 }
 
 export async function findDuplicateSources(threshold = SOURCE_THRESHOLD) {
@@ -200,7 +201,54 @@ export async function findDuplicateSources(threshold = SOURCE_THRESHOLD) {
     }
   }
   pairs.sort((x, y) => y.score - x.score);
-  return pairs;
+  return filterSkippedDuplicatePairs('Source', pairs);
+}
+
+export function duplicatePairKey(kind, a, b) {
+  const left = typeof a === 'string' ? a : a?.recordName;
+  const right = typeof b === 'string' ? b : b?.recordName;
+  return [kind || a?.recordType || b?.recordType || 'Record', ...[left, right].filter(Boolean).sort()].join(':');
+}
+
+export async function getSkippedDuplicatePairs(kind = null) {
+  const stored = await getLocalDatabase().getMeta(SKIPPED_DUPLICATE_PAIRS_META);
+  const list = Array.isArray(stored) ? stored : [];
+  return kind ? list.filter((entry) => entry.kind === kind) : list;
+}
+
+export async function skipDuplicatePair(kind, a, b) {
+  const db = getLocalDatabase();
+  const list = await getSkippedDuplicatePairs();
+  const key = duplicatePairKey(kind, a, b);
+  if (list.some((entry) => entry.key === key)) return list;
+  const next = [
+    ...list,
+    {
+      key,
+      kind,
+      recordNames: [a?.recordName || a, b?.recordName || b].filter(Boolean).sort(),
+      skippedAt: new Date().toISOString(),
+    },
+  ];
+  await db.setMeta(SKIPPED_DUPLICATE_PAIRS_META, next);
+  return next;
+}
+
+export async function clearSkippedDuplicatePairs(kind = null) {
+  const db = getLocalDatabase();
+  if (!kind) {
+    await db.setMeta(SKIPPED_DUPLICATE_PAIRS_META, []);
+    return [];
+  }
+  const next = (await getSkippedDuplicatePairs()).filter((entry) => entry.kind !== kind);
+  await db.setMeta(SKIPPED_DUPLICATE_PAIRS_META, next);
+  return next;
+}
+
+async function filterSkippedDuplicatePairs(kind, pairs) {
+  const skippedKeys = new Set((await getSkippedDuplicatePairs(kind)).map((entry) => entry.key));
+  if (!skippedKeys.size) return pairs;
+  return pairs.filter((pair) => !skippedKeys.has(duplicatePairKey(kind, pair.a, pair.b)));
 }
 
 /**
