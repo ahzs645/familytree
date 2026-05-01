@@ -17,7 +17,7 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { extractMFTPKGDataset } from './mftpkgExtractor.js';
-import { analyzeGedcomText, importGedcomText } from './gedcomImport.js';
+import { analyzeGedcomText, canImportGedcomAnalysis, gedcomImportModeLabel, importGedcomText } from './gedcomImport.js';
 import { getAppPreferences } from './appPreferences.js';
 
 async function getPreferredGedcomEncoding() {
@@ -26,6 +26,15 @@ async function getPreferredGedcomEncoding() {
     return prefs?.importDefaults?.gedcomEncoding || 'auto';
   } catch {
     return 'auto';
+  }
+}
+
+async function getPreferredGedcomMode() {
+  try {
+    const prefs = await getAppPreferences();
+    return prefs?.importDefaults?.gedcomMode || 'review';
+  } catch {
+    return 'review';
   }
 }
 import {
@@ -194,9 +203,10 @@ export class MFTPKGImporter {
     const resolvedEncoding = encoding || await getPreferredGedcomEncoding();
     const text = decodeGedcomBytes(uint8Array, sourceName, { encoding: resolvedEncoding });
     const analysis = analyzeGedcomText(text);
-    if (!analysis.canImport) {
+    const mode = await getPreferredGedcomMode();
+    if (!canImportGedcomAnalysis(analysis, mode)) {
       const firstError = analysis.issues.find((item) => item.severity === 'error');
-      throw new Error(`GEDCOM has blocking syntax errors${firstError ? `: ${firstError.message}` : ''}`);
+      throw new Error(`GEDCOM import blocked in ${gedcomImportModeLabel(mode)} mode${firstError ? `: ${firstError.message}` : ''}`);
     }
     this._progress('importing', 0, 1);
     const total = await importGedcomText(text, { replace: true, sourceName, resourceFiles });
@@ -205,6 +215,7 @@ export class MFTPKGImporter {
       total,
       source: 'gedcom',
       format: format || fileExtension(sourceName).replace('.', '') || 'gedcom',
+      mode,
       counts: analysis.counts,
       warnings: analysis.issues.filter((item) => item.severity !== 'error').map((item) => item.message),
       issues: analysis.issues,

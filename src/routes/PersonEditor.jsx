@@ -41,6 +41,9 @@ import { TypePicker } from '../components/editors/TypePicker.jsx';
 import { AssociateRelationsEditor, MediaRelationsEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { OldestAncestorsWidget } from '../components/editors/OldestAncestorsWidget.jsx';
 import { isRecordLocked, setRecordLocked } from '../lib/recordLock.js';
+import { listAllPersons } from '../lib/treeQuery.js';
+import { PersonPicker } from '../components/charts/PersonPicker.jsx';
+import { linkExistingRelative } from '../lib/relativeLinks.js';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -98,6 +101,9 @@ export default function PersonEditor() {
   const [notes, setNotes] = useState([]);
   const [associates, setAssociates] = useState([]);
   const [related, setRelated] = useState({ media: [], sources: [], todos: [], stories: [], groups: [] });
+  const [allPersons, setAllPersons] = useState([]);
+  const [relativeType, setRelativeType] = useState('parent');
+  const [relativeId, setRelativeId] = useState('');
   const [labels, setLabels] = useState({}); // labelId -> bool
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
@@ -133,6 +139,7 @@ export default function PersonEditor() {
       db.query('PersonEvent', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('AssociateRelation', { referenceField: 'sourcePerson', referenceValue: id, limit: 500 }),
     ]);
+    setAllPersons(await listAllPersons({ includePrivate: true }));
 
     setAdditionalNames(an.records.map((a) => ({
       recordName: a.recordName,
@@ -190,6 +197,19 @@ export default function PersonEditor() {
     for (const def of LABELS) lblState[def.id] = !!labelMap[def.id];
     setLabels(lblState);
   }, [id]);
+
+  const onLinkRelative = useCallback(async () => {
+    if (!relativeId) return;
+    try {
+      await linkExistingRelative(id, relativeId, relativeType);
+      setRelativeId('');
+      await reload();
+      setStatus('Relative linked');
+      setTimeout(() => setStatus(null), 1500);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }, [id, relativeId, relativeType, reload]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -302,8 +322,20 @@ export default function PersonEditor() {
         <div className="max-w-6xl mx-auto p-5">
 
           {context && (
-            <Section title="Parents" accent={ACCENTS.parents}>
+            <Section title="Parents & Relatives" accent={ACCENTS.parents}>
               <ParentsBlock context={context} onPick={(rn) => navigate(`/person/${rn}`)} />
+              <div className="mt-4 grid grid-cols-[130px_1fr_auto] gap-2">
+                <select value={relativeType} onChange={(event) => setRelativeType(event.target.value)} className={inputClass()}>
+                  <option value="parent">Parent</option>
+                  <option value="spouse">Spouse</option>
+                  <option value="child">Child</option>
+                  <option value="sibling">Sibling</option>
+                </select>
+                <PersonPicker persons={allPersons.filter((person) => person.recordName !== id)} value={relativeId} onChange={setRelativeId} />
+                <button type="button" onClick={onLinkRelative} disabled={!relativeId} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50">
+                  Link
+                </button>
+              </div>
             </Section>
           )}
           {record?.recordName && (

@@ -166,6 +166,71 @@ function matchesText_anywhere(record, q) {
   return false;
 }
 
+export function createSearchIndex(records = []) {
+  const byToken = new Map();
+  const textById = new Map();
+  for (const record of records || []) {
+    if (!record?.recordName) continue;
+    const text = searchableText(record);
+    textById.set(record.recordName, text);
+    for (const token of tokenizeSearchText(text)) {
+      if (!byToken.has(token)) byToken.set(token, new Set());
+      byToken.get(token).add(record.recordName);
+    }
+  }
+  return { byToken, textById, size: textById.size };
+}
+
+export function querySearchIndex(index, query) {
+  const tokens = tokenizeSearchText(query);
+  if (!tokens.length) return new Set(index?.textById?.keys?.() || []);
+  const tokenMatches = tokens.map((token) => idsForToken(index, token));
+  if (tokenMatches.some((set) => set.size === 0)) return new Set();
+  const [first, ...rest] = tokenMatches.sort((a, b) => a.size - b.size);
+  const out = new Set();
+  for (const id of first) {
+    if (rest.every((set) => set.has(id))) out.add(id);
+  }
+  return out;
+}
+
+function idsForToken(index, token) {
+  const exact = index?.byToken?.get(token);
+  if (exact) return exact;
+  const out = new Set();
+  for (const [candidate, ids] of index?.byToken || []) {
+    if (candidate.includes(token)) {
+      for (const id of ids) out.add(id);
+    }
+  }
+  return out;
+}
+
+function searchableText(record) {
+  const parts = [record.recordName, record.recordType];
+  for (const field of Object.values(record.fields || {})) {
+    collectSearchText(field?.value, parts);
+  }
+  return parts.filter(Boolean).join(' ');
+}
+
+function collectSearchText(value, parts) {
+  if (value == null) return;
+  if (typeof value === 'string' || typeof value === 'number') parts.push(String(value));
+  else if (Array.isArray(value)) value.forEach((item) => collectSearchText(item, parts));
+  else if (typeof value === 'object') Object.values(value).forEach((item) => collectSearchText(item, parts));
+}
+
+function tokenizeSearchText(text) {
+  return [...new Set(String(text || '')
+    .toLocaleLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .split(/[^\p{L}\p{N}@_-]+/u)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2))];
+}
+
 export async function runSearch(query) {
   const db = getLocalDatabase();
   const { records } = await db.query(query.entityType, { limit: 100000 });
@@ -174,7 +239,9 @@ export async function runSearch(query) {
     matched = matched.filter((r) => query.filters.every((f) => matchesFilter(r, f)));
   }
   if (query.textQuery && query.textQuery.trim()) {
-    matched = matched.filter((r) => matchesText_anywhere(r, query.textQuery.trim()));
+    const index = createSearchIndex(matched);
+    const ids = querySearchIndex(index, query.textQuery.trim());
+    matched = matched.filter((r) => ids.has(r.recordName) || matchesText_anywhere(r, query.textQuery.trim()));
   }
   const limit = query.limit || 500;
   const total = matched.length;

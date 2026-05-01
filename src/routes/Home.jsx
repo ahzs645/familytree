@@ -15,6 +15,7 @@ import {
   setTreeSnapshotFavorite,
   setTreeSnapshotLabel,
 } from '../lib/treeLibrary.js';
+import { loadAnniversaryRows } from '../lib/listData.js';
 
 const SECTIONS = [
   { to: '/tree', title: 'Interactive Tree', body: '3D family explorer with live search, plus parents / partners / children for the focused person.' },
@@ -84,6 +85,7 @@ export function Home() {
     try { return localStorage.getItem('treeLibrary.homeSortBy') || 'favorites'; } catch { return 'favorites'; }
   });
   const [snapshots, setSnapshots] = useState([]);
+  const [upcomingAnniversaries, setUpcomingAnniversaries] = useState([]);
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
@@ -91,6 +93,18 @@ export function Home() {
   }, [sortBy]);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    if (!hasData) {
+      setUpcomingAnniversaries([]);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      const rows = await loadAnniversaryRows();
+      if (!cancelled) setUpcomingAnniversaries(nextAnniversaries(rows, 30).slice(0, 6));
+    })();
+    return () => { cancelled = true; };
+  }, [hasData, summary?.total]);
   useEffect(() => {
     try { localStorage.setItem('treeLibrary.homeSortBy', sortBy); } catch {}
   }, [sortBy]);
@@ -221,6 +235,29 @@ export function Home() {
         </section>
       )}
 
+      {upcomingAnniversaries.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Next Anniversaries</h2>
+            <button type="button" onClick={() => navigate('/anniversaries')} className="text-xs text-primary hover:underline">Open list</button>
+          </div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+            {upcomingAnniversaries.map((row) => (
+              <button
+                key={`${row.personId}-${row.type}-${row.month}-${row.day}`}
+                type="button"
+                onClick={() => navigate(`/person/${row.personId}`)}
+                className="text-left rounded-lg border border-border bg-card p-3 hover:bg-accent"
+              >
+                <div className="text-sm font-semibold truncate">{row.personName}</div>
+                <div className="text-xs text-muted-foreground">{row.type} · {row.monthDayLabel}{row.yearLabel ? ` · ${row.yearLabel}` : ''}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">{row.daysUntil === 0 ? 'Today' : `In ${row.daysUntil} day${row.daysUntil === 1 ? '' : 's'}`}</div>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       {hasData && summary && (
         <section className="mb-8 p-5 rounded-xl border border-border bg-card flex items-center gap-5">
           <div className="flex-1">
@@ -306,3 +343,22 @@ export function Home() {
 }
 
 export default Home;
+
+function nextAnniversaries(rows, daysAhead = 30, from = new Date()) {
+  const start = startOfDay(from);
+  return (rows || [])
+    .map((row) => ({ ...row, daysUntil: daysUntilMonthDay(row.month, row.day, start) }))
+    .filter((row) => Number.isFinite(row.daysUntil) && row.daysUntil <= daysAhead)
+    .sort((a, b) => a.daysUntil - b.daysUntil || String(a.personName).localeCompare(String(b.personName)));
+}
+
+function daysUntilMonthDay(month, day, from) {
+  if (!month || !day) return Infinity;
+  const thisYear = new Date(from.getFullYear(), month - 1, day);
+  const target = thisYear < from ? new Date(from.getFullYear() + 1, month - 1, day) : thisYear;
+  return Math.round((target - from) / 86400000);
+}
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}

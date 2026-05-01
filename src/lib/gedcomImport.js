@@ -15,14 +15,52 @@ function tokenizeLine(line) {
   return { level: +m[1], xref: m[2] || null, tag: m[3], value: m[4] || '' };
 }
 
+export function tokenizeGedcomText(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  const tokens = [];
+  const issues = [];
+  let previousToken = null;
+
+  for (const [index, raw] of lines.entries()) {
+    const line = index + 1;
+    if (!raw.trim()) continue;
+
+    const token = tokenizeLine(raw);
+    if (!token) {
+      issues.push(issue('error', line, 'gedcom-syntax', 'Line does not match GEDCOM level/tag syntax.', { details: { raw } }));
+      continue;
+    }
+
+    if (token.level > 99) {
+      issues.push(issue('warning', line, 'excessive-level', `Level ${token.level} is unusually deep for GEDCOM.`, { details: { level: token.level } }));
+    }
+
+    if (previousToken && token.level > previousToken.level + 1) {
+      issues.push(issue('error', line, 'level-jump', `Level jumps from ${previousToken.level} to ${token.level}; expected at most ${previousToken.level + 1}.`, {
+        details: { previousLine: previousToken.line, previousLevel: previousToken.level, level: token.level },
+      }));
+    }
+
+    if ((token.tag === 'CONC' || token.tag === 'CONT') && token.level === 0) {
+      issues.push(issue('error', line, 'orphan-continuation', `${token.tag} cannot appear at level 0.`));
+    }
+
+    tokens.push({ ...token, line, raw });
+    previousToken = { ...token, line };
+  }
+
+  return { tokens, issues };
+}
+
 function parseGedcomTree(text) {
-  const lines = text.split(/\r?\n/);
+  const { tokens } = tokenizeGedcomText(text);
+  return parseGedcomTokens(tokens);
+}
+
+function parseGedcomTokens(tokens) {
   const root = { children: [] };
   const stack = [root];
-  for (const raw of lines) {
-    if (!raw.trim()) continue;
-    const t = tokenizeLine(raw);
-    if (!t) continue;
+  for (const t of tokens) {
     while (stack.length > t.level + 1) stack.pop();
     const node = { ...t, children: [] };
     const parent = stack[stack.length - 1] || root;
@@ -42,6 +80,12 @@ const EVENT_TAG_TO_NAME = {
   GRAD: 'Graduation', OCCU: 'Occupation', RESI: 'Residence', RELI: 'Religion',
   WILL: 'Will', PROB: 'Probate', ADOP: 'Adoption', EVEN: 'GenericEvent',
 };
+
+const TOP_LEVEL_TAGS = new Set(['HEAD', 'TRLR', 'INDI', 'FAM', 'SOUR', 'NOTE', 'OBJE', 'SUBM', 'REPO']);
+const PERSON_HANDLED_TAGS = new Set(['NAME', 'SEX', 'OBJE', 'NOTE', ...Object.keys(EVENT_TAG_TO_NAME)]);
+const FAMILY_HANDLED_TAGS = new Set(['HUSB', 'WIFE', 'CHIL', 'MARR', 'OBJE']);
+const SOURCE_HANDLED_TAGS = new Set(['TITL', 'AUTH', 'TEXT', 'OBJE']);
+const EVENT_HANDLED_TAGS = new Set(['DATE', 'PLAC', 'NOTE', 'OBJE']);
 
 let _seq = 0;
 function uuid(prefix) {
@@ -116,10 +160,11 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
         };
         const date = child(ev, 'DATE')?.value;
         const place = child(ev, 'PLAC')?.value;
-        const note = child(ev, 'NOTE')?.value;
+        const note = nodeText(child(ev, 'NOTE'));
         if (date) eventRec.fields.date = { value: date, type: 'STRING' };
         if (place) eventRec.fields.placeName = { value: place, type: 'STRING' };
         if (note) eventRec.fields.description = { value: note, type: 'STRING' };
+        preserveExtensions(eventRec, ev, EVENT_HANDLED_TAGS);
         records.push(eventRec);
         addMediaRelations(records, resolveObjeMediaIds(children(ev, 'OBJE'), { addMedia, mediaByXref }), eventRec.recordName, 'PersonEvent', mediaById);
         // Cache shortcuts on the person record
@@ -128,12 +173,13 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
       }
       // Notes
       for (const n of children(top, 'NOTE')) {
-        if (n.value) records.push({
+        const text = nodeText(n);
+        if (text) records.push({
           recordName: uuid('note-imp'),
           recordType: 'Note',
           fields: {
             person: { value: refValue(personId, 'Person'), type: 'REFERENCE' },
-            text: { value: n.value, type: 'STRING' },
+            text: { value: text, type: 'STRING' },
           },
         });
       }
@@ -162,6 +208,7 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
             ...(date ? { date: { value: date, type: 'STRING' } } : {}),
           },
         };
+        preserveExtensions(eventRec, marr, EVENT_HANDLED_TAGS);
         records.push(eventRec);
         addMediaRelations(records, resolveObjeMediaIds(children(marr, 'OBJE'), { addMedia, mediaByXref }), eventRec.recordName, 'FamilyEvent', mediaById);
       }
@@ -306,6 +353,36 @@ function nodeText(node) {
   return value.trim();
 }
 
+function preserveExtensions(record, node, handledTags) {
+  const extensions = (node?.children || [])
+    .filter((childNode) => shouldPreserveNode(childNode, handledTags))
+    .map(nodeToExtension);
+  if (extensions.length) {
+    record.fields.gedcomExtensions = { value: extensions, type: 'LIST' };
+  }
+  if (node?.xref) {
+    record.fields.gedcomXref = { value: node.xref, type: 'STRING' };
+  }
+  return record;
+}
+
+function shouldPreserveNode(node, handledTags = new Set()) {
+  if (!node?.tag) return false;
+  if (node.tag === 'CONC' || node.tag === 'CONT') return false;
+  if (node.tag.startsWith('_')) return true;
+  return !handledTags.has(node.tag);
+}
+
+function nodeToExtension(node) {
+  return {
+    tag: node.tag,
+    value: node.value || '',
+    xref: node.xref || null,
+    line: node.line || 0,
+    children: (node.children || []).map(nodeToExtension),
+  };
+}
+
 function normalizePath(path = '') {
   return String(path).trim().replace(/\\/g, '/').replace(/^file:\/+/, '').replace(/^\/+/, '');
 }
@@ -358,37 +435,41 @@ function bytesToBase64(bytes) {
 }
 
 export function analyzeGedcomText(text) {
-  const lines = String(text || '').split(/\r?\n/);
-  const issues = [];
-  const counts = { INDI: 0, FAM: 0, SOUR: 0, NOTE: 0, OBJE: 0, unsupportedEvents: 0 };
+  const { tokens, issues } = tokenizeGedcomText(text);
+  const counts = { INDI: 0, FAM: 0, SOUR: 0, NOTE: 0, OBJE: 0, unsupportedEvents: 0, customTags: 0, continuations: 0 };
   const declaredXrefs = new Map();
   const pointerRefs = [];
+  const seenTags = new Set();
+  const customTags = new Set();
   let hasHead = false;
   let hasTrailer = false;
-  for (const [index, line] of lines.entries()) {
-    if (!line.trim()) continue;
-    const token = tokenizeLine(line);
-    if (!token) {
-      issues.push(issue('error', index + 1, 'gedcom-syntax', 'Line does not match GEDCOM level/tag syntax.'));
-      continue;
-    }
+  for (const token of tokens) {
+    seenTags.add(token.tag);
     if (token.level === 0 && token.tag === 'HEAD') hasHead = true;
     if (token.level === 0 && token.tag === 'TRLR') hasTrailer = true;
     if (token.level === 0 && counts[token.tag] !== undefined && token.tag !== 'OBJE') counts[token.tag] += 1;
     if (token.tag === 'OBJE') counts.OBJE += 1;
+    if (token.tag === 'CONC' || token.tag === 'CONT') counts.continuations += 1;
+    if (token.tag.startsWith('_')) {
+      customTags.add(token.tag);
+      counts.customTags += 1;
+    }
+    if (token.level === 0 && !TOP_LEVEL_TAGS.has(token.tag)) {
+      issues.push(issue('warning', token.line, 'unsupported-top-level-record', `Top-level ${token.tag} record is not mapped by the importer.`, { refs: [token.tag] }));
+    }
     if (token.xref) {
       if (declaredXrefs.has(token.xref)) {
-        issues.push(issue('error', index + 1, 'duplicate-xref', `Duplicate XREF ${token.xref}; first declared on line ${declaredXrefs.get(token.xref).line}.`, { refs: [token.xref] }));
+        issues.push(issue('error', token.line, 'duplicate-xref', `Duplicate XREF ${token.xref}; first declared on line ${declaredXrefs.get(token.xref).line}.`, { refs: [token.xref] }));
       } else {
-        declaredXrefs.set(token.xref, { line: index + 1, tag: token.tag });
+        declaredXrefs.set(token.xref, { line: token.line, tag: token.tag });
       }
     }
     if (isPointerValue(token.value)) {
-      pointerRefs.push({ line: index + 1, tag: token.tag, value: token.value });
+      pointerRefs.push({ line: token.line, tag: token.tag, value: token.value });
     }
     if (token.level > 0 && /^[A-Z0-9_]+$/.test(token.tag) && token.tag.length >= 3 && !EVENT_TAG_TO_NAME[token.tag] && eventLikeTag(token.tag)) {
       counts.unsupportedEvents += 1;
-      issues.push(issue('warning', index + 1, 'unsupported-event-tag', `Event-like tag ${token.tag} is not mapped by the importer.`, { refs: [token.tag] }));
+      issues.push(issue('warning', token.line, 'unsupported-event-tag', `Event-like tag ${token.tag} is not mapped by the importer.`, { refs: [token.tag] }));
     }
   }
   for (const ref of pointerRefs) {
@@ -399,11 +480,30 @@ export function analyzeGedcomText(text) {
   if (!hasHead) issues.push(issue('warning', 0, 'missing-head', 'Missing HEAD record.'));
   if (!hasTrailer) issues.push(issue('warning', 0, 'missing-trailer', 'Missing TRLR record.'));
   if (counts.OBJE > 0) issues.push(issue('warning', 0, 'media-resource-matching', `${counts.OBJE} media object reference(s) found; matching GedZip resources or an attached media folder will be imported as media assets.`));
+  if (customTags.size > 0) {
+    issues.push(issue('warning', 0, 'custom-tags', `${customTags.size} custom GEDCOM tag type(s) found: ${Array.from(customTags).sort().slice(0, 8).join(', ')}${customTags.size > 8 ? ', …' : ''}.`, {
+      refs: Array.from(customTags).sort(),
+    }));
+  }
   return {
     counts,
+    tags: Array.from(seenTags).sort(),
     issues: issues.sort(compareIssues),
     canImport: !hasBlockingIssues(issues),
   };
+}
+
+export function canImportGedcomAnalysis(analysis, mode = 'review') {
+  const issues = Array.isArray(analysis?.issues) ? analysis.issues : [];
+  if (mode === 'strict') return issues.length === 0;
+  if (mode === 'lenient') return !issues.some((item) => item.code === 'duplicate-xref');
+  return !hasBlockingIssues(issues);
+}
+
+export function gedcomImportModeLabel(mode = 'review') {
+  if (mode === 'strict') return 'Strict';
+  if (mode === 'lenient') return 'Lenient';
+  return 'Review warnings';
 }
 
 export function buildGedcomDataset(text, { sourceName = 'GEDCOM import', mediaFiles = [], resourceFiles = [] } = {}) {
@@ -432,6 +532,7 @@ export function buildGedcomDataset(text, { sourceName = 'GEDCOM import', mediaFi
 
 function stubPerson(id, indi) {
   const fields = {};
+  if (indi.xref) fields.gedcomXref = { value: indi.xref, type: 'STRING' };
   const name = child(indi, 'NAME')?.value || '';
   // GEDCOM name format: "Given /Surname/"
   const m = name.match(/^([^/]*?)\s*\/([^/]*)\//);
@@ -445,21 +546,26 @@ function stubPerson(id, indi) {
   const sex = child(indi, 'SEX')?.value;
   if (sex === 'M') fields.gender = { value: Gender.Male, type: 'NUMBER' };
   else if (sex === 'F') fields.gender = { value: Gender.Female, type: 'NUMBER' };
-  return { recordName: id, recordType: 'Person', fields };
+  return preserveExtensions({ recordName: id, recordType: 'Person', fields }, indi, PERSON_HANDLED_TAGS);
 }
-function stubFamily(id) { return { recordName: id, recordType: 'Family', fields: {} }; }
+function stubFamily(id, fam = null) {
+  const fields = {};
+  if (fam?.xref) fields.gedcomXref = { value: fam.xref, type: 'STRING' };
+  return preserveExtensions({ recordName: id, recordType: 'Family', fields }, fam || { children: [] }, FAMILY_HANDLED_TAGS);
+}
 function stubSource(id, sour) {
   const fields = {};
-  const title = child(sour, 'TITL')?.value;
-  const author = child(sour, 'AUTH')?.value;
-  const text = child(sour, 'TEXT')?.value;
+  if (sour.xref) fields.gedcomXref = { value: sour.xref, type: 'STRING' };
+  const title = nodeText(child(sour, 'TITL'));
+  const author = nodeText(child(sour, 'AUTH'));
+  const text = nodeText(child(sour, 'TEXT'));
   if (title) {
     fields.title = { value: title, type: 'STRING' };
     fields.cached_title = { value: title, type: 'STRING' };
   }
   if (author) fields.author = { value: author, type: 'STRING' };
   if (text) fields.text = { value: text, type: 'STRING' };
-  return { recordName: id, recordType: 'Source', fields };
+  return preserveExtensions({ recordName: id, recordType: 'Source', fields }, sour, SOURCE_HANDLED_TAGS);
 }
 
 export async function importGedcomText(text, { replace = false, sourceName = 'GEDCOM import', mediaFiles = [], resourceFiles = [] } = {}) {

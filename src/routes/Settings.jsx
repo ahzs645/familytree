@@ -393,6 +393,17 @@ export default function Settings() {
                   ))}
                 </select>
               </Field>
+              <Field label="GEDCOM Import Mode">
+                <select
+                  value={prefs.importDefaults?.gedcomMode || 'review'}
+                  onChange={(event) => update('importDefaults', 'gedcomMode', event.target.value)}
+                  className={inputClass}
+                >
+                  <option value="review">Review warnings</option>
+                  <option value="strict">Strict</option>
+                  <option value="lenient">Lenient</option>
+                </select>
+              </Field>
               <Field label="Website Theme">
                 <select value={prefs.exportDefaults.websiteTheme} onChange={(event) => update('exportDefaults', 'websiteTheme', event.target.value)} className={inputClass}>
                   <option value="classic">Classic</option>

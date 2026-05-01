@@ -236,3 +236,50 @@ Likely local targets:
 6. Research workspace, because it builds on source/citation confidence and ToDos.
 7. Privacy policy engine, once export/report surfaces are stable enough to enforce consistently.
 
+---
+
+## 2026-04-28 swarm refresh
+
+Scope: compared the current `ahzs645/familytree` React/Vite offline genealogy app against public GitHub genealogy apps, GEDCOM tooling, and mature genealogy systems. No third-party code was copied; this pass is for feature and architecture ideas.
+
+### Repos inspected in this refresh
+
+- `genea-app/genea-app` — MIT, serverless GEDCOM authoring app.
+- `nafiesl/silsilah` — Laravel genealogy/family tree app.
+- `mrysav/geneac` — self-hosted genealogy app.
+- `etewiah/quasar-genealogy-web` — GEDCOM viewer using Topola patterns.
+- `bechir/tree-network` — Symfony/JavaScript family tree app.
+- `cacack/gedcom-go` — MIT GEDCOM 5.5/5.5.1/7.0 parser/writer.
+- `ge3224/ged_io` — MIT GEDCOM parser/writer with streaming and GEDZIP-oriented ideas.
+- `pjcj/Gedcom.pm` — Perl GEDCOM manipulation library.
+- `corb555/GeoFinder` — place standardization and GeoNames-style matching ideas.
+- `picnicprojects/fanchart3d` — 3D fan chart concept.
+- `maberg/gedcom2pdf` — GPL-3.0 GEDCOM-to-report pipeline, reference only.
+- `AdamIsrael/python-gedscope` — GEDCOM search/analysis ideas.
+- `PatKayongo/GEDCOMToJSONConverter` — minimal GEDCOM-to-JSON converter.
+- `gramps-project/gramps` — GPL-2.0 mature desktop app, reference only.
+- `fisharebest/webtrees` — GPL-3.0 web genealogy app, reference only.
+- `PeWu/topola-viewer` — Apache-2.0 interactive genealogy visualization.
+
+### Refined priority shortlist
+
+| Priority | Opportunity | Source references | Local targets |
+| --- | --- | --- | --- |
+| 1 | GEDCOM diagnostics and round-trip fidelity: tokenizer layer, line-numbered warnings, strict/lenient import modes, `CONT`/`CONC`, encoding hints, xref validation, unknown tag preservation, stable export ordering. | `cacack/gedcom-go`, `ge3224/ged_io`, `FamilySearch/GEDCOM`, `arbre-app/read-gedcom` | `src/lib/gedcomImport.js`, `src/lib/gedcomExport.js`, `src/components/GedcomImportReviewSheet.jsx`, `src/lib/validationIssues.js` |
+| 2 | First-class citations/evidence: event-level citation objects with page, transcription, confidence, repository/source chain, media, attribution, and report bibliography de-dupe. | Gramps, webtrees, `FamilySearch/gedcomx` | `src/routes/Sources.jsx`, `src/lib/citationFormat.js`, `src/lib/sourceCertainty.js`, `src/components/editors/RelatedRecordEditors.jsx`, `src/lib/reports/*`, `src/lib/books.js` |
+| 3 | Offline search index for large trees: indexed tokens across people, events, notes, sources, citations, places, media captions, stories, todos, with grouped global results. | Gramps Web, webtrees, Topola search patterns | `src/lib/search.js`, `src/lib/LocalDatabase.js`, `src/components/search/SearchApp.jsx`, `src/routes/Search.jsx` |
+| 4 | Person life timeline: merge facts, events, media, notes, citations, stories, tagged people, and research status into one profile view. | `mrysav/geneac`, Gramps profile patterns | `src/routes/PersonEditor.jsx`, `src/lib/personContext.js`, `src/routes/Events.jsx`, `src/routes/Media.jsx`, `src/routes/Research.jsx` |
+| 5 | Chart exploration UX: focus-on-click, URL-stable focused person state, animated re-rooting, hide/show branches, relatives/neighborhood mode, minimap for huge trees. | `PeWu/topola-viewer`, `genea-app/genea-app`, `etewiah/quasar-genealogy-web` | `src/components/charts/ChartsApp.jsx`, `src/components/charts/*`, `src/routes/ChartPreview.jsx`, `src/lib/chartData/*` |
+| 6 | In-context add/link relative modal: add parent/spouse/sibling/child from the current person without bouncing through separate editors. | `genea-app/genea-app`, `nafiesl/silsilah` | `src/routes/PersonEditor.jsx`, `src/routes/FamilyEditor.jsx`, `src/routes/Tree.jsx`, `src/contexts/ActivePersonContext.jsx` |
+| 7 | Privacy profiles: reusable settings for public site, family share, private archive, living-person masking, source/media exclusion, and chart-preview redaction. | webtrees, Gramps Web, `mrysav/geneac` | `src/lib/privacy.js`, `src/lib/websiteExport.js`, `src/lib/gedcomExport.js`, `src/lib/reports/*`, `src/routes/Publish.jsx`, `src/routes/Export.jsx` |
+| 8 | Place candidate scoring and correction workflow: local cache, normalized tokens, phonetic/fuzzy matching, historical warning flags, non-destructive suggested corrections. | `corb555/GeoFinder`, Gramps place tooling | `src/lib/placeGeocoding.js`, `src/routes/Places.jsx`, `src/components/BatchPlaceLookupSheet.jsx` |
+| 9 | Research workspace depth: hypotheses, negative searches, source-audit checklist, timeline gaps, durable research questions, linked ToDos and citations. | Gramps task/research workflows, `mattprusak/autoresearch-genealogy`, `mrysav/geneac` | `src/routes/Research.jsx`, `src/lib/researchSuggestions.js`, `src/routes/ToDos.jsx`, `src/components/ToDoWizardSheet.jsx` |
+| 10 | Small share and dashboard wins: QR code for chart preview links, upcoming birthdays/anniversaries on Home, large-database person table badges/pagination. | `etewiah/quasar-genealogy-web`, `nafiesl/silsilah`, `mrysav/geneac` | `src/routes/ChartPreview.jsx`, `src/lib/chartShareLink.js`, `src/routes/Home.jsx`, `src/routes/AnniversaryList.jsx`, `src/routes/Persons.jsx` |
+
+### Implementation notes from the refresh
+
+- Favor permissive repos for implementation references. GPL/AGPL projects are still valuable for product behavior, but should remain reference-only unless the project licensing strategy changes.
+- The immediate engineering leverage is in `gedcomImport.js` and `gedcomExport.js`: adding a diagnostic token layer and round-trip fixtures would protect future import/export work.
+- The current app already has many chart types; the better opportunity is chart interaction depth, not simply adding more layouts.
+- Search currently depends heavily on broad record queries plus in-memory filtering. A materialized offline index would help Search, Smart Filters, duplicate detection, reports, validation, and chart person pickers.
+- Privacy should become a profile-based service used by export, publish, share, reports, books, charts, and search, rather than each surface owning subtly different redaction settings.

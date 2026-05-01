@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { listAllPersons, findStartPerson } from '../lib/treeQuery.js';
 import { downloadGedcom } from '../lib/gedcomExport.js';
-import { analyzeGedcomText, importGedcomText } from '../lib/gedcomImport.js';
+import { analyzeGedcomText, canImportGedcomAnalysis, gedcomImportModeLabel, importGedcomText } from '../lib/gedcomImport.js';
 import { GEDCOM_ACCEPT, readGedcomTextFromFile } from '../lib/genealogyFileFormats.js';
 import { downloadBackup, downloadMFTPackage } from '../lib/backup.js';
 import { analyzeBackupMergeJSON, mergeBackupJSON, planMerge, mergeBackupJSONWithResolutions } from '../lib/mergeImport.js';
@@ -25,6 +25,7 @@ import {
 } from '../lib/treeLibrary.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { getAppPreferences } from '../lib/appPreferences.js';
 
 function Card({ title, description, children }) {
   return (
@@ -46,6 +47,7 @@ export default function Export() {
   const [status, setStatus] = useState(null);
   const [gedIssues, setGedIssues] = useState(null);
   const [pendingGedcom, setPendingGedcom] = useState(null);
+  const [gedcomImportMode, setGedcomImportMode] = useState('review');
   const [pendingMerge, setPendingMerge] = useState(null);
   const [rollbackNote, setRollbackNote] = useState('');
   const [conflictPlan, setConflictPlan] = useState(null);
@@ -71,6 +73,8 @@ export default function Export() {
       const snapshots = await listTreeSnapshots({ sortBy: snapshotSortBy });
       setTreeSnapshots(snapshots);
       setSelectedSnapshot((current) => current || snapshots[0]?.id || '');
+      const prefs = await getAppPreferences();
+      setGedcomImportMode(prefs.importDefaults?.gedcomMode || 'review');
     })();
   }, [snapshotSortBy]);
 
@@ -99,7 +103,7 @@ export default function Export() {
       const analysis = analyzeGedcomText(text);
       setGedIssues(analysis);
       setPendingGedcom({ fileName: sourceName || file.name, format, text, analysis, resourceFiles });
-      setStatus(analysis.canImport ? 'GEDCOM ready for review.' : 'GEDCOM has blocking syntax errors.');
+      setStatus(canImportGedcomAnalysis(analysis, gedcomImportMode) ? 'GEDCOM ready for review.' : `GEDCOM blocked by ${gedcomImportModeLabel(gedcomImportMode)} mode.`);
     } catch (e) {
       setStatus(`GEDCOM review failed: ${e.message}`);
     }
@@ -108,7 +112,7 @@ export default function Export() {
 
   const onConfirmGedImport = wrap('Importing GEDCOM…', async () => {
     if (!pendingGedcom) return 'Choose a GEDCOM file first.';
-    if (!pendingGedcom.analysis.canImport) return 'GEDCOM has blocking syntax errors. Review issues before importing.';
+    if (!canImportGedcomAnalysis(pendingGedcom.analysis, gedcomImportMode)) return `GEDCOM blocked by ${gedcomImportModeLabel(gedcomImportMode)} mode. Review issues before importing.`;
     const n = await importGedcomText(pendingGedcom.text, {
       sourceName: pendingGedcom.fileName,
       resourceFiles: pendingGedcom.resourceFiles || [],
@@ -324,6 +328,18 @@ export default function Export() {
           {(gedIssues || pendingGedcom) && (
             <div className="mt-4 rounded-md border border-border bg-background p-3 text-xs">
               <div className="font-semibold mb-1">GEDCOM review</div>
+              <label className="block text-muted-foreground mb-2">
+                Import mode
+                <select
+                  value={gedcomImportMode}
+                  onChange={(event) => setGedcomImportMode(event.target.value)}
+                  className="ms-2 h-8 rounded-md border border-border bg-secondary px-2 text-foreground"
+                >
+                  <option value="review">Review warnings</option>
+                  <option value="strict">Strict</option>
+                  <option value="lenient">Lenient</option>
+                </select>
+              </label>
               <div className="text-muted-foreground mb-2">
                 {pendingGedcom?.fileName && <span className="text-foreground">{pendingGedcom.fileName} · </span>}
                 {pendingGedcom?.format && <span>{pendingGedcom.format} · </span>}
@@ -341,7 +357,7 @@ export default function Export() {
                 </div>
               ))}
               <div className="mt-3 flex gap-2">
-                <button onClick={onConfirmGedImport} disabled={busy || !pendingGedcom?.analysis.canImport} className={btn}>
+                <button onClick={onConfirmGedImport} disabled={busy || !canImportGedcomAnalysis(pendingGedcom?.analysis, gedcomImportMode)} className={btn}>
                   Import reviewed GEDCOM
                 </button>
                 <button onClick={() => gedMediaFolderRef.current?.click()} disabled={busy || !pendingGedcom} className={btnSecondary}>

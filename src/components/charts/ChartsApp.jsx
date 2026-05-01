@@ -66,13 +66,14 @@ const CHART_TYPES = [
 
 export function ChartsApp() {
   const modal = useModal();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { recordName: sharedRootId, setActivePerson } = useActivePerson();
   const [persons, setPersons] = useState([]);
-  const [rootId, setRootId] = useState(sharedRootId);
-  const [secondId, setSecondId] = useState(null);
+  const [rootId, setRootId] = useState(searchParams.get('person') || sharedRootId);
+  const [secondId, setSecondId] = useState(searchParams.get('second') || null);
   const [chartType, setChartType] = useState(searchParams.get('type') || 'ancestor');
-  const [generations, setGenerations] = useState(5);
+  const [generations, setGenerations] = useState(Math.min(8, Math.max(2, Number(searchParams.get('gen')) || 5)));
+  const [chartClickAction, setChartClickAction] = useState(searchParams.get('click') || 'reroot');
   const [themeId, setThemeId] = useState('auto');
   const { theme: appTheme } = useTheme();
   const [virtualSource, setVirtualSource] = useState('descendant');
@@ -136,6 +137,7 @@ export function ChartsApp() {
   const moreRef = useRef(null);
   const [panelPersonId, setPanelPersonId] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [qrShare, setQrShare] = useState(null);
   const chartCanvasRef = useRef(null);
   const {
     overlays,
@@ -180,6 +182,16 @@ export function ChartsApp() {
     pageMargins, pagePrintMargins, pageOverlap, pageCutMarks,
     pagePrintPageNumbers, pageOmitEmptyPages,
   ]);
+
+  useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    setOrDelete(next, 'type', chartType, 'ancestor');
+    setOrDelete(next, 'person', rootId);
+    setOrDelete(next, 'second', needsSecond ? secondId : null);
+    setOrDelete(next, 'gen', generations === 5 ? null : String(generations));
+    setOrDelete(next, 'click', chartClickAction === 'reroot' ? null : chartClickAction);
+    if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+  }, [chartClickAction, chartType, generations, needsSecond, rootId, searchParams, secondId, setSearchParams]);
 
   useEffect(() => {
     if (!isDirty) return undefined;
@@ -331,7 +343,7 @@ export function ChartsApp() {
         setLoading(false);
         return;
       }
-      const requestedRootId = requestedDoc ? normalizeChartDocument(requestedDoc).roots.primaryPersonId : null;
+      const requestedRootId = requestedDoc ? normalizeChartDocument(requestedDoc).roots.primaryPersonId : searchParams.get('person');
       const desiredRootId = requestedRootId || rootId;
       if (!desiredRootId || !list.some((p) => p.recordName === desiredRootId)) {
         const start = await findStartPerson();
@@ -500,10 +512,14 @@ export function ChartsApp() {
 
   const onPersonClick = useCallback(
     (p) => {
+      if (chartClickAction === 'panel') {
+        openPersonInPanel(p);
+        return;
+      }
       setRootId(p.recordName);
       setActivePerson(p.recordName);
     },
-    [setActivePerson]
+    [chartClickAction, openPersonInPanel, setActivePerson]
   );
   const onRootChange = useCallback(
     (id) => {
@@ -660,6 +676,21 @@ export function ChartsApp() {
     } catch (error) {
       console.error('[ChartsApp] share-email failed', error);
       await modal.alert(`Email share failed: ${error.message}`, { title: 'Email share failed' });
+    }
+  }, [rootId, buildChartShareUrl, currentDocumentName, chartTitle, modal]);
+
+  const onShowShareQr = useCallback(async () => {
+    if (!rootId) {
+      await modal.alert('Select a root person before creating a QR code.');
+      return;
+    }
+    try {
+      const { url } = await buildChartShareUrl();
+      const QRCode = (await import('qrcode')).default;
+      const dataUrl = await QRCode.toDataURL(url, { errorCorrectionLevel: 'M', margin: 2, width: 240 });
+      setQrShare({ url, dataUrl, title: currentDocumentName || chartTitle || 'Family chart' });
+    } catch (error) {
+      await modal.alert(`QR code failed: ${error.message}`, { title: 'QR code failed' });
     }
   }, [rootId, buildChartShareUrl, currentDocumentName, chartTitle, modal]);
 
@@ -910,6 +941,13 @@ export function ChartsApp() {
                 </select>
               </Section>
 
+              <Section label="Chart interaction">
+                <select value={chartClickAction} onChange={(e) => setChartClickAction(e.target.value)} style={optionSelect}>
+                  <option value="reroot">Click person to re-root</option>
+                  <option value="panel">Click person to inspect</option>
+                </select>
+              </Section>
+
               <Section label="Generations">
                 <input
                   type="number"
@@ -1102,7 +1140,7 @@ export function ChartsApp() {
                   <button onClick={onNewChart} style={optionSelect} title="Start a new blank chart. Prompts if there are unsaved changes.">New chart</button>
                   <button onClick={onFinishEditing} style={optionSelect} disabled={isReadOnly} title="Exit edit mode. Prompts to save unsaved changes, then locks the chart as read-only.">Finish editing</button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 6 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 6 }}>
                   <button
                     onClick={onCopyShareLink}
                     style={optionSelect}
@@ -1126,6 +1164,14 @@ export function ChartsApp() {
                     disabled={!rootId}
                   >
                     Email
+                  </button>
+                  <button
+                    onClick={onShowShareQr}
+                    style={optionSelect}
+                    title="Show a QR code for the chart share link."
+                    disabled={!rootId}
+                  >
+                    QR
                   </button>
                 </div>
                 {documents.length > 0 && (
@@ -1249,6 +1295,25 @@ export function ChartsApp() {
           )}
         </div>
       </header>
+
+      {qrShare && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-6" onClick={() => setQrShare(null)}>
+          <div className="rounded-lg border border-border bg-card p-5 shadow-xl w-full max-w-sm" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="text-sm font-semibold truncate">{qrShare.title}</div>
+              <button type="button" onClick={() => setQrShare(null)} className="text-xs text-muted-foreground hover:text-foreground">Close</button>
+            </div>
+            <img src={qrShare.dataUrl} alt="Chart share QR code" className="w-60 h-60 mx-auto bg-white rounded-md p-2" />
+            <button
+              type="button"
+              onClick={() => navigator.clipboard?.writeText(qrShare.url)}
+              className="mt-4 w-full rounded-md border border-border bg-secondary px-3 py-2 text-sm hover:bg-accent"
+            >
+              Copy link
+            </button>
+          </div>
+        </div>
+      )}
 
       <ChartSelectionProvider openPerson={openPersonInPanel}>
       <div style={canvasRowStyle}>
@@ -1631,6 +1696,11 @@ function Field({ label, children, hideOnNarrow }) {
       {children}
     </div>
   );
+}
+
+function setOrDelete(params, key, value, defaultValue = null) {
+  if (value == null || value === '' || value === defaultValue) params.delete(key);
+  else params.set(key, String(value));
 }
 
 function RelationshipPathControls({

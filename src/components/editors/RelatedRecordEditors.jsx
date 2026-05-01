@@ -10,6 +10,13 @@ import {
   certaintySortKey,
   readCertainty,
 } from '../../lib/sourceCertainty.js';
+import {
+  EVIDENCE_CONFIDENCE,
+  EVIDENCE_CONFIDENCE_LABELS,
+  evidenceSummary,
+  readCitationEvidence,
+  writeCitationEvidenceFields,
+} from '../../lib/citationEvidence.js';
 
 const MEDIA_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 const CITABLE_TARGET_TYPES = ['Person', 'Family', 'Place', 'PersonEvent', 'FamilyEvent', ...MEDIA_TYPES];
@@ -200,8 +207,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
     setDrafts(Object.fromEntries(relRows.records.map((rel) => [
       rel.recordName,
       {
-        page: rel.fields?.page?.value || '',
-        citation: rel.fields?.citation?.value || rel.fields?.text?.value || '',
+        ...readCitationEvidence(rel),
         sourceQuality: readCertainty(rel, 'sourceQuality'),
         informationQuality: readCertainty(rel, 'informationQuality'),
         evidenceQuality: readCertainty(rel, 'evidenceQuality'),
@@ -239,16 +245,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
 
   const saveRelation = useCallback(async (rel) => {
     const draft = drafts[rel.recordName] || {};
-    const fields = { ...rel.fields };
-    if (draft.page) fields.page = { value: draft.page, type: 'STRING' };
-    else delete fields.page;
-    if (draft.citation) {
-      fields.citation = { value: draft.citation, type: 'STRING' };
-      fields.text = { value: draft.citation, type: 'STRING' };
-    } else {
-      delete fields.citation;
-      delete fields.text;
-    }
+    const fields = writeCitationEvidenceFields(rel.fields, draft);
     for (const { key } of CERTAINTY_AXES) {
       const v = draft[key];
       if (v && v !== CERTAINTY.DONT_KNOW) fields[key] = { value: v, type: 'STRING' };
@@ -300,6 +297,9 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                   label={recordDisplayLabel(target) || readRef(rel.fields?.[relatedField])}
                   onRemove={() => removeRelation(rel)}
                 >
+                  {evidenceSummary(rel) && (
+                    <div className="mt-1 text-[11px] text-muted-foreground">{evidenceSummary(rel)}</div>
+                  )}
                   <div className="grid grid-cols-[120px_1fr_auto] gap-2 mt-2">
                     <input
                       value={draft.page || ''}
@@ -314,6 +314,32 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                       placeholder="Citation text"
                     />
                     <button onClick={() => saveRelation(rel)} className={buttonClass}>Save</button>
+                  </div>
+                  <div className="grid grid-cols-[1fr_150px] gap-2 mt-2">
+                    <textarea
+                      value={draft.transcription || ''}
+                      onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, transcription: e.target.value } }))}
+                      className={`${inputClass} min-h-16 resize-y`}
+                      placeholder="Transcription / excerpt"
+                    />
+                    <div className="space-y-2">
+                      <select
+                        value={draft.confidence || EVIDENCE_CONFIDENCE.UNKNOWN}
+                        onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, confidence: e.target.value } }))}
+                        className={inputClass}
+                        aria-label="Evidence confidence"
+                      >
+                        {Object.entries(EVIDENCE_CONFIDENCE_LABELS).map(([value, text]) => (
+                          <option key={value} value={value}>{text} confidence</option>
+                        ))}
+                      </select>
+                      <input
+                        value={draft.attribution || ''}
+                        onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, attribution: e.target.value } }))}
+                        className={inputClass}
+                        placeholder="Attribution"
+                      />
+                    </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 mt-2" role="group" aria-label="Citation certainty">
                     {CERTAINTY_AXES.map(({ key, label }) => (

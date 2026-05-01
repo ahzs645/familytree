@@ -81,6 +81,7 @@ export const DEFAULT_APP_PREFERENCES = {
   },
   importDefaults: {
     gedcomEncoding: 'auto',
+    gedcomMode: 'review',
   },
   privacy: {
     hideMarkedPrivate: true,
@@ -160,6 +161,7 @@ export function normalizePreferences(value = {}) {
   merged.webSearch.openInNewTab = merged.webSearch.openInNewTab !== false;
   if (!NAME_FORMAT_LABELS[merged.formats.nameDisplayFormat]) merged.formats.nameDisplayFormat = DEFAULT_DISPLAY_FORMAT;
   if (!NAME_FORMAT_LABELS[merged.formats.nameSortFormat]) merged.formats.nameSortFormat = DEFAULT_SORT_FORMAT;
+  if (!['strict', 'review', 'lenient'].includes(merged.importDefaults?.gedcomMode)) merged.importDefaults.gedcomMode = 'review';
   return merged;
 }
 

@@ -54,7 +54,7 @@ export function GedcomImportReviewSheet({ result, onClose }) {
           {tab === 'summary' && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-3 gap-2">
-                {['INDI', 'FAM', 'SOUR', 'NOTE', 'OBJE', 'unsupportedEvents'].map((k) => (
+                {['INDI', 'FAM', 'SOUR', 'NOTE', 'OBJE', 'unsupportedEvents', 'customTags', 'continuations'].map((k) => (
                   <div key={k} className="bg-secondary border border-border rounded-md p-3">
                     <div className="text-xs text-muted-foreground">{label(k)}</div>
                     <div className="text-lg font-semibold">{Number(counts[k] || 0).toLocaleString()}</div>
@@ -109,6 +109,8 @@ function label(key) {
     case 'NOTE': return 'Notes';
     case 'OBJE': return 'Media refs';
     case 'unsupportedEvents': return 'Unmapped events';
+    case 'customTags': return 'Custom tags';
+    case 'continuations': return 'CONT/CONC';
     default: return key;
   }
 }

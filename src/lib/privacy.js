@@ -25,6 +25,29 @@ export const DEFAULT_PRIVACY_POLICY = Object.freeze({
   livingPersonThresholdYears: DEFAULT_LIVING_THRESHOLD_YEARS,
 });
 
+export const PRIVACY_PROFILES = Object.freeze({
+  privateArchive: {
+    id: 'privateArchive',
+    label: 'Private archive',
+    policy: { hideMarkedPrivate: false, hideLivingPersons: false, hideLivingDetailsOnly: false },
+  },
+  familyShare: {
+    id: 'familyShare',
+    label: 'Family share',
+    policy: { hideMarkedPrivate: true, hideLivingPersons: true, hideLivingDetailsOnly: true },
+  },
+  publicWebsite: {
+    id: 'publicWebsite',
+    label: 'Public website',
+    policy: { hideMarkedPrivate: true, hideLivingPersons: true, hideLivingDetailsOnly: false },
+  },
+  livingMasked: {
+    id: 'livingMasked',
+    label: 'Living masked',
+    policy: { hideMarkedPrivate: true, hideLivingPersons: true, hideLivingDetailsOnly: true },
+  },
+});
+
 export function isMarkedPrivate(record) {
   return readBoolean(record, ['isPrivate', 'private', 'markedPrivate'], false);
 }
@@ -100,5 +123,17 @@ export function privacyPolicyFromPreferences(prefs) {
     hideLivingPersons: !!p.hideLivingPersons,
     hideLivingDetailsOnly: !!p.hideLivingDetailsOnly,
     livingPersonThresholdYears: Number.isFinite(+p.livingPersonThresholdYears) ? +p.livingPersonThresholdYears : DEFAULT_LIVING_THRESHOLD_YEARS,
+  };
+}
+
+export function privacyPolicyFromProfile(profileId, overrides = {}) {
+  const profile = PRIVACY_PROFILES[profileId] || PRIVACY_PROFILES.familyShare;
+  return {
+    ...DEFAULT_PRIVACY_POLICY,
+    ...profile.policy,
+    ...overrides,
+    livingPersonThresholdYears: Number.isFinite(+overrides.livingPersonThresholdYears)
+      ? +overrides.livingPersonThresholdYears
+      : DEFAULT_LIVING_THRESHOLD_YEARS,
   };
 }

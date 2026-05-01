@@ -6,6 +6,7 @@ import {
   filterVisibleRecords,
   maskLivingDetails,
   privacyPolicyFromPreferences,
+  privacyPolicyFromProfile,
   DEFAULT_PRIVACY_POLICY,
 } from './privacy.js';
 
@@ -76,5 +77,22 @@ describe('privacy', () => {
     expect(policy.hideLivingPersons).toBe(true);
     expect(policy.livingPersonThresholdYears).toBe(80);
     expect(policy.hideMarkedPrivate).toBe(true);
+  });
+
+  it('privacyPolicyFromProfile provides reusable export/share policies', () => {
+    expect(privacyPolicyFromProfile('privateArchive')).toMatchObject({
+      hideMarkedPrivate: false,
+      hideLivingPersons: false,
+    });
+    expect(privacyPolicyFromProfile('publicWebsite')).toMatchObject({
+      hideMarkedPrivate: true,
+      hideLivingPersons: true,
+      hideLivingDetailsOnly: false,
+    });
+    expect(privacyPolicyFromProfile('familyShare', { livingPersonThresholdYears: 80 })).toMatchObject({
+      hideLivingPersons: true,
+      hideLivingDetailsOnly: true,
+      livingPersonThresholdYears: 80,
+    });
   });
 });

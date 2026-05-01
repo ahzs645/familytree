@@ -12,6 +12,77 @@ function escape(text) {
   return String(text == null ? '' : text).replace(/\r?\n/g, ' / ');
 }
 
+function escapeText(text) {
+  return String(text == null ? '' : text).replace(/\r/g, '');
+}
+
+export function formatGedcomTextLines(level, tag, value) {
+  const text = escapeText(value);
+  if (!text) return [];
+
+  const lines = [];
+  const paragraphs = text.split('\n');
+  appendGedcomChunks(lines, level, tag, paragraphs[0]);
+  for (const paragraph of paragraphs.slice(1)) {
+    appendGedcomChunks(lines, level + 1, 'CONT', paragraph);
+  }
+  return lines;
+}
+
+function appendGedcomChunks(lines, level, tag, value) {
+  const chunks = splitGedcomValue(value);
+  lines.push(`${level} ${tag}${chunks[0] ? ` ${chunks[0]}` : ''}`);
+  for (const chunk of chunks.slice(1)) {
+    lines.push(`${level + 1} CONC ${chunk}`);
+  }
+}
+
+function splitGedcomValue(value, maxLength = 220) {
+  const text = escapeText(value);
+  if (!text) return [''];
+  const chunks = [];
+  for (let i = 0; i < text.length; i += maxLength) {
+    chunks.push(text.slice(i, i + maxLength));
+  }
+  return chunks.length ? chunks : [''];
+}
+
+function pushText(lines, level, tag, value) {
+  lines.push(...formatGedcomTextLines(level, tag, value));
+}
+
+export function formatGedcomExtensions(extensions, baseLevel = 1, pointerMap = new Map()) {
+  const lines = [];
+  for (const extension of normalizeGedcomExtensions(extensions)) {
+    appendGedcomExtension(lines, extension, baseLevel, pointerMap);
+  }
+  return lines;
+}
+
+function appendGedcomExtensions(lines, record, baseLevel, pointerMap) {
+  lines.push(...formatGedcomExtensions(record?.fields?.gedcomExtensions?.value, baseLevel, pointerMap));
+}
+
+function appendGedcomExtension(lines, extension, level, pointerMap) {
+  if (!extension?.tag || extension.tag === 'CONC' || extension.tag === 'CONT') return;
+  const value = rewritePointer(extension.value || '', pointerMap);
+  const xref = extension.xref ? `${extension.xref} ` : '';
+  lines.push(`${level} ${xref}${extension.tag}${value ? ` ${escapeText(value)}` : ''}`);
+  for (const child of normalizeGedcomExtensions(extension.children)) {
+    appendGedcomExtension(lines, child, level + 1, pointerMap);
+  }
+}
+
+function normalizeGedcomExtensions(value) {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item) => item && typeof item === 'object' && item.tag);
+}
+
+function rewritePointer(value, pointerMap) {
+  const text = String(value || '');
+  return pointerMap.has(text) ? pointerMap.get(text) : text;
+}
+
 function id(prefix, n) { return `@${prefix}${n}@`; }
 
 const EVENT_TAG = {
@@ -72,6 +143,7 @@ export async function buildGedcom(exportOptions = {}) {
   const familyIdx = new Map(families.map((f, i) => [f.recordName, i + 1]));
   const sourceIdx = new Map(sources.map((s, i) => [s.recordName, i + 1]));
   const placeIdx = new Map(places.map((p, i) => [p.recordName, i + 1]));
+  const pointerMap = buildGedcomPointerMap({ persons, families, sources, personIdx, familyIdx, sourceIdx });
 
   const author = await safeGetAuthorInfo();
 
@@ -87,7 +159,7 @@ export async function buildGedcom(exportOptions = {}) {
   lines.push('1 DATE ' + new Date().toISOString().slice(0, 10));
   if (author?.treeName) lines.push(`1 FILE ${escape(author.treeName)}`);
   if (author?.copyright) lines.push(`1 COPR ${escape(author.copyright)}`);
-  if (author?.notes) lines.push(`1 NOTE ${escape(author.notes)}`);
+  if (author?.notes) pushText(lines, 1, 'NOTE', author.notes);
   // Submitter pointer — SUBM record is required by GEDCOM 5.5.1 when author info is present.
   const hasSubmitter = !!(author && (author.authorName || author.email || author.address1 || author.city || author.phone || author.website));
   if (hasSubmitter) lines.push('1 SUBM @SUBM1@');
@@ -99,8 +171,8 @@ export async function buildGedcom(exportOptions = {}) {
     const addrLines = [author.address1, author.address2].filter(Boolean);
     if (addrLines.length || author.city || author.region || author.postalCode || author.country) {
       const primary = addrLines[0] || '';
-      lines.push(`1 ADDR ${escape(primary)}`);
-      if (addrLines[1]) lines.push(`2 CONT ${escape(addrLines[1])}`);
+      pushText(lines, 1, 'ADDR', primary);
+      if (addrLines[1]) pushText(lines, 2, 'CONT', addrLines[1]);
       if (author.city) lines.push(`2 CITY ${escape(author.city)}`);
       if (author.region) lines.push(`2 STAE ${escape(author.region)}`);
       if (author.postalCode) lines.push(`2 POST ${escape(author.postalCode)}`);
@@ -125,6 +197,7 @@ export async function buildGedcom(exportOptions = {}) {
     const g = f.gender?.value;
     if (g === Gender.Male) lines.push('1 SEX M');
     else if (g === Gender.Female) lines.push('1 SEX F');
+    appendGedcomExtensions(lines, p, 1, pointerMap);
 
     // Birth/death from cached fields
     if (f.cached_birthDate?.value) {
@@ -147,7 +220,8 @@ export async function buildGedcom(exportOptions = {}) {
         const name = place.fields?.cached_normallocationString?.value || place.fields?.placeName?.value;
         if (name) lines.push(`2 PLAC ${escape(name)}`);
       }
-      if (ev.fields?.description?.value) lines.push(`2 NOTE ${escape(ev.fields.description.value)}`);
+      if (ev.fields?.description?.value) pushText(lines, 2, 'NOTE', ev.fields.description.value);
+      appendGedcomExtensions(lines, ev, 2, pointerMap);
     }
 
     // Family pointers
@@ -169,7 +243,7 @@ export async function buildGedcom(exportOptions = {}) {
     // Notes
     for (const n of notes.filter((x) => refToRecordName(x.fields?.person?.value) === p.recordName)) {
       const text = n.fields?.text?.value || '';
-      if (text) lines.push(`1 NOTE ${escape(text)}`);
+      if (text) pushText(lines, 1, 'NOTE', text);
     }
   }
 
@@ -180,6 +254,7 @@ export async function buildGedcom(exportOptions = {}) {
     const w = refToRecordName(fam.fields?.woman?.value);
     if (m && personIdx.has(m)) lines.push(`1 HUSB ${id('I', personIdx.get(m))}`);
     if (w && personIdx.has(w)) lines.push(`1 WIFE ${id('I', personIdx.get(w))}`);
+    appendGedcomExtensions(lines, fam, 1, pointerMap);
     for (const cr of childRels.filter((cr) => refToRecordName(cr.fields?.family?.value) === fam.recordName)) {
       const c = refToRecordName(cr.fields?.child?.value);
       if (c && personIdx.has(c)) lines.push(`1 CHIL ${id('I', personIdx.get(c))}`);
@@ -192,6 +267,7 @@ export async function buildGedcom(exportOptions = {}) {
       const tag = eventTag(refToRecordName(ev.fields?.conclusionType?.value) || ev.fields?.eventType?.value);
       lines.push(`1 ${tag}`);
       if (ev.fields?.date?.value) lines.push(`2 DATE ${escape(ev.fields.date.value)}`);
+      appendGedcomExtensions(lines, ev, 2, pointerMap);
     }
   }
 
@@ -200,12 +276,30 @@ export async function buildGedcom(exportOptions = {}) {
     lines.push(`0 ${id('S', sourceIdx.get(s.recordName))} SOUR`);
     if (s.fields?.title?.value) lines.push(`1 TITL ${escape(s.fields.title.value)}`);
     if (s.fields?.author?.value) lines.push(`1 AUTH ${escape(s.fields.author.value)}`);
-    if (s.fields?.publication?.value) lines.push(`1 PUBL ${escape(s.fields.publication.value)}`);
-    if (s.fields?.text?.value) lines.push(`1 TEXT ${escape(s.fields.text.value)}`);
+    if (s.fields?.publication?.value) pushText(lines, 1, 'PUBL', s.fields.publication.value);
+    if (s.fields?.text?.value) pushText(lines, 1, 'TEXT', s.fields.text.value);
+    appendGedcomExtensions(lines, s, 1, pointerMap);
   }
 
   lines.push('0 TRLR');
   return lines.join('\n');
+}
+
+function buildGedcomPointerMap({ persons, families, sources, personIdx, familyIdx, sourceIdx }) {
+  const pointerMap = new Map();
+  for (const person of persons) {
+    const xref = person.fields?.gedcomXref?.value;
+    if (xref) pointerMap.set(xref, id('I', personIdx.get(person.recordName)));
+  }
+  for (const family of families) {
+    const xref = family.fields?.gedcomXref?.value;
+    if (xref) pointerMap.set(xref, id('F', familyIdx.get(family.recordName)));
+  }
+  for (const source of sources) {
+    const xref = source.fields?.gedcomXref?.value;
+    if (xref) pointerMap.set(xref, id('S', sourceIdx.get(source.recordName)));
+  }
+  return pointerMap;
 }
 
 async function safeGetAuthorInfo() {
