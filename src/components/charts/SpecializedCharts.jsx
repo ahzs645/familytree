@@ -479,27 +479,8 @@ export function GenogramChart({ tree, genogramData, onPersonClick, theme = DEFAU
 
 export function FractalAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, variant = 'fractal', overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   const layout = useMemo(() => {
-    const nodes = [];
-    const links = [];
-    function visit(node, x, y, spread, depth, key) {
-      if (!node || depth > generations) return;
-      nodes.push({ key, x, y, person: node.person, placeholder: !node.person });
-      const nextSpread = Math.max(90, spread * 0.56);
-      const dy = variant === 'h-tree' ? 118 : variant === 'square' ? 96 : 132;
-      const left = { x: x + (variant === 'square' ? 0 : spread), y: y + dy };
-      const right = { x: x + (variant === 'square' ? spread : -spread), y: y + dy };
-      if (node.father) {
-        links.push({ from: { x, y }, to: left });
-        visit(node.father, left.x, left.y, nextSpread, depth + 1, `${key}F`);
-      }
-      if (node.mother) {
-        links.push({ from: { x, y }, to: right });
-        visit(node.mother, right.x, right.y, nextSpread, depth + 1, `${key}M`);
-      }
-    }
-    visit(tree, 560, 90, 280, 0, 'root');
-    return { nodes, links };
-  }, [tree, generations, variant]);
+    return layoutFractalAncestors(tree, generations, theme, variant);
+  }, [tree, generations, theme, variant]);
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
   return (
     <ChartCanvas
@@ -511,11 +492,139 @@ export function FractalAncestorChart({ tree, generations = 5, onPersonClick, the
       {...overlayProps}
     >
       {layout.links.map((link, index) => (
-        <path key={index} d={`M ${link.from.x + theme.nodeWidth / 2} ${link.from.y + theme.nodeHeight} L ${link.to.x + theme.nodeWidth / 2} ${link.to.y}`} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
+        <path key={index} d={link.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
       ))}
       {layout.nodes.map((node) => (
         <PersonNode key={node.key} x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} />
       ))}
     </ChartCanvas>
   );
+}
+
+export function layoutFractalAncestors(tree, generations = 5, theme = DEFAULT_THEME, variant = 'fractal') {
+  const nodes = [];
+  const links = [];
+  const nodeGapX = variant === 'square' ? 26 : 34;
+  const nodeGapY = variant === 'h-tree' ? 30 : variant === 'square' ? 24 : 36;
+  const rowStep = theme.nodeHeight + (variant === 'square' ? 42 : variant === 'h-tree' ? 58 : 76);
+  const maxDepth = Math.max(1, generations);
+
+  function visit(node, x, y, spread, depth, key, parentKey = null) {
+    if (!node || depth >= maxDepth) return;
+    nodes.push({ key, x, y, person: node.person, placeholder: !node.person, depth });
+    if (parentKey) links.push({ fromKey: parentKey, toKey: key });
+
+    const nextSpread = Math.max(theme.nodeWidth * 0.55, spread * 0.58);
+    if (node.father) {
+      const fatherX = variant === 'square' ? x : x - spread;
+      visit(node.father, fatherX, y + rowStep, nextSpread, depth + 1, `${key}F`, key);
+    }
+    if (node.mother) {
+      const motherX = variant === 'square' ? x + spread : x + spread;
+      visit(node.mother, motherX, y + rowStep, nextSpread, depth + 1, `${key}M`, key);
+    }
+  }
+
+  visit(tree, 420, 90, 280, 0, 'root');
+
+  const adjustedNodes = avoidNodeOverlaps(nodes, theme, nodeGapX, nodeGapY);
+  const byKey = new Map(adjustedNodes.map((node) => [node.key, node]));
+  const adjustedLinks = links
+    .map((link) => {
+      const from = byKey.get(link.fromKey);
+      const to = byKey.get(link.toKey);
+      if (!from || !to) return null;
+      return { ...link, d: fractalLinkPath(from, to, theme, variant, link.toKey, adjustedNodes) };
+    })
+    .filter(Boolean);
+
+  return { nodes: adjustedNodes, links: adjustedLinks };
+}
+
+function avoidNodeOverlaps(nodes, theme, gapX, gapY) {
+  const placed = [];
+  for (const source of [...nodes].sort((a, b) => a.y - b.y || a.x - b.x)) {
+    const node = { ...source };
+    let guard = 0;
+    while (placed.some((other) => rectanglesOverlap(node, other, theme, gapX, gapY)) && guard < 200) {
+      const blockers = placed.filter((other) => rectanglesOverlap(node, other, theme, gapX, gapY));
+      node.y = Math.max(...blockers.map((other) => other.y + theme.nodeHeight + gapY));
+      guard += 1;
+    }
+    placed.push(node);
+  }
+  return placed.sort((a, b) => a.depth - b.depth || a.key.localeCompare(b.key));
+}
+
+function rectanglesOverlap(a, b, theme, gapX, gapY) {
+  return (
+    a.x < b.x + theme.nodeWidth + gapX
+    && a.x + theme.nodeWidth + gapX > b.x
+    && a.y < b.y + theme.nodeHeight + gapY
+    && a.y + theme.nodeHeight + gapY > b.y
+  );
+}
+
+function fractalLinkPath(from, to, theme, variant, toKey, nodes = []) {
+  const fromX = from.x + theme.nodeWidth / 2;
+  const fromY = from.y + theme.nodeHeight;
+  const toX = to.x + theme.nodeWidth / 2;
+  const toY = to.y;
+  if (variant === 'square') {
+    return squareTreeLinkPath(from, to, theme, toKey, nodes);
+  }
+  if (variant === 'h-tree') {
+    const midY = fromY + Math.max(20, (toY - fromY) / 2);
+    return `M ${fromX} ${fromY} V ${midY} H ${toX} V ${toY}`;
+  }
+  return `M ${fromX} ${fromY} C ${fromX} ${fromY + 42}, ${toX} ${toY - 42}, ${toX} ${toY}`;
+}
+
+function squareTreeLinkPath(from, to, theme, toKey, nodes) {
+  const fromX = from.x + theme.nodeWidth / 2;
+  const fromY = from.y + theme.nodeHeight;
+  const toX = to.x + theme.nodeWidth / 2;
+  const toY = to.y;
+  const stub = 18;
+  const leftEdge = Math.min(from.x, to.x);
+  const rightEdge = Math.max(from.x + theme.nodeWidth, to.x + theme.nodeWidth);
+  const laneStep = theme.nodeWidth + 64;
+  const fatherFirst = toKey?.endsWith('F');
+  const leftCandidates = [leftEdge - 28, leftEdge - laneStep, leftEdge - laneStep * 2];
+  const rightCandidates = [rightEdge + 28, rightEdge + laneStep, rightEdge + laneStep * 2];
+  const candidates = fatherFirst
+    ? [...leftCandidates, ...rightCandidates]
+    : [...rightCandidates, ...leftCandidates];
+  const blockedNodes = nodes.filter((node) => node.key !== from.key && node.key !== to.key);
+  const railX = candidates.find((candidate) => {
+    const segments = squareRouteSegments(fromX, fromY, toX, toY, candidate, stub);
+    return !segments.some((segment) => blockedNodes.some((node) => segmentIntersectsNode(segment, node, theme)));
+  }) || candidates[0];
+
+  return `M ${fromX} ${fromY} V ${fromY + stub} H ${railX} V ${toY - stub} H ${toX} V ${toY}`;
+}
+
+function squareRouteSegments(fromX, fromY, toX, toY, railX, stub) {
+  return [
+    { x1: fromX, y1: fromY, x2: fromX, y2: fromY + stub },
+    { x1: fromX, y1: fromY + stub, x2: railX, y2: fromY + stub },
+    { x1: railX, y1: fromY + stub, x2: railX, y2: toY - stub },
+    { x1: railX, y1: toY - stub, x2: toX, y2: toY - stub },
+    { x1: toX, y1: toY - stub, x2: toX, y2: toY },
+  ];
+}
+
+function segmentIntersectsNode(segment, node, theme) {
+  const left = node.x;
+  const right = node.x + theme.nodeWidth;
+  const top = node.y;
+  const bottom = node.y + theme.nodeHeight;
+  const minX = Math.min(segment.x1, segment.x2);
+  const maxX = Math.max(segment.x1, segment.x2);
+  const minY = Math.min(segment.y1, segment.y2);
+  const maxY = Math.max(segment.y1, segment.y2);
+  if (segment.x1 === segment.x2) {
+    return segment.x1 > left && segment.x1 < right && maxY > top && minY < bottom;
+  }
+  return segment.y1 > top && segment.y1 < bottom && maxX > left && minX < right;
 }
