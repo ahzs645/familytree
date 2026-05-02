@@ -5,6 +5,7 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { isPublicRecord } from './privacy.js';
 import { personSummary } from '../models/index.js';
+import { evidenceStateForRecord, loadResearchCompleteness } from './researchCompleteness.js';
 
 export async function findRelationshipPath(startRecordName, endRecordName) {
   const result = await findRelationshipPaths(startRecordName, endRecordName, { maxPaths: 1 });
@@ -21,10 +22,14 @@ export async function findRelationshipPaths(startRecordName, endRecordName, opti
     excludeNonBiological = false,
   } = options;
   const db = getLocalDatabase();
-  const [start, end] = await Promise.all([db.getRecord(startRecordName), db.getRecord(endRecordName)]);
+  const [start, end, analysis] = await Promise.all([
+    db.getRecord(startRecordName),
+    db.getRecord(endRecordName),
+    typeof db.query === 'function' ? loadResearchCompleteness() : Promise.resolve(null),
+  ]);
   if (!isPublicRecord(start) || !isPublicRecord(end)) return { paths: [], selectedPathId: null };
   if (startRecordName === endRecordName) {
-    const path = hydratePath([{ recordName: startRecordName, edgeFromPrev: 'self' }], new Map([[startRecordName, start]]));
+    const path = hydratePath([{ recordName: startRecordName, edgeFromPrev: 'self' }], new Map([[startRecordName, start]]), analysis);
     return { paths: [path], selectedPathId: path.id };
   }
 
@@ -45,12 +50,12 @@ export async function findRelationshipPaths(startRecordName, endRecordName, opti
 
     const visitedInPath = new Set(path.map((step) => step.recordName));
     const neighbors = await getNeighbors(db, current, { includeSpouses, excludeNonBiological });
-    for (const { neighbor, edge, record } of neighbors) {
+    for (const { neighbor, edge, record, evidenceRecordName } of neighbors) {
       if (!neighbor || visitedInPath.has(neighbor)) continue;
       if (record) recordCache.set(neighbor, record);
-      const nextPath = [...path, { recordName: neighbor, edgeFromPrev: edge }];
+      const nextPath = [...path, { recordName: neighbor, edgeFromPrev: edge, evidenceRecordName }];
       if (neighbor === endRecordName) {
-        const hydrated = hydratePath(nextPath, recordCache);
+        const hydrated = hydratePath(nextPath, recordCache, analysis);
         if (!seenPathIds.has(hydrated.id)) {
           seenPathIds.add(hydrated.id);
           found.push(hydrated);
@@ -70,10 +75,10 @@ async function getNeighbors(db, recordName, options = {}) {
   const { includeSpouses = true, excludeNonBiological = false } = options;
   const out = [];
   const seen = new Set();
-  const push = (record, edge) => {
+  const push = (record, edge, evidenceRecordName) => {
     if (!isPublicRecord(record) || seen.has(record.recordName)) return;
     seen.add(record.recordName);
-    out.push({ neighbor: record.recordName, edge, record });
+    out.push({ neighbor: record.recordName, edge, record, evidenceRecordName });
   };
 
   // Parents (up)
@@ -81,16 +86,16 @@ async function getNeighbors(db, recordName, options = {}) {
   for (const fam of parents) {
     if (!isPublicRecord(fam.family)) continue;
     if (excludeNonBiological && !isBiologicalChildLink(fam)) continue;
-    push(fam.man, 'parent');
-    push(fam.woman, 'parent');
+    push(fam.man, 'parent', fam.family?.recordName);
+    push(fam.woman, 'parent', fam.family?.recordName);
   }
   // Children + spouses (down + sideways)
   const families = await db.getPersonsChildrenInformation(recordName);
   for (const fam of families) {
     if (!isPublicRecord(fam.family)) continue;
-    if (includeSpouses) push(fam.partner, 'spouse');
+    if (includeSpouses) push(fam.partner, 'spouse', fam.family?.recordName);
     for (const child of fam.children) {
-      push(child, 'child');
+      push(child, 'child', fam.family?.recordName);
     }
   }
   return out;
@@ -105,12 +110,13 @@ function isBiologicalChildLink(fam) {
   return !/adopt|step|foster|guardian/i.test(String(marker));
 }
 
-function hydratePath(steps, recordCache) {
+function hydratePath(steps, recordCache, analysis) {
   const hydratedSteps = steps.map((step) => {
     const record = recordCache.get(step.recordName);
     return {
       ...step,
       person: record ? personSummary(record) : null,
+      evidence: step.evidenceRecordName ? evidenceStateForRecord(step.evidenceRecordName, analysis) : null,
     };
   });
   const edgeCounts = countEdges(hydratedSteps);

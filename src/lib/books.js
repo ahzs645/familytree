@@ -33,6 +33,7 @@ import {
 } from './reports/builders.js';
 import { renderHTML } from './reports/renderers/html.js';
 import { renderText } from './reports/renderers/text.js';
+import { normalizePresentationSettings } from './presentationSettings.js';
 import { buildSite } from './websiteExport.js';
 import { getAuthorInfo } from './authorInfo.js';
 import { listSavedReports } from './reports/savedReports.js';
@@ -82,6 +83,16 @@ export const SECTION_KINDS = [
   { id: 'saved-report', label: 'Saved Report Embed', needsSavedReport: true },
   { id: 'saved-chart', label: 'Saved Chart Embed', needsSavedChart: true },
 ];
+
+export function normalizeBookPresentationSettings(settings = {}) {
+  return normalizePresentationSettings({
+    ...(settings || {}),
+    pageStyle: {
+      paginate: true,
+      ...(settings?.pageStyle || {}),
+    },
+  });
+}
 
 /**
  * Walk a book document and collect structural issues without compiling it.
@@ -182,6 +193,9 @@ export async function deleteBook(id) {
  */
 export async function compileBook(book) {
   const compiled = emptyReport(book.title || 'Untitled Book');
+  const presentationSettings = normalizeBookPresentationSettings(book.presentationSettings);
+  compiled.pageStyle = presentationSettings.pageStyle;
+  const paginateSections = presentationSettings.pageStyle.paginate;
   const tocEntries = []; // collected as we compile so TOC placeholder can materialize
   const author = await safeGetAuthorInfo();
   // Attach author info on the compiled AST so renderers (HTML/PDF) can stamp a
@@ -196,7 +210,7 @@ export async function compileBook(book) {
     if (firstTitle && s.kind !== 'toc') {
       tocEntries.push({ text: firstTitle.text, index: i + 1 });
     }
-    if (i > 0) compiled.blocks.push(block.pageBreak());
+    if (i > 0 && paginateSections) compiled.blocks.push(block.pageBreak());
     compiled.blocks.push(...sectionBlocks);
   }
 

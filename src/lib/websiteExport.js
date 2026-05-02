@@ -12,13 +12,15 @@ import { readConclusionType, readField, readRef } from './schema.js';
 import { isPrivateRecord, isPublicRecord, isLiving, maskLivingDetails } from './privacy.js';
 import { getAuthorInfo } from './authorInfo.js';
 import {
-  DEFAULT_LOCALIZATION,
   compareStrings,
-  directionForLocale,
   formatInteger,
-  getCurrentLocalization,
-  normalizeLocale,
 } from './i18n.js';
+import {
+  DEFAULT_SITE_OPTIONS,
+  SITE_THEME_PRESETS,
+  normalizeWebsiteOptions,
+  resolveSiteTheme,
+} from './websiteOptions.js';
 import {
   familySummary,
   lifeSpanLabel,
@@ -28,28 +30,17 @@ import {
 } from '../models/index.js';
 
 const MEDIA_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
-
-export const SITE_THEMES = [
-  { id: 'classic', label: 'Classic' },
-  { id: 'journal', label: 'Journal' },
-  { id: 'archive', label: 'Archive' },
+const SITE_SECTIONS = [
+  ['people', 'People', 'persons', personIndexItem],
+  ['families', 'Families', 'families', familyIndexItem],
+  ['places', 'Places', 'places', placeIndexItem],
+  ['sources', 'Sources', 'sources', sourceIndexItem],
+  ['media', 'Media', 'media', mediaIndexItem],
+  ['stories', 'Stories', 'stories', storyIndexItem],
 ];
 
-export const DEFAULT_SITE_OPTIONS = {
-  siteTitle: 'Family Tree',
-  tagline: '',
-  theme: 'classic',
-  accentColor: '#2563eb',
-  includePrivate: false,
-  hideLiving: false,
-  hideLivingDetailsOnly: false,
-  livingThresholdYears: 110,
-  includeAssets: true,
-  locale: DEFAULT_LOCALIZATION.locale,
-  direction: DEFAULT_LOCALIZATION.direction,
-  numberingSystem: DEFAULT_LOCALIZATION.numberingSystem,
-  calendar: DEFAULT_LOCALIZATION.calendar,
-};
+export { DEFAULT_SITE_OPTIONS };
+export const SITE_THEMES = SITE_THEME_PRESETS;
 
 function esc(value) {
   return String(value == null ? '' : value)
@@ -68,31 +59,7 @@ function bdi(value) {
 }
 
 function normalizeOptions(options = {}) {
-  const currentLocalization = getCurrentLocalization();
-  const locale = normalizeLocale(options.locale || currentLocalization.locale || DEFAULT_SITE_OPTIONS.locale);
-  const directionPreference = options.direction || currentLocalization.direction || DEFAULT_SITE_OPTIONS.direction;
-  return {
-    ...DEFAULT_SITE_OPTIONS,
-    ...options,
-    theme: SITE_THEMES.some((theme) => theme.id === options.theme) ? options.theme : DEFAULT_SITE_OPTIONS.theme,
-    accentColor: normalizeColor(options.accentColor || DEFAULT_SITE_OPTIONS.accentColor),
-    siteTitle: String(options.siteTitle || DEFAULT_SITE_OPTIONS.siteTitle).trim() || DEFAULT_SITE_OPTIONS.siteTitle,
-    tagline: String(options.tagline || '').trim(),
-    includePrivate: !!options.includePrivate,
-    hideLiving: !!options.hideLiving,
-    hideLivingDetailsOnly: !!options.hideLivingDetailsOnly,
-    livingThresholdYears: Number.isFinite(+options.livingThresholdYears) ? +options.livingThresholdYears : DEFAULT_SITE_OPTIONS.livingThresholdYears,
-    includeAssets: options.includeAssets !== false,
-    locale,
-    direction: directionForLocale(locale, directionPreference),
-    numberingSystem: options.numberingSystem || currentLocalization.numberingSystem || DEFAULT_SITE_OPTIONS.numberingSystem,
-    calendar: options.calendar || currentLocalization.calendar || DEFAULT_SITE_OPTIONS.calendar,
-  };
-}
-
-function normalizeColor(value) {
-  const color = String(value || '').trim();
-  return /^#[0-9a-f]{6}$/i.test(color) ? color : DEFAULT_SITE_OPTIONS.accentColor;
+  return normalizeWebsiteOptions(options);
 }
 
 function checkCanceled(signal) {
@@ -214,6 +181,9 @@ function validateSnapshot(snapshot, options) {
   if (includedPersons.length === 0) {
     errors.push('No publishable people were found. Add people or include private records before exporting.');
   }
+  if (!Object.entries(options.contentSections).some(([key, enabled]) => ['people', 'families', 'places', 'sources', 'media', 'stories'].includes(key) && enabled)) {
+    errors.push('Select at least one website content section before exporting.');
+  }
   if (missing.length > 0) {
     warnings.push(`${formatInteger(missing.length, options)} reference${missing.length === 1 ? '' : 's'} point to missing records and will be omitted.`);
   }
@@ -267,15 +237,8 @@ export async function buildSite(options = {}) {
   const css = createCSS(normalized);
   zip.file('assets/site.css', css);
 
-  const totalPages =
-    1 +
-    6 +
-    model.persons.length +
-    model.families.length +
-    model.places.length +
-    model.sources.length +
-    model.media.length +
-    model.stories.length;
+  const enabledSections = SITE_SECTIONS.filter(([key]) => normalized.contentSections[key]);
+  const totalPages = 1 + enabledSections.reduce((total, [, , modelKey]) => total + 1 + model[modelKey].length, 0);
   let completed = 0;
   const markPage = (message) => {
     completed += 1;
@@ -285,50 +248,44 @@ export async function buildSite(options = {}) {
   progress(onProgress, { phase: 'pages', completed, total: totalPages, message: 'Writing index pages...' });
   zip.file('index.html', pageWrap('Home', homePage(model, normalized), normalized, '', author));
   markPage('Wrote home page.');
-  for (const [folder, title, records, renderer] of [
-    ['people', 'People', model.persons, personIndexItem],
-    ['families', 'Families', model.families, familyIndexItem],
-    ['places', 'Places', model.places, placeIndexItem],
-    ['sources', 'Sources', model.sources, sourceIndexItem],
-    ['media', 'Media', model.media, mediaIndexItem],
-    ['stories', 'Stories', model.stories, storyIndexItem],
-  ]) {
+  for (const [folder, title, modelKey, renderer] of enabledSections) {
     checkCanceled(signal);
+    const records = model[modelKey];
     zip.file(`${folder}/index.html`, pageWrap(title, entityIndexPage(title, records, renderer, model, folder), normalized, folder, author));
     markPage(`Wrote ${title.toLowerCase()} index.`);
   }
 
-  for (const person of model.persons) {
+  for (const person of normalized.contentSections.people ? model.persons : []) {
     checkCanceled(signal);
     const title = personSummary(person)?.fullName || person.recordName;
     zip.file(model.pathById.get(person.recordName), pageWrap(title, personPage(person, model), normalized, 'people', author));
     markPage(`Wrote ${title}.`);
   }
-  for (const family of model.families) {
+  for (const family of normalized.contentSections.families ? model.families : []) {
     checkCanceled(signal);
     const title = familyLabel(family, model) || family.recordName;
     zip.file(model.pathById.get(family.recordName), pageWrap(title, familyPage(family, model), normalized, 'families', author));
     markPage(`Wrote ${title}.`);
   }
-  for (const place of model.places) {
+  for (const place of normalized.contentSections.places ? model.places : []) {
     checkCanceled(signal);
     const title = placeLabel(place) || place.recordName;
     zip.file(model.pathById.get(place.recordName), pageWrap(title, placePage(place, model), normalized, 'places', author));
     markPage(`Wrote ${title}.`);
   }
-  for (const source of model.sources) {
+  for (const source of normalized.contentSections.sources ? model.sources : []) {
     checkCanceled(signal);
     const title = sourceLabel(source) || source.recordName;
     zip.file(model.pathById.get(source.recordName), pageWrap(title, sourcePage(source, model), normalized, 'sources', author));
     markPage(`Wrote ${title}.`);
   }
-  for (const media of model.media) {
+  for (const media of normalized.contentSections.media ? model.media : []) {
     checkCanceled(signal);
     const title = mediaLabel(media) || media.recordName;
     zip.file(model.pathById.get(media.recordName), pageWrap(title, mediaPage(media, model), normalized, 'media', author));
     markPage(`Wrote ${title}.`);
   }
-  for (const story of model.stories) {
+  for (const story of normalized.contentSections.stories ? model.stories : []) {
     checkCanceled(signal);
     const title = storyLabel(story) || story.recordName;
     zip.file(model.pathById.get(story.recordName), pageWrap(title, storyPage(story, model), normalized, 'stories', author));
@@ -365,12 +322,12 @@ export async function buildSite(options = {}) {
   });
 
   const stats = {
-    persons: model.persons.length,
-    families: model.families.length,
-    places: model.places.length,
-    sources: model.sources.length,
-    media: model.media.length,
-    stories: model.stories.length,
+    persons: normalized.contentSections.people ? model.persons.length : 0,
+    families: normalized.contentSections.families ? model.families.length : 0,
+    places: normalized.contentSections.places ? model.places.length : 0,
+    sources: normalized.contentSections.sources ? model.sources.length : 0,
+    media: normalized.contentSections.media ? model.media.length : 0,
+    stories: normalized.contentSections.stories ? model.stories.length : 0,
     pages: totalPages,
     assets: assetCount,
   };
@@ -407,12 +364,12 @@ function buildPublishModel(snapshot, options) {
   const stories = snapshot.stories.filter(include).sort(compareBy(storyLabel, options));
 
   const pageRecords = [
-    ...persons,
-    ...families,
-    ...places,
-    ...sources,
-    ...media,
-    ...stories,
+    ...(options.contentSections.people ? persons : []),
+    ...(options.contentSections.families ? families : []),
+    ...(options.contentSections.places ? places : []),
+    ...(options.contentSections.sources ? sources : []),
+    ...(options.contentSections.media ? media : []),
+    ...(options.contentSections.stories ? stories : []),
   ];
   const pathById = new Map();
   for (const record of pageRecords) pathById.set(record.recordName, pagePath(record));
@@ -440,7 +397,9 @@ function buildPublishModel(snapshot, options) {
     include(section) && storyIds.has(readRef(section.fields?.story) || readRef(section.fields?.storySection))
   ));
 
-  const assets = options.includeAssets ? snapshot.assets.filter((asset) => mediaIds.has(asset.ownerRecordName)) : [];
+  const assets = options.includeAssets && options.contentSections.media
+    ? snapshot.assets.filter((asset) => mediaIds.has(asset.ownerRecordName))
+    : [];
   const assetPathById = new Map();
   for (const asset of assets) assetPathById.set(asset.assetId, `assets/media/${safeAssetName(asset)}`);
 
@@ -566,8 +525,13 @@ function homeHref(path, fromFolder = '') {
 
 function pageWrap(title, body, options, fromFolder = '', author = null) {
   const cssHref = homeHref('assets/site.css', fromFolder);
-  const metaAuthor = author?.authorName ? `<meta name="author" content="${attr(author.authorName)}">` : '';
-  const metaCopyright = author?.copyright ? `<meta name="copyright" content="${attr(author.copyright)}">` : '';
+  const includeAuthor = options.contentSections.author;
+  const metaAuthor = includeAuthor && author?.authorName ? `<meta name="author" content="${attr(author.authorName)}">` : '';
+  const metaCopyright = includeAuthor && author?.copyright ? `<meta name="copyright" content="${attr(author.copyright)}">` : '';
+  const navLinks = SITE_SECTIONS
+    .filter(([key]) => options.contentSections[key])
+    .map(([folder, label]) => `<a href="${attr(homeHref(`${folder}/index.html`, fromFolder))}">${esc(label)}</a>`)
+    .join('');
   return `<!doctype html>
 <html lang="${attr(options.locale)}" dir="${attr(options.direction)}">
 <head>
@@ -585,16 +549,11 @@ function pageWrap(title, body, options, fromFolder = '', author = null) {
       ${options.tagline ? `<p>${bdi(options.tagline)}</p>` : ''}
     </div>
     <nav>
-      <a href="${attr(homeHref('people/index.html', fromFolder))}">People</a>
-      <a href="${attr(homeHref('families/index.html', fromFolder))}">Families</a>
-      <a href="${attr(homeHref('places/index.html', fromFolder))}">Places</a>
-      <a href="${attr(homeHref('sources/index.html', fromFolder))}">Sources</a>
-      <a href="${attr(homeHref('media/index.html', fromFolder))}">Media</a>
-      <a href="${attr(homeHref('stories/index.html', fromFolder))}">Stories</a>
+      ${navLinks}
     </nav>
   </header>
   <main class="container">${body}</main>
-  <footer>${authorFooterHTML(author)}Exported from CloudTreeWeb</footer>
+  <footer>${includeAuthor ? authorFooterHTML(author) : ''}Exported from CloudTreeWeb</footer>
 </body>
 </html>`;
 }
@@ -620,13 +579,12 @@ async function safeGetAuthorInfo() {
 }
 
 function createCSS(options) {
-  const journal = options.theme === 'journal';
-  const archive = options.theme === 'archive';
-  const bg = archive ? '#f4f1ea' : journal ? '#fbfbf8' : '#f8fafc';
-  const card = archive ? '#fffaf0' : '#ffffff';
-  const fg = archive ? '#2d261d' : '#18202f';
-  const muted = archive ? '#736a5d' : '#667085';
-  const border = archive ? '#d8cbb8' : '#e2e8f0';
+  const theme = resolveSiteTheme(options);
+  const bg = theme.colors.background;
+  const card = theme.colors.card;
+  const fg = theme.colors.text;
+  const muted = theme.colors.muted;
+  const border = theme.colors.border;
   return `:root{--bg:${bg};--card:${card};--fg:${fg};--muted:${muted};--border:${border};--accent:${options.accentColor}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Naskh Arabic",Tahoma,sans-serif;line-height:1.55;text-align:start}
@@ -666,24 +624,28 @@ footer{border-top:1px solid var(--border);padding:18px;color:var(--muted);font-s
 }
 
 function homePage(model, options) {
-  return `<section>
-    <h1>${bdi(options.siteTitle)}</h1>
-    ${options.tagline ? `<p class="muted">${bdi(options.tagline)}</p>` : ''}
-    <div class="stats">
-      ${stat('People', model.persons.length, options)}
-      ${stat('Families', model.families.length, options)}
-      ${stat('Places', model.places.length, options)}
-      ${stat('Sources', model.sources.length, options)}
-      ${stat('Media', model.media.length, options)}
-      ${stat('Stories', model.stories.length, options)}
-    </div>
-  </section>
-  ${authorHomeSection(model.author)}
-  <section>
+  const stats = [
+    options.contentSections.people && stat('People', model.persons.length, options),
+    options.contentSections.families && stat('Families', model.families.length, options),
+    options.contentSections.places && stat('Places', model.places.length, options),
+    options.contentSections.sources && stat('Sources', model.sources.length, options),
+    options.contentSections.media && stat('Media', model.media.length, options),
+    options.contentSections.stories && stat('Stories', model.stories.length, options),
+  ].filter(Boolean).join('');
+  const peoplePreview = options.contentSections.people
+    ? `<section>
     <h2>People</h2>
     <div class="grid">${model.persons.slice(0, 24).map((person) => personIndexItem(person, model, '')).join('')}</div>
     ${model.persons.length > 24 ? `<p class="muted"><a href="people/index.html">View all people</a></p>` : ''}
-  </section>`;
+  </section>`
+    : '';
+  return `<section>
+    <h1>${bdi(options.siteTitle)}</h1>
+    ${options.tagline ? `<p class="muted">${bdi(options.tagline)}</p>` : ''}
+    <div class="stats">${stats}</div>
+  </section>
+  ${options.contentSections.author ? authorHomeSection(model.author) : ''}
+  ${peoplePreview}`;
 }
 
 function authorHomeSection(author) {
@@ -849,7 +811,7 @@ function sourcePage(source, model) {
       const targetId = readRef(rel.fields?.target);
       return `<li>${linkTo(targetId, targetLabel(targetId, model), model, 'sources')}${citationDetail(rel)}</li>`;
     }).join('')}</ul></div>` : '<p class="muted">No referenced entries were included in this export.</p>'}
-    ${relatedMedia(source.recordName, model, 'sources')}
+    ${model.options.contentSections.relatedMedia && model.options.contentSections.media ? relatedMedia(source.recordName, model, 'sources') : ''}
   </article>`;
 }
 
@@ -866,7 +828,7 @@ function mediaPage(media, model) {
       const targetId = readRef(rel.fields?.target);
       return `<li>${linkTo(targetId, targetLabel(targetId, model), model, 'media')}</li>`;
     }).join('')}</ul></div>` : ''}
-    ${relatedSources(media.recordName, model, 'media')}
+    ${model.options.contentSections.relatedSources && model.options.contentSections.sources ? relatedSources(media.recordName, model, 'media') : ''}
   </article>`;
 }
 
@@ -911,9 +873,9 @@ function eventsTable(events, model, fromFolder) {
 
 function relatedSections(recordName, model, fromFolder) {
   return [
-    relatedStories(recordName, model, fromFolder),
-    relatedMedia(recordName, model, fromFolder),
-    relatedSources(recordName, model, fromFolder),
+    model.options.contentSections.relatedStories && model.options.contentSections.stories ? relatedStories(recordName, model, fromFolder) : '',
+    model.options.contentSections.relatedMedia && model.options.contentSections.media ? relatedMedia(recordName, model, fromFolder) : '',
+    model.options.contentSections.relatedSources && model.options.contentSections.sources ? relatedSources(recordName, model, fromFolder) : '',
   ].filter(Boolean).join('');
 }
 

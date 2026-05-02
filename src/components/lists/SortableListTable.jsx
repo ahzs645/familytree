@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { compareStrings, formatInteger, getCurrentLocalization, matchesSearchText } from '../../lib/i18n.js';
 
 function defaultValue(row, column) {
@@ -47,6 +47,7 @@ export function ListPageHeader({ title, subtitle, count, total, actions, childre
 export function SortableListTable({
   rows,
   columns,
+  sortColumns = columns,
   rowKey = (row) => row.id,
   initialSortKey,
   initialSortDirection = 'asc',
@@ -63,11 +64,15 @@ export function SortableListTable({
   const localization = getCurrentLocalization();
   const localizationKey = `${localization.locale}|${localization.direction}|${localization.numberingSystem}|${localization.calendar}`;
 
+  useEffect(() => {
+    if (initialSortKey) setSortKey(initialSortKey);
+  }, [initialSortKey]);
+
   const visibleRows = useMemo(() => {
     let next = query.trim()
       ? rows.filter((row) => matchesSearchText(searchText(row, columns, rowSearchValue), query, localization))
       : [...rows];
-    const sortColumn = columns.find((column) => column.key === sortKey);
+    const sortColumn = sortColumns.find((column) => column.key === sortKey);
     if (sortColumn && sortColumn.sortable !== false) {
       next = [...next].sort((a, b) => {
         const result = compareValues(defaultValue(a, sortColumn), defaultValue(b, sortColumn));
@@ -75,7 +80,7 @@ export function SortableListTable({
       });
     }
     return next;
-  }, [rows, columns, query, rowSearchValue, sortKey, sortDirection, localizationKey]);
+  }, [rows, columns, sortColumns, query, rowSearchValue, sortKey, sortDirection, localizationKey]);
 
   const toggleSort = (column) => {
     if (column.sortable === false) return;

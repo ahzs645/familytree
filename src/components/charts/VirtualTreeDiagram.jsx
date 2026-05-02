@@ -15,7 +15,7 @@ import {
 
 const PADDING = 30;
 
-export function VirtualTreeDiagram({ tree, source = 'descendant', virtualTreeData, onPersonClick, theme = DEFAULT_THEME, options = {}, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function VirtualTreeDiagram({ tree, source = 'descendant', virtualTreeData, onPersonClick, theme = DEFAULT_THEME, options = {}, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const hierarchy = useMemo(() => {
     if (!tree) return null;
     return source === 'ancestor' ? hierarchyFromAncestors(tree) : hierarchyFromDescendants(tree);
@@ -59,6 +59,7 @@ export function VirtualTreeDiagram({ tree, source = 'descendant', virtualTreeDat
             placeholder={n.placeholder}
             theme={theme}
             onClick={onPersonClick}
+            colorOverride={colorForPerson?.(n.person)}
           />
         ))}
       </g>

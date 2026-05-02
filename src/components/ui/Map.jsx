@@ -39,6 +39,10 @@ const CLUSTER_SOURCE_ID = 'ctw-marker-cluster-source';
 const CLUSTER_LAYER_ID = 'ctw-marker-clusters';
 const CLUSTER_COUNT_LAYER_ID = 'ctw-marker-cluster-count';
 const POINT_LAYER_ID = 'ctw-marker-points';
+const HEAT_SOURCE_ID = 'ctw-marker-heat-source';
+const HEAT_LAYER_ID = 'ctw-marker-heat';
+const CONNECTION_SOURCE_ID = 'ctw-marker-connections-source';
+const CONNECTION_LAYER_ID = 'ctw-marker-connections';
 const MAPLIBRE_RTL_TEXT_PLUGIN_URL = 'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/dist/mapbox-gl-rtl-text.js';
 
 let rtlTextPluginRequested = false;
@@ -80,6 +84,30 @@ function geojsonForMarkers(markers) {
           id: String(marker.id ?? markerIndex),
           markerIndex,
           popup: marker.popup || '',
+          color: marker.color || '#2563eb',
+          size: Number.isFinite(marker.size) ? marker.size : 14,
+        },
+      }];
+    }),
+  };
+}
+
+function geojsonForConnections(connections) {
+  return {
+    type: 'FeatureCollection',
+    features: connections.flatMap((connection, index) => {
+      const from = connection.from || {};
+      const to = connection.to || {};
+      if (!Number.isFinite(from.lng) || !Number.isFinite(from.lat) || !Number.isFinite(to.lng) || !Number.isFinite(to.lat)) return [];
+      return [{
+        type: 'Feature',
+        geometry: {
+          type: 'LineString',
+          coordinates: [[from.lng, from.lat], [to.lng, to.lat]],
+        },
+        properties: {
+          id: String(connection.id ?? index),
+          color: connection.color || '#2563eb',
         },
       }];
     }),
@@ -91,6 +119,16 @@ function removeClusterLayers(map) {
     if (map.getLayer(layerId)) map.removeLayer(layerId);
   }
   if (map.getSource(CLUSTER_SOURCE_ID)) map.removeSource(CLUSTER_SOURCE_ID);
+}
+
+function removeHeatLayer(map) {
+  if (map.getLayer(HEAT_LAYER_ID)) map.removeLayer(HEAT_LAYER_ID);
+  if (map.getSource(HEAT_SOURCE_ID)) map.removeSource(HEAT_SOURCE_ID);
+}
+
+function removeConnectionLayer(map) {
+  if (map.getLayer(CONNECTION_LAYER_ID)) map.removeLayer(CONNECTION_LAYER_ID);
+  if (map.getSource(CONNECTION_SOURCE_ID)) map.removeSource(CONNECTION_SOURCE_ID);
 }
 
 function addClusterLayers(map, data) {
@@ -150,10 +188,64 @@ function addClusterLayers(map, data) {
     source: CLUSTER_SOURCE_ID,
     filter: ['!', ['has', 'point_count']],
     paint: {
-      'circle-color': '#2563eb',
-      'circle-radius': 7,
+      'circle-color': ['coalesce', ['get', 'color'], '#2563eb'],
+      'circle-radius': ['/', ['coalesce', ['get', 'size'], 14], 2],
       'circle-stroke-width': 2,
       'circle-stroke-color': '#ffffff',
+    },
+  });
+}
+
+function addHeatLayer(map, data, { radius = 34, opacity = 0.45 } = {}) {
+  removeHeatLayer(map);
+  map.addSource(HEAT_SOURCE_ID, {
+    type: 'geojson',
+    data,
+  });
+  map.addLayer({
+    id: HEAT_LAYER_ID,
+    type: 'heatmap',
+    source: HEAT_SOURCE_ID,
+    maxzoom: 12,
+    paint: {
+      'heatmap-weight': 1,
+      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 0.7, 9, 1.6],
+      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, Math.max(8, radius * 0.4), 9, radius],
+      'heatmap-opacity': opacity,
+      'heatmap-color': [
+        'interpolate',
+        ['linear'],
+        ['heatmap-density'],
+        0,
+        'rgba(33,102,172,0)',
+        0.25,
+        '#2563eb',
+        0.55,
+        '#0f766e',
+        0.8,
+        '#d97706',
+        1,
+        '#7f1d1d',
+      ],
+    },
+  });
+}
+
+function addConnectionLayer(map, data) {
+  removeConnectionLayer(map);
+  map.addSource(CONNECTION_SOURCE_ID, {
+    type: 'geojson',
+    data,
+  });
+  map.addLayer({
+    id: CONNECTION_LAYER_ID,
+    type: 'line',
+    source: CONNECTION_SOURCE_ID,
+    paint: {
+      'line-color': ['coalesce', ['get', 'color'], '#2563eb'],
+      'line-width': 1.5,
+      'line-opacity': 0.48,
+      'line-dasharray': [2, 2],
     },
   });
 }
@@ -167,6 +259,9 @@ export function Map({
   interactive = true,
   projection,
   showControls = true,
+  showMarkers = true,
+  heatmap = null,
+  connections = [],
 }) {
   const { theme } = useTheme();
   const [preferences, setPreferences] = useState(DEFAULT_MAP_PREFERENCES);
@@ -175,7 +270,9 @@ export function Map({
   const markerRefs = useRef([]);
   const [ready, setReady] = useState(false);
   const styleUrl = useMemo(() => styleUrlFor(theme, preferences), [theme, preferences]);
-  const useSourceClustering = preferences.markerClustering && markers.length >= 60 && !markers.some((marker) => marker.draggable);
+  const useSourceClustering = showMarkers && preferences.markerClustering && markers.length >= 60 && !markers.some((marker) => marker.draggable);
+  const markerData = useMemo(() => geojsonForMarkers(markers), [markers]);
+  const connectionData = useMemo(() => geojsonForConnections(connections), [connections]);
 
   useEffect(() => {
     let mounted = true;
@@ -329,7 +426,7 @@ export function Map({
       unbindLayerEvents();
       try { removeClusterLayers(map); } catch { /* style reset */ }
       if (!useSourceClustering) return;
-      addClusterLayers(map, geojsonForMarkers(markers));
+      addClusterLayers(map, markerData);
       bindLayerEvents();
     };
 
@@ -341,7 +438,49 @@ export function Map({
       unbindLayerEvents();
       try { removeClusterLayers(map); } catch { /* map removed */ }
     };
-  }, [markers, ready, styleUrl, useSourceClustering]);
+  }, [markers, markerData, ready, styleUrl, useSourceClustering]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    let cancelled = false;
+    const renderHeat = () => {
+      if (cancelled || !mapRef.current) return;
+      if (!map.isStyleLoaded()) {
+        map.once('idle', renderHeat);
+        return;
+      }
+      try { removeHeatLayer(map); } catch { /* style reset */ }
+      if (heatmap?.enabled && markers.length > 0) {
+        addHeatLayer(map, markerData, heatmap);
+      }
+    };
+    renderHeat();
+    return () => {
+      cancelled = true;
+      try { removeHeatLayer(map); } catch { /* map removed */ }
+    };
+  }, [heatmap, markerData, markers.length, ready, styleUrl]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    let cancelled = false;
+    const renderConnections = () => {
+      if (cancelled || !mapRef.current) return;
+      if (!map.isStyleLoaded()) {
+        map.once('idle', renderConnections);
+        return;
+      }
+      try { removeConnectionLayer(map); } catch { /* style reset */ }
+      if (connections.length > 0) addConnectionLayer(map, connectionData);
+    };
+    renderConnections();
+    return () => {
+      cancelled = true;
+      try { removeConnectionLayer(map); } catch { /* map removed */ }
+    };
+  }, [connectionData, connections.length, ready, styleUrl]);
 
   // Render markers. Rebuilt from scratch whenever the prop changes — fine for
   // the scales we deal with (hundreds of places max).
@@ -350,7 +489,7 @@ export function Map({
     if (!map || !ready) return;
     for (const m of markerRefs.current) m.remove();
     markerRefs.current = [];
-    if (useSourceClustering) return;
+    if (useSourceClustering || !showMarkers) return;
     for (const m of markers) {
       if (typeof m.lng !== 'number' || typeof m.lat !== 'number') continue;
       const el = document.createElement('div');
@@ -358,8 +497,10 @@ export function Map({
       el.setAttribute('tabindex', '0');
       el.setAttribute('aria-label', m.popup || 'Map marker');
       el.title = m.popup || '';
+      const color = m.color || 'hsl(var(--primary))';
+      const size = Number.isFinite(m.size) ? m.size : 14;
       el.style.cssText =
-        'width:14px;height:14px;border-radius:50%;background:hsl(var(--primary));border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);cursor:pointer;';
+        `width:${size}px;height:${size}px;border-radius:50%;background:${color};border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,0.5);cursor:pointer;`;
       let marker = null;
       const activate = (ev) => {
         ev.stopPropagation();
@@ -382,7 +523,7 @@ export function Map({
       }
       markerRefs.current.push(marker);
     }
-  }, [markers, ready, useSourceClustering]);
+  }, [markers, ready, showMarkers, useSourceClustering]);
 
   // Update center/zoom when the inputs change.
   useEffect(() => {

@@ -39,6 +39,7 @@ describe('ReportsApp report configuration', () => {
       secondTargetId: 'person-b',
       options: { includeHeader: false },
       pageStyle: { paginate: true, background: 'sepia', pageSize: 'a4', orientation: 'landscape', margin: 72 },
+      themeId: 'sepia',
     });
 
     expect(payload).toMatchObject({
@@ -50,6 +51,7 @@ describe('ReportsApp report configuration', () => {
       secondTargetRecordType: 'Person',
       options: { includeHeader: false },
       pageStyle: { paginate: true, background: 'sepia', pageSize: 'a4', orientation: 'landscape', margin: 72 },
+      themeId: 'sepia',
     });
   });
 
@@ -60,6 +62,7 @@ describe('ReportsApp report configuration', () => {
       secondTargetRecordName: 'person-b',
       options: { includeHeader: false },
       pageStyle: { margin: 60 },
+      themeId: 'soft',
     });
 
     expect(state).toMatchObject({
@@ -68,6 +71,7 @@ describe('ReportsApp report configuration', () => {
       secondTargetId: 'person-b',
       options: { includeHeader: false, generations: 5 },
       pageStyle: { paginate: false, background: 'none', pageSize: 'letter', orientation: 'portrait', margin: 60 },
+      themeId: 'soft',
     });
     expect(defaultOptionsForBuilder('register')).toMatchObject({ includeHeader: true, generations: 4 });
   });

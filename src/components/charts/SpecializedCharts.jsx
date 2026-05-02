@@ -98,7 +98,7 @@ function collectDescendantPersons(tree, out = [], seen = new Set()) {
   return out;
 }
 
-export function CircularAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function CircularAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const layout = useMemo(() => {
     const { nodes, links } = collectAncestors(tree, generations);
     const cx = 720;
@@ -161,7 +161,7 @@ export function CircularAncestorChart({ tree, generations = 5, onPersonClick, th
         />
       ))}
       {layout.nodes.map((node) => (
-        <PersonNode key={node.key} x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} />
+        <PersonNode key={node.key} x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(node.person)} />
       ))}
     </ChartCanvas>
   );
@@ -411,7 +411,7 @@ export function TimelineChart({ ancestorTree, descendantTree, timelineData, them
   );
 }
 
-export function GenogramChart({ tree, genogramData, onPersonClick, theme = DEFAULT_THEME, page, sociogram = false, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function GenogramChart({ tree, genogramData, onPersonClick, theme = DEFAULT_THEME, page, sociogram = false, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const layout = useMemo(() => layoutDescendants(tree, theme), [tree, theme]);
   // Index builder-output nodes by person record name so we can annotate each
   // layout node with its event/fact counts without reshaping the layout.
@@ -442,7 +442,7 @@ export function GenogramChart({ tree, genogramData, onPersonClick, theme = DEFAU
           const factCount = builderNode?.facts?.length || 0;
           return (
             <g key={`${node.id}-${index}`}>
-              <PersonNode x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} />
+              <PersonNode x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(node.person)} />
               {sociogram && !node.placeholder && (
                 <circle cx={node.x + theme.nodeWidth - 14} cy={node.y + 14} r={5} fill="#d08c60" />
               )}
@@ -477,7 +477,7 @@ export function GenogramChart({ tree, genogramData, onPersonClick, theme = DEFAU
   );
 }
 
-export function FractalAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, variant = 'fractal', overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function FractalAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, variant = 'fractal', overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const layout = useMemo(() => {
     return layoutFractalAncestors(tree, generations, theme, variant);
   }, [tree, generations, theme, variant]);
@@ -495,7 +495,7 @@ export function FractalAncestorChart({ tree, generations = 5, onPersonClick, the
         <path key={index} d={link.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
       ))}
       {layout.nodes.map((node) => (
-        <PersonNode key={node.key} x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} />
+        <PersonNode key={node.key} x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(node.person)} />
       ))}
     </ChartCanvas>
   );

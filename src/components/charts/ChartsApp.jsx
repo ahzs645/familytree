@@ -20,6 +20,7 @@ import { buildTimelineData } from '../../lib/chartData/timelineBuilder.js';
 import { buildGenogramData } from '../../lib/chartData/genogramBuilder.js';
 import { buildDistributionData } from '../../lib/chartData/distributionBuilder.js';
 import { buildVirtualTreeData } from '../../lib/chartData/virtualTreeBuilder.js';
+import { COMPLETENESS_COLOR_MODES, COMPLETENESS_LEGEND, colorForCompleteness, loadCompletenessRowsByPerson } from '../../lib/researchCompleteness.js';
 import { THEMES, getTheme } from './theme.js';
 import { PersonPicker } from './PersonPicker.jsx';
 import { AncestorChart } from './AncestorChart.jsx';
@@ -75,6 +76,8 @@ export function ChartsApp() {
   const [generations, setGenerations] = useState(Math.min(8, Math.max(2, Number(searchParams.get('gen')) || 5)));
   const [chartClickAction, setChartClickAction] = useState(searchParams.get('click') || 'reroot');
   const [themeId, setThemeId] = useState('auto');
+  const [completenessColorMode, setCompletenessColorMode] = useState('gender');
+  const [completenessRowsByPerson, setCompletenessRowsByPerson] = useState(new Map());
   const { theme: appTheme } = useTheme();
   const [virtualSource, setVirtualSource] = useState('descendant');
   const [virtualOrientation, setVirtualOrientation] = useState('vertical');
@@ -314,7 +317,9 @@ export function ChartsApp() {
     const list = await listAllPersons();
       const docs = await listChartDocuments();
       const tpls = await listChartTemplates();
+      const completenessRows = await loadCompletenessRowsByPerson();
       setPersons(list);
+      setCompletenessRowsByPerson(completenessRows);
       setTemplates(tpls);
       setDocuments(docs);
       const importedRecord = searchParams.get('imported');
@@ -508,6 +513,11 @@ export function ChartsApp() {
     if (!Array.isArray(steps)) return [];
     return steps.map((step) => step.recordName).filter(Boolean);
   }, [selectedRelationshipResult]);
+
+  const colorForPerson = useCallback((person) => {
+    if (!person?.recordName || completenessColorMode === 'gender') return null;
+    return colorForCompleteness(completenessRowsByPerson.get(person.recordName), completenessColorMode);
+  }, [completenessColorMode, completenessRowsByPerson]);
 
   const onPersonClick = useCallback(
     (p) => {
@@ -939,6 +949,23 @@ export function ChartsApp() {
                   ))}
                 </select>
               </Section>
+              <Section label="Research overlay">
+                <select value={completenessColorMode} onChange={(e) => setCompletenessColorMode(e.target.value)} style={optionSelect}>
+                  {COMPLETENESS_COLOR_MODES.map((mode) => (
+                    <option key={mode.id} value={mode.id}>{mode.label}</option>
+                  ))}
+                </select>
+                {COMPLETENESS_LEGEND[completenessColorMode] && (
+                  <div style={{ display: 'grid', gap: 5, marginTop: 8 }}>
+                    {COMPLETENESS_LEGEND[completenessColorMode].map(([color, label]) => (
+                      <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
+                        <span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: 'inline-block' }} />
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
 
               <Section label="Chart interaction">
                 <select value={chartClickAction} onChange={(e) => setChartClickAction(e.target.value)} style={optionSelect}>
@@ -1326,6 +1353,7 @@ export function ChartsApp() {
             theme={theme}
             page={chartPage}
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1337,6 +1365,7 @@ export function ChartsApp() {
             theme={theme}
             page={chartPage}
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1350,6 +1379,7 @@ export function ChartsApp() {
             theme={theme}
             page={chartPage}
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1363,6 +1393,7 @@ export function ChartsApp() {
             theme={theme}
             page={chartPage}
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
             variant={chartType === 'symmetrical' ? 'symmetrical' : 'horizontal'}
           />
@@ -1378,6 +1409,7 @@ export function ChartsApp() {
             theme={theme}
             page={chartPage}
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1391,6 +1423,7 @@ export function ChartsApp() {
             theme={theme}
             page={chartPage}
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1403,6 +1436,7 @@ export function ChartsApp() {
             theme={theme}
             page={chartPage}
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1414,6 +1448,7 @@ export function ChartsApp() {
             theme={theme}
             page={chartPage}
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1426,6 +1461,7 @@ export function ChartsApp() {
             theme={theme}
             page={chartPage}
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1451,6 +1487,7 @@ export function ChartsApp() {
             page={chartPage}
             sociogram
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1464,6 +1501,7 @@ export function ChartsApp() {
             page={chartPage}
             variant="h-tree"
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1477,6 +1515,7 @@ export function ChartsApp() {
             page={chartPage}
             variant="square"
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1490,6 +1529,7 @@ export function ChartsApp() {
             page={chartPage}
             variant="fractal"
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1503,6 +1543,7 @@ export function ChartsApp() {
             theme={theme}
             page={chartPage}
             overlays={overlays}
+            colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
         )}
@@ -1624,6 +1665,7 @@ export function ChartsApp() {
                   theme={theme}
                   page={chartPage}
                   overlays={overlays}
+                  colorForPerson={colorForPerson}
                   {...overlayChartProps}
                   options={{ orientation: virtualOrientation, hSpacing: virtualHSpacing, vSpacing: virtualVSpacing }}
                 />

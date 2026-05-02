@@ -5,11 +5,16 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { generateResearchSuggestions } from '../lib/researchSuggestions.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
-import { readRef } from '../lib/schema.js';
+import { readRef, writeRef } from '../lib/schema.js';
+import { logRecordCreated } from '../lib/changeLog.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 
 const STATE_KEY = 'researchAssistantState';
 const JOURNAL_KEY = 'researchJournal';
+
+function uuid(prefix) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 export default function Research() {
   const modal = useModal();
@@ -19,6 +24,8 @@ export default function Research() {
   const [journal, setJournal] = useState([]);
   const [journalDraft, setJournalDraft] = useState('');
   const [filter, setFilter] = useState('');
+  const [status, setStatus] = useState(null);
+  const [creatingKeys, setCreatingKeys] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -76,6 +83,47 @@ export default function Research() {
     ...prev,
     [field]: { ...prev[field], [key]: value },
   }));
+  const createTodo = async ({ key, title, description, target }) => {
+    if (!title || !target?.recordName || creatingKeys[key]) return;
+    setCreatingKeys((prev) => ({ ...prev, [key]: true }));
+    setStatus(null);
+    try {
+      const db = getLocalDatabase();
+      const todo = {
+        recordName: uuid('todo'),
+        recordType: 'ToDo',
+        fields: {
+          title: { value: title, type: 'STRING' },
+          type: { value: 'Research', type: 'STRING' },
+          status: { value: 'Open', type: 'STRING' },
+          priority: { value: 'Normal', type: 'STRING' },
+          description: { value: description, type: 'STRING' },
+        },
+      };
+      const relation = {
+        recordName: uuid('todo-rel'),
+        recordType: 'ToDoRelation',
+        fields: {
+          todo: writeRef(todo.recordName, 'ToDo'),
+          target: writeRef(target.recordName, target.recordType || 'Person'),
+          targetType: { value: target.recordType || 'Person', type: 'STRING' },
+        },
+      };
+      await db.applyRecordTransaction({ saveRecords: [todo, relation] });
+      await logRecordCreated(todo);
+      await mark(key, 'done');
+      setStatus('Created ToDo.');
+      setTimeout(() => setStatus(null), 1800);
+    } catch (error) {
+      setStatus(`Create ToDo failed: ${error.message}`);
+    } finally {
+      setCreatingKeys((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+    }
+  };
   const visible = (filter
     ? items.filter((i) => i.suggestions.some((s) => s.toLowerCase().includes(filter.toLowerCase())) || i.fullName.toLowerCase().includes(filter.toLowerCase()))
     : items
@@ -98,6 +146,7 @@ export default function Research() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Research Assistant</h1>
         <span className="text-xs text-muted-foreground">{visible.length} persons with open questions</span>
+        {status && <span className="text-xs text-muted-foreground">{status}</span>}
         {Object.keys(state.ignoredEntities).length > 0 && (
           <button
             onClick={() => persistState((prev) => ({ ...prev, ignoredEntities: {} }))}
@@ -179,6 +228,20 @@ export default function Research() {
                       </button>
                     )}
                     <div className="flex gap-2 mt-3">
+                      {target && (
+                        <button
+                          onClick={() => createTodo({
+                            key: row.recordName,
+                            title: row.fields?.infoKey?.value || `Research question ${row.fields?.questionType?.value ?? ''}`.trim(),
+                            description: row.fields?.infoValue?.value || 'Imported MacFamilyTree research question.',
+                            target,
+                          })}
+                          disabled={creatingKeys[row.recordName]}
+                          className="text-xs rounded-md border border-border bg-secondary px-2 py-1"
+                        >
+                          {creatingKeys[row.recordName] ? 'Creating…' : 'Create ToDo'}
+                        </button>
+                      )}
                       <button onClick={() => mark(row.recordName, 'done')} className="text-xs rounded-md border border-border bg-secondary px-2 py-1">Mark done</button>
                       <button onClick={() => mark(row.recordName, 'ignored')} className="text-xs rounded-md border border-border bg-secondary px-2 py-1">Ignore</button>
                     </div>
@@ -214,6 +277,18 @@ export default function Research() {
                     <li key={i} className="flex items-start gap-2">
                       <span className="pt-1">·</span>
                       <span className="flex-1">{s}</span>
+                      <button
+                        onClick={() => createTodo({
+                          key,
+                          title: s,
+                          description: `Created from Research Assistant for ${it.fullName}.`,
+                          target: { recordName: it.recordName, recordType: 'Person' },
+                        })}
+                        disabled={creatingKeys[key]}
+                        className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground"
+                      >
+                        {creatingKeys[key] ? 'Creating…' : 'ToDo'}
+                      </button>
                       <button onClick={() => mark(key, 'done')} className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground">Done</button>
                       <button onClick={() => mark(key, 'ignored')} className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground">Ignore</button>
                     </li>

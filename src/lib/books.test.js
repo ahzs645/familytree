@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compileBook } from './books.js';
+import { compileBook, normalizeBookPresentationSettings } from './books.js';
 
 describe('book compilation', () => {
   it('materializes cover metadata and a numbered table of contents', async () => {
@@ -41,5 +41,25 @@ describe('book compilation', () => {
     });
 
     expect(report.blocks).toContainEqual({ kind: 'paragraph', text: '1. One · 3. Two' });
+  });
+
+  it('applies shared presentation settings to compiled book output', async () => {
+    const report = await compileBook({
+      title: 'Styled Book',
+      presentationSettings: {
+        pageStyle: { paginate: false, background: 'sepia', pageSize: 'a4', orientation: 'landscape', margin: 72 },
+      },
+      sections: [
+        { kind: 'title', text: 'One' },
+        { kind: 'title', text: 'Two' },
+      ],
+    });
+
+    expect(report.pageStyle).toEqual({ paginate: false, background: 'sepia', pageSize: 'a4', orientation: 'landscape', margin: 72 });
+    expect(report.blocks.some((entry) => entry.kind === 'pageBreak')).toBe(false);
+  });
+
+  it('keeps book section pagination on by default for old saved books', () => {
+    expect(normalizeBookPresentationSettings().pageStyle).toMatchObject({ paginate: true });
   });
 });

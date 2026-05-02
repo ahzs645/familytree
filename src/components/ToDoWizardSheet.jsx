@@ -93,6 +93,7 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
           recordType: 'ToDo',
           fields: {
             title: { value: row.suggestion, type: 'STRING' },
+            type: { value: 'Research', type: 'STRING' },
             status: { value: 'Open', type: 'STRING' },
             priority: { value: 'Normal', type: 'STRING' },
             description: { value: `Auto-generated from Research Assistant for ${row.fullName}.`, type: 'STRING' },
@@ -105,6 +106,7 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
           fields: {
             todo: writeRef(todo.recordName, 'ToDo'),
             target: writeRef(row.recordName, 'Person'),
+            targetType: { value: 'Person', type: 'STRING' },
           },
         });
       }

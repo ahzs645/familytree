@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ListPageHeader, SortableListTable } from '../components/lists/SortableListTable.jsx';
+import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
+import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
+import { SORT_PROFILES, useSortProfile } from '../components/lists/useSortProfile.js';
 import { runPlausibilityChecks } from '../lib/plausibility.js';
 
 const SEVERITY_CLASS = {
@@ -18,6 +20,7 @@ export default function PlausibilityList() {
   const [warnings, setWarnings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [severity, setSeverity] = useState('');
+  const sortProfile = useSortProfile('plausibility', SORT_PROFILES.Plausibility, 'severity');
 
   useEffect(() => {
     let cancelled = false;
@@ -55,9 +58,11 @@ export default function PlausibilityList() {
       ),
     },
     { key: 'rule', label: 'Rule' },
+    { key: 'recordType', label: 'Record Type', defaultVisible: false },
     {
       key: 'recordName',
       label: 'Record',
+      alwaysVisible: true,
       render: (row) => <Link to={recordHref(row)} className="text-primary hover:underline">{row.recordName}</Link>,
     },
     { key: 'message', label: 'Message' },
@@ -95,11 +100,13 @@ export default function PlausibilityList() {
         count={filteredWarnings.length}
         total={warnings.length}
       />
-      <SortableListTable
+      <ConfigurableListTable
+        listId="plausibility"
         rows={filteredWarnings}
         columns={columns}
         initialSortKey="severity"
         initialSortDirection="desc"
+        sortProfile={sortProfile}
         searchPlaceholder="Search warnings..."
         toolbar={filters}
         emptyTitle={warnings.length === 0 ? 'No plausibility issues found' : 'No warnings at this severity'}

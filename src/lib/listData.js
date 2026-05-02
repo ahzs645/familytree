@@ -3,7 +3,8 @@ import { runPlausibilityChecks } from './plausibility.js';
 import { readConclusionType, readField, readRef } from './schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary, Gender } from '../models/index.js';
 import { parseEventDate, formatEventDate } from '../utils/formatDate.js';
-import { compareStrings, getCurrentLocalization, localeWithExtensions, normalizeSearchText } from './i18n.js';
+import { compareStrings, getCurrentLocalization, localeWithExtensions } from './i18n.js';
+import { loadResearchCompleteness } from './researchCompleteness.js';
 
 export const MEDIA_RECORD_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 
@@ -216,103 +217,8 @@ export async function loadDistinctivePersonRows() {
 }
 
 export async function loadPersonAnalysisRows() {
-  const db = getLocalDatabase();
-  const [{ records: persons }, { records: families }, { records: childRelations }] = await Promise.all([
-    db.query('Person', { limit: 100000 }),
-    db.query('Family', { limit: 100000 }),
-    db.query('ChildRelation', { limit: 100000 }),
-  ]);
-  const personById = new Map(persons.map((person) => [person.recordName, person]));
-  const familyById = new Map(families.map((family) => [family.recordName, family]));
-  const relationIssues = new Map();
-
-  const addIssue = (personId, message) => {
-    if (!personId) return;
-    if (!relationIssues.has(personId)) relationIssues.set(personId, []);
-    relationIssues.get(personId).push(message);
-  };
-
-  for (const family of families) {
-    const manId = readRef(family.fields?.man);
-    const womanId = readRef(family.fields?.woman);
-    if (manId && !personById.has(manId)) addIssue(womanId, `Family ${family.recordName} references a missing partner`);
-    if (womanId && !personById.has(womanId)) addIssue(manId, `Family ${family.recordName} references a missing partner`);
-  }
-
-  for (const relation of childRelations) {
-    const childId = readRef(relation.fields?.child);
-    const familyId = readRef(relation.fields?.family);
-    const family = familyId ? familyById.get(familyId) : null;
-    if (childId && !personById.has(childId) && family) {
-      addIssue(readRef(family.fields?.man), `Child relation ${relation.recordName} references a missing child`);
-      addIssue(readRef(family.fields?.woman), `Child relation ${relation.recordName} references a missing child`);
-    }
-    if (familyId && !familyById.has(familyId)) addIssue(childId, `Child relation ${relation.recordName} references a missing family`);
-  }
-
-  const nameGroups = new Map();
-  const nameBirthGroups = new Map();
-  for (const person of persons) {
-    const summary = personSummary(person);
-    const name = normalizeName(summary?.fullName);
-    if (!name) continue;
-    if (!nameGroups.has(name)) nameGroups.set(name, []);
-    nameGroups.get(name).push(person.recordName);
-    const birthYear = yearOf(summary?.birthDate);
-    if (birthYear) {
-      const key = `${name}|${birthYear}`;
-      if (!nameBirthGroups.has(key)) nameBirthGroups.set(key, []);
-      nameBirthGroups.get(key).push(person.recordName);
-    }
-  }
-  const highDuplicateIds = new Set();
-  const mediumDuplicateIds = new Set();
-  for (const ids of nameBirthGroups.values()) {
-    if (ids.length > 1) ids.forEach((id) => highDuplicateIds.add(id));
-  }
-  for (const ids of nameGroups.values()) {
-    if (ids.length > 1) ids.forEach((id) => mediumDuplicateIds.add(id));
-  }
-
-  const currentYear = new Date().getFullYear();
-  return persons
-    .map((record) => {
-      const summary = personSummary(record);
-      const birthYear = yearOf(summary?.birthDate);
-      const deathYear = yearOf(summary?.deathDate);
-      const age = birthYear ? (deathYear || currentYear) - birthYear : null;
-      const missingDates = [];
-      if (!summary?.birthDate) missingDates.push('Birth');
-      if (!summary?.deathDate) missingDates.push('Death');
-      const duplicateRisk = highDuplicateIds.has(record.recordName)
-        ? 'High'
-        : mediumDuplicateIds.has(record.recordName)
-          ? 'Medium'
-          : 'Low';
-      const issues = relationIssues.get(record.recordName) || [];
-      return {
-        id: record.recordName,
-        personId: record.recordName,
-        personName: summary?.fullName || record.recordName,
-        birthDate: summary?.birthDate || '',
-        deathDate: summary?.deathDate || '',
-        age,
-        ageLabel: age == null ? 'Unknown' : String(age),
-        missingDates,
-        missingDateLabel: missingDates.length ? missingDates.join(', ') : 'None',
-        orphanedRelationships: issues.length,
-        relationshipIssues: issues,
-        duplicateRisk,
-        attentionScore: missingDates.length + issues.length + (duplicateRisk === 'High' ? 2 : duplicateRisk === 'Medium' ? 1 : 0),
-      };
-    })
-    .sort((a, b) => b.attentionScore - a.attentionScore || compareStrings(a.personName, b.personName));
-}
-
-function normalizeName(value) {
-  return normalizeSearchText(value)
-    .replace(/[^\p{L}\p{N}]+/gu, ' ')
-    .trim();
+  const analysis = await loadResearchCompleteness();
+  return analysis.rows;
 }
 
 const LDS_SCHEMA_RE = /lds|ordinance|temple|endowment|sealing|sealed|confirmation/i;

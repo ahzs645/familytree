@@ -37,7 +37,7 @@ function personSubtext(person, gen) {
   return lines;
 }
 
-export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, arcDegrees, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, arcDegrees, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const { slices, totalRadius, size, probandRadius } = useMemo(
     () => layoutFan(tree, generations, { arcDegrees }),
     [tree, generations, arcDegrees]
@@ -61,12 +61,13 @@ export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT
           {slices.map((s, i) => {
             if (s.proband) {
               const colors = theme.gender[s.person?.gender ?? 0] || theme.gender[0];
+              const override = colorForPerson?.(s.person);
               const sub = personSubtext(s.person, 0);
               const fullName = s.person?.fullName || 'No name recorded';
               const nameSize = fitFontSize(fullName, probandRadius * 1.75, 14);
               return (
                 <g key={'p' + i} style={{ cursor: onPersonClick && s.person ? 'pointer' : 'default' }} onClick={() => onPersonClick && s.person && onPersonClick(s.person)}>
-                  <circle r={probandRadius} fill={colors.fill} stroke={colors.stroke} strokeWidth={1.5} />
+                  <circle r={probandRadius} fill={override?.fill || colors.fill} stroke={override?.stroke || colors.stroke} strokeWidth={1.5} />
                   <text textAnchor="middle" dy={-8} fill={theme.text} fontSize={nameSize} fontWeight={600} fontFamily={theme.fontFamily}>
                     {fullName}
                   </text>
@@ -86,8 +87,9 @@ export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT
               );
             }
             const colors = theme.gender[s.person?.gender ?? 0] || theme.gender[0];
-            const fill = s.placeholder ? theme.placeholderFill : colors.fill;
-            const stroke = s.placeholder ? theme.placeholderStroke : colors.stroke;
+            const override = colorForPerson?.(s.person);
+            const fill = s.placeholder ? theme.placeholderFill : override?.fill || colors.fill;
+            const stroke = s.placeholder ? theme.placeholderStroke : override?.stroke || colors.stroke;
             const maxFontByGen = s.gen <= 1 ? 14 : s.gen <= 2 ? 12 : s.gen <= 3 ? 11 : 10;
             // Inner rings: text follows the arc via textPath.
             // Outer rings (gen >= 3): wedges are too narrow — render text radially.

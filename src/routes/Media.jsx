@@ -18,6 +18,7 @@ import {
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { buildMediaSlideshowSearchParams } from '../lib/mediaPresentation.js';
 
 const MEDIA_TYPES = [
   { id: 'all', label: 'All', match: null },
@@ -62,6 +63,7 @@ export default function Media() {
   const [activeAssets, setActiveAssets] = useState([]);
   const [activeRelations, setActiveRelations] = useState([]);
   const [relatedMediaIds, setRelatedMediaIds] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [subject, setSubject] = useState(null);
   const [captureMode, setCaptureMode] = useState(null);
   const [captureStream, setCaptureStream] = useState(null);
@@ -399,6 +401,9 @@ export default function Media() {
     if (!relatedMediaIds) return byType;
     return byType.filter((m) => relatedMediaIds.has(m.recordName));
   }, [filter, media, relatedMediaIds]);
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const visibleIds = useMemo(() => filtered.map((m) => m.recordName), [filtered]);
+  const selectedVisibleCount = useMemo(() => visibleIds.filter((id) => selectedSet.has(id)).length, [selectedSet, visibleIds]);
   const subjectLabel = subject ? recordDisplayLabel(subject) || subject.recordName : '';
 
   const setMode = useCallback((mode) => {
@@ -414,6 +419,29 @@ export default function Media() {
     next.delete('targetType');
     setSearchParams(next);
   }, [searchParams, setSearchParams]);
+
+  const toggleSelected = useCallback((recordName) => {
+    setSelectedIds((current) => current.includes(recordName)
+      ? current.filter((id) => id !== recordName)
+      : [...current, recordName]);
+  }, []);
+
+  const selectVisible = useCallback(() => {
+    setSelectedIds((current) => [...new Set([...current, ...visibleIds])]);
+  }, [visibleIds]);
+
+  const clearSelection = useCallback(() => setSelectedIds([]), []);
+
+  const startSlideshow = useCallback(() => {
+    const ids = selectedIds.length ? selectedIds : (activeId ? [activeId] : []);
+    const params = buildMediaSlideshowSearchParams({ mediaIds: ids });
+    navigate(`/slideshow?${params.toString()}`);
+  }, [activeId, navigate, selectedIds]);
+
+  useEffect(() => {
+    const allIds = new Set(media.map((m) => m.recordName));
+    setSelectedIds((current) => current.filter((id) => allIds.has(id)));
+  }, [media]);
 
   useEffect(() => {
     if (mediaIdParam && filtered.some((m) => m.recordName === mediaIdParam)) {
@@ -446,6 +474,7 @@ export default function Media() {
         </select>
         <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
           {filtered.length} item{filtered.length === 1 ? '' : 's'}
+          {selectedIds.length ? ` · ${selectedVisibleCount}/${selectedIds.length} selected visible` : ''}
         </span>
         <input ref={folderRef} type="file" multiple webkitdirectory="" className="hidden" onChange={(e) => onMatchFolder(e.target.files)} />
         <input
@@ -466,6 +495,11 @@ export default function Media() {
         {targetId && (
           <button onClick={clearSubject} style={select}>Clear subject</button>
         )}
+        <button onClick={selectVisible} disabled={!filtered.length} style={select}>Select visible</button>
+        <button onClick={clearSelection} disabled={!selectedIds.length} style={select}>Clear selection</button>
+        <button onClick={startSlideshow} disabled={!selectedIds.length && !activeId} style={select}>
+          Slideshow {selectedIds.length ? `(${selectedIds.length})` : ''}
+        </button>
         <button onClick={() => setMode(readOnlyGallery ? 'editor' : 'gallery')} style={select}>
           {readOnlyGallery ? 'Edit records' : 'Gallery report'}
         </button>
@@ -487,6 +521,7 @@ export default function Media() {
           )}
           {filtered.map((m) => {
             const isActive = m.recordName === activeId;
+            const isSelected = selectedSet.has(m.recordName);
             return (
               <div
                 key={m.recordName}
@@ -503,8 +538,20 @@ export default function Media() {
                   ...(readOnlyGallery ? reportTile : tile),
                   borderColor: isActive ? 'hsl(var(--primary))' : 'hsl(var(--border))',
                   background: isActive ? 'hsl(var(--accent))' : 'hsl(var(--card))',
+                  position: 'relative',
                 }}
               >
+                <label
+                  aria-label={`Select ${m.fields?.caption?.value || m.recordName}`}
+                  onClick={(event) => event.stopPropagation()}
+                  style={selectionControl}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelected(m.recordName)}
+                  />
+                </label>
                 <div style={{ fontSize: 38, lineHeight: 1, marginBottom: 6 }}>{iconFor(m.recordType)}</div>
                 <div style={{ fontSize: 12, color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: 2, wordBreak: 'break-word' }}>
                   {m.fields?.caption?.value || m.fields?.filename?.value || m.fields?.fileName?.value || m.fields?.url?.value || m.recordName}
@@ -636,6 +683,7 @@ const gallery = { flex: 1, overflow: 'auto', padding: 20, display: 'grid', gridT
 const galleryReport = { flex: 1, overflow: 'auto', padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 14, alignContent: 'start' };
 const tile = { padding: 14, border: '1px solid hsl(var(--border))', borderRadius: 8, cursor: 'pointer', minHeight: 110, transition: 'border-color 0.15s, background 0.15s' };
 const reportTile = { ...tile, minHeight: 150, display: 'flex', flexDirection: 'column', justifyContent: 'center' };
+const selectionControl = { position: 'absolute', top: 8, right: 8, display: 'grid', placeItems: 'center', width: 24, height: 24, borderRadius: 6, background: 'hsl(var(--background) / 0.86)', border: '1px solid hsl(var(--border))', cursor: 'pointer' };
 const detail = { width: 360, borderInlineStart: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', padding: 20, overflow: 'auto' };
 const saveBtn = { background: 'hsl(var(--primary))', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
 const deleteBtn = { background: 'transparent', color: 'hsl(var(--destructive))', border: '1px solid #3a2d30', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };

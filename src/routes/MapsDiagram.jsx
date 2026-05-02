@@ -8,7 +8,16 @@ import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { refToRecordName } from '../lib/recordRef.js';
 import { readConclusionType } from '../lib/schema.js';
 import { Map as MapView } from '../components/ui/Map.jsx';
+import { VisualOptionsDrawer } from '../components/charts/VisualOptionsDrawer.jsx';
 import { formatEventDate } from '../utils/formatDate.js';
+import { personSummary } from '../models/index.js';
+import {
+  buildChronologicalConnections,
+  colorForVisualEvent,
+  normalizeVisualViewOptions,
+  usesHeatMap,
+  usesMarkerPins,
+} from '../lib/visualViewOptions.js';
 
 function yearOf(s) {
   const m = String(s || '').match(/(\d{4})/);
@@ -26,6 +35,8 @@ function rangeLabel(range) {
 
 export default function MapsDiagram() {
   const [events, setEvents] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [subjectId, setSubjectId] = useState('');
   const [filterType, setFilterType] = useState('');
   const [yearRange, setYearRange] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -34,17 +45,21 @@ export default function MapsDiagram() {
   const [playing, setPlaying] = useState(false);
   const [stepYears, setStepYears] = useState(5);
   const [allYears, setAllYears] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [visualOptions, setVisualOptions] = useState(() => normalizeVisualViewOptions('mapStory'));
 
   useEffect(() => {
     let cancel = false;
     (async () => {
       const db = getLocalDatabase();
-      const [pe, fe, places, coords] = await Promise.all([
+      const [pe, fe, places, coords, persons] = await Promise.all([
         db.query('PersonEvent', { limit: 100000 }),
         db.query('FamilyEvent', { limit: 100000 }),
         db.query('Place', { limit: 100000 }),
         db.query('Coordinate', { limit: 100000 }),
+        db.query('Person', { limit: 100000 }),
       ]);
+      const personById = new Map(persons.records.map((person) => [person.recordName, person]));
       const placeById = new Map(places.records.map((p) => [p.recordName, p]));
       const coordById = new Map(coords.records.map((coord) => [coord.recordName, coord]));
       const coordByPlace = new Map();
@@ -74,6 +89,7 @@ export default function MapsDiagram() {
           placeId,
           placeName: place?.fields?.cached_normallocationString?.value || place?.fields?.placeName?.value || placeId,
           subjectId,
+          subjectName: personSummary(personById.get(subjectId))?.fullName || subjectId,
           lat,
           lng,
         });
@@ -85,6 +101,9 @@ export default function MapsDiagram() {
       });
       if (!cancel) {
         setEvents(out);
+        setSubjects([...new Map(out.filter((event) => event.subjectId).map((event) => [event.subjectId, event.subjectName])).entries()]
+          .map(([id, name]) => ({ id, name }))
+          .sort((a, b) => a.name.localeCompare(b.name)));
         setLoading(false);
       }
     })();
@@ -106,9 +125,10 @@ export default function MapsDiagram() {
 
   const filtered = useMemo(() => events.filter((e) => {
     if (filterType && e.conclusionType !== filterType) return false;
+    if (subjectId && e.subjectId !== subjectId) return false;
     if (!allYears && Number.isFinite(e.year) && (e.year < effectiveRange[0] || e.year > effectiveRange[1])) return false;
     return true;
-  }), [events, filterType, effectiveRange, allYears]);
+  }), [events, filterType, subjectId, effectiveRange, allYears]);
 
   useEffect(() => {
     if (!playing) return undefined;
@@ -120,9 +140,9 @@ export default function MapsDiagram() {
         if (nextStart + span > yearBounds[1]) nextStart = yearBounds[0];
         return [nextStart, Math.min(yearBounds[1], nextStart + span)];
       });
-    }, 1200);
+    }, visualOptions.slideshowDelayMs);
     return () => clearInterval(id);
-  }, [playing, stepYears, yearBounds]);
+  }, [playing, stepYears, visualOptions.slideshowDelayMs, yearBounds]);
 
   useEffect(() => {
     if (allYears) setPlaying(false);
@@ -142,6 +162,21 @@ export default function MapsDiagram() {
   const selectedEvent = filtered.find((event) => event.recordName === selectedId);
   const hoveredEvent = filtered.find((event) => event.recordName === hoveredId);
   const detailEvent = selectedEvent || hoveredEvent;
+  const mapMarkers = useMemo(() => {
+    return filtered.map((event) => ({
+      id: event.recordName,
+      lat: event.lat,
+      lng: event.lng,
+      color: colorForVisualEvent(event, visualOptions, yearBounds),
+      size: visualOptions.markerSize,
+      popup: `${event.conclusionType}${event.date ? ' · ' + event.date : ''} — ${event.placeName}`,
+      onClick: () => setSelectedId(event.recordName),
+    }));
+  }, [filtered, visualOptions, yearBounds]);
+  const mapConnections = useMemo(
+    () => buildChronologicalConnections(filtered, visualOptions.connectionLines),
+    [filtered, visualOptions.connectionLines]
+  );
 
   const setRangeMin = (value) => {
     const next = Number(value);
@@ -163,12 +198,19 @@ export default function MapsDiagram() {
     <div className="flex h-full flex-col">
       <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3">
         <div>
-          <h1 className="text-base font-semibold">Statistic Maps</h1>
+          <h1 className="text-base font-semibold">Map + Timeline Story</h1>
           <div className="text-xs text-muted-foreground">
-            {loading ? 'Loading events…' : `${filtered.length} of ${events.length} event location${events.length === 1 ? '' : 's'} plotted`}
+            {loading ? 'Loading events…' : `${filtered.length} of ${events.length} placed event${events.length === 1 ? '' : 's'} in the current story`}
           </div>
         </div>
         <div className="ms-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setOptionsOpen((open) => !open)}
+            className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent"
+          >
+            Options
+          </button>
           <Link to="/events" className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Events</Link>
           <Link to="/places" className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Places</Link>
         </div>
@@ -181,6 +223,17 @@ export default function MapsDiagram() {
               className="rounded-md border border-border bg-secondary px-2 py-1 text-xs text-foreground"
             >
               {types.map((t) => <option key={t} value={t}>{t || 'All types'}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            Person
+            <select
+              value={subjectId}
+              onChange={(e) => setSubjectId(e.target.value)}
+              className="max-w-[220px] rounded-md border border-border bg-secondary px-2 py-1 text-xs text-foreground"
+            >
+              <option value="">All people</option>
+              {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
             </select>
           </label>
           <div className="flex flex-1 flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -237,20 +290,29 @@ export default function MapsDiagram() {
         <div className="relative min-h-[360px]">
           <MapView
             center={center}
-            zoom={4}
-            markers={filtered.map((e) => ({
-              id: e.recordName,
-              lat: e.lat,
-              lng: e.lng,
-              popup: `${e.conclusionType}${e.date ? ' · ' + e.date : ''} — ${e.placeName}`,
-              onClick: () => setSelectedId(e.recordName),
-            }))}
+            zoom={visualOptions.slideshowFit && playing ? 5 : 4}
+            markers={mapMarkers}
+            showMarkers={usesMarkerPins(visualOptions)}
+            connections={mapConnections}
+            heatmap={{
+              enabled: usesHeatMap(visualOptions),
+              radius: visualOptions.heatRadius,
+              opacity: visualOptions.heatOpacity,
+            }}
+          />
+          <VisualOptionsDrawer
+            kind="mapStory"
+            open={optionsOpen}
+            options={visualOptions}
+            onChange={setVisualOptions}
+            onClose={() => setOptionsOpen(false)}
+            title="Map Options"
           />
         </div>
         <aside className="min-h-0 overflow-auto border-t border-border bg-card p-4 lg:border-l lg:border-t-0">
           <EventDetail event={detailEvent} selected={!!selectedEvent} />
           <div className="mt-4">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Event Rows</div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Timeline</div>
             <div className="space-y-2">
               {filtered.length === 0 ? (
                 <div className="rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">No events match the current map filters.</div>
@@ -269,6 +331,7 @@ export default function MapsDiagram() {
                   >
                     <div className="text-sm font-medium">{event.conclusionType}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground">{formatEventDate(event.date) || 'Undated'} · {event.placeName}</div>
+                    {event.subjectName && <div className="mt-0.5 text-[11px] text-muted-foreground">{event.subjectName}</div>}
                   </button>
                 );
               })}

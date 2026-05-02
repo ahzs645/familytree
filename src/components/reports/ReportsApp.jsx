@@ -37,18 +37,14 @@ import {
 } from '../../lib/reports/builders.js';
 import { applyPageStyle, listSavedReports, saveReport, deleteSavedReport, newReportId } from '../../lib/reports/savedReports.js';
 import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
+import { DEFAULT_PAGE_STYLE, PRESENTATION_THEMES, normalizePageStyle } from '../../lib/presentationSettings.js';
 import { getAuthorInfo } from '../../lib/authorInfo.js';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
+import { PresentationSettingsControls } from '../presentation/PresentationSettingsControls.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 
-const DEFAULT_PAGE_STYLE = {
-  paginate: false,
-  background: 'none',
-  pageSize: 'letter',
-  orientation: 'portrait',
-  margin: 48,
-};
+export { normalizePageStyle };
 
 export const REPORT_BUILDERS = [
   { id: 'person-summary', label: 'Person Summary', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, helpText: 'Summarizes the selected person, parents, families, children, and direct events.', run: (rn) => buildPersonSummary(rn) },
@@ -98,18 +94,9 @@ export function normalizeReportOptions(builderOrId, options = {}) {
   };
 }
 
-export function normalizePageStyle(pageStyle = {}) {
-  const merged = { ...DEFAULT_PAGE_STYLE, ...(pageStyle || {}) };
-  const margin = Number(merged.margin);
-  return {
-    ...merged,
-    paginate: !!merged.paginate,
-    margin: Number.isFinite(margin) ? margin : DEFAULT_PAGE_STYLE.margin,
-  };
-}
-
-export function createSavedReportPayload({ name, builderId, targetId, secondTargetId, options, pageStyle }) {
+export function createSavedReportPayload({ name, builderId, targetId, secondTargetId, options, pageStyle, themeId = 'plain' }) {
   const builder = getReportBuilder(builderId) || REPORT_BUILDERS[0];
+  const theme = PRESENTATION_THEMES.some((entry) => entry.id === themeId) ? themeId : 'plain';
   return {
     id: newReportId(),
     name,
@@ -120,6 +107,7 @@ export function createSavedReportPayload({ name, builderId, targetId, secondTarg
     secondTargetRecordType: builder.needsSecondSubject ? builder.secondSubjectType || 'Person' : null,
     options: normalizeReportOptions(builder, options),
     pageStyle: normalizePageStyle(pageStyle),
+    themeId: theme,
   };
 }
 
@@ -131,6 +119,7 @@ export function stateFromSavedReport(entry) {
     secondTargetId: entry?.secondTargetRecordName || null,
     options: normalizeReportOptions(builder, entry?.options),
     pageStyle: normalizePageStyle(entry?.pageStyle),
+    themeId: PRESENTATION_THEMES.some((theme) => theme.id === entry?.themeId) ? entry.themeId : 'plain',
   };
 }
 
@@ -157,11 +146,8 @@ export function ReportsApp() {
   const [secondTargetId, setSecondTargetId] = useState(null);
   const [builderId, setBuilderId] = useState('person-summary');
   const [options, setOptions] = useState(() => defaultOptionsForBuilder('person-summary'));
-  const [paginate, setPaginate] = useState(DEFAULT_PAGE_STYLE.paginate);
-  const [pageBackground, setPageBackground] = useState(DEFAULT_PAGE_STYLE.background);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_STYLE.pageSize);
-  const [orientation, setOrientation] = useState(DEFAULT_PAGE_STYLE.orientation);
-  const [margin, setMargin] = useState(DEFAULT_PAGE_STYLE.margin);
+  const [pageStyle, setPageStyle] = useState(() => normalizePageStyle(DEFAULT_PAGE_STYLE));
+  const [themeId, setThemeId] = useState('plain');
   const [report, setReport] = useState(null);
   const [savedList, setSavedList] = useState([]);
   const [empty, setEmpty] = useState(false);
@@ -196,10 +182,6 @@ export function ReportsApp() {
   const needsSecondSubject = !!builder?.needsSecondSubject;
   const usesGenerations = !!builder?.usesGenerations;
   const generationValue = Number(options.generations ?? builder?.defaultOptions?.generations ?? 5);
-  const pageStyle = useMemo(
-    () => normalizePageStyle({ paginate, background: pageBackground, pageSize, orientation, margin }),
-    [paginate, pageBackground, pageSize, orientation, margin]
-  );
   const subjectItems = useMemo(() => getSubjectItemsForBuilder(builder, { persons, stories }), [builder, persons, stories]);
 
   useEffect(() => {
@@ -311,9 +293,10 @@ export function ReportsApp() {
       secondTargetId,
       options,
       pageStyle,
+      themeId,
     }));
     setSavedList(await listSavedReports());
-  }, [builderId, targetId, secondTargetId, options, pageStyle, modal]);
+  }, [builderId, targetId, secondTargetId, options, pageStyle, themeId, modal]);
 
   const onApplySaved = useCallback(async (id) => {
     const entry = savedList.find((r) => r.id === id);
@@ -323,11 +306,8 @@ export function ReportsApp() {
     setTargetId(state.targetId);
     setSecondTargetId(state.secondTargetId);
     setOptions(state.options);
-    setPaginate(state.pageStyle.paginate);
-    setPageBackground(state.pageStyle.background);
-    setPageSize(state.pageStyle.pageSize);
-    setOrientation(state.pageStyle.orientation);
-    setMargin(state.pageStyle.margin);
+    setPageStyle(state.pageStyle);
+    setThemeId(state.themeId);
   }, [savedList]);
 
   const onDelete = useCallback(async (id) => {
@@ -338,8 +318,12 @@ export function ReportsApp() {
 
   const onExport = useCallback((fmt) => {
     if (!report) return;
-    downloadReport(fmt, report, { filenameBase: report.title, author: authorInfo });
-  }, [report, authorInfo]);
+    downloadReport(fmt, report, {
+      filenameBase: report.title,
+      author: authorInfo,
+      theme: themeId === 'plain' ? null : { id: themeId },
+    });
+  }, [report, authorInfo, themeId]);
 
   const onSpeak = useCallback(() => {
     if (!speechSupported) return;
@@ -414,30 +398,14 @@ export function ReportsApp() {
           </label>
         </Field>
 
-        <Field label="Pagination">
-          <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <input type="checkbox" checked={paginate} onChange={(e) => setPaginate(e.target.checked)} /> Page breaks
-          </label>
-        </Field>
+        <PresentationSettingsControls value={pageStyle} onChange={setPageStyle} />
 
-        <Field label="Page">
-          <div style={{ display: 'flex', gap: 4 }}>
-            <select value={pageSize} onChange={(e) => setPageSize(e.target.value)} style={input}>
-              <option value="letter">Letter</option>
-              <option value="a4">A4</option>
-              <option value="legal">Legal</option>
-            </select>
-            <select value={orientation} onChange={(e) => setOrientation(e.target.value)} style={input}>
-              <option value="portrait">Portrait</option>
-              <option value="landscape">Landscape</option>
-            </select>
-            <select value={pageBackground} onChange={(e) => setPageBackground(e.target.value)} style={input}>
-              <option value="none">White</option>
-              <option value="soft">Soft</option>
-              <option value="sepia">Sepia</option>
-            </select>
-            <input type="number" min={24} max={96} value={margin} onChange={(e) => setMargin(+e.target.value || 48)} style={{ ...input, width: 64 }} title="Margin" />
-          </div>
+        <Field label="Theme">
+          <select value={themeId} onChange={(event) => setThemeId(event.target.value)} style={input}>
+            {PRESENTATION_THEMES.map((theme) => (
+              <option key={theme.id} value={theme.id}>{theme.label}</option>
+            ))}
+          </select>
         </Field>
 
         <Field label="Export">

@@ -10,7 +10,7 @@ import { layoutDescendants } from './layouts/descendantLayout.js';
 
 const PADDING = 30;
 
-export function DescendantChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function DescendantChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const { nodes, links } = useMemo(() => layoutDescendants(tree, theme), [tree, theme]);
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
 
@@ -36,6 +36,7 @@ export function DescendantChart({ tree, onPersonClick, theme = DEFAULT_THEME, pa
             placeholder={n.placeholder}
             theme={theme}
             onClick={onPersonClick}
+            colorOverride={colorForPerson?.(n.person)}
           />
         ))}
       </g>

@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ListPageHeader, SortableListTable } from '../components/lists/SortableListTable.jsx';
+import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
+import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
+import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadDistinctivePersonRows } from '../lib/listData.js';
 
 const CRITERIA = [
@@ -44,6 +47,9 @@ export default function DistinctivePersons() {
       return matchMode === 'all' ? matches.every(Boolean) : matches.some(Boolean);
     });
   }, [rows, selectedCriteria, matchMode]);
+  const scoped = useScopedRows(filteredRows, {
+    entityType: 'Person',
+  });
 
   const columns = useMemo(() => [
     {
@@ -97,6 +103,14 @@ export default function DistinctivePersons() {
 
   const filters = (
     <div className="ms-auto flex flex-wrap items-center gap-2">
+      <ScopeFilterSelect
+        value={scoped.scopeId}
+        onChange={scoped.setScopeId}
+        scopes={scoped.scopes}
+        loading={scoped.loading}
+        error={scoped.error}
+        label="Person scope"
+      />
       <select value={matchMode} onChange={(event) => setMatchMode(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
         <option value="any">Match any rule</option>
         <option value="all">Match all rules</option>
@@ -115,11 +129,12 @@ export default function DistinctivePersons() {
       <ListPageHeader
         title="Distinctive Persons"
         subtitle={hasMarker ? 'Using imported distinctive markers plus optional rule filters.' : 'No distinctive marker field was detected; use manual criteria to define the list.'}
-        count={filteredRows.length}
+        count={scoped.rows.length}
         total={rows.length}
       />
-      <SortableListTable
-        rows={filteredRows}
+      <ConfigurableListTable
+        listId="distinctive-persons"
+        rows={scoped.rows}
         columns={columns}
         initialSortKey="signals"
         initialSortDirection="desc"

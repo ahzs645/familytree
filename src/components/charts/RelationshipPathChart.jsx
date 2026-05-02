@@ -16,7 +16,7 @@ const EDGE_GLYPH = {
   spouse: '↔ spouse',
 };
 
-export function RelationshipPathChart({ result, pathCount = 0, secondPicked, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function RelationshipPathChart({ result, pathCount = 0, secondPicked, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   if (!secondPicked) {
     return <div style={{ padding: 24, color: theme.textMuted }}>Pick a second person to compare against.</div>;
   }
@@ -49,7 +49,7 @@ export function RelationshipPathChart({ result, pathCount = 0, secondPicked, onP
           const x = i * stepWidth;
           return (
             <g key={i}>
-              <PersonNode x={x} y={y} person={step.person} theme={theme} onClick={onPersonClick} />
+              <PersonNode x={x} y={y} person={step.person} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(step.person)} />
               {i > 0 && step.edgeFromPrev && (
                 <g>
                   <path
@@ -69,6 +69,18 @@ export function RelationshipPathChart({ result, pathCount = 0, secondPicked, onP
                   >
                     {EDGE_GLYPH[step.edgeFromPrev] || step.edgeFromPrev}
                   </text>
+                  {step.evidence && (
+                    <text
+                      x={x - STEP_GAP / 2}
+                      y={y + theme.nodeHeight / 2 + 10}
+                      fill={evidenceColor(step.evidence.state)}
+                      fontSize={10}
+                      fontFamily={theme.fontFamily}
+                      textAnchor="middle"
+                    >
+                      {step.evidence.state}
+                    </text>
+                  )}
                 </g>
               )}
             </g>
@@ -82,6 +94,12 @@ export function RelationshipPathChart({ result, pathCount = 0, secondPicked, onP
       </g>
     </ChartCanvas>
   );
+}
+
+function evidenceColor(state) {
+  if (state === 'Supported') return '#1f8a5b';
+  if (state === 'Weak') return '#b7791f';
+  return '#b42318';
 }
 
 export default RelationshipPathChart;

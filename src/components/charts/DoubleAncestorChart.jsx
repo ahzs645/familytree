@@ -24,6 +24,7 @@ export function DoubleAncestorChart({
   overlays,
   onOverlaysChange,
   chartCanvasRef,
+  colorForPerson,
   ...overlayProps
 }) {
   const leftCount = Number.isFinite(leftGenerations) ? leftGenerations : generations;
@@ -114,10 +115,10 @@ export function DoubleAncestorChart({
           />
         )}
         {layout.left.nodes.map((n) => (
-          <PersonNode key={'ln-' + n.id} x={n.x} y={n.y} person={n.person} placeholder={n.placeholder} theme={theme} onClick={onPersonClick} />
+          <PersonNode key={'ln-' + n.id} x={n.x} y={n.y} person={n.person} placeholder={n.placeholder} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(n.person)} />
         ))}
         {layout.right.nodes.map((n) => (
-          <PersonNode key={'rn-' + n.id} x={n.x} y={n.y} person={n.person} placeholder={n.placeholder} theme={theme} onClick={onPersonClick} />
+          <PersonNode key={'rn-' + n.id} x={n.x} y={n.y} person={n.person} placeholder={n.placeholder} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(n.person)} />
         ))}
       </g>
     </ChartCanvas>

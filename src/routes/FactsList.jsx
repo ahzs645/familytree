@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ListPageHeader, SortableListTable } from '../components/lists/SortableListTable.jsx';
+import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
+import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
+import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadFactRows } from '../lib/listData.js';
 
 export default function FactsList() {
@@ -29,6 +32,10 @@ export default function FactsList() {
     if (dateFilter.trim() && !String(row.date || '').toLowerCase().includes(dateFilter.trim().toLowerCase())) return false;
     return true;
   }), [rows, typeFilter, dateFilter]);
+  const scoped = useScopedRows(filteredRows, {
+    entityType: 'Person',
+    rowIds: (row) => row.personId,
+  });
 
   const columns = useMemo(() => [
     {
@@ -69,6 +76,14 @@ export default function FactsList() {
         <option value="">All types</option>
         {typeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
       </select>
+      <ScopeFilterSelect
+        value={scoped.scopeId}
+        onChange={scoped.setScopeId}
+        scopes={scoped.scopes}
+        loading={scoped.loading}
+        error={scoped.error}
+        label="Person scope"
+      />
       <label className="text-xs text-muted-foreground">Date</label>
       <input
         value={dateFilter}
@@ -84,11 +99,12 @@ export default function FactsList() {
       <ListPageHeader
         title="Facts List"
         subtitle="Report-compatible person facts with type and date filtering."
-        count={filteredRows.length}
+        count={scoped.rows.length}
         total={rows.length}
       />
-      <SortableListTable
-        rows={filteredRows}
+      <ConfigurableListTable
+        listId="facts"
+        rows={scoped.rows}
         columns={columns}
         initialSortKey="personName"
         searchPlaceholder="Search facts..."

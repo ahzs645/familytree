@@ -12,7 +12,7 @@ import { layoutAncestorsUpward } from './layouts/ancestorUpwardLayout.js';
 
 const PADDING = 40;
 
-export function HourglassChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function HourglassChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const layout = useMemo(() => {
     const upper = layoutAncestorsUpward(ancestorTree, generations, theme);
     const descendants = layoutDescendants(descendantTree, theme);
@@ -67,6 +67,7 @@ export function HourglassChart({ ancestorTree, descendantTree, generations = 4, 
             placeholder={n.placeholder}
             theme={theme}
             onClick={onPersonClick}
+            colorOverride={colorForPerson?.(n.person)}
           />
         ))}
       </g>

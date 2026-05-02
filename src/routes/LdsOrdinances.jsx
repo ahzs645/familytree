@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ListPageHeader, SortableListTable } from '../components/lists/SortableListTable.jsx';
+import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
+import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
+import { SORT_PROFILES, useSortProfile } from '../components/lists/useSortProfile.js';
 import { loadLdsOrdinanceRows } from '../lib/listData.js';
 
 function ownerLink(row) {
@@ -12,6 +14,7 @@ function ownerLink(row) {
 export default function LdsOrdinances() {
   const [result, setResult] = useState({ schemaPresent: false, detectedSchema: [], rows: [] });
   const [loading, setLoading] = useState(true);
+  const sortProfile = useSortProfile('lds-ordinances', SORT_PROFILES.LdsOrdinances, 'ownerName');
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +34,7 @@ export default function LdsOrdinances() {
     {
       key: 'ownerName',
       label: 'Owner',
+      alwaysVisible: true,
       render: (row) => {
         const href = ownerLink(row);
         return href ? <Link to={href} className="text-primary hover:underline">{row.ownerName}</Link> : row.ownerName;
@@ -53,6 +57,7 @@ export default function LdsOrdinances() {
       render: (row) => String(row.temple || '') || <span className="text-muted-foreground">No temple</span>,
     },
     { key: 'recordType', label: 'Record Type' },
+    { key: 'id', label: 'Record ID', defaultVisible: false },
   ], []);
 
   if (loading) return <div className="p-10 text-muted-foreground">Checking LDS ordinance schema...</div>;
@@ -86,10 +91,12 @@ export default function LdsOrdinances() {
         subtitle={`Detected schema: ${result.detectedSchema.slice(0, 4).join(', ')}${result.detectedSchema.length > 4 ? '...' : ''}`}
         count={result.rows.length}
       />
-      <SortableListTable
+      <ConfigurableListTable
+        listId="lds-ordinances"
         rows={result.rows}
         columns={columns}
         initialSortKey="ownerName"
+        sortProfile={sortProfile}
         searchPlaceholder="Search LDS ordinances..."
         emptyTitle="No LDS ordinance rows"
         emptyHint="Schema-like fields exist, but no listable ordinance rows were found."

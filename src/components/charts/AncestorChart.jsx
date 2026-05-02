@@ -11,7 +11,7 @@ import { layoutAncestors } from './layouts/ancestorLayout.js';
 
 const PADDING = 30;
 
-export function AncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+export function AncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const { nodes, links } = useMemo(() => layoutAncestors(tree, generations, theme), [tree, generations, theme]);
   if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
 
@@ -45,6 +45,7 @@ export function AncestorChart({ tree, generations = 5, onPersonClick, theme = DE
             placeholder={n.placeholder}
             theme={theme}
             onClick={onPersonClick}
+            colorOverride={colorForPerson?.(n.person)}
           />
         ))}
       </g>

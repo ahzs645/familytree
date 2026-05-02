@@ -68,4 +68,32 @@ export const SORT_PROFILES = Object.freeze({
     { key: 'type', label: 'Type' },
     { key: 'date', label: 'Date' },
   ],
+  Marriages: [
+    { key: 'partner1Name', label: 'Partner 1' },
+    { key: 'partner2Name', label: 'Partner 2' },
+    { key: 'marriageDate', label: 'Marriage date' },
+    { key: 'id', label: 'Family ID' },
+  ],
+  Plausibility: [
+    { key: 'severity', label: 'Severity' },
+    { key: 'rule', label: 'Rule' },
+    { key: 'recordName', label: 'Record' },
+    { key: 'recordType', label: 'Record type' },
+  ],
+  LdsOrdinances: [
+    { key: 'ownerName', label: 'Owner' },
+    { key: 'ordinance', label: 'Ordinance' },
+    { key: 'date', label: 'Date' },
+    { key: 'status', label: 'Status' },
+    { key: 'temple', label: 'Temple / Place' },
+    { key: 'recordType', label: 'Record type' },
+  ],
+  PersonAnalysis: [
+    { key: 'personName', label: 'Person' },
+    { key: 'age', label: 'Age' },
+    { key: 'missingDateLabel', label: 'Missing dates' },
+    { key: 'orphanedRelationships', label: 'Research gaps' },
+    { key: 'sourceState', label: 'Evidence' },
+    { key: 'duplicateRisk', label: 'Duplicate risk' },
+  ],
 });

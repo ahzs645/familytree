@@ -11,6 +11,14 @@ import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { refToRecordName } from '../lib/recordRef.js';
 import { readConclusionType } from '../lib/schema.js';
 import { Map as MapView } from '../components/ui/Map.jsx';
+import { VisualOptionsDrawer } from '../components/charts/VisualOptionsDrawer.jsx';
+import {
+  buildChronologicalConnections,
+  colorForVisualEvent,
+  normalizeVisualViewOptions,
+  usesHeatMap,
+  usesMarkerPins,
+} from '../lib/visualViewOptions.js';
 
 const OVERLAY_TYPES = [
   { id: 'all', label: 'All events', match: () => true },
@@ -43,6 +51,8 @@ export default function Globe() {
   const [yearBounds, setYearBounds] = useState({ min: null, max: null });
   const [yearFrom, setYearFrom] = useState(null);
   const [yearTo, setYearTo] = useState(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [visualOptions, setVisualOptions] = useState(() => normalizeVisualViewOptions('globe'));
 
   useEffect(() => {
     let cancel = false;
@@ -127,6 +137,16 @@ export default function Globe() {
     return [(Math.min(...lngs) + Math.max(...lngs)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2];
   }, [filtered]);
 
+  const mapMarkers = useMemo(() => filtered.map((point) => ({
+    ...point,
+    color: colorForVisualEvent(point, visualOptions, yearBounds),
+    size: visualOptions.markerSize,
+  })), [filtered, visualOptions, yearBounds]);
+  const mapConnections = useMemo(
+    () => buildChronologicalConnections(filtered, visualOptions.connectionLines),
+    [filtered, visualOptions.connectionLines]
+  );
+
   const yearRange = yearBounds.min !== null && yearBounds.max !== null
     ? `${yearBounds.min}–${yearBounds.max}`
     : '';
@@ -183,14 +203,36 @@ export default function Globe() {
             </button>
           </div>
         )}
-        <span className="ms-auto text-xs text-muted-foreground">3D projection · drag to rotate · scroll to zoom</span>
+        <button
+          type="button"
+          onClick={() => setOptionsOpen((open) => !open)}
+          className="ms-auto rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent"
+        >
+          Options
+        </button>
+        <span className="text-xs text-muted-foreground">3D projection · drag to rotate · scroll to zoom</span>
       </header>
       <div className="flex-1 relative">
         <MapView
           center={center}
           zoom={1.6}
-          markers={filtered}
+          markers={mapMarkers}
+          showMarkers={usesMarkerPins(visualOptions)}
+          connections={mapConnections}
+          heatmap={{
+            enabled: usesHeatMap(visualOptions),
+            radius: visualOptions.heatRadius,
+            opacity: visualOptions.heatOpacity,
+          }}
           projection={{ type: 'globe' }}
+        />
+        <VisualOptionsDrawer
+          kind="globe"
+          open={optionsOpen}
+          options={visualOptions}
+          onChange={setVisualOptions}
+          onClose={() => setOptionsOpen(false)}
+          title="Globe Options"
         />
       </div>
     </div>

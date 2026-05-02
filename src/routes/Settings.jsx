@@ -23,6 +23,7 @@ const tabs = [
   { id: 'general', label: 'General' },
   { id: 'formats', label: 'Formats' },
   { id: 'maps', label: 'Maps' },
+  { id: 'media', label: 'Media' },
   { id: 'pdf', label: 'PDF' },
   { id: 'history', label: 'History' },
   { id: 'content-download', label: 'Content Download' },
@@ -248,6 +249,63 @@ export default function Settings() {
               </Field>
               <Switch label="Show Labels" checked={mapPrefs.showLabels} onChange={(value) => updateMap('showLabels', value)} />
               <Switch label="Marker Clustering" checked={mapPrefs.markerClustering} onChange={(value) => updateMap('markerClustering', value)} />
+            </Grid>
+          </Panel>
+        )}
+
+        {activeTab === 'media' && (
+          <Panel title="Media and Slideshow">
+            <Grid>
+              <Field label="Default slideshow interval">
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={prefs.media?.slideshow?.interval ?? 5}
+                  onChange={(event) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), interval: Number(event.target.value) })}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Default media filter">
+                <select
+                  value={prefs.media?.slideshow?.filter || 'all'}
+                  onChange={(event) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), filter: event.target.value })}
+                  className={inputClass}
+                >
+                  <option value="all">All media</option>
+                  <option value="MediaPicture">Pictures only</option>
+                  <option value="MediaPDF">PDFs only</option>
+                  <option value="MediaURL">URLs only</option>
+                  <option value="MediaAudio">Audio only</option>
+                  <option value="MediaVideo">Video only</option>
+                </select>
+              </Field>
+              <Field label="Image fit">
+                <select
+                  value={prefs.media?.slideshow?.fit || 'contain'}
+                  onChange={(event) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), fit: event.target.value })}
+                  className={inputClass}
+                >
+                  <option value="contain">Fit inside screen</option>
+                  <option value="cover">Fill screen</option>
+                  <option value="actual">Actual size</option>
+                </select>
+              </Field>
+              <Field label="Backdrop">
+                <select
+                  value={prefs.media?.slideshow?.background || 'dark'}
+                  onChange={(event) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), background: event.target.value })}
+                  className={inputClass}
+                >
+                  <option value="dark">Dark</option>
+                  <option value="light">Light</option>
+                  <option value="soft">Soft</option>
+                </select>
+              </Field>
+              <Switch label="Show captions by default" checked={prefs.media?.slideshow?.showCaption !== false} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), showCaption: value })} />
+              <Switch label="Show metadata by default" checked={!!prefs.media?.slideshow?.showMetadata} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), showMetadata: value })} />
+              <Switch label="Loop by default" checked={prefs.media?.slideshow?.loop !== false} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), loop: value })} />
+              <Switch label="Shuffle by default" checked={!!prefs.media?.slideshow?.random} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), random: value })} />
             </Grid>
           </Panel>
         )}

@@ -14,7 +14,7 @@ import { layoutDescendants } from './layouts/descendantLayout.js';
 const PADDING = 30;
 const HALF_GAP = 40;
 
-export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, variant = 'horizontal', chartCanvasRef, ...overlayProps }) {
+export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, variant = 'horizontal', chartCanvasRef, colorForPerson, ...overlayProps }) {
   if (variant === 'symmetrical') {
     return (
       <SymmetricalTree
@@ -27,6 +27,7 @@ export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPer
         overlays={overlays}
         onOverlaysChange={onOverlaysChange}
         chartCanvasRef={chartCanvasRef}
+        colorForPerson={colorForPerson}
         {...overlayProps}
       />
     );
@@ -42,12 +43,13 @@ export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPer
       overlays={overlays}
       onOverlaysChange={onOverlaysChange}
       chartCanvasRef={chartCanvasRef}
+      colorForPerson={colorForPerson}
       {...overlayProps}
     />
   );
 }
 
-function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const layout = useMemo(() => {
     const ancestors = layoutAncestors(ancestorTree, generations, theme);
     const descendants = layoutDescendants(descendantTree, theme);
@@ -125,6 +127,7 @@ function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPerso
             placeholder={n.placeholder}
             theme={theme}
             onClick={onPersonClick}
+            colorOverride={colorForPerson?.(n.person)}
           />
         ))}
         {layout.descNodes.map((n, i) => (
@@ -136,6 +139,7 @@ function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPerso
             placeholder={n.placeholder}
             theme={theme}
             onClick={onPersonClick}
+            colorOverride={colorForPerson?.(n.person)}
           />
         ))}
       </g>
@@ -143,7 +147,7 @@ function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPerso
   );
 }
 
-function SymmetricalTree({ ancestorTree, descendantTree, generations, onPersonClick, theme, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+function SymmetricalTree({ ancestorTree, descendantTree, generations, onPersonClick, theme, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const layout = useMemo(() => {
     const upper = layoutAncestorsUpward(ancestorTree, generations, theme);
     const descendants = layoutDescendants(descendantTree, theme);
@@ -192,6 +196,7 @@ function SymmetricalTree({ ancestorTree, descendantTree, generations, onPersonCl
             placeholder={n.placeholder}
             theme={theme}
             onClick={onPersonClick}
+            colorOverride={colorForPerson?.(n.person)}
           />
         ))}
       </g>

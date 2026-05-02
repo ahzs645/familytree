@@ -14,13 +14,16 @@ import {
   downloadBookHTML,
   downloadBookBundle,
   validateBook,
+  normalizeBookPresentationSettings,
 } from '../../lib/books.js';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { readField } from '../../lib/schema.js';
 import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
+import { updatePageStyle } from '../../lib/presentationSettings.js';
 import { compareStrings, formatInteger } from '../../lib/i18n.js';
 import { sourceSummary } from '../../models/index.js';
 import { SectionEditor } from './SectionEditor.jsx';
+import { PresentationSettingsControls } from '../presentation/PresentationSettingsControls.jsx';
 import { ReportPreview } from '../reports/ReportPreview.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 
@@ -28,6 +31,7 @@ function blankBook() {
   return {
     id: null,
     title: 'My Family Book',
+    presentationSettings: normalizeBookPresentationSettings(),
     sections: [
       { kind: 'cover', text: 'My Family Book', subtitle: '', author: '', date: '' },
       { kind: 'toc', tocStyle: 'numbered' },
@@ -132,10 +136,17 @@ export function BooksApp() {
     });
   }, []);
 
+  const updateBookPageStyle = useCallback((pageStyle) => {
+    setBook((current) => ({
+      ...current,
+      presentationSettings: updatePageStyle(current.presentationSettings, pageStyle),
+    }));
+  }, []);
+
   const onSave = useCallback(async () => {
     const name = await modal.prompt('Save book as:', book.title, { title: 'Save book' });
     if (!name) return;
-    const toSave = { ...book, id: book.id || newBookId(), title: name };
+    const toSave = { ...book, id: book.id || newBookId(), title: name, presentationSettings: normalizeBookPresentationSettings(book.presentationSettings) };
     await saveBook(toSave);
     setBook(toSave);
     setSavedBooks(await listBooks());
@@ -144,7 +155,7 @@ export function BooksApp() {
   const onLoad = useCallback(async (id) => {
     const entry = savedBooks.find((b) => b.id === id);
     if (!entry) return;
-    setBook(entry);
+    setBook({ ...entry, presentationSettings: normalizeBookPresentationSettings(entry.presentationSettings) });
   }, [savedBooks]);
 
   const onDelete = useCallback(async (id) => {
@@ -241,6 +252,10 @@ export function BooksApp() {
             {savedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
           </select>
         )}
+        <PresentationSettingsControls
+          value={normalizeBookPresentationSettings(book.presentationSettings).pageStyle}
+          onChange={updateBookPageStyle}
+        />
         <span style={{ marginInlineStart: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
           Export:
         </span>

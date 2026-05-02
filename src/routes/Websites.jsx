@@ -4,11 +4,22 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
-import { DEFAULT_SITE_OPTIONS, SITE_THEMES, buildSite, downloadSite, validateSiteExport } from '../lib/websiteExport.js';
+import { buildSite, downloadSite, validateSiteExport } from '../lib/websiteExport.js';
+import {
+  DEFAULT_SITE_OPTIONS,
+  addSiteTheme,
+  getWebsiteOptions,
+  moveSiteTheme,
+  saveWebsiteOptions,
+  setDefaultSiteTheme,
+  updateSiteTheme,
+} from '../lib/websiteOptions.js';
 import {
   DEFAULT_PUBLISH_TARGET,
   getPublishTarget,
   postWebsiteToWebhook,
+  publishTargetActionLabel,
+  publishTargetModeDescription,
   savePublishTarget,
   validatePublishTarget,
   listPublishHistory,
@@ -37,6 +48,8 @@ export default function Websites() {
   React.useEffect(() => {
     let cancel = false;
     (async () => {
+      const savedOptions = await getWebsiteOptions();
+      if (!cancel) setOptions(savedOptions);
       const target = await getPublishTarget();
       if (!cancel) setPublishTarget(target);
       const history = await listPublishHistory();
@@ -58,14 +71,74 @@ export default function Websites() {
   }, [modal]);
 
   const privacyLabel = useMemo(() => (
-    options.includePrivate ? 'Public and private records will be included.' : 'Private records will be filtered from the public site.'
+    options.includePrivate
+      ? 'Marked-private records will be included in this export.'
+      : 'Marked-private records will be filtered from the public site.'
   ), [options.includePrivate]);
+
+  const activeTheme = useMemo(() => (
+    options.siteThemes.find((theme) => theme.id === options.theme) || options.siteThemes[0]
+  ), [options.siteThemes, options.theme]);
 
   const updateOption = useCallback((key, value) => {
     setOptions((current) => ({ ...current, [key]: value }));
     setValidation(null);
     setCompletedStats(null);
   }, []);
+
+  const updateContentSection = useCallback((key, value) => {
+    setOptions((current) => ({
+      ...current,
+      contentSections: { ...current.contentSections, [key]: value },
+    }));
+    setValidation(null);
+    setCompletedStats(null);
+  }, []);
+
+  const updateActiveThemeColor = useCallback((key, value) => {
+    setOptions((current) => ({
+      ...current,
+      siteThemes: updateSiteTheme(current.siteThemes, current.theme, { colors: { [key]: value } }),
+    }));
+    setValidation(null);
+    setCompletedStats(null);
+  }, []);
+
+  const onAddTheme = useCallback(() => {
+    setOptions((current) => {
+      const label = `Custom theme ${current.siteThemes.length + 1}`;
+      const siteThemes = addSiteTheme(current.siteThemes, {
+        label,
+        colors: activeTheme?.colors || {},
+      });
+      const theme = siteThemes[siteThemes.length - 1]?.id || current.theme;
+      return { ...current, siteThemes, theme };
+    });
+    setValidation(null);
+    setCompletedStats(null);
+  }, [activeTheme]);
+
+  const onMoveTheme = useCallback((direction) => {
+    setOptions((current) => ({ ...current, siteThemes: moveSiteTheme(current.siteThemes, current.theme, direction) }));
+  }, []);
+
+  const onMakeDefaultTheme = useCallback(() => {
+    setOptions((current) => ({ ...current, siteThemes: setDefaultSiteTheme(current.siteThemes, current.theme) }));
+  }, []);
+
+  const onSaveOptions = useCallback(async () => {
+    setBusy(true);
+    setStatus('Saving website options...');
+    try {
+      const saved = await saveWebsiteOptions(options);
+      setOptions(saved);
+      setStatus('Website options saved.');
+    } catch (error) {
+      setStatus(`Website option save failed: ${error.message}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [options]);
 
   const updatePublishTarget = useCallback((key, value) => {
     setPublishTarget((current) => ({ ...current, [key]: value }));
@@ -186,7 +259,7 @@ export default function Websites() {
       });
       const doneMessage = targetValidation.target.mode === 'download'
         ? 'Website zip downloaded.'
-        : `Website zip downloaded for ${targetValidation.target.mode.toUpperCase()} upload to ${targetValidation.target.host}${targetValidation.target.remotePath}.`;
+        : `Website zip prepared for manual ${targetValidation.target.mode.toUpperCase()} upload to ${targetValidation.target.host}${targetValidation.target.remotePath}.`;
       setStatus(doneMessage);
       await appendHistory({
         mode: targetValidation.target.mode,
@@ -251,7 +324,7 @@ export default function Websites() {
                   onChange={(event) => updateOption('theme', event.target.value)}
                   className={inputClass}
                 >
-                  {SITE_THEMES.map((theme) => <option key={theme.id} value={theme.id}>{theme.label}</option>)}
+                  {options.siteThemes.map((theme) => <option key={theme.id} value={theme.id}>{theme.label}</option>)}
                 </select>
               </Field>
               <Field label="Tagline">
@@ -280,6 +353,43 @@ export default function Websites() {
               </Field>
             </div>
 
+            <div className="mt-5 rounded-md border border-border bg-background p-4">
+              <div className="flex flex-wrap items-start gap-3 mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold">Theme management</h3>
+                  <p className="text-xs text-muted-foreground">The first theme in the list is the default when saved options are reused.</p>
+                </div>
+                <button type="button" onClick={onAddTheme} className={`${buttonSecondary} ms-auto`}>Add theme</button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Theme name">
+                  <input
+                    value={activeTheme?.label || ''}
+                    onChange={(event) => setOptions((current) => ({
+                      ...current,
+                      siteThemes: updateSiteTheme(current.siteThemes, current.theme, { label: event.target.value }),
+                    }))}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Background">
+                  <input type="color" value={activeTheme?.colors?.background || '#f8fafc'} onChange={(event) => updateActiveThemeColor('background', event.target.value)} className="h-10 w-12 rounded-md border border-border bg-background p-1" />
+                </Field>
+                <Field label="Card color">
+                  <input type="color" value={activeTheme?.colors?.card || '#ffffff'} onChange={(event) => updateActiveThemeColor('card', event.target.value)} className="h-10 w-12 rounded-md border border-border bg-background p-1" />
+                </Field>
+                <Field label="Text color">
+                  <input type="color" value={activeTheme?.colors?.text || '#18202f'} onChange={(event) => updateActiveThemeColor('text', event.target.value)} className="h-10 w-12 rounded-md border border-border bg-background p-1" />
+                </Field>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button type="button" onClick={() => onMoveTheme('up')} className={buttonSecondary}>Move up</button>
+                <button type="button" onClick={() => onMoveTheme('down')} className={buttonSecondary}>Move down</button>
+                <button type="button" onClick={onMakeDefaultTheme} className={buttonSecondary}>Make default</button>
+                <button type="button" onClick={onSaveOptions} disabled={busy} className={buttonSecondary}>Save website options</button>
+              </div>
+            </div>
+
             <div className="mt-5 grid gap-3">
               <label className="flex items-start gap-3 rounded-md border border-border bg-background p-3">
                 <input
@@ -296,6 +406,44 @@ export default function Websites() {
               <label className="flex items-start gap-3 rounded-md border border-border bg-background p-3">
                 <input
                   type="checkbox"
+                  checked={options.hideLiving}
+                  onChange={(event) => updateOption('hideLiving', event.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="block text-sm font-medium">Hide living people</span>
+                  <span className="text-xs text-muted-foreground">Omit living people entirely, or keep their page with dates and contact fields masked.</span>
+                </span>
+              </label>
+              {options.hideLiving && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-md border border-border bg-background p-3">
+                  <label className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={options.hideLivingDetailsOnly}
+                      onChange={(event) => updateOption('hideLivingDetailsOnly', event.target.checked)}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium">Hide details only</span>
+                      <span className="text-xs text-muted-foreground">Keep living people visible while masking sensitive fields.</span>
+                    </span>
+                  </label>
+                  <Field label="Living threshold years">
+                    <input
+                      type="number"
+                      min="1"
+                      max="150"
+                      value={options.livingThresholdYears}
+                      onChange={(event) => updateOption('livingThresholdYears', event.target.value)}
+                      className={inputClass}
+                    />
+                  </Field>
+                </div>
+              )}
+              <label className="flex items-start gap-3 rounded-md border border-border bg-background p-3">
+                <input
+                  type="checkbox"
                   checked={options.includeAssets}
                   onChange={(event) => updateOption('includeAssets', event.target.checked)}
                   className="mt-1"
@@ -305,6 +453,33 @@ export default function Websites() {
                   <span className="text-xs text-muted-foreground">Included media assets are copied into the website zip under assets/media.</span>
                 </span>
               </label>
+            </div>
+
+            <div className="mt-5 rounded-md border border-border bg-background p-4">
+              <h3 className="text-sm font-semibold mb-3">Website content</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {[
+                  ['people', 'People pages'],
+                  ['families', 'Family pages'],
+                  ['places', 'Place pages'],
+                  ['sources', 'Source pages'],
+                  ['media', 'Media pages'],
+                  ['stories', 'Story pages'],
+                  ['relatedMedia', 'Related media sections'],
+                  ['relatedSources', 'Related source sections'],
+                  ['relatedStories', 'Related story sections'],
+                  ['author', 'Author and footer metadata'],
+                ].map(([key, label]) => (
+                  <label key={key} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={!!options.contentSections[key]}
+                      onChange={(event) => updateContentSection(key, event.target.checked)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
             </div>
 
             <div className="mt-5 rounded-md border border-border bg-background p-4">
@@ -352,9 +527,10 @@ export default function Websites() {
                   </>
                 )}
               </div>
+              <p className="mt-3 text-xs text-muted-foreground">{publishTargetModeDescription(publishTarget.mode)}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button onClick={onSaveTarget} disabled={busy} className={buttonSecondary}>Save target</button>
-                <button onClick={onPublishTarget} disabled={busy || !summary} className={buttonPrimary}>Publish target</button>
+                <button onClick={onPublishTarget} disabled={busy || !summary} className={buttonPrimary}>{publishTargetActionLabel(publishTarget.mode)}</button>
               </div>
             </div>
 

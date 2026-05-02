@@ -16,6 +16,7 @@ export function PersonNode({
   placeholder = false,
   theme = DEFAULT_THEME,
   highlighted = false,
+  colorOverride = null,
 }) {
   const { openPerson } = useChartSelection();
 
@@ -29,8 +30,8 @@ export function PersonNode({
   const spanX = spanDirection === 'rtl' ? theme.nodeWidth - 12 : 12;
   const displayLines = wrapGraphemes(display, 20, 2);
   const wrappedDisplay = displayLines.length > 1;
-  const fill = placeholder ? theme.placeholderFill : colors.fill;
-  const stroke = highlighted ? '#ffd166' : placeholder ? theme.placeholderStroke : colors.stroke;
+  const fill = placeholder ? theme.placeholderFill : colorOverride?.fill || colors.fill;
+  const stroke = highlighted ? '#ffd166' : placeholder ? theme.placeholderStroke : colorOverride?.stroke || colors.stroke;
   const strokeWidth = highlighted ? 2.5 : 1.5;
 
   const interactive = (onClick || openPerson) && person;

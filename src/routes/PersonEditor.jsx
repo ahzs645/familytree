@@ -44,6 +44,7 @@ import { isRecordLocked, setRecordLocked } from '../lib/recordLock.js';
 import { listAllPersons } from '../lib/treeQuery.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { linkExistingRelative } from '../lib/relativeLinks.js';
+import { evidenceStateForRecord, loadResearchCompleteness } from '../lib/researchCompleteness.js';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -89,6 +90,37 @@ function Field({ label, children, hint }) {
   );
 }
 
+function EvidenceMetric({ label, value, tone }) {
+  return (
+    <div className="rounded-md border border-border bg-background px-3 py-2">
+      <div className={`text-sm font-semibold ${toneClass(tone)}`}>{value}</div>
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+function EvidenceBadge({ evidence }) {
+  if (!evidence) return null;
+  return (
+    <span className={`ms-auto shrink-0 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${toneClass(evidence.state)} ${borderToneClass(evidence.state)}`}>
+      {evidence.state}
+    </span>
+  );
+}
+
+function toneClass(tone) {
+  if (tone === 'Supported') return 'text-emerald-600';
+  if (tone === 'Weak' || tone === 'Medium') return 'text-amber-500';
+  if (tone === 'Unsourced' || tone === 'High') return 'text-destructive';
+  return 'text-foreground';
+}
+
+function borderToneClass(tone) {
+  if (tone === 'Supported') return 'border-emerald-600/40';
+  if (tone === 'Weak') return 'border-amber-500/40';
+  return 'border-destructive/40';
+}
+
 export default function PersonEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -101,6 +133,7 @@ export default function PersonEditor() {
   const [notes, setNotes] = useState([]);
   const [associates, setAssociates] = useState([]);
   const [related, setRelated] = useState({ media: [], sources: [], todos: [], stories: [], groups: [] });
+  const [evidence, setEvidence] = useState(null);
   const [allPersons, setAllPersons] = useState([]);
   const [relativeType, setRelativeType] = useState('parent');
   const [relativeId, setRelativeId] = useState('');
@@ -131,14 +164,20 @@ export default function PersonEditor() {
     for (const f of REFERENCE_NUMBER_FIELDS) refs[f.id] = r.fields?.[f.id]?.value ?? '';
     setRefNumbers(refs);
 
-    const [an, fact, note, lbl, ev, ar] = await Promise.all([
+    const [an, fact, note, lbl, ev, ar, analysis] = await Promise.all([
       db.query('AdditionalName', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('PersonFact', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('Note', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('LabelRelation', { referenceField: 'targetPerson', referenceValue: id, limit: 500 }),
       db.query('PersonEvent', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('AssociateRelation', { referenceField: 'sourcePerson', referenceValue: id, limit: 500 }),
+      loadResearchCompleteness(),
     ]);
+    const personEvidence = analysis.rowsByPerson.get(id);
+    setEvidence({
+      row: personEvidence,
+      byRecord: new Map([...ev.records, ...fact.records].map((item) => [item.recordName, evidenceStateForRecord(item.recordName, analysis)])),
+    });
     setAllPersons(await listAllPersons({ includePrivate: true }));
 
     setAdditionalNames(an.records.map((a) => ({
@@ -343,6 +382,17 @@ export default function PersonEditor() {
               <OldestAncestorsWidget recordName={record.recordName} />
             </Section>
           )}
+          {evidence?.row && (
+            <Section title="Evidence Summary" accent={ACCENTS.sources}>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+                <EvidenceMetric label="Source state" value={evidence.row.sourceState} tone={evidence.row.sourceState} />
+                <EvidenceMetric label="Source links" value={evidence.row.sourceCount} />
+                <EvidenceMetric label="Unplaced events" value={evidence.row.unplacedEvents} tone={evidence.row.unplacedEvents ? 'Weak' : 'Supported'} />
+                <EvidenceMetric label="Duplicate risk" value={evidence.row.duplicateRisk} tone={evidence.row.duplicateRisk === 'Low' ? 'Supported' : 'Weak'} />
+                <EvidenceMetric label="Research priority" value={evidence.row.researchPriority} tone={evidence.row.researchPriority === 'Low' ? 'Supported' : evidence.row.researchPriority === 'Medium' ? 'Weak' : 'Unsourced'} />
+              </div>
+            </Section>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
             <div className="min-w-0">
@@ -434,6 +484,7 @@ export default function PersonEditor() {
                       return (
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
                           <span className="text-sm">{label}{date && <span className="text-muted-foreground"> · {date}</span>}</span>
+                          <EvidenceBadge evidence={evidence?.byRecord?.get(e.recordName)} />
                           <button onClick={() => navigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-primary hover:underline">edit</button>
                         </div>
                       );
@@ -469,6 +520,7 @@ export default function PersonEditor() {
                         onChange={(e) => setFacts((a) => a.map((x, j) => j === i ? { ...x, date: e.target.value } : x))}
                         className={inputClass() + ' w-[120px] shrink-0'}
                       />
+                      <EvidenceBadge evidence={it.recordName ? evidence?.byRecord?.get(it.recordName) : null} />
                       <RemoveBtn onClick={() => setFacts((a) => a.filter((_, j) => j !== i))} />
                     </div>
                   );

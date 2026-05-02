@@ -14,6 +14,10 @@ import {
   NAME_FORMAT_LABELS,
   setActiveNameFormats,
 } from './nameFormat.js';
+import {
+  DEFAULT_MEDIA_SLIDESHOW_SETTINGS,
+  normalizeMediaSlideshowSettings,
+} from './mediaPresentation.js';
 
 const META_KEY = 'appPreferences';
 export const APP_PREFERENCES_EVENT = 'cloudtreeweb:app-preferences-changed';
@@ -41,6 +45,9 @@ export const DEFAULT_APP_PREFERENCES = {
     accentColor: '#2563eb',
     chartTheme: 'auto',
     reportBackground: 'none',
+  },
+  media: {
+    slideshow: DEFAULT_MEDIA_SLIDESHOW_SETTINGS,
   },
   pdf: {
     pageSize: 'letter',
@@ -159,6 +166,8 @@ export function normalizePreferences(value = {}) {
   merged.localization = normalizeLocalization(merged.localization);
   merged.pdf.margin = clampNumber(merged.pdf.margin, 12, 144, DEFAULT_APP_PREFERENCES.pdf.margin);
   merged.webSearch.openInNewTab = merged.webSearch.openInNewTab !== false;
+  if (!isPlainObject(merged.media)) merged.media = { ...DEFAULT_APP_PREFERENCES.media };
+  merged.media.slideshow = normalizeMediaSlideshowSettings(merged.media?.slideshow);
   if (!NAME_FORMAT_LABELS[merged.formats.nameDisplayFormat]) merged.formats.nameDisplayFormat = DEFAULT_DISPLAY_FORMAT;
   if (!NAME_FORMAT_LABELS[merged.formats.nameSortFormat]) merged.formats.nameSortFormat = DEFAULT_SORT_FORMAT;
   if (!['strict', 'review', 'lenient'].includes(merged.importDefaults?.gedcomMode)) merged.importDefaults.gedcomMode = 'review';

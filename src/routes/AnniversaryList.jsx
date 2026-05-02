@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ListPageHeader, SortableListTable } from '../components/lists/SortableListTable.jsx';
+import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
+import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
+import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadAnniversaryRows } from '../lib/listData.js';
 
 const MONTHS = [
@@ -45,6 +48,10 @@ export default function AnniversaryList() {
     if (dayFilter && row.day !== Number(dayFilter)) return false;
     return true;
   }), [rows, typeFilter, monthFilter, dayFilter]);
+  const scoped = useScopedRows(filteredRows, {
+    entityType: 'Person',
+    rowIds: (row) => row.personId,
+  });
 
   const columns = useMemo(() => [
     {
@@ -83,6 +90,14 @@ export default function AnniversaryList() {
         <option value="Birth">Birth</option>
         <option value="Death">Death</option>
       </select>
+      <ScopeFilterSelect
+        value={scoped.scopeId}
+        onChange={scoped.setScopeId}
+        scopes={scoped.scopes}
+        loading={scoped.loading}
+        error={scoped.error}
+        label="Person scope"
+      />
       <label className="text-xs text-muted-foreground">Month</label>
       <select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
         <option value="">All months</option>
@@ -105,11 +120,12 @@ export default function AnniversaryList() {
       <ListPageHeader
         title="Anniversary List"
         subtitle="Birth and death anniversaries with month/day filtering and readable years."
-        count={filteredRows.length}
+        count={scoped.rows.length}
         total={rows.length}
       />
-      <SortableListTable
-        rows={filteredRows}
+      <ConfigurableListTable
+        listId="anniversaries"
+        rows={scoped.rows}
         columns={columns}
         initialSortKey="monthDay"
         searchPlaceholder="Search anniversaries..."

@@ -7,8 +7,19 @@ import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { ToDoWizardSheet } from '../components/ToDoWizardSheet.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { listCustomTypes, saveCustomType, mergeWithBuiltins } from '../lib/customTypes.js';
 
 const TARGET_TYPES = ['Person', 'Family', 'Source', 'Place', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
+const TODO_TYPE_BUILTINS = [
+  { id: 'Research', label: 'Research' },
+  { id: 'Verify', label: 'Verify' },
+  { id: 'Source', label: 'Source' },
+  { id: 'Media', label: 'Media' },
+  { id: 'Cleanup', label: 'Cleanup' },
+];
+const TODO_STATUS_OPTIONS = ['Open', 'InProgress', 'Done', 'Blocked'];
+const TODO_PRIORITY_OPTIONS = ['Low', 'Normal', 'High'];
+const COMPLETED_STATUSES = new Set(['done', 'completed', 'complete', 'closed']);
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -38,6 +49,7 @@ export default function ToDos() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [todoTypes, setTodoTypes] = useState(TODO_TYPE_BUILTINS);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -54,16 +66,25 @@ export default function ToDos() {
       nextTargets[type] = targetRows[index].records.sort((a, b) => targetLabel(a).localeCompare(targetLabel(b)));
     });
     setTargetsByType(nextTargets);
-    if (!activeId && sorted.length) setActiveId(sorted[0].recordName);
+    if (!sorted.some((record) => record.recordName === activeId)) setActiveId(sorted[0]?.recordName || null);
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const custom = await listCustomTypes('todo');
+      if (!cancelled) setTodoTypes(mergeWithBuiltins(TODO_TYPE_BUILTINS, custom));
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const todo = todos.find((r) => r.recordName === activeId);
     if (!todo) return;
     setValues({
       title: todo.fields?.title?.value || '',
+      type: todo.fields?.type?.value || 'Research',
       status: todo.fields?.status?.value || 'Open',
       priority: todo.fields?.priority?.value || 'Normal',
       dueDate: todo.fields?.dueDate?.value || '',
@@ -81,6 +102,7 @@ export default function ToDos() {
       recordType: 'ToDo',
       fields: {
         title: { value: 'New ToDo', type: 'STRING' },
+        type: { value: 'Research', type: 'STRING' },
         status: { value: 'Open', type: 'STRING' },
         priority: { value: 'Normal', type: 'STRING' },
       },
@@ -89,6 +111,31 @@ export default function ToDos() {
     await logRecordCreated(rec);
     await reload();
     setActiveId(rec.recordName);
+  };
+
+  const onDeleteCompleted = async () => {
+    const completed = todos.filter((todo) => COMPLETED_STATUSES.has(String(todo.fields?.status?.value || '').toLowerCase()));
+    if (completed.length === 0) {
+      setStatus('No completed ToDos to delete.');
+      setTimeout(() => setStatus(null), 1800);
+      return;
+    }
+    if (!(await modal.confirm(`Delete ${completed.length} completed ToDo${completed.length === 1 ? '' : 's'}?`, {
+      title: 'Delete completed ToDos',
+      okLabel: 'Delete completed',
+      destructive: true,
+    }))) return;
+    const completedIds = new Set(completed.map((todo) => todo.recordName));
+    const completedRelations = relations.filter((relation) => completedIds.has(readRef(relation.fields?.todo)));
+    const db = getLocalDatabase();
+    await db.applyRecordTransaction({
+      deleteRecordNames: [...completedIds, ...completedRelations.map((relation) => relation.recordName)],
+    });
+    for (const todo of completed) await logRecordDeleted(todo.recordName, 'ToDo');
+    setStatus(`Deleted ${completed.length} completed ToDo${completed.length === 1 ? '' : 's'}.`);
+    if (completedIds.has(activeId)) setActiveId(null);
+    await reload();
+    setTimeout(() => setStatus(null), 1800);
   };
 
   const onDelete = async () => {
@@ -106,7 +153,7 @@ export default function ToDos() {
     if (!active) return;
     setSaving(true);
     const next = { ...active, fields: { ...active.fields } };
-    for (const key of ['title', 'status', 'priority', 'dueDate']) {
+    for (const key of ['title', 'type', 'status', 'priority', 'dueDate']) {
       const value = values[key];
       if (value) next.fields[key] = { value, type: 'STRING' };
       else delete next.fields[key];
@@ -123,6 +170,16 @@ export default function ToDos() {
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
+  };
+
+  const addCustomTodoType = async () => {
+    const label = await modal.prompt('ToDo type label:', '', { title: 'Add ToDo type', placeholder: 'Archive lookup' });
+    const trimmed = label?.trim();
+    if (!trimmed) return;
+    const saved = await saveCustomType('todo', { label: trimmed });
+    const custom = await listCustomTypes('todo');
+    setTodoTypes(mergeWithBuiltins(TODO_TYPE_BUILTINS, custom));
+    setValues((prev) => ({ ...prev, type: saved.label }));
   };
 
   const addRelation = async () => {
@@ -171,14 +228,22 @@ export default function ToDos() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldRow label="Title"><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>
         <FieldRow label="Due date"><input value={values.dueDate || ''} onChange={(e) => setValues({ ...values, dueDate: e.target.value })} style={editorInput} /></FieldRow>
+        <FieldRow label="Type">
+          <div className="flex gap-2">
+            <select value={values.type || 'Research'} onChange={(e) => setValues({ ...values, type: e.target.value })} style={editorInput}>
+              {todoTypes.map((type) => <option key={type.id || type.label} value={type.label}>{type.label}</option>)}
+            </select>
+            <button type="button" onClick={addCustomTodoType} className="bg-secondary border border-border rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap">Add type</button>
+          </div>
+        </FieldRow>
         <FieldRow label="Status">
           <select value={values.status || 'Open'} onChange={(e) => setValues({ ...values, status: e.target.value })} style={editorInput}>
-            {['Open', 'InProgress', 'Done', 'Blocked'].map((s) => <option key={s} value={s}>{s}</option>)}
+            {TODO_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </FieldRow>
         <FieldRow label="Priority">
           <select value={values.priority || 'Normal'} onChange={(e) => setValues({ ...values, priority: e.target.value })} style={editorInput}>
-            {['Low', 'Normal', 'High'].map((s) => <option key={s} value={s}>{s}</option>)}
+            {TODO_PRIORITY_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
           </select>
         </FieldRow>
       </div>
@@ -221,7 +286,11 @@ export default function ToDos() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">ToDos</h1>
         <span className="text-xs text-muted-foreground">{todos.length}</span>
-        <button onClick={() => setWizardOpen(true)} className="ms-auto border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
+        {status && <span className="text-xs text-muted-foreground">{status}</span>}
+        <button onClick={onDeleteCompleted} className="ms-auto border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
+          Delete completed
+        </button>
+        <button onClick={() => setWizardOpen(true)} className="border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
           ToDo Wizard…
         </button>
         <button onClick={onCreate} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>

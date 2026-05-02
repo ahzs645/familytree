@@ -58,6 +58,18 @@ export function validatePublishTarget(target) {
   return { target: normalized, errors, canPublish: errors.length === 0 };
 }
 
+export function publishTargetActionLabel(mode) {
+  if (mode === 'webhook') return 'Publish to webhook';
+  if (mode === 'ftp' || mode === 'sftp') return `Prepare ${mode.toUpperCase()} upload package`;
+  return 'Download website zip';
+}
+
+export function publishTargetModeDescription(mode) {
+  if (mode === 'webhook') return 'Webhook sends the generated zip to the configured endpoint.';
+  if (mode === 'ftp' || mode === 'sftp') return `${mode.toUpperCase()} currently prepares a zip package and records the destination details; it does not upload directly from the browser.`;
+  return 'Download saves a generated website zip for manual hosting or archiving.';
+}
+
 /**
  * Publish history — append-only log so the Websites route can surface past
  * publishes with their target, status, and any validation warnings. Entries

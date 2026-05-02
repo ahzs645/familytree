@@ -8,6 +8,7 @@ import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../../lib/changeLog.js';
 import { MasterDetailList } from './MasterDetailList.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
+import { readRef, refValue } from '../../lib/schema.js';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -47,7 +48,9 @@ export function SimpleCrudList({
     const r = records.find((x) => x.recordName === activeId);
     if (!r) return;
     const v = {};
-    for (const f of fields) v[f.id] = r.fields?.[f.id]?.value ?? '';
+    for (const f of fields) {
+      v[f.id] = f.referenceType ? readRef(r.fields?.[f.id]) || '' : r.fields?.[f.id]?.value ?? '';
+    }
     setValues(v);
   }, [activeId, records, fields]);
 
@@ -82,6 +85,7 @@ export function SimpleCrudList({
     for (const f of fields) {
       const v = values[f.id];
       if (v == null || v === '') delete next.fields[f.id];
+      else if (f.referenceType) next.fields[f.id] = { value: refValue(v, f.referenceType), type: 'REFERENCE' };
       else next.fields[f.id] = { value: f.type === 'number' ? +v : v, type: f.type === 'number' ? 'NUMBER' : 'STRING' };
     }
     await saveWithChangeLog(next);
