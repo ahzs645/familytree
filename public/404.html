@@ -4,17 +4,17 @@
     <meta charset="utf-8">
     <title>CloudTreeWeb</title>
     <script>
-      // SPA redirect for GitHub Pages
-      // Converts /familytree/editperson?zone=... to /familytree/?p=/editperson&zone=...
+      // SPA redirect for static hosts.
+      // Converts /familytree/charts?type=fan to /familytree/?p=/charts&type=fan
+      // and /charts?type=fan to /?p=/charts&type=fan.
       var path = window.location.pathname;
-      var base = '/familytree/';
-      if (path.startsWith(base)) {
-        var route = path.slice(base.length);
-        if (route && route !== 'index.html') {
-          var params = new URLSearchParams(window.location.search);
-          params.set('p', '/' + route);
-          window.location.replace(base + '?' + params.toString() + window.location.hash);
-        }
+      var base = path.startsWith('/familytree/') ? '/familytree/' : '/';
+      var route = path.slice(base.length);
+      var looksLikeAsset = /\/[^/]+\.[^/]+$/.test(path);
+      if (route && route !== 'index.html' && !looksLikeAsset) {
+        var params = new URLSearchParams(window.location.search);
+        params.set('p', '/' + route);
+        window.location.replace(base + '?' + params.toString() + window.location.hash);
       }
     </script>
   </head>

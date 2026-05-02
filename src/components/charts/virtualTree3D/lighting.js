@@ -14,7 +14,7 @@ import * as THREE from 'three';
 
 export function installLighting(scene, renderer) {
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
 
   const ambient = new THREE.AmbientLight(0xffffff, 0.45);
   scene.add(ambient);

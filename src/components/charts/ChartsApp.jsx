@@ -162,6 +162,23 @@ export function ChartsApp() {
     distributeBorderToBorder,
     selectOverlay,
   } = useChartObjectCommands([]);
+  const theme = getTheme(themeId, appTheme === 'dark');
+  const needsSecond = CHART_TYPES.find((t) => t.id === chartType)?.needsSecond;
+  const chartPage = {
+    title: chartTitle,
+    note: chartNote,
+    size: pageSize,
+    paperSize: pageSize,
+    orientation: pageOrientation,
+    backgroundColor: chartBackground || theme.background,
+    margins: pageMargins,
+    printMargins: pagePrintMargins,
+    overlap: pageOverlap,
+    cutMarks: pageCutMarks,
+    printPageNumbers: pagePrintPageNumbers,
+    omitEmptyPages: pageOmitEmptyPages,
+  };
+  const chartTitleOrDefault = chartTitle || 'chart';
 
   // Dirty tracking — flip isDirty on any change to persisted chart state after
   // initial mount, unless explicitly suppressed (on load/save). Watched values
@@ -226,24 +243,6 @@ export function ChartsApp() {
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [moreOpen]);
-
-  const theme = getTheme(themeId, appTheme === 'dark');
-  const needsSecond = CHART_TYPES.find((t) => t.id === chartType)?.needsSecond;
-  const chartPage = {
-    title: chartTitle,
-    note: chartNote,
-    size: pageSize,
-    paperSize: pageSize,
-    orientation: pageOrientation,
-    backgroundColor: chartBackground || theme.background,
-    margins: pageMargins,
-    printMargins: pagePrintMargins,
-    overlap: pageOverlap,
-    cutMarks: pageCutMarks,
-    printPageNumbers: pagePrintPageNumbers,
-    omitEmptyPages: pageOmitEmptyPages,
-  };
-  const chartTitleOrDefault = chartTitle || 'chart';
 
   // Edit lifecycle: mark the document dirty whenever any persisted state changes
   // after the initial mount or after an explicit load/save. The dirtyGuardRef
