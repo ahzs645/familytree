@@ -17,7 +17,7 @@ export function VisualOptionsDrawer({
   };
 
   return (
-    <aside className="absolute end-3 top-3 z-20 max-h-[calc(100%-1.5rem)] w-[min(340px,calc(100%-1.5rem))] overflow-auto rounded-md border border-border bg-card/95 p-4 text-sm shadow-xl backdrop-blur">
+    <aside className="absolute inset-x-2 bottom-2 z-20 max-h-[70%] overflow-auto rounded-md border border-border bg-card/95 p-4 text-sm shadow-xl backdrop-blur md:inset-x-auto md:end-3 md:bottom-auto md:top-3 md:max-h-[calc(100%-1.5rem)] md:w-[min(340px,calc(100%-1.5rem))]">
       <div className="mb-3 flex items-center gap-3">
         <div>
           <h2 className="text-sm font-semibold">{title}</h2>

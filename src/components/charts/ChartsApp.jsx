@@ -5,6 +5,7 @@
  */
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { FileDown, Focus, Palette, Search, Settings2, Share2, SlidersHorizontal, Users, ZoomIn } from 'lucide-react';
 import { listAllPersons, findStartPerson, buildAncestorTree, buildDescendantTree } from '../../lib/treeQuery.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
@@ -137,6 +138,18 @@ export function ChartsApp() {
   const [empty, setEmpty] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [findText, setFindText] = useState('');
+  const [chartOptionsOpen, setChartOptionsOpen] = useState(false);
+  const [chartOptionsTab, setChartOptionsTab] = useState('general');
+  const [personBrowserOpen, setPersonBrowserOpen] = useState(true);
+  const [personBrowserQuery, setPersonBrowserQuery] = useState('');
+  const [personBrowserGroup, setPersonBrowserGroup] = useState('lastName');
+  const [chartSpacing, setChartSpacing] = useState({ horizontal: 24, vertical: 110, branch: 44 });
+  const [separatedTreeAlignment, setSeparatedTreeAlignment] = useState('shortest');
+  const [showKinships, setShowKinships] = useState(false);
+  const [maxRecursionDepth, setMaxRecursionDepth] = useState(1);
+  const [hidePrivateChartInfo, setHidePrivateChartInfo] = useState(false);
+  const [chartLocalization, setChartLocalization] = useState('en');
+  const [chartPersonGroupMode, setChartPersonGroupMode] = useState('all');
   const moreRef = useRef(null);
   const [panelPersonId, setPanelPersonId] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -855,6 +868,20 @@ export function ChartsApp() {
     jpegQuality: exportJpegQuality,
     fileNameTemplate: exportFileNameTemplate,
   }), [exportFormat, exportScale, exportIncludeBackground, exportJpegQuality, exportFileNameTemplate]);
+
+  const chartPersonBrowserRows = useMemo(() => {
+    const query = personBrowserQuery.trim().toLowerCase();
+    let next = query
+      ? persons.filter((person) => String(person.fullName || `${person.firstName || ''} ${person.lastName || ''}`).toLowerCase().includes(query))
+      : persons;
+    if (chartPersonGroupMode === 'bookmarked') next = next.filter((person) => person.bookmarked);
+    return [...next].sort((a, b) => {
+      if (personBrowserGroup === 'birth') return (a.birthYear || 99999) - (b.birthYear || 99999);
+      const av = personBrowserGroup === 'firstName' ? a.firstName : a.lastName;
+      const bv = personBrowserGroup === 'firstName' ? b.firstName : b.lastName;
+      return String(av || a.fullName || '').localeCompare(String(bv || b.fullName || ''));
+    });
+  }, [chartPersonGroupMode, personBrowserGroup, personBrowserQuery, persons]);
 
   const overlayChartProps = useMemo(
     () => ({
@@ -1674,6 +1701,26 @@ export function ChartsApp() {
           </div>
         )}
       </main>
+        {personBrowserOpen && (
+          <ChartPersonBrowser
+            persons={chartPersonBrowserRows}
+            rootId={rootId}
+            query={personBrowserQuery}
+            onQueryChange={setPersonBrowserQuery}
+            group={personBrowserGroup}
+            onGroupChange={setPersonBrowserGroup}
+            onPick={(id) => {
+              setRootId(id);
+              setActivePerson(id);
+              focusRootInCanvas();
+            }}
+            onAllPersons={() => {
+              setPersonBrowserQuery('');
+              setChartPersonGroupMode('all');
+            }}
+            onSmartFilters={() => setChartPersonGroupMode((current) => current === 'bookmarked' ? 'all' : 'bookmarked')}
+          />
+        )}
         <PersonSidePanel
           recordName={panelPersonId}
           open={panelOpen}
@@ -1682,6 +1729,55 @@ export function ChartsApp() {
         />
       </div>
       </ChartSelectionProvider>
+      <ChartBottomToolbar
+        personBrowserOpen={personBrowserOpen}
+        onTogglePersonBrowser={() => setPersonBrowserOpen((open) => !open)}
+        onFocus={focusRootInCanvas}
+        findText={findText}
+        onFindTextChange={setFindText}
+        onFind={onFindPerson}
+        onSave={onSaveDocument}
+        onShare={onShareChart}
+        onExport={exportPng}
+        onTheme={() => {
+          setChartOptionsTab('localization');
+          setChartOptionsOpen((open) => !open);
+        }}
+        onChart={() => {
+          setChartOptionsTab('general');
+          setChartOptionsOpen((open) => !open);
+        }}
+        onStyle={() => {
+          setChartOptionsTab('spacing');
+          setChartOptionsOpen((open) => !open);
+        }}
+        chartOptionsOpen={chartOptionsOpen}
+      />
+      {chartOptionsOpen && (
+        <ChartOptionsPanel
+          tab={chartOptionsTab}
+          onTabChange={setChartOptionsTab}
+          onClose={() => setChartOptionsOpen(false)}
+          generations={generations}
+          onGenerationsChange={setGenerations}
+          descendantGenerations={descendantGenerations}
+          onDescendantGenerationsChange={setDescendantGenerations}
+          separatedTreeAlignment={separatedTreeAlignment}
+          onSeparatedTreeAlignmentChange={setSeparatedTreeAlignment}
+          hidePrivateChartInfo={hidePrivateChartInfo}
+          onHidePrivateChartInfoChange={setHidePrivateChartInfo}
+          showKinships={showKinships}
+          onShowKinshipsChange={setShowKinships}
+          maxRecursionDepth={maxRecursionDepth}
+          onMaxRecursionDepthChange={setMaxRecursionDepth}
+          spacing={chartSpacing}
+          onSpacingChange={setChartSpacing}
+          personGroupMode={chartPersonGroupMode}
+          onPersonGroupModeChange={setChartPersonGroupMode}
+          localization={chartLocalization}
+          onLocalizationChange={setChartLocalization}
+        />
+      )}
       {pageSetupSheetOpen && (
         <PageSetupSheet
           title="Page setup"
@@ -1824,6 +1920,232 @@ function RelationshipPathControls({
   );
 }
 
+function ChartPersonBrowser({ persons, rootId, query, onQueryChange, group, onGroupChange, onPick, onAllPersons, onSmartFilters }) {
+  return (
+    <aside style={chartPersonBrowserStyle}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+        <button type="button" onClick={onAllPersons} style={optionSelect}>All Persons</button>
+        <button type="button" onClick={onSmartFilters} style={optionSelect}>Smart Filters</button>
+      </div>
+      <label style={{ display: 'block', marginBottom: 8 }}>
+        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Find</div>
+        <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Find person" style={optionSelect} />
+      </label>
+      <label style={{ display: 'block', marginBottom: 10 }}>
+        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Group by</div>
+        <select value={group} onChange={(event) => onGroupChange(event.target.value)} style={optionSelect}>
+          <option value="lastName">Last Name</option>
+          <option value="firstName">First Name</option>
+          <option value="birth">Birth Year</option>
+        </select>
+      </label>
+      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 6 }}>{persons.length.toLocaleString()} persons</div>
+      <div style={{ overflow: 'auto', minHeight: 0 }}>
+        {persons.slice(0, 700).map((person) => {
+          const active = person.recordName === rootId;
+          return (
+            <button
+              type="button"
+              key={person.recordName}
+              onClick={() => onPick(person.recordName)}
+              style={{
+                width: '100%',
+                textAlign: 'start',
+                padding: '7px 8px',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: 6,
+                marginBottom: 5,
+                background: active ? 'hsl(var(--accent))' : 'hsl(var(--background))',
+                color: 'hsl(var(--foreground))',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.fullName || person.recordName}</div>
+              <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{person.birthDate || 'Birth unknown'}</div>
+            </button>
+          );
+        })}
+      </div>
+    </aside>
+  );
+}
+
+function ChartBottomToolbar({
+  personBrowserOpen,
+  onTogglePersonBrowser,
+  onFocus,
+  findText,
+  onFindTextChange,
+  onFind,
+  onSave,
+  onShare,
+  onExport,
+  onTheme,
+  onChart,
+  onStyle,
+  chartOptionsOpen,
+}) {
+  const buttons = [
+    { label: 'Size to Fit', icon: ZoomIn, onClick: onFocus },
+    { label: 'Focus', icon: Focus, onClick: onFocus },
+    { label: 'Save Chart', icon: FileDown, onClick: onSave },
+    { label: 'Share', icon: Share2, onClick: onShare },
+    { label: 'Edit', icon: Settings2, onClick: onTogglePersonBrowser, active: personBrowserOpen },
+    { label: 'Theme', icon: Palette, onClick: onTheme },
+    { label: 'Chart', icon: SlidersHorizontal, onClick: onChart, active: chartOptionsOpen },
+    { label: 'Style', icon: Users, onClick: onStyle },
+  ];
+  return (
+    <footer style={chartToolbarStyle}>
+      {buttons.slice(0, 2).map((button) => <ChartToolButton key={button.label} {...button} />)}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 220 }}>
+        <Search size={14} />
+        <input value={findText} onChange={(event) => onFindTextChange(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onFind()} placeholder="Find" style={{ ...optionSelect, height: 30 }} />
+        <button type="button" onClick={onFind} style={{ ...optionSelect, width: 'auto', height: 30 }}>Find</button>
+      </div>
+      {buttons.slice(2).map((button) => <ChartToolButton key={button.label} {...button} />)}
+      <button type="button" onClick={onExport} style={{ ...optionSelect, width: 'auto', marginInlineStart: 'auto' }}>Export PNG</button>
+    </footer>
+  );
+}
+
+function ChartToolButton({ label, icon: Icon, onClick, active }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...optionSelect,
+        width: 'auto',
+        minHeight: 30,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        background: active ? 'hsl(var(--accent))' : optionSelect.background,
+      }}
+    >
+      <Icon size={14} />
+      {label}
+    </button>
+  );
+}
+
+function ChartOptionsPanel({
+  tab,
+  onTabChange,
+  onClose,
+  generations,
+  onGenerationsChange,
+  descendantGenerations,
+  onDescendantGenerationsChange,
+  separatedTreeAlignment,
+  onSeparatedTreeAlignmentChange,
+  hidePrivateChartInfo,
+  onHidePrivateChartInfoChange,
+  showKinships,
+  onShowKinshipsChange,
+  maxRecursionDepth,
+  onMaxRecursionDepthChange,
+  spacing,
+  onSpacingChange,
+  personGroupMode,
+  onPersonGroupModeChange,
+  localization,
+  onLocalizationChange,
+}) {
+  const tabs = [
+    ['general', 'General'],
+    ['spacing', 'Spacing'],
+    ['groups', 'Person Groups'],
+    ['localization', 'Localization & Formats'],
+  ];
+  return (
+    <aside style={chartOptionsPanelStyle}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <strong style={{ fontSize: 13 }}>Chart Options</strong>
+        <button type="button" onClick={onClose} style={{ ...optionSelect, width: 'auto', marginInlineStart: 'auto' }}>Close</button>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+        {tabs.map(([id, label]) => (
+          <button key={id} type="button" onClick={() => onTabChange(id)} style={{ ...optionSelect, width: 'auto', background: tab === id ? 'hsl(var(--accent))' : optionSelect.background }}>{label}</button>
+        ))}
+      </div>
+      {tab === 'general' && (
+        <div style={{ display: 'grid', gap: 10 }}>
+          <RangeField label="Parent Generations" value={generations} min={1} max={10} onChange={onGenerationsChange} />
+          <RangeField label="Children Generations" value={descendantGenerations} min={1} max={10} onChange={onDescendantGenerationsChange} />
+          <SelectOption label="Alignment of Separated Trees" value={separatedTreeAlignment} onChange={onSeparatedTreeAlignmentChange} options={[
+            ['shortest', 'Shortest Distance to Origin'],
+            ['centered', 'Centered'],
+            ['left', 'Left Aligned'],
+          ]} />
+          <CheckOption label="Hide Information marked as Private" checked={hidePrivateChartInfo} onChange={onHidePrivateChartInfoChange} />
+          <CheckOption label="Show Kinships" checked={showKinships} onChange={onShowKinshipsChange} />
+          <RangeField label="Maximum Recursion Depth" value={maxRecursionDepth} min={0} max={6} onChange={onMaxRecursionDepthChange} />
+        </div>
+      )}
+      {tab === 'spacing' && (
+        <div style={{ display: 'grid', gap: 10 }}>
+          <RangeField label="Horizontal Spacing" value={spacing.horizontal} min={8} max={120} onChange={(value) => onSpacingChange({ ...spacing, horizontal: value })} />
+          <RangeField label="Vertical Spacing" value={spacing.vertical} min={50} max={220} onChange={(value) => onSpacingChange({ ...spacing, vertical: value })} />
+          <RangeField label="Branch Spacing" value={spacing.branch} min={8} max={120} onChange={(value) => onSpacingChange({ ...spacing, branch: value })} />
+        </div>
+      )}
+      {tab === 'groups' && (
+        <SelectOption label="Person Group" value={personGroupMode} onChange={onPersonGroupModeChange} options={[
+          ['all', 'All Persons'],
+          ['bookmarked', 'Bookmarked'],
+          ['start-family', 'Start-person family'],
+        ]} />
+      )}
+      {tab === 'localization' && (
+        <div style={{ display: 'grid', gap: 10 }}>
+          <SelectOption label="Localization" value={localization} onChange={onLocalizationChange} options={[
+            ['en', 'English'],
+            ['ar', 'Arabic'],
+            ['he', 'Hebrew'],
+            ['system', 'System default'],
+          ]} />
+          <SelectOption label="Name Format" value="display" onChange={() => {}} options={[
+            ['display', 'Display name'],
+            ['last-first', 'Last, First'],
+            ['given-family', 'Given Family'],
+          ]} />
+        </div>
+      )}
+    </aside>
+  );
+}
+
+function RangeField({ label, value, min, max, onChange }) {
+  return (
+    <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
+      <span style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--muted-foreground))' }}><span>{label}</span><span>{value}</span></span>
+      <input type="range" min={min} max={max} value={value} onChange={(event) => onChange(Number(event.target.value))} />
+    </label>
+  );
+}
+
+function CheckOption({ label, checked, onChange }) {
+  return (
+    <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
+      {label}
+    </label>
+  );
+}
+
+function SelectOption({ label, value, onChange, options }) {
+  return (
+    <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+      <span>{label}</span>
+      <select value={value} onChange={(event) => onChange(event.target.value)} style={optionSelect}>
+        {options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}
+      </select>
+    </label>
+  );
+}
+
 function Section({ label, children }) {
   return (
     <div style={{ marginBottom: 12 }}>
@@ -1850,6 +2172,44 @@ const headerStyle = {
 };
 const mainStyle = { flex: 1, position: 'relative', overflow: 'hidden', minWidth: 0 };
 const canvasRowStyle = { flex: 1, display: 'flex', minHeight: 0, minWidth: 0 };
+const chartPersonBrowserStyle = {
+  width: 260,
+  flexShrink: 0,
+  display: 'flex',
+  flexDirection: 'column',
+  minHeight: 0,
+  padding: 12,
+  borderInlineStart: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--card))',
+  color: 'hsl(var(--foreground))',
+};
+const chartToolbarStyle = {
+  position: 'relative',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: '8px 12px',
+  borderTop: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--card))',
+  color: 'hsl(var(--foreground))',
+  overflowX: 'auto',
+};
+const chartOptionsPanelStyle = {
+  position: 'absolute',
+  right: 18,
+  bottom: 58,
+  zIndex: 30,
+  width: 360,
+  maxWidth: 'calc(100vw - 2rem)',
+  maxHeight: 'min(620px, calc(100vh - 8rem))',
+  overflow: 'auto',
+  padding: 14,
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 8,
+  background: 'hsl(var(--card))',
+  color: 'hsl(var(--foreground))',
+  boxShadow: '0 16px 40px rgba(0,0,0,0.28)',
+};
 const relationshipControlsStyle = {
   display: 'flex',
   alignItems: 'flex-end',

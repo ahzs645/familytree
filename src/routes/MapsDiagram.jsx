@@ -33,9 +33,27 @@ function rangeLabel(range) {
   return `${range[0]} - ${range[1]}`;
 }
 
+const STATISTIC_SOURCES = [
+  { id: 'events-heat', label: 'Events heat map', mode: 'heat', predicate: () => true },
+  { id: 'events', label: 'Events', predicate: () => true },
+  { id: 'birth-heat', label: 'Birth events heat map', mode: 'heat', predicate: (event) => /birth|christ|bapt/i.test(event.conclusionType) },
+  { id: 'birth', label: 'Birth Events', predicate: (event) => /birth|christ|bapt/i.test(event.conclusionType) },
+  { id: 'birth-living', label: 'Birth events of living persons', predicate: (event) => /birth|christ|bapt/i.test(event.conclusionType) && !event.subjectDeathYear },
+  { id: 'death-heat', label: 'Death events heat map', mode: 'heat', predicate: (event) => /death|crem/i.test(event.conclusionType) },
+  { id: 'death', label: 'Death Events', predicate: (event) => /death|crem/i.test(event.conclusionType) },
+  { id: 'burial', label: 'Burial Events', predicate: (event) => /burial|buri/i.test(event.conclusionType) },
+  { id: 'burial-heat', label: 'Burial events heat map', mode: 'heat', predicate: (event) => /burial|buri/i.test(event.conclusionType) },
+  { id: 'name-distribution', label: 'Name distribution', colorBy: 'name', predicate: () => true },
+  { id: 'gender-distribution', label: 'Gender distribution', colorBy: 'gender', predicate: () => true },
+  { id: 'living-heat', label: 'Heat map of living persons', mode: 'heat', predicate: (event) => !event.subjectDeathYear },
+  { id: 'average-age', label: 'Average age', colorBy: 'age', predicate: (event) => Number.isFinite(event.subjectBirthYear) },
+  { id: 'average-age-at-death', label: 'Average age at death', colorBy: 'ageAtDeath', predicate: (event) => Number.isFinite(event.subjectBirthYear) && Number.isFinite(event.subjectDeathYear) },
+];
+
 export default function MapsDiagram() {
   const [events, setEvents] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [statisticSourceId, setStatisticSourceId] = useState('events-heat');
   const [subjectId, setSubjectId] = useState('');
   const [filterType, setFilterType] = useState('');
   const [yearRange, setYearRange] = useState(null);
@@ -90,6 +108,9 @@ export default function MapsDiagram() {
           placeName: place?.fields?.cached_normallocationString?.value || place?.fields?.placeName?.value || placeId,
           subjectId,
           subjectName: personSummary(personById.get(subjectId))?.fullName || subjectId,
+          subjectGender: personById.get(subjectId)?.fields?.gender?.value || personById.get(subjectId)?.fields?.sex?.value || '',
+          subjectBirthYear: yearOf(personById.get(subjectId)?.fields?.birthDate?.value || personById.get(subjectId)?.fields?.cached_birthDate?.value),
+          subjectDeathYear: yearOf(personById.get(subjectId)?.fields?.deathDate?.value || personById.get(subjectId)?.fields?.cached_deathDate?.value),
           lat,
           lng,
         });
@@ -122,13 +143,18 @@ export default function MapsDiagram() {
   }, [events]);
 
   const effectiveRange = allYears ? yearBounds : (yearRange || yearBounds);
+  const statisticSource = STATISTIC_SOURCES.find((source) => source.id === statisticSourceId) || STATISTIC_SOURCES[0];
 
   const filtered = useMemo(() => events.filter((e) => {
+    if (!statisticSource.predicate(e)) return false;
     if (filterType && e.conclusionType !== filterType) return false;
     if (subjectId && e.subjectId !== subjectId) return false;
+    if (visualOptions.smartFilterMode === 'with-places' && !e.placeId) return false;
+    if (visualOptions.smartFilterMode === 'missing-date' && e.year) return false;
+    if (visualOptions.smartFilterMode === 'living' && e.subjectDeathYear) return false;
     if (!allYears && Number.isFinite(e.year) && (e.year < effectiveRange[0] || e.year > effectiveRange[1])) return false;
     return true;
-  }), [events, filterType, subjectId, effectiveRange, allYears]);
+  }), [events, statisticSource, filterType, subjectId, visualOptions.smartFilterMode, effectiveRange, allYears]);
 
   useEffect(() => {
     if (!playing) return undefined;
@@ -136,13 +162,20 @@ export default function MapsDiagram() {
       setYearRange((range) => {
         const current = range || yearBounds;
         const span = Math.max(1, current[1] - current[0]);
-        let nextStart = current[0] + stepYears;
+        let nextStart = current[0] + (visualOptions.slideshowYearStep || stepYears);
         if (nextStart + span > yearBounds[1]) nextStart = yearBounds[0];
-        return [nextStart, Math.min(yearBounds[1], nextStart + span)];
+        const nextEnd = visualOptions.slideshowExpandRange ? Math.min(yearBounds[1], current[1] + (visualOptions.slideshowYearStep || stepYears)) : Math.min(yearBounds[1], nextStart + span);
+        const next = [nextStart, nextEnd];
+        if (!visualOptions.slideshowSkipEmptyYears) return next;
+        const hasEvent = events.some((event) => {
+          if (!statisticSource.predicate(event) || !Number.isFinite(event.year)) return false;
+          return event.year >= next[0] && event.year <= next[1];
+        });
+        return hasEvent ? next : yearBounds;
       });
     }, visualOptions.slideshowDelayMs);
     return () => clearInterval(id);
-  }, [playing, stepYears, visualOptions.slideshowDelayMs, yearBounds]);
+  }, [events, playing, statisticSource, stepYears, visualOptions.slideshowDelayMs, visualOptions.slideshowExpandRange, visualOptions.slideshowSkipEmptyYears, visualOptions.slideshowYearStep, yearBounds]);
 
   useEffect(() => {
     if (allYears) setPlaying(false);
@@ -167,12 +200,12 @@ export default function MapsDiagram() {
       id: event.recordName,
       lat: event.lat,
       lng: event.lng,
-      color: colorForVisualEvent(event, visualOptions, yearBounds),
+      color: colorForStatisticEvent(event, statisticSource, visualOptions, yearBounds),
       size: visualOptions.markerSize,
       popup: `${event.conclusionType}${event.date ? ' · ' + event.date : ''} — ${event.placeName}`,
       onClick: () => setSelectedId(event.recordName),
     }));
-  }, [filtered, visualOptions, yearBounds]);
+  }, [filtered, statisticSource, visualOptions, yearBounds]);
   const mapConnections = useMemo(
     () => buildChronologicalConnections(filtered, visualOptions.connectionLines),
     [filtered, visualOptions.connectionLines]
@@ -196,14 +229,15 @@ export default function MapsDiagram() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3">
-        <div>
+      <header className="border-b border-border bg-card px-3 py-3 md:px-5">
+        <div className="flex items-start gap-3">
+        <div className="min-w-0">
           <h1 className="text-base font-semibold">Map + Timeline Story</h1>
           <div className="text-xs text-muted-foreground">
-            {loading ? 'Loading events…' : `${filtered.length} of ${events.length} placed event${events.length === 1 ? '' : 's'} in the current story`}
+            {loading ? 'Loading events…' : `${filtered.length} of ${events.length} placed event${events.length === 1 ? '' : 's'} · ${statisticSource.label}`}
           </div>
         </div>
-        <div className="ms-auto flex flex-wrap items-center gap-2">
+        <div className="ms-auto flex shrink-0 items-center gap-2">
           <button
             type="button"
             onClick={() => setOptionsOpen((open) => !open)}
@@ -211,83 +245,107 @@ export default function MapsDiagram() {
           >
             Options
           </button>
-          <Link to="/events" className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Events</Link>
-          <Link to="/places" className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Places</Link>
+          <Link to="/events" className="hidden rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent sm:inline-flex">Events</Link>
+          <Link to="/places" className="hidden rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent sm:inline-flex">Places</Link>
         </div>
-        <div className="basis-full flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            Type
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-[minmax(240px,1.35fr)_minmax(140px,0.65fr)_minmax(220px,1fr)_minmax(260px,1.25fr)]">
+          <label className="grid gap-1 text-xs text-muted-foreground">
+            <span>Statistic</span>
+            <select
+              value={statisticSourceId}
+              onChange={(e) => {
+                const nextSource = STATISTIC_SOURCES.find((source) => source.id === e.target.value);
+                setStatisticSourceId(e.target.value);
+                if (nextSource?.mode === 'heat') setVisualOptions((current) => normalizeVisualViewOptions('mapStory', { ...current, markerMode: 'pins-heat' }));
+              }}
+              className="h-8 min-w-0 rounded-md border border-border bg-secondary px-2 text-sm text-foreground"
+            >
+              {STATISTIC_SOURCES.map((source) => <option key={source.id} value={source.id}>{source.label}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-1 text-xs text-muted-foreground">
+            <span>Type</span>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="rounded-md border border-border bg-secondary px-2 py-1 text-xs text-foreground"
+              className="h-8 min-w-0 rounded-md border border-border bg-secondary px-2 text-sm text-foreground"
             >
               {types.map((t) => <option key={t} value={t}>{t || 'All types'}</option>)}
             </select>
           </label>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            Person
+          <label className="grid gap-1 text-xs text-muted-foreground">
+            <span>Person</span>
             <select
               value={subjectId}
               onChange={(e) => setSubjectId(e.target.value)}
-              className="max-w-[220px] rounded-md border border-border bg-secondary px-2 py-1 text-xs text-foreground"
+              className="h-8 min-w-0 rounded-md border border-border bg-secondary px-2 text-sm text-foreground"
             >
               <option value="">All people</option>
               {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
             </select>
           </label>
-          <div className="flex flex-1 flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>Years {rangeLabel(effectiveRange)}</span>
-            <input
-              type="range"
-              min={yearBounds[0]}
-              max={yearBounds[1]}
-              value={effectiveRange[0]}
-              onChange={(e) => setRangeMin(e.target.value)}
-              className="w-36"
-              aria-label="Minimum year"
-            />
-            <input
-              type="range"
-              min={yearBounds[0]}
-              max={yearBounds[1]}
-              value={effectiveRange[1]}
-              onChange={(e) => setRangeMax(e.target.value)}
-              className="w-36"
-              aria-label="Maximum year"
-            />
-            <button onClick={() => setYearRange(null)} className="text-xs text-primary hover:underline">Reset years</button>
-            <button
-              onClick={() => setPlaying((p) => !p)}
-              disabled={allYears}
-              className="rounded-md border border-border bg-secondary px-2 py-1 text-xs disabled:opacity-50"
-              title="Animate across the selected year range"
-            >
-              {playing ? '⏸ Stop Slideshow' : '▶ Start Slideshow'}
-            </button>
-            <label className="flex items-center gap-1 text-xs">
-              step
-              <select
-                value={stepYears}
-                onChange={(e) => setStepYears(Number(e.target.value))}
-                className="rounded-md border border-border bg-secondary px-1 py-0.5 text-xs"
+          <div className="col-span-2 grid gap-1 rounded-md border border-border bg-background px-2.5 py-2 text-xs text-muted-foreground xl:col-span-1">
+            <div className="flex items-center justify-between gap-2">
+              <span>Years {rangeLabel(effectiveRange)}</span>
+              <button onClick={() => setYearRange(null)} className="text-primary hover:underline">Reset</button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="range"
+                min={yearBounds[0]}
+                max={yearBounds[1]}
+                value={effectiveRange[0]}
+                onChange={(e) => setRangeMin(e.target.value)}
+                className="min-w-0"
+                aria-label="Minimum year"
+              />
+              <input
+                type="range"
+                min={yearBounds[0]}
+                max={yearBounds[1]}
+                value={effectiveRange[1]}
+                onChange={(e) => setRangeMax(e.target.value)}
+                className="min-w-0"
+                aria-label="Maximum year"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setPlaying((p) => !p)}
+                disabled={allYears}
+                className="rounded-md border border-border bg-secondary px-2 py-1 text-xs disabled:opacity-50"
+                title="Animate across the selected year range"
               >
-                {[1, 2, 5, 10, 25].map((n) => <option key={n} value={n}>{n}y</option>)}
-              </select>
-            </label>
-            <label className="flex items-center gap-1 text-xs">
-              <input type="checkbox" checked={allYears} onChange={(e) => setAllYears(e.target.checked)} />
-              Show all Years
-            </label>
-          </div>
-          <div className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="inline-block h-3 w-3 rounded-full border-2 border-white bg-primary shadow" />
-            Event location
+                {playing ? 'Stop' : 'Start'} Slideshow
+              </button>
+              <label className="flex items-center gap-1">
+                step
+                <select
+                  value={stepYears}
+                  onChange={(e) => {
+                    setStepYears(Number(e.target.value));
+                    setVisualOptions((current) => normalizeVisualViewOptions('mapStory', { ...current, slideshowYearStep: Number(e.target.value) }));
+                  }}
+                  className="rounded-md border border-border bg-secondary px-1 py-0.5 text-xs"
+                >
+                  {[1, 2, 5, 10, 25].map((n) => <option key={n} value={n}>{n}y</option>)}
+                </select>
+              </label>
+              <label className="flex items-center gap-1">
+                <input type="checkbox" checked={allYears} onChange={(e) => setAllYears(e.target.checked)} />
+                All years
+              </label>
+              <span className="ms-auto hidden items-center gap-1 sm:flex">
+                <span className="inline-block h-3 w-3 rounded-full border-2 border-white bg-primary shadow" />
+                Event location
+              </span>
+            </div>
           </div>
         </div>
       </header>
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="relative min-h-[360px]">
+        <div className="relative min-h-[420px]">
           <MapView
             center={center}
             zoom={visualOptions.slideshowFit && playing ? 5 : 4}
@@ -295,9 +353,13 @@ export default function MapsDiagram() {
             showMarkers={usesMarkerPins(visualOptions)}
             connections={mapConnections}
             heatmap={{
-              enabled: usesHeatMap(visualOptions),
+              enabled: statisticSource.mode === 'heat' || usesHeatMap(visualOptions),
               radius: visualOptions.heatRadius,
               opacity: visualOptions.heatOpacity,
+              amplification: visualOptions.heatAmplification,
+              autoRadius: visualOptions.heatAutoRadius,
+              fixedRadius: visualOptions.fixedHeatRadius,
+              gradient: visualOptions.heatGradient,
             }}
           />
           <VisualOptionsDrawer
@@ -380,4 +442,27 @@ function EventDetail({ event, selected }) {
       </div>
     </div>
   );
+}
+
+function colorForStatisticEvent(event, source, visualOptions, yearBounds) {
+  if (source?.colorBy === 'gender') {
+    const gender = String(event.subjectGender || '').toLowerCase();
+    if (gender.includes('female') || gender === 'f') return '#be185d';
+    if (gender.includes('male') || gender === 'm') return '#2563eb';
+    return '#64748b';
+  }
+  if (source?.colorBy === 'name') {
+    const initial = String(event.subjectName || '').trim().charCodeAt(0) || 0;
+    return ['#2563eb', '#0f766e', '#d97706', '#7c3aed', '#be123c'][initial % 5];
+  }
+  if (source?.colorBy === 'age' || source?.colorBy === 'ageAtDeath') {
+    const endYear = source.colorBy === 'ageAtDeath' ? event.subjectDeathYear : event.year;
+    const age = Number.isFinite(endYear) && Number.isFinite(event.subjectBirthYear) ? endYear - event.subjectBirthYear : null;
+    if (age == null) return '#64748b';
+    if (age < 18) return '#2563eb';
+    if (age < 50) return '#0f766e';
+    if (age < 75) return '#d97706';
+    return '#7f1d1d';
+  }
+  return colorForVisualEvent(event, visualOptions, yearBounds);
 }

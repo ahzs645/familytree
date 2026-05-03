@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { compareStrings, formatInteger, getCurrentLocalization, matchesSearchText } from '../../lib/i18n.js';
+import { ListReportPreview } from './ListReportWorkbench.jsx';
 
 function defaultValue(row, column) {
   if (column.sortValue) return column.sortValue(row);
@@ -57,6 +58,7 @@ export function SortableListTable({
   emptyHint,
   toolbar,
   onRowClick,
+  reportPreview,
 }) {
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState(initialSortKey || columns.find((column) => column.sortable !== false)?.key || '');
@@ -107,7 +109,14 @@ export function SortableListTable({
         {toolbar}
       </div>
       <div className="flex-1 min-h-0 overflow-auto">
-        {visibleRows.length === 0 ? (
+        {reportPreview?.enabled ? (
+          <ListReportPreview
+            title={reportPreview.title || 'List Report'}
+            rows={visibleRows}
+            columns={reportPreview.columns || columns}
+            options={reportPreview.options}
+          />
+        ) : visibleRows.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 py-12">
             <div className="text-sm font-semibold text-foreground">{emptyTitle}</div>
             {emptyHint && <div className="text-xs text-muted-foreground mt-1 max-w-lg">{emptyHint}</div>}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
@@ -9,6 +9,8 @@ const NODE_SPACING = 240;
 const PARTNER_OFFSET = 178;
 const AVATAR_RADIUS = 46;
 const ROOT_CARD = { w: 230, h: 230 };
+const SKIN = '#f4d3a5';
+const SKIN_SHADOW = '#dcae7a';
 const BAND_LABEL_GUTTER = 310;
 
 export function ThreeDTreeView({
@@ -17,6 +19,7 @@ export function ThreeDTreeView({
   activeId,
   loading = false,
   onPick,
+  context,
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
@@ -25,16 +28,22 @@ export function ThreeDTreeView({
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
   const clickablesRef = useRef([]);
-  const actionsRef = useRef({ fit: () => {}, zoom: () => {} });
+  const actionsRef = useRef({ fit: () => {}, zoom: () => {}, zoomTo: () => {} });
   const downRef = useRef(null);
   const { theme } = useTheme();
   const dark = theme === 'dark';
+  const [zoomPercent, setZoomPercent] = useState(100);
 
   const palette = useMemo(() => makePalette(dark), [dark]);
   const layout = useMemo(
     () => buildInteractiveLayout(ancestorTree, descendantTree, activeId),
     [ancestorTree, descendantTree, activeId]
   );
+  const relationshipCounts = useMemo(() => ({
+    parents: context?.parents?.flatMap((family) => [family.man, family.woman]).filter(Boolean).length || 0,
+    partners: context?.families?.map((family) => family.partner).filter(Boolean).length || 0,
+    children: context?.families?.flatMap((family) => family.children || []).filter(Boolean).length || 0,
+  }), [context]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -70,6 +79,8 @@ export function ThreeDTreeView({
       MIDDLE: THREE.MOUSE.DOLLY,
       RIGHT: THREE.MOUSE.ROTATE,
     };
+    const updateZoomReadout = () => setZoomPercent(Math.round(camera.zoom * 100));
+    controls.addEventListener('change', updateZoomReadout);
 
     scene.add(new THREE.AmbientLight(palette.ambient, 2.2));
     const key = new THREE.DirectionalLight(palette.keyLight, 2.5);
@@ -91,13 +102,23 @@ export function ThreeDTreeView({
     cameraRef.current = camera;
     controlsRef.current = controls;
 
-    const fit = (bounds = layout.viewBounds || layout.bounds) => fitCamera(camera, controls, bounds, container);
+    const fit = (bounds = layout.viewBounds || layout.bounds) => {
+      fitCamera(camera, controls, bounds, container);
+      setZoomPercent(Math.round(camera.zoom * 100));
+    };
     const zoom = (factor) => {
       camera.zoom = THREE.MathUtils.clamp(camera.zoom / factor, controls.minZoom, controls.maxZoom);
       camera.updateProjectionMatrix();
       controls.update();
+      setZoomPercent(Math.round(camera.zoom * 100));
     };
-    actionsRef.current = { fit, zoom };
+    const zoomTo = (percent) => {
+      camera.zoom = THREE.MathUtils.clamp(percent / 100, controls.minZoom, controls.maxZoom);
+      camera.updateProjectionMatrix();
+      controls.update();
+      setZoomPercent(Math.round(camera.zoom * 100));
+    };
+    actionsRef.current = { fit, zoom, zoomTo };
 
     const resize = () => {
       const { width, height } = container.getBoundingClientRect();
@@ -164,6 +185,7 @@ export function ThreeDTreeView({
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       renderer.domElement.removeEventListener('contextmenu', preventContextMenu);
+      controls.removeEventListener('change', updateZoomReadout);
       controls.dispose();
       disposeObject(stage);
       renderer.dispose();
@@ -211,7 +233,11 @@ export function ThreeDTreeView({
     }
 
     fitCamera(camera, controls, layout.viewBounds || layout.bounds, container);
-    actionsRef.current.fit = () => fitCamera(camera, controls, layout.viewBounds || layout.bounds, container);
+    setZoomPercent(Math.round(camera.zoom * 100));
+    actionsRef.current.fit = () => {
+      fitCamera(camera, controls, layout.viewBounds || layout.bounds, container);
+      setZoomPercent(Math.round(camera.zoom * 100));
+    };
   }, [layout, palette]);
 
   const hasTree = layout.nodes.length > 0;
@@ -224,11 +250,44 @@ export function ThreeDTreeView({
         <button type="button" onClick={() => actionsRef.current.zoom(1.18)} style={styles.iconButton} title="Zoom out">-</button>
         <button type="button" onClick={() => actionsRef.current.fit()} style={styles.fitButton} title="Size to fit">Fit</button>
       </div>
+      <div style={styles.bottomDock}>
+        <div style={styles.dockGroup}>
+          <span style={styles.dockLabel}>Size to Fit</span>
+          <input
+            type="range"
+            min="34"
+            max="260"
+            value={zoomPercent}
+            onChange={(event) => actionsRef.current.zoomTo(Number(event.target.value))}
+            style={styles.zoomSlider}
+            aria-label="Tree zoom"
+          />
+          <span style={styles.zoomReadout}>{zoomPercent}%</span>
+        </div>
+        <div style={styles.dockGroup}>
+          <Metric label="Parents" value={relationshipCounts.parents} />
+          <Metric label="Partners" value={relationshipCounts.partners} />
+          <Metric label="Children" value={relationshipCounts.children} />
+        </div>
+        <div style={styles.dockGroup}>
+          <button type="button" style={styles.dockButton} onClick={() => actionsRef.current.fit()}>Options</button>
+          <button type="button" style={styles.dockButton} onClick={() => actionsRef.current.fit()}>Style</button>
+        </div>
+      </div>
       {(loading || !hasTree) && (
         <div style={styles.overlay}>
           {loading ? 'Loading tree...' : 'Pick a person from the list.'}
         </div>
       )}
+    </div>
+  );
+}
+
+function Metric({ label, value }) {
+  return (
+    <div style={styles.metric}>
+      <span style={styles.metricValue}>{value}</span>
+      <span style={styles.metricLabel}>{label}</span>
     </div>
   );
 }
@@ -624,52 +683,22 @@ function makePersonNode(node, palette) {
   group.position.set(node.x, node.y, node.z);
   group.userData.person = node.person;
 
-  const colors = colorsForGender(node.person?.gender, palette);
-  const base = new THREE.Mesh(
-    new THREE.SphereGeometry(AVATAR_RADIUS, 40, 18),
-    new THREE.MeshStandardMaterial({
-      color: colors.base,
-      roughness: 0.38,
-      metalness: 0.04,
-      emissive: colors.base,
-      emissiveIntensity: 0.04,
-    })
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(58, 56),
+    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.15, depthWrite: false })
   );
-  base.scale.set(1.18, 0.34, 0.46);
-  base.position.set(0, 12, 0);
-  base.castShadow = true;
-  base.receiveShadow = true;
-  group.add(base);
+  shadow.scale.set(1.28, 0.38, 1);
+  shadow.position.set(8, -4, -18);
+  shadow.renderOrder = 2;
+  group.add(shadow);
 
-  const rim = new THREE.Mesh(
-    new THREE.SphereGeometry(AVATAR_RADIUS * 0.74, 36, 12),
-    new THREE.MeshStandardMaterial({
-      color: colors.deep,
-      transparent: true,
-      opacity: 0.2,
-      roughness: 0.6,
-    })
-  );
-  rim.scale.set(1.12, 0.16, 0.32);
-  rim.position.set(0, 3, -2);
-  group.add(rim);
-
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(25, 32, 22),
-    new THREE.MeshStandardMaterial({
-      color: '#f4dcc0',
-      roughness: 0.42,
-      metalness: 0,
-      emissive: '#f7dfc4',
-      emissiveIntensity: 0.03,
-    })
-  );
-  head.position.set(0, 52, 18);
-  head.castShadow = true;
-  group.add(head);
+  const icon = makePlaneFromTexture(makeMacPersonIconTexture(node.person, palette, false), 116, 92);
+  icon.position.set(0, 18, 22);
+  icon.renderOrder = 8;
+  group.add(icon);
 
   const label = makePlaneFromTexture(makePersonLabelTexture(node.person, palette), 168, 66);
-  label.position.set(0, -52, 16);
+  label.position.set(0, -58, 16);
   group.add(label);
 
   return group;
@@ -694,29 +723,160 @@ function makeFeaturedNode(node, palette) {
   card.renderOrder = 3;
   group.add(card);
 
-  const colors = colorsForGender(node.person?.gender, palette);
-  const glow = new THREE.Mesh(
-    new THREE.SphereGeometry(50, 44, 16),
-    new THREE.MeshStandardMaterial({
-      color: colors.base,
-      transparent: true,
-      opacity: 0.5,
-      roughness: 0.35,
-      emissive: colors.base,
-      emissiveIntensity: 0.2,
-    })
-  );
-  glow.scale.set(1.22, 0.24, 0.4);
-  glow.position.set(0, 48, 24);
-  group.add(glow);
+  const icon = makePlaneFromTexture(makeMacPersonIconTexture(node.person, palette, true), 144, 116);
+  icon.position.set(0, 56, 36);
+  icon.renderOrder = 9;
+  group.add(icon);
 
-  const head = new THREE.Mesh(
-    new THREE.SphereGeometry(30, 36, 24),
-    new THREE.MeshStandardMaterial({ color: '#f2d8b9', roughness: 0.42 })
-  );
-  head.position.set(0, 80, 46);
+  return group;
+}
+
+function makeMacPersonIconTexture(person, palette, featured) {
+  const colors = colorsForGender(person?.gender, palette);
+  return makeCanvasTexture(360, 300, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    ctx.save();
+    ctx.translate(w / 2, featured ? h / 2 + 6 : h / 2 + 10);
+    ctx.scale(featured ? 1.1 : 1, featured ? 1.1 : 1);
+
+    const shadow = ctx.createRadialGradient(22, 54, 10, 22, 54, 118);
+    shadow.addColorStop(0, 'rgba(0,0,0,0.2)');
+    shadow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = shadow;
+    ctx.beginPath();
+    ctx.ellipse(18, 66, 112, 32, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const bodyGradient = ctx.createRadialGradient(-34, 22, 12, -18, 30, 86);
+    bodyGradient.addColorStop(0, lightenHex(colors.base, 0.32));
+    bodyGradient.addColorStop(0.55, colors.base);
+    bodyGradient.addColorStop(1, colors.deep);
+    ctx.fillStyle = bodyGradient;
+    ctx.beginPath();
+    ctx.ellipse(-20, 34, 70, 39, -0.12, 0, Math.PI * 2);
+    ctx.fill();
+
+    const bodyHighlight = ctx.createRadialGradient(-48, 15, 4, -42, 18, 44);
+    bodyHighlight.addColorStop(0, 'rgba(255,255,255,0.62)');
+    bodyHighlight.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = bodyHighlight;
+    ctx.beginPath();
+    ctx.ellipse(-36, 22, 42, 18, -0.16, 0, Math.PI * 2);
+    ctx.fill();
+
+    const frontGradient = ctx.createRadialGradient(35, 28, 8, 35, 34, 58);
+    frontGradient.addColorStop(0, lightenHex(colors.base, 0.22));
+    frontGradient.addColorStop(1, colors.base);
+    ctx.fillStyle = frontGradient;
+    ctx.beginPath();
+    ctx.ellipse(34, 40, 48, 31, -0.18, 0, Math.PI * 2);
+    ctx.fill();
+
+    const neckGradient = ctx.createLinearGradient(0, -2, 0, 34);
+    neckGradient.addColorStop(0, SKIN);
+    neckGradient.addColorStop(1, SKIN_SHADOW);
+    ctx.fillStyle = neckGradient;
+    roundedRect(ctx, -17, -4, 34, 46, 16);
+    ctx.fill();
+
+    const headGradient = ctx.createRadialGradient(-16, -42, 4, 6, -24, 46);
+    headGradient.addColorStop(0, '#ffe9bf');
+    headGradient.addColorStop(0.55, SKIN);
+    headGradient.addColorStop(1, SKIN_SHADOW);
+    ctx.fillStyle = headGradient;
+    ctx.beginPath();
+    ctx.arc(0, -32, featured ? 38 : 32, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath();
+    ctx.ellipse(-14, -46, featured ? 12 : 10, featured ? 8 : 7, -0.35, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  });
+}
+
+function makeAvatarBust(person, palette, scale = 1) {
+  const group = new THREE.Group();
+  group.scale.setScalar(scale);
+
+  const colors = colorsForGender(person?.gender, palette);
+  const torsoMaterial = new THREE.MeshStandardMaterial({
+    color: colors.base,
+    roughness: 0.28,
+    metalness: 0.02,
+    emissive: colors.base,
+    emissiveIntensity: 0.06,
+  });
+  const deepMaterial = new THREE.MeshStandardMaterial({
+    color: colors.deep,
+    roughness: 0.36,
+    metalness: 0.02,
+    transparent: true,
+    opacity: 0.34,
+  });
+  const skinMaterial = new THREE.MeshStandardMaterial({
+    color: SKIN,
+    roughness: 0.34,
+    metalness: 0,
+    emissive: SKIN,
+    emissiveIntensity: 0.04,
+  });
+  const skinShadeMaterial = new THREE.MeshStandardMaterial({
+    color: SKIN_SHADOW,
+    roughness: 0.42,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.38,
+  });
+
+  const shoulders = new THREE.Mesh(new THREE.SphereGeometry(54, 48, 18), torsoMaterial);
+  shoulders.scale.set(1.28, 0.42, 0.5);
+  shoulders.position.set(0, 0, 0);
+  shoulders.castShadow = true;
+  shoulders.receiveShadow = true;
+  group.add(shoulders);
+
+  const torsoShade = new THREE.Mesh(new THREE.SphereGeometry(45, 42, 14), deepMaterial);
+  torsoShade.scale.set(1.18, 0.2, 0.34);
+  torsoShade.position.set(0, -6, 5);
+  group.add(torsoShade);
+
+  const leftShoulder = new THREE.Mesh(new THREE.SphereGeometry(31, 32, 14), torsoMaterial);
+  leftShoulder.scale.set(1.05, 0.74, 0.52);
+  leftShoulder.position.set(-42, 6, 4);
+  leftShoulder.castShadow = true;
+  group.add(leftShoulder);
+
+  const rightShoulder = leftShoulder.clone();
+  rightShoulder.position.x = 42;
+  group.add(rightShoulder);
+
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(13, 17, 22, 28), skinMaterial);
+  neck.position.set(0, 34, 12);
+  neck.castShadow = true;
+  group.add(neck);
+
+  const head = new THREE.Mesh(new THREE.SphereGeometry(28, 42, 26), skinMaterial);
+  head.scale.set(0.92, 1.04, 0.88);
+  head.position.set(0, 64, 18);
   head.castShadow = true;
   group.add(head);
+
+  const cheek = new THREE.Mesh(new THREE.SphereGeometry(22, 32, 14), skinShadeMaterial);
+  cheek.scale.set(0.55, 0.35, 0.18);
+  cheek.position.set(9, 56, 37);
+  group.add(cheek);
+
+  const shine = new THREE.Mesh(
+    new THREE.SphereGeometry(19, 28, 12),
+    new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.2, depthWrite: false })
+  );
+  shine.scale.set(0.42, 0.22, 0.14);
+  shine.position.set(-13, 77, 39);
+  shine.renderOrder = 8;
+  group.add(shine);
 
   return group;
 }
@@ -816,7 +976,7 @@ function makeFeaturedTexture(person, palette) {
   return makeCanvasTexture(560, 560, (ctx, w, h) => {
     const cx = w / 2;
     const cy = h / 2;
-    const radius = w * 0.42;
+    const radius = w * 0.38;
 
     ctx.clearRect(0, 0, w, h);
     ctx.shadowColor = 'rgba(0,0,0,0.2)';
@@ -824,38 +984,38 @@ function makeFeaturedTexture(person, palette) {
     ctx.shadowOffsetY = 12;
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.91)';
+    ctx.fillStyle = 'rgba(238, 249, 255, 0.96)';
     ctx.fill();
 
     ctx.shadowColor = 'transparent';
     ctx.beginPath();
     ctx.arc(cx, cy, radius - 8, 0, Math.PI * 2);
     ctx.lineCap = 'round';
-    ctx.setLineDash([1, 28]);
-    ctx.lineWidth = 12;
-    ctx.strokeStyle = 'rgba(90, 138, 178, 0.56)';
+    ctx.setLineDash([1, 22]);
+    ctx.lineWidth = 14;
+    ctx.strokeStyle = 'rgba(80, 145, 196, 0.58)';
     ctx.stroke();
     ctx.setLineDash([]);
 
     ctx.beginPath();
     ctx.arc(cx, cy, radius - 2, 0, Math.PI * 2);
     ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(96, 180, 210, 0.25)';
+    ctx.strokeStyle = 'rgba(78, 166, 214, 0.34)';
     ctx.stroke();
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#17191d';
-    ctx.font = '800 44px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+    ctx.font = '800 35px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
     const nameLines = wrapText(ctx, person?.fullName || 'Unknown', 17, 2);
-    const firstNameY = nameLines.length === 1 ? 346 : 326;
-    nameLines.forEach((line, index) => ctx.fillText(line, cx, firstNameY + index * 48));
+    const firstNameY = nameLines.length === 1 ? 340 : 320;
+    nameLines.forEach((line, index) => ctx.fillText(line, cx, firstNameY + index * 39));
 
     const life = lifeSpanLabel(person);
     if (life) {
       ctx.fillStyle = '#747b86';
-      ctx.font = '700 34px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-      ctx.fillText(life, cx, 438);
+      ctx.font = '700 28px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillText(life, cx, 428);
     }
   });
 }
@@ -864,6 +1024,16 @@ function colorsForGender(gender, palette) {
   if (gender === Gender.Male) return { base: palette.male, deep: palette.maleDeep };
   if (gender === Gender.Female) return { base: palette.female, deep: palette.femaleDeep };
   return { base: palette.unknown, deep: palette.unknownDeep };
+}
+
+function lightenHex(hex, amount) {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return hex;
+  const next = [0, 2, 4].map((index) => {
+    const value = parseInt(normalized.slice(index, index + 2), 16);
+    return Math.round(value + (255 - value) * amount).toString(16).padStart(2, '0');
+  });
+  return `#${next.join('')}`;
 }
 
 function wrapText(ctx, text, maxChars, maxLines) {
@@ -994,6 +1164,70 @@ const styles = {
     border: '1px solid hsl(var(--border))',
     boxShadow: '0 10px 24px rgb(0 0 0 / 0.12)',
     backdropFilter: 'blur(12px)',
+  },
+  bottomDock: {
+    position: 'absolute',
+    left: '50%',
+    bottom: 14,
+    transform: 'translateX(-50%)',
+    maxWidth: 'calc(100% - 32px)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '8px 10px',
+    borderRadius: 8,
+    background: 'hsl(var(--card) / 0.86)',
+    border: '1px solid hsl(var(--border))',
+    boxShadow: '0 14px 34px rgb(0 0 0 / 0.16)',
+    backdropFilter: 'blur(14px)',
+    color: 'hsl(var(--foreground))',
+    overflow: 'hidden',
+  },
+  dockGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  dockLabel: {
+    color: 'hsl(var(--muted-foreground))',
+    font: '700 11px -apple-system, system-ui, sans-serif',
+    whiteSpace: 'nowrap',
+  },
+  zoomSlider: {
+    width: 118,
+    accentColor: 'hsl(var(--primary))',
+  },
+  zoomReadout: {
+    width: 42,
+    color: 'hsl(var(--foreground))',
+    font: '750 11px -apple-system, system-ui, sans-serif',
+  },
+  metric: {
+    minWidth: 58,
+    textAlign: 'center',
+    padding: '2px 6px',
+    borderInlineStart: '1px solid hsl(var(--border))',
+  },
+  metricValue: {
+    display: 'block',
+    color: 'hsl(var(--foreground))',
+    font: '800 13px -apple-system, system-ui, sans-serif',
+  },
+  metricLabel: {
+    display: 'block',
+    color: 'hsl(var(--muted-foreground))',
+    font: '650 10px -apple-system, system-ui, sans-serif',
+  },
+  dockButton: {
+    height: 30,
+    borderRadius: 6,
+    border: '1px solid hsl(var(--border))',
+    background: 'hsl(var(--secondary))',
+    color: 'hsl(var(--foreground))',
+    font: '750 11px -apple-system, system-ui, sans-serif',
+    padding: '0 10px',
+    cursor: 'pointer',
   },
   iconButton: {
     width: 31,

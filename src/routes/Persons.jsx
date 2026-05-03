@@ -13,6 +13,7 @@ import { useListSelection } from '../components/lists/useListSelection.js';
 import { useColumnVisibility } from '../components/lists/useColumnVisibility.js';
 import { BulkActionBar } from '../components/lists/BulkActionBar.jsx';
 import { ColumnChooser } from '../components/lists/ColumnChooser.jsx';
+import { ListReportPreview, ListReportToolbar, useListReportOptions } from '../components/lists/ListReportWorkbench.jsx';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { logRecordDeleted } from '../lib/changeLog.js';
 import { useModal } from '../contexts/ModalContext.jsx';
@@ -71,6 +72,7 @@ export default function Persons() {
   const allVisibleIds = useMemo(() => persons.map((p) => p.id), [persons]);
   const selection = useListSelection(allVisibleIds);
   const columnVisibility = useColumnVisibility('persons', LIST_COLUMNS);
+  const report = useListReportOptions();
 
   const bulkDelete = async () => {
     if (!selection.count) return;
@@ -172,6 +174,16 @@ export default function Persons() {
             onToggle={columnVisibility.toggle}
             onReset={columnVisibility.resetToDefaults}
           />
+          <ListReportToolbar
+            title="Persons List"
+            rows={visiblePersons}
+            columns={EXPORT_COLUMNS}
+            options={report.options}
+            update={report.update}
+            updateInfoColumn={report.updateInfoColumn}
+            onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
+            compact
+          />
           <ExportMenu
             onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)}
             onJson={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)}
@@ -221,7 +233,11 @@ export default function Persons() {
             />
           </div>
         )}
-        {(!isMobile || mobilePane === 'detail') && (
+        {report.options.previewMode ? (
+          <main className="flex-1 min-w-0 overflow-auto">
+            <ListReportPreview title="Persons List" rows={visiblePersons} columns={EXPORT_COLUMNS} options={report.options} />
+          </main>
+        ) : (!isMobile || mobilePane === 'detail') && (
         <main className="flex-1 min-w-0 overflow-auto">
           {active ? (
             <div className="p-4 md:p-6 max-w-5xl">

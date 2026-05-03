@@ -6,8 +6,21 @@ export const MAP_VISUAL_OPTION_PRESETS = Object.freeze({
     connectionLines: false,
     heatRadius: 34,
     heatOpacity: 0.45,
+    heatGradient: 'red-yellow-white',
+    heatAmplification: 3,
+    heatAutoRadius: true,
+    fixedHeatRadius: 42,
+    darkHeatMap: false,
     slideshowDelayMs: 1200,
+    slideshowYearStep: 30,
     slideshowFit: false,
+    slideshowSkipEmptyYears: true,
+    slideshowExpandRange: false,
+    slideshowStartCurrentYear: false,
+    mapType: 'standard',
+    displayCurrentLocation: false,
+    personGroupMode: 'all',
+    smartFilterMode: 'none',
   },
   globe: {
     markerMode: 'pins',
@@ -16,8 +29,21 @@ export const MAP_VISUAL_OPTION_PRESETS = Object.freeze({
     connectionLines: false,
     heatRadius: 28,
     heatOpacity: 0.35,
+    heatGradient: 'red-yellow-white',
+    heatAmplification: 3,
+    heatAutoRadius: true,
+    fixedHeatRadius: 36,
+    darkHeatMap: false,
     slideshowDelayMs: 1200,
+    slideshowYearStep: 30,
     slideshowFit: false,
+    slideshowSkipEmptyYears: true,
+    slideshowExpandRange: false,
+    slideshowStartCurrentYear: false,
+    mapType: 'standard',
+    displayCurrentLocation: false,
+    personGroupMode: 'all',
+    smartFilterMode: 'none',
   },
 });
 
@@ -48,14 +74,40 @@ export const VISUAL_OPTION_SECTIONS = Object.freeze([
       },
       { key: 'markerSize', label: 'Pin size', type: 'range', min: 8, max: 24, step: 1, unit: 'px' },
       { key: 'connectionLines', label: 'Connection lines', type: 'checkbox' },
+      {
+        key: 'mapType',
+        label: 'Map Type',
+        type: 'select',
+        options: [
+          { value: 'standard', label: 'Standard' },
+          { value: 'muted', label: 'Muted' },
+          { value: 'satellite', label: 'Satellite-style' },
+          { value: 'dark', label: 'Dark' },
+        ],
+      },
+      { key: 'displayCurrentLocation', label: 'Display current location', type: 'checkbox' },
     ],
   },
   {
     id: 'heat',
     label: 'Heat Map',
     controls: [
+      {
+        key: 'heatGradient',
+        label: 'Gradient Colors',
+        type: 'select',
+        options: [
+          { value: 'red-yellow-white', label: 'Red, Yellow and White' },
+          { value: 'blue-green-red', label: 'Blue, Green and Red' },
+          { value: 'purple-gold', label: 'Purple and Gold' },
+        ],
+      },
       { key: 'heatRadius', label: 'Radius', type: 'range', min: 12, max: 72, step: 2, unit: 'px' },
       { key: 'heatOpacity', label: 'Opacity', type: 'range', min: 0.1, max: 0.9, step: 0.05, format: 'percent' },
+      { key: 'heatAmplification', label: 'Heat amplification', type: 'range', min: 1, max: 8, step: 1 },
+      { key: 'heatAutoRadius', label: 'Auto heat radius by zoom', type: 'checkbox' },
+      { key: 'fixedHeatRadius', label: 'Fixed heat radius', type: 'range', min: 12, max: 96, step: 2, unit: 'px' },
+      { key: 'darkHeatMap', label: 'Always show map in dark colors', type: 'checkbox' },
     ],
   },
   {
@@ -63,13 +115,54 @@ export const VISUAL_OPTION_SECTIONS = Object.freeze([
     label: 'Slideshow',
     controls: [
       { key: 'slideshowDelayMs', label: 'Delay', type: 'range', min: 600, max: 4000, step: 100, unit: 'ms' },
+      { key: 'slideshowYearStep', label: 'Year step', type: 'range', min: 1, max: 100, step: 1, unit: 'y' },
       { key: 'slideshowFit', label: 'Fit current step', type: 'checkbox' },
+      { key: 'slideshowSkipEmptyYears', label: 'Skip empty year spans', type: 'checkbox' },
+      { key: 'slideshowExpandRange', label: 'Expand year range each step', type: 'checkbox' },
+      { key: 'slideshowStartCurrentYear', label: 'Always start with current year', type: 'checkbox' },
+    ],
+  },
+  {
+    id: 'personGroups',
+    label: 'Person Groups',
+    controls: [
+      {
+        key: 'personGroupMode',
+        label: 'Group',
+        type: 'select',
+        options: [
+          { value: 'all', label: 'All Persons' },
+          { value: 'bookmarked', label: 'Bookmarked' },
+          { value: 'start-family', label: 'Start-person family' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'smartFilter',
+    label: 'Smart Filter',
+    controls: [
+      {
+        key: 'smartFilterMode',
+        label: 'Smart Filter',
+        type: 'select',
+        options: [
+          { value: 'none', label: 'No Smart Filter' },
+          { value: 'with-places', label: 'Events with Places' },
+          { value: 'missing-date', label: 'Missing Date' },
+          { value: 'living', label: 'Living Persons' },
+        ],
+      },
     ],
   },
 ]);
 
 const MARKER_MODES = new Set(['pins', 'heat', 'pins-heat']);
 const COLOR_MODES = new Set(['event', 'time', 'uniform']);
+const HEAT_GRADIENTS = new Set(['red-yellow-white', 'blue-green-red', 'purple-gold']);
+const MAP_TYPES = new Set(['standard', 'muted', 'satellite', 'dark']);
+const PERSON_GROUP_MODES = new Set(['all', 'bookmarked', 'start-family']);
+const SMART_FILTER_MODES = new Set(['none', 'with-places', 'missing-date', 'living']);
 
 export function normalizeVisualViewOptions(kind = 'mapStory', options = {}) {
   const defaults = MAP_VISUAL_OPTION_PRESETS[kind] || MAP_VISUAL_OPTION_PRESETS.mapStory;
@@ -80,8 +173,21 @@ export function normalizeVisualViewOptions(kind = 'mapStory', options = {}) {
   next.connectionLines = Boolean(next.connectionLines);
   next.heatRadius = clampNumber(next.heatRadius, 12, 72, defaults.heatRadius);
   next.heatOpacity = clampNumber(next.heatOpacity, 0.1, 0.9, defaults.heatOpacity);
+  next.heatGradient = HEAT_GRADIENTS.has(next.heatGradient) ? next.heatGradient : defaults.heatGradient;
+  next.heatAmplification = clampNumber(next.heatAmplification, 1, 8, defaults.heatAmplification);
+  next.heatAutoRadius = next.heatAutoRadius !== false;
+  next.fixedHeatRadius = clampNumber(next.fixedHeatRadius, 12, 96, defaults.fixedHeatRadius);
+  next.darkHeatMap = Boolean(next.darkHeatMap);
   next.slideshowDelayMs = clampNumber(next.slideshowDelayMs, 600, 4000, defaults.slideshowDelayMs);
+  next.slideshowYearStep = clampNumber(next.slideshowYearStep, 1, 100, defaults.slideshowYearStep);
   next.slideshowFit = Boolean(next.slideshowFit);
+  next.slideshowSkipEmptyYears = next.slideshowSkipEmptyYears !== false;
+  next.slideshowExpandRange = Boolean(next.slideshowExpandRange);
+  next.slideshowStartCurrentYear = Boolean(next.slideshowStartCurrentYear);
+  next.mapType = MAP_TYPES.has(next.mapType) ? next.mapType : defaults.mapType;
+  next.displayCurrentLocation = Boolean(next.displayCurrentLocation);
+  next.personGroupMode = PERSON_GROUP_MODES.has(next.personGroupMode) ? next.personGroupMode : defaults.personGroupMode;
+  next.smartFilterMode = SMART_FILTER_MODES.has(next.smartFilterMode) ? next.smartFilterMode : defaults.smartFilterMode;
   return next;
 }
 

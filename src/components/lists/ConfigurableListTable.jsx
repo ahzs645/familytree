@@ -2,6 +2,7 @@ import React from 'react';
 import { ColumnChooser } from './ColumnChooser.jsx';
 import { SortableListTable } from './SortableListTable.jsx';
 import { useColumnVisibility } from './useColumnVisibility.js';
+import { ListReportToolbar, useListReportOptions } from './ListReportWorkbench.jsx';
 
 export function ConfigurableListTable({
   listId,
@@ -12,9 +13,19 @@ export function ConfigurableListTable({
   ...tableProps
 }) {
   const columnVisibility = useColumnVisibility(listId, columns);
+  const report = useListReportOptions();
   const controls = (
     <>
       {toolbar}
+      <ListReportToolbar
+        title={tableProps.reportTitle || tableProps.title || 'List Report'}
+        rows={tableProps.rows || []}
+        columns={columns}
+        options={report.options}
+        update={report.update}
+        updateInfoColumn={report.updateInfoColumn}
+        onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
+      />
       {sortProfile?.sortOptions?.length ? (
         <>
           <label className="text-xs text-muted-foreground">{sortProfile.label || 'Sort profile'}</label>
@@ -45,6 +56,12 @@ export function ConfigurableListTable({
       sortColumns={columns}
       initialSortKey={sortProfile?.sortKey || tableProps.initialSortKey}
       toolbar={controls}
+      reportPreview={{
+        enabled: report.options.previewMode,
+        title: tableProps.reportTitle || 'List Report',
+        columns,
+        options: report.options,
+      }}
     />
   );
 }

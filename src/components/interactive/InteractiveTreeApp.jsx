@@ -11,6 +11,7 @@ import { PersonList } from './PersonList.jsx';
 import { PersonFocus } from './PersonFocus.jsx';
 import { ThreeDTreeView } from './ThreeDTreeView.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
+import { Gender, lifeSpanLabel } from '../../models/index.js';
 
 export function InteractiveTreeApp() {
   const [persons, setPersons] = useState([]);
@@ -141,13 +142,28 @@ export function InteractiveTreeApp() {
           </div>
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {viewMode === 'three' ? (
-              <ThreeDTreeView
-                ancestorTree={trees.ancestor}
-                descendantTree={trees.descendant}
-                activeId={activeId}
-                loading={trees.loading}
-                onPick={onPick}
-              />
+              <div style={treeWorkspace}>
+                <div style={treeCanvasPane}>
+                  <ThreeDTreeView
+                    ancestorTree={trees.ancestor}
+                    descendantTree={trees.descendant}
+                    activeId={activeId}
+                    loading={trees.loading}
+                    onPick={onPick}
+                    context={context}
+                  />
+                </div>
+                {!isMobile && (
+                  <TreeInspector
+                    context={context}
+                    onPick={onPick}
+                    onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+                    onOpenFamily={(recordName) => navigate(`/family/${recordName}`)}
+                    onOpenAncestorChart={openAncestor}
+                    onOpenDescendantChart={openDescendant}
+                  />
+                )}
+              </div>
             ) : (
               <PersonFocus
                 context={context}
@@ -161,6 +177,139 @@ export function InteractiveTreeApp() {
       )}
     </div>
   );
+}
+
+function TreeInspector({
+  context,
+  onPick,
+  onEditPerson,
+  onOpenFamily,
+  onOpenAncestorChart,
+  onOpenDescendantChart,
+}) {
+  if (!context?.selfSummary) {
+    return <aside style={inspector} />;
+  }
+  const self = context.selfSummary;
+  const parents = context.parents.flatMap((fam) => [fam.man, fam.woman]).filter(Boolean);
+  const partners = context.families.map((fam) => fam.partner).filter(Boolean);
+  const children = context.families.flatMap((fam) => fam.children).filter(Boolean);
+
+  return (
+    <aside style={inspector}>
+      <div style={inspectorHero}>
+        <div style={avatar(self.gender)} aria-hidden="true">{initials(self.fullName)}</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={inspectorName} title={self.fullName}>{self.fullName}</div>
+          <div style={inspectorSub}>{lifeSpanLabel(self) || 'No life dates'}</div>
+        </div>
+      </div>
+
+      <InspectorSection title="Actions">
+        <div style={actionGrid}>
+          <button type="button" style={tileButton} onClick={() => onEditPerson(self.recordName)}>Edit Person</button>
+          <button type="button" style={tileButton} onClick={() => onOpenAncestorChart(self.recordName)}>Ancestors</button>
+          <button type="button" style={tileButton} onClick={() => onOpenDescendantChart(self.recordName)}>Descendants</button>
+          {context.families[0]?.family?.recordName ? (
+            <button type="button" style={tileButton} onClick={() => onOpenFamily(context.families[0].family.recordName)}>Select Family</button>
+          ) : (
+            <button type="button" style={{ ...tileButton, opacity: 0.55 }} disabled>Select Family</button>
+          )}
+        </div>
+      </InspectorSection>
+
+      <InspectorSection title="Family">
+        <RelationGroup title="Parents" people={parents} onPick={onPick} />
+        <RelationGroup title="Partners" people={partners} onPick={onPick} />
+        <RelationGroup title="Children" people={children} onPick={onPick} />
+      </InspectorSection>
+
+      <InspectorSection title={`Events (${context.events.length})`}>
+        <div style={eventList}>
+          {context.events.slice(0, 4).map((event) => (
+            <div key={event.recordName} style={eventRow}>
+              <div style={eventDot} />
+              <div style={{ minWidth: 0 }}>
+                <div style={eventTitle}>{eventLabel(event)}</div>
+                <div style={eventMeta}>{event.fields?.date?.value || 'No date entered'}</div>
+              </div>
+            </div>
+          ))}
+          {context.events.length === 0 && <div style={emptySmall}>No events recorded.</div>}
+        </div>
+      </InspectorSection>
+    </aside>
+  );
+}
+
+function eventLabel(event) {
+  const description = event.fields?.description?.value;
+  if (description) return description;
+  const raw = event.fields?.conclusionType?.value || event.fields?.eventType?.value || 'Event';
+  const stripped = String(raw).replace(/---.*$/, '');
+  const match = stripped.match(/UniqueID_(?:Person|Family)Event_(.+)$/) || stripped.match(/UniqueID_PersonFact_(.+)$/);
+  const label = match?.[1] || stripped.replace(/^UniqueID_/, '');
+  return label.replace(/([a-z])([A-Z])/g, '$1 $2');
+}
+
+function InspectorSection({ title, children }) {
+  return (
+    <section style={inspectorSection}>
+      <div style={inspectorSectionTitle}>{title}</div>
+      {children}
+    </section>
+  );
+}
+
+function RelationGroup({ title, people, onPick }) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={relationTitle}>{title}</div>
+      {people.length === 0 ? (
+        <div style={emptySmall}>None recorded.</div>
+      ) : (
+        <div style={relationList}>
+          {people.slice(0, 5).map((person) => (
+            <button key={person.recordName} type="button" style={relationButton} onClick={() => onPick(person.recordName)}>
+              <span style={relationName}>{person.fullName}</span>
+              <span style={relationLife}>{lifeSpanLabel(person)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function initials(name) {
+  return String(name || '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || '?';
+}
+
+function avatar(gender) {
+  const fill =
+    gender === Gender.Male
+      ? 'linear-gradient(145deg, #9dcfff, #4f90e8)'
+      : gender === Gender.Female
+        ? 'linear-gradient(145deg, #ffc0d2, #e46c91)'
+        : 'linear-gradient(145deg, #f2e4bd, #b9a36d)';
+  return {
+    width: 54,
+    height: 54,
+    borderRadius: '50%',
+    flexShrink: 0,
+    display: 'grid',
+    placeItems: 'center',
+    background: fill,
+    color: '#fff',
+    font: '800 17px -apple-system, system-ui, sans-serif',
+    boxShadow: 'inset 0 0 0 2px rgb(255 255 255 / 0.58), 0 8px 18px rgb(0 0 0 / 0.12)',
+  };
 }
 
 const backBtn = {
@@ -203,6 +352,142 @@ const toolbar = {
   padding: '10px 16px',
   borderBottom: '1px solid hsl(var(--border))',
   background: 'hsl(var(--card))',
+};
+const treeWorkspace = {
+  height: '100%',
+  display: 'flex',
+  minHeight: 0,
+  overflow: 'hidden',
+};
+const treeCanvasPane = {
+  flex: 1,
+  minWidth: 0,
+  minHeight: 0,
+};
+const inspector = {
+  width: 318,
+  flexShrink: 0,
+  overflow: 'auto',
+  borderInlineStart: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--card))',
+  padding: 14,
+};
+const inspectorHero = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  padding: '8px 4px 14px',
+};
+const inspectorName = {
+  color: 'hsl(var(--foreground))',
+  fontSize: 16,
+  fontWeight: 760,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+const inspectorSub = {
+  color: 'hsl(var(--muted-foreground))',
+  fontSize: 12,
+  marginTop: 3,
+};
+const inspectorSection = {
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 8,
+  background: 'hsl(var(--background))',
+  padding: 10,
+  marginBottom: 12,
+};
+const inspectorSectionTitle = {
+  color: 'hsl(var(--foreground))',
+  fontSize: 12,
+  fontWeight: 800,
+  marginBottom: 10,
+};
+const actionGrid = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: 8,
+};
+const tileButton = {
+  minHeight: 58,
+  borderRadius: 7,
+  border: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  font: '750 12px -apple-system, system-ui, sans-serif',
+  cursor: 'pointer',
+};
+const relationTitle = {
+  color: 'hsl(var(--muted-foreground))',
+  fontSize: 11,
+  fontWeight: 800,
+  textTransform: 'uppercase',
+  letterSpacing: 0,
+  marginBottom: 6,
+};
+const relationList = {
+  display: 'grid',
+  gap: 6,
+};
+const relationButton = {
+  width: '100%',
+  textAlign: 'start',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 7,
+  background: 'hsl(var(--card))',
+  padding: '8px 10px',
+  cursor: 'pointer',
+};
+const relationName = {
+  display: 'block',
+  color: 'hsl(var(--foreground))',
+  fontSize: 12,
+  fontWeight: 700,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+const relationLife = {
+  display: 'block',
+  color: 'hsl(var(--muted-foreground))',
+  fontSize: 11,
+  marginTop: 2,
+};
+const eventList = {
+  display: 'grid',
+  gap: 8,
+};
+const eventRow = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: 8,
+};
+const eventDot = {
+  width: 9,
+  height: 9,
+  borderRadius: '50%',
+  background: 'hsl(var(--primary))',
+  marginTop: 4,
+  flexShrink: 0,
+};
+const eventTitle = {
+  color: 'hsl(var(--foreground))',
+  fontSize: 12,
+  fontWeight: 700,
+  maxWidth: '100%',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+};
+const eventMeta = {
+  color: 'hsl(var(--muted-foreground))',
+  fontSize: 11,
+  marginTop: 2,
+};
+const emptySmall = {
+  color: 'hsl(var(--muted-foreground))',
+  fontSize: 12,
 };
 const eyebrow = {
   color: 'hsl(var(--muted-foreground))',

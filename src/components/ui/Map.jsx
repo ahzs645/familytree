@@ -196,8 +196,19 @@ function addClusterLayers(map, data) {
   });
 }
 
-function addHeatLayer(map, data, { radius = 34, opacity = 0.45 } = {}) {
+function addHeatLayer(map, data, {
+  radius = 34,
+  opacity = 0.45,
+  amplification = 3,
+  autoRadius = true,
+  fixedRadius = 42,
+  gradient = 'red-yellow-white',
+} = {}) {
   removeHeatLayer(map);
+  const colors = heatGradientStops(gradient);
+  const resolvedRadius = autoRadius
+    ? ['interpolate', ['linear'], ['zoom'], 0, Math.max(8, radius * 0.4), 9, radius]
+    : fixedRadius;
   map.addSource(HEAT_SOURCE_ID, {
     type: 'geojson',
     data,
@@ -209,26 +220,32 @@ function addHeatLayer(map, data, { radius = 34, opacity = 0.45 } = {}) {
     maxzoom: 12,
     paint: {
       'heatmap-weight': 1,
-      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 0.7, 9, 1.6],
-      'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, Math.max(8, radius * 0.4), 9, radius],
+      'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 0.4 + amplification * 0.1, 9, 1 + amplification * 0.2],
+      'heatmap-radius': resolvedRadius,
       'heatmap-opacity': opacity,
       'heatmap-color': [
         'interpolate',
         ['linear'],
         ['heatmap-density'],
         0,
-        'rgba(33,102,172,0)',
+        colors[0],
         0.25,
-        '#2563eb',
+        colors[1],
         0.55,
-        '#0f766e',
+        colors[2],
         0.8,
-        '#d97706',
+        colors[3],
         1,
-        '#7f1d1d',
+        colors[4],
       ],
     },
   });
+}
+
+function heatGradientStops(gradient) {
+  if (gradient === 'blue-green-red') return ['rgba(37,99,235,0)', '#2563eb', '#0f766e', '#facc15', '#b91c1c'];
+  if (gradient === 'purple-gold') return ['rgba(88,28,135,0)', '#6d28d9', '#a855f7', '#f59e0b', '#fef3c7'];
+  return ['rgba(127,29,29,0)', '#7f1d1d', '#dc2626', '#facc15', '#fff7ed'];
 }
 
 function addConnectionLayer(map, data) {
