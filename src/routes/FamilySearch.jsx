@@ -15,6 +15,7 @@ import {
   saveFamilySearchConfig,
 } from '../lib/familySearchApi.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { matchesSearchText } from '../lib/i18n.js';
 import { readField } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import { FamilySearchSourceFoldersSheet } from '../components/FamilySearchSourceFoldersSheet.jsx';
@@ -87,13 +88,13 @@ export default function FamilySearch() {
   }, [people, tasks]);
 
   const visible = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     return people.filter((entry) => {
       if (filter === 'matched' && !entry.familySearchID) return false;
       if (filter === 'unmatched' && entry.familySearchID) return false;
       if (filter === 'tasks' && !tasks.some((task) => task.personId === entry.record.recordName && task.status !== 'done')) return false;
       if (!q) return true;
-      return entry.summary.fullName.toLowerCase().includes(q) || String(entry.familySearchID).toLowerCase().includes(q);
+      return matchesSearchText(entry.summary.fullName, q) || matchesSearchText(entry.familySearchID, q);
     });
   }, [filter, people, query, tasks]);
 

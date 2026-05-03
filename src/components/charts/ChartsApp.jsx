@@ -15,6 +15,7 @@ import { listChartDocuments, saveChartDocument, deleteChartDocument, newChartDoc
 import { loadSavedChartDocument } from '../../lib/chartContainerLoader.js';
 import { normalizeChartDocument } from '../../lib/chartDocumentSchema.js';
 import { buildShareUrl } from '../../lib/chartShareLink.js';
+import { matchesSearchText } from '../../lib/i18n.js';
 import { ChartBackgroundSheet } from './ChartBackgroundSheet.jsx';
 import { PageSetupSheet } from '../PageSetupSheet.jsx';
 import { buildTimelineData } from '../../lib/chartData/timelineBuilder.js';
@@ -848,12 +849,11 @@ export function ChartsApp() {
   }, []);
 
   const onFindPerson = useCallback(() => {
-    const needle = findText.trim().toLowerCase();
+    const needle = findText.trim();
     if (!needle) return;
     const match = persons.find((person) => {
-      const fullName = String(person.fullName || `${person.firstName || ''} ${person.lastName || ''}`).toLowerCase();
-      const byId = String(person.recordName || '').toLowerCase();
-      return fullName.includes(needle) || byId.includes(needle);
+      const fullName = String(person.fullName || `${person.firstName || ''} ${person.lastName || ''}`);
+      return matchesSearchText(fullName, needle) || matchesSearchText(person.recordName, needle);
     });
     if (!match) return;
     setRootId(match.recordName);
@@ -870,9 +870,9 @@ export function ChartsApp() {
   }), [exportFormat, exportScale, exportIncludeBackground, exportJpegQuality, exportFileNameTemplate]);
 
   const chartPersonBrowserRows = useMemo(() => {
-    const query = personBrowserQuery.trim().toLowerCase();
+    const query = personBrowserQuery.trim();
     let next = query
-      ? persons.filter((person) => String(person.fullName || `${person.firstName || ''} ${person.lastName || ''}`).toLowerCase().includes(query))
+      ? persons.filter((person) => matchesSearchText(String(person.fullName || `${person.firstName || ''} ${person.lastName || ''}`), query))
       : persons;
     if (chartPersonGroupMode === 'bookmarked') next = next.filter((person) => person.bookmarked);
     return [...next].sort((a, b) => {

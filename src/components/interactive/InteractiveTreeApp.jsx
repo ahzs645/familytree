@@ -4,7 +4,13 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listAllPersons, findStartPerson, buildAncestorTree, buildDescendantTree } from '../../lib/treeQuery.js';
+import {
+  listAllPersons,
+  findStartPerson,
+  buildAncestorTree,
+  buildDescendantTree,
+  buildInteractiveFamilyGraph,
+} from '../../lib/treeQuery.js';
 import { buildPersonContext } from '../../lib/personContext.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { PersonList } from './PersonList.jsx';
@@ -16,11 +22,12 @@ import { Gender, lifeSpanLabel } from '../../models/index.js';
 export function InteractiveTreeApp() {
   const [persons, setPersons] = useState([]);
   const [context, setContext] = useState(null);
-  const [trees, setTrees] = useState({ ancestor: null, descendant: null, loading: false });
+  const [trees, setTrees] = useState({ ancestor: null, descendant: null, graph: null, loading: false });
   const [viewMode, setViewMode] = useState('three');
   const [loading, setLoading] = useState(true);
   const [empty, setEmpty] = useState(false);
   const [mobilePane, setMobilePane] = useState('list');
+  const [treeChrome, setTreeChrome] = useState({ navigation: true, people: false, inspector: false, header: true });
   const isMobile = useIsMobile();
   const { recordName: activeId, setActivePerson } = useActivePerson();
   const navigate = useNavigate();
@@ -48,14 +55,15 @@ export function InteractiveTreeApp() {
     let cancelled = false;
     (async () => {
       setTrees((current) => ({ ...current, loading: true }));
-      const [ctx, ancestor, descendant] = await Promise.all([
+      const [ctx, ancestor, descendant, graph] = await Promise.all([
         buildPersonContext(activeId),
         buildAncestorTree(activeId, 4),
         buildDescendantTree(activeId, 4),
+        buildInteractiveFamilyGraph(activeId, { maxAncestorGenerations: 4, maxDescendantGenerations: 1 }),
       ]);
       if (!cancelled) {
         setContext(ctx);
-        setTrees({ ancestor, descendant, loading: false });
+        setTrees({ ancestor, descendant, graph, loading: false });
       }
     })();
     return () => {
@@ -63,10 +71,23 @@ export function InteractiveTreeApp() {
     };
   }, [activeId]);
 
+  useEffect(() => () => {
+    window.dispatchEvent(new CustomEvent('cloudtreeweb:navigation-visibility', { detail: { hidden: false } }));
+  }, []);
+
   const onPick = useCallback((recordName) => {
     setActivePerson(recordName);
     setMobilePane('focus');
   }, [setActivePerson]);
+  const toggleTreeChrome = useCallback((key) => {
+    setTreeChrome((current) => {
+      const next = { ...current, [key]: !current[key] };
+      if (key === 'navigation') {
+        window.dispatchEvent(new CustomEvent('cloudtreeweb:navigation-visibility', { detail: { hidden: !next.navigation } }));
+      }
+      return next;
+    });
+  }, []);
   const openAncestor = useCallback(
     (recordName) => {
       setActivePerson(recordName);
@@ -94,16 +115,20 @@ export function InteractiveTreeApp() {
 
   const showList = !isMobile || mobilePane === 'list';
   const showFocus = !isMobile || mobilePane === 'focus';
+  const showPeople = showList && (isMobile || viewMode !== 'three' || treeChrome.people);
+  const showHeader = viewMode !== 'three' || treeChrome.header || isMobile;
+  const showInspector = !isMobile && treeChrome.inspector;
 
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      {showList && (
+      {showPeople && (
         <div style={{ width: isMobile ? '100%' : 'min(280px, 46vw)', flexShrink: 0 }}>
           <PersonList persons={persons} activeId={activeId} onPick={onPick} />
         </div>
       )}
       {showFocus && (
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {showHeader && (
           <div style={toolbar}>
             {isMobile && (
               <button
@@ -140,6 +165,7 @@ export function InteractiveTreeApp() {
               </button>
             </div>
           </div>
+          )}
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {viewMode === 'three' ? (
               <div style={treeWorkspace}>
@@ -147,13 +173,16 @@ export function InteractiveTreeApp() {
                   <ThreeDTreeView
                     ancestorTree={trees.ancestor}
                     descendantTree={trees.descendant}
+                    familyGraph={trees.graph}
                     activeId={activeId}
                     loading={trees.loading}
                     onPick={onPick}
                     context={context}
+                    chrome={treeChrome}
+                    onToggleChrome={toggleTreeChrome}
                   />
                 </div>
-                {!isMobile && (
+                {showInspector && (
                   <TreeInspector
                     context={context}
                     onPick={onPick}

@@ -24,6 +24,7 @@
  */
 
 import { getLocalDatabase } from './LocalDatabase.js';
+import { equalsSearchText, matchesSearchText } from './i18n.js';
 import { refToRecordName } from './recordRef.js';
 
 const META_KEY = 'customSmartFilters';
@@ -163,9 +164,9 @@ async function followPath(record, path, db, entityType) {
 function applyOperator(op, value, target) {
   if (op === 'exists') return value !== undefined && value !== null && value !== '';
   if (op === 'missing') return value === undefined || value === null || value === '';
-  if (op === 'equals') return String(value ?? '').toLowerCase() === String(target ?? '').toLowerCase();
-  if (op === 'notEquals') return String(value ?? '').toLowerCase() !== String(target ?? '').toLowerCase();
-  if (op === 'contains') return String(value ?? '').toLowerCase().includes(String(target ?? '').toLowerCase());
+  if (op === 'equals') return equalsSearchText(value, target);
+  if (op === 'notEquals') return !equalsSearchText(value, target);
+  if (op === 'contains') return matchesSearchText(value, target);
   if (op === 'gt' || op === 'lt') {
     const a = Number(value);
     const b = Number(target);

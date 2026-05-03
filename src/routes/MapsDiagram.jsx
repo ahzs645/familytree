@@ -362,6 +362,8 @@ export default function MapsDiagram() {
               gradient: visualOptions.heatGradient,
             }}
           />
+        </div>
+        <aside className="min-h-0 overflow-auto border-t border-border bg-card p-4 lg:border-l lg:border-t-0">
           <VisualOptionsDrawer
             kind="mapStory"
             open={optionsOpen}
@@ -369,9 +371,9 @@ export default function MapsDiagram() {
             onChange={setVisualOptions}
             onClose={() => setOptionsOpen(false)}
             title="Map Options"
+            placement="inline"
           />
-        </div>
-        <aside className="min-h-0 overflow-auto border-t border-border bg-card p-4 lg:border-l lg:border-t-0">
+          {optionsOpen && <div className="h-4" />}
           <EventDetail event={detailEvent} selected={!!selectedEvent} />
           <div className="mt-4">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Timeline</div>

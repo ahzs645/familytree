@@ -33,4 +33,14 @@ describe('offline search index', () => {
 
     expect([...querySearchIndex(index, 'Jose Nunez')]).toEqual(['p1']);
   });
+
+  it('indexes Arabic names under English romanized variants', () => {
+    const index = createSearchIndex([
+      { recordName: 'p1', recordType: 'Person', fields: { cached_fullName: { value: 'أحمد رعد الجليل' } } },
+      { recordName: 'p2', recordType: 'Person', fields: { cached_fullName: { value: 'فاطمة الهاشمي' } } },
+    ]);
+
+    expect([...querySearchIndex(index, 'Ahmad raad jalil')]).toEqual(['p1']);
+    expect([...querySearchIndex(index, 'Ahmed Raad Jalil')]).toEqual(['p1']);
+  });
 });

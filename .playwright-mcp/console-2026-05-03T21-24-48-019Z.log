@@ -75,3 +75,39 @@
 [  332572ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:3001/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=c6ff77c0:21608
 [  332601ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://127.0.0.1:3001/node_modules/.vite/deps/react-router-dom.js?v=c6ff77c0:4435
 [  332601ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://127.0.0.1:3001/node_modules/.vite/deps/react-router-dom.js?v=c6ff77c0:4435
+[  363777ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:3001/@vite/client:963
+[  365457ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  370490ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  374957ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  380200ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  386064ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  388853ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  391714ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  395461ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  399759ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  401987ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  405990ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  410333ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  413957ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  419689ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  423575ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  427655ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  431429ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  437093ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  440463ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  442646ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  445861ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  448374ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  451334ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  454686ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  456983ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  459921ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  464846ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  470341ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  474674ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  479311ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  483908ms] [ERROR] WebSocket connection to 'ws://127.0.0.1:3001/' failed: Error in connection establishment: net::ERR_CONNECTION_REFUSED @ http://127.0.0.1:3001/@vite/client:1034
+[  486754ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:3001/node_modules/.vite/deps/chunk-FD5SMSK5.js?v=c6ff77c0:21608
+[  486778ms] [WARNING] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition. @ http://127.0.0.1:3001/node_modules/.vite/deps/react-router-dom.js?v=c6ff77c0:4435
+[  486778ms] [WARNING] ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath. @ http://127.0.0.1:3001/node_modules/.vite/deps/react-router-dom.js?v=c6ff77c0:4435
+[  508988ms] [LOG] [vite] server connection lost. Polling for restart... @ http://127.0.0.1:3001/@vite/client:963

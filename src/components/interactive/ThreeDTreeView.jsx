@@ -16,10 +16,13 @@ const BAND_LABEL_GUTTER = 310;
 export function ThreeDTreeView({
   ancestorTree,
   descendantTree,
+  familyGraph,
   activeId,
   loading = false,
   onPick,
   context,
+  chrome = { navigation: true, people: true, inspector: true, header: true },
+  onToggleChrome,
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
@@ -36,8 +39,8 @@ export function ThreeDTreeView({
 
   const palette = useMemo(() => makePalette(dark), [dark]);
   const layout = useMemo(
-    () => buildInteractiveLayout(ancestorTree, descendantTree, activeId),
-    [ancestorTree, descendantTree, activeId]
+    () => buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph),
+    [ancestorTree, descendantTree, activeId, familyGraph]
   );
   const relationshipCounts = useMemo(() => ({
     parents: context?.parents?.flatMap((family) => [family.man, family.woman]).filter(Boolean).length || 0,
@@ -270,8 +273,38 @@ export function ThreeDTreeView({
           <Metric label="Children" value={relationshipCounts.children} />
         </div>
         <div style={styles.dockGroup}>
-          <button type="button" style={styles.dockButton} onClick={() => actionsRef.current.fit()}>Options</button>
-          <button type="button" style={styles.dockButton} onClick={() => actionsRef.current.fit()}>Style</button>
+          <button
+            type="button"
+            style={dockToggleStyle(chrome.navigation)}
+            onClick={() => onToggleChrome?.('navigation')}
+            aria-pressed={chrome.navigation}
+          >
+            Nav
+          </button>
+          <button
+            type="button"
+            style={dockToggleStyle(chrome.people)}
+            onClick={() => onToggleChrome?.('people')}
+            aria-pressed={chrome.people}
+          >
+            People
+          </button>
+          <button
+            type="button"
+            style={dockToggleStyle(chrome.inspector)}
+            onClick={() => onToggleChrome?.('inspector')}
+            aria-pressed={chrome.inspector}
+          >
+            Inspector
+          </button>
+          <button
+            type="button"
+            style={dockToggleStyle(chrome.header)}
+            onClick={() => onToggleChrome?.('header')}
+            aria-pressed={chrome.header}
+          >
+            Header
+          </button>
         </div>
       </div>
       {(loading || !hasTree) && (
@@ -296,7 +329,9 @@ function preventContextMenu(event) {
   event.preventDefault();
 }
 
-function buildInteractiveLayout(ancestorTree, descendantTree, activeId) {
+function buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph = null) {
+  if (familyGraph?.nodes?.length) return buildFamilyGraphLayout(familyGraph, activeId);
+
   const nodes = new Map();
   const links = [];
   const root = ancestorTree?.person || descendantTree?.person || null;
@@ -405,6 +440,139 @@ function buildInteractiveLayout(ancestorTree, descendantTree, activeId) {
   return { nodes: nodeList, links: visibleLinks, bands, bounds, viewBounds };
 }
 
+function buildFamilyGraphLayout(familyGraph, activeId) {
+  const rootId = activeId || familyGraph.rootId;
+  const sourceNodes = familyGraph.nodes
+    .filter((node) => node?.person?.recordName)
+    .map((node) => ({
+      ...node,
+      featured: node.person.recordName === rootId,
+      role: (node.roles || []).join(' '),
+    }));
+
+  const groups = new Map();
+  for (const node of sourceNodes) {
+    if (!groups.has(node.generation)) groups.set(node.generation, []);
+    groups.get(node.generation).push(node);
+  }
+
+  const placed = [];
+  for (const [generation, group] of groups.entries()) {
+    const ordered = limitGeneration(orderGeneration(group, rootId), generation, rootId);
+    const spacing = generation === 0 ? 170 : 152;
+    const generationStep = 252;
+    const branchGroups = branchGeneration(ordered, generation);
+    branchGroups.forEach(({ nodes, center }) => {
+      const centerIndex = nodes.findIndex((node) => node.person.recordName === rootId);
+      const fallbackCenter = centerIndex >= 0 ? centerIndex : Math.floor(nodes.length / 2);
+      nodes.forEach((node, index) => {
+        placed.push({
+          ...node,
+          id: node.person.recordName,
+          x: center + (index - fallbackCenter) * spacing,
+          y: -generation * generationStep,
+          z: node.featured ? 52 : 22 + Math.min(Math.abs(generation) * 3, 18),
+        });
+      });
+    });
+  }
+
+  const placedById = new Map();
+  for (const node of placed) {
+    const existing = placedById.get(node.id);
+    if (!existing || node.featured || Math.abs(node.x) < Math.abs(existing.x)) {
+      placedById.set(node.id, node);
+    }
+  }
+  const uniquePlaced = [...placedById.values()];
+
+  const nodeById = new Map(uniquePlaced.map((node) => [node.id, node]));
+  const links = [];
+  const addLink = (from, to, type, familyId = '') => {
+    if (!from || !to || from === to || !nodeById.has(from) || !nodeById.has(to)) return;
+    const key = `${from}:${to}:${type}:${familyId}`;
+    if (!links.some((link) => link.key === key)) links.push({ key, from, to, type, familyId });
+  };
+
+  for (const family of familyGraph.families || []) {
+    const parents = (family.parents || []).filter((id) => nodeById.has(id));
+    const children = (family.children || []).filter((id) => nodeById.has(id));
+    if (parents.length === 2) addLink(parents[0], parents[1], 'partner', family.id);
+    for (const childId of children) {
+      for (const parentId of parents) addLink(parentId, childId, 'family', family.id);
+    }
+  }
+
+  const root = nodeById.get(rootId) || uniquePlaced.find((node) => node.featured);
+  const rootX = root?.x || 0;
+  const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= 1550 && node.generation >= -4 && node.generation <= 1);
+  const visibleIds = new Set(nodeList.map((node) => node.id));
+  const visibleLinks = links.filter((link) => visibleIds.has(link.from) && visibleIds.has(link.to));
+  const bands = buildBands(nodeList, rootX);
+  const bounds = boundsFor(nodeList, bands);
+  const viewBounds = focusBoundsFor(nodeList, bands, bounds);
+  return { nodes: nodeList, links: visibleLinks, bands, bounds, viewBounds };
+}
+
+function branchGeneration(nodes, generation) {
+  if (generation >= 0) return [{ nodes, center: 0 }];
+  const paternal = nodes.filter((node) => primaryBranch(node) === 'paternal');
+  const maternal = nodes.filter((node) => primaryBranch(node) === 'maternal');
+  const shared = nodes.filter((node) => !primaryBranch(node));
+  const depth = Math.abs(generation);
+  const spread = Math.min(880, 260 + depth * 125);
+  const groups = [];
+  if (paternal.length > 0) groups.push({ nodes: paternal, center: -spread });
+  if (shared.length > 0) groups.push({ nodes: shared, center: 0 });
+  if (maternal.length > 0) groups.push({ nodes: maternal, center: spread });
+  return groups;
+}
+
+function primaryBranch(node) {
+  const branches = node.branches || [];
+  if (branches.includes('paternal') && !branches.includes('maternal')) return 'paternal';
+  if (branches.includes('maternal') && !branches.includes('paternal')) return 'maternal';
+  if (branches.includes('paternal')) return 'paternal';
+  if (branches.includes('maternal')) return 'maternal';
+  return null;
+}
+
+function orderGeneration(group, rootId) {
+  return [...group].sort((a, b) => {
+    const ap = nodePriority(a, rootId);
+    const bp = nodePriority(b, rootId);
+    if (ap !== bp) return ap - bp;
+    return (a.person.birthDate || '').localeCompare(b.person.birthDate || '') || a.person.fullName.localeCompare(b.person.fullName);
+  });
+}
+
+function limitGeneration(group, generation, rootId) {
+  const maxByGeneration = new Map([
+    [-4, 6],
+    [-3, 10],
+    [-2, 12],
+    [-1, 12],
+    [0, 8],
+    [1, 10],
+  ]);
+  const max = maxByGeneration.get(generation) || 14;
+  if (group.length <= max) return group;
+  const required = group.filter((node) => node.person.recordName === rootId || node.roles?.some((role) => role.includes('root')));
+  const rest = group.filter((node) => !required.includes(node));
+  return [...required, ...rest].slice(0, max);
+}
+
+function nodePriority(node, rootId) {
+  if (node.person.recordName === rootId) return 0;
+  const roles = node.roles || [];
+  if (roles.includes('root')) return 0;
+  if (roles.some((role) => role.includes('ancestor-parent'))) return 1;
+  if (roles.some((role) => role.includes('partner-family'))) return 2;
+  if (roles.some((role) => role.includes('descendant'))) return 3;
+  if (roles.some((role) => role.includes('collateral'))) return 4;
+  return 5;
+}
+
 function mergeRole(a, b) {
   if (!a || a === b) return b;
   if (!b) return a;
@@ -422,6 +590,7 @@ function buildBands(nodes, rootX = 0) {
   return [...grouped.entries()].map(([generation, group]) => {
     const minX = Math.min(...group.map((node) => node.x));
     const maxX = Math.max(...group.map((node) => node.x));
+    const centerY = group.reduce((sum, node) => sum + node.y, 0) / group.length;
     const years = yearRange(group.map((node) => node.person));
     const width = Math.max(390, maxX - minX + 280 + BAND_LABEL_GUTTER);
     const height = generation === 0 ? 216 : 112;
@@ -434,7 +603,7 @@ function buildBands(nodes, rootX = 0) {
     return {
       generation,
       x: (minX + maxX) / 2 - BAND_LABEL_GUTTER / 2,
-      y: -generation * GEN_STEP,
+      y: centerY,
       width,
       height,
       title,
@@ -486,9 +655,9 @@ function focusBoundsFor(nodes, bands, fallback) {
   const rootX = root?.x || 0;
   const rootY = root?.y || 0;
   const focusedNodes = nodes.filter((node) => (
-    node.generation >= -2 &&
+    node.generation >= -4 &&
     node.generation <= 1 &&
-    Math.abs(node.x - rootX) <= 980
+    Math.abs(node.x - rootX) <= 1700
   ));
   if (focusedNodes.length === 0) return fallback;
   const focusedGenerations = new Set(focusedNodes.map((node) => node.generation));
@@ -496,16 +665,15 @@ function focusBoundsFor(nodes, bands, fallback) {
     .filter((band) => focusedGenerations.has(band.generation))
     .map((band) => ({
       ...band,
-      width: Math.min(band.width, 1500),
-      x: Math.max(rootX - 200, Math.min(rootX + 200, band.x)),
+      width: Math.min(band.width, 2600),
     }));
   const bounds = boundsFor(focusedNodes, focusedBands);
-  const maxWidth = 1500;
-  const maxHeight = 860;
-  const centerX = rootX - BAND_LABEL_GUTTER / 2;
-  const centerY = rootY + 110;
-  const width = Math.min(Math.max(bounds.maxX - bounds.minX, 760), maxWidth);
-  const height = Math.min(Math.max(bounds.maxY - bounds.minY, 560), maxHeight);
+  const maxWidth = 2600;
+  const maxHeight = 1320;
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = (bounds.minY + bounds.maxY) / 2 + 18;
+  const width = Math.min(Math.max(bounds.maxX - bounds.minX, 900), maxWidth);
+  const height = Math.min(Math.max(bounds.maxY - bounds.minY + 72, 760), maxHeight);
   return {
     minX: centerX - width / 2,
     maxX: centerX + width / 2,
@@ -692,10 +860,9 @@ function makePersonNode(node, palette) {
   shadow.renderOrder = 2;
   group.add(shadow);
 
-  const icon = makePlaneFromTexture(makeMacPersonIconTexture(node.person, palette, false), 116, 92);
-  icon.position.set(0, 18, 22);
-  icon.renderOrder = 8;
-  group.add(icon);
+  const model = makeMacPersonModel(node.person, palette, false);
+  model.position.set(0, 12, 6);
+  group.add(model);
 
   const label = makePlaneFromTexture(makePersonLabelTexture(node.person, palette), 168, 66);
   label.position.set(0, -58, 16);
@@ -723,160 +890,95 @@ function makeFeaturedNode(node, palette) {
   card.renderOrder = 3;
   group.add(card);
 
-  const icon = makePlaneFromTexture(makeMacPersonIconTexture(node.person, palette, true), 144, 116);
-  icon.position.set(0, 56, 36);
-  icon.renderOrder = 9;
-  group.add(icon);
+  const model = makeMacPersonModel(node.person, palette, true);
+  model.position.set(0, 58, 26);
+  group.add(model);
 
   return group;
 }
 
-function makeMacPersonIconTexture(person, palette, featured) {
-  const colors = colorsForGender(person?.gender, palette);
-  return makeCanvasTexture(360, 300, (ctx, w, h) => {
-    ctx.clearRect(0, 0, w, h);
-    ctx.save();
-    ctx.translate(w / 2, featured ? h / 2 + 6 : h / 2 + 10);
-    ctx.scale(featured ? 1.1 : 1, featured ? 1.1 : 1);
-
-    const shadow = ctx.createRadialGradient(22, 54, 10, 22, 54, 118);
-    shadow.addColorStop(0, 'rgba(0,0,0,0.2)');
-    shadow.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = shadow;
-    ctx.beginPath();
-    ctx.ellipse(18, 66, 112, 32, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    const bodyGradient = ctx.createRadialGradient(-34, 22, 12, -18, 30, 86);
-    bodyGradient.addColorStop(0, lightenHex(colors.base, 0.32));
-    bodyGradient.addColorStop(0.55, colors.base);
-    bodyGradient.addColorStop(1, colors.deep);
-    ctx.fillStyle = bodyGradient;
-    ctx.beginPath();
-    ctx.ellipse(-20, 34, 70, 39, -0.12, 0, Math.PI * 2);
-    ctx.fill();
-
-    const bodyHighlight = ctx.createRadialGradient(-48, 15, 4, -42, 18, 44);
-    bodyHighlight.addColorStop(0, 'rgba(255,255,255,0.62)');
-    bodyHighlight.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = bodyHighlight;
-    ctx.beginPath();
-    ctx.ellipse(-36, 22, 42, 18, -0.16, 0, Math.PI * 2);
-    ctx.fill();
-
-    const frontGradient = ctx.createRadialGradient(35, 28, 8, 35, 34, 58);
-    frontGradient.addColorStop(0, lightenHex(colors.base, 0.22));
-    frontGradient.addColorStop(1, colors.base);
-    ctx.fillStyle = frontGradient;
-    ctx.beginPath();
-    ctx.ellipse(34, 40, 48, 31, -0.18, 0, Math.PI * 2);
-    ctx.fill();
-
-    const neckGradient = ctx.createLinearGradient(0, -2, 0, 34);
-    neckGradient.addColorStop(0, SKIN);
-    neckGradient.addColorStop(1, SKIN_SHADOW);
-    ctx.fillStyle = neckGradient;
-    roundedRect(ctx, -17, -4, 34, 46, 16);
-    ctx.fill();
-
-    const headGradient = ctx.createRadialGradient(-16, -42, 4, 6, -24, 46);
-    headGradient.addColorStop(0, '#ffe9bf');
-    headGradient.addColorStop(0.55, SKIN);
-    headGradient.addColorStop(1, SKIN_SHADOW);
-    ctx.fillStyle = headGradient;
-    ctx.beginPath();
-    ctx.arc(0, -32, featured ? 38 : 32, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.beginPath();
-    ctx.ellipse(-14, -46, featured ? 12 : 10, featured ? 8 : 7, -0.35, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.restore();
-  });
-}
-
-function makeAvatarBust(person, palette, scale = 1) {
+function makeMacPersonModel(person, palette, featured) {
   const group = new THREE.Group();
+  const colors = colorsForGender(person?.gender, palette);
+  const scale = featured ? 1.1 : 0.88;
   group.scale.setScalar(scale);
 
-  const colors = colorsForGender(person?.gender, palette);
-  const torsoMaterial = new THREE.MeshStandardMaterial({
-    color: colors.base,
-    roughness: 0.28,
-    metalness: 0.02,
-    emissive: colors.base,
-    emissiveIntensity: 0.06,
-  });
-  const deepMaterial = new THREE.MeshStandardMaterial({
+  const bottomMaterial = new THREE.MeshStandardMaterial({
     color: colors.deep,
-    roughness: 0.36,
+    roughness: 0.46,
     metalness: 0.02,
     transparent: true,
-    opacity: 0.34,
+    opacity: 0.72,
+  });
+  const topMaterial = new THREE.MeshStandardMaterial({
+    color: colors.base,
+    roughness: 0.28,
+    metalness: 0.03,
+    emissive: colors.base,
+    emissiveIntensity: 0.08,
   });
   const skinMaterial = new THREE.MeshStandardMaterial({
     color: SKIN,
-    roughness: 0.34,
+    roughness: 0.36,
     metalness: 0,
-    emissive: SKIN,
-    emissiveIntensity: 0.04,
-  });
-  const skinShadeMaterial = new THREE.MeshStandardMaterial({
-    color: SKIN_SHADOW,
-    roughness: 0.42,
-    metalness: 0,
-    transparent: true,
-    opacity: 0.38,
+    emissive: '#ffe0b6',
+    emissiveIntensity: 0.06,
   });
 
-  const shoulders = new THREE.Mesh(new THREE.SphereGeometry(54, 48, 18), torsoMaterial);
-  shoulders.scale.set(1.28, 0.42, 0.5);
-  shoulders.position.set(0, 0, 0);
-  shoulders.castShadow = true;
-  shoulders.receiveShadow = true;
-  group.add(shoulders);
+  const bodyShadow = new THREE.Mesh(
+    new THREE.CircleGeometry(82, 64),
+    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.18, depthWrite: false })
+  );
+  bodyShadow.scale.set(1.34, 0.38, 1);
+  bodyShadow.position.set(14, 4, -18);
+  bodyShadow.renderOrder = 3;
+  group.add(bodyShadow);
 
-  const torsoShade = new THREE.Mesh(new THREE.SphereGeometry(45, 42, 14), deepMaterial);
-  torsoShade.scale.set(1.18, 0.2, 0.34);
-  torsoShade.position.set(0, -6, 5);
-  group.add(torsoShade);
+  const bottomBody = new THREE.Mesh(new THREE.SphereGeometry(54, 48, 18), bottomMaterial);
+  bottomBody.scale.set(1.42, 0.42, 0.36);
+  bottomBody.position.set(0, 8, -2);
+  bottomBody.castShadow = true;
+  bottomBody.receiveShadow = true;
+  group.add(bottomBody);
 
-  const leftShoulder = new THREE.Mesh(new THREE.SphereGeometry(31, 32, 14), torsoMaterial);
-  leftShoulder.scale.set(1.05, 0.74, 0.52);
-  leftShoulder.position.set(-42, 6, 4);
-  leftShoulder.castShadow = true;
-  group.add(leftShoulder);
+  const bodyNode = new THREE.Mesh(new THREE.SphereGeometry(53, 48, 18), topMaterial);
+  bodyNode.scale.set(1.28, 0.34, 0.32);
+  bodyNode.position.set(-8, 18, 10);
+  bodyNode.castShadow = true;
+  bodyNode.receiveShadow = true;
+  group.add(bodyNode);
 
-  const rightShoulder = leftShoulder.clone();
-  rightShoulder.position.x = 42;
-  group.add(rightShoulder);
+  const sideNode = new THREE.Mesh(new THREE.SphereGeometry(27, 32, 14), topMaterial);
+  sideNode.scale.set(1.05, 0.74, 0.42);
+  sideNode.position.set(-56, 18, 11);
+  sideNode.castShadow = true;
+  group.add(sideNode);
 
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(13, 17, 22, 28), skinMaterial);
-  neck.position.set(0, 34, 12);
+  const frontNode = new THREE.Mesh(new THREE.SphereGeometry(31, 32, 14), topMaterial);
+  frontNode.scale.set(1.05, 0.68, 0.38);
+  frontNode.position.set(44, 18, 13);
+  frontNode.castShadow = true;
+  group.add(frontNode);
+
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(10, 15, 22, 24), skinMaterial);
+  neck.position.set(0, 45, 20);
   neck.castShadow = true;
   group.add(neck);
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(28, 42, 26), skinMaterial);
-  head.scale.set(0.92, 1.04, 0.88);
-  head.position.set(0, 64, 18);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(featured ? 29 : 25, 36, 22), skinMaterial);
+  head.scale.set(0.95, 1.02, 0.9);
+  head.position.set(0, 67, 28);
   head.castShadow = true;
   group.add(head);
 
-  const cheek = new THREE.Mesh(new THREE.SphereGeometry(22, 32, 14), skinShadeMaterial);
-  cheek.scale.set(0.55, 0.35, 0.18);
-  cheek.position.set(9, 56, 37);
-  group.add(cheek);
-
-  const shine = new THREE.Mesh(
-    new THREE.SphereGeometry(19, 28, 12),
-    new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.2, depthWrite: false })
+  const highlight = new THREE.Mesh(
+    new THREE.SphereGeometry(featured ? 8 : 7, 18, 10),
+    new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.32, depthWrite: false })
   );
-  shine.scale.set(0.42, 0.22, 0.14);
-  shine.position.set(-13, 77, 39);
-  shine.renderOrder = 8;
-  group.add(shine);
+  highlight.scale.set(1.25, 0.72, 0.3);
+  highlight.position.set(-10, 78, 49);
+  highlight.renderOrder = 10;
+  group.add(highlight);
 
   return group;
 }
@@ -1173,6 +1275,8 @@ const styles = {
     maxWidth: 'calc(100% - 32px)',
     display: 'flex',
     alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
     gap: 12,
     padding: '8px 10px',
     borderRadius: 8,
@@ -1181,7 +1285,7 @@ const styles = {
     boxShadow: '0 14px 34px rgb(0 0 0 / 0.16)',
     backdropFilter: 'blur(14px)',
     color: 'hsl(var(--foreground))',
-    overflow: 'hidden',
+    overflow: 'auto',
   },
   dockGroup: {
     display: 'flex',
@@ -1261,5 +1365,14 @@ const styles = {
     background: 'hsl(var(--background) / 0.45)',
   },
 };
+
+function dockToggleStyle(active) {
+  return {
+    ...styles.dockButton,
+    background: active ? 'hsl(var(--primary) / 0.14)' : 'hsl(var(--secondary))',
+    borderColor: active ? 'hsl(var(--primary) / 0.45)' : 'hsl(var(--border))',
+    color: active ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+  };
+}
 
 export default ThreeDTreeView;

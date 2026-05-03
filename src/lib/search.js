@@ -11,7 +11,7 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { Gender } from '../models/index.js';
 import { FIELD_ALIASES, readConclusionType, readField } from './schema.js';
-import { equalsSearchText, matchesSearchText, startsWithSearchText } from './i18n.js';
+import { equalsSearchText, matchesSearchText, normalizeSearchText, searchTokenVariants, startsWithSearchText } from './i18n.js';
 
 export const ENTITY_TYPES = [
   { id: 'Person', label: 'Persons' },
@@ -182,14 +182,22 @@ export function createSearchIndex(records = []) {
 }
 
 export function querySearchIndex(index, query) {
-  const tokens = tokenizeSearchText(query);
-  if (!tokens.length) return new Set(index?.textById?.keys?.() || []);
-  const tokenMatches = tokens.map((token) => idsForToken(index, token));
+  const tokenGroups = tokenizeBaseSearchText(query).map((token) => searchTokenVariants(token));
+  if (!tokenGroups.length) return new Set(index?.textById?.keys?.() || []);
+  const tokenMatches = tokenGroups.map((tokens) => idsForTokenVariants(index, tokens));
   if (tokenMatches.some((set) => set.size === 0)) return new Set();
   const [first, ...rest] = tokenMatches.sort((a, b) => a.size - b.size);
   const out = new Set();
   for (const id of first) {
     if (rest.every((set) => set.has(id))) out.add(id);
+  }
+  return out;
+}
+
+function idsForTokenVariants(index, tokens) {
+  const out = new Set();
+  for (const token of tokens) {
+    for (const id of idsForToken(index, token)) out.add(id);
   }
   return out;
 }
@@ -222,10 +230,18 @@ function collectSearchText(value, parts) {
 }
 
 function tokenizeSearchText(text) {
-  return [...new Set(String(text || '')
-    .toLocaleLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
+  const baseTokens = tokenizeBaseSearchText(text);
+  const out = new Set(baseTokens);
+  for (const token of baseTokens) {
+    for (const variant of searchTokenVariants(token)) {
+      if (variant.length >= 2) out.add(variant);
+    }
+  }
+  return [...out];
+}
+
+function tokenizeBaseSearchText(text) {
+  return [...new Set(normalizeSearchText(text)
     .split(/[^\p{L}\p{N}@_-]+/u)
     .map((token) => token.trim())
     .filter((token) => token.length >= 2))];

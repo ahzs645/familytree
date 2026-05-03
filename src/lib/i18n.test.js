@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   compareStrings,
   formatInteger,
+  equalsSearchText,
   localeWithExtensions,
   matchesSearchText,
   normalizeSearchText,
@@ -21,6 +22,14 @@ describe('i18n helpers', () => {
     expect(normalizeSearchText('رعــــد')).toBe(normalizeSearchText('رعد'));
     expect(matchesSearchText('مسؤول الأسرة', 'مسوول')).toBe(true);
     expect(startsWithSearchText('إبراهيم بن علي', 'ابراهيم')).toBe(true);
+  });
+
+  it('matches Arabic names from likely English romanizations', () => {
+    expect(matchesSearchText('أحمد رعد الجليل', 'Ahmad raad jalil')).toBe(true);
+    expect(matchesSearchText('أحمد رعد الجليل', 'Ahmed Raad Jalil')).toBe(true);
+    expect(matchesSearchText('أحمد Raad الجليل', 'ahmed raad jalil')).toBe(true);
+    expect(startsWithSearchText('أحمد رعد الجليل', 'Ahmed Raad')).toBe(true);
+    expect(equalsSearchText('أحمد', 'Ahmed')).toBe(true);
   });
 
   it('resolves Arabic locale options for direction, numbering, and collation', () => {
@@ -47,6 +56,7 @@ describe('i18n helpers', () => {
       .map((record) => record.fields.cached_fullName.value);
 
     expect(names.some((name) => matchesSearchText(name, 'احمد raad', fixture.localization))).toBe(true);
+    expect(names.some((name) => matchesSearchText(name, 'Ahmed Raad Jalil', fixture.localization))).toBe(true);
     expect(names.some((name) => matchesSearchText(name, 'ابراهيم', fixture.localization))).toBe(true);
 
     const sorted = [...names].sort((a, b) => compareStrings(a, b, fixture.localization));

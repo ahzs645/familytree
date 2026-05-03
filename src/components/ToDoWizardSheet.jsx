@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { generateResearchSuggestions } from '../lib/researchSuggestions.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { logRecordCreated } from '../lib/changeLog.js';
+import { matchesSearchText } from '../lib/i18n.js';
 import { writeRef } from '../lib/schema.js';
 
 function uuid(prefix) {
@@ -48,8 +49,7 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
 
   const filtered = useMemo(() => {
     if (!filter) return rows;
-    const needle = filter.toLowerCase();
-    return rows.filter((r) => r.fullName.toLowerCase().includes(needle) || r.suggestion.toLowerCase().includes(needle));
+    return rows.filter((r) => matchesSearchText(r.fullName, filter) || matchesSearchText(r.suggestion, filter));
   }, [rows, filter]);
 
   if (!open) return null;

@@ -5,6 +5,7 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { isPublicRecord } from './privacy.js';
+import { refToRecordName } from './recordRef.js';
 import { personSummary } from '../models/index.js';
 
 /**
@@ -90,6 +91,139 @@ export async function buildDescendantTree(rootRecordName, maxGenerations = 4) {
   }
 
   return recurse(root, 0);
+}
+
+/**
+ * Build the broader context used by MacFamilyTree's Interactive Tree:
+ * direct ancestors plus the collateral people in those families.
+ *
+ * The chart builders above intentionally return strict ancestor/descendant
+ * trees. The interactive view needs more context: siblings, aunts/uncles,
+ * partners, and children of the displayed family groups.
+ */
+export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) {
+  const maxAncestorGenerations = options.maxAncestorGenerations ?? 4;
+  const maxDescendantGenerations = options.maxDescendantGenerations ?? 1;
+  const db = getLocalDatabase();
+  const root = await db.getRecord(rootRecordName);
+  if (!isPublicRecord(root)) return null;
+
+  const [{ records: familyRecords }, { records: childRelationRecords }] = await Promise.all([
+    db.query('Family', { limit: 100000 }),
+    db.query('ChildRelation', { limit: 100000 }),
+  ]);
+
+  const familyById = new Map(familyRecords.filter(isPublicRecord).map((family) => [family.recordName, family]));
+  const childrenByFamily = new Map();
+  const parentFamiliesByChild = new Map();
+
+  for (const relation of childRelationRecords) {
+    const familyId = refToRecordName(relation.fields?.family?.value);
+    const childId = refToRecordName(relation.fields?.child?.value);
+    if (!familyId || !childId || !familyById.has(familyId)) continue;
+    if (!childrenByFamily.has(familyId)) childrenByFamily.set(familyId, []);
+    childrenByFamily.get(familyId).push(childId);
+    if (!parentFamiliesByChild.has(childId)) parentFamiliesByChild.set(childId, []);
+    parentFamiliesByChild.get(childId).push(familyId);
+  }
+
+  const personIds = new Set([rootRecordName]);
+  const familyIds = new Set();
+  const nodeHints = new Map();
+  const addHint = (personId, generation, role = 'relative', branch = null) => {
+    if (!personId) return;
+    const existing = nodeHints.get(personId);
+    if (!existing || Math.abs(generation) < Math.abs(existing.generation)) {
+      nodeHints.set(personId, { generation, roles: new Set([role]), branches: new Set(branch ? [branch] : []) });
+    } else {
+      existing.roles.add(role);
+      if (branch) existing.branches.add(branch);
+    }
+    personIds.add(personId);
+  };
+
+  addHint(rootRecordName, 0, 'root');
+
+  const addFamily = (familyId, generationForChildren, role = 'family', branch = null, childIdForBranch = null) => {
+    const family = familyById.get(familyId);
+    if (!family) return;
+    familyIds.add(familyId);
+    const manId = refToRecordName(family.fields?.man?.value);
+    const womanId = refToRecordName(family.fields?.woman?.value);
+    const fatherBranch = branch === 'root' ? 'paternal' : branch;
+    const motherBranch = branch === 'root' ? 'maternal' : branch;
+    addHint(manId, generationForChildren - 1, `${role}-parent`, fatherBranch);
+    addHint(womanId, generationForChildren - 1, `${role}-parent`, motherBranch);
+    for (const childId of childrenByFamily.get(familyId) || []) {
+      const childBranch = childId === childIdForBranch ? branch : branch === 'root' ? null : branch;
+      addHint(childId, generationForChildren, role === 'ancestor' ? 'collateral' : role, childBranch);
+    }
+  };
+
+  const visitAncestorLine = (personId, generation, depth, branch = 'root') => {
+    if (depth > maxAncestorGenerations) return;
+    for (const familyId of parentFamiliesByChild.get(personId) || []) {
+      addFamily(familyId, generation, 'ancestor', branch, personId);
+      const family = familyById.get(familyId);
+      const fatherId = refToRecordName(family?.fields?.man?.value);
+      const motherId = refToRecordName(family?.fields?.woman?.value);
+      const fatherBranch = branch === 'root' ? 'paternal' : branch;
+      const motherBranch = branch === 'root' ? 'maternal' : branch;
+      if (fatherId) visitAncestorLine(fatherId, generation - 1, depth + 1, fatherBranch);
+      if (motherId) visitAncestorLine(motherId, generation - 1, depth + 1, motherBranch);
+    }
+  };
+  visitAncestorLine(rootRecordName, 0, 1);
+
+  const visitDescendantFamilies = (personId, generation, depth) => {
+    if (depth > maxDescendantGenerations) return;
+    for (const family of familyById.values()) {
+      const manId = refToRecordName(family.fields?.man?.value);
+      const womanId = refToRecordName(family.fields?.woman?.value);
+      if (manId !== personId && womanId !== personId) continue;
+      familyIds.add(family.recordName);
+      addHint(manId, generation, 'partner-family');
+      addHint(womanId, generation, 'partner-family');
+      for (const childId of childrenByFamily.get(family.recordName) || []) {
+        addHint(childId, generation + 1, 'descendant');
+        visitDescendantFamilies(childId, generation + 1, depth + 1);
+      }
+    }
+  };
+  visitDescendantFamilies(rootRecordName, 0, 1);
+
+  const people = await db.getRecords([...personIds]);
+  const publicPeople = people.filter(isPublicRecord);
+  const publicPersonIds = new Set(publicPeople.map((person) => person.recordName));
+
+  const nodes = publicPeople.map((person) => {
+    const hint = nodeHints.get(person.recordName) || { generation: 0, roles: new Set(['relative']) };
+    return {
+      id: person.recordName,
+      person: personSummary(person),
+      generation: hint.generation,
+      roles: [...hint.roles],
+      branches: [...(hint.branches || [])],
+      featured: person.recordName === rootRecordName,
+    };
+  });
+
+  const families = [...familyIds]
+    .map((familyId) => familyById.get(familyId))
+    .filter(Boolean)
+    .map((family) => {
+      const manId = refToRecordName(family.fields?.man?.value);
+      const womanId = refToRecordName(family.fields?.woman?.value);
+      const children = (childrenByFamily.get(family.recordName) || []).filter((childId) => publicPersonIds.has(childId));
+      return {
+        id: family.recordName,
+        parents: [manId, womanId].filter((id) => id && publicPersonIds.has(id)),
+        children,
+      };
+    })
+    .filter((family) => family.parents.length > 0 || family.children.length > 0);
+
+  return { rootId: rootRecordName, nodes, families };
 }
 
 /**

@@ -33,8 +33,42 @@ export const CALENDAR_OPTIONS = [
 
 const RTL_LANGUAGE_CODES = new Set(['ar', 'arc', 'ckb', 'dv', 'fa', 'he', 'ku', 'ps', 'syr', 'ur', 'yi']);
 const RTL_CHAR_RE = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufefc]/;
+const ARABIC_CHAR_RE = /[\u0600-\u06ff\ufb50-\ufdff\ufe70-\ufefc]/;
 const ARABIC_DIACRITICS_RE = /[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed]/g;
 const COMBINING_MARK_RE = /\p{M}/gu;
+const SEARCH_SPLIT_RE = /[^\p{L}\p{N}@_-]+/u;
+const LATIN_VOWELS_RE = /[aeiou]/g;
+const ARABIC_ROMANIZATION = Object.freeze({
+  ا: 'a',
+  ب: 'b',
+  ت: 't',
+  ث: 'th',
+  ج: 'j',
+  ح: 'h',
+  خ: 'kh',
+  د: 'd',
+  ذ: 'dh',
+  ر: 'r',
+  ز: 'z',
+  س: 's',
+  ش: 'sh',
+  ص: 's',
+  ض: 'd',
+  ط: 't',
+  ظ: 'z',
+  ع: '',
+  غ: 'gh',
+  ف: 'f',
+  ق: 'q',
+  ك: 'k',
+  ل: 'l',
+  م: 'm',
+  ن: 'n',
+  ه: 'h',
+  و: 'u',
+  ي: 'i',
+  ء: '',
+ });
 
 export function normalizeLocale(locale) {
   const raw = String(locale || DEFAULT_LOCALIZATION.locale).trim();
@@ -160,18 +194,117 @@ export function normalizeSearchText(value, localization = getCurrentLocalization
     .trim();
 }
 
+function tokenizeNormalizedSearchText(value, localization = getCurrentLocalization()) {
+  return normalizeSearchText(value, localization)
+    .split(SEARCH_SPLIT_RE)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
+function latinPhoneticKey(value) {
+  return String(value || '')
+    .replace(/[^a-z0-9]+/g, '')
+    .replace(/aa/g, 'a')
+    .replace(/ee/g, 'i')
+    .replace(/oo/g, 'u')
+    .replace(/ou/g, 'u')
+    .replace(/ph/g, 'f')
+    .replace(/ck/g, 'k')
+    .replace(/q/g, 'k')
+    .replace(LATIN_VOWELS_RE, '');
+}
+
+function romanizeArabicToken(token) {
+  let out = '';
+  for (const char of token) out += ARABIC_ROMANIZATION[char] ?? char;
+  return out.replace(/[^a-z0-9]+/g, '');
+}
+
+function addArabicTokenVariants(token, variants) {
+  const romanized = romanizeArabicToken(token);
+  if (romanized) variants.add(romanized);
+  const key = latinPhoneticKey(romanized);
+  if (key) variants.add(key);
+
+  if (token.startsWith('ال') && token.length > 2) {
+    addArabicTokenVariants(token.slice(2), variants);
+  }
+  if (romanized.startsWith('al') && romanized.length > 2) {
+    variants.add(romanized.slice(2));
+    const bareKey = latinPhoneticKey(romanized.slice(2));
+    if (bareKey) variants.add(bareKey);
+  }
+}
+
+export function searchTokenVariants(token, localization = getCurrentLocalization()) {
+  const normalized = normalizeSearchText(token, localization);
+  if (!normalized) return [];
+  const variants = new Set([normalized]);
+  if (ARABIC_CHAR_RE.test(normalized)) {
+    addArabicTokenVariants(normalized, variants);
+  } else {
+    const key = latinPhoneticKey(normalized);
+    if (key) variants.add(key);
+  }
+  return [...variants].filter((variant) => variant.length >= 1);
+}
+
+export function searchTextForms(value, localization = getCurrentLocalization()) {
+  const normalized = normalizeSearchText(value, localization);
+  const forms = new Set([normalized]);
+  const expandedTokens = [];
+  for (const token of tokenizeNormalizedSearchText(value, localization)) {
+    const variants = searchTokenVariants(token, localization);
+    expandedTokens.push(...variants);
+  }
+  if (expandedTokens.length) forms.add(expandedTokens.join(' '));
+  return [...forms].filter(Boolean);
+}
+
+function searchTokenVariantGroups(value, localization = getCurrentLocalization()) {
+  return tokenizeNormalizedSearchText(value, localization)
+    .map((token) => searchTokenVariants(token, localization));
+}
+
+function variantGroupsMatch(leftGroups, rightGroups, length = leftGroups.length) {
+  for (let i = 0; i < length; i += 1) {
+    const left = leftGroups[i] || [];
+    const right = new Set(rightGroups[i] || []);
+    if (!left.some((variant) => right.has(variant))) return false;
+  }
+  return true;
+}
+
 export function matchesSearchText(rawValue, query, localization = getCurrentLocalization()) {
   const target = normalizeSearchText(query, localization);
   if (!target) return true;
-  return normalizeSearchText(rawValue, localization).includes(target);
+  const forms = searchTextForms(rawValue, localization);
+  if (forms.some((form) => form.includes(target))) return true;
+
+  const queryTokenGroups = searchTokenVariantGroups(query, localization);
+  if (!queryTokenGroups.length) return true;
+  return queryTokenGroups.every((variants) => (
+    variants.some((variant) => forms.some((form) => form.includes(variant)))
+  ));
 }
 
 export function startsWithSearchText(rawValue, query, localization = getCurrentLocalization()) {
-  return normalizeSearchText(rawValue, localization).startsWith(normalizeSearchText(query, localization));
+  const target = normalizeSearchText(query, localization);
+  if (searchTextForms(rawValue, localization).some((form) => form.startsWith(target))) return true;
+  const rawGroups = searchTokenVariantGroups(rawValue, localization);
+  const queryGroups = searchTokenVariantGroups(query, localization);
+  return queryGroups.length > 0
+    && queryGroups.length <= rawGroups.length
+    && variantGroupsMatch(queryGroups, rawGroups, queryGroups.length);
 }
 
 export function equalsSearchText(rawValue, query, localization = getCurrentLocalization()) {
-  return normalizeSearchText(rawValue, localization) === normalizeSearchText(query, localization);
+  if (normalizeSearchText(rawValue, localization) === normalizeSearchText(query, localization)) return true;
+  const rawGroups = searchTokenVariantGroups(rawValue, localization);
+  const queryGroups = searchTokenVariantGroups(query, localization);
+  return queryGroups.length > 0
+    && queryGroups.length === rawGroups.length
+    && variantGroupsMatch(queryGroups, rawGroups);
 }
 
 export function textDirection(value, fallback = 'ltr') {

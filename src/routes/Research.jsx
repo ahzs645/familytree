@@ -5,6 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { generateResearchSuggestions } from '../lib/researchSuggestions.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { matchesSearchText } from '../lib/i18n.js';
 import { readRef, writeRef } from '../lib/schema.js';
 import { logRecordCreated } from '../lib/changeLog.js';
 import { useModal } from '../contexts/ModalContext.jsx';
@@ -125,7 +126,7 @@ export default function Research() {
     }
   };
   const visible = (filter
-    ? items.filter((i) => i.suggestions.some((s) => s.toLowerCase().includes(filter.toLowerCase())) || i.fullName.toLowerCase().includes(filter.toLowerCase()))
+    ? items.filter((i) => i.suggestions.some((s) => matchesSearchText(s, filter)) || matchesSearchText(i.fullName, filter))
     : items
   ).filter((item) => !state.ignoredEntities[item.recordName])
     .map((item) => ({

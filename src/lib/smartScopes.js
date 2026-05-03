@@ -8,6 +8,7 @@
  * `ctx` cache built once per run.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { matchesSearchText } from './i18n.js';
 import { refToRecordName } from './recordRef.js';
 import { FIELD_ALIASES, readField, readRef } from './schema.js';
 
@@ -424,6 +425,5 @@ function hasAnyCoordinates(record, ctx) {
 }
 
 function hasToken(record, fields, token) {
-  const needle = String(token).toLowerCase();
-  return fields.some((field) => String(readField(record, [field], '')).toLowerCase().includes(needle));
+  return fields.some((field) => matchesSearchText(readField(record, [field], ''), token));
 }

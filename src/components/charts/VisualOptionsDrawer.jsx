@@ -9,6 +9,7 @@ export function VisualOptionsDrawer({
   onClose,
   sections = VISUAL_OPTION_SECTIONS,
   title = 'Options',
+  placement = 'overlay',
 }) {
   if (!open) return null;
 
@@ -16,8 +17,12 @@ export function VisualOptionsDrawer({
     onChange(updateVisualViewOption(kind, options, key, value));
   };
 
+  const panelClass = placement === 'inline'
+    ? 'rounded-md border border-border bg-background p-4 text-sm'
+    : 'absolute inset-x-2 bottom-2 z-20 max-h-[70%] overflow-auto rounded-md border border-border bg-card/95 p-4 text-sm shadow-xl backdrop-blur md:inset-x-auto md:end-3 md:bottom-auto md:top-3 md:max-h-[calc(100%-1.5rem)] md:w-[min(340px,calc(100%-1.5rem))]';
+
   return (
-    <aside className="absolute inset-x-2 bottom-2 z-20 max-h-[70%] overflow-auto rounded-md border border-border bg-card/95 p-4 text-sm shadow-xl backdrop-blur md:inset-x-auto md:end-3 md:bottom-auto md:top-3 md:max-h-[calc(100%-1.5rem)] md:w-[min(340px,calc(100%-1.5rem))]">
+    <aside className={panelClass}>
       <div className="mb-3 flex items-center gap-3">
         <div>
           <h2 className="text-sm font-semibold">{title}</h2>

@@ -36,6 +36,7 @@ const MOBILE_PRIMARY_LINKS = [
 ];
 
 const DRAWER_COLLAPSED_KEY = 'app.drawer.collapsed';
+const NAV_VISIBILITY_EVENT = 'cloudtreeweb:navigation-visibility';
 
 function MobileMenu({ links }) {
   const [open, setOpen] = useState(false);
@@ -100,6 +101,7 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(DRAWER_COLLAPSED_KEY) === '1'; } catch { return false; }
   });
+  const [navigationHidden, setNavigationHidden] = useState(false);
 
   useKeyboardShortcuts({
     'ctrl+f': () => navigate('/search'),
@@ -135,6 +137,14 @@ export function AppShell() {
   useEffect(() => {
     try { localStorage.setItem(DRAWER_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch {}
   }, [collapsed]);
+
+  useEffect(() => {
+    const onNavigationVisibility = (event) => {
+      setNavigationHidden(Boolean(event.detail?.hidden));
+    };
+    window.addEventListener(NAV_VISIBILITY_EVENT, onNavigationVisibility);
+    return () => window.removeEventListener(NAV_VISIBILITY_EVENT, onNavigationVisibility);
+  }, []);
 
   const localization = resolveLocalization(preferences?.localization);
   const recordCountLabel = loading
@@ -186,6 +196,7 @@ export function AppShell() {
   return (
     <div className="flex h-screen bg-background text-foreground" lang={localization.locale} dir={localization.direction}>
       {palette}
+      {!navigationHidden && (
       <NavigationDrawer
         collapsed={collapsed}
         onToggleCollapsed={() => setCollapsed((v) => !v)}
@@ -194,6 +205,7 @@ export function AppShell() {
         recordCountLabel={recordCountLabel}
         statusState={statusState}
       />
+      )}
       <main className="flex-1 relative overflow-hidden min-w-0">
         <Outlet />
       </main>
