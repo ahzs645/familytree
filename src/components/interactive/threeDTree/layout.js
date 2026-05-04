@@ -113,15 +113,15 @@ export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, f
 
 function buildFamilyGraphLayout(familyGraph, activeId) {
   const rootId = activeId || familyGraph.rootId;
-  const sourceNodes = new Map(familyGraph.nodes
-    .filter((node) => node?.person?.recordName)
-    .map((node) => ({
+  const sourceNodes = new Map();
+  for (const node of familyGraph.nodes || []) {
+    if (!node?.person?.recordName) continue;
+    sourceNodes.set(node.person.recordName, {
       ...node,
       featured: node.person.recordName === rootId,
       role: (node.roles || []).join(' '),
-    }))
-    .map((node) => [node.person.recordName, node]));
-
+    });
+  }
   const familyByChild = new Map();
   const familyById = new Map((familyGraph.families || []).map((family) => [family.id, family]));
   for (const family of familyById.values()) {
@@ -210,6 +210,7 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     const next = {
       ...source,
       id: personId,
+      generation,
       x,
       y: -generation * GENERATION_STEP,
       z: source.featured ? 52 : 22 + Math.min(Math.abs(generation) * 3, 18),
@@ -471,4 +472,8 @@ function focusBoundsFor(nodes, bands, fallback) {
     minY: centerY - height / 2,
     maxY: centerY + height / 2,
   };
+}
+
+function nodeVerticalRadius(node) {
+  return node.featured ? ROOT_CARD.h * 0.44 : 72;
 }
