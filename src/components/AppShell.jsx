@@ -20,6 +20,7 @@ const MOBILE_PRIMARY_LINKS = [
   { to: '/', label: 'Home', end: true },
   { to: '/persons', label: 'Persons' },
   { to: '/tree', label: 'Tree' },
+  { to: '/heritage-tree', label: 'Heritage Tree' },
   { to: '/charts', label: 'Charts' },
   { to: '/views', label: 'Views' },
   { to: '/lists', label: 'Lists' },

@@ -28,6 +28,15 @@ window.__cloudtreeweb = {
   React,
 };
 
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    const base = import.meta.env.BASE_URL || '/';
+    navigator.serviceWorker.register(`${base.replace(/\/?$/, '/')}sw.js`).catch((error) => {
+      console.warn('[CloudTreeWeb] service worker registration failed', error);
+    });
+  });
+}
+
 const LOADED_URL_KEY = 'cloudtreeweb-loaded-url';
 
 function currentRoutePath() {

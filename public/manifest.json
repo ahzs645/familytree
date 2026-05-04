@@ -1,6 +1,14 @@
 {
-  "short_name": "CloudTreeWeb",
-  "name": "CloudTreeWeb",
+  "short_name": "العائلة",
+  "name": "شجرة العائلة - CloudTreeWeb",
+  "description": "تطبيق شجرة عائلة يدعم العمل دون اتصال والبحث العربي واتجاه الكتابة من اليمين إلى اليسار.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "theme_color": "#0f1117",
+  "background_color": "#ffffff",
   "icons": [
     {
       "src": "favicon.ico",
@@ -9,12 +17,9 @@
     },
     {
       "src": "cloudtreeweb_webapp_icon.png",
-      "sizes": "any",
-      "type": "image/png"
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
-  ],
-  "start_url": ".",
-  "display": "minimal-ui",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  ]
 }

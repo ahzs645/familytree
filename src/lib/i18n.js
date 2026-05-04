@@ -9,6 +9,7 @@ export const DEFAULT_LOCALIZATION = {
 
 export const SUPPORTED_LOCALES = [
   { value: 'en', label: 'English', nativeLabel: 'English' },
+  { value: 'vi', label: 'Vietnamese', nativeLabel: 'Tiếng Việt' },
   { value: 'ar', label: 'Arabic', nativeLabel: 'العربية' },
 ];
 
@@ -38,6 +39,18 @@ const ARABIC_DIACRITICS_RE = /[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed]/g;
 const COMBINING_MARK_RE = /\p{M}/gu;
 const SEARCH_SPLIT_RE = /[^\p{L}\p{N}@_-]+/u;
 const LATIN_VOWELS_RE = /[aeiou]/g;
+const ARABIC_HONORIFICS = new Set([
+  'السيد',
+  'السيده',
+  'سيد',
+  'سيده',
+  'دكتور',
+  'دكتوره',
+  'استاذ',
+  'استاذه',
+  'د',
+  'ا',
+]);
 const ARABIZI_CHAR_MAP = Object.freeze({
   2: 'a',
   3: 'a',
@@ -224,7 +237,7 @@ export function formatInteger(value, localization = getCurrentLocalization()) {
 
 export function normalizeSearchText(value, localization = getCurrentLocalization()) {
   const locale = resolveLocalization(localization).locale;
-  return String(value ?? '')
+  const normalized = String(value ?? '')
     .normalize('NFKD')
     .replace(COMBINING_MARK_RE, '')
     .replace(ARABIC_DIACRITICS_RE, '')
@@ -237,6 +250,21 @@ export function normalizeSearchText(value, localization = getCurrentLocalization
     .replace(/[\u200c\u200d]/g, '')
     .toLocaleLowerCase(locale)
     .trim();
+  return stripArabicHonorificTokens(normalized);
+}
+
+export function stripArabicHonorificTokens(value) {
+  const tokens = String(value ?? '').split(/(\s+)/);
+  let sawArabicHonorific = false;
+  const stripped = tokens.filter((token) => {
+    if (!token.trim()) return true;
+    if (ARABIC_HONORIFICS.has(token)) {
+      sawArabicHonorific = true;
+      return false;
+    }
+    return true;
+  }).join('').replace(/\s+/g, ' ').trim();
+  return sawArabicHonorific ? stripped : String(value ?? '').trim();
 }
 
 function tokenizeNormalizedSearchText(value, localization = getCurrentLocalization()) {

@@ -9,9 +9,11 @@ import {
   normalizeSearchText,
   resolveLocalization,
   startsWithSearchText,
+  SUPPORTED_LOCALES,
   textDirection,
   wrapGraphemes,
 } from './i18n.js';
+import { formatEventDate } from '../utils/formatDate.js';
 
 const fixture = JSON.parse(readFileSync(new URL('../../fixtures/arabic-smoke/records.json', import.meta.url), 'utf8'));
 
@@ -22,6 +24,8 @@ describe('i18n helpers', () => {
     expect(normalizeSearchText('رعــــد')).toBe(normalizeSearchText('رعد'));
     expect(matchesSearchText('مسؤول الأسرة', 'مسوول')).toBe(true);
     expect(startsWithSearchText('إبراهيم بن علي', 'ابراهيم')).toBe(true);
+    expect(matchesSearchText('أحمد رعد الجليل', 'السيد أحمد')).toBe(true);
+    expect(matchesSearchText('فاطمة الهاشمي', 'دكتورة فاطمة')).toBe(true);
   });
 
   it('matches Arabic names from likely English romanizations', () => {
@@ -42,6 +46,16 @@ describe('i18n helpers', () => {
     expect(localeWithExtensions(localization)).toContain('nu-arab');
     expect(formatInteger(1234, localization)).toMatch(/[٠-٩]/);
     expect(compareStrings('أحمد 2', 'أحمد 10', localization)).toBeLessThan(0);
+  });
+
+  it('supports Vietnamese locale and date formatting', () => {
+    expect(SUPPORTED_LOCALES).toEqual(expect.arrayContaining([
+      expect.objectContaining({ value: 'vi', nativeLabel: 'Tiếng Việt' }),
+    ]));
+    expect(resolveLocalization({ locale: 'vi' }).direction).toBe('ltr');
+    expect(formatEventDate('1900-01-02', { locale: 'vi' })).toBe('2 thg 1, 1900');
+    expect(formatEventDate('ABT 1900', { locale: 'vi' })).toBe('khoảng 1900');
+    expect(formatEventDate('FROM 1900 TO 1902', { locale: 'vi' })).toBe('từ 1900 đến 1902');
   });
 
   it('detects bidi direction and wraps Arabic labels by grapheme clusters', () => {

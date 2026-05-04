@@ -8,6 +8,7 @@ import { isPublicRecord } from './privacy.js';
 import { refToRecordName } from './recordRef.js';
 import { readField } from './schema.js';
 import { personSummary } from '../models/index.js';
+import { attachLineageToPersonSummaries, buildPersonLineage } from './personLineage.js';
 
 /**
  * Build an ancestor pedigree tree to a given depth.
@@ -308,11 +309,17 @@ function extractDuplicateYear(value) {
  */
 export async function listAllPersons({ includePrivate = false } = {}) {
   const db = getLocalDatabase();
-  const { records } = await db.query('Person', { limit: 100000 });
-  return records
+  const [{ records }, { records: families }, { records: childRelations }] = await Promise.all([
+    db.query('Person', { limit: 100000 }),
+    db.query('Family', { limit: 100000 }),
+    db.query('ChildRelation', { limit: 100000 }),
+  ]);
+  const lineage = buildPersonLineage(records, families, childRelations);
+  const persons = records
     .filter((record) => includePrivate || isPublicRecord(record))
     .map(personSummary)
-    .filter(Boolean)
+    .filter(Boolean);
+  return attachLineageToPersonSummaries(persons, lineage)
     .sort((a, b) => a.fullName.localeCompare(b.fullName));
 }
 

@@ -16,6 +16,7 @@ import { getShareTokenFromHash } from './lib/shareRoute.js';
 import { SchemaMigrationSheet } from './components/SchemaMigrationSheet.jsx';
 
 const Tree = lazy(() => import('./routes/Tree.jsx'));
+const HeritageTree = lazy(() => import('./routes/HeritageTree.jsx'));
 const Persons = lazy(() => import('./routes/Persons.jsx'));
 const Lists = lazy(() => import('./routes/Lists.jsx'));
 const Charts = lazy(() => import('./routes/Charts.jsx'));
@@ -148,6 +149,7 @@ export function App() {
             <Route element={<AppShell />}>
               <Route index element={<Home />} />
               <Route path="tree" element={<L><Tree /></L>} />
+              <Route path="heritage-tree" element={<L><HeritageTree /></L>} />
               <Route path="persons" element={<L><Persons /></L>} />
               <Route path="lists" element={<L><Lists /></L>} />
               <Route path="charts" element={<L><Charts /></L>} />

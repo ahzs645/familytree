@@ -13,7 +13,7 @@
  * `parseEventDate` returns { year, month, day } (month/day may be null) or null.
  * `formatEventDate` renders with the active locale when possible.
  */
-import { formatInteger, getCurrentLocalization, localeWithExtensions } from '../lib/i18n.js';
+import { getCurrentLocalization, localeWithExtensions } from '../lib/i18n.js';
 import { parseQualifiedDate, hasQualifier, PREFIX, ERA, isRangePrefix } from '../lib/dateQualifiers.js';
 
 const MONTH_NAMES = [
@@ -84,7 +84,10 @@ function formatAtomicDate(raw, localization) {
   if (d.month) {
     return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'short' }).format(new Date(d.year, d.month - 1, 1));
   }
-  return formatInteger(d.year, localization);
+  return new Intl.NumberFormat(localeWithExtensions(localization), {
+    maximumFractionDigits: 0,
+    useGrouping: false,
+  }).format(d.year);
 }
 
 const PREFIX_PROSE = {
@@ -96,21 +99,34 @@ const PREFIX_PROSE = {
   [PREFIX.INT]: 'interpreted',
 };
 
+const PREFIX_PROSE_BY_LANGUAGE = {
+  vi: {
+    [PREFIX.ABT]: 'khoảng',
+    [PREFIX.CAL]: 'tính toán',
+    [PREFIX.EST]: 'ước tính',
+    [PREFIX.BEF]: 'trước',
+    [PREFIX.AFT]: 'sau',
+    [PREFIX.INT]: 'diễn giải',
+  },
+};
+
 export function formatEventDate(raw, localization = getCurrentLocalization()) {
   if (!raw) return '';
   if (!hasQualifier(raw)) {
     return formatAtomicDate(raw, localization);
   }
+  const lang = String(localization?.locale || localization || '').split('-')[0].toLowerCase();
+  const prefixProse = PREFIX_PROSE_BY_LANGUAGE[lang] || PREFIX_PROSE;
   const { prefix, date1, date2, era, phrase } = parseQualifiedDate(raw);
   const d1 = date1 ? formatAtomicDate(date1, localization) : '';
   const d2 = date2 ? formatAtomicDate(date2, localization) : '';
   let text;
   if (isRangePrefix(prefix)) {
-    const sep = prefix === PREFIX.BET ? 'and' : 'to';
-    const lead = prefix === PREFIX.BET ? 'between' : 'from';
+    const sep = lang === 'vi' ? (prefix === PREFIX.BET ? 'và' : 'đến') : (prefix === PREFIX.BET ? 'and' : 'to');
+    const lead = lang === 'vi' ? (prefix === PREFIX.BET ? 'giữa' : 'từ') : (prefix === PREFIX.BET ? 'between' : 'from');
     text = [lead, d1, d2 ? sep : '', d2].filter(Boolean).join(' ');
   } else if (prefix) {
-    text = `${PREFIX_PROSE[prefix] || prefix.toLowerCase()} ${d1}`.trim();
+    text = `${prefixProse[prefix] || prefix.toLowerCase()} ${d1}`.trim();
   } else {
     text = d1;
   }

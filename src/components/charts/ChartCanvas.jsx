@@ -99,21 +99,22 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
     if (pointers.current.has(e.pointerId)) {
       pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     }
-    if (pinch.current && pointers.current.size === 2) {
+    const pinchState = pinch.current;
+    if (pinchState && pointers.current.size === 2) {
       const [a, b] = [...pointers.current.values()];
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
       const svg = svgRef.current;
       const rect = svg ? svg.getBoundingClientRect() : { left: 0, top: 0 };
       const cx = (a.x + b.x) / 2 - rect.left;
       const cy = (a.y + b.y) / 2 - rect.top;
-      const startCx = pinch.current.cx - rect.left;
-      const startCy = pinch.current.cy - rect.top;
-      const nk = Math.min(maxZoom, Math.max(minZoom, pinch.current.k * (dist / pinch.current.dist)));
-      const ratio = nk / pinch.current.k;
+      const startCx = pinchState.cx - rect.left;
+      const startCy = pinchState.cy - rect.top;
+      const nk = Math.min(maxZoom, Math.max(minZoom, pinchState.k * (dist / pinchState.dist)));
+      const ratio = nk / pinchState.k;
       setView({
         k: nk,
-        x: cx - (startCx - pinch.current.vx) * ratio,
-        y: cy - (startCy - pinch.current.vy) * ratio,
+        x: cx - (startCx - pinchState.vx) * ratio,
+        y: cy - (startCy - pinchState.vy) * ratio,
       });
       return;
     }
@@ -126,11 +127,12 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
       emitOverlays(next, { finalize: false });
       return;
     }
-    if (!drag.current) return;
+    const dragState = drag.current;
+    if (!dragState) return;
     setView((v) => ({
       ...v,
-      x: drag.current.vx + (e.clientX - drag.current.x),
-      y: drag.current.vy + (e.clientY - drag.current.y),
+      x: dragState.vx + (e.clientX - dragState.x),
+      y: dragState.vy + (e.clientY - dragState.y),
     }));
   };
 

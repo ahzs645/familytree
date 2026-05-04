@@ -17,6 +17,10 @@ import { ListReportPreview, ListReportToolbar, useListReportOptions } from '../c
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { logRecordDeleted } from '../lib/changeLog.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { PersonPicker } from '../components/charts/PersonPicker.jsx';
+import { findRelationshipPaths } from '../lib/relationshipPath.js';
+
+const ME_PERSON_STORAGE_KEY = 'cloudtreeweb:mePersonId';
 
 const EXPORT_COLUMNS = [
   { key: 'fullName', label: 'Name' },
@@ -43,6 +47,14 @@ export default function Persons() {
   const [sortKey, setSortKey] = useState('name');
   const [filter, setFilter] = useState('all');
   const [mobilePane, setMobilePane] = useState('list');
+  const [mePersonId, setMePersonId] = useState(() => {
+    try {
+      return localStorage.getItem(ME_PERSON_STORAGE_KEY) || '';
+    } catch {
+      return '';
+    }
+  });
+  const [kinshipById, setKinshipById] = useState(new Map());
   const isMobile = useIsMobile();
   const { setActivePerson } = useActivePerson();
   const navigate = useNavigate();
@@ -134,6 +146,39 @@ export default function Persons() {
   }, [activeId]);
 
   const active = persons.find((person) => person.id === activeId);
+  const mePerson = persons.find((person) => person.id === mePersonId) || null;
+
+  useEffect(() => {
+    try {
+      if (mePersonId) localStorage.setItem(ME_PERSON_STORAGE_KEY, mePersonId);
+      else localStorage.removeItem(ME_PERSON_STORAGE_KEY);
+    } catch {
+      /* localStorage can be unavailable */
+    }
+  }, [mePersonId]);
+
+  useEffect(() => {
+    if (!mePersonId || !visiblePersons.length) {
+      setKinshipById(new Map());
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const pairs = await Promise.all(visiblePersons.map(async (person) => {
+        if (person.id === mePersonId) return [person.id, { label: localization.locale?.startsWith('ar') ? 'أنا' : 'Me', self: true }];
+        const result = await findRelationshipPaths(mePersonId, person.id, {
+          maxPaths: 1,
+          maxDepth: 8,
+          localization,
+        });
+        return [person.id, result.paths[0] ? { label: result.paths[0].label, path: result.paths[0] } : null];
+      }));
+      if (!cancelled) setKinshipById(new Map(pairs.filter(([, value]) => value)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mePersonId, visiblePersons, localizationKey]);
 
   const openTree = () => {
     if (!activeId) return;
@@ -209,7 +254,20 @@ export default function Persons() {
             ariaLabel="Sort persons"
             className="w-full md:w-48"
           />
+          <div className="col-span-2 md:min-w-[280px] md:max-w-[360px]">
+            <PersonPicker persons={persons} value={mePersonId} onChange={setMePersonId} />
+          </div>
+          {mePersonId ? (
+            <button type="button" onClick={() => setMePersonId('')} className="h-10 rounded-md border border-border bg-secondary px-3 text-xs text-muted-foreground hover:bg-accent">
+              Clear Me
+            </button>
+          ) : null}
         </div>
+        {mePerson ? (
+          <div className="mt-2 text-xs text-muted-foreground">
+            Relationship badges are shown relative to <BdiText>{mePerson.fullName}</BdiText>.
+          </div>
+        ) : null}
       </header>
 
       <div className="flex-1 min-h-0 flex overflow-hidden">
@@ -230,6 +288,15 @@ export default function Persons() {
               selection={new Set(selection.selectedIds)}
               onToggleSelect={selection.toggle}
               visibleColumns={new Set(columnVisibility.visibleColumns.map((c) => c.key))}
+              renderBadge={(person) => {
+                const kinship = kinshipById.get(person.id);
+                if (!kinship) return null;
+                return (
+                  <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${kinship.self ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-primary/40 bg-primary/10 text-primary'}`}>
+                    <BdiText>{kinship.label}</BdiText>
+                  </span>
+                );
+              }}
             />
           </div>
         )}
@@ -256,6 +323,11 @@ export default function Persons() {
                   <div className="text-sm text-muted-foreground mt-1">
                     {active.genderLabel} · {active.birthDate || 'Birth unknown'} - {active.deathDate || 'Death unknown'}
                   </div>
+                  {kinshipById.get(active.id) ? (
+                    <div className="mt-2 inline-flex rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+                      <BdiText>{kinshipById.get(active.id).label}</BdiText>
+                    </div>
+                  ) : null}
                 </div>
                 <button onClick={openTree} className="bg-secondary text-foreground border border-border rounded-md px-3 py-2 text-xs">
                   Open in Tree

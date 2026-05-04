@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildKinshipReport, buildPersonEventsReport, buildStoryReport } from './builders.js';
+import { buildGiaPhaLineageReport, buildKinshipReport, buildPersonEventsReport, buildStoryReport } from './builders.js';
 
 const mockState = vi.hoisted(() => ({ db: null }));
 
@@ -101,6 +101,32 @@ describe('report builders', () => {
     expect(paragraph.text).toBe('No relationship path found between John Doe and Mary Smith.');
     expect(table.rows).toEqual([['John Doe', 'Mary Smith', 'No path found']]);
   });
+
+  it('builds a Vietnamese-oriented gia pha lineage report', async () => {
+    mockState.db = createMockDb([
+      person('grandfather', 'Nguyễn Văn Tổ', { birth: '1850' }),
+      person('father', 'Nguyễn Văn Cha', { birth: '1880-01-02' }),
+      person('mother', 'Trần Thị Mẹ', { birth: '1884' }),
+      person('root', 'Nguyễn Văn Gốc', { birth: '1910-03-04' }),
+      person('spouse', 'Lê Thị Phối', { birth: '1912' }),
+      person('child', 'Nguyễn Văn Con', { birth: '1940' }),
+      family('fam-anc', 'grandfather', null, 'Nguyễn ancestors'),
+      family('fam-parent', 'father', 'mother', 'Parents'),
+      family('fam-root', 'root', 'spouse', 'Root family'),
+      childRelation('cr-father', 'fam-anc', 'father'),
+      childRelation('cr-root', 'fam-parent', 'root'),
+      childRelation('cr-child', 'fam-root', 'child'),
+    ]);
+
+    const report = await buildGiaPhaLineageReport('root', 3);
+    const tables = report.blocks.filter((entry) => entry.kind === 'table');
+
+    expect(report.title).toBe('Gia phả / Family Lineage — Nguyễn Văn Gốc');
+    expect(tables[0].columns).toEqual(['Đời', 'Vai trò', 'Mã nhánh', 'Họ tên', 'Sinh', 'Mất']);
+    expect(tables[0].rows).toContainEqual(['2', 'Cha', 'F', 'Nguyễn Văn Cha', '2 thg 1, 1880', '-']);
+    expect(tables[1].columns).toEqual(['Đời', 'Vai trò', 'Mã nhánh', 'Họ tên', 'Sinh', 'Mất', 'Phối ngẫu', 'Con']);
+    expect(tables[1].rows).toContainEqual(['1', 'Gốc', '1', 'Nguyễn Văn Gốc', '4 thg 3, 1910', '-', 'Lê Thị Phối', 'Nguyễn Văn Con']);
+  });
 });
 
 function createMockDb(records) {
@@ -149,11 +175,15 @@ function hydrateFamily(fam, byId) {
   };
 }
 
-function person(recordName, fullName) {
+function person(recordName, fullName, options = {}) {
   return {
     recordName,
     recordType: 'Person',
-    fields: { cached_fullName: field(fullName) },
+    fields: {
+      cached_fullName: field(fullName),
+      ...(options.birth ? { cached_birthDate: field(options.birth) } : {}),
+      ...(options.death ? { cached_deathDate: field(options.death) } : {}),
+    },
   };
 }
 
@@ -179,6 +209,17 @@ function place(recordName, displayName) {
 
 function event(recordName, recordType, fields) {
   return { recordName, recordType, fields };
+}
+
+function childRelation(recordName, familyRecordName, childRecordName) {
+  return {
+    recordName,
+    recordType: 'ChildRelation',
+    fields: {
+      family: ref(familyRecordName, 'Family'),
+      child: ref(childRecordName, 'Person'),
+    },
+  };
 }
 
 function field(value, type = 'STRING') {

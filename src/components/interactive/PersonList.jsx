@@ -4,10 +4,11 @@
  */
 import React, { useMemo, useState } from 'react';
 import { BdiText } from '../BdiText.jsx';
-import { compareStrings, getCurrentLocalization, graphemes, matchesSearchText, normalizeSearchText } from '../../lib/i18n.js';
+import { compareStrings, getCurrentLocalization, graphemes, normalizeSearchText } from '../../lib/i18n.js';
+import { comparePersonSearchResults, matchesPersonLineageSearch } from '../../lib/personLineage.js';
 import { lifeSpanLabel } from '../../models/index.js';
 
-export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null }) {
+export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null, renderBadge = null }) {
   const showColumn = (key) => !visibleColumns || visibleColumns.has(key);
   const [query, setQuery] = useState('');
   const localization = getCurrentLocalization();
@@ -15,7 +16,9 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
 
   const sections = useMemo(() => {
     const filtered = query.trim()
-      ? persons.filter((p) => matchesSearchText(p.fullName, query, localization))
+      ? persons
+        .filter((p) => matchesPersonLineageSearch(p, query, localization))
+        .sort((a, b) => comparePersonSearchResults(a, b, query, localization))
       : persons;
     const groups = new Map();
     for (const p of filtered) {
@@ -26,7 +29,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
       groups.get(initial).push(p);
     }
     return [...groups.entries()]
-      .map(([letter, group]) => [letter, group.sort((a, b) => compareStrings(a.fullName, b.fullName, localization))])
+      .map(([letter, group]) => [letter, query.trim() ? group : group.sort((a, b) => compareStrings(a.fullName, b.fullName, localization))])
       .sort(([a], [b]) => compareStrings(a, b, localization));
   }, [persons, query, localizationKey]);
 
@@ -82,8 +85,9 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                   ) : null}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     {showColumn('fullName') ? (
-                      <div style={{ color: 'hsl(var(--foreground))', fontSize: 13 }}>
-                        <BdiText>{p.fullName}</BdiText>
+                      <div style={{ color: 'hsl(var(--foreground))', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}><BdiText>{p.fullName}</BdiText></span>
+                        {renderBadge ? renderBadge(p) : null}
                       </div>
                     ) : null}
                     {showColumn('lifespan') && (p.birthDate || p.deathDate) ? (
@@ -96,6 +100,11 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                     ) : null}
                     {showColumn('startPerson') && p.startPerson ? (
                       <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>✓ Start person</div>
+                    ) : null}
+                    {query.trim() && p.lineageSearchText ? (
+                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, marginTop: 2 }}>
+                        <BdiText>{p.lineageSearchText}</BdiText>
+                      </div>
                     ) : null}
                   </div>
                 </div>

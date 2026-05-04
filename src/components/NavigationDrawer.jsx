@@ -24,6 +24,7 @@ const WORKSPACE_LINKS = [
   { to: '/', label: 'Home', icon: Home, end: true },
   { to: '/persons', label: 'Persons', icon: Users },
   { to: '/tree', label: 'Tree', icon: TreePine },
+  { to: '/heritage-tree', label: 'Heritage Tree', icon: GitBranch },
   { to: '/charts', label: 'Charts', icon: BarChart3 },
   { to: '/views', label: 'Views', icon: LayoutGrid, aliases: ['/map', '/globe', '/maps-diagram', '/statistic-maps', '/media', '/quiz'] },
   { to: '/lists', label: 'Lists', icon: List },

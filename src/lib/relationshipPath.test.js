@@ -65,6 +65,75 @@ describe('relationship path discovery', () => {
     expect(bloodlineOnly.selectedPathId).toBeNull();
   });
 
+  it('localizes Arabic parent-side kinship labels', async () => {
+    mockState.db = createMockDb([
+      person('grandfather', 'جد', 0),
+      person('father', 'أب', 0),
+      person('uncle', 'عم', 0),
+      person('me', 'أنا', 0),
+      person('cousin', 'ابن العم', 0),
+      family('fam1', 'grandfather', null),
+      family('fam2', 'father', null),
+      family('fam3', 'uncle', null),
+      childRelation('cr1', 'fam1', 'father'),
+      childRelation('cr2', 'fam1', 'uncle'),
+      childRelation('cr3', 'fam2', 'me'),
+      childRelation('cr4', 'fam3', 'cousin'),
+    ]);
+
+    const uncle = await findRelationshipPaths('me', 'uncle', { localization: { locale: 'ar' } });
+    const cousin = await findRelationshipPaths('me', 'cousin', { localization: { locale: 'ar' } });
+
+    expect(uncle.paths[0].label).toBe('عم');
+    expect(cousin.paths[0].label).toBe('ابن عم');
+  });
+
+  it('localizes Arabic mother-side kinship labels', async () => {
+    mockState.db = createMockDb([
+      person('grandmother', 'جدة', 1),
+      person('mother', 'أم', 1),
+      person('aunt', 'خالة', 1),
+      person('me', 'أنا', 0),
+      person('cousin', 'بنت الخالة', 1),
+      family('fam1', null, 'grandmother'),
+      family('fam2', null, 'mother'),
+      family('fam3', null, 'aunt'),
+      childRelation('cr1', 'fam1', 'mother'),
+      childRelation('cr2', 'fam1', 'aunt'),
+      childRelation('cr3', 'fam2', 'me'),
+      childRelation('cr4', 'fam3', 'cousin'),
+    ]);
+
+    const aunt = await findRelationshipPaths('me', 'aunt', { localization: { locale: 'ar' } });
+    const cousin = await findRelationshipPaths('me', 'cousin', { localization: { locale: 'ar' } });
+
+    expect(aunt.paths[0].label).toBe('خالة');
+    expect(cousin.paths[0].label).toBe('ابنة خالة');
+  });
+
+  it('localizes Vietnamese kinship labels', async () => {
+    mockState.db = createMockDb([
+      person('grandfather', 'Ông Nội', 0),
+      person('father', 'Cha', 0),
+      person('aunt', 'Cô', 1),
+      person('me', 'Tôi', 0),
+      person('cousin', 'Anh Em Họ', 0),
+      family('fam1', 'grandfather', null),
+      family('fam2', 'father', null),
+      family('fam3', null, 'aunt'),
+      childRelation('cr1', 'fam1', 'father'),
+      childRelation('cr2', 'fam1', 'aunt'),
+      childRelation('cr3', 'fam2', 'me'),
+      childRelation('cr4', 'fam3', 'cousin'),
+    ]);
+
+    const aunt = await findRelationshipPaths('me', 'aunt', { localization: { locale: 'vi' } });
+    const cousin = await findRelationshipPaths('me', 'cousin', { localization: { locale: 'vi' } });
+
+    expect(aunt.paths[0].label).toBe('cô');
+    expect(cousin.paths[0].label).toBe('anh/chị/em họ');
+  });
+
   it('respects maxDepth to prevent runaway traversal', async () => {
     mockState.db = createMockDb([
       person('grandparent', 'Gale Elder'),
@@ -123,11 +192,11 @@ function hydrateFamily(fam, byId) {
   };
 }
 
-function person(recordName, fullName) {
+function person(recordName, fullName, gender = 2) {
   return {
     recordName,
     recordType: 'Person',
-    fields: { cached_fullName: field(fullName) },
+    fields: { cached_fullName: field(fullName), gender: field(gender, 'INT64') },
   };
 }
 

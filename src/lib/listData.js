@@ -5,6 +5,7 @@ import { personSummary, familySummary, placeSummary, sourceSummary, Gender } fro
 import { parseEventDate, formatEventDate } from '../utils/formatDate.js';
 import { compareStrings, getCurrentLocalization, localeWithExtensions } from './i18n.js';
 import { loadResearchCompleteness } from './researchCompleteness.js';
+import { buildPersonLineage } from './personLineage.js';
 
 export const MEDIA_RECORD_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 
@@ -52,15 +53,22 @@ export function anniversaryParts(raw) {
 
 export async function loadPersonRows() {
   const db = getLocalDatabase();
-  const { records } = await db.query('Person', { limit: 100000 });
+  const [{ records }, { records: families }, { records: childRelations }] = await Promise.all([
+    db.query('Person', { limit: 100000 }),
+    db.query('Family', { limit: 100000 }),
+    db.query('ChildRelation', { limit: 100000 }),
+  ]);
+  const lineage = buildPersonLineage(records, families, childRelations);
   return records
     .map((record) => {
       const summary = personSummary(record);
+      const lineageInfo = lineage.get(record.recordName) || {};
       if (!summary) return null;
       return {
         id: record.recordName,
         record,
         ...summary,
+        ...lineageInfo,
         genderLabel: genderLabel(summary.gender),
         birthYear: yearOf(summary.birthDate),
         deathYear: yearOf(summary.deathDate),

@@ -29,6 +29,13 @@ describe('ReportsApp report configuration', () => {
       needsSecondSubject: true,
       secondSubjectType: 'Person',
     });
+    expect(byId.get('gia-pha-lineage')).toMatchObject({
+      label: 'Gia phả / Family Lineage Report',
+      needsSubject: true,
+      subjectType: 'Person',
+      usesGenerations: true,
+      defaultOptions: { generations: 5 },
+    });
   });
 
   it('creates saved report payloads with second subject and full options', () => {

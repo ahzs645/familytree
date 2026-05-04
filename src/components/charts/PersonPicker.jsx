@@ -3,17 +3,22 @@
  */
 import React, { useState, useMemo } from 'react';
 import { BdiText } from '../BdiText.jsx';
-import { matchesSearchText } from '../../lib/i18n.js';
+import { getCurrentLocalization } from '../../lib/i18n.js';
+import { comparePersonSearchResults, matchesPersonLineageSearch } from '../../lib/personLineage.js';
 import { lifeSpanLabel } from '../../models/index.js';
 
 export function PersonPicker({ persons, value, onChange }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const localization = getCurrentLocalization();
 
   const filtered = useMemo(() => {
     if (!query.trim()) return persons.slice(0, 200);
-    return persons.filter((p) => matchesSearchText(p.fullName, query)).slice(0, 200);
-  }, [persons, query]);
+    return persons
+      .filter((p) => matchesPersonLineageSearch(p, query, localization))
+      .sort((a, b) => comparePersonSearchResults(a, b, query, localization))
+      .slice(0, 200);
+  }, [persons, query, localization.locale, localization.direction, localization.numberingSystem, localization.calendar]);
 
   const selected = persons.find((p) => p.recordName === value);
 
@@ -63,6 +68,11 @@ export function PersonPicker({ persons, value, onChange }) {
                     {lifeSpanLabel(p)}
                   </div>
                 )}
+                {query.trim() && p.lineageSearchText ? (
+                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, marginTop: 2 }}>
+                    <BdiText>{p.lineageSearchText}</BdiText>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
