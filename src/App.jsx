@@ -9,6 +9,7 @@ import { ActivePersonProvider } from './contexts/ActivePersonContext.jsx';
 import { DatabaseStatusProvider } from './contexts/DatabaseStatusContext.jsx';
 import { ThemeProvider } from './contexts/ThemeContext.jsx';
 import { ModalProvider } from './contexts/ModalContext.jsx';
+import { LocalizationProvider, useTranslation } from './contexts/LocalizationContext.jsx';
 import Home from './routes/Home.jsx';
 import { startBackupScheduler } from './lib/backup.js';
 import { useObjectDeepLink } from './lib/deepLinks.js';
@@ -73,26 +74,28 @@ const Favorites = lazy(() => import('./routes/Favorites.jsx'));
 const ChartPreview = lazy(() => import('./routes/ChartPreview.jsx'));
 
 function Fallback() {
+  const { t } = useTranslation();
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>
-      Loading view…
+      {t('app.loadingView')}
     </div>
   );
 }
 
 function NotFound() {
+  const { t } = useTranslation();
   return (
     <div className="h-full flex flex-col items-center justify-center text-center px-6">
       <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">404</div>
-      <h1 className="text-2xl font-bold mb-2">Page not found</h1>
+      <h1 className="text-2xl font-bold mb-2">{t('app.notFound.title')}</h1>
       <p className="text-sm text-muted-foreground mb-5 max-w-md">
-        The page you&rsquo;re looking for doesn&rsquo;t exist. It may have moved, or the link is mistyped.
+        {t('app.notFound.body')}
       </p>
       <Link
         to="/"
         className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90"
       >
-        ← Go to Home
+        {t('app.notFound.home')}
       </Link>
     </div>
   );
@@ -138,6 +141,7 @@ export function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <ThemeProvider>
+      <LocalizationProvider>
        <ModalProvider>
        <DatabaseStatusProvider>
         <ActivePersonProvider>
@@ -228,6 +232,7 @@ export function App() {
         </ActivePersonProvider>
        </DatabaseStatusProvider>
        </ModalProvider>
+      </LocalizationProvider>
       </ThemeProvider>
     </BrowserRouter>
   );

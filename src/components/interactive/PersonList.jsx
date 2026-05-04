@@ -7,8 +7,10 @@ import { BdiText } from '../BdiText.jsx';
 import { compareStrings, getCurrentLocalization, graphemes, normalizeSearchText } from '../../lib/i18n.js';
 import { comparePersonSearchResults, matchesPersonLineageSearch } from '../../lib/personLineage.js';
 import { lifeSpanLabel } from '../../models/index.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null, renderBadge = null }) {
+  const { t } = useTranslation();
   const showColumn = (key) => !visibleColumns || visibleColumns.has(key);
   const [query, setQuery] = useState('');
   const localization = getCurrentLocalization();
@@ -39,7 +41,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search persons…"
+          placeholder={t('persons.searchPlaceholder')}
           style={search}
         />
       </div>
@@ -80,7 +82,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                       checked={!!isSelected}
                       onClick={(event) => event.stopPropagation()}
                       onChange={(event) => onToggleSelect(p.recordName, { range: event.nativeEvent?.shiftKey })}
-                      aria-label={`Select ${p.fullName}`}
+                      aria-label={`${t('common.select')} ${p.fullName}`}
                     />
                   ) : null}
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -96,10 +98,10 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                       </div>
                     ) : null}
                     {showColumn('bookmarked') && p.bookmarked ? (
-                      <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>★ Bookmarked</div>
+                      <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>★ {t('persons.bookmarked')}</div>
                     ) : null}
                     {showColumn('startPerson') && p.startPerson ? (
-                      <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>✓ Start person</div>
+                      <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>✓ {t('persons.startPerson')}</div>
                     ) : null}
                     {query.trim() && p.lineageSearchText ? (
                       <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, marginTop: 2 }}>
@@ -113,7 +115,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
           </div>
         ))}
         {sections.length === 0 && (
-          <div style={{ padding: 20, color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>No matches.</div>
+          <div style={{ padding: 20, color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>{t('common.noMatches')}</div>
         )}
       </div>
     </div>

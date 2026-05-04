@@ -19,6 +19,7 @@ import { logRecordDeleted } from '../lib/changeLog.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { findRelationshipPaths } from '../lib/relationshipPath.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const ME_PERSON_STORAGE_KEY = 'cloudtreeweb:mePersonId';
 
@@ -40,6 +41,7 @@ const LIST_COLUMNS = [
 ];
 
 export default function Persons() {
+  const { t } = useTranslation();
   const [persons, setPersons] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [context, setContext] = useState(null);
@@ -165,7 +167,7 @@ export default function Persons() {
     let cancelled = false;
     (async () => {
       const pairs = await Promise.all(visiblePersons.map(async (person) => {
-        if (person.id === mePersonId) return [person.id, { label: localization.locale?.startsWith('ar') ? 'أنا' : 'Me', self: true }];
+        if (person.id === mePersonId) return [person.id, { label: t('common.me'), self: true }];
         const result = await findRelationshipPaths(mePersonId, person.id, {
           maxPaths: 1,
           maxDepth: 8,
@@ -186,21 +188,21 @@ export default function Persons() {
     navigate('/tree');
   };
 
-  if (loading) return <div className="p-10 text-muted-foreground">Loading persons...</div>;
+  if (loading) return <div className="p-10 text-muted-foreground">{t('persons.loading')}</div>;
 
   const controlClass = 'h-10 rounded-md border border-border bg-secondary text-foreground text-sm px-3 outline-none focus:border-primary';
 
   const filterOptions = [
-    { value: 'all', label: 'All persons' },
-    { value: 'bookmarked', label: 'Bookmarked' },
-    { value: 'start', label: 'Start person' },
-    { value: 'missing-birth', label: 'Missing birth date' },
-    { value: 'missing-death', label: 'Missing death date' },
+    { value: 'all', label: t('persons.all') },
+    { value: 'bookmarked', label: t('persons.bookmarked') },
+    { value: 'start', label: t('persons.startPerson') },
+    { value: 'missing-birth', label: t('persons.missingBirth') },
+    { value: 'missing-death', label: t('persons.missingDeath') },
   ];
   const sortOptions = [
-    { value: 'name', label: 'Sort: Name' },
-    { value: 'birth', label: 'Sort: Birth year' },
-    { value: 'death', label: 'Sort: Death year' },
+    { value: 'name', label: t('persons.sortName') },
+    { value: 'birth', label: t('persons.sortBirth') },
+    { value: 'death', label: t('persons.sortDeath') },
   ];
 
   return (
@@ -208,9 +210,12 @@ export default function Persons() {
       <header className="border-b border-border bg-card px-4 md:px-5 py-3">
         <div className="flex items-center gap-2 mb-2 md:mb-3">
           <div className="min-w-0 me-auto">
-            <h1 className="text-base font-semibold leading-tight">Persons</h1>
+            <h1 className="text-base font-semibold leading-tight">{t('persons.heading')}</h1>
             <div className="text-xs text-muted-foreground">
-              {formatInteger(visiblePersons.length, localization)} of {formatInteger(persons.length, localization)}
+              {t('persons.summary', {
+                visible: formatInteger(visiblePersons.length, localization),
+                total: formatInteger(persons.length, localization),
+              })}
             </div>
           </div>
           <ColumnChooser
@@ -236,7 +241,7 @@ export default function Persons() {
           />
         </div>
         <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center md:gap-3">
-          <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-filter">Filter</label>
+          <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-filter">{t('persons.filter')}</label>
           <Select
             id="persons-filter"
             value={filter}
@@ -245,7 +250,7 @@ export default function Persons() {
             ariaLabel="Filter persons"
             className="w-full md:w-48"
           />
-          <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-sort">Sort</label>
+          <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-sort">{t('persons.sort')}</label>
           <Select
             id="persons-sort"
             value={sortKey}
@@ -259,13 +264,13 @@ export default function Persons() {
           </div>
           {mePersonId ? (
             <button type="button" onClick={() => setMePersonId('')} className="h-10 rounded-md border border-border bg-secondary px-3 text-xs text-muted-foreground hover:bg-accent">
-              Clear Me
+              {t('persons.clearMe')}
             </button>
           ) : null}
         </div>
         {mePerson ? (
           <div className="mt-2 text-xs text-muted-foreground">
-            Relationship badges are shown relative to <BdiText>{mePerson.fullName}</BdiText>.
+            {t('persons.meHint', { name: mePerson.fullName })}
           </div>
         ) : null}
       </header>
@@ -276,8 +281,8 @@ export default function Persons() {
             {selection.count > 0 ? (
               <div className="px-3 pt-3">
                 <BulkActionBar count={selection.count} onClear={selection.clear}>
-                  <button type="button" onClick={bulkExport} className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent">Export CSV</button>
-                  <button type="button" onClick={bulkDelete} className="border border-destructive text-destructive rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10">Delete</button>
+                  <button type="button" onClick={bulkExport} className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent">{t('persons.exportCsv')}</button>
+                  <button type="button" onClick={bulkDelete} className="border border-destructive text-destructive rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10">{t('common.delete')}</button>
                 </BulkActionBar>
               </div>
             ) : null}
@@ -314,14 +319,14 @@ export default function Persons() {
                   onClick={() => setMobilePane('list')}
                   className="mb-3 text-sm text-primary font-semibold py-2 px-1 min-h-10"
                 >
-                  ← Back to list
+                  {t('persons.backToList')}
                 </button>
               )}
               <div className="flex flex-wrap items-start gap-3 mb-5">
                 <div className="me-auto min-w-0">
                   <h2 className="text-2xl font-semibold truncate"><BdiText>{active.fullName}</BdiText></h2>
                   <div className="text-sm text-muted-foreground mt-1">
-                    {active.genderLabel} · {active.birthDate || 'Birth unknown'} - {active.deathDate || 'Death unknown'}
+                    {active.genderLabel} · {active.birthDate || t('persons.birthUnknown')} - {active.deathDate || t('persons.deathUnknown')}
                   </div>
                   {kinshipById.get(active.id) ? (
                     <div className="mt-2 inline-flex rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
@@ -330,22 +335,22 @@ export default function Persons() {
                   ) : null}
                 </div>
                 <button onClick={openTree} className="bg-secondary text-foreground border border-border rounded-md px-3 py-2 text-xs">
-                  Open in Tree
+                  {t('persons.openTree')}
                 </button>
                 <Link to={`/person/${active.id}`} className="bg-primary text-primary-foreground rounded-md px-3 py-2 text-xs font-semibold">
-                  Open Editor
+                  {t('persons.editor')}
                 </Link>
               </div>
 
               <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 mb-5">
-                <SummaryBox label="Parents" value={context?.parents?.length || 0} localization={localization} />
-                <SummaryBox label="Partner Families" value={context?.families?.length || 0} localization={localization} />
-                <SummaryBox label="Events" value={context?.events?.length || 0} localization={localization} />
-                <SummaryBox label="Facts" value={context?.facts?.length || 0} localization={localization} />
+                <SummaryBox label={t('persons.parents')} value={context?.parents?.length || 0} localization={localization} />
+                <SummaryBox label={t('persons.partnerFamilies')} value={context?.families?.length || 0} localization={localization} />
+                <SummaryBox label={t('glossary.event')} value={context?.events?.length || 0} localization={localization} />
+                <SummaryBox label={t('glossary.fact')} value={context?.facts?.length || 0} localization={localization} />
               </div>
 
               <section className="mb-5">
-                <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">Parents</h3>
+                <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">{t('persons.parents')}</h3>
                 {context?.parents?.length ? (
                   <div className="grid gap-2">
                     {context.parents.map((family) => (
@@ -359,12 +364,12 @@ export default function Persons() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">No parents recorded.</div>
+                  <div className="text-sm text-muted-foreground">{t('common.noData')}</div>
                 )}
               </section>
 
               <section>
-                <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">Partner Families</h3>
+                <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">{t('persons.partnerFamilies')}</h3>
                 {context?.families?.length ? (
                   <div className="grid gap-2">
                     {context.families.map((family) => (
@@ -390,7 +395,7 @@ export default function Persons() {
               </section>
             </div>
           ) : (
-            <div className="h-full flex items-center justify-center text-muted-foreground">No persons match the current filters.</div>
+            <div className="h-full flex items-center justify-center text-muted-foreground">{t('persons.detailEmpty')}</div>
           )}
         </main>
         )}

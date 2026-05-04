@@ -19,6 +19,9 @@ import {
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { cn } from '../lib/utils.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { SUPPORTED_LOCALES } from '../lib/i18n.js';
+import { routeLabelKey } from '../lib/navigationLabels.js';
 
 const WORKSPACE_LINKS = [
   { to: '/', label: 'Home', icon: Home, end: true },
@@ -85,6 +88,7 @@ export function NavigationDrawer({
   recordCountLabel,
   statusState, // 'loading' | 'ok' | 'empty'
 }) {
+  const { t, localization, setLocale } = useTranslation();
   const { theme, toggle } = useTheme();
   const location = useLocation();
   const [workspaceOpen, setWorkspaceOpen] = useState(true);
@@ -125,17 +129,19 @@ export function NavigationDrawer({
             'flex items-center justify-center w-7 h-7 rounded text-muted-foreground hover:bg-accent hover:text-foreground',
             collapsed && 'mx-auto'
           )}
-          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
+          aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
         >
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+          {collapsed
+            ? (localization.direction === 'rtl' ? <ChevronLeft size={16} /> : <ChevronRight size={16} />)
+            : (localization.direction === 'rtl' ? <ChevronRight size={16} /> : <ChevronLeft size={16} />)}
         </button>
       </div>
 
       {/* Scrollable link area */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-2">
         <Section
-          label="Workspace"
+          label={t('nav.workspace')}
           collapsed={collapsed}
           open={workspaceOpen}
           onToggle={() => setWorkspaceOpen((v) => !v)}
@@ -152,7 +158,7 @@ export function NavigationDrawer({
         </Section>
 
         <Section
-          label="Other"
+          label={t('nav.other')}
           collapsed={collapsed}
           open={otherOpen}
           onToggle={() => setOtherOpen((v) => !v)}
@@ -193,12 +199,25 @@ export function NavigationDrawer({
         >
           {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
         </button>
+        {!collapsed && (
+          <select
+            value={localization.locale}
+            onChange={(event) => setLocale(event.target.value)}
+            className="h-7 rounded border border-border bg-secondary px-1 text-xs text-foreground outline-none"
+            aria-label={t('settings.language')}
+          >
+            {SUPPORTED_LOCALES.map((locale) => (
+              <option key={locale.value} value={locale.value}>{locale.nativeLabel}</option>
+            ))}
+          </select>
+        )}
       </div>
     </aside>
   );
 }
 
 function Section({ label, collapsed, open, onToggle, children }) {
+  const { localization } = useTranslation();
   if (collapsed) {
     return <div className="py-1">{children}</div>;
   }
@@ -210,7 +229,10 @@ function Section({ label, collapsed, open, onToggle, children }) {
       >
         <ChevronRight
           size={11}
-          style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 150ms' }}
+          style={{
+            transform: open ? 'rotate(90deg)' : localization.direction === 'rtl' ? 'rotate(180deg)' : 'none',
+            transition: 'transform 150ms',
+          }}
         />
         <span>{label}</span>
       </button>
@@ -220,7 +242,9 @@ function Section({ label, collapsed, open, onToggle, children }) {
 }
 
 function NavItem({ link, collapsed, emphasized, pathname }) {
+  const { t } = useTranslation();
   const Icon = link.icon;
+  const label = t(routeLabelKey(link.to) || link.label);
   return (
     <NavLink
       to={link.to}
@@ -239,10 +263,10 @@ function NavItem({ link, collapsed, emphasized, pathname }) {
               : 'text-muted-foreground hover:bg-accent hover:text-foreground'
         );
       }}
-      title={collapsed ? link.label : undefined}
+      title={collapsed ? label : undefined}
     >
       {Icon && <Icon size={15} className="flex-shrink-0" />}
-      {!collapsed && <span className="truncate">{link.label}</span>}
+      {!collapsed && <span className="truncate">{label}</span>}
     </NavLink>
   );
 }

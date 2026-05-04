@@ -44,6 +44,7 @@ import { PersonPicker } from '../charts/PersonPicker.jsx';
 import { PresentationSettingsControls } from '../presentation/PresentationSettingsControls.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export { normalizePageStyle };
 
@@ -141,6 +142,7 @@ export function applyReportContentOptions(report, options = {}) {
 }
 
 export function ReportsApp() {
+  const { t } = useTranslation();
   const modal = useModal();
   const [persons, setPersons] = useState([]);
   const [stories, setStories] = useState([]);
@@ -286,7 +288,7 @@ export function ReportsApp() {
   }, []);
 
   const onSave = useCallback(async () => {
-    const name = await modal.prompt('Name for this report:', '', { title: 'Save report' });
+    const name = await modal.prompt('Name for this report:', '', { title: t('reports.saveReport') });
     if (!name) return;
     await saveReport(createSavedReportPayload({
       name,
@@ -298,7 +300,7 @@ export function ReportsApp() {
       themeId,
     }));
     setSavedList(await listSavedReports());
-  }, [builderId, targetId, secondTargetId, options, pageStyle, themeId, modal]);
+  }, [builderId, targetId, secondTargetId, options, pageStyle, themeId, modal, t]);
 
   const onApplySaved = useCallback(async (id) => {
     const entry = savedList.find((r) => r.id === id);
@@ -313,10 +315,10 @@ export function ReportsApp() {
   }, [savedList]);
 
   const onDelete = useCallback(async (id) => {
-    if (!(await modal.confirm('Delete this saved report?', { title: 'Delete report', okLabel: 'Delete', destructive: true }))) return;
+    if (!(await modal.confirm('Delete this saved report?', { title: t('reports.deleteReport'), okLabel: t('common.delete'), destructive: true }))) return;
     await deleteSavedReport(id);
     setSavedList(await listSavedReports());
-  }, [modal]);
+  }, [modal, t]);
 
   const onExport = useCallback((fmt) => {
     if (!report) return;
@@ -345,11 +347,13 @@ export function ReportsApp() {
     setSpeaking(true);
   }, [report, speaking, speechSupported]);
 
-  if (loading) return <div style={loadingStyle}>Loading…</div>;
+  const builderLabel = (entry) => t(`reports.builders.${entry.id}`);
+
+  if (loading) return <div style={loadingStyle}>{t('common.loading')}</div>;
   if (empty) {
     return (
       <div style={loadingStyle}>
-        No family data. <a href="/" style={{ color: 'hsl(var(--primary))', marginInlineStart: 6 }}>Import a .mftpkg</a> first.
+        {t('reports.noFamilyData')} <a href="/" style={{ color: 'hsl(var(--primary))', marginInlineStart: 6 }}>{t('common.import')}</a>
       </div>
     );
   }
@@ -357,10 +361,10 @@ export function ReportsApp() {
   return (
     <div style={shell}>
       <header style={header}>
-        <Field label="Type">
+        <Field label={t('reports.type')}>
           <select value={builderId} onChange={(e) => onBuilderChange(e.target.value)} style={input}>
             {REPORT_BUILDERS.map((entry) => (
-              <option key={entry.id} value={entry.id}>{entry.label}</option>
+              <option key={entry.id} value={entry.id}>{builderLabel(entry)}</option>
             ))}
           </select>
         </Field>
@@ -368,7 +372,7 @@ export function ReportsApp() {
         {needsSubject && (
           <Field label={builder.subjectLabel || 'Subject'}>
             {builder.subjectType === 'Story' ? (
-              <RecordSelect items={stories} value={targetId} onChange={setTargetId} placeholder="Select story…" />
+              <RecordSelect items={stories} value={targetId} onChange={setTargetId} placeholder={t('reports.selectStory')} />
             ) : (
               <PersonPicker persons={persons} value={targetId} onChange={setTargetId} />
             )}
@@ -382,7 +386,7 @@ export function ReportsApp() {
         )}
 
         {usesGenerations && (
-          <Field label="Generations">
+          <Field label={t('reports.generations')}>
             <input
               type="number"
               min={2}
@@ -394,15 +398,15 @@ export function ReportsApp() {
           </Field>
         )}
 
-        <Field label="Header">
+        <Field label={t('reports.header')}>
           <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <input type="checkbox" checked={options.includeHeader !== false} onChange={(e) => updateOption('includeHeader', e.target.checked)} /> Title
+            <input type="checkbox" checked={options.includeHeader !== false} onChange={(e) => updateOption('includeHeader', e.target.checked)} /> {t('reports.title')}
           </label>
         </Field>
 
         <PresentationSettingsControls value={pageStyle} onChange={setPageStyle} />
 
-        <Field label="Theme">
+        <Field label={t('reports.theme')}>
           <select value={themeId} onChange={(event) => setThemeId(event.target.value)} style={input}>
             {PRESENTATION_THEMES.map((theme) => (
               <option key={theme.id} value={theme.id}>{theme.label}</option>
@@ -410,7 +414,7 @@ export function ReportsApp() {
           </select>
         </Field>
 
-        <Field label="Export">
+        <Field label={t('reports.export')}>
           <div style={{ display: 'flex', gap: 4 }}>
             {EXPORT_FORMATS.map((format) => (
               <button key={format.id} onClick={() => onExport(format.id)} disabled={!report || reportLoading} style={input} title={format.label}>{format.label}</button>
@@ -419,7 +423,7 @@ export function ReportsApp() {
         </Field>
 
         {speechSupported && (
-          <Field label="Speak">
+          <Field label={t('reports.speak')}>
             <button
               onClick={onSpeak}
               disabled={!report || reportLoading}
@@ -431,13 +435,13 @@ export function ReportsApp() {
           </Field>
         )}
 
-        <Field label="Saved">
+        <Field label={t('reports.saved')}>
           <div style={{ display: 'flex', gap: 4 }}>
             <select value="" onChange={(e) => e.target.value && onApplySaved(e.target.value)} style={{ ...input, minWidth: 120 }}>
-              <option value="">Load…</option>
+              <option value="">{t('reports.load')}</option>
               {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
             </select>
-            <button onClick={onSave} style={input}>Save</button>
+            <button onClick={onSave} style={input}>{t('common.save')}</button>
             {savedList.length > 0 && (
               <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} style={{ ...input, width: 70 }}>
                 <option value="">Del…</option>
@@ -451,7 +455,7 @@ export function ReportsApp() {
       </header>
 
       <main style={main}>
-        {reportLoading && <div style={statusText}>Generating {builder.label}…</div>}
+        {reportLoading && <div style={statusText}>{t('reports.generating', { label: builderLabel(builder) })}</div>}
         {generationError && <div style={errorText}>{generationError}</div>}
         <ReportPreview report={report} />
       </main>
@@ -469,9 +473,10 @@ function Field({ label, children }) {
 }
 
 function RecordSelect({ items, value, onChange, placeholder }) {
+  const { t } = useTranslation();
   return (
     <select value={value || ''} onChange={(event) => onChange(event.target.value || null)} style={{ ...input, minWidth: 260 }}>
-      <option value="">{placeholder || 'Select record…'}</option>
+      <option value="">{placeholder || t('reports.selectRecord')}</option>
       {items.map((item) => (
         <option key={item.recordName} value={item.recordName}>{item.label}</option>
       ))}

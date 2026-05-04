@@ -6,8 +6,10 @@ import { BdiText } from '../BdiText.jsx';
 import { getCurrentLocalization } from '../../lib/i18n.js';
 import { comparePersonSearchResults, matchesPersonLineageSearch } from '../../lib/personLineage.js';
 import { lifeSpanLabel } from '../../models/index.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function PersonPicker({ persons, value, onChange }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const localization = getCurrentLocalization();
@@ -26,7 +28,7 @@ export function PersonPicker({ persons, value, onChange }) {
     <div style={{ position: 'relative', minWidth: 260 }}>
       <button onClick={() => setOpen((v) => !v)} style={triggerStyle}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {selected ? <BdiText>{selected.fullName}</BdiText> : 'Choose person…'}
+          {selected ? <BdiText>{selected.fullName}</BdiText> : t('persons.choosePerson')}
         </span>
         <span style={{ color: 'hsl(var(--muted-foreground))', marginInlineStart: 8 }}>▾</span>
       </button>
@@ -36,12 +38,12 @@ export function PersonPicker({ persons, value, onChange }) {
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search…"
+            placeholder={t('persons.search')}
             style={inputStyle}
           />
           <div style={{ maxHeight: 320, overflowY: 'auto' }}>
             {filtered.length === 0 && (
-              <div style={{ padding: 12, color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>No matches.</div>
+              <div style={{ padding: 12, color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>{t('common.noMatches')}</div>
             )}
             {filtered.map((p) => (
               <div

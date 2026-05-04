@@ -8,7 +8,9 @@ import { Menu } from 'lucide-react';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { APP_PREFERENCES_EVENT, getAppPreferences } from '../lib/appPreferences.js';
-import { applyDocumentLocalization, formatInteger, resolveLocalization } from '../lib/i18n.js';
+import { applyDocumentLocalization, resolveLocalization } from '../lib/i18n.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { routeLabelKey } from '../lib/navigationLabels.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { cn } from '../lib/utils.js';
 import { NavigationDrawer } from './NavigationDrawer.jsx';
@@ -40,6 +42,7 @@ const DRAWER_COLLAPSED_KEY = 'app.drawer.collapsed';
 const NAV_VISIBILITY_EVENT = 'cloudtreeweb:navigation-visibility';
 
 function MobileMenu({ links }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const location = useLocation();
   useEffect(() => { setOpen(false); }, [location.pathname]);
@@ -56,7 +59,7 @@ function MobileMenu({ links }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex items-center justify-center w-10 h-10 rounded-md border border-border bg-secondary text-secondary-foreground"
-        aria-label="Open navigation menu"
+        aria-label={t('nav.mobileMenu')}
         aria-expanded={open}
       >
         <Menu size={20} />
@@ -69,7 +72,7 @@ function MobileMenu({ links }) {
             className="fixed top-0 end-0 z-40 h-full w-[min(280px,80vw)] overflow-y-auto bg-popover text-popover-foreground shadow-xl border-s border-border py-3"
             style={{ paddingTop: 'max(12px, env(safe-area-inset-top))', paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
           >
-            <div className="px-3 pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Navigate</div>
+            <div className="px-3 pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('nav.navigate')}</div>
             {links.map((l) => (
               <NavLink
                 key={l.to}
@@ -94,6 +97,7 @@ function MobileMenu({ links }) {
 }
 
 export function AppShell() {
+  const { t, localization: liveLocalization } = useTranslation();
   const { hasData, summary, loading } = useDatabaseStatus();
   const { theme, toggle } = useTheme();
   const isMobile = useIsMobile();
@@ -147,12 +151,12 @@ export function AppShell() {
     return () => window.removeEventListener(NAV_VISIBILITY_EVENT, onNavigationVisibility);
   }, []);
 
-  const localization = resolveLocalization(preferences?.localization);
+  const localization = liveLocalization || resolveLocalization(preferences?.localization);
   const recordCountLabel = loading
-    ? 'Loading…'
+    ? t('common.loading')
     : hasData
-      ? `${formatInteger(summary?.total || 0, localization)} records`
-      : 'No data';
+      ? t('common.records', { count: summary?.total || 0 })
+      : t('common.noData');
   const statusState = loading ? 'loading' : hasData ? 'ok' : 'empty';
   const hiddenRoutes = new Set(preferences?.functions?.hidden || []);
   const emphasizedRoutes = new Set(preferences?.functions?.emphasized || []);
@@ -180,11 +184,11 @@ export function AppShell() {
             <button
               onClick={toggle}
               className="rounded-md border border-border bg-secondary text-secondary-foreground hover:bg-accent flex items-center justify-center w-10 h-10 text-sm"
-              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {theme === 'dark' ? '☀︎' : '☾'}
             </button>
-            <MobileMenu links={mobileLinks} />
+            <MobileMenu links={mobileLinks.map((link) => ({ ...link, label: t(routeLabelKey(link.to) || link.label) }))} />
           </div>
         </header>
         <main className="flex-1 relative overflow-hidden">

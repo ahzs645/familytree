@@ -29,6 +29,7 @@
     "reset": "Reset",
     "save": "Save",
     "search": "Search",
+    "select": "Select",
     "settings": "Settings"
   },
   "glossary": {
@@ -138,6 +139,8 @@
     "openTree": "Open in Tree",
     "parents": "Parents",
     "partnerFamilies": "Partner Families",
+    "choosePerson": "Choose person...",
+    "search": "Search...",
     "searchPlaceholder": "Search persons...",
     "sort": "Sort",
     "sortBirth": "Sort: Birth year",
@@ -147,6 +150,35 @@
     "summary": "{visible} of {total}"
   },
   "reports": {
+    "builders": {
+      "ahnentafel": "Ahnentafel Report",
+      "ancestor-narrative": "Ancestor Narrative",
+      "anniversary-list": "Anniversary List",
+      "changes-list": "Changes List",
+      "descendancy": "Descendancy Report",
+      "descendant-narrative": "Descendant Narrative",
+      "events-list": "Events List",
+      "facts-list": "Facts List",
+      "family-group-sheet": "Family Group Sheet",
+      "gia-pha-lineage": "Gia phả / Family Lineage Report",
+      "kinship-report": "Kinship Report",
+      "map-report": "Map Report",
+      "marriage-list": "Marriage List",
+      "media-gallery-report": "Media Gallery Report",
+      "narrative": "Narrative Report",
+      "person-events": "Person Events Report",
+      "person-summary": "Person Summary",
+      "persons-list": "Persons List",
+      "places-list": "Places List",
+      "plausibility-list": "Plausibility List",
+      "register": "Register Report",
+      "sources-list": "Sources List",
+      "status-report": "Status Report",
+      "story-report": "Story Report",
+      "timeline-report": "Timeline Report",
+      "today-report": "Today Report",
+      "todo-list": "ToDo List"
+    },
     "deleteReport": "Delete report",
     "export": "Export",
     "generating": "Generating {label}...",
@@ -162,5 +194,8 @@
     "theme": "Theme",
     "title": "Title",
     "type": "Type"
+  },
+  "settings": {
+    "language": "Language"
   }
 }

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { APP_FUNCTIONS } from '../lib/functionCatalog.js';
 import { cn } from '../lib/utils.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { categoryLabelKey, routeLabelKey } from '../lib/navigationLabels.js';
 
 /**
  * CommandPalette — ⌘K/Ctrl+K globally. Fuzzy-search across every route in
@@ -13,6 +15,7 @@ import { cn } from '../lib/utils.js';
  * force-open it for a menu item.
  */
 export function CommandPalette({ commands = [], open: controlledOpen, onOpenChange }) {
+  const { t } = useTranslation();
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = typeof controlledOpen === 'boolean';
   const open = isControlled ? controlledOpen : internalOpen;
@@ -51,12 +54,12 @@ export function CommandPalette({ commands = [], open: controlledOpen, onOpenChan
   const allEntries = useMemo(() => {
     const routeEntries = APP_FUNCTIONS.map((fn) => ({
       id: `route:${fn.to}`,
-      label: fn.label,
-      section: fn.category,
+      label: t(routeLabelKey(fn.to) || fn.label),
+      section: t(categoryLabelKey(fn.category) || fn.category),
       action: () => navigate(fn.to),
     }));
     return [...commands, ...routeEntries];
-  }, [commands, navigate]);
+  }, [commands, navigate, t]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -89,7 +92,7 @@ export function CommandPalette({ commands = [], open: controlledOpen, onOpenChan
       onClick={() => setOpen(false)}
       role="dialog"
       aria-modal="true"
-      aria-label="Command palette"
+      aria-label={t('commandPalette.ariaLabel')}
     >
       <div
         className="w-full max-w-xl rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden"
@@ -100,12 +103,12 @@ export function CommandPalette({ commands = [], open: controlledOpen, onOpenChan
           value={query}
           onChange={(event) => { setQuery(event.target.value); setCursor(0); }}
           onKeyDown={onKeyDown}
-          placeholder="Type a command or page name…"
+          placeholder={t('commandPalette.placeholder')}
           className="w-full h-12 bg-transparent border-b border-border px-4 text-sm outline-none"
         />
         <ul className="max-h-[60vh] overflow-y-auto py-1">
           {results.length === 0 ? (
-            <li className="px-4 py-6 text-center text-sm text-muted-foreground">No matches.</li>
+            <li className="px-4 py-6 text-center text-sm text-muted-foreground">{t('commandPalette.empty')}</li>
           ) : (
             results.map((entry, index) => (
               <li key={entry.id}>
@@ -127,7 +130,7 @@ export function CommandPalette({ commands = [], open: controlledOpen, onOpenChan
           )}
         </ul>
         <div className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground flex items-center justify-between">
-          <span>↑↓ navigate · Enter to run · Esc to close</span>
+          <span>{t('commandPalette.footer')}</span>
           <kbd className="font-semibold border border-border rounded px-1.5 py-0.5">⌘K</kbd>
         </div>
       </div>
