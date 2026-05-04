@@ -28,6 +28,9 @@ describe('i18n helpers', () => {
     expect(matchesSearchText('أحمد رعد الجليل', 'Ahmad raad jalil')).toBe(true);
     expect(matchesSearchText('أحمد رعد الجليل', 'Ahmed Raad Jalil')).toBe(true);
     expect(matchesSearchText('أحمد Raad الجليل', 'ahmed raad jalil')).toBe(true);
+    expect(matchesSearchText('محمد عبد الله الهاشمي', 'Mohamed Abdul Allah Hashemi')).toBe(true);
+    expect(matchesSearchText('علي حسين خالد', '3li Hussain Khaled')).toBe(true);
+    expect(matchesSearchText('فاطمة خديجة مريم', 'Fatimah Khadeeja Mariam')).toBe(true);
     expect(startsWithSearchText('أحمد رعد الجليل', 'Ahmed Raad')).toBe(true);
     expect(equalsSearchText('أحمد', 'Ahmed')).toBe(true);
   });

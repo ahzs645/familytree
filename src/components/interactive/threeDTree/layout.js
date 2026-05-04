@@ -1,0 +1,474 @@
+import { BAND_LABEL_GUTTER, GEN_STEP, NODE_SPACING, PARTNER_OFFSET, ROOT_CARD } from './constants.js';
+
+export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph = null) {
+  if (familyGraph?.nodes?.length) return buildFamilyGraphLayout(familyGraph, activeId);
+
+  const nodes = new Map();
+  const links = [];
+  const root = ancestorTree?.person || descendantTree?.person || null;
+  const rootId = activeId || root?.recordName || null;
+
+  const addNode = (person, generation, x, role) => {
+    if (!person?.recordName) return null;
+    const existing = nodes.get(person.recordName);
+    const featured = person.recordName === rootId;
+    const candidate = {
+      id: person.recordName,
+      person,
+      generation,
+      x,
+      y: -generation * GEN_STEP,
+      z: featured ? 52 : 22 + Math.min(Math.abs(generation) * 3, 18),
+      role,
+      featured,
+    };
+    if (!existing) {
+      nodes.set(person.recordName, candidate);
+      return candidate;
+    }
+    if (featured || Math.abs(generation) < Math.abs(existing.generation)) {
+      nodes.set(person.recordName, { ...existing, ...candidate, role: mergeRole(existing.role, role) });
+    } else {
+      existing.role = mergeRole(existing.role, role);
+    }
+    return nodes.get(person.recordName);
+  };
+
+  const addLink = (from, to, type) => {
+    if (!from || !to || from === to) return;
+    const key = `${from}:${to}:${type}`;
+    if (links.some((link) => link.key === key)) return;
+    links.push({ key, from, to, type });
+  };
+
+  if (ancestorTree) {
+    const visitAncestor = (node, generation, slot, childId) => {
+      if (!node?.person) return;
+      const total = 2 ** generation;
+      const spacing = NODE_SPACING + generation * 38;
+      const x = generation === 0 ? 0 : (slot - (total - 1) / 2) * spacing;
+      addNode(node.person, -generation, x, generation === 0 ? 'root' : 'ancestor');
+      if (childId) addLink(node.person.recordName, childId, 'ancestor');
+      if (generation >= 4) return;
+      visitAncestor(node.father, generation + 1, slot * 2, node.person.recordName);
+      visitAncestor(node.mother, generation + 1, slot * 2 + 1, node.person.recordName);
+    };
+    visitAncestor(ancestorTree, 0, 0, null);
+  }
+
+  if (descendantTree) {
+    const measure = (node) => {
+      if (!node) return 1;
+      const childWidths = (node.unions || []).flatMap((union) => union.children || []).map(measure);
+      if (childWidths.length === 0) return 1;
+      return Math.max(1, childWidths.reduce((sum, width) => sum + width, 0));
+    };
+
+    const placeDescendant = (node, generation, centerX, parentId = null) => {
+      if (!node?.person) return;
+      addNode(node.person, generation, centerX, generation === 0 ? 'root' : 'descendant');
+      if (parentId) addLink(parentId, node.person.recordName, 'descendant');
+
+      const unions = node.unions || [];
+      if (generation === 0) unions.forEach((union, index) => {
+        if (union.partner?.recordName) {
+          const side = index % 2 === 0 ? 1 : -1;
+          const baseOffset = generation === 0 ? ROOT_CARD.w / 2 + 172 : PARTNER_OFFSET;
+          const offset = side * (baseOffset + Math.floor(index / 2) * 105);
+          addNode(union.partner, generation, centerX + offset, 'partner');
+          addLink(node.person.recordName, union.partner.recordName, 'partner');
+        }
+      });
+
+      const children = unions.flatMap((union) => union.children || []);
+      if (children.length === 0) return;
+      const totalWidth = children.reduce((sum, child) => sum + measure(child), 0);
+      let cursor = centerX - ((totalWidth - 1) * NODE_SPACING) / 2;
+      for (const child of children) {
+        const childWidth = measure(child);
+        const childCenter = cursor + ((childWidth - 1) * NODE_SPACING) / 2;
+        placeDescendant(child, generation + 1, childCenter, node.person.recordName);
+        cursor += childWidth * NODE_SPACING;
+      }
+    };
+
+    placeDescendant(descendantTree, 0, 0, null);
+  }
+
+  const allNodes = [...nodes.values()].sort((a, b) => a.generation - b.generation || a.x - b.x);
+  const rootNode = allNodes.find((node) => node.featured) || allNodes.find((node) => node.generation === 0);
+  const rootX = rootNode?.x || 0;
+  const nodeList = allNodes.filter((node) => (
+    node.generation >= -2 &&
+    node.generation <= 1 &&
+    Math.abs(node.x - rootX) <= 1180
+  ));
+  const visibleIds = new Set(nodeList.map((node) => node.id));
+  const visibleLinks = links.filter((link) => visibleIds.has(link.from) && visibleIds.has(link.to));
+  const bands = buildBands(nodeList, rootX);
+  const bounds = boundsFor(nodeList, bands);
+  const viewBounds = focusBoundsFor(nodeList, bands, bounds);
+  return { nodes: nodeList, links: visibleLinks, bands, bounds, viewBounds };
+}
+
+function buildFamilyGraphLayout(familyGraph, activeId) {
+  const rootId = activeId || familyGraph.rootId;
+  const sourceNodes = new Map(familyGraph.nodes
+    .filter((node) => node?.person?.recordName)
+    .map((node) => ({
+      ...node,
+      featured: node.person.recordName === rootId,
+      role: (node.roles || []).join(' '),
+    }))
+    .map((node) => [node.person.recordName, node]));
+
+  const familyByChild = new Map();
+  const familyById = new Map((familyGraph.families || []).map((family) => [family.id, family]));
+  for (const family of familyById.values()) {
+    for (const childId of family.children || []) {
+      if (!familyByChild.has(childId)) familyByChild.set(childId, family);
+    }
+  }
+
+  const GENERATION_STEP = 252;
+  const CHILD_GAP = 206;
+  const ROOT_CARD_WIDTH = 640;
+  const FAMILY_PADDING = 270;
+  const BLOCK_GAP = 230;
+  const BRANCH_GAP = 360;
+  const MAX_DEPTH = 4;
+  const placedById = new Map();
+  const routedLinks = [];
+  const blockCache = new Map();
+  const rootFamily = familyById.get(familyGraph.rootFamilyId) || familyByChild.get(rootId);
+
+  const orderFamilyChildren = (family, preferredChildId, generation, compactRoot = false) => {
+    const people = (family.children || [])
+      .map((id) => sourceNodes.get(id))
+      .filter(Boolean);
+    const ordered = orderGeneration(people, preferredChildId || rootId);
+    if (compactRoot && preferredChildId) {
+      const required = ordered.filter((node) => node.person.recordName === preferredChildId);
+      const companion = ordered.find((node) => node.person.recordName !== preferredChildId);
+      return [...required, companion].filter(Boolean);
+    }
+    const maxByGeneration = new Map([
+      [-1, 13],
+      [-2, 10],
+      [-3, 8],
+      [-4, 6],
+    ]);
+    const max = maxByGeneration.get(generation) || 8;
+    const required = preferredChildId ? ordered.filter((node) => node.person.recordName === preferredChildId) : [];
+    const rest = ordered.filter((node) => node.person.recordName !== preferredChildId);
+    return [...required, ...rest].slice(0, max);
+  };
+
+  const measureBlock = (childId, generation, branch, depth) => {
+    const family = familyByChild.get(childId);
+    if (!family || depth > MAX_DEPTH) {
+      return {
+        id: `leaf:${childId}:${generation}`,
+        family: null,
+        generation,
+        branch,
+        preferredChildId: childId,
+        children: [childId].filter((id) => sourceNodes.has(id)),
+        parentBlocks: [],
+        width: 260,
+      };
+    }
+    const key = `${family.id}:${childId}:${generation}:${branch}`;
+    if (blockCache.has(key)) return blockCache.get(key);
+    const childNodes = orderFamilyChildren(family, childId, generation);
+    const childIds = childNodes.map((node) => node.person.recordName);
+    const childWidth = Math.max(320, (Math.max(childIds.length, 1) - 1) * CHILD_GAP + FAMILY_PADDING);
+    const parentBlocks = (family.parents || [])
+      .filter((id) => sourceNodes.has(id))
+      .map((parentId, index) => measureBlock(parentId, generation - 1, branch || (index === 0 ? 'paternal' : 'maternal'), depth + 1));
+    const parentWidth = parentBlocks.length > 0
+      ? parentBlocks.reduce((sum, block) => sum + block.width, 0) + BLOCK_GAP * (parentBlocks.length - 1)
+      : 0;
+    const block = {
+      id: family.id,
+      family,
+      generation,
+      branch,
+      preferredChildId: childId,
+      children: childIds,
+      parentBlocks,
+      width: Math.max(childWidth, parentWidth, 360),
+    };
+    blockCache.set(key, block);
+    return block;
+  };
+
+  const addNode = (personId, generation, x, familyBlockId, priority = 0) => {
+    const source = sourceNodes.get(personId);
+    if (!source) return null;
+    const existing = placedById.get(personId);
+    const next = {
+      ...source,
+      id: personId,
+      x,
+      y: -generation * GENERATION_STEP,
+      z: source.featured ? 52 : 22 + Math.min(Math.abs(generation) * 3, 18),
+      familyBlockId,
+      footprintWidth: source.featured ? 250 : 190,
+      layoutPriority: source.featured ? 1000 : priority,
+    };
+    if (!existing || next.layoutPriority >= existing.layoutPriority) placedById.set(personId, next);
+    return next;
+  };
+
+  const placeChildren = (block, centerX, compactRoot = false) => {
+    const generation = block.generation;
+    if (compactRoot) {
+      const companion = block.children.find((id) => id !== rootId);
+      if (companion) addNode(companion, generation, centerX - 132, block.id, 80);
+      addNode(rootId, generation, centerX + 78, block.id, 900);
+      return;
+    }
+    const preferredIndex = block.children.indexOf(block.preferredChildId);
+    const centerIndex = preferredIndex >= 0 ? preferredIndex : Math.floor(block.children.length / 2);
+    block.children.forEach((childId, index) => {
+      addNode(childId, generation, centerX + (index - centerIndex) * CHILD_GAP, block.id, 60 - Math.abs(generation));
+    });
+  };
+
+  const placeParentBlocks = (block, centerX) => {
+    if (block.parentBlocks.length === 0) return;
+    const totalWidth = block.parentBlocks.reduce((sum, child) => sum + child.width, 0) + BLOCK_GAP * (block.parentBlocks.length - 1);
+    let cursor = centerX - totalWidth / 2;
+    for (const parentBlock of block.parentBlocks) {
+      const parentCenter = cursor + parentBlock.width / 2;
+      placeBlock(parentBlock, parentCenter, false);
+      cursor += parentBlock.width + BLOCK_GAP;
+    }
+  };
+
+  const placeBlock = (block, centerX, compactRoot = false) => {
+    block.x = centerX;
+    block.y = -block.generation * GENERATION_STEP;
+    placeChildren(block, centerX, compactRoot);
+    placeParentBlocks(block, centerX);
+  };
+
+  if (rootFamily) {
+    const rootChildren = orderFamilyChildren(rootFamily, rootId, 0, true).map((node) => node.person.recordName);
+    const rootBlock = {
+      id: rootFamily.id,
+      family: rootFamily,
+      generation: 0,
+      branch: 'root',
+      preferredChildId: rootId,
+      children: rootChildren,
+      parentBlocks: [],
+      width: ROOT_CARD_WIDTH,
+    };
+    placeBlock(rootBlock, 0, true);
+
+    const parents = (rootFamily.parents || []).filter((id) => sourceNodes.has(id));
+    const fatherBlock = parents[0] ? measureBlock(parents[0], -1, 'paternal', 1) : null;
+    const motherBlock = parents[1] ? measureBlock(parents[1], -1, 'maternal', 1) : null;
+    if (fatherBlock && motherBlock) {
+      placeBlock(fatherBlock, -(fatherBlock.width / 2 + BRANCH_GAP / 2), false);
+      placeBlock(motherBlock, motherBlock.width / 2 + BRANCH_GAP / 2, false);
+    } else if (fatherBlock) {
+      placeBlock(fatherBlock, -520, false);
+    } else if (motherBlock) {
+      placeBlock(motherBlock, 520, false);
+    }
+  } else {
+    addNode(rootId, 0, 0, 'root', 900);
+  }
+
+  const uniquePlaced = [...placedById.values()];
+  const nodeById = new Map(uniquePlaced.map((node) => [node.id, node]));
+
+  const addSegment = (familyId, type, emphasis, a, b, nodeIds = []) => {
+    routedLinks.push({
+      key: `${familyId}:${type}:${routedLinks.length}`,
+      type,
+      emphasis,
+      points: [a, b],
+      nodeIds,
+    });
+  };
+  for (const family of familyGraph.families || []) {
+    const parents = (family.parents || []).map((id) => nodeById.get(id)).filter(Boolean);
+    const children = (family.children || []).map((id) => nodeById.get(id)).filter(Boolean);
+    if (parents.length === 0 || children.length === 0) continue;
+    const generation = children[0].generation;
+    const childY = -generation * GENERATION_STEP;
+    const parentY = parents[0].y;
+    const trunkY = childY + Math.sign(parentY - childY || 1) * 94;
+    const minChildX = Math.min(...children.map((child) => child.x));
+    const maxChildX = Math.max(...children.map((child) => child.x));
+    const parentXs = parents.map((parent) => parent.x);
+    const left = Math.min(minChildX, ...parentXs);
+    const right = Math.max(maxChildX, ...parentXs);
+    const emphasis = family.id === rootFamily?.id || family.parents.some((id) => id === familyGraph.rootId);
+    const familyNodeIds = [...parents, ...children].map((node) => node.id);
+    addSegment(family.id, 'family', emphasis, { x: left, y: trunkY }, { x: right, y: trunkY }, familyNodeIds);
+    for (const parent of parents) {
+      addSegment(
+        family.id,
+        'family',
+        emphasis,
+        { x: parent.x, y: parent.y - nodeVerticalRadius(parent) },
+        { x: parent.x, y: trunkY },
+        [parent.id]
+      );
+    }
+    for (const child of children) {
+      addSegment(
+        family.id,
+        'family',
+        emphasis,
+        { x: child.x, y: trunkY },
+        { x: child.x, y: child.y + nodeVerticalRadius(child) },
+        [child.id]
+      );
+    }
+  }
+
+  const root = nodeById.get(rootId) || uniquePlaced.find((node) => node.featured);
+  const rootX = root?.x || 0;
+  const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= 2150 && node.generation >= -4 && node.generation <= 1);
+  const visibleIds = new Set(nodeList.map((node) => node.id));
+  const visibleLinks = routedLinks.filter((link) => !link.nodeIds?.length || link.nodeIds.some((id) => visibleIds.has(id)));
+  const visibleBands = buildBands(nodeList, rootX);
+  const bounds = boundsFor(nodeList, visibleBands);
+  const viewBounds = focusBoundsFor(nodeList, visibleBands, bounds);
+  return { nodes: nodeList, links: visibleLinks, bands: visibleBands, bounds, viewBounds };
+}
+
+function orderGeneration(group, rootId) {
+  return [...group].sort((a, b) => {
+    const ap = nodePriority(a, rootId);
+    const bp = nodePriority(b, rootId);
+    if (ap !== bp) return ap - bp;
+    return (a.person.birthDate || '').localeCompare(b.person.birthDate || '') || a.person.fullName.localeCompare(b.person.fullName);
+  });
+}
+
+function nodePriority(node, rootId) {
+  if (node.person.recordName === rootId) return 0;
+  const roles = node.roles || [];
+  if (roles.includes('root')) return 0;
+  if (roles.some((role) => role.includes('ancestor-parent'))) return 1;
+  if (roles.some((role) => role.includes('partner-family'))) return 2;
+  if (roles.some((role) => role.includes('descendant'))) return 3;
+  if (roles.some((role) => role.includes('collateral'))) return 4;
+  return 5;
+}
+
+function mergeRole(a, b) {
+  if (!a || a === b) return b;
+  if (!b) return a;
+  if (a === 'root' || b === 'root') return 'root';
+  return `${a} ${b}`;
+}
+
+function buildBands(nodes, rootX = 0) {
+  const grouped = new Map();
+  for (const node of nodes) {
+    if (!grouped.has(node.generation)) grouped.set(node.generation, []);
+    grouped.get(node.generation).push(node);
+  }
+
+  return [...grouped.entries()].map(([generation, group]) => {
+    const minX = Math.min(...group.map((node) => node.x));
+    const maxX = Math.max(...group.map((node) => node.x));
+    const centerY = group.reduce((sum, node) => sum + node.y, 0) / group.length;
+    const years = yearRange(group.map((node) => node.person));
+    const width = Math.max(390, maxX - minX + 280 + BAND_LABEL_GUTTER);
+    const height = generation === 0 ? 216 : 112;
+    const title =
+      generation === 0
+        ? 'Root Generation'
+        : generation < 0
+          ? `Generation ${Math.abs(generation)}`
+          : `Descendant Generation ${generation}`;
+    return {
+      generation,
+      x: (minX + maxX) / 2 - BAND_LABEL_GUTTER / 2,
+      y: centerY,
+      width,
+      height,
+      title,
+      subtitle: years,
+      count: group.length,
+    };
+  });
+}
+
+function yearRange(persons) {
+  const years = [];
+  for (const person of persons) {
+    const birth = extractYear(person?.birthDate);
+    const death = extractYear(person?.deathDate);
+    if (Number.isFinite(birth)) years.push(birth);
+    if (Number.isFinite(death)) years.push(death);
+  }
+  if (years.length === 0) return '';
+  const min = Math.min(...years);
+  const max = Math.max(...years);
+  return min === max ? String(min) : `${min} - ${max}`;
+}
+
+function extractYear(value) {
+  const match = String(value || '').match(/\b([12]\d{3}|20\d{2})\b/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  return year >= 1000 && year <= 2099 ? year : null;
+}
+
+function boundsFor(nodes, bands) {
+  if (nodes.length === 0) return { minX: -400, maxX: 400, minY: -260, maxY: 260 };
+  const xs = nodes.flatMap((node) => [node.x - 170, node.x + 170]);
+  const ys = nodes.flatMap((node) => [node.y - 120, node.y + 120]);
+  for (const band of bands) {
+    xs.push(band.x - band.width / 2, band.x + band.width / 2);
+    ys.push(band.y - band.height / 2, band.y + band.height / 2);
+  }
+  return {
+    minX: Math.min(...xs),
+    maxX: Math.max(...xs),
+    minY: Math.min(...ys),
+    maxY: Math.max(...ys),
+  };
+}
+
+function focusBoundsFor(nodes, bands, fallback) {
+  const root = nodes.find((node) => node.featured) || nodes.find((node) => node.generation === 0);
+  const rootX = root?.x || 0;
+  const rootY = root?.y || 0;
+  const focusedNodes = nodes.filter((node) => (
+    node.generation >= -4 &&
+    node.generation <= 1 &&
+    Math.abs(node.x - rootX) <= 2150
+  ));
+  if (focusedNodes.length === 0) return fallback;
+  const focusedGenerations = new Set(focusedNodes.map((node) => node.generation));
+  const focusedBands = bands
+    .filter((band) => focusedGenerations.has(band.generation))
+    .map((band) => ({
+      ...band,
+      width: Math.min(band.width, 3600),
+    }));
+  const bounds = boundsFor(focusedNodes, focusedBands);
+  const maxWidth = 3300;
+  const maxHeight = 1500;
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = (bounds.minY + bounds.maxY) / 2 + 18;
+  const width = Math.min(Math.max(bounds.maxX - bounds.minX, 900), maxWidth);
+  const height = Math.min(Math.max(bounds.maxY - bounds.minY + 72, 760), maxHeight);
+  return {
+    minX: centerX - width / 2,
+    maxX: centerX + width / 2,
+    minY: centerY - height / 2,
+    maxY: centerY + height / 2,
+  };
+}

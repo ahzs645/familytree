@@ -38,6 +38,15 @@ const ARABIC_DIACRITICS_RE = /[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed]/g;
 const COMBINING_MARK_RE = /\p{M}/gu;
 const SEARCH_SPLIT_RE = /[^\p{L}\p{N}@_-]+/u;
 const LATIN_VOWELS_RE = /[aeiou]/g;
+const ARABIZI_CHAR_MAP = Object.freeze({
+  2: 'a',
+  3: 'a',
+  5: 'kh',
+  6: 't',
+  7: 'h',
+  8: 'gh',
+  9: 's',
+});
 const ARABIC_ROMANIZATION = Object.freeze({
   ا: 'a',
   ب: 'b',
@@ -56,7 +65,7 @@ const ARABIC_ROMANIZATION = Object.freeze({
   ض: 'd',
   ط: 't',
   ظ: 'z',
-  ع: '',
+  ع: 'a',
   غ: 'gh',
   ف: 'f',
   ق: 'q',
@@ -69,6 +78,42 @@ const ARABIC_ROMANIZATION = Object.freeze({
   ي: 'i',
   ء: '',
  });
+const COMMON_ARABIC_NAME_VARIANTS = [
+  ['احمد', 'ahmad', 'ahmed', 'achmad', 'achmed'],
+  ['محمد', 'muhammad', 'mohammad', 'mohammed', 'mohamed', 'mohamad', 'muhamad'],
+  ['محمود', 'mahmoud', 'mahmood', 'mahmud'],
+  ['عبد', 'abd', 'abdel', 'abdul', 'abdal'],
+  ['الله', 'allah', 'alla'],
+  ['علي', 'ali', 'aly'],
+  ['حسن', 'hasan', 'hassan'],
+  ['حسين', 'hussein', 'hussain', 'husayn', 'hosein'],
+  ['ابراهيم', 'ibrahim', 'ibraheem', 'ebraheem', 'ebrahim'],
+  ['اسماعيل', 'ismail', 'ismael', 'ismaeel'],
+  ['يوسف', 'yusuf', 'yousef', 'youssef', 'yosef'],
+  ['يونس', 'yunus', 'younes', 'younis'],
+  ['عمر', 'omar', 'umar'],
+  ['عثمان', 'othman', 'osman', 'uthman'],
+  ['خالد', 'khaled', 'khalid'],
+  ['طارق', 'tariq', 'tarek', 'tarik'],
+  ['جمال', 'jamal', 'gamal'],
+  ['جليل', 'jalil', 'jaleel', 'galil'],
+  ['رعد', 'raad', 'rad'],
+  ['سعيد', 'saeed', 'said', 'sayeed'],
+  ['سعد', 'saad', 'sad'],
+  ['مصطفي', 'mustafa', 'mustapha', 'mostafa', 'moustafa'],
+  ['فاطمه', 'fatima', 'fatimah', 'fatma'],
+  ['عائشه', 'aisha', 'aysha', 'ayesha', 'aishah'],
+  ['خديجه', 'khadija', 'khadijah', 'khadeeja'],
+  ['مريم', 'maryam', 'mariam', 'meryem'],
+  ['زينب', 'zainab', 'zeinab', 'zaynab'],
+  ['امنه', 'amina', 'aminah', 'amena'],
+  ['هاشمي', 'hashimi', 'hashemi', 'hashimy'],
+];
+const NAME_ALIAS_GROUPS = COMMON_ARABIC_NAME_VARIANTS.map((group) => [...new Set(group)]);
+const NAME_ALIAS_INDEX = new Map();
+for (const group of NAME_ALIAS_GROUPS) {
+  for (const alias of group) NAME_ALIAS_INDEX.set(normalizeSearchText(alias, DEFAULT_LOCALIZATION), group);
+}
 
 export function normalizeLocale(locale) {
   const raw = String(locale || DEFAULT_LOCALIZATION.locale).trim();
@@ -202,7 +247,7 @@ function tokenizeNormalizedSearchText(value, localization = getCurrentLocalizati
 }
 
 function latinPhoneticKey(value) {
-  return String(value || '')
+  return expandArabizi(String(value || ''))
     .replace(/[^a-z0-9]+/g, '')
     .replace(/aa/g, 'a')
     .replace(/ee/g, 'i')
@@ -214,25 +259,42 @@ function latinPhoneticKey(value) {
     .replace(LATIN_VOWELS_RE, '');
 }
 
+function expandArabizi(value) {
+  return String(value || '').replace(/[2356789]/g, (char) => ARABIZI_CHAR_MAP[char] || char);
+}
+
 function romanizeArabicToken(token) {
   let out = '';
   for (const char of token) out += ARABIC_ROMANIZATION[char] ?? char;
   return out.replace(/[^a-z0-9]+/g, '');
 }
 
-function addArabicTokenVariants(token, variants) {
-  const romanized = romanizeArabicToken(token);
-  if (romanized) variants.add(romanized);
-  const key = latinPhoneticKey(romanized);
+function addVariant(variants, value, localization = getCurrentLocalization()) {
+  const normalized = normalizeSearchText(value, localization);
+  if (!normalized) return;
+  variants.add(normalized);
+  const arabizi = expandArabizi(normalized);
+  if (arabizi) variants.add(arabizi);
+  const key = latinPhoneticKey(arabizi || normalized);
   if (key) variants.add(key);
+}
+
+function addAliasGroupVariants(token, variants, localization = getCurrentLocalization()) {
+  const group = NAME_ALIAS_INDEX.get(token);
+  if (!group) return;
+  for (const alias of group) addVariant(variants, alias, localization);
+}
+
+function addArabicTokenVariants(token, variants, localization = getCurrentLocalization()) {
+  const romanized = romanizeArabicToken(token);
+  addVariant(variants, romanized, localization);
+  addAliasGroupVariants(token, variants, localization);
 
   if (token.startsWith('ال') && token.length > 2) {
-    addArabicTokenVariants(token.slice(2), variants);
+    addArabicTokenVariants(token.slice(2), variants, localization);
   }
   if (romanized.startsWith('al') && romanized.length > 2) {
-    variants.add(romanized.slice(2));
-    const bareKey = latinPhoneticKey(romanized.slice(2));
-    if (bareKey) variants.add(bareKey);
+    addVariant(variants, romanized.slice(2), localization);
   }
 }
 
@@ -241,10 +303,10 @@ export function searchTokenVariants(token, localization = getCurrentLocalization
   if (!normalized) return [];
   const variants = new Set([normalized]);
   if (ARABIC_CHAR_RE.test(normalized)) {
-    addArabicTokenVariants(normalized, variants);
+    addArabicTokenVariants(normalized, variants, localization);
   } else {
-    const key = latinPhoneticKey(normalized);
-    if (key) variants.add(key);
+    addVariant(variants, normalized, localization);
+    addAliasGroupVariants(normalized, variants, localization);
   }
   return [...variants].filter((variant) => variant.length >= 1);
 }

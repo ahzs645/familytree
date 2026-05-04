@@ -38,9 +38,13 @@ describe('offline search index', () => {
     const index = createSearchIndex([
       { recordName: 'p1', recordType: 'Person', fields: { cached_fullName: { value: 'أحمد رعد الجليل' } } },
       { recordName: 'p2', recordType: 'Person', fields: { cached_fullName: { value: 'فاطمة الهاشمي' } } },
+      { recordName: 'p3', recordType: 'Person', fields: { cached_fullName: { value: 'محمد عبد الله الهاشمي' } } },
+      { recordName: 'p4', recordType: 'Person', fields: { cached_fullName: { value: 'علي حسين خالد' } } },
     ]);
 
     expect([...querySearchIndex(index, 'Ahmad raad jalil')]).toEqual(['p1']);
     expect([...querySearchIndex(index, 'Ahmed Raad Jalil')]).toEqual(['p1']);
+    expect([...querySearchIndex(index, 'Mohamed Abdul Allah Hashemi')]).toEqual(['p3']);
+    expect([...querySearchIndex(index, '3li Hussain Khaled')]).toEqual(['p4']);
   });
 });

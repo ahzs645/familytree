@@ -1,17 +1,31 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { Gender, lifeSpanLabel } from '../../models/index.js';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
-
-const GEN_STEP = 225;
-const NODE_SPACING = 240;
-const PARTNER_OFFSET = 178;
-const AVATAR_RADIUS = 46;
-const ROOT_CARD = { w: 230, h: 230 };
-const SKIN = '#f4d3a5';
-const SKIN_SHADOW = '#dcae7a';
-const BAND_LABEL_GUTTER = 310;
+import {
+  BOTTOM_PLANE_MODES,
+  CAMERA_MODES,
+  GENERATION_BAND_STYLES,
+  LIGHTING_MODES,
+  PERSON_STYLES,
+  VIEWER_OPTIONS_STORAGE_KEY,
+} from './threeDTree/constants.js';
+import { cameraFitSignature, fitCamera, persistCameraState, restoreCameraState } from './threeDTree/camera.js';
+import { buildInteractiveLayout } from './threeDTree/layout.js';
+import { makePalette } from './threeDTree/palette.js';
+import {
+  makeBottomPlane,
+  makeConnector,
+  makeFeaturedNode,
+  makeGenerationBand,
+  makeGenerationLabel,
+  makePersonNode,
+  preloadReferenceModels,
+} from './threeDTree/sceneObjects.js';
+import { clearGroup, disposeObject } from './threeDTree/threeUtils.js';
+import { readInitialViewerOptions } from './threeDTree/viewerOptions.js';
+import { Metric, PersonContextMenu, PersonHoverCard, ViewerSelect, dockToggleStyle } from './threeDTree/overlays.jsx';
+import { styles } from './threeDTree/styles.js';
 
 export function ThreeDTreeView({
   ancestorTree,
@@ -20,6 +34,11 @@ export function ThreeDTreeView({
   activeId,
   loading = false,
   onPick,
+  onEditPerson,
+  onOpenFamily,
+  onShowInfo,
+  onOpenAncestorChart,
+  onOpenDescendantChart,
   context,
   chrome = { navigation: true, people: true, inspector: true, header: true },
   onToggleChrome,
@@ -33,11 +52,19 @@ export function ThreeDTreeView({
   const clickablesRef = useRef([]);
   const actionsRef = useRef({ fit: () => {}, zoom: () => {}, zoomTo: () => {} });
   const downRef = useRef(null);
+  const hoveredIdRef = useRef(null);
+  const fitSignatureRef = useRef(null);
+  const persistCameraTimerRef = useRef(0);
   const { theme } = useTheme();
   const dark = theme === 'dark';
   const [zoomPercent, setZoomPercent] = useState(100);
+  const [modelRevision, setModelRevision] = useState(0);
+  const [hoveredId, setHoveredId] = useState(null);
+  const [hoverCard, setHoverCard] = useState(null);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [viewerOptions, setViewerOptions] = useState(readInitialViewerOptions);
 
-  const palette = useMemo(() => makePalette(dark), [dark]);
+  const palette = useMemo(() => makePalette(dark, viewerOptions.lightingMode), [dark, viewerOptions.lightingMode]);
   const layout = useMemo(
     () => buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph),
     [ancestorTree, descendantTree, activeId, familyGraph]
@@ -47,6 +74,36 @@ export function ThreeDTreeView({
     partners: context?.families?.map((family) => family.partner).filter(Boolean).length || 0,
     children: context?.families?.flatMap((family) => family.children || []).filter(Boolean).length || 0,
   }), [context]);
+
+  useEffect(() => {
+    preloadReferenceModels(viewerOptions.personStyle).then((loaded) => {
+      if (loaded) setModelRevision((revision) => revision + 1);
+    });
+  }, [viewerOptions.personStyle]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(VIEWER_OPTIONS_STORAGE_KEY, JSON.stringify(viewerOptions));
+    } catch {
+      // Persisting viewer preferences is optional.
+    }
+  }, [viewerOptions]);
+
+  useEffect(() => {
+    if (!contextMenu) return undefined;
+    const close = () => setContextMenu(null);
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') close();
+    };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [contextMenu]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -82,7 +139,17 @@ export function ThreeDTreeView({
       MIDDLE: THREE.MOUSE.DOLLY,
       RIGHT: THREE.MOUSE.ROTATE,
     };
-    const updateZoomReadout = () => setZoomPercent(Math.round(camera.zoom * 100));
+    const queueCameraPersistence = () => {
+      if (persistCameraTimerRef.current) window.clearTimeout(persistCameraTimerRef.current);
+      persistCameraTimerRef.current = window.setTimeout(() => {
+        persistCameraTimerRef.current = 0;
+        persistCameraState(camera, controls, viewerOptions.cameraMode, activeId);
+      }, 180);
+    };
+    const updateZoomReadout = () => {
+      setZoomPercent(Math.round(camera.zoom * 100));
+      queueCameraPersistence();
+    };
     controls.addEventListener('change', updateZoomReadout);
 
     scene.add(new THREE.AmbientLight(palette.ambient, 2.2));
@@ -106,20 +173,23 @@ export function ThreeDTreeView({
     controlsRef.current = controls;
 
     const fit = (bounds = layout.viewBounds || layout.bounds) => {
-      fitCamera(camera, controls, bounds, container);
+      fitCamera(camera, controls, bounds, container, viewerOptions.cameraMode);
       setZoomPercent(Math.round(camera.zoom * 100));
+      persistCameraState(camera, controls, viewerOptions.cameraMode, activeId);
     };
     const zoom = (factor) => {
       camera.zoom = THREE.MathUtils.clamp(camera.zoom / factor, controls.minZoom, controls.maxZoom);
       camera.updateProjectionMatrix();
       controls.update();
       setZoomPercent(Math.round(camera.zoom * 100));
+      persistCameraState(camera, controls, viewerOptions.cameraMode, activeId);
     };
     const zoomTo = (percent) => {
       camera.zoom = THREE.MathUtils.clamp(percent / 100, controls.minZoom, controls.maxZoom);
       camera.updateProjectionMatrix();
       controls.update();
       setZoomPercent(Math.round(camera.zoom * 100));
+      persistCameraState(camera, controls, viewerOptions.cameraMode, activeId);
     };
     actionsRef.current = { fit, zoom, zoomTo };
 
@@ -133,7 +203,6 @@ export function ThreeDTreeView({
       camera.top = h / 2;
       camera.bottom = -h / 2;
       camera.updateProjectionMatrix();
-      actionsRef.current.fit?.();
     };
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(container);
@@ -149,29 +218,52 @@ export function ThreeDTreeView({
       const hit = raycaster.intersectObjects(clickablesRef.current, true)[0];
       let object = hit?.object;
       while (object && !object.userData.person) object = object.parent;
-      return object?.userData.person || null;
+      return object?.userData.node || (object?.userData.person ? { person: object.userData.person } : null);
     };
 
     const onPointerDown = (event) => {
+      setContextMenu(null);
       downRef.current = { x: event.clientX, y: event.clientY };
     };
     const onPointerUp = (event) => {
+      if (event.button !== 0) return;
       const start = downRef.current;
       downRef.current = null;
       if (!start) return;
       const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
       if (moved > 6) return;
       const person = intersectPerson(event);
-      if (person) onPick?.(person.recordName);
+      if (person?.person) onPick?.(person.person.recordName);
     };
     const onPointerMove = (event) => {
-      renderer.domElement.style.cursor = intersectPerson(event) ? 'pointer' : 'grab';
+      const person = intersectPerson(event);
+      const nextHoveredId = person?.person?.recordName || null;
+      renderer.domElement.style.cursor = person ? 'pointer' : 'grab';
+      setHoverCard(person ? { person: person.person, x: event.clientX, y: event.clientY } : null);
+      if (hoveredIdRef.current !== nextHoveredId) {
+        hoveredIdRef.current = nextHoveredId;
+        setHoveredId(nextHoveredId);
+      }
+    };
+    const onPointerLeave = () => {
+      renderer.domElement.style.cursor = 'grab';
+      setHoverCard(null);
+      if (hoveredIdRef.current !== null) {
+        hoveredIdRef.current = null;
+        setHoveredId(null);
+      }
+    };
+    const onContextMenu = (event) => {
+      event.preventDefault();
+      const person = intersectPerson(event);
+      setContextMenu(person ? { node: person, person: person.person, x: event.clientX, y: event.clientY } : null);
     };
 
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
     renderer.domElement.addEventListener('pointerup', onPointerUp);
     renderer.domElement.addEventListener('pointermove', onPointerMove);
-    renderer.domElement.addEventListener('contextmenu', preventContextMenu);
+    renderer.domElement.addEventListener('pointerleave', onPointerLeave);
+    renderer.domElement.addEventListener('contextmenu', onContextMenu);
 
     let raf = 0;
     const animate = () => {
@@ -183,11 +275,16 @@ export function ThreeDTreeView({
 
     return () => {
       cancelAnimationFrame(raf);
+      if (persistCameraTimerRef.current) {
+        window.clearTimeout(persistCameraTimerRef.current);
+        persistCameraTimerRef.current = 0;
+      }
       resizeObserver.disconnect();
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
-      renderer.domElement.removeEventListener('contextmenu', preventContextMenu);
+      renderer.domElement.removeEventListener('pointerleave', onPointerLeave);
+      renderer.domElement.removeEventListener('contextmenu', onContextMenu);
       controls.removeEventListener('change', updateZoomReadout);
       controls.dispose();
       disposeObject(stage);
@@ -198,11 +295,15 @@ export function ThreeDTreeView({
       rendererRef.current = null;
       cameraRef.current = null;
       controlsRef.current = null;
+      hoveredIdRef.current = null;
+      setHoverCard(null);
+      setContextMenu(null);
+      fitSignatureRef.current = null;
       clickablesRef.current = [];
     };
     // The scene is rebuilt only when the color system changes; layout changes update the stage below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dark, palette]);
+  }, [dark, palette, viewerOptions.cameraMode]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -215,10 +316,10 @@ export function ThreeDTreeView({
     clearGroup(stage);
     clickablesRef.current = [];
 
-    stage.add(makeGrid(palette, layout.bounds));
+    stage.add(makeBottomPlane(palette, layout.bounds, viewerOptions.bottomPlaneMode));
     for (const band of layout.bands) {
-      stage.add(makeGenerationBand(band, palette));
-      stage.add(makeGenerationLabel(band));
+      stage.add(makeGenerationBand(band, palette, viewerOptions.generationBandStyle));
+      if (viewerOptions.generationBandStyle !== 'none') stage.add(makeGenerationLabel(band));
     }
 
     for (const link of layout.links) {
@@ -226,18 +327,26 @@ export function ThreeDTreeView({
     }
 
     for (const node of layout.nodes) {
-      const object = node.featured ? makeFeaturedNode(node, palette) : makePersonNode(node, palette);
+      const object = node.featured
+        ? makeFeaturedNode(node, palette, viewerOptions.personStyle, hoveredId === node.id)
+        : makePersonNode(node, palette, viewerOptions.personStyle, hoveredId === node.id);
       stage.add(object);
       clickablesRef.current.push(object);
     }
 
-    fitCamera(camera, controls, layout.viewBounds || layout.bounds, container);
-    setZoomPercent(Math.round(camera.zoom * 100));
-    actionsRef.current.fit = () => {
-      fitCamera(camera, controls, layout.viewBounds || layout.bounds, container);
+    const fitSignature = cameraFitSignature(layout, activeId, viewerOptions.cameraMode);
+    if (fitSignatureRef.current !== fitSignature) {
+      const restored = restoreCameraState(camera, controls, viewerOptions.cameraMode, activeId);
+      if (!restored) fitCamera(camera, controls, layout.viewBounds || layout.bounds, container, viewerOptions.cameraMode);
+      fitSignatureRef.current = fitSignature;
       setZoomPercent(Math.round(camera.zoom * 100));
+    }
+    actionsRef.current.fit = () => {
+      fitCamera(camera, controls, layout.viewBounds || layout.bounds, container, viewerOptions.cameraMode);
+      setZoomPercent(Math.round(camera.zoom * 100));
+      persistCameraState(camera, controls, viewerOptions.cameraMode, activeId);
     };
-  }, [layout, palette]);
+  }, [layout, palette, modelRevision, viewerOptions, hoveredId, activeId]);
 
   const hasTree = layout.nodes.length > 0;
 
@@ -267,6 +376,38 @@ export function ThreeDTreeView({
           <Metric label="Parents" value={relationshipCounts.parents} />
           <Metric label="Partners" value={relationshipCounts.partners} />
           <Metric label="Children" value={relationshipCounts.children} />
+        </div>
+        <div style={styles.dockGroup}>
+          <ViewerSelect
+            label="Style"
+            value={viewerOptions.personStyle}
+            options={PERSON_STYLES}
+            onChange={(personStyle) => setViewerOptions((current) => ({ ...current, personStyle }))}
+          />
+          <ViewerSelect
+            label="Camera"
+            value={viewerOptions.cameraMode}
+            options={CAMERA_MODES}
+            onChange={(cameraMode) => setViewerOptions((current) => ({ ...current, cameraMode }))}
+          />
+          <ViewerSelect
+            label="Lighting"
+            value={viewerOptions.lightingMode}
+            options={LIGHTING_MODES}
+            onChange={(lightingMode) => setViewerOptions((current) => ({ ...current, lightingMode }))}
+          />
+          <ViewerSelect
+            label="Floor"
+            value={viewerOptions.bottomPlaneMode}
+            options={BOTTOM_PLANE_MODES}
+            onChange={(bottomPlaneMode) => setViewerOptions((current) => ({ ...current, bottomPlaneMode }))}
+          />
+          <ViewerSelect
+            label="Bands"
+            value={viewerOptions.generationBandStyle}
+            options={GENERATION_BAND_STYLES}
+            onChange={(generationBandStyle) => setViewerOptions((current) => ({ ...current, generationBandStyle }))}
+          />
         </div>
         <div style={styles.dockGroup}>
           <button
@@ -308,1198 +449,26 @@ export function ThreeDTreeView({
           {loading ? 'Loading tree...' : 'Pick a person from the list.'}
         </div>
       )}
+      {hoverCard && !contextMenu && (
+        <PersonHoverCard person={hoverCard.person} x={hoverCard.x} y={hoverCard.y} />
+      )}
+      {contextMenu && (
+        <PersonContextMenu
+          node={contextMenu.node}
+          person={contextMenu.person}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onPick={onPick}
+          onEditPerson={onEditPerson}
+          onOpenFamily={onOpenFamily}
+          onShowInfo={onShowInfo}
+          onOpenAncestorChart={onOpenAncestorChart}
+          onOpenDescendantChart={onOpenDescendantChart}
+        />
+      )}
     </div>
   );
-}
-
-function Metric({ label, value }) {
-  return (
-    <div style={styles.metric}>
-      <span style={styles.metricValue}>{value}</span>
-      <span style={styles.metricLabel}>{label}</span>
-    </div>
-  );
-}
-
-function preventContextMenu(event) {
-  event.preventDefault();
-}
-
-function buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph = null) {
-  if (familyGraph?.nodes?.length) return buildFamilyGraphLayout(familyGraph, activeId);
-
-  const nodes = new Map();
-  const links = [];
-  const root = ancestorTree?.person || descendantTree?.person || null;
-  const rootId = activeId || root?.recordName || null;
-
-  const addNode = (person, generation, x, role) => {
-    if (!person?.recordName) return null;
-    const existing = nodes.get(person.recordName);
-    const featured = person.recordName === rootId;
-    const candidate = {
-      id: person.recordName,
-      person,
-      generation,
-      x,
-      y: -generation * GEN_STEP,
-      z: featured ? 52 : 22 + Math.min(Math.abs(generation) * 3, 18),
-      role,
-      featured,
-    };
-    if (!existing) {
-      nodes.set(person.recordName, candidate);
-      return candidate;
-    }
-    if (featured || Math.abs(generation) < Math.abs(existing.generation)) {
-      nodes.set(person.recordName, { ...existing, ...candidate, role: mergeRole(existing.role, role) });
-    } else {
-      existing.role = mergeRole(existing.role, role);
-    }
-    return nodes.get(person.recordName);
-  };
-
-  const addLink = (from, to, type) => {
-    if (!from || !to || from === to) return;
-    const key = `${from}:${to}:${type}`;
-    if (links.some((link) => link.key === key)) return;
-    links.push({ key, from, to, type });
-  };
-
-  if (ancestorTree) {
-    const visitAncestor = (node, generation, slot, childId) => {
-      if (!node?.person) return;
-      const total = 2 ** generation;
-      const spacing = NODE_SPACING + generation * 38;
-      const x = generation === 0 ? 0 : (slot - (total - 1) / 2) * spacing;
-      addNode(node.person, -generation, x, generation === 0 ? 'root' : 'ancestor');
-      if (childId) addLink(node.person.recordName, childId, 'ancestor');
-      if (generation >= 4) return;
-      visitAncestor(node.father, generation + 1, slot * 2, node.person.recordName);
-      visitAncestor(node.mother, generation + 1, slot * 2 + 1, node.person.recordName);
-    };
-    visitAncestor(ancestorTree, 0, 0, null);
-  }
-
-  if (descendantTree) {
-    const measure = (node) => {
-      if (!node) return 1;
-      const childWidths = (node.unions || []).flatMap((union) => union.children || []).map(measure);
-      if (childWidths.length === 0) return 1;
-      return Math.max(1, childWidths.reduce((sum, width) => sum + width, 0));
-    };
-
-    const placeDescendant = (node, generation, centerX, parentId = null) => {
-      if (!node?.person) return;
-      addNode(node.person, generation, centerX, generation === 0 ? 'root' : 'descendant');
-      if (parentId) addLink(parentId, node.person.recordName, 'descendant');
-
-      const unions = node.unions || [];
-      if (generation === 0) unions.forEach((union, index) => {
-        if (union.partner?.recordName) {
-          const side = index % 2 === 0 ? 1 : -1;
-          const baseOffset = generation === 0 ? ROOT_CARD.w / 2 + 172 : PARTNER_OFFSET;
-          const offset = side * (baseOffset + Math.floor(index / 2) * 105);
-          addNode(union.partner, generation, centerX + offset, 'partner');
-          addLink(node.person.recordName, union.partner.recordName, 'partner');
-        }
-      });
-
-      const children = unions.flatMap((union) => union.children || []);
-      if (children.length === 0) return;
-      const totalWidth = children.reduce((sum, child) => sum + measure(child), 0);
-      let cursor = centerX - ((totalWidth - 1) * NODE_SPACING) / 2;
-      for (const child of children) {
-        const childWidth = measure(child);
-        const childCenter = cursor + ((childWidth - 1) * NODE_SPACING) / 2;
-        placeDescendant(child, generation + 1, childCenter, node.person.recordName);
-        cursor += childWidth * NODE_SPACING;
-      }
-    };
-
-    placeDescendant(descendantTree, 0, 0, null);
-  }
-
-  const allNodes = [...nodes.values()].sort((a, b) => a.generation - b.generation || a.x - b.x);
-  const rootNode = allNodes.find((node) => node.featured) || allNodes.find((node) => node.generation === 0);
-  const rootX = rootNode?.x || 0;
-  const nodeList = allNodes.filter((node) => (
-    node.generation >= -2 &&
-    node.generation <= 1 &&
-    Math.abs(node.x - rootX) <= 1180
-  ));
-  const visibleIds = new Set(nodeList.map((node) => node.id));
-  const visibleLinks = links.filter((link) => visibleIds.has(link.from) && visibleIds.has(link.to));
-  const bands = buildBands(nodeList, rootX);
-  const bounds = boundsFor(nodeList, bands);
-  const viewBounds = focusBoundsFor(nodeList, bands, bounds);
-  return { nodes: nodeList, links: visibleLinks, bands, bounds, viewBounds };
-}
-
-function buildFamilyGraphLayout(familyGraph, activeId) {
-  const rootId = activeId || familyGraph.rootId;
-  const sourceNodes = new Map(familyGraph.nodes
-    .filter((node) => node?.person?.recordName)
-    .map((node) => ({
-      ...node,
-      featured: node.person.recordName === rootId,
-      role: (node.roles || []).join(' '),
-    }))
-    .map((node) => [node.person.recordName, node]));
-
-  const familyByChild = new Map();
-  const familyById = new Map((familyGraph.families || []).map((family) => [family.id, family]));
-  for (const family of familyById.values()) {
-    for (const childId of family.children || []) {
-      if (!familyByChild.has(childId)) familyByChild.set(childId, family);
-    }
-  }
-
-  const GENERATION_STEP = 252;
-  const CHILD_GAP = 206;
-  const ROOT_CARD_WIDTH = 640;
-  const FAMILY_PADDING = 270;
-  const BLOCK_GAP = 230;
-  const BRANCH_GAP = 360;
-  const MAX_DEPTH = 4;
-  const placedById = new Map();
-  const routedLinks = [];
-  const blockCache = new Map();
-  const rootFamily = familyById.get(familyGraph.rootFamilyId) || familyByChild.get(rootId);
-
-  const orderFamilyChildren = (family, preferredChildId, generation, compactRoot = false) => {
-    const people = (family.children || [])
-      .map((id) => sourceNodes.get(id))
-      .filter(Boolean);
-    const ordered = orderGeneration(people, preferredChildId || rootId);
-    if (compactRoot && preferredChildId) {
-      const required = ordered.filter((node) => node.person.recordName === preferredChildId);
-      const companion = ordered.find((node) => node.person.recordName !== preferredChildId);
-      return [...required, companion].filter(Boolean);
-    }
-    const maxByGeneration = new Map([
-      [-1, 13],
-      [-2, 10],
-      [-3, 8],
-      [-4, 6],
-    ]);
-    const max = maxByGeneration.get(generation) || 8;
-    const required = preferredChildId ? ordered.filter((node) => node.person.recordName === preferredChildId) : [];
-    const rest = ordered.filter((node) => node.person.recordName !== preferredChildId);
-    return [...required, ...rest].slice(0, max);
-  };
-
-  const measureBlock = (childId, generation, branch, depth) => {
-    const family = familyByChild.get(childId);
-    if (!family || depth > MAX_DEPTH) {
-      return {
-        id: `leaf:${childId}:${generation}`,
-        family: null,
-        generation,
-        branch,
-        preferredChildId: childId,
-        children: [childId].filter((id) => sourceNodes.has(id)),
-        parentBlocks: [],
-        width: 260,
-      };
-    }
-    const key = `${family.id}:${childId}:${generation}:${branch}`;
-    if (blockCache.has(key)) return blockCache.get(key);
-    const childNodes = orderFamilyChildren(family, childId, generation);
-    const childIds = childNodes.map((node) => node.person.recordName);
-    const childWidth = Math.max(320, (Math.max(childIds.length, 1) - 1) * CHILD_GAP + FAMILY_PADDING);
-    const parentBlocks = (family.parents || [])
-      .filter((id) => sourceNodes.has(id))
-      .map((parentId, index) => measureBlock(parentId, generation - 1, branch || (index === 0 ? 'paternal' : 'maternal'), depth + 1));
-    const parentWidth = parentBlocks.length > 0
-      ? parentBlocks.reduce((sum, block) => sum + block.width, 0) + BLOCK_GAP * (parentBlocks.length - 1)
-      : 0;
-    const block = {
-      id: family.id,
-      family,
-      generation,
-      branch,
-      preferredChildId: childId,
-      children: childIds,
-      parentBlocks,
-      width: Math.max(childWidth, parentWidth, 360),
-    };
-    blockCache.set(key, block);
-    return block;
-  };
-
-  const addNode = (personId, generation, x, familyBlockId, priority = 0) => {
-    const source = sourceNodes.get(personId);
-    if (!source) return null;
-    const existing = placedById.get(personId);
-    const next = {
-      ...source,
-      id: personId,
-      x,
-      y: -generation * GENERATION_STEP,
-      z: source.featured ? 52 : 22 + Math.min(Math.abs(generation) * 3, 18),
-      familyBlockId,
-      footprintWidth: source.featured ? 250 : 190,
-      layoutPriority: source.featured ? 1000 : priority,
-    };
-    if (!existing || next.layoutPriority >= existing.layoutPriority) placedById.set(personId, next);
-    return next;
-  };
-
-  const placeChildren = (block, centerX, compactRoot = false) => {
-    const generation = block.generation;
-    if (compactRoot) {
-      const companion = block.children.find((id) => id !== rootId);
-      if (companion) addNode(companion, generation, centerX - 132, block.id, 80);
-      addNode(rootId, generation, centerX + 78, block.id, 900);
-      return;
-    }
-    const preferredIndex = block.children.indexOf(block.preferredChildId);
-    const centerIndex = preferredIndex >= 0 ? preferredIndex : Math.floor(block.children.length / 2);
-    block.children.forEach((childId, index) => {
-      addNode(childId, generation, centerX + (index - centerIndex) * CHILD_GAP, block.id, 60 - Math.abs(generation));
-    });
-  };
-
-  const placeParentBlocks = (block, centerX) => {
-    if (block.parentBlocks.length === 0) return;
-    const totalWidth = block.parentBlocks.reduce((sum, child) => sum + child.width, 0) + BLOCK_GAP * (block.parentBlocks.length - 1);
-    let cursor = centerX - totalWidth / 2;
-    for (const parentBlock of block.parentBlocks) {
-      const parentCenter = cursor + parentBlock.width / 2;
-      placeBlock(parentBlock, parentCenter, false);
-      cursor += parentBlock.width + BLOCK_GAP;
-    }
-  };
-
-  const placeBlock = (block, centerX, compactRoot = false) => {
-    block.x = centerX;
-    block.y = -block.generation * GENERATION_STEP;
-    placeChildren(block, centerX, compactRoot);
-    placeParentBlocks(block, centerX);
-  };
-
-  if (rootFamily) {
-    const rootChildren = orderFamilyChildren(rootFamily, rootId, 0, true).map((node) => node.person.recordName);
-    const rootBlock = {
-      id: rootFamily.id,
-      family: rootFamily,
-      generation: 0,
-      branch: 'root',
-      preferredChildId: rootId,
-      children: rootChildren,
-      parentBlocks: [],
-      width: ROOT_CARD_WIDTH,
-    };
-    placeBlock(rootBlock, 0, true);
-
-    const parents = (rootFamily.parents || []).filter((id) => sourceNodes.has(id));
-    const fatherBlock = parents[0] ? measureBlock(parents[0], -1, 'paternal', 1) : null;
-    const motherBlock = parents[1] ? measureBlock(parents[1], -1, 'maternal', 1) : null;
-    if (fatherBlock && motherBlock) {
-      placeBlock(fatherBlock, -(fatherBlock.width / 2 + BRANCH_GAP / 2), false);
-      placeBlock(motherBlock, motherBlock.width / 2 + BRANCH_GAP / 2, false);
-    } else if (fatherBlock) {
-      placeBlock(fatherBlock, -520, false);
-    } else if (motherBlock) {
-      placeBlock(motherBlock, 520, false);
-    }
-  } else {
-    addNode(rootId, 0, 0, 'root', 900);
-  }
-
-  const uniquePlaced = [...placedById.values()];
-  const nodeById = new Map(uniquePlaced.map((node) => [node.id, node]));
-
-  const addSegment = (familyId, type, emphasis, a, b, nodeIds = []) => {
-    routedLinks.push({
-      key: `${familyId}:${type}:${routedLinks.length}`,
-      type,
-      emphasis,
-      points: [a, b],
-      nodeIds,
-    });
-  };
-  for (const family of familyGraph.families || []) {
-    const parents = (family.parents || []).map((id) => nodeById.get(id)).filter(Boolean);
-    const children = (family.children || []).map((id) => nodeById.get(id)).filter(Boolean);
-    if (parents.length === 0 || children.length === 0) continue;
-    const generation = children[0].generation;
-    const childY = -generation * GENERATION_STEP;
-    const parentY = parents[0].y;
-    const trunkY = childY + Math.sign(parentY - childY || 1) * 94;
-    const minChildX = Math.min(...children.map((child) => child.x));
-    const maxChildX = Math.max(...children.map((child) => child.x));
-    const parentXs = parents.map((parent) => parent.x);
-    const left = Math.min(minChildX, ...parentXs);
-    const right = Math.max(maxChildX, ...parentXs);
-    const emphasis = family.id === rootFamily?.id || family.parents.some((id) => id === familyGraph.rootId);
-    const familyNodeIds = [...parents, ...children].map((node) => node.id);
-    addSegment(family.id, 'family', emphasis, { x: left, y: trunkY }, { x: right, y: trunkY }, familyNodeIds);
-    for (const parent of parents) {
-      addSegment(
-        family.id,
-        'family',
-        emphasis,
-        { x: parent.x, y: parent.y - nodeVerticalRadius(parent) },
-        { x: parent.x, y: trunkY },
-        [parent.id]
-      );
-    }
-    for (const child of children) {
-      addSegment(
-        family.id,
-        'family',
-        emphasis,
-        { x: child.x, y: trunkY },
-        { x: child.x, y: child.y + nodeVerticalRadius(child) },
-        [child.id]
-      );
-    }
-  }
-
-  const root = nodeById.get(rootId) || uniquePlaced.find((node) => node.featured);
-  const rootX = root?.x || 0;
-  const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= 2150 && node.generation >= -4 && node.generation <= 1);
-  const visibleIds = new Set(nodeList.map((node) => node.id));
-  const visibleLinks = routedLinks.filter((link) => !link.nodeIds?.length || link.nodeIds.some((id) => visibleIds.has(id)));
-  const visibleBands = buildBands(nodeList, rootX);
-  const bounds = boundsFor(nodeList, visibleBands);
-  const viewBounds = focusBoundsFor(nodeList, visibleBands, bounds);
-  return { nodes: nodeList, links: visibleLinks, bands: visibleBands, bounds, viewBounds };
-}
-
-function orderGeneration(group, rootId) {
-  return [...group].sort((a, b) => {
-    const ap = nodePriority(a, rootId);
-    const bp = nodePriority(b, rootId);
-    if (ap !== bp) return ap - bp;
-    return (a.person.birthDate || '').localeCompare(b.person.birthDate || '') || a.person.fullName.localeCompare(b.person.fullName);
-  });
-}
-
-function nodePriority(node, rootId) {
-  if (node.person.recordName === rootId) return 0;
-  const roles = node.roles || [];
-  if (roles.includes('root')) return 0;
-  if (roles.some((role) => role.includes('ancestor-parent'))) return 1;
-  if (roles.some((role) => role.includes('partner-family'))) return 2;
-  if (roles.some((role) => role.includes('descendant'))) return 3;
-  if (roles.some((role) => role.includes('collateral'))) return 4;
-  return 5;
-}
-
-function mergeRole(a, b) {
-  if (!a || a === b) return b;
-  if (!b) return a;
-  if (a === 'root' || b === 'root') return 'root';
-  return `${a} ${b}`;
-}
-
-function buildBands(nodes, rootX = 0) {
-  const grouped = new Map();
-  for (const node of nodes) {
-    if (!grouped.has(node.generation)) grouped.set(node.generation, []);
-    grouped.get(node.generation).push(node);
-  }
-
-  return [...grouped.entries()].map(([generation, group]) => {
-    const minX = Math.min(...group.map((node) => node.x));
-    const maxX = Math.max(...group.map((node) => node.x));
-    const centerY = group.reduce((sum, node) => sum + node.y, 0) / group.length;
-    const years = yearRange(group.map((node) => node.person));
-    const width = Math.max(390, maxX - minX + 280 + BAND_LABEL_GUTTER);
-    const height = generation === 0 ? 216 : 112;
-    const title =
-      generation === 0
-        ? 'Root Generation'
-        : generation < 0
-          ? `Generation ${Math.abs(generation)}`
-          : `Descendant Generation ${generation}`;
-    return {
-      generation,
-      x: (minX + maxX) / 2 - BAND_LABEL_GUTTER / 2,
-      y: centerY,
-      width,
-      height,
-      title,
-      subtitle: years,
-      count: group.length,
-    };
-  });
-}
-
-function yearRange(persons) {
-  const years = [];
-  for (const person of persons) {
-    const birth = extractYear(person?.birthDate);
-    const death = extractYear(person?.deathDate);
-    if (Number.isFinite(birth)) years.push(birth);
-    if (Number.isFinite(death)) years.push(death);
-  }
-  if (years.length === 0) return '';
-  const min = Math.min(...years);
-  const max = Math.max(...years);
-  return min === max ? String(min) : `${min} - ${max}`;
-}
-
-function extractYear(value) {
-  const match = String(value || '').match(/\b([12]\d{3}|20\d{2})\b/);
-  if (!match) return null;
-  const year = Number(match[1]);
-  return year >= 1000 && year <= 2099 ? year : null;
-}
-
-function boundsFor(nodes, bands) {
-  if (nodes.length === 0) return { minX: -400, maxX: 400, minY: -260, maxY: 260 };
-  const xs = nodes.flatMap((node) => [node.x - 170, node.x + 170]);
-  const ys = nodes.flatMap((node) => [node.y - 120, node.y + 120]);
-  for (const band of bands) {
-    xs.push(band.x - band.width / 2, band.x + band.width / 2);
-    ys.push(band.y - band.height / 2, band.y + band.height / 2);
-  }
-  return {
-    minX: Math.min(...xs),
-    maxX: Math.max(...xs),
-    minY: Math.min(...ys),
-    maxY: Math.max(...ys),
-  };
-}
-
-function focusBoundsFor(nodes, bands, fallback) {
-  const root = nodes.find((node) => node.featured) || nodes.find((node) => node.generation === 0);
-  const rootX = root?.x || 0;
-  const rootY = root?.y || 0;
-  const focusedNodes = nodes.filter((node) => (
-    node.generation >= -4 &&
-    node.generation <= 1 &&
-    Math.abs(node.x - rootX) <= 2150
-  ));
-  if (focusedNodes.length === 0) return fallback;
-  const focusedGenerations = new Set(focusedNodes.map((node) => node.generation));
-  const focusedBands = bands
-    .filter((band) => focusedGenerations.has(band.generation))
-    .map((band) => ({
-      ...band,
-      width: Math.min(band.width, 3600),
-    }));
-  const bounds = boundsFor(focusedNodes, focusedBands);
-  const maxWidth = 3300;
-  const maxHeight = 1500;
-  const centerX = (bounds.minX + bounds.maxX) / 2;
-  const centerY = (bounds.minY + bounds.maxY) / 2 + 18;
-  const width = Math.min(Math.max(bounds.maxX - bounds.minX, 900), maxWidth);
-  const height = Math.min(Math.max(bounds.maxY - bounds.minY + 72, 760), maxHeight);
-  return {
-    minX: centerX - width / 2,
-    maxX: centerX + width / 2,
-    minY: centerY - height / 2,
-    maxY: centerY + height / 2,
-  };
-}
-
-function makePalette(dark) {
-  return dark
-    ? {
-        background: '#10131a',
-        grid: '#303848',
-        gridStrong: '#46536a',
-        text: '#f4f6fa',
-        muted: '#9aa5b5',
-        shadow: '#05070b',
-        ambient: '#dfe7ff',
-        keyLight: '#fff2d8',
-        fillLight: '#bad5ff',
-        male: '#6aa7ff',
-        maleDeep: '#285fbc',
-        female: '#ff9ab5',
-        femaleDeep: '#b94b6c',
-        unknown: '#e4d7b3',
-        unknownDeep: '#8f7f59',
-        ancestorLine: '#b49a54',
-        descendantLine: '#d04fa4',
-        partnerLine: '#9b8a69',
-        bandText: '#f4f6fa',
-      }
-    : {
-        background: '#f7f8f7',
-        grid: '#e2e6e9',
-        gridStrong: '#cfd6dc',
-        text: '#1d1f24',
-        muted: '#717985',
-        shadow: '#a4a8ad',
-        ambient: '#ffffff',
-        keyLight: '#fff7de',
-        fillLight: '#dceaff',
-        male: '#79b7ff',
-        maleDeep: '#3779d7',
-        female: '#ffa2bd',
-        femaleDeep: '#d56984',
-        unknown: '#f3e8c7',
-        unknownDeep: '#b9a36d',
-        ancestorLine: '#aa8236',
-        descendantLine: '#c93d94',
-        partnerLine: '#9c8a64',
-        bandText: '#33353a',
-      };
-}
-
-function makeGrid(palette, bounds) {
-  const group = new THREE.Group();
-  const sizeX = Math.max(2400, bounds.maxX - bounds.minX + 900);
-  const sizeY = Math.max(1800, bounds.maxY - bounds.minY + 900);
-  const centerX = (bounds.minX + bounds.maxX) / 2;
-  const centerY = (bounds.minY + bounds.maxY) / 2;
-  const step = 95;
-  const left = centerX - sizeX / 2;
-  const right = centerX + sizeX / 2;
-  const bottom = centerY - sizeY / 2;
-  const top = centerY + sizeY / 2;
-
-  const makeLines = (positions, color, opacity) => {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    const material = new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false });
-    return new THREE.LineSegments(geometry, material);
-  };
-
-  const regular = [];
-  const strong = [];
-  let index = 0;
-  for (let x = left; x <= right; x += step, index += 1) {
-    const target = index % 4 === 0 ? strong : regular;
-    target.push(x, bottom, -82, x, top, -82);
-  }
-  index = 0;
-  for (let y = bottom; y <= top; y += step, index += 1) {
-    const target = index % 4 === 0 ? strong : regular;
-    target.push(left, y, -82, right, y, -82);
-  }
-  group.add(makeLines(regular, palette.grid, 0.72));
-  group.add(makeLines(strong, palette.gridStrong, 0.46));
-  return group;
-}
-
-function makeGenerationBand(band, palette) {
-  const texture = makeBandTexture(band, palette);
-  const geometry = new THREE.PlaneGeometry(band.width, band.height);
-  const material = new THREE.MeshBasicMaterial({
-    map: texture,
-    transparent: true,
-    depthWrite: false,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(band.x, band.y, -34);
-  mesh.renderOrder = 1;
-  return mesh;
-}
-
-function makeBandTexture(band, palette) {
-  const fill = band.generation === 0
-    ? 'rgba(248, 191, 218, 0.68)'
-    : band.generation < 0
-      ? ancestorBandColor(Math.abs(band.generation))
-      : descendantBandColor(band.generation);
-  return makeCanvasTexture(1024, 256, (ctx, w, h) => {
-    ctx.shadowColor = 'rgba(0,0,0,0.16)';
-    ctx.shadowBlur = 28;
-    ctx.shadowOffsetY = 12;
-    roundedRect(ctx, 24, 32, w - 48, h - 64, 34);
-    ctx.fillStyle = fill;
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = band.generation === 0 ? 'rgba(191, 82, 150, 0.28)' : 'rgba(130, 112, 72, 0.22)';
-    ctx.stroke();
-
-  });
-}
-
-function makeGenerationLabel(band) {
-  if (band.showLabel === false) return new THREE.Group();
-  const label = generationLabel(band.generation);
-  const sublabel = band.subtitle || `${band.count} ${band.count === 1 ? 'person' : 'people'}`;
-  const texture = makeCanvasTexture(520, 170, (ctx, w, h) => {
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = band.generation === 0 ? 'rgba(157, 58, 117, 0.54)' : 'rgba(93, 84, 42, 0.58)';
-    ctx.font = '800 42px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    ctx.fillText(label, 24, 78);
-    ctx.fillStyle = 'rgba(80, 86, 96, 0.62)';
-    ctx.font = '750 25px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    ctx.fillText(sublabel, 26, 116);
-  });
-  const labelWidth = Math.min(BAND_LABEL_GUTTER - 34, 250);
-  const labelHeight = 82;
-  const plane = makePlaneFromTexture(texture, labelWidth, labelHeight);
-  plane.position.set(band.x - band.width / 2 + BAND_LABEL_GUTTER / 2, band.y + 2, -18);
-  plane.material.depthTest = false;
-  plane.renderOrder = 18;
-  return plane;
-}
-
-function generationLabel(generation) {
-  if (generation === 0) return 'Root Generation';
-  if (generation < 0) return `Generation ${Math.abs(generation)}`;
-  return `Descendant ${generation}`;
-}
-
-function ancestorBandColor(generation) {
-  const colors = [
-    'rgba(255, 220, 191, 0.72)',
-    'rgba(255, 238, 170, 0.67)',
-    'rgba(225, 237, 168, 0.62)',
-    'rgba(189, 228, 200, 0.58)',
-  ];
-  return colors[(generation - 1) % colors.length];
-}
-
-function descendantBandColor(generation) {
-  const colors = [
-    'rgba(242, 191, 231, 0.65)',
-    'rgba(213, 205, 255, 0.58)',
-    'rgba(194, 226, 248, 0.58)',
-    'rgba(206, 234, 215, 0.56)',
-  ];
-  return colors[(generation - 1) % colors.length];
-}
-
-function makePersonNode(node, palette) {
-  const group = new THREE.Group();
-  group.position.set(node.x, node.y, node.z);
-  group.userData.person = node.person;
-
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(58, 56),
-    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.15, depthWrite: false })
-  );
-  shadow.scale.set(1.28, 0.38, 1);
-  shadow.position.set(8, -4, -18);
-  shadow.renderOrder = 2;
-  group.add(shadow);
-
-  const model = makeMacPersonModel(node.person, palette, false);
-  model.position.set(0, 12, 6);
-  group.add(model);
-
-  const label = makePlaneFromTexture(makePersonLabelTexture(node.person, palette), 168, 66);
-  label.position.set(0, -58, 16);
-  group.add(label);
-
-  return group;
-}
-
-function makeFeaturedNode(node, palette) {
-  const group = new THREE.Group();
-  group.position.set(node.x, node.y, node.z);
-  group.userData.person = node.person;
-
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(ROOT_CARD.w * 0.47, 72),
-    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.16, depthWrite: false })
-  );
-  shadow.scale.set(1.04, 0.96, 1);
-  shadow.position.set(10, -16, -16);
-  shadow.renderOrder = 2;
-  group.add(shadow);
-
-  const card = makePlaneFromTexture(makeFeaturedTexture(node.person, palette), ROOT_CARD.w, ROOT_CARD.h);
-  card.position.set(0, 0, 0);
-  card.renderOrder = 3;
-  group.add(card);
-
-  const model = makeMacPersonModel(node.person, palette, true);
-  model.position.set(0, 58, 26);
-  group.add(model);
-
-  return group;
-}
-
-function makeMacPersonModel(person, palette, featured) {
-  const group = new THREE.Group();
-  const colors = colorsForGender(person?.gender, palette);
-  const scale = featured ? 1.1 : 0.88;
-  group.scale.setScalar(scale);
-
-  const bottomMaterial = new THREE.MeshStandardMaterial({
-    color: colors.deep,
-    roughness: 0.46,
-    metalness: 0.02,
-    transparent: true,
-    opacity: 0.72,
-  });
-  const topMaterial = new THREE.MeshStandardMaterial({
-    color: colors.base,
-    roughness: 0.28,
-    metalness: 0.03,
-    emissive: colors.base,
-    emissiveIntensity: 0.08,
-  });
-  const skinMaterial = new THREE.MeshStandardMaterial({
-    color: SKIN,
-    roughness: 0.36,
-    metalness: 0,
-    emissive: '#ffe0b6',
-    emissiveIntensity: 0.06,
-  });
-
-  const bodyShadow = new THREE.Mesh(
-    new THREE.CircleGeometry(82, 64),
-    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.18, depthWrite: false })
-  );
-  bodyShadow.scale.set(1.34, 0.38, 1);
-  bodyShadow.position.set(14, 4, -18);
-  bodyShadow.renderOrder = 3;
-  group.add(bodyShadow);
-
-  const bottomBody = new THREE.Mesh(new THREE.SphereGeometry(54, 48, 18), bottomMaterial);
-  bottomBody.scale.set(1.42, 0.42, 0.36);
-  bottomBody.position.set(0, 8, -2);
-  bottomBody.castShadow = true;
-  bottomBody.receiveShadow = true;
-  group.add(bottomBody);
-
-  const bodyNode = new THREE.Mesh(new THREE.SphereGeometry(53, 48, 18), topMaterial);
-  bodyNode.scale.set(1.28, 0.34, 0.32);
-  bodyNode.position.set(-8, 18, 10);
-  bodyNode.castShadow = true;
-  bodyNode.receiveShadow = true;
-  group.add(bodyNode);
-
-  const sideNode = new THREE.Mesh(new THREE.SphereGeometry(27, 32, 14), topMaterial);
-  sideNode.scale.set(1.05, 0.74, 0.42);
-  sideNode.position.set(-56, 18, 11);
-  sideNode.castShadow = true;
-  group.add(sideNode);
-
-  const frontNode = new THREE.Mesh(new THREE.SphereGeometry(31, 32, 14), topMaterial);
-  frontNode.scale.set(1.05, 0.68, 0.38);
-  frontNode.position.set(44, 18, 13);
-  frontNode.castShadow = true;
-  group.add(frontNode);
-
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(10, 15, 22, 24), skinMaterial);
-  neck.position.set(0, 45, 20);
-  neck.castShadow = true;
-  group.add(neck);
-
-  const head = new THREE.Mesh(new THREE.SphereGeometry(featured ? 29 : 25, 36, 22), skinMaterial);
-  head.scale.set(0.95, 1.02, 0.9);
-  head.position.set(0, 67, 28);
-  head.castShadow = true;
-  group.add(head);
-
-  const highlight = new THREE.Mesh(
-    new THREE.SphereGeometry(featured ? 8 : 7, 18, 10),
-    new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.32, depthWrite: false })
-  );
-  highlight.scale.set(1.25, 0.72, 0.3);
-  highlight.position.set(-10, 78, 49);
-  highlight.renderOrder = 10;
-  group.add(highlight);
-
-  return group;
-}
-
-function makeConnector(link, nodes, palette) {
-  const group = new THREE.Group();
-  const type = link.type;
-  const color = link.emphasis
-    ? palette.descendantLine
-    : type === 'partner'
-    ? palette.partnerLine
-    : type === 'ancestor'
-      ? palette.ancestorLine
-      : palette.descendantLine;
-  const z = link.emphasis ? 5 : 2;
-  let points = (link.points || []).map((point) => new THREE.Vector3(point.x, point.y, point.z ?? z));
-  if (points.length === 0 && link.from && link.to) {
-    const nodeById = new Map(nodes.map((node) => [node.id, node]));
-    const from = nodeById.get(link.from);
-    const to = nodeById.get(link.to);
-    if (!from || !to) return group;
-    points = type === 'partner'
-      ? partnerPoints(from, to, z)
-      : orthogonalPoints(from, to, z);
-  }
-
-  for (let i = 1; i < points.length; i += 1) {
-    group.add(makeTube(points[i - 1], points[i], color, link.emphasis ? 4.0 : type === 'partner' ? 2.4 : 3.0));
-  }
-  return group;
-}
-
-function partnerPoints(from, to, z) {
-  const y = Math.max(partnerLineY(from), partnerLineY(to));
-  return [
-    new THREE.Vector3(edgeX(from, to), y, z),
-    new THREE.Vector3(edgeX(to, from), y, z),
-  ];
-}
-
-function partnerLineY(node) {
-  return node.y + (node.featured ? 38 : 14);
-}
-
-function orthogonalPoints(from, to, z) {
-  const fromEdgeRadius = nodeVerticalRadius(from);
-  const toEdgeRadius = nodeVerticalRadius(to);
-  const fromEdge = from.y > to.y ? from.y - fromEdgeRadius : from.y + fromEdgeRadius;
-  const toEdge = from.y > to.y ? to.y + toEdgeRadius : to.y - toEdgeRadius;
-  const midY = (fromEdge + toEdge) / 2;
-  return [
-    new THREE.Vector3(from.x, fromEdge, z),
-    new THREE.Vector3(from.x, midY, z),
-    new THREE.Vector3(to.x, midY, z),
-    new THREE.Vector3(to.x, toEdge, z),
-  ];
-}
-
-function edgeX(a, b) {
-  const radius = a.featured ? ROOT_CARD.w * 0.44 : 58;
-  return a.x + Math.sign(b.x - a.x || 1) * radius;
-}
-
-function nodeVerticalRadius(node) {
-  return node.featured ? ROOT_CARD.h * 0.44 : 72;
-}
-
-function makeTube(a, b, color, radius) {
-  const length = a.distanceTo(b);
-  const geometry = new THREE.CylinderGeometry(radius, radius, length, 12);
-  const material = new THREE.MeshStandardMaterial({
-    color,
-    roughness: 0.48,
-    metalness: 0.02,
-    transparent: true,
-    opacity: 0.88,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.copy(a).add(b).multiplyScalar(0.5);
-  const direction = new THREE.Vector3().subVectors(b, a).normalize();
-  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
-  mesh.renderOrder = 4;
-  return mesh;
-}
-
-function makePersonLabelTexture(person, palette) {
-  return makeCanvasTexture(420, 170, (ctx, w, h) => {
-    ctx.fillStyle = 'rgba(255,255,255,0)';
-    ctx.fillRect(0, 0, w, h);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = palette.text;
-    ctx.font = '700 30px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    for (const [line, y] of wrapText(ctx, person?.fullName || 'Unknown', 19, 2).map((line, index) => [line, 48 + index * 34])) {
-      ctx.fillText(line, w / 2, y);
-    }
-    const life = lifeSpanLabel(person);
-    if (life) {
-      ctx.fillStyle = palette.muted;
-      ctx.font = '600 23px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-      ctx.fillText(life, w / 2, 132);
-    }
-  });
-}
-
-function makeFeaturedTexture(person, palette) {
-  return makeCanvasTexture(560, 560, (ctx, w, h) => {
-    const cx = w / 2;
-    const cy = h / 2;
-    const radius = w * 0.38;
-
-    ctx.clearRect(0, 0, w, h);
-    ctx.shadowColor = 'rgba(0,0,0,0.2)';
-    ctx.shadowBlur = 26;
-    ctx.shadowOffsetY = 12;
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(238, 249, 255, 0.96)';
-    ctx.fill();
-
-    ctx.shadowColor = 'transparent';
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius - 8, 0, Math.PI * 2);
-    ctx.lineCap = 'round';
-    ctx.setLineDash([1, 22]);
-    ctx.lineWidth = 14;
-    ctx.strokeStyle = 'rgba(80, 145, 196, 0.58)';
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius - 2, 0, Math.PI * 2);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(78, 166, 214, 0.34)';
-    ctx.stroke();
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#17191d';
-    ctx.font = '800 35px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    const nameLines = wrapText(ctx, person?.fullName || 'Unknown', 17, 2);
-    const firstNameY = nameLines.length === 1 ? 340 : 320;
-    nameLines.forEach((line, index) => ctx.fillText(line, cx, firstNameY + index * 39));
-
-    const life = lifeSpanLabel(person);
-    if (life) {
-      ctx.fillStyle = '#747b86';
-      ctx.font = '700 28px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-      ctx.fillText(life, cx, 428);
-    }
-  });
-}
-
-function colorsForGender(gender, palette) {
-  if (gender === Gender.Male) return { base: palette.male, deep: palette.maleDeep };
-  if (gender === Gender.Female) return { base: palette.female, deep: palette.femaleDeep };
-  return { base: palette.unknown, deep: palette.unknownDeep };
-}
-
-function lightenHex(hex, amount) {
-  const normalized = String(hex || '').replace('#', '');
-  if (normalized.length !== 6) return hex;
-  const next = [0, 2, 4].map((index) => {
-    const value = parseInt(normalized.slice(index, index + 2), 16);
-    return Math.round(value + (255 - value) * amount).toString(16).padStart(2, '0');
-  });
-  return `#${next.join('')}`;
-}
-
-function wrapText(ctx, text, maxChars, maxLines) {
-  const words = String(text || '').split(/\s+/).filter(Boolean);
-  const lines = [];
-  let current = '';
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length > maxChars && current) {
-      lines.push(current);
-      current = word;
-      if (lines.length === maxLines - 1) break;
-    } else {
-      current = next;
-    }
-  }
-  if (current) lines.push(current);
-  const limited = lines.slice(0, maxLines);
-  if (words.join(' ').length > limited.join(' ').length && limited.length > 0) {
-    limited[limited.length - 1] = `${limited[limited.length - 1].replace(/\.*$/, '')}...`;
-  }
-  return limited.length ? limited : ['Unknown'];
-}
-
-function makePlaneFromTexture(texture, width, height) {
-  const material = new THREE.MeshBasicMaterial({
-    map: texture,
-    transparent: true,
-    depthWrite: false,
-  });
-  const plane = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
-  plane.renderOrder = 5;
-  return plane;
-}
-
-function makeCanvasTexture(width, height, draw) {
-  const canvas = document.createElement('canvas');
-  const scale = 2;
-  canvas.width = width * scale;
-  canvas.height = height * scale;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(scale, scale);
-  draw(ctx, width, height);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
-  texture.needsUpdate = true;
-  return texture;
-}
-
-function roundedRect(ctx, x, y, w, h, r) {
-  const radius = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + w - radius, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-  ctx.lineTo(x + w, y + h - radius);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-  ctx.lineTo(x + radius, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-}
-
-function fitCamera(camera, controls, bounds, container) {
-  const width = Math.max(1, bounds.maxX - bounds.minX);
-  const height = Math.max(1, bounds.maxY - bounds.minY);
-  const centerX = (bounds.minX + bounds.maxX) / 2;
-  const centerY = (bounds.minY + bounds.maxY) / 2;
-  const rect = container.getBoundingClientRect();
-  const viewportWidth = Math.max(1, rect.width);
-  const viewportHeight = Math.max(1, rect.height);
-  const zoomForWidth = viewportWidth / width;
-  const zoomForHeight = viewportHeight / height;
-  const nextZoom = THREE.MathUtils.clamp(Math.min(zoomForWidth, zoomForHeight) * 0.82, 0.34, 1.45);
-
-  camera.zoom = nextZoom;
-  camera.position.set(centerX, centerY - 360, 1550);
-  controls.target.set(centerX, centerY, 0);
-  camera.lookAt(centerX, centerY, 0);
-  camera.updateProjectionMatrix();
-  controls.update();
-}
-
-function clearGroup(group) {
-  while (group.children.length > 0) {
-    const child = group.children.pop();
-    disposeObject(child);
-  }
-}
-
-function disposeObject(object) {
-  object.traverse?.((child) => {
-    if (child.geometry) child.geometry.dispose();
-    if (child.material) {
-      const materials = Array.isArray(child.material) ? child.material : [child.material];
-      for (const material of materials) {
-        if (material.map) material.map.dispose();
-        material.dispose();
-      }
-    }
-  });
-}
-
-const styles = {
-  shell: {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    minHeight: 0,
-    overflow: 'hidden',
-    background: 'hsl(var(--background))',
-  },
-  canvas: {
-    width: '100%',
-    height: '100%',
-  },
-  controls: {
-    position: 'absolute',
-    top: 12,
-    insetInlineEnd: 12,
-    display: 'flex',
-    gap: 6,
-    padding: 6,
-    borderRadius: 8,
-    background: 'hsl(var(--card) / 0.82)',
-    border: '1px solid hsl(var(--border))',
-    boxShadow: '0 10px 24px rgb(0 0 0 / 0.12)',
-    backdropFilter: 'blur(12px)',
-  },
-  bottomDock: {
-    position: 'absolute',
-    left: '50%',
-    bottom: 14,
-    transform: 'translateX(-50%)',
-    maxWidth: 'calc(100% - 32px)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 12,
-    padding: '8px 10px',
-    borderRadius: 8,
-    background: 'hsl(var(--card) / 0.86)',
-    border: '1px solid hsl(var(--border))',
-    boxShadow: '0 14px 34px rgb(0 0 0 / 0.16)',
-    backdropFilter: 'blur(14px)',
-    color: 'hsl(var(--foreground))',
-    overflow: 'auto',
-  },
-  dockGroup: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    flexShrink: 0,
-  },
-  dockLabel: {
-    color: 'hsl(var(--muted-foreground))',
-    font: '700 11px -apple-system, system-ui, sans-serif',
-    whiteSpace: 'nowrap',
-  },
-  zoomSlider: {
-    width: 118,
-    accentColor: 'hsl(var(--primary))',
-  },
-  zoomReadout: {
-    width: 42,
-    color: 'hsl(var(--foreground))',
-    font: '750 11px -apple-system, system-ui, sans-serif',
-  },
-  metric: {
-    minWidth: 58,
-    textAlign: 'center',
-    padding: '2px 6px',
-    borderInlineStart: '1px solid hsl(var(--border))',
-  },
-  metricValue: {
-    display: 'block',
-    color: 'hsl(var(--foreground))',
-    font: '800 13px -apple-system, system-ui, sans-serif',
-  },
-  metricLabel: {
-    display: 'block',
-    color: 'hsl(var(--muted-foreground))',
-    font: '650 10px -apple-system, system-ui, sans-serif',
-  },
-  dockButton: {
-    height: 30,
-    borderRadius: 6,
-    border: '1px solid hsl(var(--border))',
-    background: 'hsl(var(--secondary))',
-    color: 'hsl(var(--foreground))',
-    font: '750 11px -apple-system, system-ui, sans-serif',
-    padding: '0 10px',
-    cursor: 'pointer',
-  },
-  iconButton: {
-    width: 31,
-    height: 31,
-    borderRadius: 6,
-    border: '1px solid hsl(var(--border))',
-    background: 'hsl(var(--secondary))',
-    color: 'hsl(var(--foreground))',
-    font: '700 15px -apple-system, system-ui, sans-serif',
-    cursor: 'pointer',
-  },
-  fitButton: {
-    height: 31,
-    borderRadius: 6,
-    border: '1px solid hsl(var(--border))',
-    background: 'hsl(var(--secondary))',
-    color: 'hsl(var(--foreground))',
-    font: '700 12px -apple-system, system-ui, sans-serif',
-    padding: '0 10px',
-    cursor: 'pointer',
-  },
-  overlay: {
-    position: 'absolute',
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: 'hsl(var(--muted-foreground))',
-    font: '14px -apple-system, system-ui, sans-serif',
-    pointerEvents: 'none',
-    background: 'hsl(var(--background) / 0.45)',
-  },
-};
-
-function dockToggleStyle(active) {
-  return {
-    ...styles.dockButton,
-    background: active ? 'hsl(var(--primary) / 0.14)' : 'hsl(var(--secondary))',
-    borderColor: active ? 'hsl(var(--primary) / 0.45)' : 'hsl(var(--border))',
-    color: active ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
-  };
 }
 
 export default ThreeDTreeView;

@@ -6,6 +6,7 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { isPublicRecord } from './privacy.js';
 import { refToRecordName } from './recordRef.js';
+import { readField } from './schema.js';
 import { personSummary } from '../models/index.js';
 
 /**
@@ -108,12 +109,15 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
   const root = await db.getRecord(rootRecordName);
   if (!isPublicRecord(root)) return null;
 
-  const [{ records: familyRecords }, { records: childRelationRecords }] = await Promise.all([
+  const [{ records: familyRecords }, { records: childRelationRecords }, { records: personRecords }] = await Promise.all([
     db.query('Family', { limit: 100000 }),
     db.query('ChildRelation', { limit: 100000 }),
+    db.query('Person', { limit: 100000 }),
   ]);
 
   const familyById = new Map(familyRecords.filter(isPublicRecord).map((family) => [family.recordName, family]));
+  const personById = new Map(personRecords.filter(isPublicRecord).map((person) => [person.recordName, person]));
+  const duplicateSets = buildInteractiveDuplicateSets(personRecords.filter(isPublicRecord));
   const childrenByFamily = new Map();
   const parentFamiliesByChild = new Map();
 
@@ -199,18 +203,39 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
   };
   visitDescendantFamilies(rootRecordName, 0, 1);
 
-  const people = await db.getRecords([...personIds]);
-  const publicPeople = people.filter(isPublicRecord);
+  const publicPeople = [...personIds].map((personId) => personById.get(personId)).filter(Boolean);
   const publicPersonIds = new Set(publicPeople.map((person) => person.recordName));
 
   const nodes = publicPeople.map((person) => {
     const hint = nodeHints.get(person.recordName) || { generation: 0, roles: new Set(['relative']) };
+    const parentFamilyIds = parentFamiliesByChild.get(person.recordName) || [];
+    const childFamilyIds = [...familyById.values()]
+      .filter((family) => (
+        refToRecordName(family.fields?.man?.value) === person.recordName
+        || refToRecordName(family.fields?.woman?.value) === person.recordName
+      ))
+      .map((family) => family.recordName);
+    const hiddenParentFamilies = parentFamilyIds.filter((familyId) => !familyIds.has(familyId) && familyById.has(familyId));
+    const hiddenChildFamilies = childFamilyIds.filter((familyId) => !familyIds.has(familyId) && familyById.has(familyId));
     return {
       id: person.recordName,
       person: personSummary(person),
       generation: hint.generation,
       roles: [...hint.roles],
       branches: [...(hint.branches || [])],
+      more: {
+        parents: hiddenParentFamilies.length,
+        families: hiddenChildFamilies.length,
+        relatives: hiddenParentFamilies.length + hiddenChildFamilies.length,
+      },
+      status: {
+        familySearch: Boolean(readField(person, ['familySearchID', 'familySearchId'])),
+        duplicateRisk: duplicateSets.high.has(person.recordName)
+          ? 'High'
+          : duplicateSets.medium.has(person.recordName)
+            ? 'Medium'
+            : 'Low',
+      },
       featured: person.recordName === rootRecordName,
     };
   });
@@ -234,6 +259,48 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
     .filter((family) => family.parents.length > 0 || family.children.length > 0);
 
   return { rootId: rootRecordName, rootFamilyId, nodes, families };
+}
+
+function buildInteractiveDuplicateSets(persons) {
+  const byName = new Map();
+  const byNameBirth = new Map();
+  for (const person of persons) {
+    const summary = personSummary(person);
+    const name = normalizeInteractiveName(summary?.fullName);
+    if (!name) continue;
+    pushDuplicateGroup(byName, name, person.recordName);
+    const birthYear = extractDuplicateYear(summary?.birthDate);
+    if (birthYear) pushDuplicateGroup(byNameBirth, `${name}|${birthYear}`, person.recordName);
+  }
+  return {
+    high: idsFromDuplicateGroups(byNameBirth),
+    medium: idsFromDuplicateGroups(byName),
+  };
+}
+
+function normalizeInteractiveName(value) {
+  return String(value || '')
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim();
+}
+
+function pushDuplicateGroup(map, key, value) {
+  if (!map.has(key)) map.set(key, []);
+  map.get(key).push(value);
+}
+
+function idsFromDuplicateGroups(groups) {
+  const ids = new Set();
+  for (const group of groups.values()) {
+    if (group.length > 1) group.forEach((id) => ids.add(id));
+  }
+  return ids;
+}
+
+function extractDuplicateYear(value) {
+  const match = String(value || '').match(/\b([12]\d{3}|20\d{2})\b/);
+  return match ? Number(match[1]) : null;
 }
 
 /**

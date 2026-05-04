@@ -88,6 +88,11 @@ export function InteractiveTreeApp() {
       return next;
     });
   }, []);
+  const showTreeInfo = useCallback((recordName) => {
+    setActivePerson(recordName);
+    setMobilePane('focus');
+    setTreeChrome((current) => ({ ...current, inspector: true }));
+  }, [setActivePerson]);
   const openAncestor = useCallback(
     (recordName) => {
       setActivePerson(recordName);
@@ -177,6 +182,11 @@ export function InteractiveTreeApp() {
                     activeId={activeId}
                     loading={trees.loading}
                     onPick={onPick}
+                    onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+                    onOpenFamily={(recordName) => navigate(`/family/${recordName}`)}
+                    onShowInfo={showTreeInfo}
+                    onOpenAncestorChart={openAncestor}
+                    onOpenDescendantChart={openDescendant}
                     context={context}
                     chrome={treeChrome}
                     onToggleChrome={toggleTreeChrome}
