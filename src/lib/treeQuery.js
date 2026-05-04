@@ -143,11 +143,18 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
   };
 
   addHint(rootRecordName, 0, 'root');
+  const rootFamilyId = parentFamiliesByChild.get(rootRecordName)?.[0] || null;
+  const familyHints = new Map();
 
   const addFamily = (familyId, generationForChildren, role = 'family', branch = null, childIdForBranch = null) => {
     const family = familyById.get(familyId);
     if (!family) return;
     familyIds.add(familyId);
+    const existingFamilyHint = familyHints.get(familyId);
+    const familyBranch = branch || existingFamilyHint?.branch || 'collateral';
+    if (!existingFamilyHint || Math.abs(generationForChildren) < Math.abs(existingFamilyHint.generation)) {
+      familyHints.set(familyId, { generation: generationForChildren, branch: familyBranch, preferredChildId: childIdForBranch || null });
+    }
     const manId = refToRecordName(family.fields?.man?.value);
     const womanId = refToRecordName(family.fields?.woman?.value);
     const fatherBranch = branch === 'root' ? 'paternal' : branch;
@@ -219,11 +226,14 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
         id: family.recordName,
         parents: [manId, womanId].filter((id) => id && publicPersonIds.has(id)),
         children,
+        branch: family.recordName === rootFamilyId ? 'root' : familyHints.get(family.recordName)?.branch || 'collateral',
+        generation: family.recordName === rootFamilyId ? 0 : familyHints.get(family.recordName)?.generation ?? 0,
+        preferredChildId: family.recordName === rootFamilyId ? rootRecordName : familyHints.get(family.recordName)?.preferredChildId || null,
       };
     })
     .filter((family) => family.parents.length > 0 || family.children.length > 0);
 
-  return { rootId: rootRecordName, nodes, families };
+  return { rootId: rootRecordName, rootFamilyId, nodes, families };
 }
 
 /**

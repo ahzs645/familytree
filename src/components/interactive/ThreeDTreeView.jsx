@@ -221,12 +221,8 @@ export function ThreeDTreeView({
       stage.add(makeGenerationLabel(band));
     }
 
-    const nodeById = new Map(layout.nodes.map((node) => [node.id, node]));
     for (const link of layout.links) {
-      const from = nodeById.get(link.from);
-      const to = nodeById.get(link.to);
-      if (!from || !to) continue;
-      stage.add(makeConnector(from, to, link.type, palette));
+      stage.add(makeConnector(link, layout.nodes, palette));
     }
 
     for (const node of layout.nodes) {
@@ -442,99 +438,235 @@ function buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGr
 
 function buildFamilyGraphLayout(familyGraph, activeId) {
   const rootId = activeId || familyGraph.rootId;
-  const sourceNodes = familyGraph.nodes
+  const sourceNodes = new Map(familyGraph.nodes
     .filter((node) => node?.person?.recordName)
     .map((node) => ({
       ...node,
       featured: node.person.recordName === rootId,
       role: (node.roles || []).join(' '),
-    }));
+    }))
+    .map((node) => [node.person.recordName, node]));
 
-  const groups = new Map();
-  for (const node of sourceNodes) {
-    if (!groups.has(node.generation)) groups.set(node.generation, []);
-    groups.get(node.generation).push(node);
-  }
-
-  const placed = [];
-  for (const [generation, group] of groups.entries()) {
-    const ordered = limitGeneration(orderGeneration(group, rootId), generation, rootId);
-    const spacing = generation === 0 ? 170 : 152;
-    const generationStep = 252;
-    const branchGroups = branchGeneration(ordered, generation);
-    branchGroups.forEach(({ nodes, center }) => {
-      const centerIndex = nodes.findIndex((node) => node.person.recordName === rootId);
-      const fallbackCenter = centerIndex >= 0 ? centerIndex : Math.floor(nodes.length / 2);
-      nodes.forEach((node, index) => {
-        placed.push({
-          ...node,
-          id: node.person.recordName,
-          x: center + (index - fallbackCenter) * spacing,
-          y: -generation * generationStep,
-          z: node.featured ? 52 : 22 + Math.min(Math.abs(generation) * 3, 18),
-        });
-      });
-    });
-  }
-
-  const placedById = new Map();
-  for (const node of placed) {
-    const existing = placedById.get(node.id);
-    if (!existing || node.featured || Math.abs(node.x) < Math.abs(existing.x)) {
-      placedById.set(node.id, node);
+  const familyByChild = new Map();
+  const familyById = new Map((familyGraph.families || []).map((family) => [family.id, family]));
+  for (const family of familyById.values()) {
+    for (const childId of family.children || []) {
+      if (!familyByChild.has(childId)) familyByChild.set(childId, family);
     }
   }
-  const uniquePlaced = [...placedById.values()];
 
-  const nodeById = new Map(uniquePlaced.map((node) => [node.id, node]));
-  const links = [];
-  const addLink = (from, to, type, familyId = '') => {
-    if (!from || !to || from === to || !nodeById.has(from) || !nodeById.has(to)) return;
-    const key = `${from}:${to}:${type}:${familyId}`;
-    if (!links.some((link) => link.key === key)) links.push({ key, from, to, type, familyId });
+  const GENERATION_STEP = 252;
+  const CHILD_GAP = 206;
+  const ROOT_CARD_WIDTH = 640;
+  const FAMILY_PADDING = 270;
+  const BLOCK_GAP = 230;
+  const BRANCH_GAP = 360;
+  const MAX_DEPTH = 4;
+  const placedById = new Map();
+  const routedLinks = [];
+  const blockCache = new Map();
+  const rootFamily = familyById.get(familyGraph.rootFamilyId) || familyByChild.get(rootId);
+
+  const orderFamilyChildren = (family, preferredChildId, generation, compactRoot = false) => {
+    const people = (family.children || [])
+      .map((id) => sourceNodes.get(id))
+      .filter(Boolean);
+    const ordered = orderGeneration(people, preferredChildId || rootId);
+    if (compactRoot && preferredChildId) {
+      const required = ordered.filter((node) => node.person.recordName === preferredChildId);
+      const companion = ordered.find((node) => node.person.recordName !== preferredChildId);
+      return [...required, companion].filter(Boolean);
+    }
+    const maxByGeneration = new Map([
+      [-1, 13],
+      [-2, 10],
+      [-3, 8],
+      [-4, 6],
+    ]);
+    const max = maxByGeneration.get(generation) || 8;
+    const required = preferredChildId ? ordered.filter((node) => node.person.recordName === preferredChildId) : [];
+    const rest = ordered.filter((node) => node.person.recordName !== preferredChildId);
+    return [...required, ...rest].slice(0, max);
   };
 
+  const measureBlock = (childId, generation, branch, depth) => {
+    const family = familyByChild.get(childId);
+    if (!family || depth > MAX_DEPTH) {
+      return {
+        id: `leaf:${childId}:${generation}`,
+        family: null,
+        generation,
+        branch,
+        preferredChildId: childId,
+        children: [childId].filter((id) => sourceNodes.has(id)),
+        parentBlocks: [],
+        width: 260,
+      };
+    }
+    const key = `${family.id}:${childId}:${generation}:${branch}`;
+    if (blockCache.has(key)) return blockCache.get(key);
+    const childNodes = orderFamilyChildren(family, childId, generation);
+    const childIds = childNodes.map((node) => node.person.recordName);
+    const childWidth = Math.max(320, (Math.max(childIds.length, 1) - 1) * CHILD_GAP + FAMILY_PADDING);
+    const parentBlocks = (family.parents || [])
+      .filter((id) => sourceNodes.has(id))
+      .map((parentId, index) => measureBlock(parentId, generation - 1, branch || (index === 0 ? 'paternal' : 'maternal'), depth + 1));
+    const parentWidth = parentBlocks.length > 0
+      ? parentBlocks.reduce((sum, block) => sum + block.width, 0) + BLOCK_GAP * (parentBlocks.length - 1)
+      : 0;
+    const block = {
+      id: family.id,
+      family,
+      generation,
+      branch,
+      preferredChildId: childId,
+      children: childIds,
+      parentBlocks,
+      width: Math.max(childWidth, parentWidth, 360),
+    };
+    blockCache.set(key, block);
+    return block;
+  };
+
+  const addNode = (personId, generation, x, familyBlockId, priority = 0) => {
+    const source = sourceNodes.get(personId);
+    if (!source) return null;
+    const existing = placedById.get(personId);
+    const next = {
+      ...source,
+      id: personId,
+      x,
+      y: -generation * GENERATION_STEP,
+      z: source.featured ? 52 : 22 + Math.min(Math.abs(generation) * 3, 18),
+      familyBlockId,
+      footprintWidth: source.featured ? 250 : 190,
+      layoutPriority: source.featured ? 1000 : priority,
+    };
+    if (!existing || next.layoutPriority >= existing.layoutPriority) placedById.set(personId, next);
+    return next;
+  };
+
+  const placeChildren = (block, centerX, compactRoot = false) => {
+    const generation = block.generation;
+    if (compactRoot) {
+      const companion = block.children.find((id) => id !== rootId);
+      if (companion) addNode(companion, generation, centerX - 132, block.id, 80);
+      addNode(rootId, generation, centerX + 78, block.id, 900);
+      return;
+    }
+    const preferredIndex = block.children.indexOf(block.preferredChildId);
+    const centerIndex = preferredIndex >= 0 ? preferredIndex : Math.floor(block.children.length / 2);
+    block.children.forEach((childId, index) => {
+      addNode(childId, generation, centerX + (index - centerIndex) * CHILD_GAP, block.id, 60 - Math.abs(generation));
+    });
+  };
+
+  const placeParentBlocks = (block, centerX) => {
+    if (block.parentBlocks.length === 0) return;
+    const totalWidth = block.parentBlocks.reduce((sum, child) => sum + child.width, 0) + BLOCK_GAP * (block.parentBlocks.length - 1);
+    let cursor = centerX - totalWidth / 2;
+    for (const parentBlock of block.parentBlocks) {
+      const parentCenter = cursor + parentBlock.width / 2;
+      placeBlock(parentBlock, parentCenter, false);
+      cursor += parentBlock.width + BLOCK_GAP;
+    }
+  };
+
+  const placeBlock = (block, centerX, compactRoot = false) => {
+    block.x = centerX;
+    block.y = -block.generation * GENERATION_STEP;
+    placeChildren(block, centerX, compactRoot);
+    placeParentBlocks(block, centerX);
+  };
+
+  if (rootFamily) {
+    const rootChildren = orderFamilyChildren(rootFamily, rootId, 0, true).map((node) => node.person.recordName);
+    const rootBlock = {
+      id: rootFamily.id,
+      family: rootFamily,
+      generation: 0,
+      branch: 'root',
+      preferredChildId: rootId,
+      children: rootChildren,
+      parentBlocks: [],
+      width: ROOT_CARD_WIDTH,
+    };
+    placeBlock(rootBlock, 0, true);
+
+    const parents = (rootFamily.parents || []).filter((id) => sourceNodes.has(id));
+    const fatherBlock = parents[0] ? measureBlock(parents[0], -1, 'paternal', 1) : null;
+    const motherBlock = parents[1] ? measureBlock(parents[1], -1, 'maternal', 1) : null;
+    if (fatherBlock && motherBlock) {
+      placeBlock(fatherBlock, -(fatherBlock.width / 2 + BRANCH_GAP / 2), false);
+      placeBlock(motherBlock, motherBlock.width / 2 + BRANCH_GAP / 2, false);
+    } else if (fatherBlock) {
+      placeBlock(fatherBlock, -520, false);
+    } else if (motherBlock) {
+      placeBlock(motherBlock, 520, false);
+    }
+  } else {
+    addNode(rootId, 0, 0, 'root', 900);
+  }
+
+  const uniquePlaced = [...placedById.values()];
+  const nodeById = new Map(uniquePlaced.map((node) => [node.id, node]));
+
+  const addSegment = (familyId, type, emphasis, a, b, nodeIds = []) => {
+    routedLinks.push({
+      key: `${familyId}:${type}:${routedLinks.length}`,
+      type,
+      emphasis,
+      points: [a, b],
+      nodeIds,
+    });
+  };
   for (const family of familyGraph.families || []) {
-    const parents = (family.parents || []).filter((id) => nodeById.has(id));
-    const children = (family.children || []).filter((id) => nodeById.has(id));
-    if (parents.length === 2) addLink(parents[0], parents[1], 'partner', family.id);
-    for (const childId of children) {
-      for (const parentId of parents) addLink(parentId, childId, 'family', family.id);
+    const parents = (family.parents || []).map((id) => nodeById.get(id)).filter(Boolean);
+    const children = (family.children || []).map((id) => nodeById.get(id)).filter(Boolean);
+    if (parents.length === 0 || children.length === 0) continue;
+    const generation = children[0].generation;
+    const childY = -generation * GENERATION_STEP;
+    const parentY = parents[0].y;
+    const trunkY = childY + Math.sign(parentY - childY || 1) * 94;
+    const minChildX = Math.min(...children.map((child) => child.x));
+    const maxChildX = Math.max(...children.map((child) => child.x));
+    const parentXs = parents.map((parent) => parent.x);
+    const left = Math.min(minChildX, ...parentXs);
+    const right = Math.max(maxChildX, ...parentXs);
+    const emphasis = family.id === rootFamily?.id || family.parents.some((id) => id === familyGraph.rootId);
+    const familyNodeIds = [...parents, ...children].map((node) => node.id);
+    addSegment(family.id, 'family', emphasis, { x: left, y: trunkY }, { x: right, y: trunkY }, familyNodeIds);
+    for (const parent of parents) {
+      addSegment(
+        family.id,
+        'family',
+        emphasis,
+        { x: parent.x, y: parent.y - nodeVerticalRadius(parent) },
+        { x: parent.x, y: trunkY },
+        [parent.id]
+      );
+    }
+    for (const child of children) {
+      addSegment(
+        family.id,
+        'family',
+        emphasis,
+        { x: child.x, y: trunkY },
+        { x: child.x, y: child.y + nodeVerticalRadius(child) },
+        [child.id]
+      );
     }
   }
 
   const root = nodeById.get(rootId) || uniquePlaced.find((node) => node.featured);
   const rootX = root?.x || 0;
-  const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= 1550 && node.generation >= -4 && node.generation <= 1);
+  const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= 2150 && node.generation >= -4 && node.generation <= 1);
   const visibleIds = new Set(nodeList.map((node) => node.id));
-  const visibleLinks = links.filter((link) => visibleIds.has(link.from) && visibleIds.has(link.to));
-  const bands = buildBands(nodeList, rootX);
-  const bounds = boundsFor(nodeList, bands);
-  const viewBounds = focusBoundsFor(nodeList, bands, bounds);
-  return { nodes: nodeList, links: visibleLinks, bands, bounds, viewBounds };
-}
-
-function branchGeneration(nodes, generation) {
-  if (generation >= 0) return [{ nodes, center: 0 }];
-  const paternal = nodes.filter((node) => primaryBranch(node) === 'paternal');
-  const maternal = nodes.filter((node) => primaryBranch(node) === 'maternal');
-  const shared = nodes.filter((node) => !primaryBranch(node));
-  const depth = Math.abs(generation);
-  const spread = Math.min(880, 260 + depth * 125);
-  const groups = [];
-  if (paternal.length > 0) groups.push({ nodes: paternal, center: -spread });
-  if (shared.length > 0) groups.push({ nodes: shared, center: 0 });
-  if (maternal.length > 0) groups.push({ nodes: maternal, center: spread });
-  return groups;
-}
-
-function primaryBranch(node) {
-  const branches = node.branches || [];
-  if (branches.includes('paternal') && !branches.includes('maternal')) return 'paternal';
-  if (branches.includes('maternal') && !branches.includes('paternal')) return 'maternal';
-  if (branches.includes('paternal')) return 'paternal';
-  if (branches.includes('maternal')) return 'maternal';
-  return null;
+  const visibleLinks = routedLinks.filter((link) => !link.nodeIds?.length || link.nodeIds.some((id) => visibleIds.has(id)));
+  const visibleBands = buildBands(nodeList, rootX);
+  const bounds = boundsFor(nodeList, visibleBands);
+  const viewBounds = focusBoundsFor(nodeList, visibleBands, bounds);
+  return { nodes: nodeList, links: visibleLinks, bands: visibleBands, bounds, viewBounds };
 }
 
 function orderGeneration(group, rootId) {
@@ -544,22 +676,6 @@ function orderGeneration(group, rootId) {
     if (ap !== bp) return ap - bp;
     return (a.person.birthDate || '').localeCompare(b.person.birthDate || '') || a.person.fullName.localeCompare(b.person.fullName);
   });
-}
-
-function limitGeneration(group, generation, rootId) {
-  const maxByGeneration = new Map([
-    [-4, 6],
-    [-3, 10],
-    [-2, 12],
-    [-1, 12],
-    [0, 8],
-    [1, 10],
-  ]);
-  const max = maxByGeneration.get(generation) || 14;
-  if (group.length <= max) return group;
-  const required = group.filter((node) => node.person.recordName === rootId || node.roles?.some((role) => role.includes('root')));
-  const rest = group.filter((node) => !required.includes(node));
-  return [...required, ...rest].slice(0, max);
 }
 
 function nodePriority(node, rootId) {
@@ -596,9 +712,9 @@ function buildBands(nodes, rootX = 0) {
     const height = generation === 0 ? 216 : 112;
     const title =
       generation === 0
-        ? 'Focus Person'
+        ? 'Root Generation'
         : generation < 0
-          ? `Ancestor Generation ${Math.abs(generation)}`
+          ? `Generation ${Math.abs(generation)}`
           : `Descendant Generation ${generation}`;
     return {
       generation,
@@ -657,7 +773,7 @@ function focusBoundsFor(nodes, bands, fallback) {
   const focusedNodes = nodes.filter((node) => (
     node.generation >= -4 &&
     node.generation <= 1 &&
-    Math.abs(node.x - rootX) <= 1700
+    Math.abs(node.x - rootX) <= 2150
   ));
   if (focusedNodes.length === 0) return fallback;
   const focusedGenerations = new Set(focusedNodes.map((node) => node.generation));
@@ -665,11 +781,11 @@ function focusBoundsFor(nodes, bands, fallback) {
     .filter((band) => focusedGenerations.has(band.generation))
     .map((band) => ({
       ...band,
-      width: Math.min(band.width, 2600),
+      width: Math.min(band.width, 3600),
     }));
   const bounds = boundsFor(focusedNodes, focusedBands);
-  const maxWidth = 2600;
-  const maxHeight = 1320;
+  const maxWidth = 3300;
+  const maxHeight = 1500;
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerY = (bounds.minY + bounds.maxY) / 2 + 18;
   const width = Math.min(Math.max(bounds.maxX - bounds.minX, 900), maxWidth);
@@ -800,6 +916,7 @@ function makeBandTexture(band, palette) {
 }
 
 function makeGenerationLabel(band) {
+  if (band.showLabel === false) return new THREE.Group();
   const label = generationLabel(band.generation);
   const sublabel = band.subtitle || `${band.count} ${band.count === 1 ? 'person' : 'people'}`;
   const texture = makeCanvasTexture(520, 170, (ctx, w, h) => {
@@ -821,8 +938,8 @@ function makeGenerationLabel(band) {
 }
 
 function generationLabel(generation) {
-  if (generation === 0) return 'Focus';
-  if (generation < 0) return `Ancestor ${Math.abs(generation)}`;
+  if (generation === 0) return 'Root Generation';
+  if (generation < 0) return `Generation ${Math.abs(generation)}`;
   return `Descendant ${generation}`;
 }
 
@@ -983,20 +1100,30 @@ function makeMacPersonModel(person, palette, featured) {
   return group;
 }
 
-function makeConnector(from, to, type, palette) {
+function makeConnector(link, nodes, palette) {
   const group = new THREE.Group();
-  const color = type === 'partner'
+  const type = link.type;
+  const color = link.emphasis
+    ? palette.descendantLine
+    : type === 'partner'
     ? palette.partnerLine
     : type === 'ancestor'
       ? palette.ancestorLine
       : palette.descendantLine;
-  const z = 2;
-  const points = type === 'partner'
-    ? partnerPoints(from, to, z)
-    : orthogonalPoints(from, to, z);
+  const z = link.emphasis ? 5 : 2;
+  let points = (link.points || []).map((point) => new THREE.Vector3(point.x, point.y, point.z ?? z));
+  if (points.length === 0 && link.from && link.to) {
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
+    const from = nodeById.get(link.from);
+    const to = nodeById.get(link.to);
+    if (!from || !to) return group;
+    points = type === 'partner'
+      ? partnerPoints(from, to, z)
+      : orthogonalPoints(from, to, z);
+  }
 
   for (let i = 1; i < points.length; i += 1) {
-    group.add(makeTube(points[i - 1], points[i], color, type === 'partner' ? 2.4 : 3.2));
+    group.add(makeTube(points[i - 1], points[i], color, link.emphasis ? 4.0 : type === 'partner' ? 2.4 : 3.0));
   }
   return group;
 }
