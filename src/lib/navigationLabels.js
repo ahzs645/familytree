@@ -57,13 +57,13 @@ const ROUTE_LABEL_KEYS = {
 };
 
 const CATEGORY_KEYS = {
-  Charts: 'nav.charts',
-  Edit: 'glossary.person',
-  Favorites: 'nav.favorites',
-  Lists: 'nav.lists',
-  Publish: 'nav.publish',
-  Reports: 'nav.reports',
-  Views: 'nav.views',
+  Charts: 'categories.charts',
+  Edit: 'categories.edit',
+  Favorites: 'categories.favorites',
+  Lists: 'categories.lists',
+  Publish: 'categories.publish',
+  Reports: 'categories.reports',
+  Views: 'categories.views',
 };
 
 export function routeLabelKey(route) {

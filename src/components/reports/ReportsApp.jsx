@@ -45,6 +45,7 @@ import { PresentationSettingsControls } from '../presentation/PresentationSettin
 import { ReportPreview } from './ReportPreview.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { localizeReportAst } from '../../lib/reports/localizeReport.js';
 
 export { normalizePageStyle };
 
@@ -260,7 +261,8 @@ export function ReportsApp() {
       try {
         const ast = await builder.run(targetId, normalizedOptions, secondTargetId);
         const optioned = applyReportContentOptions(ast, normalizedOptions);
-        const styled = applyPageStyle(optioned, pageStyle);
+        const localized = localizeReportAst(optioned, t);
+        const styled = applyPageStyle(localized, pageStyle);
         if (!cancelled && generationRequestRef.current === requestId) setReport(styled);
       } catch (error) {
         if (!cancelled && generationRequestRef.current === requestId) {
@@ -275,7 +277,7 @@ export function ReportsApp() {
     return () => {
       cancelled = true;
     };
-  }, [loading, builder, targetId, secondTargetId, options, pageStyle]);
+  }, [loading, builder, targetId, secondTargetId, options, pageStyle, t]);
 
   const updateOption = useCallback((key, value) => {
     setOptions((current) => ({ ...current, [key]: value }));

@@ -8,7 +8,7 @@ import { Menu } from 'lucide-react';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { APP_PREFERENCES_EVENT, getAppPreferences } from '../lib/appPreferences.js';
-import { applyDocumentLocalization, resolveLocalization } from '../lib/i18n.js';
+import { applyDocumentLocalization, resolveLocalization, SUPPORTED_LOCALES } from '../lib/i18n.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { routeLabelKey } from '../lib/navigationLabels.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
@@ -97,7 +97,7 @@ function MobileMenu({ links }) {
 }
 
 export function AppShell() {
-  const { t, localization: liveLocalization } = useTranslation();
+  const { t, localization: liveLocalization, setLocale } = useTranslation();
   const { hasData, summary, loading } = useDatabaseStatus();
   const { theme, toggle } = useTheme();
   const isMobile = useIsMobile();
@@ -188,6 +188,16 @@ export function AppShell() {
             >
               {theme === 'dark' ? '☀︎' : '☾'}
             </button>
+            <select
+              value={localization.locale}
+              onChange={(event) => setLocale(event.target.value)}
+              className="h-10 rounded-md border border-border bg-secondary px-2 text-xs text-foreground"
+              aria-label={t('settings.language')}
+            >
+              {SUPPORTED_LOCALES.map((locale) => (
+                <option key={locale.value} value={locale.value}>{locale.nativeLabel}</option>
+              ))}
+            </select>
             <MobileMenu links={mobileLinks.map((link) => ({ ...link, label: t(routeLabelKey(link.to) || link.label) }))} />
           </div>
         </header>

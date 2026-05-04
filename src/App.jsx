@@ -72,6 +72,10 @@ const WebSearch = lazy(() => import('./routes/WebSearch.jsx'));
 const FamilySearch = lazy(() => import('./routes/FamilySearch.jsx'));
 const Favorites = lazy(() => import('./routes/Favorites.jsx'));
 const ChartPreview = lazy(() => import('./routes/ChartPreview.jsx'));
+const ChartSplitWizard = lazy(() => import('./routes/ChartSplitWizard.jsx'));
+const ReferenceNumbering = lazy(() => import('./routes/ReferenceNumbering.jsx'));
+const Lineages = lazy(() => import('./routes/Lineages.jsx'));
+const CustomValidationSchemas = lazy(() => import('./routes/CustomValidationSchemas.jsx'));
 
 function Fallback() {
   const { t } = useTranslation();
@@ -188,6 +192,10 @@ export function App() {
                 <Route path="quiz" element={<Navigate to="../family-quiz" replace />} />
               </Route>
               <Route path="saved-charts" element={<L><SavedCharts /></L>} />
+              <Route path="chart-split" element={<L><ChartSplitWizard /></L>} />
+              <Route path="reference-numbering" element={<L><ReferenceNumbering /></L>} />
+              <Route path="lineages" element={<L><Lineages /></L>} />
+              <Route path="custom-validation" element={<L><CustomValidationSchemas /></L>} />
               <Route path="statistics" element={<L><Statistics /></L>} />
               <Route path="plausibility" element={<L><Plausibility /></L>} />
               <Route path="plausibility-list" element={<L><PlausibilityList /></L>} />

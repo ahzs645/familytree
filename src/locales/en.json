@@ -38,6 +38,7 @@
     "book": "Book",
     "chart": "Chart",
     "child": "Child",
+    "date": "Date",
     "death": "Death",
     "event": "Event",
     "fact": "Fact",
@@ -53,6 +54,7 @@
     "report": "Report",
     "source": "Source",
     "spouse": "Spouse",
+    "status": "Status",
     "tree": "Tree"
   },
   "nav": {
@@ -117,6 +119,15 @@
     "empty": "No matches.",
     "footer": "Up/down to navigate - Enter to run - Esc to close",
     "placeholder": "Type a command or page name..."
+  },
+  "categories": {
+    "charts": "Charts",
+    "edit": "Edit",
+    "favorites": "Favorites",
+    "lists": "Lists",
+    "publish": "Publish",
+    "reports": "Reports",
+    "views": "Views"
   },
   "persons": {
     "all": "All persons",
