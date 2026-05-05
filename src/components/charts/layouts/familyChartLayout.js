@@ -129,10 +129,17 @@ function measureDescendant(node, ctx) {
       duplicateGroups.get(coupleKey).push({ person: node.person?.recordName, partner: union.partner?.recordName });
     }
     if (coupleKey && !seenCouples.has(coupleKey)) seenCouples.set(coupleKey, true);
-    const children = duplicate ? [] : (union.children || []).map((child) => measureDescendant(child, {
+    const children = duplicate ? [] : (union.children || []).map((child) => {
+      const childLayout = measureDescendant(child, {
       ...ctx,
       depth: depth + 1,
-    }));
+      });
+      return {
+        ...childLayout,
+        relationKind: child.relationKind || 'primary',
+        relationLabel: child.relationLabel || '',
+      };
+    });
     const width = children.reduce((sum, child, index) => sum + child.width + (index ? sp.branch : 0), 0);
     childWidth += width + (width && childCount ? sp.branch : 0);
     childCount += width ? 1 : 0;
@@ -206,7 +213,12 @@ function positionDescendant(layout, node, measuredUnions, ctx) {
         shiftLayout(childLayout, childCursor, childTop);
         layout.nodes.push(...childLayout.nodes);
         layout.links.push(...childLayout.links);
-        anchors.push({ x: childLayout.rootX + childCursor + nodeSize.width / 2, y: childTop });
+        anchors.push({
+          x: childLayout.rootX + childCursor + nodeSize.width / 2,
+          y: childTop,
+          relationKind: childLayout.relationKind,
+          relationLabel: childLayout.relationLabel,
+        });
         childCursor += childLayout.width;
       });
       const busY = top + nodeSize.height + sp.vertical / 2;
@@ -214,7 +226,11 @@ function positionDescendant(layout, node, measuredUnions, ctx) {
       const maxX = Math.max(...anchors.map((anchor) => anchor.x));
       layout.links.push({ kind: 'down', d: `M ${familyX} ${familyY} V ${busY}` });
       layout.links.push({ kind: 'bus', d: `M ${minX} ${busY} H ${maxX}` });
-      anchors.forEach((anchor) => layout.links.push({ kind: 'child', d: `M ${anchor.x} ${busY} V ${anchor.y}` }));
+      anchors.forEach((anchor) => layout.links.push({
+        kind: anchor.relationKind === 'secondary' ? 'secondary-child' : 'child',
+        label: anchor.relationLabel,
+        d: `M ${anchor.x} ${busY} V ${anchor.y}`,
+      }));
     }
     spouseX += nodeSize.width + sp.horizontal;
   });

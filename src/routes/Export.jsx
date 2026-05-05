@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { listAllPersons, findStartPerson } from '../lib/treeQuery.js';
 import { downloadGedcom } from '../lib/gedcomExport.js';
+import { downloadGraphvizDot } from '../lib/graphvizExport.js';
 import { analyzeGedcomText, canImportGedcomAnalysis, gedcomImportModeLabel, importGedcomText } from '../lib/gedcomImport.js';
 import { GEDCOM_ACCEPT, readGedcomTextFromFile } from '../lib/genealogyFileFormats.js';
 import { downloadBackup, downloadMFTPackage } from '../lib/backup.js';
@@ -309,6 +310,10 @@ export default function Export() {
 
         <Card title="GEDCOM export" description="Standard genealogy interchange format. Lossy for app-specific fields.">
           <button onClick={wrap('Building GEDCOM…', downloadGedcom)} disabled={busy} className={btn}>Download .ged</button>
+        </Card>
+
+        <Card title="Graphviz export" description="Static DOT graph with union nodes, dashed secondary parent-child links, and group clusters.">
+          <button onClick={wrap('Building Graphviz DOT…', downloadGraphvizDot)} disabled={busy} className={btn}>Download .dot</button>
         </Card>
 
         <Card title="GEDCOM / GedZip import" description="Merge .ged, .uged, .uged16, or GedZip .zip files from another tool. Records are added with new local IDs.">

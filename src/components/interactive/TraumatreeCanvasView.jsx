@@ -100,6 +100,25 @@ export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditP
             {generation.label}
           </text>
         ))}
+        {layout.groups.map((group) => (
+          <g key={group.id} aria-label={`${group.name} group`}>
+            <rect
+              x={group.x}
+              y={group.y}
+              width={group.width}
+              height={group.height}
+              rx="14"
+              fill={group.fill}
+              stroke={group.stroke}
+              strokeWidth="1.2"
+              strokeDasharray="7 6"
+              opacity="0.78"
+            />
+            <text x={group.x + 14} y={group.y + 22} style={groupLabel} fill={group.text}>
+              {truncate(group.name, 34)}
+            </text>
+          </g>
+        ))}
         {layout.edges.map((edge) => (
           <path
             key={edge.id}
@@ -107,10 +126,10 @@ export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditP
             fill="none"
             stroke={edge.kind === 'partner' ? '#8d7f6c' : '#b4a894'}
             strokeWidth={edge.kind === 'partner' ? 2 : 1.4}
-            strokeDasharray={edge.kind === 'partner' ? '0' : '5 6'}
+            strokeDasharray={edge.kind === 'partner' ? '0' : edge.relationKind === 'secondary' ? '4 7' : '0'}
             strokeLinecap="round"
             strokeLinejoin="round"
-            opacity="0.88"
+            opacity={edge.relationKind === 'secondary' ? 0.72 : 0.88}
             onDoubleClick={(event) => {
               event.stopPropagation();
               if (edge.familyId) onOpenFamily?.(edge.familyId);
@@ -191,7 +210,7 @@ function CanvasPersonNode({ node, active, onPick, onEditPerson }) {
 }
 
 function buildCanvasLayout(graph) {
-  if (!graph?.nodes?.length) return { nodes: [], edges: [], generations: [], bounds: defaultBounds() };
+  if (!graph?.nodes?.length) return { nodes: [], edges: [], groups: [], generations: [], bounds: defaultBounds() };
 
   const rows = new Map();
   for (const node of graph.nodes) {
@@ -221,6 +240,7 @@ function buildCanvasLayout(graph) {
     });
   }
 
+  const groups = buildGroupBoxes(positioned);
   const edges = [];
   const edgeKeys = new Set();
   for (const family of graph.families || []) {
@@ -241,10 +261,13 @@ function buildCanvasLayout(graph) {
       : null;
     if (!parentCenter) continue;
     for (const child of children) {
+      const relation = family.childRelations?.[child.id] || {};
       addEdge(edges, edgeKeys, {
         id: `child-${family.id}-${child.id}`,
         familyId: family.id,
         kind: 'child',
+        relationKind: relation.kind || 'primary',
+        relationLabel: relation.label || '',
         path: elbowPath(parentCenter.x, parentCenter.y, child.x + NODE_WIDTH / 2, child.y),
       });
     }
@@ -253,6 +276,7 @@ function buildCanvasLayout(graph) {
   return {
     nodes: positioned,
     edges,
+    groups,
     generations: generations.map((value) => ({
       value,
       y: (value - minGeneration) * GENERATION_GAP,
@@ -271,6 +295,45 @@ function compareGraphNodes(rootId) {
     if (aBranch !== bBranch) return aBranch - bBranch;
     return String(a.person?.fullName || '').localeCompare(String(b.person?.fullName || ''));
   };
+}
+
+function buildGroupBoxes(nodes) {
+  const grouped = new Map();
+  for (const node of nodes) {
+    for (const group of node.groups || []) {
+      if (!group?.id || !group?.name) continue;
+      if (!grouped.has(group.id)) grouped.set(group.id, { ...group, nodes: [] });
+      grouped.get(group.id).nodes.push(node);
+    }
+  }
+  return [...grouped.values()]
+    .filter((group) => group.nodes.length >= 2)
+    .slice(0, 8)
+    .map((group, index) => {
+      const minX = Math.min(...group.nodes.map((node) => node.x)) - 32;
+      const maxX = Math.max(...group.nodes.map((node) => node.x + NODE_WIDTH)) + 32;
+      const minY = Math.min(...group.nodes.map((node) => node.y)) - 42;
+      const maxY = Math.max(...group.nodes.map((node) => node.y + NODE_HEIGHT)) + 28;
+      return {
+        id: group.id,
+        name: group.name,
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+        ...groupColor(index),
+      };
+    });
+}
+
+function groupColor(index) {
+  const colors = [
+    { fill: '#e9f3f5', stroke: '#84a8b2', text: '#426b75' },
+    { fill: '#f4eadb', stroke: '#c2a474', text: '#705a34' },
+    { fill: '#edf0df', stroke: '#9cab6e', text: '#5e6a37' },
+    { fill: '#f5e8e4', stroke: '#c69482', text: '#744d41' },
+  ];
+  return colors[index % colors.length];
 }
 
 function branchWeight(node) {
@@ -379,5 +442,6 @@ const nameText = { fontFamily: 'Arial, sans-serif', fontSize: 13, fontWeight: 70
 const dateText = { fontFamily: 'Arial, sans-serif', fontSize: 11, fontWeight: 500, pointerEvents: 'none', userSelect: 'none' };
 const metaText = { fontFamily: 'Arial, sans-serif', fontSize: 11, fontWeight: 600, pointerEvents: 'none', userSelect: 'none' };
 const badgeText = { fontFamily: 'Arial, sans-serif', fontSize: 9, fontWeight: 700, pointerEvents: 'none', userSelect: 'none' };
+const groupLabel = { fontFamily: 'Arial, sans-serif', fontSize: 12, fontWeight: 800, letterSpacing: 0, pointerEvents: 'none', userSelect: 'none' };
 
 export default TraumatreeCanvasView;

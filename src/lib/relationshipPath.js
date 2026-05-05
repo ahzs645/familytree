@@ -8,6 +8,7 @@ import { personSummary } from '../models/index.js';
 import { evidenceStateForRecord, loadResearchCompleteness } from './researchCompleteness.js';
 import { getCurrentLocalization, languageCode } from './i18n.js';
 import { Gender } from '../models/constants.js';
+import { isPrimaryChildRelation } from './childRelationshipTypes.js';
 
 export async function findRelationshipPath(startRecordName, endRecordName) {
   const result = await findRelationshipPaths(startRecordName, endRecordName, { maxPaths: 1 });
@@ -97,7 +98,9 @@ async function getNeighbors(db, recordName, options = {}) {
   for (const fam of families) {
     if (!isPublicRecord(fam.family)) continue;
     if (includeSpouses) push(fam.partner, 'spouse', fam.family?.recordName);
+    const relationByChild = new Map((fam.childRelations || []).map(({ child, relation }) => [child?.recordName, relation]));
     for (const child of fam.children) {
+      if (excludeNonBiological && !isPrimaryChildRelation(relationByChild.get(child.recordName))) continue;
       push(child, 'child', fam.family?.recordName);
     }
   }
@@ -108,9 +111,7 @@ async function getNeighbors(db, recordName, options = {}) {
 // adopted/step/foster. Real-world ChildRelation records frequently omit the
 // type for simple biological cases, so absence ≈ biological.
 function isBiologicalChildLink(fam) {
-  const marker = fam?.family?.fields?.childRelationType?.value || fam?.relationType || null;
-  if (!marker) return true;
-  return !/adopt|step|foster|guardian/i.test(String(marker));
+  return isPrimaryChildRelation(fam?.childRelation || fam?.relation || fam);
 }
 
 function hydratePath(steps, recordCache, analysis, localization = getCurrentLocalization()) {

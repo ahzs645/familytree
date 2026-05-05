@@ -9,6 +9,7 @@ import { refToRecordName } from './recordRef.js';
 import { readField } from './schema.js';
 import { familySummary, personSummary } from '../models/index.js';
 import { attachLineageToPersonSummaries, buildPersonLineage } from './personLineage.js';
+import { childRelationKind, childRelationLabel } from './childRelationshipTypes.js';
 
 /**
  * Build an ancestor pedigree tree to a given depth.
@@ -85,9 +86,17 @@ export async function buildDescendantTree(rootRecordName, maxGenerations = 4) {
         partner: isPublicRecord(fam.partner) ? personSummary(fam.partner) : null,
         children: [],
       };
+      const relationByChild = new Map((fam.childRelations || []).map(({ child, relation }) => [child?.recordName, relation]));
       for (const child of fam.children) {
         const childNode = await recurse(child, gen + 1);
-        if (childNode) union.children.push(childNode);
+        if (childNode) {
+          const relation = relationByChild.get(child.recordName);
+          union.children.push({
+            ...childNode,
+            relationKind: childRelationKind(relation),
+            relationLabel: childRelationLabel(relation),
+          });
+        }
       }
       node.unions.push(union);
     }
@@ -112,16 +121,25 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
   const root = await db.getRecord(rootRecordName);
   if (!isPublicRecord(root)) return null;
 
-  const [{ records: familyRecords }, { records: childRelationRecords }, { records: personRecords }] = await Promise.all([
+  const [
+    { records: familyRecords },
+    { records: childRelationRecords },
+    { records: personRecords },
+    { records: personGroupRelations },
+    { records: personGroups },
+  ] = await Promise.all([
     db.query('Family', { limit: 100000 }),
     db.query('ChildRelation', { limit: 100000 }),
     db.query('Person', { limit: 100000 }),
+    db.query('PersonGroupRelation', { limit: 100000 }),
+    db.query('PersonGroup', { limit: 100000 }),
   ]);
 
   const familyById = new Map(familyRecords.filter(isPublicRecord).map((family) => [family.recordName, family]));
   const personById = new Map(personRecords.filter(isPublicRecord).map((person) => [person.recordName, person]));
   const duplicateSets = buildInteractiveDuplicateSets(personRecords.filter(isPublicRecord));
   const childrenByFamily = new Map();
+  const childRelationByFamilyChild = new Map();
   const parentFamiliesByChild = new Map();
 
   for (const relation of childRelationRecords) {
@@ -130,8 +148,22 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
     if (!familyId || !childId || !familyById.has(familyId)) continue;
     if (!childrenByFamily.has(familyId)) childrenByFamily.set(familyId, []);
     childrenByFamily.get(familyId).push(childId);
+    childRelationByFamilyChild.set(`${familyId}:${childId}`, relation);
     if (!parentFamiliesByChild.has(childId)) parentFamiliesByChild.set(childId, []);
     parentFamiliesByChild.get(childId).push(familyId);
+  }
+
+  const groupNameById = new Map(personGroups.filter(isPublicRecord).map((group) => [
+    group.recordName,
+    readField(group, ['name', 'title'], group.recordName),
+  ]));
+  const groupsByPerson = new Map();
+  for (const relation of personGroupRelations) {
+    const personId = refToRecordName(relation.fields?.person?.value);
+    const groupId = refToRecordName(relation.fields?.personGroup?.value);
+    if (!personId || !groupId || !groupNameById.has(groupId)) continue;
+    if (!groupsByPerson.has(personId)) groupsByPerson.set(personId, []);
+    groupsByPerson.get(personId).push({ id: groupId, name: groupNameById.get(groupId) });
   }
 
   const personIds = new Set([rootRecordName]);
@@ -240,6 +272,7 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
             : 'Low',
       },
       featured: person.recordName === rootRecordName,
+      groups: groupsByPerson.get(person.recordName) || [],
     };
   });
 
@@ -254,6 +287,13 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
         id: family.recordName,
         parents: [manId, womanId].filter((id) => id && publicPersonIds.has(id)),
         children,
+        childRelations: Object.fromEntries(children.map((childId) => {
+          const relation = childRelationByFamilyChild.get(`${family.recordName}:${childId}`);
+          return [childId, {
+            kind: childRelationKind(relation),
+            label: childRelationLabel(relation),
+          }];
+        })),
         branch: family.recordName === rootFamilyId ? 'root' : familyHints.get(family.recordName)?.branch || 'collateral',
         generation: family.recordName === rootFamilyId ? 0 : familyHints.get(family.recordName)?.generation ?? 0,
         preferredChildId: family.recordName === rootFamilyId ? rootRecordName : familyHints.get(family.recordName)?.preferredChildId || null,

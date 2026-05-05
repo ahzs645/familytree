@@ -365,6 +365,7 @@ export class LocalDatabase {
         family,
         man: manRef ? await this.getRecord(manRef) : null,
         woman: womanRef ? await this.getRecord(womanRef) : null,
+        childRelation: cr,
       });
     }
     return results;
@@ -392,11 +393,15 @@ export class LocalDatabase {
         limit: 100000,
       });
       const children = [];
+      const childRelations = [];
       for (const cr of childRels) {
         const childRef = refToRecordName(cr.fields?.child?.value);
         if (childRef) {
           const child = await this.getRecord(childRef);
-          if (child) children.push(child);
+          if (child) {
+            children.push(child);
+            childRelations.push({ child, relation: cr });
+          }
         }
       }
 
@@ -404,6 +409,7 @@ export class LocalDatabase {
         family: fam,
         partner: partnerId ? await this.getRecord(partnerId) : null,
         children,
+        childRelations,
       });
     }
     return results;

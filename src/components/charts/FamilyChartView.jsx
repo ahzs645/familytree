@@ -59,8 +59,9 @@ export function FamilyChartView({
             fill="none"
             stroke={link.kind?.includes('duplicate') ? theme.textMuted : theme.connector}
             strokeWidth={link.kind?.includes('marriage') ? Math.max(1, theme.connectorWidth) : theme.connectorWidth}
-            strokeDasharray={link.kind?.includes('duplicate') ? '5 4' : 'none'}
-            opacity={link.kind?.includes('duplicate') ? 0.8 : 1}
+            strokeDasharray={link.kind?.includes('duplicate') || link.kind === 'secondary-child' ? '5 4' : 'none'}
+            opacity={link.kind?.includes('duplicate') || link.kind === 'secondary-child' ? 0.8 : 1}
+            title={link.label || undefined}
           />
         ))}
         {layout.nodes.map((node, index) => (
