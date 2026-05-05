@@ -196,3 +196,142 @@ export function hasQualifier(raw) {
   const { prefix, era, phrase } = parseQualifiedDate(raw);
   return Boolean(prefix || era || phrase);
 }
+
+export function parseHistoricalDateParts(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return null;
+  const normalized = normalizeLocalizedMonthText(text);
+  let match = text.match(/^(-?\d{1,6})[-/](\d{1,2})[-/](\d{1,2})$/);
+  if (match) return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+
+  match = normalized.match(/^(\d{1,2})\s+([\p{L}.]+)\s+(-?\d{1,6})$/u);
+  if (match) {
+    const month = monthNumber(match[2]);
+    if (!month) return null;
+    return { year: Number(match[3]), month, day: Number(match[1]) };
+  }
+
+  match = normalized.match(/^([\p{L}.]+)\s+(\d{1,2}),?\s+(-?\d{1,6})$/u);
+  if (match) {
+    const month = monthNumber(match[1]);
+    if (!month) return null;
+    return { year: Number(match[3]), month, day: Number(match[2]) };
+  }
+
+  return null;
+}
+
+export function parseHistoricalDateRange(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return null;
+  const match = text.match(/^q([1-4])\s+(-?\d{1,6})$/i);
+  if (match) {
+    const quarter = Number(match[1]);
+    const year = Number(match[2]);
+    const startMonth = ((quarter - 1) * 3) + 1;
+    const endMonth = startMonth + 2;
+    return {
+      start: { year, month: startMonth, day: 1 },
+      end: { year, month: endMonth, day: daysInGregorianMonth(year, endMonth) },
+      precision: 'quarter',
+    };
+  }
+  const exact = parseHistoricalDateParts(text);
+  if (exact) return { start: exact, end: exact, precision: 'day' };
+  return null;
+}
+
+export function validateHistoricalDate(raw, calendar = 'gregorian') {
+  const parts = typeof raw === 'object' && raw ? raw : parseHistoricalDateParts(raw);
+  if (!parts) return { valid: false, calendar, reason: 'unparsed-date' };
+  const normalizedCalendar = String(calendar || 'gregorian').toLowerCase();
+  const valid = (() => {
+    if (normalizedCalendar === 'julian') return isValidJulianDate(parts);
+    if (normalizedCalendar === 'swedish') return isValidSwedishDate(parts);
+    if (normalizedCalendar === 'french' || normalizedCalendar === 'french-republican') return isValidFrenchRepublicanDate(parts);
+    return isValidGregorianDate(parts);
+  })();
+  return {
+    valid,
+    calendar: normalizedCalendar,
+    reason: valid ? null : 'invalid-day-for-calendar',
+    parts,
+  };
+}
+
+export function isValidGregorianDate({ year, month, day }) {
+  return isValidCalendarDate({ year, month, day }, (candidateYear) => (
+    candidateYear % 4 === 0 && (candidateYear % 100 !== 0 || candidateYear % 400 === 0)
+  ));
+}
+
+export function isValidJulianDate({ year, month, day }) {
+  return isValidCalendarDate({ year, month, day }, (candidateYear) => candidateYear % 4 === 0);
+}
+
+export function isValidSwedishDate(parts) {
+  if (parts?.year === 1712 && parts?.month === 2 && parts?.day === 30) return true;
+  if (parts?.year === 1700 && parts?.month === 2 && parts?.day === 29) return false;
+  return isValidJulianDate(parts);
+}
+
+export function isValidFrenchRepublicanDate({ year, month, day }) {
+  if (!Number.isInteger(year) || year < 1) return false;
+  if (!Number.isInteger(month) || month < 1 || month > 13) return false;
+  if (!Number.isInteger(day) || day < 1) return false;
+  return month === 13 ? day <= 6 : day <= 30;
+}
+
+function isValidCalendarDate({ year, month, day }, isLeapYear) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+  if (month < 1 || month > 12 || day < 1) return false;
+  const days = [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= days[month - 1];
+}
+
+function monthNumber(name) {
+  const key = normalizeLocalizedMonthText(name).replace(/\.$/, '').toLowerCase();
+  if (!key) return null;
+  if (MONTH_ALIASES[key]) return MONTH_ALIASES[key];
+  const short = key.slice(0, 3);
+  return MONTH_ALIASES[short] || null;
+}
+
+function normalizeLocalizedMonthText(text) {
+  return String(text || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function daysInGregorianMonth(year, month) {
+  return [31, isValidGregorianDate({ year, month: 2, day: 29 }) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] || 0;
+}
+
+const MONTH_ALIASES = Object.freeze({
+  jan: 1, january: 1, janvier: 1, januar: 1, enero: 1, gennaio: 1,
+  feb: 2, february: 2, fevrier: 2, februar: 2, febrero: 2, febbraio: 2,
+  mar: 3, march: 3, mars: 3, marz: 3, marzo: 3,
+  apr: 4, april: 4, avril: 4, abril: 4, aprile: 4,
+  may: 5, mai: 5, maj: 5, mayo: 5, maggio: 5,
+  jun: 6, june: 6, juin: 6, juni: 6, junio: 6, giugno: 6,
+  jul: 7, july: 7, juillet: 7, juli: 7, julio: 7, luglio: 7,
+  aug: 8, august: 8, aout: 8, agosto: 8,
+  sep: 9, sept: 9, september: 9, septembre: 9, septiembre: 9, settembre: 9,
+  oct: 10, october: 10, octobre: 10, oktober: 10, octubre: 10, ottobre: 10,
+  nov: 11, november: 11, novembre: 11, noviembre: 11,
+  dec: 12, december: 12, decembre: 12, dezember: 12, diciembre: 12, dicembre: 12,
+  январь: 1, января: 1, янв: 1,
+  февраль: 2, февраля: 2, фев: 2,
+  март: 3, марта: 3, мар: 3,
+  апрель: 4, апреля: 4, апр: 4,
+  май: 5, мая: 5,
+  июнь: 6, июня: 6, июн: 6,
+  июль: 7, июля: 7, июл: 7,
+  август: 8, августа: 8, авг: 8,
+  сентябрь: 9, сентября: 9, сентяб: 9, сен: 9,
+  октябрь: 10, октября: 10, окт: 10,
+  ноябрь: 11, ноября: 11, ноя: 11,
+  декабрь: 12, декабря: 12, дек: 12,
+});

@@ -107,6 +107,32 @@ describe('tokenizeGedcomText', () => {
       expect.objectContaining({ code: 'gedcom-syntax', line: 2, severity: 'error' }),
     ]));
   });
+
+  it('accepts legacy CR-only line endings', () => {
+    const result = tokenizeGedcomText(['0 HEAD', '1 CHAR UTF-8', '0 @I1@ INDI', '1 NAME Jane /Doe/', '0 TRLR'].join('\r'));
+
+    expect(result.issues).toEqual([]);
+    expect(result.tokens.map((token) => [token.line, token.level, token.tag])).toEqual([
+      [1, 0, 'HEAD'],
+      [2, 1, 'CHAR'],
+      [3, 0, 'INDI'],
+      [4, 1, 'NAME'],
+      [5, 0, 'TRLR'],
+    ]);
+  });
+
+  it('normalizes escaped at-signs and ignores meaningless XREFs on continuations', () => {
+    const result = tokenizeGedcomText([
+      '0 @N1@ NOTE Email jane@@example.test',
+      '1 @VOID@ CONC  and @literal@ text',
+    ].join('\n'));
+
+    expect(result.issues).toEqual([]);
+    expect(result.tokens.map((token) => [token.line, token.xref, token.tag, token.value])).toEqual([
+      [1, '@N1@', 'NOTE', 'Email jane@example.test'],
+      [2, null, 'CONC', 'and @literal@ text'],
+    ]);
+  });
 });
 
 describe('canImportGedcomAnalysis', () => {
@@ -174,5 +200,181 @@ describe('parseGedcom', () => {
     expect(family?.fields?.gedcomExtensions?.value).toEqual([
       expect.objectContaining({ tag: '_REL', value: 'custom family metadata' }),
     ]);
+  });
+
+  it('imports repositories and links them to sources', () => {
+    const records = parseGedcom([
+      '0 HEAD',
+      '0 @S1@ SOUR',
+      '1 TITL Birth Register',
+      '1 REPO @R1@',
+      '0 @R1@ REPO',
+      '1 NAME County Archive',
+      '1 ADDR 123 Archive Rd',
+      '2 CITY Salem',
+      '1 PHON 555-0100',
+      '1 EMAIL archive@example.test',
+      '0 TRLR',
+    ].join('\n'));
+
+    const repo = records.find((record) => record.recordType === 'SourceRepository');
+    const source = records.find((record) => record.recordType === 'Source');
+
+    expect(repo?.fields).toMatchObject({
+      name: { value: 'County Archive' },
+      address: { value: '123 Archive Rd\nSalem' },
+      phone: { value: '555-0100' },
+      email: { value: 'archive@example.test' },
+    });
+    expect(source?.fields?.sourceRepository?.value).toBe(`${repo.recordName}---SourceRepository`);
+  });
+
+  it('imports aliases, associates, contact facts, attributes, and source relations', () => {
+    const records = parseGedcom([
+      '0 HEAD',
+      '0 @I1@ INDI',
+      '1 NAME Jane /Doe/',
+      '1 ALIA J. Doe',
+      '1 PHON 555-1111',
+      '1 EMAIL jane@example.test',
+      '1 SSN 123-45-6789',
+      '1 FACT Blue ribbon winner',
+      '2 TYPE Award',
+      '1 EDUC University',
+      '2 DATE 1998',
+      '1 SOUR @S1@',
+      '2 PAGE certificate 12',
+      '1 ASSO @I2@',
+      '2 RELA Witness',
+      '0 @I2@ INDI',
+      '1 NAME Alex /Roe/',
+      '0 @S1@ SOUR',
+      '1 TITL Certificate Index',
+      '0 TRLR',
+    ].join('\n'));
+
+    const person = records.find((record) => record.recordType === 'Person' && record.fields?.gedcomXref?.value === '@I1@');
+    const alias = records.find((record) => record.recordType === 'AdditionalName');
+    const facts = records.filter((record) => record.recordType === 'PersonFact');
+    const education = records.find((record) => record.recordType === 'PersonEvent' && record.fields?.conclusionType?.value === 'Education');
+    const sourceRelation = records.find((record) => record.recordType === 'SourceRelation');
+    const associate = records.find((record) => record.recordType === 'AssociateRelation');
+
+    expect(alias?.fields).toMatchObject({
+      person: { value: `${person.recordName}---Person` },
+      conclusionType: { value: 'NameVariation' },
+      name: { value: 'J. Doe' },
+    });
+    expect(facts.map((fact) => [fact.fields.conclusionType.value, fact.fields.description?.value])).toEqual(expect.arrayContaining([
+      ['Phone', '555-1111'],
+      ['Email', 'jane@example.test'],
+      ['SocialSecurityNumber', '123-45-6789'],
+      ['Award', 'Blue ribbon winner'],
+    ]));
+    expect(education?.fields).toMatchObject({
+      date: { value: '1998' },
+    });
+    expect(sourceRelation?.fields).toMatchObject({
+      target: { value: `${person.recordName}---Person` },
+      page: { value: 'certificate 12' },
+    });
+    expect(associate?.fields).toMatchObject({
+      sourcePerson: { value: `${person.recordName}---Person` },
+      relationType: { value: 'Witness' },
+    });
+  });
+
+  it('uses HEAD.PLAC.FORM to create structured place records for event places', () => {
+    const records = parseGedcom([
+      '0 HEAD',
+      '1 PLAC',
+      '2 FORM City, County, State, Country',
+      '0 @I1@ INDI',
+      '1 NAME Jane /Doe/',
+      '1 BIRT',
+      '2 DATE 1900',
+      '2 PLAC Salem, Essex, Massachusetts, USA',
+      '0 TRLR',
+    ].join('\n'));
+
+    const place = records.find((record) => record.recordType === 'Place');
+    const birth = records.find((record) => record.recordType === 'PersonEvent');
+
+    expect(place?.fields).toMatchObject({
+      placeName: { value: 'Salem, Essex, Massachusetts, USA' },
+      cached_normallocationString: { value: 'Salem, Essex, Massachusetts, USA' },
+      place: { value: 'Salem' },
+      county: { value: 'Essex' },
+      state: { value: 'Massachusetts' },
+      country: { value: 'USA' },
+    });
+    expect(birth?.fields?.placeName?.value).toBe('Salem, Essex, Massachusetts, USA');
+    expect(birth?.fields?.place?.value).toBe(`${place.recordName}---Place`);
+  });
+
+  it('handles Gramps GEDCOM fixtures for inline notes, inline sources, and custom event tags', () => {
+    const records = parseGedcom([
+      '0 HEAD',
+      '1 SOUR RootsMagic',
+      '1 CHAR UTF-8',
+      '0 @I1@ INDI',
+      '1 NAME Living /Tester/',
+      '1 NOTE @N0@',
+      '1 SOUR Inline Source 1',
+      '1 _ELEC Mayor',
+      '2 TYPE Small town',
+      '2 DATE 1980',
+      '2 PLAC Littletown, Smallcounty, Ohio, USA',
+      '0 @N0@ NOTE',
+      '1 CONC XREF N0',
+      '0 TRLR',
+    ].join('\n'));
+
+    const note = records.find((record) => record.recordType === 'Note');
+    const inlineSource = records.find((record) => record.recordType === 'Source' && record.fields?.title?.value === 'Inline Source 1');
+    const sourceRelation = records.find((record) => record.recordType === 'SourceRelation');
+    const customEvent = records.find((record) => record.recordType === 'PersonEvent' && record.fields?.conclusionType?.value === 'SmallTown');
+
+    expect(note?.fields?.text?.value).toBe('XREF N0');
+    expect(sourceRelation?.fields?.source?.value).toBe(`${inlineSource.recordName}---Source`);
+    expect(customEvent?.fields).toMatchObject({
+      date: { value: '1980' },
+      description: { value: 'Mayor' },
+      placeName: { value: 'Littletown, Smallcounty, Ohio, USA' },
+    });
+  });
+
+  it('imports Gramps/FTM family custom events and child relationship metadata', () => {
+    const records = parseGedcom([
+      '0 HEAD',
+      '0 @I1@ INDI',
+      '1 NAME Alex /Doe/',
+      '0 @I2@ INDI',
+      '1 NAME Blair /Doe/',
+      '0 @I3@ INDI',
+      '1 NAME Casey /Doe/',
+      '0 @F1@ FAM',
+      '1 HUSB @I1@',
+      '1 WIFE @I2@',
+      '1 CHIL @I3@',
+      '2 _FREL Natural',
+      '2 _MREL Adopted',
+      '1 _SEPR',
+      '2 DATE 1980',
+      '2 PLAC Cuyahoga, Ohio, USA',
+      '0 TRLR',
+    ].join('\n'));
+
+    const relation = records.find((record) => record.recordType === 'ChildRelation');
+    const separation = records.find((record) => record.recordType === 'FamilyEvent' && record.fields?.conclusionType?.value === 'Separation');
+
+    expect(relation?.fields).toMatchObject({
+      fatherRelationType: { value: 'Natural' },
+      motherRelationType: { value: 'Adopted' },
+    });
+    expect(separation?.fields).toMatchObject({
+      date: { value: '1980' },
+      placeName: { value: 'Cuyahoga, Ohio, USA' },
+    });
   });
 });

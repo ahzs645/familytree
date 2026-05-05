@@ -12,11 +12,13 @@ function tokenizeLine(line) {
   // "level [@xref@] tag [value]"
   const m = line.match(/^\s*(\d+)\s+(?:(@[^@]+@)\s+)?(\S+)(?:\s+(.*))?$/);
   if (!m) return null;
-  return { level: +m[1], xref: m[2] || null, tag: m[3], value: m[4] || '' };
+  const tag = m[3];
+  const xref = (tag === 'CONC' || tag === 'CONT') ? null : (m[2] || null);
+  return { level: +m[1], xref, tag, value: (m[4] || '').replace(/@@/g, '@') };
 }
 
 export function tokenizeGedcomText(text) {
-  const lines = String(text || '').split(/\r?\n/);
+  const lines = String(text || '').split(/\r\n|\r|\n/);
   const tokens = [];
   const issues = [];
   let previousToken = null;
@@ -79,13 +81,45 @@ const EVENT_TAG_TO_NAME = {
   NATU: 'Naturalization', EMIG: 'Emigration', IMMI: 'Immigration', CENS: 'Census',
   GRAD: 'Graduation', OCCU: 'Occupation', RESI: 'Residence', RELI: 'Religion',
   WILL: 'Will', PROB: 'Probate', ADOP: 'Adoption', EVEN: 'GenericEvent',
+  EDUC: 'Education', PROP: 'Possession', TITL: 'NobilityTypeTitle', BARM: 'BarMitzvah',
+  BASM: 'BasMitzvah', BLES: 'Blessing', CONF: 'Confirmation', CREM: 'Cremation',
+  FCOM: 'FirstCommunion', ORDN: 'Ordination', RETI: 'Retirement', CAST: 'CasteName',
+};
+
+const CUSTOM_EVENT_TAG_TO_NAME = {
+  _SEPR: 'Separation',
+  _MILT: 'MilitaryService',
+  _DEG: 'Degree',
+  _MDCL: 'MedicalInformation',
+  _ELEC: 'Elected',
+  _CIRC: 'Circumcision',
+};
+
+const ATTRIBUTE_TAG_TO_FACT = {
+  CAST: 'CasteName',
+  DSCR: 'PhysicalDescription',
+  FACT: 'Other',
+  IDNO: 'NationalID',
+  NATI: 'NationalOrTribalOrigin',
+  NCHI: 'ChildrenCount',
+  NMR: 'MarriageCount',
+  SSN: 'SocialSecurityNumber',
+};
+
+const CONTACT_TAG_TO_FACT = {
+  PHON: 'Phone',
+  EMAIL: 'Email',
+  EMAI: 'Email',
+  WWW: 'Website',
+  URL: 'Website',
 };
 
 const TOP_LEVEL_TAGS = new Set(['HEAD', 'TRLR', 'INDI', 'FAM', 'SOUR', 'NOTE', 'OBJE', 'SUBM', 'REPO']);
-const PERSON_HANDLED_TAGS = new Set(['NAME', 'SEX', 'OBJE', 'NOTE', ...Object.keys(EVENT_TAG_TO_NAME)]);
-const FAMILY_HANDLED_TAGS = new Set(['HUSB', 'WIFE', 'CHIL', 'MARR', 'OBJE']);
-const SOURCE_HANDLED_TAGS = new Set(['TITL', 'AUTH', 'TEXT', 'OBJE']);
-const EVENT_HANDLED_TAGS = new Set(['DATE', 'PLAC', 'NOTE', 'OBJE']);
+const PERSON_HANDLED_TAGS = new Set(['NAME', 'SEX', 'OBJE', 'NOTE', 'SOUR', 'ALIA', 'ASSO', 'ADDR', 'ADR1', 'ADR2', 'CITY', 'STAE', 'POST', 'CTRY', ...Object.keys(CONTACT_TAG_TO_FACT), ...Object.keys(ATTRIBUTE_TAG_TO_FACT), ...Object.keys(EVENT_TAG_TO_NAME)]);
+const FAMILY_HANDLED_TAGS = new Set(['HUSB', 'WIFE', 'CHIL', 'MARR', 'OBJE', 'ADDR', ...Object.keys(CONTACT_TAG_TO_FACT), ...Object.keys(EVENT_TAG_TO_NAME)]);
+const SOURCE_HANDLED_TAGS = new Set(['TITL', 'AUTH', 'TEXT', 'OBJE', 'REPO', 'PUBL', 'ABBR', 'NOTE']);
+const EVENT_HANDLED_TAGS = new Set(['DATE', 'PLAC', 'NOTE', 'OBJE', 'TYPE', 'SOUR', 'ADDR', ...Object.keys(CONTACT_TAG_TO_FACT)]);
+const REPOSITORY_HANDLED_TAGS = new Set(['NAME', 'ADDR', 'ADR1', 'ADR2', 'CITY', 'STAE', 'POST', 'CTRY', 'NOTE', ...Object.keys(CONTACT_TAG_TO_FACT)]);
 
 let _seq = 0;
 function uuid(prefix) {
@@ -101,11 +135,15 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
   const tree = parseGedcomTree(text);
   const records = [];
   const assets = [];
+  const placeForm = placeFormFromHead(tree);
   const personByXref = new Map();
   const familyByXref = new Map();
   const sourceByXref = new Map();
+  const repositoryByXref = new Map();
   const mediaByXref = new Map();
+  const noteByXref = new Map();
   const mediaById = new Map();
+  const placeByKey = new Map();
   const resourceIndex = buildResourceIndex([...mediaFiles, ...resourceFiles]);
 
   const addMedia = (node, xref = null) => {
@@ -116,6 +154,38 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
     if (created.asset) assets.push(created.asset);
     if (xref) mediaByXref.set(xref, created.record.recordName);
     return created.record.recordName;
+  };
+
+  const ensurePlace = (value) => {
+    const placeText = String(value || '').trim();
+    if (!placeText) return null;
+    const key = placeText.toLowerCase();
+    if (placeByKey.has(key)) return placeByKey.get(key);
+    const id = uuid('place-imp');
+    const record = placeRecordFromGedcomPlace(id, placeText, placeForm);
+    records.push(record);
+    placeByKey.set(key, id);
+    return id;
+  };
+
+  const ensureInlineSource = (value) => {
+    const title = String(value || '').trim();
+    if (!title || /^@[^@]+@$/.test(title)) return null;
+    const key = title.toLowerCase();
+    for (const [xref, sourceId] of sourceByXref.entries()) {
+      if (xref === `inline:${key}`) return sourceId;
+    }
+    const id = uuid('source-inline');
+    records.push({
+      recordName: id,
+      recordType: 'Source',
+      fields: {
+        title: { value: title, type: 'STRING' },
+        cached_title: { value: title, type: 'STRING' },
+      },
+    });
+    sourceByXref.set(`inline:${key}`, id);
+    return id;
   };
 
   // First pass: stub records for every top-level entity
@@ -132,8 +202,14 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
       const id = uuid('source-imp');
       sourceByXref.set(top.xref, id);
       records.push(stubSource(id, top));
+    } else if (top.tag === 'REPO' && top.xref) {
+      const id = uuid('repo-imp');
+      repositoryByXref.set(top.xref, id);
+      records.push(stubRepository(id, top));
     } else if (top.tag === 'OBJE' && top.xref) {
       addMedia(top, top.xref);
+    } else if (top.tag === 'NOTE' && top.xref) {
+      noteByXref.set(top.xref, nodeText(top));
     }
   }
 
@@ -146,9 +222,15 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
       if (!personId) continue;
       const person = records.find((r) => r.recordName === personId);
       addMediaRelations(records, resolveObjeMediaIds(children(top, 'OBJE'), { addMedia, mediaByXref }), personId, 'Person', mediaById);
+      addContactFacts(records, top, personId);
+      addAddressFact(records, top, personId);
+      addAttributeFacts(records, top, personId);
+      addAliasNames(records, top, personId);
+      addAssociateRelations(records, top, personId, personByXref);
+      addSourceRelations(records, children(top, 'SOUR'), personId, 'Person', { sourceByXref, ensureInlineSource });
       // Events
       for (const ev of top.children) {
-        const name = EVENT_TAG_TO_NAME[ev.tag];
+        const name = eventNameForNode(ev);
         if (!name) continue;
         const eventRec = {
           recordName: uuid('pe-imp'),
@@ -160,20 +242,25 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
         };
         const date = child(ev, 'DATE')?.value;
         const place = child(ev, 'PLAC')?.value;
-        const note = nodeText(child(ev, 'NOTE'));
+        const placeId = ensurePlace(place);
+        const note = nodeText(child(ev, 'NOTE'), noteByXref);
+        const type = nodeText(child(ev, 'TYPE'));
         if (date) eventRec.fields.date = { value: date, type: 'STRING' };
         if (place) eventRec.fields.placeName = { value: place, type: 'STRING' };
-        if (note) eventRec.fields.description = { value: note, type: 'STRING' };
+        if (placeId) eventRec.fields.place = { value: refValue(placeId, 'Place'), type: 'REFERENCE' };
+        if (type && name === 'GenericEvent') eventRec.fields.conclusionType = { value: typeToIdentifier(type), type: 'STRING' };
+        if (note || ev.value) eventRec.fields.description = { value: [ev.value, note].filter(Boolean).join('\n'), type: 'STRING' };
         preserveExtensions(eventRec, ev, EVENT_HANDLED_TAGS);
         records.push(eventRec);
         addMediaRelations(records, resolveObjeMediaIds(children(ev, 'OBJE'), { addMedia, mediaByXref }), eventRec.recordName, 'PersonEvent', mediaById);
+        addSourceRelations(records, children(ev, 'SOUR'), eventRec.recordName, 'PersonEvent', { sourceByXref, ensureInlineSource });
         // Cache shortcuts on the person record
         if (name === 'Birth' && date) person.fields.cached_birthDate = { value: date, type: 'STRING' };
         if (name === 'Death' && date) person.fields.cached_deathDate = { value: date, type: 'STRING' };
       }
       // Notes
       for (const n of children(top, 'NOTE')) {
-        const text = nodeText(n);
+        const text = nodeText(n, noteByXref);
         if (text) records.push({
           recordName: uuid('note-imp'),
           recordType: 'Note',
@@ -195,22 +282,31 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
       if (husbRecord) fam.fields.man = { value: refValue(husbRecord, 'Person'), type: 'REFERENCE' };
       if (wifeRecord) fam.fields.woman = { value: refValue(wifeRecord, 'Person'), type: 'REFERENCE' };
 
-      const marr = child(top, 'MARR');
-      if (marr) {
+      for (const marr of familyEventNodes(top)) {
         const date = child(marr, 'DATE')?.value;
-        if (date) fam.fields.cached_marriageDate = { value: date, type: 'STRING' };
+        const eventName = eventNameForNode(marr, 'FamilyEvent');
+        if (date && eventName === 'Marriage') fam.fields.cached_marriageDate = { value: date, type: 'STRING' };
         const eventRec = {
           recordName: uuid('fe-imp'),
           recordType: 'FamilyEvent',
           fields: {
             family: { value: refValue(familyId, 'Family'), type: 'REFERENCE' },
-            conclusionType: { value: 'Marriage', type: 'STRING' },
+            conclusionType: { value: eventName, type: 'STRING' },
             ...(date ? { date: { value: date, type: 'STRING' } } : {}),
           },
         };
+        const place = child(marr, 'PLAC')?.value;
+        const placeId = ensurePlace(place);
+        const note = nodeText(child(marr, 'NOTE'), noteByXref);
+        const type = nodeText(child(marr, 'TYPE'));
+        if (place) eventRec.fields.placeName = { value: place, type: 'STRING' };
+        if (placeId) eventRec.fields.place = { value: refValue(placeId, 'Place'), type: 'REFERENCE' };
+        if (note) eventRec.fields.description = { value: note, type: 'STRING' };
+        if (type) eventRec.fields.type = { value: type, type: 'STRING' };
         preserveExtensions(eventRec, marr, EVENT_HANDLED_TAGS);
         records.push(eventRec);
         addMediaRelations(records, resolveObjeMediaIds(children(marr, 'OBJE'), { addMedia, mediaByXref }), eventRec.recordName, 'FamilyEvent', mediaById);
+        addSourceRelations(records, children(marr, 'SOUR'), eventRec.recordName, 'FamilyEvent', { sourceByXref, ensureInlineSource });
       }
 
       let order = 0;
@@ -224,17 +320,142 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
             family: { value: refValue(familyId, 'Family'), type: 'REFERENCE' },
             child: { value: refValue(childId, 'Person'), type: 'REFERENCE' },
             order: { value: order++, type: 'NUMBER' },
+            ...childRelationFields(c),
           },
         });
       }
     } else if (top.tag === 'SOUR') {
       const sourceId = sourceByXref.get(top.xref);
       if (!sourceId || !sources.has(sourceId)) continue;
+      const source = sources.get(sourceId);
+      const repoRef = child(top, 'REPO')?.value;
+      const repoId = repositoryByXref.get(repoRef);
+      if (repoId) source.fields.sourceRepository = { value: refValue(repoId, 'SourceRepository'), type: 'REFERENCE' };
       addMediaRelations(records, resolveObjeMediaIds(children(top, 'OBJE'), { addMedia, mediaByXref }), sourceId, 'Source', mediaById);
     }
   }
 
   return { records, assets };
+}
+
+function addAliasNames(records, personNode, personId) {
+  for (const node of children(personNode, 'ALIA')) {
+    const value = nodeText(node);
+    if (!value || /^@[^@]+@$/.test(value)) continue;
+    records.push({
+      recordName: uuid('an-imp'),
+      recordType: 'AdditionalName',
+      fields: {
+        person: { value: refValue(personId, 'Person'), type: 'REFERENCE' },
+        conclusionType: { value: 'NameVariation', type: 'STRING' },
+        name: { value, type: 'STRING' },
+      },
+    });
+  }
+}
+
+function addAssociateRelations(records, personNode, personId, personByXref) {
+  for (const node of children(personNode, 'ASSO')) {
+    const targetId = personByXref.get(node.value);
+    if (!targetId) continue;
+    const relation = nodeText(child(node, 'RELA')) || 'Associate';
+    records.push({
+      recordName: uuid('assoc-imp'),
+      recordType: 'AssociateRelation',
+      fields: {
+        sourcePerson: { value: refValue(personId, 'Person'), type: 'REFERENCE' },
+        targetPerson: { value: refValue(targetId, 'Person'), type: 'REFERENCE' },
+        relationType: { value: typeToIdentifier(relation), type: 'STRING' },
+      },
+    });
+  }
+}
+
+function addAttributeFacts(records, personNode, personId) {
+  for (const node of personNode.children || []) {
+    const factType = ATTRIBUTE_TAG_TO_FACT[node.tag];
+    if (!factType) continue;
+    const description = nodeText(node);
+    const type = nodeText(child(node, 'TYPE'));
+    records.push(makePersonFact(personId, type ? typeToIdentifier(type) : factType, description, child(node, 'DATE')?.value));
+  }
+}
+
+function addContactFacts(records, node, personId) {
+  for (const tag of Object.keys(CONTACT_TAG_TO_FACT)) {
+    for (const childNode of children(node, tag)) {
+      const value = nodeText(childNode);
+      if (value) records.push(makePersonFact(personId, CONTACT_TAG_TO_FACT[tag], value));
+    }
+  }
+}
+
+function addAddressFact(records, node, personId) {
+  const address = addressFromNode(node);
+  if (address) records.push(makePersonFact(personId, 'Address', address));
+}
+
+function eventNameForNode(node, scope = 'PersonEvent') {
+  if (!node?.tag) return null;
+  const known = EVENT_TAG_TO_NAME[node.tag];
+  if (known) return known;
+  if (!node.tag.startsWith('_')) return null;
+  if (!eventLikeNode(node)) return null;
+  const typed = nodeText(child(node, 'TYPE'));
+  if (typed) return typeToIdentifier(typed);
+  const customKnown = CUSTOM_EVENT_TAG_TO_NAME[node.tag];
+  if (customKnown) return customKnown;
+  return typeToIdentifier(node.tag.replace(/^_+/, ''));
+}
+
+function eventLikeNode(node) {
+  if (!node) return false;
+  return (node.children || []).some((childNode) => ['DATE', 'PLAC', 'TYPE', 'NOTE', 'SOUR', 'ADDR'].includes(childNode.tag));
+}
+
+function familyEventNodes(familyNode) {
+  return (familyNode.children || []).filter((node) => eventNameForNode(node, 'FamilyEvent'));
+}
+
+function childRelationFields(node) {
+  const out = {};
+  const fatherRel = nodeText(child(node, '_FREL'));
+  const motherRel = nodeText(child(node, '_MREL'));
+  if (fatherRel) out.fatherRelationType = { value: typeToIdentifier(fatherRel), type: 'STRING' };
+  if (motherRel) out.motherRelationType = { value: typeToIdentifier(motherRel), type: 'STRING' };
+  return out;
+}
+
+function addSourceRelations(records, sourceNodes, targetId, targetType, { sourceByXref, ensureInlineSource }) {
+  for (const node of sourceNodes || []) {
+    const sourceId = sourceByXref.get(node.value) || ensureInlineSource?.(node.value);
+    if (!sourceId) continue;
+    const fields = {
+      source: { value: refValue(sourceId, 'Source'), type: 'REFERENCE' },
+      target: { value: refValue(targetId, targetType), type: 'REFERENCE' },
+      targetType: { value: targetType, type: 'STRING' },
+    };
+    const page = nodeText(child(node, 'PAGE'));
+    const text = nodeText(child(node, 'TEXT'));
+    const note = nodeText(child(node, 'NOTE'));
+    if (page) fields.page = { value: page, type: 'STRING' };
+    if (text) fields.text = { value: text, type: 'STRING' };
+    if (note) fields.note = { value: note, type: 'STRING' };
+    records.push({ recordName: uuid('sr-imp'), recordType: 'SourceRelation', fields });
+  }
+}
+
+function makePersonFact(personId, conclusionType, description, date = '') {
+  return {
+    recordName: uuid('pf-imp'),
+    recordType: 'PersonFact',
+    fields: {
+      person: { value: refValue(personId, 'Person'), type: 'REFERENCE' },
+      conclusionType: { value: conclusionType, type: 'STRING' },
+      ...(description ? { description: { value: description, type: 'STRING' } } : {}),
+      ...(date ? { date: { value: date, type: 'STRING' } } : {}),
+    },
+  };
 }
 
 function resolveObjeMediaIds(objeNodes, { addMedia, mediaByXref }) {
@@ -343,14 +564,91 @@ function findResourceForMediaPath(value, resourceIndex) {
   return resourceIndex.byPath.get(path.toLowerCase()) || resourceIndex.byName.get(basename(path).toLowerCase()) || null;
 }
 
-function nodeText(node) {
+function nodeText(node, noteByXref = null) {
   if (!node) return '';
+  if (noteByXref && /^@[^@]+@$/.test(String(node.value || '').trim())) {
+    return noteByXref.get(String(node.value).trim()) || '';
+  }
   let value = node.value || '';
   for (const c of node.children || []) {
     if (c.tag === 'CONC') value += c.value || '';
     if (c.tag === 'CONT') value += `\n${c.value || ''}`;
   }
   return value.trim();
+}
+
+function addressFromNode(node) {
+  const addr = child(node, 'ADDR');
+  const container = addr || node;
+  const direct = nodeText(addr);
+  const parts = [
+    nodeText(child(container, 'ADR1')),
+    nodeText(child(container, 'ADR2')),
+    nodeText(child(container, 'CITY')),
+    nodeText(child(container, 'STAE')),
+    nodeText(child(container, 'POST')),
+    nodeText(child(container, 'CTRY')),
+  ].filter(Boolean);
+  return [direct, ...parts.filter((part) => part !== direct)].filter(Boolean).join('\n').trim();
+}
+
+function placeFormFromHead(tree) {
+  const head = (tree || []).find((node) => node.tag === 'HEAD');
+  const form = child(child(head || { children: [] }, 'PLAC') || { children: [] }, 'FORM');
+  return parsePlaceForm(form?.value);
+}
+
+function parsePlaceForm(value) {
+  return String(value || '')
+    .split(',')
+    .map((part) => normalizePlaceFormSlot(part))
+    .filter(Boolean);
+}
+
+function normalizePlaceFormSlot(value) {
+  const text = String(value || '').trim().toLowerCase();
+  if (!text) return '';
+  if (['addr', 'addr1', 'adr1', 'street', 'subdivision'].includes(text)) return 'street';
+  if (['addr2', 'adr2', 'locality', 'neighborhood'].includes(text)) return 'locality';
+  if (['city', 'town', 'village', 'place'].includes(text)) return 'place';
+  if (text === 'county') return 'county';
+  if (['state', 'state/province', 'province', 'region'].includes(text)) return 'state';
+  if (['country', 'nation'].includes(text)) return 'country';
+  if (['area code', 'post code', 'postal code', 'zip code'].includes(text)) return 'postalCode';
+  return typeToIdentifier(text).replace(/^./, (ch) => ch.toLowerCase());
+}
+
+function placeRecordFromGedcomPlace(recordName, placeText, placeForm = []) {
+  const parts = String(placeText || '').split(',').map((part) => part.trim()).filter(Boolean);
+  const fields = {
+    placeName: { value: placeText, type: 'STRING' },
+    cached_normallocationString: { value: placeText, type: 'STRING' },
+    cached_normalLocationString: { value: placeText, type: 'STRING' },
+    cached_standardizedLocationString: { value: parts.join(','), type: 'STRING' },
+    cached_shortLocationString: { value: placeText, type: 'STRING' },
+  };
+  const slots = placeForm.length === parts.length ? placeForm : defaultPlaceSlots(parts.length);
+  for (let i = 0; i < parts.length; i++) {
+    const slot = slots[i];
+    if (slot && parts[i] && !fields[slot]) fields[slot] = { value: parts[i], type: 'STRING' };
+  }
+  return { recordName, recordType: 'Place', fields };
+}
+
+function defaultPlaceSlots(count) {
+  if (count <= 1) return ['place'];
+  if (count === 2) return ['place', 'country'];
+  if (count === 3) return ['place', 'state', 'country'];
+  return ['place', 'county', 'state', 'country'];
+}
+
+function typeToIdentifier(value) {
+  const text = String(value || '').trim();
+  if (!text) return 'Other';
+  return text
+    .replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, '')
+    .replace(/[^A-Za-z0-9]+(.)/g, (_, ch) => ch.toUpperCase())
+    .replace(/^./, (ch) => ch.toUpperCase()) || 'Other';
 }
 
 function preserveExtensions(record, node, handledTags) {
@@ -559,13 +857,36 @@ function stubSource(id, sour) {
   const title = nodeText(child(sour, 'TITL'));
   const author = nodeText(child(sour, 'AUTH'));
   const text = nodeText(child(sour, 'TEXT'));
+  const publication = nodeText(child(sour, 'PUBL'));
+  const abbreviation = nodeText(child(sour, 'ABBR'));
+  const note = nodeText(child(sour, 'NOTE'));
   if (title) {
     fields.title = { value: title, type: 'STRING' };
     fields.cached_title = { value: title, type: 'STRING' };
   }
   if (author) fields.author = { value: author, type: 'STRING' };
   if (text) fields.text = { value: text, type: 'STRING' };
+  if (publication) fields.publication = { value: publication, type: 'STRING' };
+  if (abbreviation) fields.abbreviation = { value: abbreviation, type: 'STRING' };
+  if (note) fields.note = { value: note, type: 'STRING' };
   return preserveExtensions({ recordName: id, recordType: 'Source', fields }, sour, SOURCE_HANDLED_TAGS);
+}
+
+function stubRepository(id, repo) {
+  const fields = {};
+  if (repo.xref) fields.gedcomXref = { value: repo.xref, type: 'STRING' };
+  const name = nodeText(child(repo, 'NAME'));
+  const address = addressFromNode(repo);
+  const note = nodeText(child(repo, 'NOTE'));
+  if (name) fields.name = { value: name, type: 'STRING' };
+  if (address) fields.address = { value: address, type: 'STRING' };
+  if (note) fields.note = { value: note, type: 'STRING' };
+  const fieldForTag = { PHON: 'phone', EMAIL: 'email', EMAI: 'email', WWW: 'website', URL: 'website' };
+  for (const [tag, fieldName] of Object.entries(fieldForTag)) {
+    const value = nodeText(child(repo, tag));
+    if (value) fields[fieldName] = { value, type: 'STRING' };
+  }
+  return preserveExtensions({ recordName: id, recordType: 'SourceRepository', fields }, repo, REPOSITORY_HANDLED_TAGS);
 }
 
 export async function importGedcomText(text, { replace = false, sourceName = 'GEDCOM import', mediaFiles = [], resourceFiles = [] } = {}) {
@@ -580,7 +901,7 @@ export async function importGedcomText(text, { replace = false, sourceName = 'GE
 }
 
 function eventLikeTag(tag) {
-  return ['BIRT', 'DEAT', 'MARR', 'DIV', 'EVEN', 'FACT', 'ADOP', 'BURI', 'RESI', 'OCCU', 'CENS', 'IMMI', 'EMIG', 'NATU'].includes(tag);
+  return tag.startsWith('_') || ['BIRT', 'DEAT', 'MARR', 'DIV', 'EVEN', 'FACT', 'ADOP', 'BURI', 'RESI', 'OCCU', 'CENS', 'IMMI', 'EMIG', 'NATU', 'EDUC', 'PROP'].includes(tag);
 }
 
 function isPointerValue(value) {

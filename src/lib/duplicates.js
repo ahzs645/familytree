@@ -19,7 +19,7 @@ const MIN_FIELD_SIM = 0.7;
 const SKIPPED_DUPLICATE_PAIRS_META = 'duplicateSkippedPairs';
 
 function normalize(s) {
-  return (s || '').toString().toLowerCase().trim().replace(/\s+/g, ' ');
+  return (s || '').toString().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, ' ');
 }
 
 function soundexKey(s) {
@@ -79,7 +79,7 @@ function yearOf(s) {
   return m ? parseInt(m[1], 10) : null;
 }
 
-function scorePersonPair(a, b) {
+function scorePersonPair(a, b, context = buildDuplicateContext([a, b])) {
   const af = a.fields || {};
   const bf = b.fields || {};
   const firstSim = similarity(af.firstName?.value, bf.firstName?.value);
@@ -96,33 +96,57 @@ function scorePersonPair(a, b) {
   if (ag != null && bg != null && ag !== 0 && bg !== 0 && ag !== bg) {
     return { score: 0, reasons: [] };
   }
+  if (isAncestorPair(a.recordName, b.recordName, context)) {
+    return { score: 0, reasons: ['Ancestor/descendant pair excluded'] };
+  }
 
   // Corroboration requirement: similar names alone aren't enough — family trees
   // are full of same-named relatives. We need EITHER exact name match OR
   // matching birth year to flag as a duplicate candidate.
   const ay = yearOf(af.cached_birthDate?.value);
   const by = yearOf(bf.cached_birthDate?.value);
+  const ady = yearOf(af.cached_deathDate?.value);
+  const bdy = yearOf(bf.cached_deathDate?.value);
   const sameYear = ay != null && by != null && Math.abs(ay - by) <= 1;
+  const sameDeathYear = ady != null && bdy != null && Math.abs(ady - bdy) <= 1;
   const identicalNames = firstSim >= 0.98 && lastSim >= 0.98;
-  // Same name alone isn't enough — family trees have many cousins/siblings sharing names.
-  // Require matching birth year as corroboration.
-  if (!sameYear) return { score: 0, reasons: [] };
+  const birthPlaceSim = eventPlaceSimilarity(a.recordName, b.recordName, 'Birth', context);
+  const deathPlaceSim = eventPlaceSimilarity(a.recordName, b.recordName, 'Death', context);
+  const parentSim = parentNameSimilarity(a.recordName, b.recordName, context);
+  const spouseSim = spouseNameSimilarity(a.recordName, b.recordName, context);
+
+  const corroborated = sameYear || sameDeathYear || birthPlaceSim >= 0.9 || deathPlaceSim >= 0.9 || parentSim >= 0.9 || spouseSim >= 0.9;
+  if (!corroborated) return { score: 0, reasons: [] };
 
   const reasons = [];
   if (identicalNames) reasons.push('Identical names');
   else reasons.push('Similar names');
   if (sameYear) reasons.push(ay === by ? 'Same birth year' : 'Birth years within 1');
+  if (sameDeathYear) reasons.push(ady === bdy ? 'Same death year' : 'Death years within 1');
+  if (birthPlaceSim >= 0.9) reasons.push('Same birth place');
+  else if (birthPlaceSim >= 0.75) reasons.push('Similar birth place');
+  if (deathPlaceSim >= 0.9) reasons.push('Same death place');
+  if (parentSim >= 0.9) reasons.push('Matching parent names');
+  if (spouseSim >= 0.9) reasons.push('Matching spouse names');
 
-  const score = 0.45 * firstSim + 0.45 * lastSim + (sameYear ? 0.15 : 0) + (identicalNames ? 0.05 : 0);
+  const score = (
+    0.34 * firstSim +
+    0.34 * lastSim +
+    (sameYear ? 0.13 : 0) +
+    (sameDeathYear ? 0.05 : 0) +
+    (Math.max(birthPlaceSim, deathPlaceSim) * 0.06) +
+    (parentSim * 0.05) +
+    (spouseSim * 0.04) +
+    (identicalNames ? 0.04 : 0)
+  );
   return { score: Math.max(0, Math.min(1, score)), reasons };
 }
 
-export async function findDuplicatePersons(threshold = PERSON_THRESHOLD) {
-  const db = getLocalDatabase();
-  const { records } = await db.query('Person', { limit: 100000 });
-  // Block by soundex of last name
+export function findDuplicatePersonCandidates(records = [], threshold = PERSON_THRESHOLD) {
+  const persons = records.filter((record) => record.recordType === 'Person');
+  const context = buildDuplicateContext(records);
   const blocks = new Map();
-  for (const r of records) {
+  for (const r of persons) {
     const key = soundexKey(r.fields?.lastName?.value || '');
     if (!blocks.has(key)) blocks.set(key, []);
     blocks.get(key).push(r);
@@ -132,15 +156,122 @@ export async function findDuplicatePersons(threshold = PERSON_THRESHOLD) {
     if (group.length < 2) continue;
     for (let i = 0; i < group.length; i++) {
       for (let j = i + 1; j < group.length; j++) {
-        const { score, reasons } = scorePersonPair(group[i], group[j]);
-        if (score >= threshold) {
-          pairs.push({ a: group[i], b: group[j], score, reasons });
-        }
+        const { score, reasons } = scorePersonPair(group[i], group[j], context);
+        if (score >= threshold) pairs.push({ a: group[i], b: group[j], score, reasons });
       }
     }
   }
-  pairs.sort((x, y) => y.score - x.score);
-  return filterSkippedDuplicatePairs('Person', pairs);
+  return pairs.sort((x, y) => y.score - x.score);
+}
+
+export async function findDuplicatePersons(threshold = PERSON_THRESHOLD) {
+  const db = getLocalDatabase();
+  const all = typeof db.getAllRecords === 'function'
+    ? await db.getAllRecords()
+    : (await db.query('Person', { limit: 100000 })).records;
+  return filterSkippedDuplicatePairs('Person', findDuplicatePersonCandidates(all, threshold));
+}
+
+function buildDuplicateContext(records = []) {
+  const people = new Map(records.filter((record) => record.recordType === 'Person').map((record) => [record.recordName, record]));
+  const places = new Map(records.filter((record) => record.recordType === 'Place').map((record) => [record.recordName, record]));
+  const eventsByPerson = new Map();
+  for (const event of records.filter((record) => record.recordType === 'PersonEvent')) {
+    const personId = refToRecordName(event.fields?.person?.value);
+    if (!personId) continue;
+    if (!eventsByPerson.has(personId)) eventsByPerson.set(personId, []);
+    eventsByPerson.get(personId).push(event);
+  }
+  const families = records.filter((record) => record.recordType === 'Family');
+  const childRelations = records.filter((record) => record.recordType === 'ChildRelation');
+  const familyById = new Map(families.map((family) => [family.recordName, family]));
+  const parentsByChild = new Map();
+  const spousesByPerson = new Map();
+  const childrenByParent = new Map();
+  const push = (map, key, value) => {
+    if (!key || !value) return;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(value);
+  };
+  for (const family of families) {
+    const man = refToRecordName(family.fields?.man?.value);
+    const woman = refToRecordName(family.fields?.woman?.value);
+    push(spousesByPerson, man, woman);
+    push(spousesByPerson, woman, man);
+  }
+  for (const relation of childRelations) {
+    const family = familyById.get(refToRecordName(relation.fields?.family?.value));
+    const childId = refToRecordName(relation.fields?.child?.value);
+    const man = refToRecordName(family?.fields?.man?.value);
+    const woman = refToRecordName(family?.fields?.woman?.value);
+    push(parentsByChild, childId, man);
+    push(parentsByChild, childId, woman);
+    push(childrenByParent, man, childId);
+    push(childrenByParent, woman, childId);
+  }
+  return { people, places, eventsByPerson, parentsByChild, spousesByPerson, childrenByParent };
+}
+
+function eventPlaceSimilarity(aId, bId, eventType, context) {
+  const left = (context.eventsByPerson.get(aId) || []).filter((event) => eventConclusionType(event) === eventType);
+  const right = (context.eventsByPerson.get(bId) || []).filter((event) => eventConclusionType(event) === eventType);
+  let best = 0;
+  for (const a of left) {
+    for (const b of right) {
+      best = Math.max(best, similarity(eventPlaceText(a, context), eventPlaceText(b, context)));
+    }
+  }
+  return best;
+}
+
+function eventConclusionType(event) {
+  return event?.fields?.conclusionType?.value || event?.fields?.eventType?.value || '';
+}
+
+function eventPlaceText(event, context) {
+  const placeId = refToRecordName(event?.fields?.place?.value);
+  const place = placeId ? context.places.get(placeId) : null;
+  return event?.fields?.placeName?.value ||
+    place?.fields?.placeName?.value ||
+    place?.fields?.cached_normallocationString?.value ||
+    place?.fields?.cached_normalLocationString?.value ||
+    '';
+}
+
+function parentNameSimilarity(aId, bId, context) {
+  return relatedNameSimilarity(context.parentsByChild.get(aId), context.parentsByChild.get(bId), context);
+}
+
+function spouseNameSimilarity(aId, bId, context) {
+  return relatedNameSimilarity(context.spousesByPerson.get(aId), context.spousesByPerson.get(bId), context);
+}
+
+function relatedNameSimilarity(leftIds = [], rightIds = [], context) {
+  let best = 0;
+  for (const leftId of leftIds || []) {
+    for (const rightId of rightIds || []) {
+      const left = context.people.get(leftId);
+      const right = context.people.get(rightId);
+      if (!left || !right) continue;
+      const first = similarity(left.fields?.firstName?.value, right.fields?.firstName?.value);
+      const last = similarity(left.fields?.lastName?.value, right.fields?.lastName?.value);
+      best = Math.max(best, (first + last) / 2);
+    }
+  }
+  return best;
+}
+
+function isAncestorPair(aId, bId, context) {
+  return isAncestorOf(aId, bId, context) || isAncestorOf(bId, aId, context);
+}
+
+function isAncestorOf(ancestorId, descendantId, context, seen = new Set()) {
+  if (!ancestorId || !descendantId || seen.has(ancestorId)) return false;
+  seen.add(ancestorId);
+  for (const childId of context.childrenByParent.get(ancestorId) || []) {
+    if (childId === descendantId || isAncestorOf(childId, descendantId, context, seen)) return true;
+  }
+  return false;
 }
 
 export async function findDuplicateFamilies() {

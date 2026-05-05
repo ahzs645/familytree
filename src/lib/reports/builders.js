@@ -11,6 +11,7 @@ import { findRelationshipPath } from '../relationshipPath.js';
 import { readConclusionType, readField, readRef, refType } from '../schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, Gender } from '../../models/index.js';
 import { describeBirth, describeDeath, describeMarriage } from './narrativeTemplates.js';
+import { formatVitalDateParts, formatVitalPhraseParts } from '../vitalFormat.js';
 import { humanizeType } from '../../utils/humanizeType.js';
 import { compareStrings, formatInteger } from '../i18n.js';
 import { formatEventDate } from '../../utils/formatDate.js';
@@ -114,9 +115,7 @@ export async function buildAncestorNarrative(recordName, generations = 5) {
   function line(node) {
     if (!node || !node.person) return 'No name recorded';
     const p = node.person;
-    const years = [];
-    if (p.birthDate) years.push('b. ' + p.birthDate);
-    if (p.deathDate) years.push('d. ' + p.deathDate);
+    const years = formatVitalDateParts(p);
     return `${p.fullName}${years.length ? ' (' + years.join(', ') + ')' : ''}`;
   }
 
@@ -1006,8 +1005,7 @@ function addTodayRow(rows, todayKey, person, type, rawDate) {
 
 function narrativeSentence(summary) {
   const pieces = [`${nameOf(summary)} is recorded in this family tree`];
-  if (summary.birthDate) pieces.push(`born ${summary.birthDate}`);
-  if (summary.deathDate) pieces.push(`died ${summary.deathDate}`);
+  pieces.push(...formatVitalPhraseParts(summary));
   return pieces.join(', ') + '.';
 }
 

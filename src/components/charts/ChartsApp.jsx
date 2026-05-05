@@ -4,7 +4,7 @@
  * Supports a second-person picker for Double Ancestor and Relationship Path.
  */
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FileDown, Focus, Palette, Search, Settings2, Share2, SlidersHorizontal, Users, ZoomIn } from 'lucide-react';
 import { listAllPersons, findStartPerson, buildAncestorTree, buildDescendantTree } from '../../lib/treeQuery.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
@@ -29,6 +29,7 @@ import { AncestorChart } from './AncestorChart.jsx';
 import { DescendantChart } from './DescendantChart.jsx';
 import { HourglassChart } from './HourglassChart.jsx';
 import { TreeChart } from './TreeChart.jsx';
+import { FamilyChartView } from './FamilyChartView.jsx';
 import { DoubleAncestorChart } from './DoubleAncestorChart.jsx';
 import { FanChart } from './FanChart.jsx';
 import { RelationshipPathChart } from './RelationshipPathChart.jsx';
@@ -40,6 +41,8 @@ import {
   CircularAncestorChart,
   DistributionChart,
   TimelineChart,
+  RadialDescendantTimelineChart,
+  LifespanDescendantChart,
   GenogramChart,
   FractalAncestorChart,
 } from './SpecializedCharts.jsx';
@@ -52,11 +55,14 @@ const CHART_TYPES = [
   { id: 'descendant', label: 'Descendant', needsSecond: false },
   { id: 'hourglass', label: 'Hourglass', needsSecond: false },
   { id: 'tree', label: 'Tree (horizontal)', needsSecond: false },
+  { id: 'family-chart', label: 'Family Chart', needsSecond: false },
   { id: 'double-ancestor', label: 'Double Ancestor', needsSecond: true },
   { id: 'fan', label: 'Fan', needsSecond: false },
   { id: 'circular', label: 'Circular Tree', needsSecond: false },
+  { id: 'radial-descendant', label: 'Radial Descendant', needsSecond: false },
   { id: 'symmetrical', label: 'Symmetrical Tree', needsSecond: false },
   { id: 'distribution', label: 'Distribution', needsSecond: false },
+  { id: 'lifespan', label: 'Lifespan', needsSecond: false },
   { id: 'timeline', label: 'Timeline', needsSecond: false },
   { id: 'genogram', label: 'Genogram', needsSecond: false },
   { id: 'sociogram', label: 'Sociogram', needsSecond: false },
@@ -70,6 +76,7 @@ const CHART_TYPES = [
 export function ChartsApp() {
   const modal = useModal();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { recordName: sharedRootId, setActivePerson } = useActivePerson();
   const [persons, setPersons] = useState([]);
   const [rootId, setRootId] = useState(searchParams.get('person') || sharedRootId);
@@ -389,7 +396,7 @@ export function ChartsApp() {
       : generations;
   const descendantDepth = chartType === 'hourglass'
     ? hourglassDescendantGens
-    : chartType === 'descendant' || chartType === 'genogram' || chartType === 'sociogram' || chartType === 'tree' || chartType === 'symmetrical'
+    : chartType === 'descendant' || chartType === 'genogram' || chartType === 'sociogram' || chartType === 'tree' || chartType === 'symmetrical' || chartType === 'family-chart' || chartType === 'radial-descendant' || chartType === 'lifespan'
       ? descendantGenerations
       : descendantGenerations;
 
@@ -1012,7 +1019,7 @@ export function ChartsApp() {
                 />
               </Section>
 
-              {(chartType === 'descendant' || chartType === 'tree' || chartType === 'symmetrical' || chartType === 'genogram' || chartType === 'sociogram') && (
+              {(chartType === 'descendant' || chartType === 'tree' || chartType === 'symmetrical' || chartType === 'family-chart' || chartType === 'radial-descendant' || chartType === 'lifespan' || chartType === 'genogram' || chartType === 'sociogram') && (
                 <Section label="Descendant generations">
                   <input
                     type="number"
@@ -1425,6 +1432,26 @@ export function ChartsApp() {
             variant={chartType === 'symmetrical' ? 'symmetrical' : 'horizontal'}
           />
         )}
+        {chartType === 'family-chart' && (
+          <FamilyChartView
+            chartCanvasRef={chartCanvasRef}
+            ancestorTree={ancestorTree}
+            descendantTree={descendantTree}
+            rootId={rootId}
+            onPersonClick={onPersonClick}
+            onInspectPerson={openPersonInPanel}
+            onEditPerson={(person) => person?.recordName && navigate(`/person/${person.recordName}`)}
+            theme={theme}
+            page={chartPage}
+            overlays={overlays}
+            colorForPerson={colorForPerson}
+            spacing={chartSpacing}
+            showKinships={showKinships}
+            collapseDuplicates={maxRecursionDepth >= 0}
+            editable={!isReadOnly}
+            {...overlayChartProps}
+          />
+        )}
         {chartType === 'double-ancestor' && (
           <DoubleAncestorChart
             chartCanvasRef={chartCanvasRef}
@@ -1467,11 +1494,35 @@ export function ChartsApp() {
             {...overlayChartProps}
           />
         )}
+        {chartType === 'radial-descendant' && (
+          <RadialDescendantTimelineChart
+            chartCanvasRef={chartCanvasRef}
+            tree={descendantTree}
+            onPersonClick={onPersonClick}
+            theme={theme}
+            page={chartPage}
+            overlays={overlays}
+            colorForPerson={colorForPerson}
+            {...overlayChartProps}
+          />
+        )}
         {chartType === 'distribution' && (
           <DistributionChart
             chartCanvasRef={chartCanvasRef}
             persons={persons}
             distributionData={distributionData}
+            theme={theme}
+            page={chartPage}
+            overlays={overlays}
+            colorForPerson={colorForPerson}
+            {...overlayChartProps}
+          />
+        )}
+        {chartType === 'lifespan' && (
+          <LifespanDescendantChart
+            chartCanvasRef={chartCanvasRef}
+            tree={descendantTree}
+            onPersonClick={onPersonClick}
             theme={theme}
             page={chartPage}
             overlays={overlays}

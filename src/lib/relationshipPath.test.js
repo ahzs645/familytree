@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { findRelationshipPath, findRelationshipPaths } from './relationshipPath.js';
+import { findRelationshipPath, findRelationshipPaths, relationshipLabel } from './relationshipPath.js';
 
 const mockState = vi.hoisted(() => ({ db: null }));
 
@@ -153,6 +153,14 @@ describe('relationship path discovery', () => {
   });
 });
 
+describe('relationshipLabel', () => {
+  it('labels removed cousin relationships in English', () => {
+    expect(relationshipLabel(pathEdges(['parent', 'parent', 'parent', 'child', 'child']))).toBe('1st Cousin Once Removed');
+    expect(relationshipLabel(pathEdges(['parent', 'parent', 'parent', 'parent', 'child', 'child']))).toBe('1st Cousin Twice Removed');
+    expect(relationshipLabel(pathEdges(['parent', 'parent', 'parent', 'child', 'child', 'child']))).toBe('2nd Cousin');
+  });
+});
+
 function createMockDb(records) {
   const byId = new Map(records.map((record) => [record.recordName, record]));
   return {
@@ -234,4 +242,11 @@ function refId(input) {
   const value = input?.value ?? input;
   if (typeof value !== 'string') return null;
   return value.includes('---') ? value.slice(0, value.indexOf('---')) : value;
+}
+
+function pathEdges(edges) {
+  return [
+    { recordName: 'start', edgeFromPrev: null },
+    ...edges.map((edge, index) => ({ recordName: `p${index}`, edgeFromPrev: edge })),
+  ];
 }

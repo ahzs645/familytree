@@ -58,6 +58,7 @@ export const LOCAL_RECORD_TYPES = [
   'PersonEvent',
   'FamilyEvent',
   'PersonFact',
+  'MilkKinship',
   'Place',
   'Source',
 ];

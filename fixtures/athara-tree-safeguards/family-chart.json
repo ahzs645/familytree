@@ -1,0 +1,56 @@
+{
+  "description": "Athara-inspired tree-layout regression fixture: repeated couple branches, a single-parent child, a multi-generation child couple, an in-law spouse with parents documented in metadata, and a relationship-cycle case documented for graph builders.",
+  "rootId": "root",
+  "metadata": {
+    "cases": [
+      "multi-generation child couple",
+      "in-law spouse with parents",
+      "single-parent child",
+      "relationship cycle"
+    ],
+    "cycleEdges": [
+      ["cycle-a", "cycle-b"],
+      ["cycle-b", "cycle-a"]
+    ],
+    "inLawParentEdges": [
+      ["inlaw-parent", "partner"]
+    ]
+  },
+  "descendantTree": {
+    "person": { "recordName": "root", "fullName": "Root Person", "gender": 0, "birthDate": "1940", "deathDate": "" },
+    "unions": [
+      {
+        "familyRecordName": "fam-root-partner",
+        "partner": { "recordName": "partner", "fullName": "Partner Person", "gender": 1, "birthDate": "1942", "deathDate": "" },
+        "children": [
+          {
+            "person": { "recordName": "child", "fullName": "Married Child", "gender": 0, "birthDate": "1965", "deathDate": "" },
+            "unions": [
+              {
+                "familyRecordName": "fam-child-inlaw",
+                "partner": { "recordName": "inlaw", "fullName": "In-law Spouse", "gender": 1, "birthDate": "1968", "deathDate": "" },
+                "children": [
+                  { "person": { "recordName": "grandchild", "fullName": "Grandchild", "gender": 2, "birthDate": "1990", "deathDate": "" }, "unions": [] }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "familyRecordName": "fam-root-single-parent",
+        "partner": null,
+        "children": [
+          { "person": { "recordName": "single-child", "fullName": "Single Parent Child", "gender": 2, "birthDate": "1970", "deathDate": "" }, "unions": [] }
+        ]
+      },
+      {
+        "familyRecordName": "fam-root-partner-repeat",
+        "partner": { "recordName": "partner", "fullName": "Partner Person", "gender": 1, "birthDate": "1942", "deathDate": "" },
+        "children": [
+          { "person": { "recordName": "repeat-child", "fullName": "Repeated Couple Child", "gender": 2, "birthDate": "1974", "deathDate": "" }, "unions": [] }
+        ]
+      }
+    ]
+  }
+}

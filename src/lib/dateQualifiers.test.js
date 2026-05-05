@@ -4,6 +4,9 @@ import {
   formatQualifiedDate,
   displayQualifiedDate,
   hasQualifier,
+  parseHistoricalDateParts,
+  parseHistoricalDateRange,
+  validateHistoricalDate,
   PREFIX,
   ERA,
 } from './dateQualifiers.js';
@@ -125,6 +128,41 @@ describe('dateQualifiers', () => {
       expect(hasQualifier('ABT 1820')).toBe(true);
       expect(hasQualifier('44 BC')).toBe(true);
       expect(hasQualifier('1820 (approx)')).toBe(true);
+    });
+  });
+
+  describe('historical calendar validation', () => {
+    it('parses common numeric and month-name dates', () => {
+      expect(parseHistoricalDateParts('1900-02-28')).toEqual({ year: 1900, month: 2, day: 28 });
+      expect(parseHistoricalDateParts('29 Feb 1904')).toEqual({ year: 1904, month: 2, day: 29 });
+      expect(parseHistoricalDateParts('February 29, 1904')).toEqual({ year: 1904, month: 2, day: 29 });
+    });
+
+    it('parses Gramps-style quarter and localized month names', () => {
+      expect(parseHistoricalDateRange('Q1 1900')).toEqual({
+        start: { year: 1900, month: 1, day: 1 },
+        end: { year: 1900, month: 3, day: 31 },
+        precision: 'quarter',
+      });
+      expect(parseHistoricalDateRange('q4 1904')?.end).toEqual({ year: 1904, month: 12, day: 31 });
+      expect(parseHistoricalDateParts('5 septembre 1789')).toEqual({ year: 1789, month: 9, day: 5 });
+      expect(parseHistoricalDateParts('5 сентяб 1789')).toEqual({ year: 1789, month: 9, day: 5 });
+      expect(parseHistoricalDateParts('Maj 5 1900')).toEqual({ year: 1900, month: 5, day: 5 });
+    });
+
+    it('validates Gregorian and Julian leap day differences', () => {
+      expect(validateHistoricalDate('1900-02-29', 'gregorian').valid).toBe(false);
+      expect(validateHistoricalDate('1900-02-29', 'julian').valid).toBe(true);
+    });
+
+    it('handles Swedish calendar exceptions', () => {
+      expect(validateHistoricalDate('1712-02-30', 'swedish').valid).toBe(true);
+      expect(validateHistoricalDate('1700-02-29', 'swedish').valid).toBe(false);
+    });
+
+    it('validates French Republican complementary days', () => {
+      expect(validateHistoricalDate({ year: 3, month: 13, day: 6 }, 'french').valid).toBe(true);
+      expect(validateHistoricalDate({ year: 3, month: 13, day: 7 }, 'french').valid).toBe(false);
     });
   });
 });

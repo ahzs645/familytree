@@ -30,13 +30,16 @@ export function buildPersonLineage(records = [], families = [], childRelations =
     const summary = personSummary(peopleById.get(personId));
     return summary?.firstName || String(summary?.fullName || '').trim().split(/\s+/)[0] || '';
   };
+  const gender = (personId) => personSummary(peopleById.get(personId))?.gender;
 
   const lineageById = new Map();
   for (const person of people) {
     const { fatherId, motherId } = parentIdsFor(person.recordName);
     const { fatherId: grandfatherId } = fatherId ? parentIdsFor(fatherId) : {};
+    const arabicPatrilinealName = buildArabicPatrilinealName(person.recordName, { firstName, gender, parentIdsFor });
     const parts = [
       fullName(person.recordName),
+      arabicPatrilinealName,
       firstName(fatherId),
       firstName(grandfatherId),
       firstName(motherId),
@@ -46,10 +49,35 @@ export function buildPersonLineage(records = [], families = [], childRelations =
       fatherId,
       motherId,
       grandfatherId: grandfatherId || null,
+      arabicPatrilinealName,
       lineageSearchText: parts.join(' '),
     });
   }
   return lineageById;
+}
+
+export function buildArabicPatrilinealName(personId, helpers = {}) {
+  const { firstName, gender, parentIdsFor, maxGenerations = 12 } = helpers;
+  if (!personId || typeof firstName !== 'function' || typeof parentIdsFor !== 'function') return '';
+  const ownName = firstName(personId);
+  if (!ownName) return '';
+
+  const parts = [ownName];
+  let currentId = personId;
+  const seen = new Set([personId]);
+  for (let depth = 0; depth < maxGenerations; depth += 1) {
+    const fatherId = parentIdsFor(currentId)?.fatherId;
+    if (!fatherId || seen.has(fatherId)) break;
+    seen.add(fatherId);
+    if (typeof gender === 'function' && gender(fatherId) != null && gender(fatherId) !== Gender.Male) break;
+    const fatherName = firstName(fatherId);
+    if (!fatherName) break;
+    const currentGender = typeof gender === 'function' ? gender(currentId) : null;
+    const relationWord = currentGender === Gender.Female ? 'بنت' : 'بن';
+    parts.push(`${relationWord} ${fatherName}`);
+    currentId = fatherId;
+  }
+  return parts.length > 1 ? parts.join(' ') : '';
 }
 
 export function attachLineageToPersonSummaries(persons = [], lineageById = new Map()) {

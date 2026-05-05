@@ -30,6 +30,7 @@ export function useObjectDeepLink() {
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
+    if (location.pathname === '/charts' || location.pathname === '/view') return;
     const hit = resolveDeepLinkFromLocation(location.search);
     if (!hit) return;
     let cancelled = false;

@@ -177,9 +177,18 @@ export function relationshipLabel(steps, localization = getCurrentLocalization()
   if (ups === 0 && downs === 2) return 'Grandchild';
   if (ups === 2 && downs === 1) return 'Aunt/Uncle';
   if (ups === 1 && downs === 2) return 'Niece/Nephew';
-  if (ups === 2 && downs === 2) return '1st Cousin';
-  if (ups >= 3 && downs >= 3 && ups === downs) return `${ordinal(ups - 1)} Cousin`;
+  if (ups >= 2 && downs >= 2) return englishCousinLabel(ups, downs);
   return `Relative (${ups}↑ / ${downs}↓${spouses ? ` / ${spouses} spouse` : ''})`;
+}
+
+function englishCousinLabel(ups, downs) {
+  const degree = Math.min(ups, downs) - 1;
+  const removed = Math.abs(ups - downs);
+  const base = `${ordinal(degree)} Cousin`;
+  if (!removed) return base;
+  if (removed === 1) return `${base} Once Removed`;
+  if (removed === 2) return `${base} Twice Removed`;
+  return `${base} ${removed} Times Removed`;
 }
 
 function vietnameseRelationshipLabel(steps) {

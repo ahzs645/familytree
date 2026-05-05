@@ -7,7 +7,7 @@ import { getLocalDatabase } from './LocalDatabase.js';
 import { isPublicRecord } from './privacy.js';
 import { refToRecordName } from './recordRef.js';
 import { readField } from './schema.js';
-import { personSummary } from '../models/index.js';
+import { familySummary, personSummary } from '../models/index.js';
 import { attachLineageToPersonSummaries, buildPersonLineage } from './personLineage.js';
 
 /**
@@ -80,6 +80,8 @@ export async function buildDescendantTree(rootRecordName, maxGenerations = 4) {
       if (!isPublicRecord(fam.family)) continue;
       const union = {
         familyRecordName: fam.family.recordName,
+        family: familySummary(fam.family),
+        marriageDate: familySummary(fam.family)?.marriageDate || null,
         partner: isPublicRecord(fam.partner) ? personSummary(fam.partner) : null,
         children: [],
       };
@@ -332,4 +334,75 @@ export async function findStartPerson() {
   const visible = records.filter(isPublicRecord);
   const start = visible.find((r) => r.fields?.isStartPerson?.value);
   return personSummary(start || visible[0] || null);
+}
+
+/**
+ * Pick the root that best matches SunTree's original behavior: the oldest
+ * ancestor/root person with the largest descendant tree.
+ */
+export async function findLargestDescendantRoot() {
+  const db = getLocalDatabase();
+  const [{ records: personRecords }, { records: familyRecords }, { records: childRelationRecords }] = await Promise.all([
+    db.query('Person', { limit: 100000 }),
+    db.query('Family', { limit: 100000 }),
+    db.query('ChildRelation', { limit: 100000 }),
+  ]);
+  const people = personRecords.filter(isPublicRecord);
+  if (!people.length) return null;
+
+  const publicPersonIds = new Set(people.map((person) => person.recordName));
+  const familyById = new Map(familyRecords.filter(isPublicRecord).map((family) => [family.recordName, family]));
+  const parentFamiliesByChild = new Map();
+  const childFamiliesByParent = new Map();
+
+  for (const family of familyById.values()) {
+    const manId = refToRecordName(family.fields?.man?.value);
+    const womanId = refToRecordName(family.fields?.woman?.value);
+    for (const parentId of [manId, womanId]) {
+      if (!parentId || !publicPersonIds.has(parentId)) continue;
+      if (!childFamiliesByParent.has(parentId)) childFamiliesByParent.set(parentId, []);
+      childFamiliesByParent.get(parentId).push(family.recordName);
+    }
+  }
+
+  const childrenByFamily = new Map();
+  for (const relation of childRelationRecords) {
+    const familyId = refToRecordName(relation.fields?.family?.value);
+    const childId = refToRecordName(relation.fields?.child?.value);
+    if (!familyId || !childId || !familyById.has(familyId) || !publicPersonIds.has(childId)) continue;
+    if (!childrenByFamily.has(familyId)) childrenByFamily.set(familyId, []);
+    childrenByFamily.get(familyId).push(childId);
+    if (!parentFamiliesByChild.has(childId)) parentFamiliesByChild.set(childId, []);
+    parentFamiliesByChild.get(childId).push(familyId);
+  }
+
+  const rootCandidates = people.filter((person) => !(parentFamiliesByChild.get(person.recordName) || []).length);
+  const candidates = rootCandidates.length ? rootCandidates : people;
+  const scoreCache = new Map();
+
+  function descendantCount(personId, seen = new Set()) {
+    if (!personId || seen.has(personId)) return 0;
+    if (scoreCache.has(personId)) return scoreCache.get(personId);
+    seen.add(personId);
+    let total = 1;
+    for (const familyId of childFamiliesByParent.get(personId) || []) {
+      for (const childId of childrenByFamily.get(familyId) || []) {
+        total += descendantCount(childId, seen);
+      }
+    }
+    seen.delete(personId);
+    scoreCache.set(personId, total);
+    return total;
+  }
+
+  let best = candidates[0];
+  let bestScore = descendantCount(best.recordName);
+  for (const candidate of candidates.slice(1)) {
+    const score = descendantCount(candidate.recordName);
+    if (score > bestScore) {
+      best = candidate;
+      bestScore = score;
+    }
+  }
+  return personSummary(best);
 }

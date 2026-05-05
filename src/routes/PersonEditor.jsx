@@ -22,7 +22,7 @@ import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { readConclusionType, readRef } from '../lib/schema.js';
-import { Gender, lifeSpanLabel } from '../models/index.js';
+import { Gender, lifeSpanLabel, personSummary } from '../models/index.js';
 import { buildPersonContext } from '../lib/personContext.js';
 import {
   ADDITIONAL_NAME_TYPES,
@@ -45,6 +45,7 @@ import { listAllPersons } from '../lib/treeQuery.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { linkExistingRelative } from '../lib/relativeLinks.js';
 import { evidenceStateForRecord, loadResearchCompleteness } from '../lib/researchCompleteness.js';
+import { MILK_KINSHIP_RECORD_TYPE, milkKinshipSummary, roleForMilkKinship } from '../lib/milkKinship.js';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -65,6 +66,8 @@ const ACCENTS = {
   events: 'rgb(0 217 115)',
   media: 'rgb(77 128 230)',
   facts: 'rgb(217 0 115)',
+  milk: 'rgb(20 184 166)',
+  grave: 'rgb(107 114 128)',
   notes: 'rgb(217 217 0)',
   sources: 'rgb(51 0 255)',
   influential: 'rgb(0 77 179)',
@@ -72,6 +75,7 @@ const ACCENTS = {
   ref: 'rgb(128 217 77)',
   bookmarks: 'rgb(128 51 255)',
   private: 'rgb(255 0 0)',
+  outside: 'rgb(168 85 247)',
   edited: 'rgb(191 128 64)',
   partners: 'rgb(230 128 128)',
 };
@@ -130,6 +134,8 @@ export default function PersonEditor() {
   const [additionalNames, setAdditionalNames] = useState([]);
   const [events, setEvents] = useState([]);
   const [facts, setFacts] = useState([]);
+  const [grave, setGrave] = useState({ cemetery: '', cemeteryLocation: '', graveNumber: '' });
+  const [milkKinships, setMilkKinships] = useState([]);
   const [notes, setNotes] = useState([]);
   const [associates, setAssociates] = useState([]);
   const [related, setRelated] = useState({ media: [], sources: [], todos: [], stories: [], groups: [] });
@@ -142,6 +148,7 @@ export default function PersonEditor() {
   const [bookmarked, setBookmarked] = useState(false);
   const [isStartPerson, setIsStartPerson] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [outsideFamily, setOutsideFamily] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [notFound, setNotFound] = useState(false);
@@ -159,12 +166,18 @@ export default function PersonEditor() {
     setBookmarked(!!r.fields?.isBookmarked?.value);
     setIsStartPerson(!!r.fields?.isStartPerson?.value);
     setIsPrivate(!!r.fields?.isPrivate?.value);
+    setOutsideFamily(!!r.fields?.fromOutsideFamily?.value);
+    setGrave({
+      cemetery: r.fields?.cemetery?.value || '',
+      cemeteryLocation: r.fields?.cemeteryLocation?.value || '',
+      graveNumber: r.fields?.graveNumber?.value || '',
+    });
 
     const refs = {};
     for (const f of REFERENCE_NUMBER_FIELDS) refs[f.id] = r.fields?.[f.id]?.value ?? '';
     setRefNumbers(refs);
 
-    const [an, fact, note, lbl, ev, ar, analysis] = await Promise.all([
+    const [an, fact, note, lbl, ev, ar, analysis, allPersonRows] = await Promise.all([
       db.query('AdditionalName', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('PersonFact', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('Note', { referenceField: 'person', referenceValue: id, limit: 500 }),
@@ -172,6 +185,7 @@ export default function PersonEditor() {
       db.query('PersonEvent', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('AssociateRelation', { referenceField: 'sourcePerson', referenceValue: id, limit: 500 }),
       loadResearchCompleteness(),
+      db.query('Person', { limit: 100000 }),
     ]);
     const personEvidence = analysis.rowsByPerson.get(id);
     setEvidence({
@@ -179,6 +193,15 @@ export default function PersonEditor() {
       byRecord: new Map([...ev.records, ...fact.records].map((item) => [item.recordName, evidenceStateForRecord(item.recordName, analysis)])),
     });
     setAllPersons(await listAllPersons({ includePrivate: true }));
+    const personById = new Map(allPersonRows.records.map((person) => [person.recordName, personSummary(person)]));
+    const milkRows = await queryMilkKinshipsForPerson(db, id);
+    setMilkKinships(milkRows.map((milk) => {
+      const summary = milkKinshipSummary(milk, personById);
+      return {
+        ...summary,
+        role: roleForMilkKinship(summary, id),
+      };
+    }));
 
     setAdditionalNames(an.records.map((a) => ({
       recordName: a.recordName,
@@ -269,6 +292,10 @@ export default function PersonEditor() {
     next.fields.isBookmarked = { value: !!bookmarked, type: 'BOOLEAN' };
     next.fields.isStartPerson = { value: !!isStartPerson, type: 'BOOLEAN' };
     next.fields.isPrivate = { value: !!isPrivate, type: 'BOOLEAN' };
+    next.fields.fromOutsideFamily = { value: !!outsideFamily, type: 'BOOLEAN' };
+    writeOptionalStringField(next, 'cemetery', grave.cemetery);
+    writeOptionalStringField(next, 'cemeteryLocation', grave.cemeteryLocation);
+    writeOptionalStringField(next, 'graveNumber', grave.graveNumber);
     for (const f of REFERENCE_NUMBER_FIELDS) {
       const v = refNumbers[f.id];
       if (v == null || v === '') delete next.fields[f.id];
@@ -291,6 +318,8 @@ export default function PersonEditor() {
     await reconcileSubRecords(db, id, 'Note', 'person', notes, (item) => ({
       text: { value: item.text || '', type: 'STRING' },
     }), (item) => !!item.text);
+
+    await reconcileMilkKinships(db, id, milkKinships);
 
     // ── Labels — LabelRelation rows keyed by label id (1:1 per person/label)
     const existingLbl = (await db.query('LabelRelation', { referenceField: 'targetPerson', referenceValue: id, limit: 500 })).records;
@@ -319,7 +348,7 @@ export default function PersonEditor() {
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
-  }, [record, values, refNumbers, bookmarked, isStartPerson, isPrivate, additionalNames, facts, notes, labels, id, reload]);
+  }, [record, values, refNumbers, bookmarked, isStartPerson, isPrivate, outsideFamily, grave, additionalNames, facts, notes, milkKinships, labels, id, reload]);
 
   if (notFound) return <div className="p-10 text-muted-foreground">Person not found.</div>;
   if (!record) return <div className="p-10 text-muted-foreground">Loading…</div>;
@@ -527,6 +556,42 @@ export default function PersonEditor() {
                 })}
               </Section>
 
+              <Section title="Milk Kinship / الرضاعة" accent={ACCENTS.milk}
+                controls={<button type="button" onClick={() => setMilkKinships((rows) => [...rows, emptyMilkKinship(id)])}
+                  className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Add Milk Kinship</button>}
+              >
+                {milkKinships.length === 0 ? (
+                  <Empty title="No milk kinship recorded" hint="Record nursing mother, milk father, and child without changing biological parent links." />
+                ) : (
+                  <div className="space-y-3">
+                    {milkKinships.map((it, i) => (
+                      <MilkKinshipEditor
+                        key={it.recordName || i}
+                        item={it}
+                        persons={allPersons}
+                        currentPersonId={id}
+                        onChange={(nextItem) => setMilkKinships((rows) => rows.map((row, j) => j === i ? nextItem : row))}
+                        onRemove={() => setMilkKinships((rows) => rows.filter((_, j) => j !== i))}
+                      />
+                    ))}
+                  </div>
+                )}
+              </Section>
+
+              <Section title="Grave & Cemetery" accent={ACCENTS.grave}>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <Field label="Cemetery">
+                    <input value={grave.cemetery} onChange={(event) => setGrave((g) => ({ ...g, cemetery: event.target.value }))} className={inputClass()} />
+                  </Field>
+                  <Field label="Cemetery location / map link">
+                    <input value={grave.cemeteryLocation} onChange={(event) => setGrave((g) => ({ ...g, cemeteryLocation: event.target.value }))} className={inputClass()} />
+                  </Field>
+                  <Field label="Grave number">
+                    <input value={grave.graveNumber} onChange={(event) => setGrave((g) => ({ ...g, graveNumber: event.target.value }))} className={inputClass()} />
+                  </Field>
+                </div>
+              </Section>
+
               <Section
                 title="Notes"
                 accent={ACCENTS.notes}
@@ -603,6 +668,11 @@ export default function PersonEditor() {
               <Section title="Private" accent={ACCENTS.private}>
                 <EditSwitch label="Marked as Private" checked={isPrivate} onChange={setIsPrivate} />
                 <p className="text-[11px] text-muted-foreground mt-2">If selected, this person won't appear in charts or reports.</p>
+              </Section>
+
+              <Section title="Family Scope" accent={ACCENTS.outside}>
+                <EditSwitch label="Outside main family" checked={outsideFamily} onChange={setOutsideFamily} />
+                <p className="text-[11px] text-muted-foreground mt-2">Use for spouses, milk relatives, friends, and invitees who should remain searchable without being treated as a core descendant branch.</p>
               </Section>
 
               <Section title="Last Edited" accent={ACCENTS.edited}>
@@ -693,6 +763,146 @@ function RelatedList({ items, emptyTitle, emptyHint }) {
       ))}
     </div>
   );
+}
+
+function emptyMilkKinship(currentPersonId) {
+  return {
+    role: 'child',
+    childId: currentPersonId,
+    nursingMotherId: '',
+    milkFatherId: '',
+    startDate: '',
+    endDate: '',
+    notes: '',
+    isActive: true,
+  };
+}
+
+function MilkKinshipEditor({ item, persons, currentPersonId, onChange, onRemove }) {
+  const updateRole = (role) => {
+    const next = { ...item, role };
+    if (item.role === 'child' && next.childId === currentPersonId) next.childId = '';
+    if (item.role === 'nursingMother' && next.nursingMotherId === currentPersonId) next.nursingMotherId = '';
+    if (item.role === 'milkFather' && next.milkFatherId === currentPersonId) next.milkFatherId = '';
+    if (role === 'child') next.childId = currentPersonId;
+    if (role === 'nursingMother') next.nursingMotherId = currentPersonId;
+    if (role === 'milkFather') next.milkFatherId = currentPersonId;
+    onChange(next);
+  };
+  const role = item.role || 'child';
+  const showMother = role !== 'nursingMother';
+  const showFather = role !== 'milkFather';
+  const showChild = role !== 'child';
+  return (
+    <div className="rounded-md border border-border bg-secondary/20 p-3">
+      <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_auto] gap-2 items-end">
+        <Field label="This person is">
+          <select value={role} onChange={(event) => updateRole(event.target.value)} className={inputClass()}>
+            <option value="child">Breastfed child</option>
+            <option value="nursingMother">Nursing mother</option>
+            <option value="milkFather">Milk father</option>
+          </select>
+        </Field>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {showMother ? (
+            <Field label="Nursing mother">
+              <PersonPicker persons={persons.filter((p) => p.recordName !== currentPersonId)} value={item.nursingMotherId || ''} onChange={(value) => onChange({ ...item, nursingMotherId: value })} />
+            </Field>
+          ) : null}
+          {showFather ? (
+            <Field label="Milk father">
+              <PersonPicker persons={persons.filter((p) => p.recordName !== currentPersonId)} value={item.milkFatherId || ''} onChange={(value) => onChange({ ...item, milkFatherId: value })} />
+            </Field>
+          ) : null}
+          {showChild ? (
+            <Field label="Breastfed child">
+              <PersonPicker persons={persons.filter((p) => p.recordName !== currentPersonId)} value={item.childId || ''} onChange={(value) => onChange({ ...item, childId: value })} />
+            </Field>
+          ) : null}
+        </div>
+        <RemoveBtn onClick={onRemove} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_120px] gap-2 mt-3">
+        <Field label="Start date">
+          <input value={item.startDate || ''} onChange={(event) => onChange({ ...item, startDate: event.target.value })} className={inputClass()} />
+        </Field>
+        <Field label="End date">
+          <input value={item.endDate || ''} onChange={(event) => onChange({ ...item, endDate: event.target.value })} className={inputClass()} />
+        </Field>
+        <Field label="Active">
+          <select value={item.isActive === false ? 'no' : 'yes'} onChange={(event) => onChange({ ...item, isActive: event.target.value === 'yes' })} className={inputClass()}>
+            <option value="yes">Active</option>
+            <option value="no">Inactive</option>
+          </select>
+        </Field>
+      </div>
+      <div className="mt-3">
+        <Field label="Notes">
+          <textarea value={item.notes || ''} onChange={(event) => onChange({ ...item, notes: event.target.value })} rows={2} className={inputClass() + ' resize-y'} />
+        </Field>
+      </div>
+    </div>
+  );
+}
+
+async function queryMilkKinshipsForPerson(db, personId) {
+  const rows = await Promise.all([
+    db.query(MILK_KINSHIP_RECORD_TYPE, { referenceField: 'child', referenceValue: personId, limit: 1000 }),
+    db.query(MILK_KINSHIP_RECORD_TYPE, { referenceField: 'nursingMother', referenceValue: personId, limit: 1000 }),
+    db.query(MILK_KINSHIP_RECORD_TYPE, { referenceField: 'milkFather', referenceValue: personId, limit: 1000 }),
+  ]);
+  const byId = new Map();
+  for (const row of rows) {
+    for (const record of row.records) byId.set(record.recordName, record);
+  }
+  return [...byId.values()];
+}
+
+function milkKinshipFields(item, currentPersonId) {
+  const role = item.role || 'child';
+  const childId = role === 'child' ? currentPersonId : item.childId;
+  const nursingMotherId = role === 'nursingMother' ? currentPersonId : item.nursingMotherId;
+  const milkFatherId = role === 'milkFather' ? currentPersonId : item.milkFatherId;
+  const fields = {};
+  if (childId) fields.child = { value: refValue(childId, 'Person'), type: 'REFERENCE' };
+  if (nursingMotherId) fields.nursingMother = { value: refValue(nursingMotherId, 'Person'), type: 'REFERENCE' };
+  if (milkFatherId) fields.milkFather = { value: refValue(milkFatherId, 'Person'), type: 'REFERENCE' };
+  fields.isActive = { value: item.isActive !== false, type: 'BOOLEAN' };
+  if (item.startDate) fields.startDate = { value: item.startDate, type: 'STRING' };
+  if (item.endDate) fields.endDate = { value: item.endDate, type: 'STRING' };
+  if (item.notes) fields.notes = { value: item.notes, type: 'STRING' };
+  return fields;
+}
+
+async function reconcileMilkKinships(db, currentPersonId, items) {
+  const existing = await queryMilkKinshipsForPerson(db, currentPersonId);
+  const keep = new Set();
+  for (const item of items) {
+    const fields = milkKinshipFields(item, currentPersonId);
+    if (!fields.child || !fields.nursingMother) continue;
+    if (item.recordName) {
+      keep.add(item.recordName);
+      const prev = existing.find((record) => record.recordName === item.recordName);
+      if (prev) await saveWithChangeLog({ ...prev, fields });
+    } else {
+      const rec = { recordName: uuid('milk'), recordType: MILK_KINSHIP_RECORD_TYPE, fields };
+      await db.saveRecord(rec);
+      await logRecordCreated(rec);
+      keep.add(rec.recordName);
+    }
+  }
+  for (const prev of existing) {
+    if (!keep.has(prev.recordName)) {
+      await db.deleteRecord(prev.recordName);
+      await logRecordDeleted(prev.recordName, MILK_KINSHIP_RECORD_TYPE);
+    }
+  }
+}
+
+function writeOptionalStringField(record, fieldName, value) {
+  const clean = String(value || '').trim();
+  if (clean) record.fields[fieldName] = { value: clean, type: 'STRING' };
+  else delete record.fields[fieldName];
 }
 
 /**

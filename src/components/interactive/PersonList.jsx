@@ -97,6 +97,14 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                         {lifeSpanLabel(p)}
                       </div>
                     ) : null}
+                    {showColumn('arabicPatrilinealName') && p.arabicPatrilinealName ? (
+                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, direction: 'rtl', textAlign: 'start' }}>
+                        <BdiText>{p.arabicPatrilinealName}</BdiText>
+                      </div>
+                    ) : null}
+                    {showColumn('outsideFamily') && p.outsideFamily ? (
+                      <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>Outside main family</div>
+                    ) : null}
                     {showColumn('bookmarked') && p.bookmarked ? (
                       <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>★ {t('persons.bookmarked')}</div>
                     ) : null}

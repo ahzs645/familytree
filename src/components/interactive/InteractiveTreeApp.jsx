@@ -10,23 +10,27 @@ import {
   buildAncestorTree,
   buildDescendantTree,
   buildInteractiveFamilyGraph,
+  findLargestDescendantRoot,
 } from '../../lib/treeQuery.js';
-import { buildPersonContext } from '../../lib/personContext.js';
+import { buildFamilyTreeViewModel, buildPersonContext } from '../../lib/personContext.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { PersonList } from './PersonList.jsx';
 import { PersonFocus } from './PersonFocus.jsx';
 import { ThreeDTreeView } from './ThreeDTreeView.jsx';
+import { SunTreeView } from './SunTreeView.jsx';
+import { TraumatreeCanvasView } from './TraumatreeCanvasView.jsx';
+import { FamilyTreeView } from './FamilyTreeView.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
 
 export function InteractiveTreeApp() {
   const [persons, setPersons] = useState([]);
   const [context, setContext] = useState(null);
-  const [trees, setTrees] = useState({ ancestor: null, descendant: null, graph: null, loading: false });
-  const [viewMode, setViewMode] = useState('three');
+  const [trees, setTrees] = useState({ ancestor: null, descendant: null, graph: null, familyTree: null, loading: false });
+  const [viewMode, setViewMode] = useState('sun');
   const [loading, setLoading] = useState(true);
   const [empty, setEmpty] = useState(false);
-  const [mobilePane, setMobilePane] = useState('list');
+  const [mobilePane, setMobilePane] = useState('focus');
   const [treeChrome, setTreeChrome] = useState({ navigation: true, people: false, inspector: false, header: true });
   const isMobile = useIsMobile();
   const { recordName: activeId, setActivePerson } = useActivePerson();
@@ -41,10 +45,8 @@ export function InteractiveTreeApp() {
         setLoading(false);
         return;
       }
-      if (!activeId || !list.some((p) => p.recordName === activeId)) {
-        const start = await findStartPerson();
-        setActivePerson(start?.recordName || list[0].recordName);
-      }
+      const start = await findLargestDescendantRoot() || await findStartPerson();
+      setActivePerson(start?.recordName || list[0].recordName);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -55,21 +57,22 @@ export function InteractiveTreeApp() {
     let cancelled = false;
     (async () => {
       setTrees((current) => ({ ...current, loading: true }));
-      const [ctx, ancestor, descendant, graph] = await Promise.all([
+      const [ctx, ancestor, descendant, graph, familyTree] = await Promise.all([
         buildPersonContext(activeId),
         buildAncestorTree(activeId, 4),
-        buildDescendantTree(activeId, 4),
+        buildDescendantTree(activeId, viewMode === 'sun' ? 9 : 4),
         buildInteractiveFamilyGraph(activeId, { maxAncestorGenerations: 4, maxDescendantGenerations: 1 }),
+        buildFamilyTreeViewModel(activeId),
       ]);
       if (!cancelled) {
         setContext(ctx);
-        setTrees({ ancestor, descendant, graph, loading: false });
+        setTrees({ ancestor, descendant, graph, familyTree, loading: false });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [activeId]);
+  }, [activeId, viewMode]);
 
   useEffect(() => () => {
     window.dispatchEvent(new CustomEvent('cloudtreeweb:navigation-visibility', { detail: { hidden: false } }));
@@ -162,6 +165,30 @@ export function InteractiveTreeApp() {
               </button>
               <button
                 type="button"
+                onClick={() => setViewMode('sun')}
+                style={segment(viewMode === 'sun')}
+                aria-selected={viewMode === 'sun'}
+              >
+                Sun
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('family')}
+                style={segment(viewMode === 'family')}
+                aria-selected={viewMode === 'family'}
+              >
+                Family
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('canvas')}
+                style={segment(viewMode === 'canvas')}
+                aria-selected={viewMode === 'canvas'}
+              >
+                Canvas
+              </button>
+              <button
+                type="button"
                 onClick={() => setViewMode('details')}
                 style={segment(viewMode === 'details')}
                 aria-selected={viewMode === 'details'}
@@ -203,6 +230,32 @@ export function InteractiveTreeApp() {
                   />
                 )}
               </div>
+            ) : viewMode === 'sun' ? (
+              <SunTreeView
+                descendantTree={trees.descendant}
+                activeId={activeId}
+                loading={trees.loading}
+                onPick={onPick}
+                onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+              />
+            ) : viewMode === 'family' ? (
+              <FamilyTreeView
+                model={trees.familyTree}
+                activeId={activeId}
+                loading={trees.loading}
+                onPick={onPick}
+                onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+                onOpenFamily={(recordName) => navigate(`/family/${recordName}`)}
+              />
+            ) : viewMode === 'canvas' ? (
+              <TraumatreeCanvasView
+                graph={trees.graph}
+                activeId={activeId}
+                loading={trees.loading}
+                onPick={onPick}
+                onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+                onOpenFamily={(recordName) => navigate(`/family/${recordName}`)}
+              />
             ) : (
               <PersonFocus
                 context={context}

@@ -74,6 +74,10 @@ export async function loadPersonRows() {
         deathYear: yearOf(summary.deathDate),
         bookmarked: !!record.fields?.isBookmarked?.value,
         private: !!record.fields?.isPrivate?.value,
+        outsideFamily: !!record.fields?.fromOutsideFamily?.value,
+        cemetery: record.fields?.cemetery?.value || '',
+        cemeteryLocation: record.fields?.cemeteryLocation?.value || '',
+        graveNumber: record.fields?.graveNumber?.value || '',
         startPerson: !!record.fields?.isStartPerson?.value,
         hasPhoto: !!(record.fields?.thumbnailFileIdentifier?.value || record.fields?.picture?.value),
       };
@@ -185,6 +189,7 @@ export async function loadListCounts() {
     plausibility: warnings.length,
     anniversary: anniversaries.length,
     facts: types.PersonFact || 0,
+    milkKinship: types.MilkKinship || 0,
     marriage: types.Family || 0,
   };
 }

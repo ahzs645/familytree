@@ -15,6 +15,7 @@ import {
 } from '../lib/i18n.js';
 import { getMapPreferences, saveMapPreferences } from '../lib/placeGeocoding.js';
 import { NAME_FORMAT_OPTIONS, formatName } from '../lib/nameFormat.js';
+import { VITAL_MARKER_STYLE_OPTIONS } from '../lib/vitalFormat.js';
 import { PLAUSIBILITY_ANALYZERS } from '../lib/plausibility.js';
 import { GEDCOM_ENCODINGS } from '../lib/genealogyFileFormats.js';
 import { useModal } from '../contexts/ModalContext.jsx';
@@ -22,6 +23,8 @@ import { useModal } from '../contexts/ModalContext.jsx';
 const tabs = [
   { id: 'general', label: 'General' },
   { id: 'formats', label: 'Formats' },
+  { id: 'arabic-islamic', label: 'Arabic / Islamic' },
+  { id: 'tree-layout', label: 'Tree Layout' },
   { id: 'maps', label: 'Maps' },
   { id: 'media', label: 'Media' },
   { id: 'pdf', label: 'PDF' },
@@ -204,6 +207,21 @@ export default function Settings() {
               <Field label="Readable Date Formats">
                 <textarea value={prefs.formats.readableDateFormats} onChange={(event) => update('formats', 'readableDateFormats', event.target.value)} rows={5} className={inputClass} />
               </Field>
+              <Switch
+                label="Accept Year-only Dates"
+                checked={prefs.formats.partialDateEntry?.allowYearOnly !== false}
+                onChange={(value) => update('formats', 'partialDateEntry', { ...(prefs.formats.partialDateEntry || {}), allowYearOnly: value })}
+              />
+              <Switch
+                label="Accept Year-Month Dates"
+                checked={prefs.formats.partialDateEntry?.allowYearMonth !== false}
+                onChange={(value) => update('formats', 'partialDateEntry', { ...(prefs.formats.partialDateEntry || {}), allowYearMonth: value })}
+              />
+              <Switch
+                label="Accept Calendar Prefixes"
+                checked={prefs.formats.partialDateEntry?.allowCalendarPrefixes !== false}
+                onChange={(value) => update('formats', 'partialDateEntry', { ...(prefs.formats.partialDateEntry || {}), allowCalendarPrefixes: value })}
+              />
               <Field label="Language">
                 <select value={prefs.localization?.locale || 'en'} onChange={(event) => update('localization', 'locale', event.target.value)} className={inputClass}>
                   {SUPPORTED_LOCALES.map((locale) => (
@@ -227,6 +245,60 @@ export default function Settings() {
                 </select>
               </Field>
             </Grid>
+          </Panel>
+        )}
+
+        {activeTab === 'arabic-islamic' && (
+          <Panel title="Arabic and Islamic Display">
+            <Grid>
+              <Field label="Vital Marker Style" hint="Controls shared person lifespan text in person cards, charts, reports, and website exports.">
+                <select
+                  value={prefs.formats.vitalDisplay?.markerStyle || 'range'}
+                  onChange={(event) => update('formats', 'vitalDisplay', { ...(prefs.formats.vitalDisplay || {}), markerStyle: event.target.value })}
+                  className={inputClass}
+                >
+                  {VITAL_MARKER_STYLE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <div className="mt-1 text-[11px] text-muted-foreground">
+                  Preview: <span className="font-mono text-foreground">{vitalPreview(prefs.formats.vitalDisplay?.markerStyle)}</span>
+                </div>
+              </Field>
+              <Switch
+                label="Prefer Arabic Catalog Labels"
+                checked={!!prefs.arabicIslamic?.preferArabicCatalogLabels}
+                onChange={(value) => update('arabicIslamic', 'preferArabicCatalogLabels', value)}
+              />
+            </Grid>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Arabic catalog labels cover common genealogy types such as Tribe, Clan, Religious Name, Marriage Contract, Circumcision, Burial, and Funeral.
+            </p>
+          </Panel>
+        )}
+
+        {activeTab === 'tree-layout' && (
+          <Panel title="Tree layout safeguards">
+            <Grid>
+              <Switch
+                label="Athara-style Couple Safeguards"
+                checked={prefs.treeLayout?.atharaCoupleSafeguards !== false}
+                onChange={(value) => update('treeLayout', 'atharaCoupleSafeguards', value)}
+              />
+              <Switch
+                label="Cycle Protection"
+                checked={prefs.treeLayout?.cycleProtection !== false}
+                onChange={(value) => update('treeLayout', 'cycleProtection', value)}
+              />
+              <Switch
+                label="Single-parent Couple Fallback"
+                checked={prefs.treeLayout?.singleParentCoupleFallback !== false}
+                onChange={(value) => update('treeLayout', 'singleParentCoupleFallback', value)}
+              />
+            </Grid>
+            <p className="mt-3 text-xs text-muted-foreground">
+              These preferences track the Athara-inspired cases: couple virtual nodes, multi-generation spouse placement, in-law positioning, single-parent children, and relationship cycle protection.
+            </p>
           </Panel>
         )}
 
@@ -619,6 +691,12 @@ function NameFormatPreview({ preset }) {
   );
 }
 
+function vitalPreview(markerStyle = 'range') {
+  if (markerStyle === 'symbols') return '* 1901  ◆ 1989';
+  if (markerStyle === 'arabic-labels') return 'ميلاد 1901  وفاة 1989';
+  return '1901 – 1989';
+}
+
 function Panel({ title, children }) {
   return (
     <section className="rounded-lg border border-border bg-card p-5">
@@ -632,11 +710,12 @@ function Grid({ children }) {
   return <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{children}</div>;
 }
 
-function Field({ label, children }) {
+function Field({ label, children, hint }) {
   return (
     <label className="block">
       <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
       {children}
+      {hint && <span className="block text-[11px] text-muted-foreground mt-1">{hint}</span>}
     </label>
   );
 }

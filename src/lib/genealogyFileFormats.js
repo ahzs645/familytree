@@ -52,7 +52,7 @@ export const GEDCOM_ENCODINGS = [
 export function extractGedcomCharTag(bytes, limit = 4096) {
   try {
     const head = new TextDecoder('utf-8', { fatal: false }).decode(bytes.slice(0, limit));
-    const match = head.match(/(^|\n)\s*1\s+CHAR\s+([^\r\n]+)/i);
+    const match = head.match(/(^|\r\n|\r|\n)\s*1\s+CHAR\s+([^\r\n]+)/i);
     return match ? match[2].trim() : null;
   } catch {
     return null;

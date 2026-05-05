@@ -18,6 +18,12 @@ import {
   DEFAULT_MEDIA_SLIDESHOW_SETTINGS,
   normalizeMediaSlideshowSettings,
 } from './mediaPresentation.js';
+import {
+  DEFAULT_VITAL_DISPLAY,
+  normalizeVitalDisplay,
+  setActiveVitalDisplay,
+} from './vitalFormat.js';
+import { setCatalogLabelPreferences } from './catalogs.js';
 
 const META_KEY = 'appPreferences';
 export const APP_PREFERENCES_EVENT = 'cloudtreeweb:app-preferences-changed';
@@ -37,6 +43,20 @@ export const DEFAULT_APP_PREFERENCES = {
     nameSortFormat: DEFAULT_SORT_FORMAT,
     dateDisplayFormat: 'YYYY-MM-DD',
     readableDateFormats: 'YYYY-MM-DD\nDD MM YYYY\nMM/DD/YYYY',
+    partialDateEntry: {
+      allowYearOnly: true,
+      allowYearMonth: true,
+      allowCalendarPrefixes: true,
+    },
+    vitalDisplay: DEFAULT_VITAL_DISPLAY,
+  },
+  arabicIslamic: {
+    preferArabicCatalogLabels: false,
+  },
+  treeLayout: {
+    atharaCoupleSafeguards: true,
+    cycleProtection: true,
+    singleParentCoupleFallback: true,
   },
   localization: {
     ...DEFAULT_LOCALIZATION,
@@ -137,6 +157,10 @@ export async function getAppPreferences() {
     display: prefs.formats.nameDisplayFormat,
     sort: prefs.formats.nameSortFormat,
   });
+  setActiveVitalDisplay(prefs.formats.vitalDisplay);
+  setCatalogLabelPreferences({
+    preferArabicCatalogLabels: prefs.arabicIslamic.preferArabicCatalogLabels,
+  });
   return prefs;
 }
 
@@ -164,6 +188,12 @@ export function normalizePreferences(value = {}) {
   merged.functions.hidden = uniqueRoutes(merged.functions.hidden, []);
   merged.functions.emphasized = uniqueRoutes(merged.functions.emphasized, []);
   merged.localization = normalizeLocalization(merged.localization);
+  merged.formats.partialDateEntry = normalizePartialDateEntry(merged.formats.partialDateEntry);
+  merged.formats.vitalDisplay = normalizeVitalDisplay(merged.formats.vitalDisplay);
+  merged.arabicIslamic.preferArabicCatalogLabels = !!merged.arabicIslamic.preferArabicCatalogLabels;
+  merged.treeLayout.atharaCoupleSafeguards = merged.treeLayout.atharaCoupleSafeguards !== false;
+  merged.treeLayout.cycleProtection = merged.treeLayout.cycleProtection !== false;
+  merged.treeLayout.singleParentCoupleFallback = merged.treeLayout.singleParentCoupleFallback !== false;
   merged.pdf.margin = clampNumber(merged.pdf.margin, 12, 144, DEFAULT_APP_PREFERENCES.pdf.margin);
   merged.webSearch.openInNewTab = merged.webSearch.openInNewTab !== false;
   if (!isPlainObject(merged.media)) merged.media = { ...DEFAULT_APP_PREFERENCES.media };
@@ -206,6 +236,14 @@ function normalizeLocalization(value = {}) {
   };
 }
 
+function normalizePartialDateEntry(value = {}) {
+  return {
+    allowYearOnly: value.allowYearOnly !== false,
+    allowYearMonth: value.allowYearMonth !== false,
+    allowCalendarPrefixes: value.allowCalendarPrefixes !== false,
+  };
+}
+
 function deepMerge(base, override) {
   if (!isPlainObject(base)) return override === undefined ? base : override;
   const out = { ...base };
@@ -239,6 +277,10 @@ function announcePreferences(preferences) {
   setActiveNameFormats({
     display: preferences?.formats?.nameDisplayFormat,
     sort: preferences?.formats?.nameSortFormat,
+  });
+  setActiveVitalDisplay(preferences?.formats?.vitalDisplay);
+  setCatalogLabelPreferences({
+    preferArabicCatalogLabels: !!preferences?.arabicIslamic?.preferArabicCatalogLabels,
   });
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(APP_PREFERENCES_EVENT, { detail: preferences }));

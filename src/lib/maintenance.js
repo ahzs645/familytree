@@ -4,7 +4,9 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { saveWithChangeLog, logRecordDeleted } from './changeLog.js';
+import { refToRecordName } from './recordRef.js';
 import { Gender } from '../models/index.js';
+import { makeValidationIssue, compareIssues } from './validationIssues.js';
 
 function parseAnyDate(s) {
   if (!s) return null;
@@ -177,4 +179,257 @@ export async function mediaSizeReport() {
     }
   }
   return { count, totalBytes: total };
+}
+
+export function findAncestryLoops(records = []) {
+  const families = records.filter((record) => record.recordType === 'Family');
+  const childRelations = records.filter((record) => record.recordType === 'ChildRelation');
+  const childrenByParent = new Map();
+
+  const addEdge = (parentId, childId, familyId) => {
+    if (!parentId || !childId) return;
+    if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+    childrenByParent.get(parentId).push({ childId, familyId });
+  };
+
+  const familyById = new Map(families.map((family) => [family.recordName, family]));
+  for (const relation of childRelations) {
+    const familyId = refToRecordName(relation.fields?.family?.value);
+    const childId = refToRecordName(relation.fields?.child?.value);
+    const family = familyById.get(familyId);
+    addEdge(refToRecordName(family?.fields?.man?.value), childId, familyId);
+    addEdge(refToRecordName(family?.fields?.woman?.value), childId, familyId);
+  }
+
+  const loops = [];
+  const visiting = new Set();
+  const visited = new Set();
+
+  const walk = (personId, path = []) => {
+    if (visiting.has(personId)) {
+      const start = path.findIndex((step) => step.personId === personId);
+      loops.push({ personId, path: path.slice(Math.max(0, start)).map((step) => step.personId).concat(personId) });
+      return;
+    }
+    if (visited.has(personId)) return;
+    visiting.add(personId);
+    for (const edge of childrenByParent.get(personId) || []) {
+      walk(edge.childId, [...path, { personId, familyId: edge.familyId }]);
+    }
+    visiting.delete(personId);
+    visited.add(personId);
+  };
+
+  for (const personId of childrenByParent.keys()) walk(personId);
+  return dedupeLoops(loops);
+}
+
+export function findUnusedRecords(records = [], { keepTypes = ['Person'], ignoreTypes = ['ChangeLogEntry'] } = {}) {
+  const byId = new Map(records.map((record) => [record.recordName, record]));
+  const referenced = new Set();
+  for (const record of records) {
+    for (const field of Object.values(record.fields || {})) {
+      collectFieldRefs(field, referenced);
+    }
+  }
+  return records.filter((record) => (
+    !keepTypes.includes(record.recordType) &&
+    !ignoreTypes.includes(record.recordType) &&
+    !isConnectedRelationRecord(record) &&
+    !referenced.has(record.recordName) &&
+    byId.has(record.recordName)
+  ));
+}
+
+export function sortEventRecords(records = []) {
+  return [...records].sort((a, b) => {
+    const dateDiff = eventDateSortKey(a) - eventDateSortKey(b);
+    if (dateDiff) return dateDiff;
+    const orderDiff = Number(a.fields?.order?.value ?? 0) - Number(b.fields?.order?.value ?? 0);
+    if (orderDiff) return orderDiff;
+    return String(a.recordName).localeCompare(String(b.recordName));
+  });
+}
+
+export function findMaintenanceIssues(records = []) {
+  const issues = [
+    ...findBrokenParentRelationships(records),
+    ...findDuplicateSpouseLinks(records),
+    ...findEmptySourceAndCitationRecords(records),
+    ...findEventOrderIssues(records),
+    ...findInvalidVitalEventLinks(records),
+  ];
+  return issues.sort(compareIssues);
+}
+
+export function findBrokenParentRelationships(records = []) {
+  const byId = new Map(records.map((record) => [record.recordName, record]));
+  const issues = [];
+  for (const relation of records.filter((record) => record.recordType === 'ChildRelation')) {
+    const familyId = refToRecordName(relation.fields?.family?.value);
+    const childId = refToRecordName(relation.fields?.child?.value);
+    const family = byId.get(familyId);
+    const child = byId.get(childId);
+    if (!familyId || !family || family.recordType !== 'Family') {
+      issues.push(maintenanceIssue('broken-parent-relationship', 'error', relation, `Child relation ${relation.recordName} points to a missing family.`, [familyId]));
+    }
+    if (!childId || !child || child.recordType !== 'Person') {
+      issues.push(maintenanceIssue('broken-parent-relationship', 'error', relation, `Child relation ${relation.recordName} points to a missing child.`, [childId]));
+    }
+    if (family && !refToRecordName(family.fields?.man?.value) && !refToRecordName(family.fields?.woman?.value)) {
+      issues.push(maintenanceIssue('family-without-parents', 'warning', family, `Family ${family.recordName} has child links but no parents.`));
+    }
+  }
+  return issues;
+}
+
+export function findDuplicateSpouseLinks(records = []) {
+  const pairs = new Map();
+  const issues = [];
+  for (const family of records.filter((record) => record.recordType === 'Family')) {
+    const man = refToRecordName(family.fields?.man?.value) || '';
+    const woman = refToRecordName(family.fields?.woman?.value) || '';
+    if (!man && !woman) continue;
+    const key = [man, woman].sort().join('|');
+    const previous = pairs.get(key);
+    if (previous) {
+      issues.push(maintenanceIssue('duplicate-spouse-link', 'warning', family, `Family ${family.recordName} duplicates spouse pairing from ${previous.recordName}.`, [previous.recordName]));
+    } else {
+      pairs.set(key, family);
+    }
+  }
+  return issues;
+}
+
+export function findEmptySourceAndCitationRecords(records = []) {
+  return records
+    .filter((record) => ['Source', 'Citation', 'SourceRelation'].includes(record.recordType))
+    .filter((record) => isEffectivelyEmpty(record))
+    .map((record) => maintenanceIssue('empty-source-citation-record', 'warning', record, `${record.recordType} ${record.recordName} has no meaningful fields.`));
+}
+
+export function findEventOrderIssues(records = []) {
+  const out = [];
+  const eventsByOwner = new Map();
+  for (const event of records.filter((record) => record.recordType === 'PersonEvent' || record.recordType === 'FamilyEvent')) {
+    const owner = refToRecordName(event.fields?.person?.value) || refToRecordName(event.fields?.family?.value);
+    if (!owner) continue;
+    if (!eventsByOwner.has(owner)) eventsByOwner.set(owner, []);
+    eventsByOwner.get(owner).push(event);
+  }
+  for (const [owner, events] of eventsByOwner.entries()) {
+    const ordered = [...events].sort((a, b) => Number(a.fields?.order?.value ?? 0) - Number(b.fields?.order?.value ?? 0));
+    let previousKey = -Infinity;
+    for (const event of ordered) {
+      const key = eventDateSortKey(event);
+      if (!Number.isFinite(key)) continue;
+      if (key < previousKey) {
+        out.push(maintenanceIssue('events-out-of-order', 'warning', event, `Events for ${owner} are not in chronological order.`));
+        break;
+      }
+      previousKey = key;
+    }
+  }
+  return out;
+}
+
+export function findInvalidVitalEventLinks(records = []) {
+  const out = [];
+  for (const person of records.filter((record) => record.recordType === 'Person')) {
+    const birthId = refToRecordName(person.fields?.birthEvent?.value);
+    const deathId = refToRecordName(person.fields?.deathEvent?.value);
+    if (birthId) {
+      const event = records.find((record) => record.recordName === birthId);
+      if (!event || event.recordType !== 'PersonEvent' || !['Birth', 'Stillbirth'].includes(event.fields?.conclusionType?.value)) {
+        out.push(maintenanceIssue('invalid-birth-event-link', 'warning', person, `${person.recordName} has a birth event link that is missing or not a birth event.`, [birthId]));
+      }
+    }
+    if (deathId) {
+      const event = records.find((record) => record.recordName === deathId);
+      if (!event || event.recordType !== 'PersonEvent' || event.fields?.conclusionType?.value !== 'Death') {
+        out.push(maintenanceIssue('invalid-death-event-link', 'warning', person, `${person.recordName} has a death event link that is missing or not a death event.`, [deathId]));
+      }
+    }
+  }
+  return out;
+}
+
+export async function auditAncestryLoops() {
+  const db = getLocalDatabase();
+  return findAncestryLoops(await db.getAllRecords());
+}
+
+export async function auditMaintenanceIssues() {
+  const db = getLocalDatabase();
+  return findMaintenanceIssues(await db.getAllRecords());
+}
+
+export async function auditUnusedRecords(options) {
+  const db = getLocalDatabase();
+  return findUnusedRecords(await db.getAllRecords(), options);
+}
+
+function eventDateSortKey(record) {
+  const parsed = parseAnyDate(record?.fields?.date?.value || record?.fields?.cached_birthDate?.value || '');
+  if (!parsed) return Number.POSITIVE_INFINITY;
+  return (parsed.y * 10000) + ((parsed.m || 0) * 100) + (parsed.d || 0);
+}
+
+function maintenanceIssue(code, severity, record, message, refs = []) {
+  return makeValidationIssue({
+    scope: 'maintenance',
+    code,
+    severity,
+    recordName: record?.recordName || null,
+    recordType: record?.recordType || null,
+    refs,
+    message,
+  });
+}
+
+function isEffectivelyEmpty(record) {
+  const fields = record?.fields || {};
+  const entries = Object.entries(fields).filter(([key]) => !['gedcomXref', 'gedcomExtensions'].includes(key));
+  if (entries.length === 0) return true;
+  return entries.every(([, field]) => {
+    const value = Object.prototype.hasOwnProperty.call(field || {}, 'value') ? field.value : field;
+    if (value == null) return true;
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === 'string') return value.trim() === '';
+    return false;
+  });
+}
+
+function collectFieldRefs(field, out) {
+  if (!field) return;
+  const value = Object.prototype.hasOwnProperty.call(field, 'value') ? field.value : field;
+  if (typeof value === 'string') {
+    const ref = refToRecordName(value);
+    if (ref && value.includes('---')) out.add(ref);
+  } else if (Array.isArray(value)) {
+    for (const item of value) collectFieldRefs(item, out);
+  } else if (value && typeof value === 'object') {
+    const ref = refToRecordName(value);
+    if (ref) out.add(ref);
+    for (const item of Object.values(value)) collectFieldRefs(item, out);
+  }
+}
+
+function isConnectedRelationRecord(record) {
+  if (!/Relation$/.test(record?.recordType || '')) return false;
+  const refs = new Set();
+  for (const field of Object.values(record.fields || {})) collectFieldRefs(field, refs);
+  return refs.size > 0;
+}
+
+function dedupeLoops(loops) {
+  const seen = new Set();
+  const out = [];
+  for (const loop of loops) {
+    const key = [...new Set(loop.path)].sort().join('|');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(loop);
+  }
+  return out;
 }

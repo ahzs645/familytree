@@ -23,6 +23,52 @@ export const ADDITIONAL_NAME_TYPES = [
   { id: 'Title', label: 'Title' },
 ];
 
+const ARABIC_CATALOG_LABELS = {
+  AdoptiveName: 'اسم بالتبني',
+  ArtistsName: 'اسم فني',
+  FamilyName: 'اسم العائلة',
+  MaidenName: 'اسم الميلاد',
+  NameVariation: 'صيغة أخرى للاسم',
+  Nickname: 'اللقب',
+  ProfessionalName: 'الاسم المهني',
+  ReligiousName: 'الاسم الديني',
+  Title: 'اللقب الرسمي',
+  Birth: 'ميلاد',
+  Burial: 'دفن',
+  Death: 'وفاة',
+  Nationality: 'الجنسية',
+  Occupation: 'المهنة',
+  Residence: 'مكان الإقامة',
+  Religion: 'الدين',
+  Adoption: 'تبن',
+  Baptism: 'تعميد',
+  Christening: 'تعميد',
+  Circumcision: 'ختان',
+  Education: 'تعليم',
+  Funeral: 'جنازة',
+  Marriage: 'زواج',
+  Contract: 'عقد زواج',
+  Divorced: 'طلاق',
+  Engagement: 'خطوبة',
+  MarriageReligion: 'زواج ديني',
+  Separation: 'انفصال',
+  Clan: 'عشيرة',
+  CasteName: 'طبقة اجتماعية',
+  Race: 'الأصل العرقي',
+  NationalOrTribalOrigin: 'الأصل الوطني أو القبلي',
+  TribeName: 'قبيلة',
+};
+
+let catalogLabelPreferences = {
+  preferArabicCatalogLabels: false,
+};
+
+export function setCatalogLabelPreferences(value = {}) {
+  catalogLabelPreferences = {
+    preferArabicCatalogLabels: !!value.preferArabicCatalogLabels,
+  };
+}
+
 export const PERSON_EVENT_TYPES = [
   { id: 'Birth', label: 'Birth', common: true },
   { id: 'Burial', label: 'Burial', common: true },
@@ -42,8 +88,11 @@ export const PERSON_EVENT_TYPES = [
   { id: 'Christening', label: 'Christening' },
   { id: 'Circumcision', label: 'Circumcision' },
   { id: 'Confirmation', label: 'Confirmation' },
+  { id: 'CauseOfDeath', label: 'Cause of Death' },
   { id: 'Cremation', label: 'Cremation' },
+  { id: 'Degree', label: 'Degree' },
   { id: 'Deed', label: 'Document / Deed' },
+  { id: 'Elected', label: 'Elected Office' },
   { id: 'Emigration', label: 'Emigration' },
   { id: 'Excommunication', label: 'Excommunication' },
   { id: 'FirstCommunion', label: 'First Communion' },
@@ -57,20 +106,24 @@ export const PERSON_EVENT_TYPES = [
   { id: 'MilitaryDischarge', label: 'Military Discharge' },
   { id: 'MilitaryInduction', label: 'Military Induction' },
   { id: 'MilitaryService', label: 'Military Service' },
+  { id: 'MedicalInformation', label: 'Medical Information' },
   { id: 'Miscarriage', label: 'Miscarriage' },
   { id: 'Mission', label: 'Mission' },
   { id: 'Naturalization', label: 'Naturalization' },
   { id: 'NickName', label: 'Nickname' },
   { id: 'NobilityTypeTitle', label: 'Nobility Title' },
+  { id: 'NumberOfMarriages', label: 'Number of Marriages' },
   { id: 'Ordination', label: 'Ordination' },
   { id: 'GenericEvent', label: 'Other Event' },
   { id: 'Probate', label: 'Probate' },
   { id: 'Retirement', label: 'Retirement' },
+  { id: 'Stillbirth', label: 'Stillbirth' },
   { id: 'Will', label: 'Will' },
 ];
 
 export const FAMILY_EVENT_TYPES = [
   { id: 'Marriage', label: 'Marriage', common: true },
+  { id: 'AlternateMarriage', label: 'Alternate Marriage' },
   { id: 'Annuled', label: 'Annulment' },
   { id: 'Bann', label: 'Banns' },
   { id: 'Census', label: 'Census' },
@@ -80,12 +133,25 @@ export const FAMILY_EVENT_TYPES = [
   { id: 'Divorce_Filing', label: 'Divorce Filing' },
   { id: 'Engagement', label: 'Engagement' },
   { id: 'Contract', label: 'Marriage Contract' },
+  { id: 'MarriageBanns', label: 'Marriage Banns' },
   { id: 'License', label: 'Marriage License' },
   { id: 'OtherEvent', label: 'Other Event' },
   { id: 'Settlement', label: 'Prenuptial Agreement' },
   { id: 'MarriageReligion', label: 'Religious Marriage' },
   { id: 'Separation', label: 'Separation' },
 ];
+
+export const GRAMPS_EVENT_TYPE_GROUPS = Object.freeze([
+  { label: 'Life Events', ids: ['Birth', 'Baptism', 'Death', 'Stillbirth', 'Burial', 'Cremation', 'Adoption'] },
+  { label: 'Family', ids: ['Engagement', 'Marriage', 'Divorced', 'Annuled', 'Settlement', 'License', 'Contract', 'Bann', 'Divorce_Filing', 'AlternateMarriage'] },
+  { label: 'Religious', ids: ['Christening', 'AdultChristening', 'Confirmation', 'FirstCommunion', 'Blessing', 'BarMitzvah', 'BasMitzvah', 'Religion'] },
+  { label: 'Vocational', ids: ['Occupation', 'Retirement', 'Elected', 'MilitaryService', 'Ordination'] },
+  { label: 'Academic', ids: ['Education', 'Degree', 'Graduation'] },
+  { label: 'Travel', ids: ['Emigration', 'Immigration', 'Naturalization'] },
+  { label: 'Legal', ids: ['Probate', 'Will'] },
+  { label: 'Residence', ids: ['Residence', 'Census', 'Possession'] },
+  { label: 'Other', ids: ['CauseOfDeath', 'MedicalInformation', 'NobilityTypeTitle', 'NumberOfMarriages'] },
+]);
 
 export const PERSON_FACT_TYPES = [
   { id: 'Clan', label: 'Clan', common: true },
@@ -237,6 +303,9 @@ export function normalizeConclusionTypeId(raw) {
 
 export function labelForCatalogType(types, raw, fallback = '') {
   const id = normalizeConclusionTypeId(raw);
+  if (catalogLabelPreferences.preferArabicCatalogLabels && ARABIC_CATALOG_LABELS[id]) {
+    return ARABIC_CATALOG_LABELS[id];
+  }
   return types.find((t) => t.id === id)?.label || fallback || id;
 }
 

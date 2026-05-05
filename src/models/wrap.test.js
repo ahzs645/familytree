@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lifeSpanLabel } from './wrap.js';
+import { setActiveVitalDisplay } from '../lib/vitalFormat.js';
 
 describe('lifeSpanLabel', () => {
   it('uses the parsed year for MacFamilyTree day-month-year dates', () => {
@@ -9,5 +10,15 @@ describe('lifeSpanLabel', () => {
 
   it('keeps death-only lifespan labels readable', () => {
     expect(lifeSpanLabel({ deathDate: '1989' })).toBe('? – 1989');
+  });
+
+  it('supports Islamic-friendly vital marker styles', () => {
+    setActiveVitalDisplay({ markerStyle: 'symbols' });
+    expect(lifeSpanLabel({ birthDate: '1901', deathDate: '1989' })).toBe('* 1901  ◆ 1989');
+
+    setActiveVitalDisplay({ markerStyle: 'arabic-labels' });
+    expect(lifeSpanLabel({ birthDate: '1901', deathDate: '1989' })).toBe('ميلاد 1901  وفاة 1989');
+
+    setActiveVitalDisplay({ markerStyle: 'range' });
   });
 });

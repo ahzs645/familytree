@@ -6,6 +6,7 @@ import { layoutDescendants } from './layouts/descendantLayout.js';
 
 const NODE_PAD_X = 90;
 const ROW_HEIGHT = 86;
+const RADIAL_DESCENDANT_SIZE = 800;
 
 const GENDER_LABELS = { 0: 'Male', 1: 'Female', 2: 'Unknown', 3: 'Intersex' };
 
@@ -69,6 +70,18 @@ function parseYear(value) {
   return match ? Number.parseInt(match[1], 10) : null;
 }
 
+function shortName(person) {
+  if (!person) return '';
+  return person.firstName || String(person.fullName || '').split(/\s+/)[0] || 'Unknown';
+}
+
+function initialName(person) {
+  if (!person) return 'Unknown';
+  const parts = String(person.fullName || '').split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return shortName(person);
+  return parts.map((part, index) => (index === parts.length - 1 ? part : `${part[0]}.`)).join(' ');
+}
+
 function collectAncestors(tree, maxGenerations = 6) {
   const nodes = [];
   const links = [];
@@ -96,6 +109,329 @@ function collectDescendantPersons(tree, out = [], seen = new Set()) {
     for (const child of union.children || []) collectDescendantPersons(child, out, seen);
   }
   return out;
+}
+
+function collectDescendantRows(tree) {
+  const rows = [];
+  const links = [];
+  const seen = new Set();
+
+  function addPerson(person, generation, role = 'descendant') {
+    if (!person?.recordName) return null;
+    if (seen.has(person.recordName)) return rows.find((row) => row.id === person.recordName);
+    const row = {
+      id: person.recordName,
+      person,
+      name: person.fullName || 'No name recorded',
+      birthYear: parseYear(person.birthDate),
+      deathYear: parseYear(person.deathDate),
+      generation,
+      role,
+      unions: [],
+    };
+    seen.add(person.recordName);
+    rows.push(row);
+    return row;
+  }
+
+  function visit(node, generation = 0) {
+    const parent = addPerson(node?.person, generation, generation === 0 ? 'root' : 'descendant');
+    if (!parent) return;
+    for (const union of node.unions || []) {
+      const partner = addPerson(union.partner, generation, 'spouse');
+      parent.unions.push({
+        familyRecordName: union.familyRecordName,
+        partnerId: partner?.id || null,
+        marriageYear: parseYear(union.marriageDate || union.family?.marriageDate),
+      });
+      for (const child of union.children || []) {
+        const childRow = addPerson(child.person, generation + 1, 'descendant');
+        if (childRow) {
+          links.push({
+            id: `${union.familyRecordName || parent.id}-${childRow.id}`,
+            parentId: parent.id,
+            partnerId: partner?.id || null,
+            childId: childRow.id,
+            childYear: childRow.birthYear,
+          });
+        }
+        visit(child, generation + 1);
+      }
+    }
+  }
+
+  if (tree) visit(tree);
+  rows.sort((a, b) => (a.birthYear ?? 9999) - (b.birthYear ?? 9999) || a.generation - b.generation || a.name.localeCompare(b.name));
+  return { rows, links };
+}
+
+function polarPoint(cx, cy, radius, angle) {
+  return {
+    x: cx + Math.cos(angle) * radius,
+    y: cy + Math.sin(angle) * radius,
+  };
+}
+
+function polarPath(source, target, cx, cy) {
+  const sr = source.radius || 0;
+  const tr = target.radius || 0;
+  const mid = (sr + tr) / 2;
+  const s = polarPoint(cx, cy, sr, source.angle);
+  const t = polarPoint(cx, cy, tr, target.angle);
+  const c1 = polarPoint(cx, cy, mid, source.angle);
+  const c2 = polarPoint(cx, cy, mid, target.angle);
+  return `M ${s.x} ${s.y} C ${c1.x} ${c1.y} ${c2.x} ${c2.y} ${t.x} ${t.y}`;
+}
+
+function buildRadialDescendantLayout(tree) {
+  const cx = RADIAL_DESCENDANT_SIZE / 2;
+  const cy = RADIAL_DESCENDANT_SIZE / 2;
+  const nodes = [];
+  const links = [];
+  const unionCandidates = (tree?.unions || []).filter((union) => Array.isArray(union.children) && union.children.length);
+  const selectedUnions = unionCandidates.length
+    ? unionCandidates
+    : (tree?.unions || []);
+  const partners = selectedUnions.map((union) => union.partner).filter(Boolean);
+  const rootNames = [tree?.person, ...partners]
+    .map((person) => person?.fullName)
+    .filter(Boolean);
+  const rootLabel = rootNames.length > 1
+    ? rootNames.length === 2
+      ? rootNames.join(' & ')
+      : `${tree?.person?.fullName || 'Selected person'} & family`
+    : rootNames[0] || 'Selected family';
+  const rootChildren = selectedUnions.flatMap((union) => union.children || []);
+  const rootYears = [tree?.person, ...partners]
+    .map((person) => parseYear(person?.birthDate))
+    .filter(Number.isFinite);
+  const childPeople = rootChildren.flatMap((child) => collectDescendantPersons(child));
+  const years = childPeople
+    .map((person) => parseYear(person.birthDate))
+    .filter(Number.isFinite);
+  const minYear = rootYears.length
+    ? Math.min(...rootYears)
+    : years.length
+      ? Math.min(...years)
+      : 1900;
+  const maxYear = years.length ? Math.max(...years) : minYear + 10;
+  const yearScale = Math.min(4.2, 330 / Math.max(1, maxYear - minYear));
+  let leafIndex = 0;
+
+  function childNodes(node) {
+    return (node?.unions || []).flatMap((union) => union.children || []);
+  }
+
+  function measure(node, depth = 1, parentId = 'couple-root') {
+    if (!node?.person) return null;
+    const children = childNodes(node).map((child) => measure(child, depth + 1, node)).filter(Boolean);
+    const birthYear = parseYear(node.person.birthDate);
+    const leafCount = children.length ? children.reduce((sum, child) => sum + child.leafCount, 0) : 1;
+    const angleSlot = children.length
+      ? children.reduce((sum, child) => sum + child.angleSlot * child.leafCount, 0) / leafCount
+      : leafIndex++;
+    const item = {
+      id: node.person.recordName,
+      person: node.person,
+      depth,
+      parentId: typeof parentId === 'string' ? parentId : parentId?.person?.recordName || 'couple-root',
+      birthYear,
+      radius: birthYear != null
+        ? Math.max(28, (birthYear - minYear) * yearScale)
+        : depth * 72,
+      angleSlot,
+      leafCount,
+      children,
+    };
+    nodes.push(item);
+    return item;
+  }
+
+  const root = {
+    id: 'couple-root',
+    depth: 0,
+    radius: 0,
+    angleSlot: 0,
+    leafCount: 1,
+    x: cx,
+    y: cy,
+  };
+  rootChildren.forEach((child) => measure(child, 1, root.id));
+  const slots = Math.max(1, leafIndex);
+  for (const node of nodes) {
+    node.angle = -Math.PI / 2 + (node.angleSlot / slots) * Math.PI * 2;
+    const point = polarPoint(cx, cy, node.radius, node.angle);
+    node.x = point.x;
+    node.y = point.y;
+  }
+  root.angle = nodes.length
+    ? nodes.reduce((sum, node) => sum + node.angle, 0) / nodes.length
+    : -Math.PI / 2;
+  const byId = new Map([[root.id, root], ...nodes.map((node) => [node.id, node])]);
+  for (const node of nodes) {
+    if (!node.parentId) continue;
+    const parent = byId.get(node.parentId);
+    if (parent) links.push({ source: parent, target: node, d: polarPath(parent, node, cx, cy) });
+  }
+  const decades = [];
+  const firstDecade = Math.ceil((minYear + 1) / 10) * 10;
+  const lastDecade = Math.ceil(maxYear / 10) * 10;
+  for (let year = firstDecade; year <= lastDecade; year += 10) {
+    decades.push({ year, radius: Math.max(0, (year - minYear) * yearScale) });
+  }
+  return { nodes, links, decades, cx, cy, minYear, root, rootLabel };
+}
+
+export function RadialDescendantTimelineChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
+  const layout = useMemo(() => buildRadialDescendantLayout(tree), [tree]);
+
+  if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+
+  return (
+    <ChartCanvas ref={chartCanvasRef} theme={theme} page={{ ...page, backgroundColor: '#ffffff' }} overlays={overlays} onOverlaysChange={onOverlaysChange} {...overlayProps}>
+      <g transform="translate(20,20)">
+        {layout.decades.map((decade) => (
+          <g key={decade.year}>
+            <circle cx={layout.cx} cy={layout.cy} r={decade.radius} fill="none" stroke="#d8d8d8" strokeWidth={0.6} />
+            <text x={layout.cx - 10} y={layout.cy - decade.radius + 3} textAnchor="end" fill="#111827" fontSize={8} fontFamily="Arial, sans-serif">{decade.year}</text>
+          </g>
+        ))}
+        {layout.links.map((link) => (
+          <path key={`${link.source.id}-${link.target.id}`} d={link.d} fill="none" stroke="#cfcfcf" strokeWidth={1.5} />
+        ))}
+        <text x={layout.cx} y={layout.cy + 4} textAnchor="middle" fill="#111827" fontSize={12} fontFamily="Arial, sans-serif">
+          {layout.rootLabel || 'Selected family'}
+        </text>
+        {layout.nodes.map((node) => {
+          const colors = ['#1f77b4', '#2ca02c', '#ff7f0e', '#d62728', '#9467bd'];
+          const override = colorForPerson?.(node.person);
+          const degrees = (node.angle * 180) / Math.PI;
+          const labelFlip = Math.cos(node.angle) < 0;
+          return (
+            <g key={node.person.recordName} transform={`translate(${node.x},${node.y})`} onClick={() => onPersonClick?.(node.person)} style={{ cursor: 'pointer' }}>
+              <circle r={4.5} fill="#fff" stroke={override?.stroke || colors[node.depth % colors.length]} strokeWidth={1.5} />
+              {node.depth > 0 && (
+                <g transform={`rotate(${degrees}) translate(8,0) ${labelFlip ? 'rotate(180)' : ''}`}>
+                  <text fill="#111827" fontSize={10} fontFamily="Arial, sans-serif" dominantBaseline="middle" textAnchor={labelFlip ? 'end' : 'start'}>
+                  {shortName(node.person)}
+                  </text>
+                </g>
+              )}
+              <title>{`${node.person.fullName || 'Unknown'}${node.birthYear ? ` · born ${node.birthYear}` : ''}`}</title>
+            </g>
+          );
+        })}
+      </g>
+    </ChartCanvas>
+  );
+}
+
+export function LifespanDescendantChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
+  const layout = useMemo(() => {
+    const { rows, links } = collectDescendantRows(tree);
+    const currentYear = new Date().getFullYear();
+    const years = rows.flatMap((row) => [row.birthYear, row.deathYear, ...row.unions.map((union) => union.marriageYear)]).filter(Number.isFinite);
+    const minYear = years.length ? Math.floor(Math.min(...years) / 10) * 10 : currentYear - 100;
+    const maxYear = years.length ? Math.ceil(Math.max(...years, currentYear) / 10) * 10 : currentYear;
+    const rowIndex = new Map(rows.map((row, index) => [row.id, index]));
+    return { rows, links, rowIndex, currentYear, minYear, maxYear };
+  }, [tree]);
+
+  if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+
+  const x0 = 55;
+  const width = 1400;
+  const rowGap = 18;
+  const top = 178;
+  const scale = (year) => x0 + ((year - layout.minYear) / Math.max(1, layout.maxYear - layout.minYear)) * width;
+  const rowY = (index) => top + index * rowGap;
+  const decades = [];
+  for (let year = Math.ceil(layout.minYear / 10) * 10; year <= layout.maxYear; year += 10) decades.push(year);
+  const title = `${tree.person?.lastName || tree.person?.fullName || 'Family'} Descendants`;
+  const chartHeight = top + layout.rows.length * rowGap + 82;
+
+  return (
+    <ChartCanvas ref={chartCanvasRef} theme={theme} page={{ ...page, backgroundColor: '#ffffff' }} overlays={overlays} onOverlaysChange={onOverlaysChange} {...overlayProps}>
+      <g transform="translate(34,18)">
+        <text x={x0 + width / 2} y={72} textAnchor="middle" fill="#111" fontSize={36} fontFamily="Georgia, serif" fontWeight={700}>{title}</text>
+        <text x={x0 + width / 2} y={116} textAnchor="middle" fill="#111" fontSize={28} fontFamily="Georgia, serif" fontStyle="italic">compiled from this tree, visualized after Nicolas Jérémie Kruchten</text>
+        {layout.rows.flatMap((row) => row.unions.map((union) => {
+          const partnerIndex = layout.rowIndex.get(union.partnerId);
+          const rowIndex = layout.rowIndex.get(row.id);
+          if (partnerIndex == null || rowIndex == null) return null;
+          const partner = layout.rows[partnerIndex];
+          const y1 = rowY(rowIndex);
+          const y2 = rowY(partnerIndex);
+          const start = union.marriageYear || Math.max(row.birthYear || layout.minYear, partner.birthYear || layout.minYear);
+          const end = Math.min(row.deathYear || layout.maxYear, partner.deathYear || layout.maxYear, layout.maxYear);
+          return (
+            <rect
+              key={`${row.id}-${union.partnerId}-${union.familyRecordName}`}
+              x={scale(start)}
+              y={Math.min(y1, y2) - 6}
+              width={Math.max(4, scale(end) - scale(start))}
+              height={Math.abs(y2 - y1) + 12}
+              fill="#d3d3d3"
+              opacity={0.85}
+            />
+          );
+        }))}
+        {decades.map((year) => (
+          <g key={year}>
+            <line x1={scale(year)} y1={top - 22} x2={scale(year)} y2={chartHeight - 48} stroke="#fff" strokeWidth={1.4} opacity={0.88} />
+            <text x={scale(year)} y={chartHeight - 12} textAnchor="middle" fill="#6b7280" fontSize={20} fontFamily="Georgia, serif">{year}</text>
+          </g>
+        ))}
+        {layout.links.map((link) => {
+          const parentIndex = layout.rowIndex.get(link.parentId);
+          const partnerIndex = layout.rowIndex.get(link.partnerId);
+          const childIndex = layout.rowIndex.get(link.childId);
+          if (parentIndex == null || childIndex == null || link.childYear == null) return null;
+          const parent = layout.rows[parentIndex];
+          const partner = layout.rows[partnerIndex];
+          const motherIndex = parent?.person?.gender === 1
+            ? parentIndex
+            : partner?.person?.gender === 1
+              ? partnerIndex
+              : parentIndex;
+          const birthX = scale(link.childYear);
+          return (
+            <path
+              key={link.id}
+              d={`M ${birthX} ${rowY(motherIndex)} V ${rowY(childIndex)}`}
+              fill="none"
+              stroke="#a8a8a8"
+              strokeWidth={1}
+              opacity={0.75}
+            />
+          );
+        })}
+        {layout.rows.map((row, index) => {
+          const y = rowY(index);
+          const start = row.birthYear;
+          const end = row.deathYear || Math.min(layout.maxYear, layout.currentYear);
+          const barColor = row.person?.gender === 1 ? '#90ee90' : row.person?.gender === 0 ? '#add8e6' : '#ffffff';
+          const override = colorForPerson?.(row.person);
+          return (
+            <g key={row.id} onClick={() => onPersonClick?.(row.person)} style={{ cursor: row.person ? 'pointer' : 'default' }}>
+              {start != null && (
+                <line
+                  x1={scale(start)}
+                  y1={y}
+                  x2={scale(end)}
+                  y2={y}
+                  stroke={override?.stroke || barColor}
+                  strokeWidth={10}
+                  strokeLinecap="butt"
+                />
+              )}
+              <text x={start != null ? scale(start) + 3 : x0} y={y + 3} fill="#111" fontSize={11} fontFamily="Helvetica Neue, Arial, sans-serif">{initialName(row.person)}</text>
+            </g>
+          );
+        })}
+      </g>
+    </ChartCanvas>
+  );
 }
 
 export function CircularAncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {

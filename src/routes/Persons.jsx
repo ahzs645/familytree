@@ -26,8 +26,13 @@ const ME_PERSON_STORAGE_KEY = 'cloudtreeweb:mePersonId';
 const EXPORT_COLUMNS = [
   { key: 'fullName', label: 'Name' },
   { key: 'genderLabel', label: 'Gender' },
+  { key: 'arabicPatrilinealName', label: 'Arabic Patrilineal Name' },
   { key: 'birthDate', label: 'Born' },
   { key: 'deathDate', label: 'Died' },
+  { key: 'outsideFamily', label: 'Outside Main Family' },
+  { key: 'cemetery', label: 'Cemetery' },
+  { key: 'cemeteryLocation', label: 'Cemetery Location' },
+  { key: 'graveNumber', label: 'Grave Number' },
   { key: 'bookmarked', label: 'Bookmarked' },
   { key: 'startPerson', label: 'Start Person' },
   { key: 'id', label: 'Record ID' },
@@ -35,7 +40,9 @@ const EXPORT_COLUMNS = [
 
 const LIST_COLUMNS = [
   { key: 'fullName', label: 'Name', alwaysVisible: true },
+  { key: 'arabicPatrilinealName', label: 'Arabic lineage name' },
   { key: 'lifespan', label: 'Lifespan' },
+  { key: 'outsideFamily', label: 'Outside-family marker' },
   { key: 'bookmarked', label: 'Bookmarked marker' },
   { key: 'startPerson', label: 'Start-person marker' },
 ];
@@ -112,6 +119,7 @@ export default function Persons() {
       if (filter === 'start') return person.startPerson;
       if (filter === 'missing-birth') return !person.birthDate;
       if (filter === 'missing-death') return !person.deathDate;
+      if (filter === 'outside-family') return person.outsideFamily;
       return true;
     });
     next = [...next].sort((a, b) => {
@@ -198,6 +206,7 @@ export default function Persons() {
     { value: 'start', label: t('persons.startPerson') },
     { value: 'missing-birth', label: t('persons.missingBirth') },
     { value: 'missing-death', label: t('persons.missingDeath') },
+    { value: 'outside-family', label: 'Outside main family' },
   ];
   const sortOptions = [
     { value: 'name', label: t('persons.sortName') },
@@ -333,6 +342,16 @@ export default function Persons() {
                       <BdiText>{kinshipById.get(active.id).label}</BdiText>
                     </div>
                   ) : null}
+                  {active.arabicPatrilinealName ? (
+                    <div className="mt-2 text-sm text-muted-foreground" dir="rtl">
+                      <BdiText>{active.arabicPatrilinealName}</BdiText>
+                    </div>
+                  ) : null}
+                  {active.outsideFamily ? (
+                    <div className="mt-2 inline-flex rounded-full border border-violet-400/50 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
+                      Outside main family
+                    </div>
+                  ) : null}
                 </div>
                 <button onClick={openTree} className="bg-secondary text-foreground border border-border rounded-md px-3 py-2 text-xs">
                   {t('persons.openTree')}
@@ -347,7 +366,42 @@ export default function Persons() {
                 <SummaryBox label={t('persons.partnerFamilies')} value={context?.families?.length || 0} localization={localization} />
                 <SummaryBox label={t('glossary.event')} value={context?.events?.length || 0} localization={localization} />
                 <SummaryBox label={t('glossary.fact')} value={context?.facts?.length || 0} localization={localization} />
+                <SummaryBox label="Milk kinship" value={context?.milkKinships?.length || 0} localization={localization} />
               </div>
+
+              {(active.cemetery || active.cemeteryLocation || active.graveNumber) ? (
+                <section className="mb-5">
+                  <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">Grave & Cemetery</h3>
+                  <div className="border border-border rounded-md p-3 bg-card text-sm grid gap-2 sm:grid-cols-3">
+                    {active.cemetery ? <InfoCell label="Cemetery" value={active.cemetery} /> : null}
+                    {active.cemeteryLocation ? <InfoCell label="Location" value={active.cemeteryLocation} /> : null}
+                    {active.graveNumber ? <InfoCell label="Grave number" value={active.graveNumber} /> : null}
+                  </div>
+                </section>
+              ) : null}
+
+              {context?.milkKinships?.length ? (
+                <section className="mb-5">
+                  <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">Milk Kinship / الرضاعة</h3>
+                  <div className="grid gap-2">
+                    {context.milkKinships.map((milk) => (
+                      <div key={milk.recordName} className="border border-border rounded-md p-3 bg-card text-sm">
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <InfoCell label="Nursing mother" value={milk.nursingMotherName || '—'} />
+                          <InfoCell label="Milk father" value={milk.milkFatherName || '—'} />
+                          <InfoCell label="Breastfed child" value={milk.childName || '—'} />
+                        </div>
+                        {(milk.startDate || milk.endDate || milk.notes) ? (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            {[milk.startDate, milk.endDate].filter(Boolean).join(' - ')}
+                            {milk.notes ? ` · ${milk.notes}` : ''}
+                          </div>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
 
               <section className="mb-5">
                 <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">{t('persons.parents')}</h3>
@@ -409,6 +463,15 @@ function SummaryBox({ label, value, localization }) {
     <div className="border border-border rounded-md bg-card p-3">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="text-xl font-semibold mt-1">{formatInteger(value || 0, localization)}</div>
+    </div>
+  );
+}
+
+function InfoCell({ label, value }) {
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-1 break-words"><BdiText>{value}</BdiText></div>
     </div>
   );
 }

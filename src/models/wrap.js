@@ -11,8 +11,8 @@ import { PlaceRecord } from './PlaceRecord.js';
 import { SourceRecord } from './SourceRecord.js';
 import { PersonEventRecord, FamilyEventRecord } from './EventRecord.js';
 import { Gender } from './constants.js';
-import { parseEventDate } from '../utils/formatDate.js';
 import { formatDisplayName, formatSortName, getActiveDisplayFormat, DEFAULT_DISPLAY_FORMAT } from '../lib/nameFormat.js';
+import { lifeSpanLabelFor } from '../lib/vitalFormat.js';
 
 const TYPE_TO_CLASS = {
   Person: PersonRecord,
@@ -93,16 +93,7 @@ export function sourceSummary(input) {
 }
 
 export function lifeSpanLabel(summary) {
-  if (!summary) return '';
-  const b = yearLabel(summary.birthDate);
-  const d = yearLabel(summary.deathDate);
-  if (!b && !d) return '';
-  return `${b || '?'} – ${d || ''}`.trim();
-}
-
-function yearLabel(raw) {
-  const parsed = parseEventDate(raw);
-  return parsed?.year == null ? '' : String(parsed.year);
+  return lifeSpanLabelFor(summary);
 }
 
 export { Gender };

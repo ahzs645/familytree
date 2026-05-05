@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { labelForCatalogType, normalizeConclusionTypeId, PERSON_EVENT_TYPES } from './catalogs.js';
+import { GRAMPS_EVENT_TYPE_GROUPS, labelForCatalogType, normalizeConclusionTypeId, PERSON_EVENT_TYPES, PERSON_FACT_TYPES, setCatalogLabelPreferences } from './catalogs.js';
 import { readConclusionType, readField, readLabel, readRef, refType, replaceRefValue, writeRef } from './schema.js';
 
 describe('schema compatibility helpers', () => {
@@ -38,5 +38,18 @@ describe('schema compatibility helpers', () => {
   it('normalizes imported conclusion ids before catalog label lookup', () => {
     expect(normalizeConclusionTypeId('UniqueID_PersonEvent_Education---ConclusionPersonEventType')).toBe('Education');
     expect(labelForCatalogType(PERSON_EVENT_TYPES, 'UniqueID_PersonEvent_Education---ConclusionPersonEventType')).toBe('Formal Education');
+  });
+
+  it('includes Gramps-inspired event taxonomy additions', () => {
+    expect(labelForCatalogType(PERSON_EVENT_TYPES, 'Stillbirth')).toBe('Stillbirth');
+    expect(labelForCatalogType(PERSON_EVENT_TYPES, 'MedicalInformation')).toBe('Medical Information');
+    expect(GRAMPS_EVENT_TYPE_GROUPS.find((group) => group.label === 'Academic')?.ids).toContain('Degree');
+  });
+
+  it('can prefer Arabic labels for Arabic/Islamic genealogy catalogs', () => {
+    setCatalogLabelPreferences({ preferArabicCatalogLabels: true });
+    expect(labelForCatalogType(PERSON_FACT_TYPES, 'TribeName')).toBe('قبيلة');
+    expect(labelForCatalogType(PERSON_EVENT_TYPES, 'Circumcision')).toBe('ختان');
+    setCatalogLabelPreferences({ preferArabicCatalogLabels: false });
   });
 });

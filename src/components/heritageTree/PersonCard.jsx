@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { originLabels } from './constants.js';
+import { formatVitalDateParts } from '../../lib/vitalFormat.js';
 
 export default function PersonCard({ person, isRoot, isDimmed, onClick, onMouseEnter, onMouseLeave }) {
   const [imgError, setImgError] = useState(false);
 
   const photoUrl = person.photoUrl || null;
+  const vitalParts = formatVitalDateParts({ birthDate: person.birth, deathDate: person.death });
 
   // Reset image error state when the person (and thus photoUrl) changes
   useEffect(() => {
@@ -45,10 +47,9 @@ export default function PersonCard({ person, isRoot, isDimmed, onClick, onMouseE
         </div>
       )}
       <div className="name">{person.name}</div>
-      { (person.birth || person.death) && (
+      { vitalParts.length > 0 && (
         <div className="dates">
-          {person.birth && `b. ${person.birth}`}<br />
-          {person.death && `d. ${person.death}`}
+          {vitalParts.map((part) => <React.Fragment key={part}>{part}<br /></React.Fragment>)}
         </div>
       )}
       { (person.place || person.deathPlace) && <div className="place">{person.place || person.deathPlace}</div> }

@@ -5,6 +5,7 @@ import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutFan } from './layouts/fanLayout.js';
+import { formatVitalDateParts } from '../../lib/vitalFormat.js';
 
 const PADDING = 40;
 // Approximate width of one character in SVG px, per 1px of font size. Works for
@@ -32,7 +33,7 @@ function personSubtext(person, gen) {
   if (!person) return [];
   const lines = [];
   const birth = formatDate(person.birthDate || person.birth);
-  if (birth) lines.push(`Birth ${birth}`);
+  if (birth) lines.push(formatVitalDateParts({ birthDate: birth })[0]);
   if (gen <= 2 && person.birthPlace) lines.push(String(person.birthPlace).slice(0, 34));
   return lines;
 }

@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { findOldestAncestors } from '../../lib/oldestAncestors.js';
+import { formatVitalDateParts } from '../../lib/vitalFormat.js';
 
 export function OldestAncestorsWidget({ recordName }) {
   const [items, setItems] = useState(null);
@@ -42,7 +43,7 @@ export function OldestAncestorsWidget({ recordName }) {
             </div>
             <div className="text-[11px] text-muted-foreground flex gap-2">
               <span>{ancestor.generations} gen{ancestor.generations === 1 ? '' : 's'} up</span>
-              {ancestor.deathDate && <span>· d. {ancestor.deathDate}</span>}
+              {ancestor.deathDate && <span>· {formatVitalDateParts({ deathDate: ancestor.deathDate })[0]}</span>}
             </div>
           </button>
         </li>
