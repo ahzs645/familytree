@@ -19,6 +19,7 @@ const ROUTE_LABEL_KEYS = {
   '/groups': 'nav.personGroups',
   '/heritage-tree': 'nav.heritageTree',
   '/labels': 'nav.labels',
+  '/lineages': 'nav.lineages',
   '/lds-ordinances': 'nav.ldsOrdinances',
   '/lists': 'nav.lists',
   '/maintenance': 'nav.maintenance',

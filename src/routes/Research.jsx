@@ -9,6 +9,7 @@ import { matchesSearchText } from '../lib/i18n.js';
 import { readRef, writeRef } from '../lib/schema.js';
 import { logRecordCreated } from '../lib/changeLog.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const STATE_KEY = 'researchAssistantState';
 const JOURNAL_KEY = 'researchJournal';
@@ -19,6 +20,7 @@ function uuid(prefix) {
 
 export default function Research() {
   const modal = useModal();
+  const { t, localization } = useTranslation();
   const [items, setItems] = useState(null);
   const [imported, setImported] = useState([]);
   const [state, setState] = useState({ done: {}, ignored: {}, ignoredEntities: {} });
@@ -69,11 +71,11 @@ export default function Research() {
     setJournalDraft('');
   };
   const removeJournalEntry = async (id) => {
-    if (!(await modal.confirm('Delete this research log entry?', { title: 'Delete entry', okLabel: 'Delete', destructive: true }))) return;
+    if (!(await modal.confirm(t('research.deleteEntryConfirm'), { title: t('research.deleteEntryTitle'), okLabel: t('research.deleteEntryOk'), destructive: true }))) return;
     await persistJournal(journal.filter((entry) => entry.id !== id));
   };
 
-  if (!items) return <div className="p-10 text-muted-foreground">Analyzing tree…</div>;
+  if (!items) return <div className="p-10 text-muted-foreground">{t('research.analyzing')}</div>;
   const persistState = async (next) => {
     const normalized = normalizeState(typeof next === 'function' ? next(state) : next);
     setState(normalized);
@@ -113,10 +115,10 @@ export default function Research() {
       await db.applyRecordTransaction({ saveRecords: [todo, relation] });
       await logRecordCreated(todo);
       await mark(key, 'done');
-      setStatus('Created ToDo.');
+      setStatus(t('research.todoCreated'));
       setTimeout(() => setStatus(null), 1800);
     } catch (error) {
-      setStatus(`Create ToDo failed: ${error.message}`);
+      setStatus(t('research.todoFailed', { message: error.message }));
     } finally {
       setCreatingKeys((prev) => {
         const next = { ...prev };
@@ -145,33 +147,31 @@ export default function Research() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h1 className="text-base font-semibold">Research Assistant</h1>
-        <span className="text-xs text-muted-foreground">{visible.length} persons with open questions</span>
+        <h1 className="text-base font-semibold">{t('research.title')}</h1>
+        <span className="text-xs text-muted-foreground">{t('research.openQuestions', { count: visible.length })}</span>
         {status && <span className="text-xs text-muted-foreground">{status}</span>}
         {Object.keys(state.ignoredEntities).length > 0 && (
           <button
             onClick={() => persistState((prev) => ({ ...prev, ignoredEntities: {} }))}
             className="text-xs text-muted-foreground hover:text-foreground border border-border bg-secondary rounded-md px-2 py-1"
-            title="Restore all previously silenced persons"
+            title={t('research.silencedResetTitle')}
           >
-            {Object.keys(state.ignoredEntities).length} silenced · reset
+            {t('research.silencedReset', { count: Object.keys(state.ignoredEntities).length })}
           </button>
         )}
-        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter…"
+        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('research.filterPlaceholder')}
           className="ms-auto bg-secondary border border-border rounded-md px-3 py-1.5 text-sm w-64" />
       </header>
       <main className="flex-1 overflow-auto p-5 bg-background">
         <div className="max-w-3xl mx-auto space-y-2">
           <section className="mb-6">
-            <h2 className="text-sm font-semibold mb-2">Research Log · {journal.length}</h2>
-            <p className="text-xs text-muted-foreground mb-2">
-              Free-text journal of what you investigated, what you found, and what you concluded. Separate from ToDos — these are narrative notes, not tasks.
-            </p>
+            <h2 className="text-sm font-semibold mb-2">{t('research.researchLog', { count: journal.length })}</h2>
+            <p className="text-xs text-muted-foreground mb-2">{t('research.researchLogBody')}</p>
             <div className="bg-card border border-border rounded-md p-3 mb-3">
               <textarea
                 value={journalDraft}
                 onChange={(e) => setJournalDraft(e.target.value)}
-                placeholder="Checked 1891 census for Agnes McDonald — no match. Try Glasgow registry next."
+                placeholder={t('research.logPlaceholder')}
                 className="w-full min-h-20 bg-background border border-border rounded-md p-2 text-sm"
               />
               <div className="flex justify-end mt-2">
@@ -181,26 +181,26 @@ export default function Research() {
                   disabled={!journalDraft.trim()}
                   className="text-xs bg-primary text-primary-foreground rounded-md px-3 py-1.5 font-semibold disabled:opacity-60"
                 >
-                  Add log entry
+                  {t('research.addLogEntry')}
                 </button>
               </div>
             </div>
             {journal.length === 0 ? (
-              <div className="text-xs text-muted-foreground">No log entries yet.</div>
+              <div className="text-xs text-muted-foreground">{t('research.noLogEntries')}</div>
             ) : (
               <ul className="space-y-2">
                 {journal.map((entry) => (
                   <li key={entry.id} className="bg-card border border-border rounded-md p-3">
                     <div className="flex items-start justify-between gap-3 mb-1">
                       <div className="text-[11px] text-muted-foreground">
-                        {new Date(entry.createdAt).toLocaleString()}
+                        {new Date(entry.createdAt).toLocaleString(localization?.locale || 'en')}
                       </div>
                       <button
                         type="button"
                         onClick={() => removeJournalEntry(entry.id)}
                         className="text-[11px] text-muted-foreground hover:text-destructive"
                       >
-                        Delete
+                        {t('research.delete')}
                       </button>
                     </div>
                     <div className="text-sm whitespace-pre-wrap">{entry.text}</div>
@@ -211,17 +211,17 @@ export default function Research() {
           </section>
           {importedOpen.length > 0 && (
             <section className="mb-6">
-              <h2 className="text-sm font-semibold mb-2">Imported MacFamilyTree Questions · {importedOpen.length}</h2>
+              <h2 className="text-sm font-semibold mb-2">{t('research.importedQuestions', { count: importedOpen.length })}</h2>
               <div className="space-y-2">
                 {importedOpen.slice(0, 100).map(({ row, target }) => (
                   <div key={row.recordName} className="bg-card border border-border rounded-md p-3">
                     <div className="flex items-baseline justify-between gap-3">
                       <div className="text-sm font-semibold">
-                        {row.fields?.infoKey?.value || `Question ${row.fields?.questionType?.value ?? ''}`}
+                        {row.fields?.infoKey?.value || t('research.questionLabel', { type: row.fields?.questionType?.value ?? '' })}
                       </div>
                       <div className="text-xs text-muted-foreground">{row.fields?.targetType?.value || target?.recordType || ''}</div>
                     </div>
-                    <div className="text-sm text-muted-foreground mt-1">{row.fields?.infoValue?.value || 'No stored answer value.'}</div>
+                    <div className="text-sm text-muted-foreground mt-1">{row.fields?.infoValue?.value || t('research.noAnswer')}</div>
                     {target && (
                       <button onClick={() => navigate(target.recordType === 'Person' ? `/person/${target.recordName}` : target.recordType === 'Family' ? `/family/${target.recordName}` : '#')}
                         className="text-xs text-primary hover:underline mt-2">
@@ -233,27 +233,27 @@ export default function Research() {
                         <button
                           onClick={() => createTodo({
                             key: row.recordName,
-                            title: row.fields?.infoKey?.value || `Research question ${row.fields?.questionType?.value ?? ''}`.trim(),
-                            description: row.fields?.infoValue?.value || 'Imported MacFamilyTree research question.',
+                            title: row.fields?.infoKey?.value || t('research.questionLabel', { type: row.fields?.questionType?.value ?? '' }).trim(),
+                            description: row.fields?.infoValue?.value || t('research.noAnswer'),
                             target,
                           })}
                           disabled={creatingKeys[row.recordName]}
                           className="text-xs rounded-md border border-border bg-secondary px-2 py-1"
                         >
-                          {creatingKeys[row.recordName] ? 'Creating…' : 'Create ToDo'}
+                          {creatingKeys[row.recordName] ? t('research.creating') : t('research.createTodo')}
                         </button>
                       )}
-                      <button onClick={() => mark(row.recordName, 'done')} className="text-xs rounded-md border border-border bg-secondary px-2 py-1">Mark done</button>
-                      <button onClick={() => mark(row.recordName, 'ignored')} className="text-xs rounded-md border border-border bg-secondary px-2 py-1">Ignore</button>
+                      <button onClick={() => mark(row.recordName, 'done')} className="text-xs rounded-md border border-border bg-secondary px-2 py-1">{t('research.markDone')}</button>
+                      <button onClick={() => mark(row.recordName, 'ignored')} className="text-xs rounded-md border border-border bg-secondary px-2 py-1">{t('research.ignore')}</button>
                     </div>
                   </div>
                 ))}
-                {importedOpen.length > 100 && <div className="text-xs text-muted-foreground text-center">... +{importedOpen.length - 100} more imported questions</div>}
+                {importedOpen.length > 100 && <div className="text-xs text-muted-foreground text-center">{t('research.moreImported', { count: importedOpen.length - 100 })}</div>}
               </div>
             </section>
           )}
           {visible.length === 0 ? (
-            <div className="text-center text-muted-foreground py-10">No matching suggestions.</div>
+            <div className="text-center text-muted-foreground py-10">{t('research.noMatches')}</div>
           ) : visible.slice(0, 200).map((it) => (
             <div key={it.recordName} className="bg-card border border-border rounded-md p-4">
               <div className="flex items-baseline justify-between mb-2 gap-2">
@@ -261,13 +261,13 @@ export default function Research() {
                   {it.fullName}
                 </button>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{it.suggestions.length} open</span>
+                  <span className="text-xs text-muted-foreground">{t('research.openCount', { count: it.suggestions.length })}</span>
                   <button
                     onClick={() => mark(it.recordName, 'ignoredEntities')}
-                    title="Ignore all questions for this person"
+                    title={t('research.ignoreAllTitle')}
                     className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-muted-foreground hover:text-foreground"
                   >
-                    Ignore all
+                    {t('research.ignoreAll')}
                   </button>
                 </div>
               </div>
@@ -282,23 +282,23 @@ export default function Research() {
                         onClick={() => createTodo({
                           key,
                           title: s,
-                          description: `Created from Research Assistant for ${it.fullName}.`,
+                          description: t('research.todoDescription', { name: it.fullName }),
                           target: { recordName: it.recordName, recordType: 'Person' },
                         })}
                         disabled={creatingKeys[key]}
                         className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground"
                       >
-                        {creatingKeys[key] ? 'Creating…' : 'ToDo'}
+                        {creatingKeys[key] ? t('research.creating') : t('research.todoShort')}
                       </button>
-                      <button onClick={() => mark(key, 'done')} className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground">Done</button>
-                      <button onClick={() => mark(key, 'ignored')} className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground">Ignore</button>
+                      <button onClick={() => mark(key, 'done')} className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground">{t('research.doneShort')}</button>
+                      <button onClick={() => mark(key, 'ignored')} className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground">{t('research.ignore')}</button>
                     </li>
                   );
                 })}
               </ul>
             </div>
           ))}
-          {visible.length > 200 && <div className="text-xs text-muted-foreground text-center">… +{visible.length - 200} more</div>}
+          {visible.length > 200 && <div className="text-xs text-muted-foreground text-center">{t('research.moreSuggestions', { count: visible.length - 200 })}</div>}
         </div>
       </main>
     </div>

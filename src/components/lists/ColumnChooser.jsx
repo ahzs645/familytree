@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 /**
  * ColumnChooser — small dropdown menu that lets users toggle per-column
@@ -6,6 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
  * `isVisible(key)` and `onToggle(key)`.
  */
 export function ColumnChooser({ columns, isVisible, onToggle, onReset }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
 
@@ -27,7 +29,7 @@ export function ColumnChooser({ columns, isVisible, onToggle, onReset }) {
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        Columns
+        {t('lists.columns')}
         <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden="true"><path fill="currentColor" d="M2 4l4 4 4-4z" /></svg>
       </button>
       {open ? (
@@ -54,7 +56,7 @@ export function ColumnChooser({ columns, isVisible, onToggle, onReset }) {
                 onClick={() => { onReset(); setOpen(false); }}
                 className="w-full text-xs px-2 py-1.5 rounded hover:bg-accent text-start"
               >
-                Reset to defaults
+                {t('lists.resetDefaults')}
               </button>
             </div>
           ) : null}

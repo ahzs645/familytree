@@ -19,29 +19,19 @@ import { VITAL_MARKER_STYLE_OPTIONS } from '../lib/vitalFormat.js';
 import { PLAUSIBILITY_ANALYZERS } from '../lib/plausibility.js';
 import { GEDCOM_ENCODINGS } from '../lib/genealogyFileFormats.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
-const tabs = [
-  { id: 'general', label: 'General' },
-  { id: 'formats', label: 'Formats' },
-  { id: 'arabic-islamic', label: 'Arabic / Islamic' },
-  { id: 'tree-layout', label: 'Tree Layout' },
-  { id: 'maps', label: 'Maps' },
-  { id: 'media', label: 'Media' },
-  { id: 'pdf', label: 'PDF' },
-  { id: 'history', label: 'History' },
-  { id: 'content-download', label: 'Content Download' },
-  { id: 'edit-controllers', label: 'Edit Controllers' },
-  { id: 'categories', label: 'Categories' },
-  { id: 'export', label: 'Export' },
-  { id: 'privacy', label: 'Privacy' },
-  { id: 'plausibility', label: 'Plausibility' },
-  { id: 'integrations', label: 'Integrations' },
-  { id: 'functions', label: 'Functions' },
+const TAB_IDS = [
+  'general', 'formats', 'arabic-islamic', 'tree-layout', 'maps', 'media',
+  'pdf', 'history', 'content-download', 'edit-controllers', 'categories',
+  'export', 'privacy', 'plausibility', 'integrations', 'functions',
 ];
 
 export default function Settings() {
   const modal = useModal();
+  const { t } = useTranslation();
   const { theme, setTheme } = useTheme();
+  const tabs = TAB_IDS.map((id) => ({ id, label: t(`settingsPage.tabs.${id}`) }));
   const [activeTab, setActiveTab] = useState('general');
   const [prefs, setPrefs] = useState(null);
   const [mapPrefs, setMapPrefs] = useState(null);
@@ -81,17 +71,17 @@ export default function Settings() {
     ]);
     setPrefs(nextPrefs);
     setMapPrefs(nextMap);
-    setStatus('Saved');
+    setStatus(t('settingsPage.saved'));
     setTimeout(() => setStatus(''), 1500);
-  }, [mapPrefs, prefs]);
+  }, [mapPrefs, prefs, t]);
 
   const reset = useCallback(async () => {
-    if (!(await modal.confirm('Reset application preferences?', { title: 'Reset preferences', okLabel: 'Reset', destructive: true }))) return;
+    if (!(await modal.confirm(t('settingsPage.resetConfirm'), { title: t('settingsPage.resetTitle'), okLabel: t('settingsPage.resetOk'), destructive: true }))) return;
     const next = await resetAppPreferences();
     setPrefs(next);
-    setStatus('Reset');
+    setStatus(t('settingsPage.resetStatus'));
     setTimeout(() => setStatus(''), 1500);
-  }, [modal]);
+  }, [modal, t]);
 
   const exportPrefs = useCallback(() => {
     const blob = new Blob([JSON.stringify(preferenceDownloadPayload(prefs), null, 2)], { type: 'application/json' });
@@ -110,23 +100,23 @@ export default function Settings() {
     const parsed = JSON.parse(await file.text());
     const next = await saveAppPreferences(parsed.preferences || parsed);
     setPrefs(next);
-    setStatus('Imported');
+    setStatus(t('settingsPage.imported'));
     setTimeout(() => setStatus(''), 1500);
-  }, []);
+  }, [t]);
 
-  if (!prefs || !mapPrefs) return <div className="p-10 text-muted-foreground">Loading settings...</div>;
+  if (!prefs || !mapPrefs) return <div className="p-10 text-muted-foreground">{t('settingsPage.loading')}</div>;
 
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-5xl mx-auto p-5">
         <header className="flex items-center gap-3 mb-5">
           <div>
-            <h1 className="text-xl font-bold">Settings</h1>
-            <p className="text-sm text-muted-foreground mt-1">Shared defaults for local editing, display, exports, and function shortcuts.</p>
+            <h1 className="text-xl font-bold">{t('settingsPage.title')}</h1>
+            <p className="text-sm text-muted-foreground mt-1">{t('settingsPage.subtitle')}</p>
           </div>
           {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
-          <button onClick={save} className={primaryButton}>Save</button>
-          <button onClick={reset} className={secondaryButton}>Reset</button>
+          <button onClick={save} className={primaryButton}>{t('settingsPage.save')}</button>
+          <button onClick={reset} className={secondaryButton}>{t('settingsPage.reset')}</button>
         </header>
 
         <div className="flex flex-wrap gap-2 border-b border-border mb-5">
@@ -142,61 +132,61 @@ export default function Settings() {
         </div>
 
         {activeTab === 'general' && (
-          <Panel title="General">
+          <Panel title={t('settingsPage.general.panel')}>
             <Grid>
-              <Field label="Theme">
+              <Field label={t('settingsPage.general.theme')}>
                 <select value={theme} onChange={(event) => setTheme(event.target.value)} className={inputClass}>
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
+                  <option value="light">{t('settingsPage.general.themeLight')}</option>
+                  <option value="dark">{t('settingsPage.general.themeDark')}</option>
                 </select>
               </Field>
-              <Field label="Start View">
+              <Field label={t('settingsPage.general.startView')}>
                 <select value={prefs.general.startRoute} onChange={(event) => update('general', 'startRoute', event.target.value)} className={inputClass}>
                   {APP_FUNCTIONS.filter((item) => !item.unavailable).map((item) => <option key={item.to} value={item.to}>{item.label}</option>)}
                 </select>
               </Field>
-              <Switch label="Confirm Deletes" checked={prefs.general.confirmDeletes} onChange={(value) => update('general', 'confirmDeletes', value)} />
-              <Switch label="Auto-save Editors" checked={prefs.general.autoSaveEditors} onChange={(value) => update('general', 'autoSaveEditors', value)} />
-              <Switch label="Show Private Records" checked={prefs.general.showPrivateRecords} onChange={(value) => update('general', 'showPrivateRecords', value)} />
-              <Switch label="Compact Lists" checked={prefs.general.compactLists} onChange={(value) => update('general', 'compactLists', value)} />
+              <Switch label={t('settingsPage.general.confirmDeletes')} checked={prefs.general.confirmDeletes} onChange={(value) => update('general', 'confirmDeletes', value)} />
+              <Switch label={t('settingsPage.general.autoSaveEditors')} checked={prefs.general.autoSaveEditors} onChange={(value) => update('general', 'autoSaveEditors', value)} />
+              <Switch label={t('settingsPage.general.showPrivateRecords')} checked={prefs.general.showPrivateRecords} onChange={(value) => update('general', 'showPrivateRecords', value)} />
+              <Switch label={t('settingsPage.general.compactLists')} checked={prefs.general.compactLists} onChange={(value) => update('general', 'compactLists', value)} />
             </Grid>
           </Panel>
         )}
 
         {activeTab === 'formats' && (
-          <Panel title="Names, Dates, and Locale">
+          <Panel title={t('settingsPage.formats.panel')}>
             <Grid>
-              <Field label="Name Order">
+              <Field label={t('settingsPage.formats.nameOrder')}>
                 <select value={prefs.formats.nameOrder} onChange={(event) => update('formats', 'nameOrder', event.target.value)} className={inputClass}>
-                  <option value="given-family">Given Family</option>
-                  <option value="family-given">Family, Given</option>
-                  <option value="display">Stored Display Name</option>
+                  <option value="given-family">{t('settingsPage.formats.nameOrderGivenFamily')}</option>
+                  <option value="family-given">{t('settingsPage.formats.nameOrderFamilyGiven')}</option>
+                  <option value="display">{t('settingsPage.formats.nameOrderDisplay')}</option>
                 </select>
               </Field>
-              <Field label="Name Display Format">
+              <Field label={t('settingsPage.formats.nameDisplayFormat')}>
                 <select value={prefs.formats.nameDisplayFormat} onChange={(event) => update('formats', 'nameDisplayFormat', event.target.value)} className={inputClass}>
                   {NAME_FORMAT_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
-                <NameFormatPreview preset={prefs.formats.nameDisplayFormat} />
+                <NameFormatPreview preset={prefs.formats.nameDisplayFormat} t={t} />
               </Field>
-              <Field label="Name Sort Format">
+              <Field label={t('settingsPage.formats.nameSortFormat')}>
                 <select value={prefs.formats.nameSortFormat} onChange={(event) => update('formats', 'nameSortFormat', event.target.value)} className={inputClass}>
                   {NAME_FORMAT_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
-                <NameFormatPreview preset={prefs.formats.nameSortFormat} />
+                <NameFormatPreview preset={prefs.formats.nameSortFormat} t={t} />
               </Field>
-              <Field label="Surname Case">
+              <Field label={t('settingsPage.formats.surnameCase')}>
                 <select value={prefs.formats.surnameCase} onChange={(event) => update('formats', 'surnameCase', event.target.value)} className={inputClass}>
-                  <option value="as-entered">As Entered</option>
-                  <option value="upper">UPPERCASE</option>
-                  <option value="title">Title Case</option>
+                  <option value="as-entered">{t('settingsPage.formats.surnameAsEntered')}</option>
+                  <option value="upper">{t('settingsPage.formats.surnameUpper')}</option>
+                  <option value="title">{t('settingsPage.formats.surnameTitle')}</option>
                 </select>
               </Field>
-              <Field label="Date Display Format">
+              <Field label={t('settingsPage.formats.dateDisplayFormat')}>
                 <select value={prefs.formats.dateDisplayFormat} onChange={(event) => update('formats', 'dateDisplayFormat', event.target.value)} className={inputClass}>
                   <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                   <option value="DD MM YYYY">DD MM YYYY</option>
@@ -204,42 +194,42 @@ export default function Settings() {
                   <option value="D MMM YYYY">D MMM YYYY</option>
                 </select>
               </Field>
-              <Field label="Readable Date Formats">
+              <Field label={t('settingsPage.formats.readableDateFormats')}>
                 <textarea value={prefs.formats.readableDateFormats} onChange={(event) => update('formats', 'readableDateFormats', event.target.value)} rows={5} className={inputClass} />
               </Field>
               <Switch
-                label="Accept Year-only Dates"
+                label={t('settingsPage.formats.acceptYearOnly')}
                 checked={prefs.formats.partialDateEntry?.allowYearOnly !== false}
                 onChange={(value) => update('formats', 'partialDateEntry', { ...(prefs.formats.partialDateEntry || {}), allowYearOnly: value })}
               />
               <Switch
-                label="Accept Year-Month Dates"
+                label={t('settingsPage.formats.acceptYearMonth')}
                 checked={prefs.formats.partialDateEntry?.allowYearMonth !== false}
                 onChange={(value) => update('formats', 'partialDateEntry', { ...(prefs.formats.partialDateEntry || {}), allowYearMonth: value })}
               />
               <Switch
-                label="Accept Calendar Prefixes"
+                label={t('settingsPage.formats.acceptCalendarPrefixes')}
                 checked={prefs.formats.partialDateEntry?.allowCalendarPrefixes !== false}
                 onChange={(value) => update('formats', 'partialDateEntry', { ...(prefs.formats.partialDateEntry || {}), allowCalendarPrefixes: value })}
               />
-              <Field label="Language">
+              <Field label={t('settingsPage.formats.language')}>
                 <select value={prefs.localization?.locale || 'en'} onChange={(event) => update('localization', 'locale', event.target.value)} className={inputClass}>
                   {SUPPORTED_LOCALES.map((locale) => (
                     <option key={locale.value} value={locale.value}>{locale.label} - {locale.nativeLabel}</option>
                   ))}
                 </select>
               </Field>
-              <Field label="Text Direction">
+              <Field label={t('settingsPage.formats.direction')}>
                 <select value={prefs.localization?.direction || 'auto'} onChange={(event) => update('localization', 'direction', event.target.value)} className={inputClass}>
                   {DIRECTION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </Field>
-              <Field label="Numbering System">
+              <Field label={t('settingsPage.formats.numberingSystem')}>
                 <select value={prefs.localization?.numberingSystem || 'auto'} onChange={(event) => update('localization', 'numberingSystem', event.target.value)} className={inputClass}>
                   {NUMBERING_SYSTEM_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
               </Field>
-              <Field label="Calendar">
+              <Field label={t('settingsPage.formats.calendar')}>
                 <select value={prefs.localization?.calendar || 'gregory'} onChange={(event) => update('localization', 'calendar', event.target.value)} className={inputClass}>
                   {CALENDAR_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                 </select>
@@ -249,9 +239,9 @@ export default function Settings() {
         )}
 
         {activeTab === 'arabic-islamic' && (
-          <Panel title="Arabic and Islamic Display">
+          <Panel title={t('settingsPage.arabicIslamic.panel')}>
             <Grid>
-              <Field label="Vital Marker Style" hint="Controls shared person lifespan text in person cards, charts, reports, and website exports.">
+              <Field label={t('settingsPage.arabicIslamic.vitalMarkerStyle')} hint={t('settingsPage.arabicIslamic.vitalMarkerHint')}>
                 <select
                   value={prefs.formats.vitalDisplay?.markerStyle || 'range'}
                   onChange={(event) => update('formats', 'vitalDisplay', { ...(prefs.formats.vitalDisplay || {}), markerStyle: event.target.value })}
@@ -262,73 +252,69 @@ export default function Settings() {
                   ))}
                 </select>
                 <div className="mt-1 text-[11px] text-muted-foreground">
-                  Preview: <span className="font-mono text-foreground">{vitalPreview(prefs.formats.vitalDisplay?.markerStyle)}</span>
+                  {t('settingsPage.preview')}: <span className="font-mono text-foreground">{vitalPreview(prefs.formats.vitalDisplay?.markerStyle)}</span>
                 </div>
               </Field>
               <Switch
-                label="Prefer Arabic Catalog Labels"
+                label={t('settingsPage.arabicIslamic.preferArabic')}
                 checked={!!prefs.arabicIslamic?.preferArabicCatalogLabels}
                 onChange={(value) => update('arabicIslamic', 'preferArabicCatalogLabels', value)}
               />
             </Grid>
-            <p className="mt-3 text-xs text-muted-foreground">
-              Arabic catalog labels cover common genealogy types such as Tribe, Clan, Religious Name, Marriage Contract, Circumcision, Burial, and Funeral.
-            </p>
+            <p className="mt-3 text-xs text-muted-foreground">{t('settingsPage.arabicIslamic.footer')}</p>
           </Panel>
         )}
 
         {activeTab === 'tree-layout' && (
-          <Panel title="Tree layout safeguards">
+          <Panel title={t('settingsPage.treeLayout.panel')}>
             <Grid>
               <Switch
-                label="Athara-style Couple Safeguards"
+                label={t('settingsPage.treeLayout.athara')}
                 checked={prefs.treeLayout?.atharaCoupleSafeguards !== false}
                 onChange={(value) => update('treeLayout', 'atharaCoupleSafeguards', value)}
               />
               <Switch
-                label="Cycle Protection"
+                label={t('settingsPage.treeLayout.cycleProtection')}
                 checked={prefs.treeLayout?.cycleProtection !== false}
                 onChange={(value) => update('treeLayout', 'cycleProtection', value)}
               />
               <Switch
-                label="Single-parent Couple Fallback"
+                label={t('settingsPage.treeLayout.singleParentFallback')}
                 checked={prefs.treeLayout?.singleParentCoupleFallback !== false}
                 onChange={(value) => update('treeLayout', 'singleParentCoupleFallback', value)}
               />
             </Grid>
-            <p className="mt-3 text-xs text-muted-foreground">
-              These preferences track the Athara-inspired cases: couple virtual nodes, multi-generation spouse placement, in-law positioning, single-parent children, and relationship cycle protection.
-            </p>
+            <p className="mt-3 text-xs text-muted-foreground">{t('settingsPage.treeLayout.footer')}</p>
           </Panel>
         )}
 
         {activeTab === 'maps' && (
-          <Panel title="Maps">
+          <Panel title={t('settingsPage.maps.panel')}>
             <Grid>
-              <Field label="Basemap">
+              <Field label={t('settingsPage.maps.basemap')}>
                 <select value={mapPrefs.basemap} onChange={(event) => updateMap('basemap', event.target.value)} className={inputClass}>
-                  <option value="auto">Auto</option>
-                  <option value="positron">Light</option>
-                  <option value="voyager">Voyager</option>
-                  <option value="dark">Dark</option>
+                  <option value="auto">{t('settingsPage.maps.basemapAuto')}</option>
+                  <option value="positron">{t('settingsPage.maps.basemapLight')}</option>
+                  <option value="voyager">{t('settingsPage.maps.basemapVoyager')}</option>
+                  <option value="dark">{t('settingsPage.maps.basemapDark')}</option>
                 </select>
               </Field>
-              <Field label="Default Zoom">
+              <Field label={t('settingsPage.maps.defaultZoom')}>
                 <input type="number" min="1" max="18" value={mapPrefs.defaultZoom} onChange={(event) => updateMap('defaultZoom', Number(event.target.value))} className={inputClass} />
               </Field>
-              <Field label="Batch Lookup Limit">
+              <Field label={t('settingsPage.maps.batchLimit')}>
                 <input type="number" min="1" max="50" value={mapPrefs.batchLimit} onChange={(event) => updateMap('batchLimit', Number(event.target.value))} className={inputClass} />
               </Field>
-              <Switch label="Show Labels" checked={mapPrefs.showLabels} onChange={(value) => updateMap('showLabels', value)} />
-              <Switch label="Marker Clustering" checked={mapPrefs.markerClustering} onChange={(value) => updateMap('markerClustering', value)} />
+              <Switch label={t('settingsPage.maps.showLabels')} checked={mapPrefs.showLabels} onChange={(value) => updateMap('showLabels', value)} />
+              <Switch label={t('settingsPage.maps.markerClustering')} checked={mapPrefs.markerClustering} onChange={(value) => updateMap('markerClustering', value)} />
             </Grid>
           </Panel>
         )}
 
         {activeTab === 'media' && (
-          <Panel title="Media and Slideshow">
+          <Panel title={t('settingsPage.media.panel')}>
             <Grid>
-              <Field label="Default slideshow interval">
+              <Field label={t('settingsPage.media.interval')}>
                 <input
                   type="number"
                   min={1}
@@ -338,87 +324,87 @@ export default function Settings() {
                   className={inputClass}
                 />
               </Field>
-              <Field label="Default media filter">
+              <Field label={t('settingsPage.media.filterType')}>
                 <select
                   value={prefs.media?.slideshow?.filter || 'all'}
                   onChange={(event) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), filter: event.target.value })}
                   className={inputClass}
                 >
-                  <option value="all">All media</option>
-                  <option value="MediaPicture">Pictures only</option>
-                  <option value="MediaPDF">PDFs only</option>
-                  <option value="MediaURL">URLs only</option>
-                  <option value="MediaAudio">Audio only</option>
-                  <option value="MediaVideo">Video only</option>
+                  <option value="all">{t('settingsPage.media.filterAll')}</option>
+                  <option value="MediaPicture">{t('settingsPage.media.filterPictures')}</option>
+                  <option value="MediaPDF">{t('settingsPage.media.filterPdf')}</option>
+                  <option value="MediaURL">{t('settingsPage.media.filterUrl')}</option>
+                  <option value="MediaAudio">{t('settingsPage.media.filterAudio')}</option>
+                  <option value="MediaVideo">{t('settingsPage.media.filterVideo')}</option>
                 </select>
               </Field>
-              <Field label="Image fit">
+              <Field label={t('settingsPage.media.imageFit')}>
                 <select
                   value={prefs.media?.slideshow?.fit || 'contain'}
                   onChange={(event) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), fit: event.target.value })}
                   className={inputClass}
                 >
-                  <option value="contain">Fit inside screen</option>
-                  <option value="cover">Fill screen</option>
-                  <option value="actual">Actual size</option>
+                  <option value="contain">{t('settingsPage.media.fitContain')}</option>
+                  <option value="cover">{t('settingsPage.media.fitCover')}</option>
+                  <option value="actual">{t('settingsPage.media.fitActual')}</option>
                 </select>
               </Field>
-              <Field label="Backdrop">
+              <Field label={t('settingsPage.media.backdrop')}>
                 <select
                   value={prefs.media?.slideshow?.background || 'dark'}
                   onChange={(event) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), background: event.target.value })}
                   className={inputClass}
                 >
-                  <option value="dark">Dark</option>
-                  <option value="light">Light</option>
-                  <option value="soft">Soft</option>
+                  <option value="dark">{t('settingsPage.media.backdropDark')}</option>
+                  <option value="light">{t('settingsPage.media.backdropLight')}</option>
+                  <option value="soft">{t('settingsPage.media.backdropSoft')}</option>
                 </select>
               </Field>
-              <Switch label="Show captions by default" checked={prefs.media?.slideshow?.showCaption !== false} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), showCaption: value })} />
-              <Switch label="Show metadata by default" checked={!!prefs.media?.slideshow?.showMetadata} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), showMetadata: value })} />
-              <Switch label="Loop by default" checked={prefs.media?.slideshow?.loop !== false} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), loop: value })} />
-              <Switch label="Shuffle by default" checked={!!prefs.media?.slideshow?.random} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), random: value })} />
+              <Switch label={t('settingsPage.media.captions')} checked={prefs.media?.slideshow?.showCaption !== false} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), showCaption: value })} />
+              <Switch label={t('settingsPage.media.metadata')} checked={!!prefs.media?.slideshow?.showMetadata} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), showMetadata: value })} />
+              <Switch label={t('settingsPage.media.loop')} checked={prefs.media?.slideshow?.loop !== false} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), loop: value })} />
+              <Switch label={t('settingsPage.media.shuffle')} checked={!!prefs.media?.slideshow?.random} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), random: value })} />
             </Grid>
           </Panel>
         )}
 
         {activeTab === 'pdf' && (
-          <Panel title="PDF output">
+          <Panel title={t('settingsPage.pdf.panel')}>
             <Grid>
-              <Field label="Page size">
+              <Field label={t('settingsPage.pdf.pageSize')}>
                 <select value={prefs.pdf.pageSize} onChange={(event) => update('pdf', 'pageSize', event.target.value)} className={inputClass}>
-                  <option value="letter">Letter</option>
-                  <option value="a4">A4</option>
-                  <option value="legal">Legal</option>
+                  <option value="letter">{t('settingsPage.pdf.paperLetter')}</option>
+                  <option value="a4">{t('settingsPage.pdf.paperA4')}</option>
+                  <option value="legal">{t('settingsPage.pdf.paperLegal')}</option>
                 </select>
               </Field>
-              <Field label="Orientation">
+              <Field label={t('settingsPage.pdf.orientation')}>
                 <select value={prefs.pdf.orientation} onChange={(event) => update('pdf', 'orientation', event.target.value)} className={inputClass}>
-                  <option value="portrait">Portrait</option>
-                  <option value="landscape">Landscape</option>
+                  <option value="portrait">{t('settingsPage.pdf.portrait')}</option>
+                  <option value="landscape">{t('settingsPage.pdf.landscape')}</option>
                 </select>
               </Field>
-              <Field label="Margin (px)">
+              <Field label={t('settingsPage.pdf.margin')}>
                 <input type="number" min={12} max={144} value={prefs.pdf.margin} onChange={(event) => update('pdf', 'margin', Number(event.target.value))} className={inputClass} />
               </Field>
-              <Switch label="Embed fonts" checked={prefs.pdf.embedFonts !== false} onChange={(value) => update('pdf', 'embedFonts', value)} />
-              <Switch label="Include bookmarks (TOC)" checked={prefs.pdf.includeBookmarks !== false} onChange={(value) => update('pdf', 'includeBookmarks', value)} />
-              <Switch label="Compress images" checked={prefs.pdf.compressImages !== false} onChange={(value) => update('pdf', 'compressImages', value)} />
+              <Switch label={t('settingsPage.pdf.embedFonts')} checked={prefs.pdf.embedFonts !== false} onChange={(value) => update('pdf', 'embedFonts', value)} />
+              <Switch label={t('settingsPage.pdf.includeBookmarks')} checked={prefs.pdf.includeBookmarks !== false} onChange={(value) => update('pdf', 'includeBookmarks', value)} />
+              <Switch label={t('settingsPage.pdf.compressImages')} checked={prefs.pdf.compressImages !== false} onChange={(value) => update('pdf', 'compressImages', value)} />
             </Grid>
           </Panel>
         )}
 
         {activeTab === 'history' && (
-          <Panel title="History &amp; world events">
+          <Panel title={t('settingsPage.history.panel')}>
             <Grid>
-              <Switch label="Show world events in person timeline" checked={prefs.history?.showWorldEventsInTimeline !== false} onChange={(value) => update('history', 'showWorldEventsInTimeline', value)} />
-              <Field label="Years shown before birth">
+              <Switch label={t('settingsPage.history.showWorldEvents')} checked={prefs.history?.showWorldEventsInTimeline !== false} onChange={(value) => update('history', 'showWorldEventsInTimeline', value)} />
+              <Field label={t('settingsPage.history.yearsBefore')}>
                 <input type="number" min={0} max={50} value={prefs.history?.lifespanYearsBeforeBirth ?? 5} onChange={(event) => update('history', 'lifespanYearsBeforeBirth', Number(event.target.value))} className={inputClass} />
               </Field>
-              <Field label="Years shown after death">
+              <Field label={t('settingsPage.history.yearsAfter')}>
                 <input type="number" min={0} max={50} value={prefs.history?.lifespanYearsAfterDeath ?? 5} onChange={(event) => update('history', 'lifespanYearsAfterDeath', Number(event.target.value))} className={inputClass} />
               </Field>
-              <Field label="Categories (comma-separated)">
+              <Field label={t('settingsPage.history.categories')}>
                 <input
                   type="text"
                   value={(prefs.history?.worldHistoryCategories || []).join(', ')}
@@ -431,27 +417,27 @@ export default function Settings() {
         )}
 
         {activeTab === 'content-download' && (
-          <Panel title="Content download manager">
+          <Panel title={t('settingsPage.contentDownload.panel')}>
             <Grid>
-              <Switch label="Auto-download world history assets" checked={prefs.contentDownload?.autoDownloadHistory !== false} onChange={(value) => update('contentDownload', 'autoDownloadHistory', value)} />
-              <Switch label="Auto-download FamilySearch source images" checked={!!prefs.contentDownload?.autoDownloadFamilySearchSources} onChange={(value) => update('contentDownload', 'autoDownloadFamilySearchSources', value)} />
-              <Field label="Parallel download concurrency">
+              <Switch label={t('settingsPage.contentDownload.autoHistory')} checked={prefs.contentDownload?.autoDownloadHistory !== false} onChange={(value) => update('contentDownload', 'autoDownloadHistory', value)} />
+              <Switch label={t('settingsPage.contentDownload.autoFs')} checked={!!prefs.contentDownload?.autoDownloadFamilySearchSources} onChange={(value) => update('contentDownload', 'autoDownloadFamilySearchSources', value)} />
+              <Field label={t('settingsPage.contentDownload.concurrency')}>
                 <input type="number" min={1} max={12} value={prefs.contentDownload?.concurrency ?? 3} onChange={(event) => update('contentDownload', 'concurrency', Number(event.target.value))} className={inputClass} />
               </Field>
-              <Switch label="Wi-Fi only (mobile)" checked={!!prefs.contentDownload?.wifiOnly} onChange={(value) => update('contentDownload', 'wifiOnly', value)} />
+              <Switch label={t('settingsPage.contentDownload.wifiOnly')} checked={!!prefs.contentDownload?.wifiOnly} onChange={(value) => update('contentDownload', 'wifiOnly', value)} />
             </Grid>
           </Panel>
         )}
 
         {activeTab === 'edit-controllers' && (
-          <Panel title="Edit controllers">
+          <Panel title={t('settingsPage.editControllers.panel')}>
             <Grid>
-              <Switch label="Collapse event-type groups by default" checked={!!prefs.editControllers?.eventTypesCollapsed} onChange={(value) => update('editControllers', 'eventTypesCollapsed', value)} />
-              <Switch label="Collapse fact-type groups by default" checked={!!prefs.editControllers?.factTypesCollapsed} onChange={(value) => update('editControllers', 'factTypesCollapsed', value)} />
-              <Field label="Default event type">
+              <Switch label={t('settingsPage.editControllers.eventTypesCollapsed')} checked={!!prefs.editControllers?.eventTypesCollapsed} onChange={(value) => update('editControllers', 'eventTypesCollapsed', value)} />
+              <Switch label={t('settingsPage.editControllers.factTypesCollapsed')} checked={!!prefs.editControllers?.factTypesCollapsed} onChange={(value) => update('editControllers', 'factTypesCollapsed', value)} />
+              <Field label={t('settingsPage.editControllers.defaultEvent')}>
                 <input type="text" value={prefs.editControllers?.defaultEventType || 'Birth'} onChange={(event) => update('editControllers', 'defaultEventType', event.target.value)} className={inputClass} />
               </Field>
-              <Field label="Default fact type">
+              <Field label={t('settingsPage.editControllers.defaultFact')}>
                 <input type="text" value={prefs.editControllers?.defaultFactType || 'Occupation'} onChange={(event) => update('editControllers', 'defaultFactType', event.target.value)} className={inputClass} />
               </Field>
             </Grid>
@@ -459,22 +445,22 @@ export default function Settings() {
         )}
 
         {activeTab === 'categories' && (
-          <Panel title="Category configurations">
+          <Panel title={t('settingsPage.categories.panel')}>
             <Grid>
-              <Field label="Label order">
+              <Field label={t('settingsPage.categories.labelOrder')}>
                 <select value={prefs.categoryConfigurations?.labelOrder || 'alphabetical'} onChange={(event) => update('categoryConfigurations', 'labelOrder', event.target.value)} className={inputClass}>
-                  <option value="alphabetical">Alphabetical</option>
-                  <option value="custom">Custom (manual)</option>
-                  <option value="usage">By usage count</option>
+                  <option value="alphabetical">{t('settingsPage.categories.labelAlphabetical')}</option>
+                  <option value="custom">{t('settingsPage.categories.labelCustom')}</option>
+                  <option value="usage">{t('settingsPage.categories.labelByUsage')}</option>
                 </select>
               </Field>
-              <Field label="Group order">
+              <Field label={t('settingsPage.categories.groupOrder')}>
                 <select value={prefs.categoryConfigurations?.groupOrder || 'custom'} onChange={(event) => update('categoryConfigurations', 'groupOrder', event.target.value)} className={inputClass}>
-                  <option value="custom">Custom</option>
-                  <option value="alphabetical">Alphabetical</option>
+                  <option value="custom">{t('settingsPage.categories.groupCustom')}</option>
+                  <option value="alphabetical">{t('settingsPage.categories.groupAlphabetical')}</option>
                 </select>
               </Field>
-              <Field label="Hidden categories (comma-separated)">
+              <Field label={t('settingsPage.categories.hidden')}>
                 <input
                   type="text"
                   value={(prefs.categoryConfigurations?.hiddenCategories || []).join(', ')}
@@ -487,32 +473,32 @@ export default function Settings() {
         )}
 
         {activeTab === 'export' && (
-          <Panel title="Export and PDF">
+          <Panel title={t('settingsPage.export.panel')}>
             <Grid>
-              <Field label="PDF Page Size">
+              <Field label={t('settingsPage.export.pdfPageSize')}>
                 <select value={prefs.pdf.pageSize} onChange={(event) => update('pdf', 'pageSize', event.target.value)} className={inputClass}>
-                  <option value="letter">Letter</option>
-                  <option value="a4">A4</option>
-                  <option value="legal">Legal</option>
+                  <option value="letter">{t('settingsPage.pdf.paperLetter')}</option>
+                  <option value="a4">{t('settingsPage.pdf.paperA4')}</option>
+                  <option value="legal">{t('settingsPage.pdf.paperLegal')}</option>
                 </select>
               </Field>
-              <Field label="PDF Orientation">
+              <Field label={t('settingsPage.export.pdfOrientation')}>
                 <select value={prefs.pdf.orientation} onChange={(event) => update('pdf', 'orientation', event.target.value)} className={inputClass}>
-                  <option value="portrait">Portrait</option>
-                  <option value="landscape">Landscape</option>
+                  <option value="portrait">{t('settingsPage.pdf.portrait')}</option>
+                  <option value="landscape">{t('settingsPage.pdf.landscape')}</option>
                 </select>
               </Field>
-              <Field label="PDF Margin">
+              <Field label={t('settingsPage.export.pdfMargin')}>
                 <input type="number" min="12" max="144" value={prefs.pdf.margin} onChange={(event) => update('pdf', 'margin', Number(event.target.value))} className={inputClass} />
               </Field>
-              <Field label="GEDCOM Encoding (Export)">
+              <Field label={t('settingsPage.export.gedcomEncodingExport')}>
                 <select value={prefs.exportDefaults.gedcomEncoding} onChange={(event) => update('exportDefaults', 'gedcomEncoding', event.target.value)} className={inputClass}>
                   <option value="utf-8">UTF-8</option>
                   <option value="utf-16">UTF-16</option>
                   <option value="ansi">ANSI</option>
                 </select>
               </Field>
-              <Field label="GEDCOM Encoding (Import)">
+              <Field label={t('settingsPage.export.gedcomEncodingImport')}>
                 <select
                   value={prefs.importDefaults?.gedcomEncoding || 'auto'}
                   onChange={(event) => update('importDefaults', 'gedcomEncoding', event.target.value)}
@@ -523,53 +509,51 @@ export default function Settings() {
                   ))}
                 </select>
               </Field>
-              <Field label="GEDCOM Import Mode">
+              <Field label={t('settingsPage.export.gedcomImportMode')}>
                 <select
                   value={prefs.importDefaults?.gedcomMode || 'review'}
                   onChange={(event) => update('importDefaults', 'gedcomMode', event.target.value)}
                   className={inputClass}
                 >
-                  <option value="review">Review warnings</option>
-                  <option value="strict">Strict</option>
-                  <option value="lenient">Lenient</option>
+                  <option value="review">{t('settingsPage.export.modeReview')}</option>
+                  <option value="strict">{t('settingsPage.export.modeStrict')}</option>
+                  <option value="lenient">{t('settingsPage.export.modeLenient')}</option>
                 </select>
               </Field>
-              <Field label="Website Theme">
+              <Field label={t('settingsPage.export.websiteTheme')}>
                 <select value={prefs.exportDefaults.websiteTheme} onChange={(event) => update('exportDefaults', 'websiteTheme', event.target.value)} className={inputClass}>
-                  <option value="classic">Classic</option>
-                  <option value="compact">Compact</option>
-                  <option value="archive">Archive</option>
+                  <option value="classic">{t('settingsPage.export.themeClassic')}</option>
+                  <option value="compact">{t('settingsPage.export.themeCompact')}</option>
+                  <option value="archive">{t('settingsPage.export.themeArchive')}</option>
                 </select>
               </Field>
-              <Switch label="Include Private Records" checked={prefs.exportDefaults.includePrivate} onChange={(value) => update('exportDefaults', 'includePrivate', value)} />
-              <Switch label="Include Media" checked={prefs.exportDefaults.includeMedia} onChange={(value) => update('exportDefaults', 'includeMedia', value)} />
+              <Switch label={t('settingsPage.export.includePrivate')} checked={prefs.exportDefaults.includePrivate} onChange={(value) => update('exportDefaults', 'includePrivate', value)} />
+              <Switch label={t('settingsPage.export.includeMedia')} checked={prefs.exportDefaults.includeMedia} onChange={(value) => update('exportDefaults', 'includeMedia', value)} />
             </Grid>
             <div className="flex gap-2 mt-5">
-              <button onClick={exportPrefs} className={secondaryButton}>Download Preferences</button>
-              <button onClick={() => fileRef.current?.click()} className={secondaryButton}>Import Preferences</button>
+              <button onClick={exportPrefs} className={secondaryButton}>{t('settingsPage.export.downloadPrefs')}</button>
+              <button onClick={() => fileRef.current?.click()} className={secondaryButton}>{t('settingsPage.export.importPrefs')}</button>
               <input ref={fileRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => importPrefs(event.target.files?.[0])} />
             </div>
           </Panel>
         )}
 
         {activeTab === 'privacy' && (
-          <Panel title="Privacy">
+          <Panel title={t('settingsPage.privacy.panel')}>
             <Grid>
-              <Switch label="Hide Marked-Private Records" checked={prefs.privacy.hideMarkedPrivate !== false} onChange={(value) => update('privacy', 'hideMarkedPrivate', value)} />
-              <Switch label="Hide Living Persons" checked={!!prefs.privacy.hideLivingPersons} onChange={(value) => update('privacy', 'hideLivingPersons', value)} />
-              <Switch label="Mask Details Only (Keep Person Visible)" checked={!!prefs.privacy.hideLivingDetailsOnly} onChange={(value) => update('privacy', 'hideLivingDetailsOnly', value)} />
-              <Field label="Living Person Threshold (years)">
+              <Switch label={t('settingsPage.privacy.hidePrivate')} checked={prefs.privacy.hideMarkedPrivate !== false} onChange={(value) => update('privacy', 'hideMarkedPrivate', value)} />
+              <Switch label={t('settingsPage.privacy.hideLiving')} checked={!!prefs.privacy.hideLivingPersons} onChange={(value) => update('privacy', 'hideLivingPersons', value)} />
+              <Switch label={t('settingsPage.privacy.maskOnly')} checked={!!prefs.privacy.hideLivingDetailsOnly} onChange={(value) => update('privacy', 'hideLivingDetailsOnly', value)} />
+              <Field label={t('settingsPage.privacy.threshold')}>
                 <input type="number" min="1" max="200" value={prefs.privacy.livingPersonThresholdYears} onChange={(event) => update('privacy', 'livingPersonThresholdYears', Number(event.target.value))} className={inputClass} />
               </Field>
             </Grid>
-            <p className="mt-3 text-xs text-muted-foreground">
-              These defaults apply to GEDCOM and website exports. A person is considered living when no death date is recorded and their birth year is within the threshold.
-            </p>
+            <p className="mt-3 text-xs text-muted-foreground">{t('settingsPage.privacy.footer')}</p>
           </Panel>
         )}
 
         {activeTab === 'plausibility' && (
-          <Panel title="Plausibility Analyzers">
+          <Panel title={t('settingsPage.plausibility.panel')}>
             <div className="space-y-2">
               {PLAUSIBILITY_ANALYZERS.map((a) => (
                 <label key={a.id} className="flex items-center gap-3 text-sm">
@@ -583,16 +567,16 @@ export default function Settings() {
               ))}
             </div>
             <Grid>
-              <Field label="Max lifespan (years)">
+              <Field label={t('settingsPage.plausibility.maxLifespan')}>
                 <input type="number" min="1" max="200" value={prefs.plausibility.thresholds.maxLifespan} onChange={(e) => update('plausibility', 'thresholds', { ...prefs.plausibility.thresholds, maxLifespan: Number(e.target.value) })} className={inputClass} />
               </Field>
-              <Field label="Min marriage age">
+              <Field label={t('settingsPage.plausibility.minMarriageAge')}>
                 <input type="number" min="1" max="50" value={prefs.plausibility.thresholds.minMarriageAge} onChange={(e) => update('plausibility', 'thresholds', { ...prefs.plausibility.thresholds, minMarriageAge: Number(e.target.value) })} className={inputClass} />
               </Field>
-              <Field label="Min parent age">
+              <Field label={t('settingsPage.plausibility.minParentAge')}>
                 <input type="number" min="1" max="50" value={prefs.plausibility.thresholds.minParentAge} onChange={(e) => update('plausibility', 'thresholds', { ...prefs.plausibility.thresholds, minParentAge: Number(e.target.value) })} className={inputClass} />
               </Field>
-              <Field label="Max parent age">
+              <Field label={t('settingsPage.plausibility.maxParentAge')}>
                 <input type="number" min="1" max="100" value={prefs.plausibility.thresholds.maxParentAge} onChange={(e) => update('plausibility', 'thresholds', { ...prefs.plausibility.thresholds, maxParentAge: Number(e.target.value) })} className={inputClass} />
               </Field>
             </Grid>
@@ -600,45 +584,45 @@ export default function Settings() {
         )}
 
         {activeTab === 'integrations' && (
-          <Panel title="Web Search and FamilySearch">
+          <Panel title={t('settingsPage.integrations.panel')}>
             <Grid>
-              <Field label="Web Search Provider">
+              <Field label={t('settingsPage.integrations.provider')}>
                 <select value={prefs.webSearch.provider} onChange={(event) => update('webSearch', 'provider', event.target.value)} className={inputClass}>
-                  <option value="familysearch">FamilySearch</option>
-                  <option value="ancestry">Ancestry</option>
-                  <option value="findagrave">Find a Grave</option>
-                  <option value="google">Google</option>
-                  <option value="custom">Custom</option>
+                  <option value="familysearch">{t('settingsPage.integrations.providerFs')}</option>
+                  <option value="ancestry">{t('settingsPage.integrations.providerAncestry')}</option>
+                  <option value="findagrave">{t('settingsPage.integrations.providerFindAGrave')}</option>
+                  <option value="google">{t('settingsPage.integrations.providerGoogle')}</option>
+                  <option value="custom">{t('settingsPage.integrations.providerCustom')}</option>
                 </select>
               </Field>
-              <Field label="Custom Search URL">
+              <Field label={t('settingsPage.integrations.customUrl')}>
                 <input value={prefs.webSearch.customUrl} onChange={(event) => update('webSearch', 'customUrl', event.target.value)} className={inputClass} />
               </Field>
-              <Field label="Default FamilySearch Task">
+              <Field label={t('settingsPage.integrations.defaultFsTask')}>
                 <select value={prefs.familySearch.defaultTaskType} onChange={(event) => update('familySearch', 'defaultTaskType', event.target.value)} className={inputClass}>
-                  <option value="match-review">Match Review</option>
-                  <option value="record-match-review">Record Match Review</option>
-                  <option value="picture-review">Picture Review</option>
-                  <option value="ordinance-review">Ordinance Review</option>
-                  <option value="sync-review">Sync Review</option>
+                  <option value="match-review">{t('settingsPage.integrations.taskMatch')}</option>
+                  <option value="record-match-review">{t('settingsPage.integrations.taskRecord')}</option>
+                  <option value="picture-review">{t('settingsPage.integrations.taskPicture')}</option>
+                  <option value="ordinance-review">{t('settingsPage.integrations.taskOrdinance')}</option>
+                  <option value="sync-review">{t('settingsPage.integrations.taskSync')}</option>
                 </select>
               </Field>
-              <Switch label="Open Search in New Tab" checked={prefs.webSearch.openInNewTab} onChange={(value) => update('webSearch', 'openInNewTab', value)} />
-              <Switch label="Show Matched People" checked={prefs.familySearch.showMatched} onChange={(value) => update('familySearch', 'showMatched', value)} />
-              <Switch label="Show Unmatched People" checked={prefs.familySearch.showUnmatched} onChange={(value) => update('familySearch', 'showUnmatched', value)} />
+              <Switch label={t('settingsPage.integrations.openInNewTab')} checked={prefs.webSearch.openInNewTab} onChange={(value) => update('webSearch', 'openInNewTab', value)} />
+              <Switch label={t('settingsPage.integrations.showMatched')} checked={prefs.familySearch.showMatched} onChange={(value) => update('familySearch', 'showMatched', value)} />
+              <Switch label={t('settingsPage.integrations.showUnmatched')} checked={prefs.familySearch.showUnmatched} onChange={(value) => update('familySearch', 'showUnmatched', value)} />
             </Grid>
           </Panel>
         )}
 
         {activeTab === 'functions' && (
-          <FunctionsPanel prefs={prefs} setPrefs={setPrefs} />
+          <FunctionsPanel prefs={prefs} setPrefs={setPrefs} t={t} />
         )}
       </div>
     </div>
   );
 }
 
-function FunctionsPanel({ prefs, setPrefs }) {
+function FunctionsPanel({ prefs, setPrefs, t }) {
   const groups = useMemo(() => groupedFunctions(APP_FUNCTIONS.filter((item) => !item.unavailable)), []);
   const toggleList = (listName, route) => {
     setPrefs((current) => {
@@ -656,7 +640,7 @@ function FunctionsPanel({ prefs, setPrefs }) {
   };
 
   return (
-    <Panel title="Functions">
+    <Panel title={t('settingsPage.functions.panel')}>
       <div className="space-y-5">
         {Object.entries(groups).map(([category, items]) => (
           <section key={category}>
@@ -666,9 +650,9 @@ function FunctionsPanel({ prefs, setPrefs }) {
                 <div key={item.to} className="rounded-md border border-border bg-card p-3">
                   <div className="text-sm font-medium mb-2">{item.label}</div>
                   <div className="flex flex-wrap gap-2">
-                    <CheckButton active={prefs.functions.favorites.includes(item.to)} onClick={() => toggleList('favorites', item.to)}>Favorite</CheckButton>
-                    <CheckButton active={prefs.functions.emphasized.includes(item.to)} onClick={() => toggleList('emphasized', item.to)}>Emphasized</CheckButton>
-                    <CheckButton active={prefs.functions.hidden.includes(item.to)} onClick={() => toggleList('hidden', item.to)}>Hidden</CheckButton>
+                    <CheckButton active={prefs.functions.favorites.includes(item.to)} onClick={() => toggleList('favorites', item.to)}>{t('settingsPage.functions.favorite')}</CheckButton>
+                    <CheckButton active={prefs.functions.emphasized.includes(item.to)} onClick={() => toggleList('emphasized', item.to)}>{t('settingsPage.functions.emphasized')}</CheckButton>
+                    <CheckButton active={prefs.functions.hidden.includes(item.to)} onClick={() => toggleList('hidden', item.to)}>{t('settingsPage.functions.hidden')}</CheckButton>
                   </div>
                 </div>
               ))}
@@ -682,11 +666,11 @@ function FunctionsPanel({ prefs, setPrefs }) {
 
 const SAMPLE_NAME_PARTS = { title: 'Dr.', first: 'Maria', middle: 'Eleanor', last: 'García', suffix: 'Jr.' };
 
-function NameFormatPreview({ preset }) {
+function NameFormatPreview({ preset, t }) {
   const rendered = formatName(SAMPLE_NAME_PARTS, preset) || '—';
   return (
     <div className="mt-1 text-[11px] text-muted-foreground">
-      Preview: <span className="font-mono text-foreground">{rendered}</span>
+      {t ? t('settingsPage.preview') : 'Preview'}: <span className="font-mono text-foreground">{rendered}</span>
     </div>
   );
 }

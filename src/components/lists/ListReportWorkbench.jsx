@@ -1,17 +1,18 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Edit3, FileDown, FileText, LayoutTemplate, Palette, Printer, Rows3, Send, Settings2 } from 'lucide-react';
+import { FileDown, FileText, Rows3, Send, Settings2 } from 'lucide-react';
 import { formatInteger, getCurrentLocalization } from '../../lib/i18n.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
-const INFO_COLUMNS = [
-  { value: '', label: 'Do not show' },
-  { value: 'fullName', label: 'Name' },
-  { value: 'birthDate', label: 'Birth Date' },
-  { value: 'birthPlace', label: 'Birth Place' },
-  { value: 'deathDate', label: 'Death Date' },
-  { value: 'deathPlace', label: 'Death Place' },
-  { value: 'genderLabel', label: 'Gender' },
-  { value: 'lifespan', label: 'Lifespan' },
-  { value: 'id', label: 'Record ID' },
+const INFO_COLUMN_DEFS = [
+  { value: '', labelKey: 'lists.infoDoNotShow' },
+  { value: 'fullName', labelKey: 'lists.infoName' },
+  { value: 'birthDate', labelKey: 'lists.infoBirthDate' },
+  { value: 'birthPlace', labelKey: 'lists.infoBirthPlace' },
+  { value: 'deathDate', labelKey: 'lists.infoDeathDate' },
+  { value: 'deathPlace', labelKey: 'lists.infoDeathPlace' },
+  { value: 'genderLabel', labelKey: 'lists.infoGender' },
+  { value: 'lifespan', labelKey: 'lists.infoLifespan' },
+  { value: 'id', labelKey: 'lists.infoRecordId' },
 ];
 
 export const DEFAULT_LIST_REPORT_OPTIONS = Object.freeze({
@@ -61,18 +62,19 @@ export function ListReportToolbar({
   onPreviewChange,
   compact = false,
 }) {
+  const { t } = useTranslation();
+  // Single panel state: which tab is active inside the Customize popover.
+  // When `panel` is null the popover is closed.
   const [panel, setPanel] = useState(null);
   const ref = useRef(null);
   const previewMode = Boolean(options.previewMode);
-  const actions = [
-    { id: 'save', label: 'Save Report', icon: FileDown, onClick: () => downloadReportHtml(title, rows, columns, options) },
-    { id: 'share', label: 'Share', icon: Send, onClick: () => shareReport(title, rows) },
-    { id: 'edit', label: 'Edit', icon: Edit3, onClick: () => onPreviewChange?.(!previewMode) },
-    { id: 'theme', label: 'Theme', icon: Palette, panel: 'theme' },
-    { id: 'report', label: 'Report', icon: FileText, panel: 'report' },
-    { id: 'style', label: 'Style', icon: LayoutTemplate, panel: 'style' },
-    { id: 'page', label: 'Page', icon: Printer, panel: 'page' },
+
+  const directActions = [
+    { id: 'save', label: t('lists.saveReport'), icon: FileDown, onClick: () => downloadReportHtml(title, rows, columns, options) },
+    { id: 'share', label: t('lists.share'), icon: Send, onClick: () => shareReport(title, rows) },
   ];
+
+  const openCustomize = () => setPanel((current) => (current ? null : 'report'));
 
   return (
     <div ref={ref} className={`relative flex flex-wrap items-center gap-1.5 ${compact ? '' : 'ms-auto'}`}>
@@ -83,26 +85,38 @@ export function ListReportToolbar({
         aria-pressed={previewMode}
       >
         {previewMode ? <Rows3 size={14} /> : <FileText size={14} />}
-        {previewMode ? 'List' : 'Preview'}
+        {previewMode ? t('lists.list') : t('lists.preview')}
       </button>
-      {actions.map((action) => {
+      {directActions.map((action) => {
         const Icon = action.icon;
         return (
           <button
             type="button"
             key={action.id}
-            onClick={() => action.panel ? setPanel((current) => current === action.panel ? null : action.panel) : action.onClick?.()}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 text-xs hover:bg-accent"
+            onClick={action.onClick}
+            className="inline-flex min-h-8 items-center justify-center rounded-md border border-border bg-secondary p-1.5 text-xs hover:bg-accent"
             title={action.label}
+            aria-label={action.label}
           >
             <Icon size={14} />
-            <span className={compact ? 'sr-only' : ''}>{action.label}</span>
           </button>
         );
       })}
+      <button
+        type="button"
+        onClick={openCustomize}
+        className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 text-xs hover:bg-accent"
+        title={t('lists.customize')}
+        aria-haspopup="dialog"
+        aria-expanded={Boolean(panel)}
+      >
+        <Settings2 size={14} />
+        <span className={compact ? 'sr-only' : ''}>{t('lists.customize')}</span>
+      </button>
       {panel && (
         <ListReportOptionsPanel
           panel={panel}
+          setPanel={setPanel}
           options={options}
           update={update}
           updateInfoColumn={updateInfoColumn}
@@ -114,6 +128,7 @@ export function ListReportToolbar({
 }
 
 export function ListReportPreview({ title, rows = [], columns = [], options = DEFAULT_LIST_REPORT_OPTIONS }) {
+  const { t } = useTranslation();
   const localization = getCurrentLocalization();
   const visibleColumns = useMemo(() => reportColumns(columns, options), [columns, options]);
   const grouped = useMemo(() => {
@@ -127,21 +142,23 @@ export function ListReportPreview({ title, rows = [], columns = [], options = DE
     }
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, groupRows]) => ({
       key,
-      label: key === '#' ? 'Persons without Last Name' : key,
+      label: key === '#' ? t('lists.personsWithoutLastName') : key,
       rows: groupRows,
     }));
-  }, [rows, options.separateSections]);
+  }, [rows, options.separateSections, t]);
+
+  const languageLabel = options.localization === 'en' ? t('lists.langEnglish') : options.localization;
+  const headerLine = options.sourceCitations
+    ? t('lists.rowsWithCitations', { count: formatInteger(rows.length, localization), language: languageLabel, mode: options.citationMode })
+    : t('lists.rowsCount', { count: formatInteger(rows.length, localization), language: languageLabel });
 
   return (
     <div className="h-full overflow-auto bg-muted/30 p-4 md:p-8">
       <article className={`mx-auto min-h-full max-w-5xl border border-border bg-white p-6 text-slate-950 shadow-sm ${options.orientation === 'landscape' ? 'aspect-[11/8.5]' : 'aspect-[8.5/11]'}`}>
         <header className="mb-5 border-b border-slate-200 pb-4">
-          <div className="text-xs uppercase tracking-wide text-slate-500">Report Preview</div>
+          <div className="text-xs uppercase tracking-wide text-slate-500">{t('lists.reportPreview')}</div>
           <h2 className="mt-1 text-2xl font-semibold">{title}</h2>
-          <div className="mt-1 text-xs text-slate-500">
-            {formatInteger(rows.length, localization)} rows · {options.localization === 'en' ? 'English' : options.localization}
-            {options.sourceCitations ? ` · ${options.citationMode} citations` : ''}
-          </div>
+          <div className="mt-1 text-xs text-slate-500">{headerLine}</div>
         </header>
         {grouped.map((group) => (
           <section key={group.key || 'all'} className="mb-6 break-inside-avoid">
@@ -149,7 +166,7 @@ export function ListReportPreview({ title, rows = [], columns = [], options = DE
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="border-y border-slate-200 bg-slate-50">
-                  {options.personPictureColumn && <th className="w-16 px-2 py-2 text-start font-semibold text-slate-600">Picture</th>}
+                  {options.personPictureColumn && <th className="w-16 px-2 py-2 text-start font-semibold text-slate-600">{t('lists.picture')}</th>}
                   {visibleColumns.map((column) => <th key={column.key} className="px-2 py-2 text-start font-semibold text-slate-600">{column.label}</th>)}
                 </tr>
               </thead>
@@ -175,97 +192,118 @@ export function ListReportPreview({ title, rows = [], columns = [], options = DE
   );
 }
 
-function ListReportOptionsPanel({ panel, options, update, updateInfoColumn, onClose }) {
+function ListReportOptionsPanel({ panel, setPanel, options, update, updateInfoColumn, onClose }) {
+  const { t } = useTranslation();
+  const infoColumnOptions = INFO_COLUMN_DEFS.map((item) => [item.value, t(item.labelKey)]);
+  const tabs = [
+    { id: 'report', label: t('lists.report') },
+    { id: 'theme', label: t('lists.theme') },
+    { id: 'style', label: t('lists.style') },
+    { id: 'page', label: t('lists.page') },
+  ];
   return (
     <div className="absolute end-0 top-[calc(100%+0.4rem)] z-30 w-[min(360px,calc(100vw-2rem))] rounded-md border border-border bg-card p-4 text-sm shadow-xl">
       <div className="mb-3 flex items-center gap-3">
-        <div className="text-sm font-semibold">{panelLabel(panel)}</div>
-        <button type="button" onClick={onClose} className="ms-auto rounded-md border border-border bg-secondary px-2 py-1 text-xs hover:bg-accent">Close</button>
+        <div className="text-sm font-semibold">{t('lists.customize')}</div>
+        <button type="button" onClick={onClose} className="ms-auto rounded-md border border-border bg-secondary px-2 py-1 text-xs hover:bg-accent">{t('lists.close')}</button>
+      </div>
+      <div className="mb-3 flex flex-wrap gap-1 border-b border-border">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setPanel?.(tab.id)}
+            className={`px-2.5 py-1.5 text-xs font-semibold border-b-2 ${panel === tab.id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+            aria-pressed={panel === tab.id}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
       {panel === 'report' && (
         <div className="space-y-4">
-          <OptionGroup title="General">
-            <SelectField label="Sorting" value={options.sorting} onChange={(value) => update('sorting', value)} options={[
-              ['current', 'Current sort'],
-              ['lastName', 'By Last Name'],
-              ['birthDate', 'By Birth Date'],
-              ['recordId', 'By Record ID'],
+          <OptionGroup title={t('lists.general')}>
+            <SelectField label={t('lists.sorting')} value={options.sorting} onChange={(value) => update('sorting', value)} options={[
+              ['current', t('lists.sortCurrent')],
+              ['lastName', t('lists.sortLastName')],
+              ['birthDate', t('lists.sortBirthDate')],
+              ['recordId', t('lists.sortRecordId')],
             ]} />
-            <CheckField label="Separate Sections" checked={options.separateSections} onChange={(value) => update('separateSections', value)} />
-            <CheckField label="Sort Ascending" checked={options.sortAscending} onChange={(value) => update('sortAscending', value)} />
-            <SelectField label="Smart Filter" value={options.smartFilter} onChange={(value) => update('smartFilter', value)} options={[
-              ['none', 'No Smart Filter'],
-              ['bookmarked', 'Bookmarked'],
-              ['private', 'Private records'],
-              ['missingDates', 'Missing dates'],
+            <CheckField label={t('lists.separateSections')} checked={options.separateSections} onChange={(value) => update('separateSections', value)} />
+            <CheckField label={t('lists.sortAscending')} checked={options.sortAscending} onChange={(value) => update('sortAscending', value)} />
+            <SelectField label={t('lists.smartFilter')} value={options.smartFilter} onChange={(value) => update('smartFilter', value)} options={[
+              ['none', t('lists.smartNone')],
+              ['bookmarked', t('lists.smartBookmarked')],
+              ['private', t('lists.smartPrivate')],
+              ['missingDates', t('lists.smartMissingDates')],
             ]} />
-            <CheckField label="Hide Information marked as Private" checked={options.hidePrivate} onChange={(value) => update('hidePrivate', value)} />
+            <CheckField label={t('lists.hidePrivate')} checked={options.hidePrivate} onChange={(value) => update('hidePrivate', value)} />
           </OptionGroup>
-          <OptionGroup title="Columns">
-            <CheckField label="Separate Columns for Name Components" checked={options.separateNameComponents} onChange={(value) => update('separateNameComponents', value)} />
-            <CheckField label="Separate Column for Person Picture" checked={options.personPictureColumn} onChange={(value) => update('personPictureColumn', value)} />
+          <OptionGroup title={t('lists.columnsHeading')}>
+            <CheckField label={t('lists.separateNameComponents')} checked={options.separateNameComponents} onChange={(value) => update('separateNameComponents', value)} />
+            <CheckField label={t('lists.personPictureColumn')} checked={options.personPictureColumn} onChange={(value) => update('personPictureColumn', value)} />
             {options.informationColumns.map((value, index) => (
-              <SelectField key={index} label={`Information Column ${index + 1}`} value={value} onChange={(next) => updateInfoColumn(index, next)} options={INFO_COLUMNS.map((item) => [item.value, item.label])} />
+              <SelectField key={index} label={t('lists.informationColumn', { index: index + 1 })} value={value} onChange={(next) => updateInfoColumn(index, next)} options={infoColumnOptions} />
             ))}
           </OptionGroup>
-          <OptionGroup title="Localization">
-            <SelectField label="Localization" value={options.localization} onChange={(value) => update('localization', value)} options={[
-              ['en', 'English'],
-              ['ar', 'Arabic'],
-              ['he', 'Hebrew'],
-              ['system', 'System default'],
+          <OptionGroup title={t('lists.localization')}>
+            <SelectField label={t('lists.localization')} value={options.localization} onChange={(value) => update('localization', value)} options={[
+              ['en', t('lists.langEnglish')],
+              ['ar', t('lists.langArabic')],
+              ['he', t('lists.langHebrew')],
+              ['system', t('lists.langSystem')],
             ]} />
           </OptionGroup>
-          <OptionGroup title="Citations">
-            <CheckField label="Source Citations" checked={options.sourceCitations} onChange={(value) => update('sourceCitations', value)} />
-            <SelectField label="Citations Mode" value={options.citationMode} onChange={(value) => update('citationMode', value)} options={[
-              ['short', 'Short Citations Style'],
-              ['full', 'Full Citations Style'],
-              ['footnotes', 'Footnotes'],
+          <OptionGroup title={t('lists.citations')}>
+            <CheckField label={t('lists.sourceCitations')} checked={options.sourceCitations} onChange={(value) => update('sourceCitations', value)} />
+            <SelectField label={t('lists.citationsMode')} value={options.citationMode} onChange={(value) => update('citationMode', value)} options={[
+              ['short', t('lists.citationShort')],
+              ['full', t('lists.citationFull')],
+              ['footnotes', t('lists.citationFootnotes')],
             ]} />
-            <CheckField label="Text" checked={options.includeCitationText} onChange={(value) => update('includeCitationText', value)} />
-            <CheckField label="Source Citation Notes" checked={options.includeSourceCitationNotes} onChange={(value) => update('includeSourceCitationNotes', value)} />
-            <CheckField label="Source Notes" checked={options.includeSourceNotes} onChange={(value) => update('includeSourceNotes', value)} />
-            <CheckField label="Referenced Entries" checked={options.includeReferencedEntries} onChange={(value) => update('includeReferencedEntries', value)} />
-            <CheckField label="Source Repository" checked={options.includeSourceRepository} onChange={(value) => update('includeSourceRepository', value)} />
-            <CheckField label="Pictures" checked={options.includePictures} onChange={(value) => update('includePictures', value)} />
-            <SelectField label="Pictures Size" value={options.pictureSize} onChange={(value) => update('pictureSize', value)} options={[
-              ['small', 'Small'],
-              ['medium', 'Medium'],
-              ['large', 'Large'],
+            <CheckField label={t('lists.citationText')} checked={options.includeCitationText} onChange={(value) => update('includeCitationText', value)} />
+            <CheckField label={t('lists.citationSourceCitationNotes')} checked={options.includeSourceCitationNotes} onChange={(value) => update('includeSourceCitationNotes', value)} />
+            <CheckField label={t('lists.citationSourceNotes')} checked={options.includeSourceNotes} onChange={(value) => update('includeSourceNotes', value)} />
+            <CheckField label={t('lists.citationReferencedEntries')} checked={options.includeReferencedEntries} onChange={(value) => update('includeReferencedEntries', value)} />
+            <CheckField label={t('lists.citationSourceRepository')} checked={options.includeSourceRepository} onChange={(value) => update('includeSourceRepository', value)} />
+            <CheckField label={t('lists.citationPictures')} checked={options.includePictures} onChange={(value) => update('includePictures', value)} />
+            <SelectField label={t('lists.citationPictureSize')} value={options.pictureSize} onChange={(value) => update('pictureSize', value)} options={[
+              ['small', t('lists.sizeSmall')],
+              ['medium', t('lists.sizeMedium')],
+              ['large', t('lists.sizeLarge')],
             ]} />
           </OptionGroup>
         </div>
       )}
       {panel === 'theme' && (
-        <OptionGroup title="Theme">
-          <SelectField label="Report Theme" value={options.theme} onChange={(value) => update('theme', value)} options={[
-            ['classic', 'Classic'],
-            ['compact', 'Compact'],
-            ['archive', 'Archive'],
-            ['presentation', 'Presentation'],
+        <OptionGroup title={t('lists.theme')}>
+          <SelectField label={t('lists.reportTheme')} value={options.theme} onChange={(value) => update('theme', value)} options={[
+            ['classic', t('lists.themeClassic')],
+            ['compact', t('lists.themeCompact')],
+            ['archive', t('lists.themeArchive')],
+            ['presentation', t('lists.themePresentation')],
           ]} />
         </OptionGroup>
       )}
       {panel === 'style' && (
-        <OptionGroup title="Style">
-          <SelectField label="Table Style" value={options.style} onChange={(value) => update('style', value)} options={[
-            ['compact', 'Compact rows'],
-            ['comfortable', 'Comfortable rows'],
-            ['ruled', 'Ruled table'],
+        <OptionGroup title={t('lists.style')}>
+          <SelectField label={t('lists.tableStyle')} value={options.style} onChange={(value) => update('style', value)} options={[
+            ['compact', t('lists.styleCompact')],
+            ['comfortable', t('lists.styleComfortable')],
+            ['ruled', t('lists.styleRuled')],
           ]} />
         </OptionGroup>
       )}
       {panel === 'page' && (
-        <OptionGroup title="Page">
-          <SelectField label="Paper" value={options.paperSize} onChange={(value) => update('paperSize', value)} options={[
-            ['letter', 'Letter'],
-            ['a4', 'A4'],
-            ['legal', 'Legal'],
+        <OptionGroup title={t('lists.page')}>
+          <SelectField label={t('lists.paper')} value={options.paperSize} onChange={(value) => update('paperSize', value)} options={[
+            ['letter', t('lists.paperLetter')],
+            ['a4', t('lists.paperA4')],
+            ['legal', t('lists.paperLegal')],
           ]} />
-          <SelectField label="Orientation" value={options.orientation} onChange={(value) => update('orientation', value)} options={[
-            ['portrait', 'Portrait'],
-            ['landscape', 'Landscape'],
+          <SelectField label={t('lists.orientation')} value={options.orientation} onChange={(value) => update('orientation', value)} options={[
+            ['portrait', t('lists.orientationPortrait')],
+            ['landscape', t('lists.orientationLandscape')],
           ]} />
         </OptionGroup>
       )}
@@ -276,9 +314,9 @@ function ListReportOptionsPanel({ panel, options, update, updateInfoColumn, onCl
 function reportColumns(columns, options) {
   const byKey = new Map(columns.map((column) => [column.key, column]));
   const selected = options.informationColumns
-    .map((key) => byKey.get(key) || INFO_COLUMNS.find((column) => column.value === key))
+    .map((key) => byKey.get(key) || INFO_COLUMN_DEFS.find((column) => column.value === key))
     .filter(Boolean)
-    .map((column) => ({ key: column.key || column.value, label: column.label }));
+    .map((column) => ({ key: column.key || column.value, label: column.label || column.labelKey }));
   if (selected.length) return selected;
   return columns.slice(0, 6);
 }
@@ -288,13 +326,6 @@ function renderCell(row, column) {
   const value = row[column.key];
   if (value == null || value === '') return '—';
   return String(value);
-}
-
-function panelLabel(panel) {
-  if (panel === 'theme') return 'Theme';
-  if (panel === 'style') return 'Style';
-  if (panel === 'page') return 'Page';
-  return 'Report';
 }
 
 function OptionGroup({ title, children }) {

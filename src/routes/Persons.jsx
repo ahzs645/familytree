@@ -38,13 +38,13 @@ const EXPORT_COLUMNS = [
   { key: 'id', label: 'Record ID' },
 ];
 
-const LIST_COLUMNS = [
-  { key: 'fullName', label: 'Name', alwaysVisible: true },
-  { key: 'arabicPatrilinealName', label: 'Arabic lineage name' },
-  { key: 'lifespan', label: 'Lifespan' },
-  { key: 'outsideFamily', label: 'Outside-family marker' },
-  { key: 'bookmarked', label: 'Bookmarked marker' },
-  { key: 'startPerson', label: 'Start-person marker' },
+const LIST_COLUMN_DEFS = [
+  { key: 'fullName', labelKey: 'persons.columns.fullName', alwaysVisible: true },
+  { key: 'arabicPatrilinealName', labelKey: 'persons.columns.arabicPatrilinealName' },
+  { key: 'lifespan', labelKey: 'persons.columns.lifespan' },
+  { key: 'outsideFamily', labelKey: 'persons.columns.outsideFamilyMarker' },
+  { key: 'bookmarked', labelKey: 'persons.columns.bookmarkedMarker' },
+  { key: 'startPerson', labelKey: 'persons.columns.startPersonMarker' },
 ];
 
 export default function Persons() {
@@ -92,12 +92,16 @@ export default function Persons() {
 
   const allVisibleIds = useMemo(() => persons.map((p) => p.id), [persons]);
   const selection = useListSelection(allVisibleIds);
-  const columnVisibility = useColumnVisibility('persons', LIST_COLUMNS);
+  const listColumns = useMemo(
+    () => LIST_COLUMN_DEFS.map((c) => ({ key: c.key, label: t(c.labelKey), alwaysVisible: c.alwaysVisible })),
+    [t]
+  );
+  const columnVisibility = useColumnVisibility('persons', listColumns);
   const report = useListReportOptions();
 
   const bulkDelete = async () => {
     if (!selection.count) return;
-    if (!(await modal.confirm(`Delete ${selection.count} selected ${selection.count === 1 ? 'person' : 'persons'}? This cannot be undone.`, { title: 'Delete persons', okLabel: 'Delete', destructive: true }))) return;
+    if (!(await modal.confirm(t('persons.deleteConfirm', { count: selection.count }), { title: t('persons.deleteTitle'), okLabel: t('persons.deleteOk'), destructive: true }))) return;
     const db = getLocalDatabase();
     for (const id of selection.selectedIds) {
       await db.deleteRecord(id);
@@ -206,7 +210,7 @@ export default function Persons() {
     { value: 'start', label: t('persons.startPerson') },
     { value: 'missing-birth', label: t('persons.missingBirth') },
     { value: 'missing-death', label: t('persons.missingDeath') },
-    { value: 'outside-family', label: 'Outside main family' },
+    { value: 'outside-family', label: t('persons.outsideFamily') },
   ];
   const sortOptions = [
     { value: 'name', label: t('persons.sortName') },
@@ -228,13 +232,13 @@ export default function Persons() {
             </div>
           </div>
           <ColumnChooser
-            columns={LIST_COLUMNS}
+            columns={listColumns}
             isVisible={columnVisibility.isVisible}
             onToggle={columnVisibility.toggle}
             onReset={columnVisibility.resetToDefaults}
           />
           <ListReportToolbar
-            title="Persons List"
+            title={t('persons.listTitle')}
             rows={visiblePersons}
             columns={EXPORT_COLUMNS}
             options={report.options}
@@ -247,6 +251,7 @@ export default function Persons() {
             onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)}
             onJson={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)}
             controlClass={controlClass}
+            t={t}
           />
         </div>
         <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center md:gap-3">
@@ -256,7 +261,7 @@ export default function Persons() {
             value={filter}
             onChange={setFilter}
             options={filterOptions}
-            ariaLabel="Filter persons"
+            ariaLabel={t('persons.filterAria')}
             className="w-full md:w-48"
           />
           <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-sort">{t('persons.sort')}</label>
@@ -265,7 +270,7 @@ export default function Persons() {
             value={sortKey}
             onChange={setSortKey}
             options={sortOptions}
-            ariaLabel="Sort persons"
+            ariaLabel={t('persons.sortAria')}
             className="w-full md:w-48"
           />
           <div className="col-span-2 md:min-w-[280px] md:max-w-[360px]">
@@ -316,7 +321,7 @@ export default function Persons() {
         )}
         {report.options.previewMode ? (
           <main className="flex-1 min-w-0 overflow-auto">
-            <ListReportPreview title="Persons List" rows={visiblePersons} columns={EXPORT_COLUMNS} options={report.options} />
+            <ListReportPreview title={t('persons.listTitle')} rows={visiblePersons} columns={EXPORT_COLUMNS} options={report.options} />
           </main>
         ) : (!isMobile || mobilePane === 'detail') && (
         <main className="flex-1 min-w-0 overflow-auto">
@@ -349,7 +354,7 @@ export default function Persons() {
                   ) : null}
                   {active.outsideFamily ? (
                     <div className="mt-2 inline-flex rounded-full border border-violet-400/50 bg-violet-500/10 px-2 py-1 text-xs font-semibold text-violet-700 dark:text-violet-300">
-                      Outside main family
+                      {t('persons.outsideFamily')}
                     </div>
                   ) : null}
                 </div>
@@ -366,30 +371,30 @@ export default function Persons() {
                 <SummaryBox label={t('persons.partnerFamilies')} value={context?.families?.length || 0} localization={localization} />
                 <SummaryBox label={t('glossary.event')} value={context?.events?.length || 0} localization={localization} />
                 <SummaryBox label={t('glossary.fact')} value={context?.facts?.length || 0} localization={localization} />
-                <SummaryBox label="Milk kinship" value={context?.milkKinships?.length || 0} localization={localization} />
+                <SummaryBox label={t('persons.milkKinship')} value={context?.milkKinships?.length || 0} localization={localization} />
               </div>
 
               {(active.cemetery || active.cemeteryLocation || active.graveNumber) ? (
                 <section className="mb-5">
-                  <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">Grave & Cemetery</h3>
+                  <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">{t('persons.graveCemetery')}</h3>
                   <div className="border border-border rounded-md p-3 bg-card text-sm grid gap-2 sm:grid-cols-3">
-                    {active.cemetery ? <InfoCell label="Cemetery" value={active.cemetery} /> : null}
-                    {active.cemeteryLocation ? <InfoCell label="Location" value={active.cemeteryLocation} /> : null}
-                    {active.graveNumber ? <InfoCell label="Grave number" value={active.graveNumber} /> : null}
+                    {active.cemetery ? <InfoCell label={t('persons.cemetery')} value={active.cemetery} /> : null}
+                    {active.cemeteryLocation ? <InfoCell label={t('persons.cemeteryLocation')} value={active.cemeteryLocation} /> : null}
+                    {active.graveNumber ? <InfoCell label={t('persons.graveNumber')} value={active.graveNumber} /> : null}
                   </div>
                 </section>
               ) : null}
 
               {context?.milkKinships?.length ? (
                 <section className="mb-5">
-                  <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">Milk Kinship / الرضاعة</h3>
+                  <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">{t('persons.milkKinshipHeading')}</h3>
                   <div className="grid gap-2">
                     {context.milkKinships.map((milk) => (
                       <div key={milk.recordName} className="border border-border rounded-md p-3 bg-card text-sm">
                         <div className="grid gap-2 sm:grid-cols-3">
-                          <InfoCell label="Nursing mother" value={milk.nursingMotherName || '—'} />
-                          <InfoCell label="Milk father" value={milk.milkFatherName || '—'} />
-                          <InfoCell label="Breastfed child" value={milk.childName || '—'} />
+                          <InfoCell label={t('persons.nursingMother')} value={milk.nursingMotherName || '—'} />
+                          <InfoCell label={t('persons.milkFather')} value={milk.milkFatherName || '—'} />
+                          <InfoCell label={t('persons.breastfedChild')} value={milk.childName || '—'} />
                         </div>
                         {(milk.startDate || milk.endDate || milk.notes) ? (
                           <div className="mt-2 text-xs text-muted-foreground">
@@ -429,22 +434,22 @@ export default function Persons() {
                     {context.families.map((family) => (
                       <div key={family.family.recordName} className="border border-border rounded-md p-3 bg-card">
                         <div className="flex flex-wrap items-center gap-2 text-sm">
-                          <span className="text-muted-foreground">With</span>
+                          <span className="text-muted-foreground">{t('persons.withPartner')}</span>
                           {family.partner ? (
                             <Link to={`/person/${family.partner.recordName}`} className="text-primary"><BdiText>{family.partner.fullName}</BdiText></Link>
                           ) : (
-                            <span>Unknown partner</span>
+                            <span>{t('persons.unknownPartner')}</span>
                           )}
-                          <Link to={`/family/${family.family.recordName}`} className="ms-auto text-xs text-primary">Open family</Link>
+                          <Link to={`/family/${family.family.recordName}`} className="ms-auto text-xs text-primary">{t('persons.openFamily')}</Link>
                         </div>
                         <div className="text-xs text-muted-foreground mt-2">
-                          {family.children.length ? `${family.children.length} child${family.children.length === 1 ? '' : 'ren'}` : 'No children recorded'}
+                          {family.children.length ? t('persons.children', { count: family.children.length }) : t('persons.noChildren')}
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-sm text-muted-foreground">No partner families recorded.</div>
+                  <div className="text-sm text-muted-foreground">{t('persons.noPartnerFamilies')}</div>
                 )}
               </section>
             </div>
@@ -476,7 +481,7 @@ function InfoCell({ label, value }) {
   );
 }
 
-function ExportMenu({ onCsv, onJson, controlClass }) {
+function ExportMenu({ onCsv, onJson, controlClass, t }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -503,7 +508,7 @@ function ExportMenu({ onCsv, onJson, controlClass }) {
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        Export
+        {t('persons.exportLabel')}
         <span aria-hidden="true" className="text-xs">▾</span>
       </button>
       {open ? (
@@ -517,7 +522,7 @@ function ExportMenu({ onCsv, onJson, controlClass }) {
             onClick={() => { setOpen(false); onCsv(); }}
             className="block w-full text-start px-3 py-2 text-sm hover:bg-accent"
           >
-            Export CSV
+            {t('persons.exportCsv')}
           </button>
           <button
             type="button"
@@ -525,7 +530,7 @@ function ExportMenu({ onCsv, onJson, controlClass }) {
             onClick={() => { setOpen(false); onJson(); }}
             className="block w-full text-start px-3 py-2 text-sm hover:bg-accent"
           >
-            Export JSON
+            {t('persons.exportJson')}
           </button>
         </div>
       ) : null}

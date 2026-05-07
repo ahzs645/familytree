@@ -1,84 +1,35 @@
 /**
- * Left-side navigation drawer — inspired by Twenty CRM's drawer.
- * Replaces the top nav bar. Collapsible to an icon-only rail.
+ * Desktop left-nav drawer.
+ *
+ * Layout: pinned shortcuts (Home / Search / Favorites) on top, then six
+ * collapsible groups defined in lib/navigationConfig.js. Drawer can be
+ * rail-collapsed to a 56px icon strip; clicking a group icon in rail
+ * mode auto-expands the drawer and opens that group.
  */
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import {
-  Home, Users, TreePine, BarChart3, LayoutGrid, List, MapPin, BookOpen,
-  Calendar, Search, Globe2, BarChart2, Star, ChevronLeft, ChevronRight,
-  ChevronDown, Map as MapIcon, Image as ImageIcon, FileText, Users2,
-  Sparkles, BookOpenText, ClipboardList, AlertCircle, Dna, Archive,
-  Play, History, Layers, Tag, UserCircle, Database, Globe, ListTodo,
-  Bookmark, Copy, ShieldCheck, Microscope, FileEdit, UsersRound,
-  Clock, Download, Upload, Settings, Wrench, CloudCog, HelpCircle,
-  Heart, Presentation, Building2, CircleDot, NotebookPen, Briefcase,
-  GitBranch, Activity, CalendarHeart, GraduationCap, Languages,
-  Sun, Moon,
-} from 'lucide-react';
-import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
+import { ChevronLeft, ChevronRight, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { cn } from '../lib/utils.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { SUPPORTED_LOCALES } from '../lib/i18n.js';
 import { routeLabelKey } from '../lib/navigationLabels.js';
+import { NAV_PINNED, NAV_GROUPS, findGroupForPath, isLinkActive } from '../lib/navigationConfig.js';
 
-const WORKSPACE_LINKS = [
-  { to: '/', label: 'Home', icon: Home, end: true },
-  { to: '/persons', label: 'Persons', icon: Users },
-  { to: '/tree', label: 'Tree', icon: TreePine },
-  { to: '/heritage-tree', label: 'Heritage Tree', icon: GitBranch },
-  { to: '/charts', label: 'Charts', icon: BarChart3 },
-  { to: '/views', label: 'Views', icon: LayoutGrid, aliases: ['/map', '/globe', '/maps-diagram', '/statistic-maps', '/media', '/quiz'] },
-  { to: '/lists', label: 'Lists', icon: List },
-  { to: '/places', label: 'Places', icon: MapPin },
-  { to: '/sources', label: 'Sources', icon: BookOpen },
-  { to: '/events', label: 'Events', icon: Calendar },
-  { to: '/search', label: 'Search', icon: Search },
-  { to: '/publish', label: 'Publish', icon: Globe2, aliases: ['/websites', '/books'] },
-  { to: '/statistics', label: 'Stats', icon: BarChart2 },
-  { to: '/favorites', label: 'Favorites', icon: Star, aliases: ['/bookmarks'] },
-];
+const OPEN_GROUPS_KEY = 'app.drawer.openGroups.v2';
 
-const OTHER_LINKS = [
-  { to: '/saved-charts', label: 'Saved charts', icon: Presentation },
-  { to: '/map', label: 'Virtual Map', icon: MapIcon },
-  { to: '/globe', label: 'Virtual Globe', icon: Globe },
-  { to: '/maps-diagram', label: 'Statistic Maps', icon: Activity },
-  { to: '/media', label: 'Media Gallery', icon: ImageIcon },
-  { to: '/reports', label: 'Reports', icon: FileText },
-  { to: '/marriages', label: 'Marriage list', icon: Heart },
-  { to: '/facts', label: 'Facts list', icon: ClipboardList },
-  { to: '/anniversaries', label: 'Anniversary list', icon: CalendarHeart },
-  { to: '/plausibility-list', label: 'Plausibility list', icon: AlertCircle },
-  { to: '/distinctive-persons', label: 'Distinctive persons', icon: Sparkles },
-  { to: '/person-analysis', label: 'Person analysis', icon: Microscope },
-  { to: '/lds-ordinances', label: 'LDS ordinances', icon: GraduationCap },
-  { to: '/books', label: 'Books', icon: BookOpenText },
-  { to: '/websites', label: 'Websites', icon: Briefcase },
-  { to: '/todos', label: 'ToDos', icon: ListTodo },
-  { to: '/bookmarks', label: 'Bookmarks', icon: Bookmark },
-  { to: '/change-log', label: 'Change log', icon: History },
-  { to: '/duplicates', label: 'Duplicates', icon: Copy },
-  { to: '/plausibility', label: 'Plausibility', icon: ShieldCheck },
-  { to: '/research', label: 'Research', icon: NotebookPen },
-  { to: '/stories', label: 'Stories', icon: FileEdit },
-  { to: '/groups', label: 'Person groups', icon: UsersRound },
-  { to: '/dna', label: 'DNA results', icon: Dna },
-  { to: '/repositories', label: 'Repositories', icon: Archive },
-  { to: '/slideshow', label: 'Slideshow', icon: Play },
-  { to: '/world-history', label: 'World history', icon: Clock },
-  { to: '/templates', label: 'Templates', icon: Layers },
-  { to: '/labels', label: 'Labels', icon: Tag },
-  { to: '/author', label: 'Author information', icon: UserCircle },
-  { to: '/familysearch', label: 'FamilySearch', icon: CloudCog },
-  { to: '/web-search', label: 'Web Search', icon: Globe },
-  { to: '/quiz', label: 'Family Quiz', icon: HelpCircle },
-  { to: '/maintenance', label: 'Maintenance', icon: Wrench },
-  { to: '/backup', label: 'Backup', icon: Database },
-  { to: '/export', label: 'Import & export', icon: Download },
-  { to: '/settings', label: 'Settings', icon: Settings },
-];
+function readOpenGroups() {
+  try {
+    const raw = localStorage.getItem(OPEN_GROUPS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch { return null; }
+}
+
+function writeOpenGroups(state) {
+  try { localStorage.setItem(OPEN_GROUPS_KEY, JSON.stringify(state)); } catch {}
+}
 
 export function NavigationDrawer({
   collapsed,
@@ -86,29 +37,49 @@ export function NavigationDrawer({
   hiddenRoutes,
   emphasizedRoutes,
   recordCountLabel,
-  statusState, // 'loading' | 'ok' | 'empty'
+  statusState,
 }) {
   const { t, localization, setLocale } = useTranslation();
   const { theme, toggle } = useTheme();
   const location = useLocation();
-  const [workspaceOpen, setWorkspaceOpen] = useState(true);
-  const [otherOpen, setOtherOpen] = useState(() => {
-    try { return localStorage.getItem('app.drawer.otherOpen') === '1'; } catch { return false; }
+
+  const [openGroups, setOpenGroups] = useState(() => {
+    const stored = readOpenGroups();
+    if (stored) return stored;
+    const current = findGroupForPath(location.pathname);
+    return current ? { [current]: true } : {};
   });
+
+  // When the route changes, auto-open the group that contains it (without
+  // closing other manually-opened groups).
   useEffect(() => {
-    try { localStorage.setItem('app.drawer.otherOpen', otherOpen ? '1' : '0'); } catch {}
-  }, [otherOpen]);
+    const groupId = findGroupForPath(location.pathname);
+    if (!groupId) return;
+    setOpenGroups((prev) => (prev[groupId] ? prev : { ...prev, [groupId]: true }));
+  }, [location.pathname]);
 
-  const workspaceLinks = useMemo(
-    () => WORKSPACE_LINKS.filter((l) => l.to === '/' || !hiddenRoutes.has(l.to)),
+  useEffect(() => { writeOpenGroups(openGroups); }, [openGroups]);
+
+  const visibleGroups = useMemo(() => NAV_GROUPS.map((group) => ({
+    ...group,
+    links: group.links.filter((l) => !hiddenRoutes.has(l.to)),
+  })).filter((group) => group.links.length > 0), [hiddenRoutes]);
+
+  const visiblePinned = useMemo(
+    () => NAV_PINNED.filter((l) => l.to === '/' || !hiddenRoutes.has(l.to)),
     [hiddenRoutes]
   );
-  const otherLinks = useMemo(
-    () => OTHER_LINKS.filter((l) => !hiddenRoutes.has(l.to)),
-    [hiddenRoutes]
-  );
 
-  const width = collapsed ? 56 : 220;
+  const width = collapsed ? 56 : 240;
+
+  function handleGroupActivate(groupId) {
+    if (collapsed) {
+      onToggleCollapsed?.();
+      setOpenGroups({ [groupId]: true });
+    } else {
+      setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+    }
+  }
 
   return (
     <aside
@@ -116,14 +87,18 @@ export function NavigationDrawer({
       style={{ width, transition: 'width 200ms ease' }}
       aria-label="Primary navigation"
     >
-      {/* Top row: brand + collapse */}
-      <div className="flex items-center gap-2 px-2 py-3 border-b border-border" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}>
+      {/* Brand + collapse toggle */}
+      <div
+        className="flex items-center gap-2 px-2 py-3 border-b border-border"
+        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}
+      >
         {!collapsed && (
           <div className="flex items-center flex-1 min-w-0 px-1">
             <span className="text-sm font-semibold truncate">CloudTreeWeb</span>
           </div>
         )}
         <button
+          type="button"
           onClick={onToggleCollapsed}
           className={cn(
             'flex items-center justify-center w-7 h-7 rounded text-muted-foreground hover:bg-accent hover:text-foreground',
@@ -138,44 +113,54 @@ export function NavigationDrawer({
         </button>
       </div>
 
-      {/* Scrollable link area */}
+      {/* Scrollable nav */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-2">
-        <Section
-          label={t('nav.workspace')}
-          collapsed={collapsed}
-          open={workspaceOpen}
-          onToggle={() => setWorkspaceOpen((v) => !v)}
-        >
-          {workspaceOpen && workspaceLinks.map((l) => (
+        <div className="pb-2">
+          {visiblePinned.map((link) => (
             <NavItem
-              key={l.to}
-              link={l}
+              key={link.to}
+              link={link}
               collapsed={collapsed}
-              emphasized={emphasizedRoutes.has(l.to)}
+              emphasized={emphasizedRoutes.has(link.to)}
               pathname={location.pathname}
             />
           ))}
-        </Section>
+        </div>
 
-        <Section
-          label={t('nav.other')}
-          collapsed={collapsed}
-          open={otherOpen}
-          onToggle={() => setOtherOpen((v) => !v)}
-        >
-          {otherOpen && otherLinks.map((l) => (
-            <NavItem
-              key={l.to}
-              link={l}
-              collapsed={collapsed}
-              emphasized={emphasizedRoutes.has(l.to)}
-              pathname={location.pathname}
-            />
-          ))}
-        </Section>
+        <div className="border-t border-border my-1" />
+
+        {visibleGroups.map((group) => {
+          const isOpen = !collapsed && Boolean(openGroups[group.id]);
+          const containsActive = group.links.some((l) => isLinkActive(l, location.pathname));
+          return (
+            <div key={group.id} className="py-0.5">
+              <GroupHeader
+                group={group}
+                collapsed={collapsed}
+                open={isOpen}
+                active={containsActive}
+                onActivate={() => handleGroupActivate(group.id)}
+              />
+              {isOpen && (
+                <div className="pb-1">
+                  {group.links.map((link) => (
+                    <NavItem
+                      key={link.to}
+                      link={link}
+                      collapsed={false}
+                      indented
+                      emphasized={emphasizedRoutes.has(link.to)}
+                      pathname={location.pathname}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Footer: status + theme toggle */}
+      {/* Footer: status + theme + locale */}
       <div className="flex items-center gap-2 border-t border-border px-2 py-2">
         <div
           className={cn('flex items-center gap-2 flex-1 min-w-0 px-2 py-1', collapsed && 'justify-center px-0')}
@@ -192,6 +177,7 @@ export function NavigationDrawer({
           )}
         </div>
         <button
+          type="button"
           onClick={toggle}
           className="flex items-center justify-center w-7 h-7 rounded text-muted-foreground hover:bg-accent hover:text-foreground"
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -216,46 +202,57 @@ export function NavigationDrawer({
   );
 }
 
-function Section({ label, collapsed, open, onToggle, children }) {
-  const { localization } = useTranslation();
-  if (collapsed) {
-    return <div className="py-1">{children}</div>;
-  }
+function GroupHeader({ group, collapsed, open, active, onActivate }) {
+  const { t } = useTranslation();
+  const Icon = group.icon;
+  const label = t(group.labelKey, { defaultValue: group.fallbackLabel });
   return (
-    <div className="py-1">
-      <button
-        onClick={onToggle}
-        className="flex items-center gap-1 w-full px-3 py-1 text-[11px] font-semibold tracking-wide uppercase text-muted-foreground hover:text-foreground"
-      >
-        <ChevronRight
-          size={11}
-          style={{
-            transform: open ? 'rotate(90deg)' : localization.direction === 'rtl' ? 'rotate(180deg)' : 'none',
-            transition: 'transform 150ms',
-          }}
-        />
-        <span>{label}</span>
-      </button>
-      {children}
-    </div>
+    <button
+      type="button"
+      onClick={onActivate}
+      className={cn(
+        'flex items-center w-full mx-1 px-2 py-1.5 rounded-md text-[12px] font-semibold uppercase tracking-wide transition-colors',
+        // Carve enough horizontal space inside the rail
+        collapsed ? 'justify-center w-[calc(100%-8px)]' : 'gap-2',
+        active
+          ? 'text-foreground'
+          : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+      )}
+      title={collapsed ? label : undefined}
+      aria-expanded={collapsed ? undefined : open}
+    >
+      {Icon && <Icon size={15} className="flex-shrink-0" />}
+      {!collapsed && (
+        <>
+          <span className="truncate flex-1 text-start">{label}</span>
+          <ChevronRight
+            size={12}
+            className="flex-shrink-0 opacity-70"
+            style={{
+              transform: open ? 'rotate(90deg)' : 'none',
+              transition: 'transform 150ms',
+            }}
+          />
+        </>
+      )}
+    </button>
   );
 }
 
-function NavItem({ link, collapsed, emphasized, pathname }) {
+function NavItem({ link, collapsed, indented, emphasized, pathname }) {
   const { t } = useTranslation();
   const Icon = link.icon;
-  const label = t(routeLabelKey(link.to) || link.label);
+  const label = t(routeLabelKey(link.to) || link.label, { defaultValue: link.label });
   return (
     <NavLink
       to={link.to}
       end={link.end}
       className={({ isActive }) => {
-        const active = isActive || link.aliases?.some(
-          (alias) => pathname === alias || pathname.startsWith(`${alias}/`)
-        );
+        const active = isActive || isLinkActive(link, pathname);
         return cn(
           'relative flex items-center gap-2 mx-1 px-2 py-1.5 rounded-md text-[13px] transition-colors',
           collapsed && 'justify-center',
+          indented && !collapsed && 'ms-3 me-1',
           active
             ? 'bg-accent text-foreground font-medium'
             : emphasized
