@@ -20,6 +20,10 @@ import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.j
 import { useModal } from '../contexts/ModalContext.jsx';
 import { buildMediaSlideshowSearchParams } from '../lib/mediaPresentation.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
+import { GalleryDetail } from '../components/media/GalleryDetail.jsx';
+import { MediaPreview } from '../components/media/MediaPreview.jsx';
+import { useMediaCapture } from '../components/media/useMediaCapture.js';
+import { canvasToBlob, editedFilename, loadImage } from '../components/media/mediaHelpers.js';
 
 const MEDIA_TYPES = [
   { id: 'all', label: 'All', match: null },
@@ -67,16 +71,9 @@ export default function Media() {
   const [relatedMediaIds, setRelatedMediaIds] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [subject, setSubject] = useState(null);
-  const [captureMode, setCaptureMode] = useState(null);
-  const [captureStream, setCaptureStream] = useState(null);
-  const [recording, setRecording] = useState(false);
   const folderRef = React.useRef(null);
   const addFilesRef = React.useRef(null);
   const replaceFileRef = React.useRef(null);
-  const videoRef = React.useRef(null);
-  const mediaRecorderRef = React.useRef(null);
-  const recorderChunksRef = React.useRef([]);
-  const audioCanceledRef = React.useRef(false);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -92,15 +89,16 @@ export default function Media() {
     reload();
   }, [reload]);
 
-  useEffect(() => {
-    if (captureMode !== 'camera' || !videoRef.current || !captureStream) return;
-    videoRef.current.srcObject = captureStream;
-    videoRef.current.play().catch(() => {});
-  }, [captureMode, captureStream]);
-
-  useEffect(() => () => {
-    stopStream(captureStream);
-  }, [captureStream]);
+  const {
+    captureMode,
+    recording,
+    videoRef,
+    onStartCamera,
+    onCapturePhoto,
+    onStartAudioRecording,
+    onStopAudioRecording,
+    onCancelCapture,
+  } = useMediaCapture({ setStatus, reload, setActiveId });
 
   useEffect(() => {
     let cancel = false;
@@ -238,120 +236,6 @@ export default function Media() {
     }
   }, [activeId, media, reload]);
 
-  const onStartCamera = useCallback(async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setStatus('Camera capture is not available in this browser.');
-      return;
-    }
-    setStatus('Starting camera…');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-      setCaptureStream(stream);
-      setCaptureMode('camera');
-      setStatus('Camera ready.');
-    } catch (error) {
-      setStatus(`Camera failed: ${error.message}`);
-    }
-  }, []);
-
-  const onCapturePhoto = useCallback(async () => {
-    const video = videoRef.current;
-    if (!video?.videoWidth || !video?.videoHeight) {
-      setStatus('Camera preview is not ready yet.');
-      return;
-    }
-    setStatus('Capturing photo…');
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const context = canvas.getContext('2d');
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const blob = await canvasToBlob(canvas, 'image/png');
-      const record = await createMediaRecordFromBlob(blob, {
-        filename: `camera-${new Date().toISOString().replace(/[:.]/g, '-')}.png`,
-        caption: 'Camera capture',
-        recordType: 'MediaPicture',
-      });
-      stopStream(captureStream);
-      setCaptureStream(null);
-      setCaptureMode(null);
-      await reload();
-      setActiveId(record.recordName);
-      setStatus('Photo captured.');
-    } catch (error) {
-      setStatus(`Photo capture failed: ${error.message}`);
-    }
-  }, [captureStream, reload]);
-
-  const onStartAudioRecording = useCallback(async () => {
-    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
-      setStatus('Audio recording is not available in this browser.');
-      return;
-    }
-    setStatus('Starting audio recorder…');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      const recorder = new MediaRecorder(stream);
-      recorderChunksRef.current = [];
-      audioCanceledRef.current = false;
-      recorder.ondataavailable = (event) => {
-        if (event.data?.size) recorderChunksRef.current.push(event.data);
-      };
-      recorder.onstop = async () => {
-        const canceled = audioCanceledRef.current;
-        stopStream(stream);
-        setCaptureStream(null);
-        setCaptureMode(null);
-        setRecording(false);
-        if (canceled) {
-          setStatus('Audio recording canceled.');
-          return;
-        }
-        try {
-          const type = recorder.mimeType || 'audio/webm';
-          const blob = new Blob(recorderChunksRef.current, { type });
-          const extension = type.includes('mp4') || type.includes('m4a') ? 'm4a' : type.includes('mpeg') ? 'mp3' : 'webm';
-          const record = await createMediaRecordFromBlob(blob, {
-            filename: `recording-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`,
-            caption: 'Audio recording',
-            recordType: 'MediaAudio',
-          });
-          await reload();
-          setActiveId(record.recordName);
-          setStatus('Audio recording saved.');
-        } catch (error) {
-          setStatus(`Audio save failed: ${error.message}`);
-        }
-      };
-      mediaRecorderRef.current = recorder;
-      setCaptureStream(stream);
-      setCaptureMode('audio');
-      setRecording(true);
-      recorder.start();
-      setStatus('Recording audio…');
-    } catch (error) {
-      setStatus(`Audio recording failed: ${error.message}`);
-    }
-  }, [reload]);
-
-  const onStopAudioRecording = useCallback(() => {
-    audioCanceledRef.current = false;
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
-  }, []);
-
-  const onCancelCapture = useCallback(() => {
-    audioCanceledRef.current = true;
-    if (mediaRecorderRef.current?.state && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-      return;
-    }
-    stopStream(captureStream);
-    setCaptureStream(null);
-    setCaptureMode(null);
-    setRecording(false);
-    setStatus('Capture canceled.');
-  }, [captureStream]);
 
   const onEditImage = useCallback(async (operation) => {
     if (!active || active.recordType !== 'MediaPicture') return;
@@ -704,96 +588,3 @@ const videoPreview = { width: '100%', maxHeight: '62vh', background: '#000', bor
 const audioCapturePanel = { minHeight: 160, border: '1px solid hsl(var(--border))', borderRadius: 8, background: 'hsl(var(--background))', display: 'grid', placeItems: 'center', gap: 12, padding: 20 };
 const recordingDot = { width: 22, height: 22, borderRadius: 999, background: '#ef4444', boxShadow: '0 0 0 8px rgba(239,68,68,0.16)' };
 
-function stopStream(stream) {
-  stream?.getTracks?.().forEach((track) => track.stop());
-}
-
-function canvasToBlob(canvas, type) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error('The browser could not encode this image.'));
-    }, type);
-  });
-}
-
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('The stored image could not be decoded.'));
-    image.src = src;
-  });
-}
-
-function editedFilename(fileName, operation, mimeType) {
-  const ext = mimeType === 'image/jpeg' ? '.jpg' : '.png';
-  const base = String(fileName || 'image').replace(/\.[^.]+$/, '');
-  return `${base}-${operation}${ext}`;
-}
-
-function GalleryDetail({ record, assets, relations, onOpenRelated, isMobile = false, onClose }) {
-  const title = record.fields?.caption?.value || record.fields?.filename?.value || record.fields?.fileName?.value || record.fields?.url?.value || record.recordName;
-  const description = record.fields?.description?.value || record.fields?.userDescription?.value || '';
-
-  return (
-    <aside style={isMobile ? detailMobile : { ...detail, width: 420 }}>
-      {isMobile && onClose && (
-        <button
-          onClick={onClose}
-          style={{ ...deleteBtn, marginBottom: 10 }}
-          aria-label="Back to gallery"
-        >← Back</button>
-      )}
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{record.recordType.replace('Media', '')}</div>
-        <h2 style={{ fontSize: 16, color: 'hsl(var(--foreground))', margin: '4px 0 0', fontWeight: 700, lineHeight: 1.25 }}>{title}</h2>
-      </div>
-      <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 10, background: 'hsl(var(--background))', marginBottom: 14 }}>
-        <MediaPreview record={record} assets={assets} />
-      </div>
-      {description && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>Description</div>
-          <div style={{ color: 'hsl(var(--foreground))', fontSize: 13, lineHeight: 1.55 }}>{description}</div>
-        </div>
-      )}
-      <div>
-        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>Related Entries</div>
-        {relations.length === 0 ? (
-          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>No related entries.</div>
-        ) : (
-          <div style={{ display: 'grid', gap: 6 }}>
-            {relations.map(({ rel, target }) => (
-              <button
-                key={rel.recordName}
-                type="button"
-                onClick={() => onOpenRelated(target)}
-                style={{ fontSize: 12, color: 'hsl(var(--foreground))', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 8, textAlign: 'left', cursor: routeForRecord(target) ? 'pointer' : 'default' }}
-              >
-                <span style={{ color: 'hsl(var(--muted-foreground))', marginRight: 6 }}>{rel.fields?.targetType?.value || target?.recordType || 'Record'}</span>
-                {recordDisplayLabel(target) || target?.recordName || readRef(rel.fields?.target)}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-    </aside>
-  );
-}
-
-function MediaPreview({ record, assets }) {
-  const asset = assets[0];
-  if (record.recordType === 'MediaURL' && record.fields?.url?.value) {
-    return <a href={record.fields.url.value} target="_blank" rel="noreferrer" style={{ color: 'hsl(var(--primary))', fontSize: 12 }}>{record.fields.url.value}</a>;
-  }
-  if (!asset?.dataBase64) {
-    return <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>No local asset stored for this media record.</div>;
-  }
-  const src = `data:${asset.mimeType || 'application/octet-stream'};base64,${asset.dataBase64}`;
-  if (record.recordType === 'MediaPicture') return <img src={src} alt="" style={{ maxWidth: '100%', borderRadius: 6, border: '1px solid hsl(var(--border))' }} />;
-  if (record.recordType === 'MediaPDF') return <iframe title={asset.filename || record.recordName} src={src} style={{ width: '100%', height: 280, border: '1px solid hsl(var(--border))', borderRadius: 6 }} />;
-  if (record.recordType === 'MediaAudio') return <audio controls src={src} style={{ width: '100%' }} />;
-  if (record.recordType === 'MediaVideo') return <video controls src={src} style={{ width: '100%', borderRadius: 6 }} />;
-  return <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>{asset.filename || asset.assetId}</div>;
-}
