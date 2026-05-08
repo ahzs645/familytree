@@ -1,5 +1,6 @@
 import calcTree from 'relatives-tree';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
+import { getAppPreferences } from '../../lib/appPreferences.js';
 import { isPublicRecord } from '../../lib/privacy.js';
 import { refToRecordName } from '../../lib/recordRef.js';
 import { readField } from '../../lib/schema.js';
@@ -11,6 +12,7 @@ const PX = 80;
 const PY = 80;
 
 export async function loadHeritageTreeData() {
+  await getAppPreferences();
   const db = getLocalDatabase();
   const [{ records: personRecords }, { records: familyRecords }, { records: childRelations }, { records: placeRecords }] = await Promise.all([
     db.query('Person', { limit: 100000 }),
@@ -93,7 +95,20 @@ export function layoutHeritageTree(data = {}, preferredRootId = null) {
     if (bYear || dYear) label += ` (${bYear} - ${dYear})`;
     const connCount = i.famc.length + i.fams.length;
     if (connCount === 0) label += ' [Disconnected]';
-    return { id: i.id, name: label, sortName: i.summary?.fullNameForSorting || i.name || 'Unknown', connCount };
+    return {
+      id: i.id,
+      name: label,
+      sortName: i.summary?.fullNameForSorting || i.name || 'Unknown',
+      searchText: [
+        label,
+        i.name,
+        i.summary?.fullName,
+        i.summary?.fullNameForSorting,
+        i.given,
+        i.surname,
+      ].filter(Boolean).join(' '),
+      connCount,
+    };
   }).sort((a, b) => a.sortName.localeCompare(b.sortName) || b.connCount - a.connCount);
 
   const workingIndis = clonePeople(indis);

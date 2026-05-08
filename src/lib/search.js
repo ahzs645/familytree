@@ -13,6 +13,8 @@ import { Gender } from '../models/index.js';
 import { FIELD_ALIASES, readConclusionType, readField } from './schema.js';
 import { equalsSearchText, matchesSearchText, normalizeSearchText, searchTokenVariants, startsWithSearchText } from './i18n.js';
 
+const searchIndexCache = new Map();
+
 export const ENTITY_TYPES = [
   { id: 'Person', label: 'Persons' },
   { id: 'Family', label: 'Families' },
@@ -169,6 +171,7 @@ function matchesText_anywhere(record, q) {
 export function createSearchIndex(records = []) {
   const byToken = new Map();
   const textById = new Map();
+  const substringTokenCache = new Map();
   for (const record of records || []) {
     if (!record?.recordName) continue;
     const text = searchableText(record);
@@ -178,7 +181,7 @@ export function createSearchIndex(records = []) {
       byToken.get(token).add(record.recordName);
     }
   }
-  return { byToken, textById, size: textById.size };
+  return { byToken, textById, substringTokenCache, size: textById.size };
 }
 
 export function querySearchIndex(index, query) {
@@ -205,12 +208,15 @@ function idsForTokenVariants(index, tokens) {
 function idsForToken(index, token) {
   const exact = index?.byToken?.get(token);
   if (exact) return exact;
+  const cached = index?.substringTokenCache?.get(token);
+  if (cached) return cached;
   const out = new Set();
   for (const [candidate, ids] of index?.byToken || []) {
     if (candidate.includes(token)) {
       for (const id of ids) out.add(id);
     }
   }
+  index?.substringTokenCache?.set(token, out);
   return out;
 }
 
@@ -247,17 +253,39 @@ function tokenizeBaseSearchText(text) {
     .filter((token) => token.length >= 2))];
 }
 
+function recordSignature(records = []) {
+  let hash = 2166136261;
+  for (const record of records) {
+    const text = `${record.recordName}:${record.modified?.timestamp || ''}:${searchableText(record)}`;
+    for (let i = 0; i < text.length; i += 1) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+  }
+  return `${records.length}:${hash >>> 0}`;
+}
+
+function cachedSearchIndex(entityType, records) {
+  const signature = recordSignature(records);
+  const cached = searchIndexCache.get(entityType);
+  if (cached?.signature === signature) return cached.index;
+  const index = createSearchIndex(records);
+  searchIndexCache.set(entityType, { signature, index });
+  return index;
+}
+
 export async function runSearch(query) {
   const db = getLocalDatabase();
   const { records } = await db.query(query.entityType, { limit: 100000 });
   let matched = records;
+  const textQuery = query.textQuery?.trim();
   if (query.filters && query.filters.length > 0) {
     matched = matched.filter((r) => query.filters.every((f) => matchesFilter(r, f)));
   }
-  if (query.textQuery && query.textQuery.trim()) {
-    const index = createSearchIndex(matched);
-    const ids = querySearchIndex(index, query.textQuery.trim());
-    matched = matched.filter((r) => ids.has(r.recordName) || matchesText_anywhere(r, query.textQuery.trim()));
+  if (textQuery) {
+    const index = cachedSearchIndex(query.entityType, records);
+    const ids = querySearchIndex(index, textQuery);
+    matched = matched.filter((r) => ids.has(r.recordName) || matchesText_anywhere(r, textQuery));
   }
   const limit = query.limit || 500;
   const total = matched.length;

@@ -50,6 +50,7 @@ export function buildPersonLineage(records = [], families = [], childRelations =
       motherId,
       grandfatherId: grandfatherId || null,
       arabicPatrilinealName,
+      arabicPatrilinealTail: buildArabicPatrilinealTail(arabicPatrilinealName, firstName(person.recordName)),
       lineageSearchText: parts.join(' '),
     });
   }
@@ -78,6 +79,13 @@ export function buildArabicPatrilinealName(personId, helpers = {}) {
     currentId = fatherId;
   }
   return parts.length > 1 ? parts.join(' ') : '';
+}
+
+export function buildArabicPatrilinealTail(arabicPatrilinealName, ownName) {
+  const name = String(arabicPatrilinealName || '').trim();
+  const first = String(ownName || '').trim();
+  if (!name || !first) return name;
+  return name === first ? '' : name.startsWith(`${first} `) ? name.slice(first.length).trim() : name;
 }
 
 export function attachLineageToPersonSummaries(persons = [], lineageById = new Map()) {

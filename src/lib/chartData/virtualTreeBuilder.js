@@ -17,7 +17,7 @@ import { getLocalDatabase } from '../LocalDatabase.js';
 import { isPublicRecord } from '../privacy.js';
 
 const COLLECT_MODES = new Set(['ancestor', 'descendant', 'hourglass']);
-const SYMBOL_MODES = new Set(['square', 'rounded', 'circle', 'photo']);
+const SYMBOL_MODES = new Set(['sphere', 'rounded', 'circle', 'photo']);
 const COLOR_MODES = new Set(['gender', 'generation', 'lastName', 'uniform']);
 
 export function normalizeVirtualTreeConfig(raw = {}) {
@@ -41,6 +41,7 @@ function nodeForPerson(person, depth, role) {
     name: `${readField(person, ['firstName']) || ''} ${readField(person, ['lastName']) || ''}`.trim() || 'Unknown',
     gender: person.fields?.gender?.value ?? null,
     depth,
+    generation: depth,
     role,
   };
 }
@@ -90,7 +91,7 @@ async function walkAncestors(rootId, generations, personIndex, db) {
       for (const parent of [fam.man, fam.woman]) {
         if (!parent || !isPublicRecord(parent)) continue;
         if (!nodes.has(parent.recordName)) {
-          nodes.set(parent.recordName, nodeForPerson(parent, depth + 1, 'ancestor'));
+          nodes.set(parent.recordName, nodeForPerson(parent, -(depth + 1), 'ancestor'));
         }
         connections.push({ fromId: parent.recordName, toId: id, kind: 'parent-of' });
         queue.push({ id: parent.recordName, depth: depth + 1 });

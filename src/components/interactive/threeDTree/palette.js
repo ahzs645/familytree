@@ -22,9 +22,9 @@ export function makePalette(dark, lightingMode = 'normal') {
         bandText: '#f4f6fa',
       }
     : {
-        background: '#f7f8f7',
-        grid: '#e2e6e9',
-        gridStrong: '#cfd6dc',
+        background: '#fbfbfa',
+        grid: '#edf0f1',
+        gridStrong: '#dce2e5',
         text: '#1d1f24',
         muted: '#717985',
         shadow: '#a4a8ad',

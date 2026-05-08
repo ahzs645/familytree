@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildPersonLineage, comparePersonSearchResults, matchesPersonLineageSearch } from './personLineage.js';
+import { buildArabicPatrilinealTail, buildPersonLineage, comparePersonSearchResults, matchesPersonLineageSearch } from './personLineage.js';
 import { Gender } from '../models/index.js';
 
 describe('person lineage search', () => {
@@ -25,6 +25,7 @@ describe('person lineage search', () => {
     const other = { recordName: 'other', fullName: 'يوسف خالد الجليل', ...lineage.get('other') };
 
     expect(lineage.get('child').arabicPatrilinealName).toBe('يوسف بن أحمد بن رعد');
+    expect(lineage.get('child').arabicPatrilinealTail).toBe('بن أحمد بن رعد');
     expect(matchesPersonLineageSearch(child, 'يوسف احمد رعد')).toBe(true);
     expect(comparePersonSearchResults(child, other, 'يوسف احمد رعد')).toBeLessThan(0);
   });
@@ -46,6 +47,12 @@ describe('person lineage search', () => {
 
     const lineage = buildPersonLineage(people, families, childRelations);
     expect(lineage.get('daughter').arabicPatrilinealName).toBe('فاطمة بنت أحمد بن رعد');
+  });
+
+  it('formats compact Arabic lineage without repeating the person name', () => {
+    expect(buildArabicPatrilinealTail('احمد بن رعد بن جليل بن ابراهيم', 'احمد')).toBe('بن رعد بن جليل بن ابراهيم');
+    expect(buildArabicPatrilinealTail('احمد بن رعد', 'يوسف')).toBe('احمد بن رعد');
+    expect(buildArabicPatrilinealTail('', 'احمد')).toBe('');
   });
 });
 

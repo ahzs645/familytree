@@ -17,6 +17,7 @@
  *   - relationshipPath.js highlight a path through the graph
  */
 import React, { useEffect, useRef } from 'react';
+import { LocateFixed, RotateCcw } from 'lucide-react';
 import { VirtualTree3DScene } from './virtualTree3D/Scene.js';
 import { SYMBOL_MODES } from './virtualTree3D/symbolModes.js';
 import { COLOR_MODES } from './virtualTree3D/colorModes.js';
@@ -31,6 +32,8 @@ export function VirtualTree3D({
   relationshipPathIds = [],
   photosById,
   dof = DOF_DEFAULTS,
+  layoutOptions = {},
+  showGenerationBands = true,
   onPick,
 }) {
   const containerRef = useRef(null);
@@ -56,10 +59,16 @@ export function VirtualTree3D({
     }
     scene.setData(
       { nodes: virtualTreeData.nodes, connections: virtualTreeData.connections || [] },
-      { symbolMode, colorMode, photosById: photosById || new Map() }
+      {
+        symbolMode,
+        colorMode,
+        photosById: photosById || new Map(),
+        layoutOptions: { ...(virtualTreeData.config || {}), ...layoutOptions },
+        showGenerationBands,
+      }
     );
     scene.setRelationshipPath(relationshipPathIds || []);
-  }, [virtualTreeData, symbolMode, colorMode, photosById]);
+  }, [virtualTreeData, symbolMode, colorMode, photosById, layoutOptions, showGenerationBands]);
 
   useEffect(() => {
     sceneRef.current?.setColorMode(colorMode);
@@ -77,7 +86,77 @@ export function VirtualTree3D({
     return <div style={{ padding: 24, color: '#9ca3af' }}>No virtual-tree data yet.</div>;
   }
 
-  return <div ref={containerRef} style={{ width: '100%', height: '100%', minHeight: 400 }} />;
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 400, background: '#0b0f1a' }}>
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div style={toolbarStyle}>
+        <button type="button" onClick={() => sceneRef.current?.fitToContent()} style={toolButtonStyle} title="Size to Fit">
+          <LocateFixed size={16} aria-hidden="true" />
+          <span>Size to Fit</span>
+        </button>
+        <button type="button" onClick={() => sceneRef.current?.setCameraMode('iso')} style={iconButtonStyle} title="Reset view">
+          <RotateCcw size={16} aria-hidden="true" />
+        </button>
+        <select
+          defaultValue="iso"
+          onChange={(event) => sceneRef.current?.setCameraMode(event.target.value)}
+          style={selectStyle}
+          aria-label="3D camera view"
+        >
+          <option value="iso">Isometric</option>
+          <option value="top">Top</option>
+          <option value="front">Front</option>
+          <option value="left">Left</option>
+          <option value="right">Right</option>
+        </select>
+      </div>
+    </div>
+  );
 }
 
 export default VirtualTree3D;
+
+const toolbarStyle = {
+  position: 'absolute',
+  top: 12,
+  left: 12,
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  padding: 6,
+  border: '1px solid rgba(148, 163, 184, 0.28)',
+  borderRadius: 8,
+  background: 'rgba(15, 23, 42, 0.76)',
+  backdropFilter: 'blur(12px)',
+};
+
+const toolButtonStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  height: 32,
+  padding: '0 10px',
+  border: '1px solid rgba(148, 163, 184, 0.28)',
+  borderRadius: 6,
+  background: 'rgba(30, 41, 59, 0.92)',
+  color: '#f8fafc',
+  fontSize: 12,
+  cursor: 'pointer',
+};
+
+const iconButtonStyle = {
+  ...toolButtonStyle,
+  width: 32,
+  justifyContent: 'center',
+  padding: 0,
+};
+
+const selectStyle = {
+  height: 32,
+  border: '1px solid rgba(148, 163, 184, 0.28)',
+  borderRadius: 6,
+  background: 'rgba(15, 23, 42, 0.94)',
+  color: '#f8fafc',
+  fontSize: 12,
+  padding: '0 8px',
+};

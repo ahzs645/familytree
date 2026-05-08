@@ -1151,6 +1151,59 @@
       "startPersonMarker": "علامة شخص البداية"
     }
   },
+  "heritageTree": {
+    "title": "شجرة التراث",
+    "subtitle": "{count} أجيال",
+    "subtitleForRoot": "{count} أجيال لـ",
+    "loading": "جارٍ تحميل شجرة التراث...",
+    "emptyTitle": "تعذّر تخطيط شجرة عائلة هذا الشخص.",
+    "emptyBody": "اختر قريباً آخر من قائمة الأشخاص.",
+    "generationLabel": "الجيل {count}",
+    "searchPlaceholder": "بحث...",
+    "searchTitle": "اكتب اسماً ثم اضغط Enter",
+    "searchAria": "بحث عن أشخاص",
+    "selectRootAria": "اختيار شخص الجذر",
+    "searchResults": {
+      "zero": "لا توجد نتائج...",
+      "one": "اختر من نتيجة واحدة...",
+      "two": "اختر من نتيجتين...",
+      "few": "اختر من {count} نتائج...",
+      "many": "اختر من {count} نتيجة...",
+      "other": "اختر من {count} نتيجة..."
+    },
+    "noResults": "لا توجد نتائج...",
+    "themeAria": "اختيار سمة الألوان",
+    "uploadAria": "رفع ملف GEDCOM",
+    "exportPdfAria": "تصدير الشجرة إلى PDF",
+    "analyticsAria": "عرض تحليلات الشجرة",
+    "zoomOutAria": "تصغير",
+    "zoomInAria": "تكبير",
+    "recenterAria": "إعادة التوسيط على الشخص الحالي",
+    "resetRootAria": "العودة إلى الشخص الافتراضي",
+    "reloadAria": "إعادة تحميل الشجرة الحالية",
+    "portraitAlt": "صورة {name}",
+    "hiddenRelations": "انقر لإظهار الأقارب المخفيين",
+    "originTitle": "الأصل الجغرافي",
+    "themes": {
+      "classic": "كلاسيكية",
+      "dark": "داكنة",
+      "ocean": "بحرية",
+      "forest": "غابة",
+      "monochrome": "أحادية اللون"
+    },
+    "tooltips": {
+      "search": "البحث واختيار شخص الجذر",
+      "theme": "اختيار سمة ألوان مرئية",
+      "upload": "رفع ملف GEDCOM",
+      "exportPdf": "تصدير الشجرة إلى PDF",
+      "analytics": "تحليلات الشجرة",
+      "zoomOut": "تصغير",
+      "zoomIn": "تكبير",
+      "recenter": "إعادة التوسيط على الشخص الحالي",
+      "resetRoot": "العودة إلى الشخص الافتراضي",
+      "reload": "إعادة تحميل الشجرة الحالية"
+    }
+  },
   "reports": {
     "builders": {
       "ahnentafel": "تقرير أهننتافل",

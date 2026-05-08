@@ -1,6 +1,6 @@
 import { Gender } from '../../../models/index.js';
 
-export const GEN_STEP = 225;
+export const GEN_STEP = 270;
 export const NODE_SPACING = 240;
 export const PARTNER_OFFSET = 178;
 export const AVATAR_RADIUS = 46;
@@ -10,7 +10,9 @@ export const SKIN_SHADOW = '#dcae7a';
 export const BAND_LABEL_GUTTER = 310;
 export const REFERENCE_MODEL_BASE = `${import.meta.env.BASE_URL}mft-models/`;
 export const VIEWER_OPTIONS_STORAGE_KEY = 'cloudtreeweb:interactive-tree-viewer-options';
+export const VIEWER_OPTIONS_VERSION = 2;
 export const CAMERA_STATE_STORAGE_KEY = 'cloudtreeweb:interactive-tree-camera-state';
+export const CAMERA_STATE_VERSION = 7;
 export const REFERENCE_MODEL_GROUND_ROTATION_X = Math.PI / 2;
 
 export const PERSON_STYLES = [
@@ -45,6 +47,10 @@ export const GENERATION_BAND_STYLES = [
   { id: 'flat', label: 'Flat' },
   { id: 'pedestal', label: 'Pedestal' },
   { id: 'none', label: 'None' },
+];
+export const APPEARANCE_MODES = [
+  { id: 'macLight', label: 'Mac' },
+  { id: 'app', label: 'App' },
 ];
 export const REFERENCE_MODEL_GENDERS = {
   [Gender.Male]: 'Male',

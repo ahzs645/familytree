@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CAMERA_STATE_STORAGE_KEY } from './constants.js';
+import { CAMERA_STATE_STORAGE_KEY, CAMERA_STATE_VERSION } from './constants.js';
 
 export function fitCamera(camera, controls, bounds, container, cameraMode = 'tilted') {
   const width = Math.max(1, bounds.maxX - bounds.minX);
@@ -11,7 +11,8 @@ export function fitCamera(camera, controls, bounds, container, cameraMode = 'til
   const viewportHeight = Math.max(1, rect.height);
   const zoomForWidth = viewportWidth / width;
   const zoomForHeight = viewportHeight / height;
-  const nextZoom = THREE.MathUtils.clamp(Math.min(zoomForWidth, zoomForHeight) * 0.82, 0.34, 1.45);
+  const fitPadding = cameraMode === 'top' ? 0.9 : 0.82;
+  const nextZoom = THREE.MathUtils.clamp(Math.min(zoomForWidth, zoomForHeight) * fitPadding, 0.1, 1.45);
 
   const position = cameraPositionForMode(cameraMode, centerX, centerY);
   camera.zoom = nextZoom;
@@ -22,8 +23,7 @@ export function fitCamera(camera, controls, bounds, container, cameraMode = 'til
   controls.update();
 }
 
-export function cameraFitSignature(layout, activeId, cameraMode) {
-  const bounds = layout.viewBounds || layout.bounds;
+export function cameraFitSignature(layout, activeId, cameraMode, bounds = layout.viewBounds || layout.bounds) {
   return [
     cameraMode,
     activeId || 'none',
@@ -40,6 +40,7 @@ export function restoreCameraState(camera, controls, cameraMode, activeId) {
   if (!activeId) return false;
   try {
     const parsed = JSON.parse(window.localStorage.getItem(CAMERA_STATE_STORAGE_KEY) || '{}');
+    if (parsed.version !== CAMERA_STATE_VERSION) return false;
     const state = parsed?.[cameraMode];
     if (!isFiniteCameraState(state)) return false;
     if (state.activeId && activeId && state.activeId !== activeId) return false;
@@ -60,6 +61,7 @@ export function persistCameraState(camera, controls, cameraMode, activeId) {
   if (!activeId) return;
   try {
     const parsed = JSON.parse(window.localStorage.getItem(CAMERA_STATE_STORAGE_KEY) || '{}');
+    parsed.version = CAMERA_STATE_VERSION;
     parsed[cameraMode] = {
       activeId: activeId || null,
       zoom: Number(camera.zoom.toFixed(4)),

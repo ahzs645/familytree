@@ -106,7 +106,7 @@ export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, f
   const visibleIds = new Set(nodeList.map((node) => node.id));
   const visibleLinks = links.filter((link) => visibleIds.has(link.from) && visibleIds.has(link.to));
   const bands = buildBands(nodeList, rootX);
-  const bounds = boundsFor(nodeList, bands);
+  const bounds = boundsFor(nodeList, bands, visibleLinks);
   const viewBounds = focusBoundsFor(nodeList, bands, bounds);
   return { nodes: nodeList, links: visibleLinks, bands, bounds, viewBounds };
 }
@@ -130,7 +130,7 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     }
   }
 
-  const GENERATION_STEP = 252;
+  const GENERATION_STEP = 300;
   const CHILD_GAP = 206;
   const ROOT_CARD_WIDTH = 640;
   const FAMILY_PADDING = 270;
@@ -336,11 +336,11 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
 
   const root = nodeById.get(rootId) || uniquePlaced.find((node) => node.featured);
   const rootX = root?.x || 0;
-  const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= 2150 && node.generation >= -4 && node.generation <= 1);
+  const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= 1950 && node.generation >= -4 && node.generation <= 1);
   const visibleIds = new Set(nodeList.map((node) => node.id));
-  const visibleLinks = routedLinks.filter((link) => !link.nodeIds?.length || link.nodeIds.some((id) => visibleIds.has(id)));
+  const visibleLinks = routedLinks.filter((link) => !link.nodeIds?.length || link.nodeIds.every((id) => visibleIds.has(id)));
   const visibleBands = buildBands(nodeList, rootX);
-  const bounds = boundsFor(nodeList, visibleBands);
+  const bounds = boundsFor(nodeList, visibleBands, visibleLinks);
   const viewBounds = focusBoundsFor(nodeList, visibleBands, bounds);
   return { nodes: nodeList, links: visibleLinks, bands: visibleBands, bounds, viewBounds };
 }
@@ -380,12 +380,12 @@ function buildBands(nodes, rootX = 0) {
   }
 
   return [...grouped.entries()].map(([generation, group]) => {
-    const minX = Math.min(...group.map((node) => node.x));
-    const maxX = Math.max(...group.map((node) => node.x));
+    const segments = buildBandSegments(group, generation);
+    const minX = Math.min(...segments.map((segment) => segment.x - segment.width / 2));
+    const maxX = Math.max(...segments.map((segment) => segment.x + segment.width / 2));
     const centerY = group.reduce((sum, node) => sum + node.y, 0) / group.length;
     const years = yearRange(group.map((node) => node.person));
-    const width = Math.max(390, maxX - minX + 280 + BAND_LABEL_GUTTER);
-    const height = generation === 0 ? 216 : 112;
+    const height = generation === 0 ? 238 : generation < 0 ? 132 : 138;
     const title =
       generation === 0
         ? 'Root Generation'
@@ -394,15 +394,52 @@ function buildBands(nodes, rootX = 0) {
           : `Descendant Generation ${generation}`;
     return {
       generation,
-      x: (minX + maxX) / 2 - BAND_LABEL_GUTTER / 2,
+      x: (minX + maxX) / 2,
       y: centerY,
-      width,
+      width: maxX - minX,
       height,
       title,
       subtitle: years,
       count: group.length,
+      segments,
     };
   });
+}
+
+function buildBandSegments(group, generation) {
+  const sorted = [...group].sort((a, b) => a.x - b.x);
+  const splitGap = bandSplitGap(generation);
+  const clusters = [];
+  let current = [];
+  for (const node of sorted) {
+    const previous = current[current.length - 1];
+    if (previous && node.x - previous.x > splitGap) {
+      clusters.push(current);
+      current = [];
+    }
+    current.push(node);
+  }
+  if (current.length) clusters.push(current);
+
+  return clusters.map((cluster, index) => {
+    const minX = Math.min(...cluster.map((node) => node.x));
+    const maxX = Math.max(...cluster.map((node) => node.x));
+    const leftGutter = index === 0 ? BAND_LABEL_GUTTER : 0;
+    const padding = generation === 0 ? 340 : 250;
+    const left = minX - padding / 2 - leftGutter;
+    const right = maxX + padding / 2;
+    return {
+      x: (left + right) / 2,
+      width: Math.max(generation === 0 ? 460 : 360, right - left),
+    };
+  });
+}
+
+function bandSplitGap(generation) {
+  if (generation >= -1) return Infinity;
+  if (generation === -2) return 880;
+  if (generation === -3) return 640;
+  return 520;
 }
 
 function yearRange(persons) {
@@ -426,13 +463,22 @@ function extractYear(value) {
   return year >= 1000 && year <= 2099 ? year : null;
 }
 
-function boundsFor(nodes, bands) {
+function boundsFor(nodes, bands, links = []) {
   if (nodes.length === 0) return { minX: -400, maxX: 400, minY: -260, maxY: 260 };
   const xs = nodes.flatMap((node) => [node.x - 170, node.x + 170]);
   const ys = nodes.flatMap((node) => [node.y - 120, node.y + 120]);
   for (const band of bands) {
     xs.push(band.x - band.width / 2, band.x + band.width / 2);
     ys.push(band.y - band.height / 2, band.y + band.height / 2);
+    for (const segment of band.segments || []) {
+      xs.push(segment.x - segment.width / 2, segment.x + segment.width / 2);
+    }
+  }
+  for (const link of links) {
+    for (const point of link.points || []) {
+      xs.push(point.x - 40, point.x + 40);
+      ys.push(point.y - 40, point.y + 40);
+    }
   }
   return {
     minX: Math.min(...xs),
@@ -449,7 +495,7 @@ function focusBoundsFor(nodes, bands, fallback) {
   const focusedNodes = nodes.filter((node) => (
     node.generation >= -4 &&
     node.generation <= 1 &&
-    Math.abs(node.x - rootX) <= 2150
+    Math.abs(node.x - rootX) <= 1950
   ));
   if (focusedNodes.length === 0) return fallback;
   const focusedGenerations = new Set(focusedNodes.map((node) => node.generation));
@@ -460,12 +506,12 @@ function focusBoundsFor(nodes, bands, fallback) {
       width: Math.min(band.width, 3600),
     }));
   const bounds = boundsFor(focusedNodes, focusedBands);
-  const maxWidth = 3300;
-  const maxHeight = 1500;
+  const maxWidth = 3100;
+  const maxHeight = 1700;
   const centerX = (bounds.minX + bounds.maxX) / 2;
-  const centerY = (bounds.minY + bounds.maxY) / 2 + 18;
+  const centerY = (bounds.minY + bounds.maxY) / 2 - 18;
   const width = Math.min(Math.max(bounds.maxX - bounds.minX, 900), maxWidth);
-  const height = Math.min(Math.max(bounds.maxY - bounds.minY + 72, 760), maxHeight);
+  const height = Math.min(Math.max(bounds.maxY - bounds.minY + 120, 900), maxHeight);
   return {
     minX: centerX - width / 2,
     maxX: centerX + width / 2,

@@ -13,39 +13,11 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PersonObject } from './PersonObject.js';
 import { ConnectionObject } from './ConnectionObject.js';
 import { buildFamilyObjects } from './FamilyObject.js';
+import { GenerationBandObject } from './GenerationBandObject.js';
 import { installLighting, makeGroundShadowReceiver } from './lighting.js';
 import { applyRelationshipPathHighlight } from './relationshipPath.js';
 import { createComposer, applyDofSettings, disposeComposer, DOF_DEFAULTS } from './postProcessing.js';
-
-const DEPTH_SPACING = 140;
-const SIBLING_SPACING = 110;
-
-function layoutNodes(nodes = []) {
-  const byDepth = new Map();
-  for (const node of nodes) {
-    const depth = Number.isFinite(node.depth) ? node.depth : 0;
-    if (!byDepth.has(depth)) byDepth.set(depth, []);
-    byDepth.get(depth).push(node);
-  }
-  const positioned = new Map();
-  for (const [depth, peers] of byDepth) {
-    const offsetX = -(peers.length - 1) * SIBLING_SPACING / 2;
-    peers.forEach((node, index) => {
-      const zNudge = (index % 2 === 0) ? -8 : 8;
-      positioned.set(node.id, {
-        id: node.id,
-        name: node.name,
-        gender: node.gender,
-        role: node.role,
-        depth,
-        x: offsetX + index * SIBLING_SPACING,
-        y: -depth * DEPTH_SPACING,
-        z: zNudge,
-      });
-    });
-  }
-  return positioned;
-}
+import { layoutVirtualTree3D } from './layout.js';
 
 export class VirtualTree3DScene {
   constructor(container, { onPick } = {}) {
@@ -77,6 +49,8 @@ export class VirtualTree3DScene {
     this.personObjects = new Map();
     this.connectionObjects = [];
     this.familyObjects = [];
+    this.bandObjects = [];
+    this.layout = layoutVirtualTree3D();
 
     this.raycaster = new THREE.Raycaster();
     this.pointer = new THREE.Vector2();
@@ -115,10 +89,23 @@ export class VirtualTree3DScene {
     }
   }
 
-  setData({ nodes = [], connections = [] }, { symbolMode = 'sphere', colorMode = 'gender', photosById = new Map() } = {}) {
+  setData(
+    { nodes = [], connections = [] },
+    { symbolMode = 'sphere', colorMode = 'gender', photosById = new Map(), layoutOptions = {}, showGenerationBands = true } = {}
+  ) {
     this._clearObjects();
 
-    const positioned = layoutNodes(nodes);
+    this.layout = layoutVirtualTree3D(nodes, connections, layoutOptions);
+    const positioned = this.layout.byId;
+
+    if (showGenerationBands) {
+      this.bandObjects = this.layout.bands.map((band, index) => new GenerationBandObject(band, {
+        index,
+        orientation: this.layout.orientation,
+      }));
+      for (const band of this.bandObjects) this.scene.add(band.group);
+    }
+
     for (const node of positioned.values()) {
       const photoUrl = photosById.get(node.id) || null;
       const person = new PersonObject(node, { symbolMode, colorMode, photoUrl });
@@ -126,7 +113,7 @@ export class VirtualTree3DScene {
       this.scene.add(person.group);
     }
 
-    for (const conn of connections) {
+    for (const conn of this.layout.connections) {
       const from = positioned.get(conn.fromId);
       const to = positioned.get(conn.toId);
       if (!from || !to) continue;
@@ -135,8 +122,9 @@ export class VirtualTree3DScene {
       this.scene.add(connection.line);
     }
 
-    this.familyObjects = buildFamilyObjects(connections, positioned);
+    this.familyObjects = buildFamilyObjects(this.layout.connections, positioned);
     for (const fam of this.familyObjects) this.scene.add(fam.marker);
+    this.fitToContent();
   }
 
   setColorMode(colorMode) {
@@ -149,6 +137,44 @@ export class VirtualTree3DScene {
       personObjects: this.personObjects,
       connectionObjects: this.connectionObjects,
     });
+  }
+
+  setCameraMode(mode = 'iso') {
+    const { bounds } = this.layout || layoutVirtualTree3D();
+    const center = new THREE.Vector3(
+      (bounds.minX + bounds.maxX) / 2,
+      (bounds.minY + bounds.maxY) / 2,
+      (bounds.minZ + bounds.maxZ) / 2
+    );
+    const span = Math.max(bounds.width, bounds.height, bounds.depth, 300);
+    const positions = {
+      top: new THREE.Vector3(center.x, center.y, center.z + span * 2.1),
+      front: new THREE.Vector3(center.x, center.y - span * 1.9, center.z + span * 0.72),
+      left: new THREE.Vector3(center.x - span * 1.55, center.y - span * 1.25, center.z + span * 1.15),
+      right: new THREE.Vector3(center.x + span * 1.55, center.y - span * 1.25, center.z + span * 1.15),
+      iso: new THREE.Vector3(center.x + span * 1.2, center.y - span * 1.35, center.z + span * 1.05),
+    };
+    this.camera.position.copy(positions[mode] || positions.iso);
+    this.controls.target.copy(center);
+    this.camera.lookAt(center);
+    this.controls.update();
+  }
+
+  fitToContent() {
+    const { bounds } = this.layout || layoutVirtualTree3D();
+    const center = new THREE.Vector3(
+      (bounds.minX + bounds.maxX) / 2,
+      (bounds.minY + bounds.maxY) / 2,
+      (bounds.minZ + bounds.maxZ) / 2
+    );
+    const span = Math.max(bounds.width, bounds.height, bounds.depth, 280);
+    this.controls.target.copy(center);
+    this.camera.near = 1;
+    this.camera.far = Math.max(6000, span * 8);
+    this.camera.position.set(center.x + span * 1.2, center.y - span * 1.35, center.z + span * 1.05);
+    this.camera.lookAt(center);
+    this.camera.updateProjectionMatrix();
+    this.controls.update();
   }
 
   _onClick(event) {
@@ -199,6 +225,12 @@ export class VirtualTree3DScene {
       fam.dispose();
     }
     this.familyObjects = [];
+
+    for (const band of this.bandObjects) {
+      this.scene.remove(band.group);
+      band.dispose();
+    }
+    this.bandObjects = [];
   }
 
   dispose() {

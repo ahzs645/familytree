@@ -117,6 +117,7 @@ export function ChartsApp() {
     virtualViewMode, setVirtualViewMode,
     virtualSymbolMode, setVirtualSymbolMode,
     virtualColorMode, setVirtualColorMode,
+    virtualShowGenerationBands, setVirtualShowGenerationBands,
     virtualDof, setVirtualDof,
   } = useVirtualTreeOptions();
   const [descendantGenerations, setDescendantGenerations] = useState(5);
@@ -544,6 +545,8 @@ export function ChartsApp() {
           hSpacing: virtualHSpacing,
           vSpacing: virtualVSpacing,
           orientation: virtualOrientation,
+          symbolMode: virtualSymbolMode,
+          colorMode: virtualColorMode,
         });
         if (!cancelled) setVirtualTreeData(data);
       } catch (_error) {
@@ -551,7 +554,7 @@ export function ChartsApp() {
       }
     })();
     return () => { cancelled = true; };
-  }, [chartType, rootId, virtualSource, generations, virtualHSpacing, virtualVSpacing, virtualOrientation]);
+  }, [chartType, rootId, virtualSource, generations, virtualHSpacing, virtualVSpacing, virtualOrientation, virtualSymbolMode, virtualColorMode]);
 
   const selectedRelationshipResult = useMemo(() => (
     relationshipPaths.find((path) => path.id === selectedRelationshipPathId) || relationshipPaths[0] || null
@@ -564,6 +567,12 @@ export function ChartsApp() {
     if (!Array.isArray(steps)) return [];
     return steps.map((step) => step.recordName).filter(Boolean);
   }, [selectedRelationshipResult]);
+
+  const virtualLayoutOptions = useMemo(() => ({
+    hSpacing: virtualHSpacing,
+    vSpacing: virtualVSpacing,
+    orientation: virtualOrientation,
+  }), [virtualHSpacing, virtualVSpacing, virtualOrientation]);
 
   const colorForPerson = useCallback((person) => {
     if (!person?.recordName || completenessColorMode === 'gender') return null;
@@ -1663,7 +1672,7 @@ export function ChartsApp() {
                 <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Renderer</div>
                 <select value={virtualViewMode} onChange={(e) => setVirtualViewMode(e.target.value)} style={optionSelect}>
                   <option value="2d">2D (SVG)</option>
-                  <option value="3d">3D (Three.js — experimental)</option>
+                  <option value="3d">3D (Three.js)</option>
                 </select>
               </label>
               {virtualViewMode === '3d' && (
@@ -1679,6 +1688,14 @@ export function ChartsApp() {
                     <select value={virtualColorMode} onChange={(e) => setVirtualColorMode(e.target.value)} style={optionSelect}>
                       {COLOR_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
                     </select>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12 }}>
+                    <input
+                      type="checkbox"
+                      checked={virtualShowGenerationBands}
+                      onChange={(e) => setVirtualShowGenerationBands(e.target.checked)}
+                    />
+                    Generation bands
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12 }}>
                     <input
@@ -1735,6 +1752,7 @@ export function ChartsApp() {
                 <select value={virtualSource} onChange={(e) => setVirtualSource(e.target.value)} style={optionSelect}>
                   <option value="descendant">Descendants</option>
                   <option value="ancestor">Ancestors</option>
+                  <option value="hourglass">Hourglass</option>
                 </select>
               </label>
               <label style={{ display: 'block', marginBottom: 10 }}>
@@ -1761,6 +1779,8 @@ export function ChartsApp() {
                   colorMode={virtualColorMode}
                   relationshipPathIds={relationshipPathIds}
                   dof={virtualDof}
+                  layoutOptions={virtualLayoutOptions}
+                  showGenerationBands={virtualShowGenerationBands}
                   onPick={(id) => openPersonInPanel({ recordName: id })}
                 />
               ) : (

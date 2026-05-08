@@ -6,12 +6,13 @@ import {
   GENERATION_BAND_STYLES,
   LIGHTING_MODES,
   PERSON_STYLES,
+  APPEARANCE_MODES,
   VIEWER_OPTIONS_STORAGE_KEY,
 } from './threeDTree/constants.js';
 import { buildInteractiveLayout } from './threeDTree/layout.js';
 import { makePalette } from './threeDTree/palette.js';
 import { readInitialViewerOptions } from './threeDTree/viewerOptions.js';
-import { Metric, PersonContextMenu, PersonHoverCard, ViewerSelect, dockToggleStyle } from './threeDTree/overlays.jsx';
+import { Metric, PersonContextMenu, PersonHoverCard, TreeNavigationControls, ViewerSelect, dockToggleStyle } from './threeDTree/overlays.jsx';
 import { styles } from './threeDTree/styles.js';
 import { useThreeTreeScene } from './threeDTree/useThreeTreeScene.js';
 
@@ -32,9 +33,11 @@ export function ThreeDTreeView({
   onToggleChrome,
 }) {
   const { theme } = useTheme();
-  const dark = theme === 'dark';
+  const appDark = theme === 'dark';
   const [viewerOptions, setViewerOptions] = useState(readInitialViewerOptions);
+  const [controlsVisible, setControlsVisible] = useState(false);
 
+  const dark = viewerOptions.appearanceMode === 'app' ? appDark : false;
   const palette = useMemo(() => makePalette(dark, viewerOptions.lightingMode), [dark, viewerOptions.lightingMode]);
   const layout = useMemo(
     () => buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph),
@@ -73,19 +76,23 @@ export function ThreeDTreeView({
   const hasTree = layout.nodes.length > 0;
 
   return (
-    <div style={styles.shell}>
+    <div
+      style={styles.shell}
+      onPointerEnter={() => setControlsVisible(true)}
+      onPointerLeave={() => setControlsVisible(false)}
+    >
       <div ref={containerRef} style={styles.canvas} />
-      <div style={styles.controls}>
+      <div style={{ ...styles.controls, ...(!controlsVisible ? styles.controlsHidden : null) }}>
         <button type="button" onClick={() => actionsRef.current.zoom(0.82)} style={styles.iconButton} title="Zoom in">+</button>
         <button type="button" onClick={() => actionsRef.current.zoom(1.18)} style={styles.iconButton} title="Zoom out">-</button>
         <button type="button" onClick={() => actionsRef.current.fit()} style={styles.fitButton} title="Size to fit">Fit</button>
       </div>
-      <div style={styles.bottomDock}>
+      <div style={{ ...styles.bottomDock, ...(!controlsVisible ? styles.bottomDockHidden : null) }}>
         <div style={styles.dockGroup}>
           <span style={styles.dockLabel}>Size to Fit</span>
           <input
             type="range"
-            min="34"
+            min="10"
             max="260"
             value={zoomPercent}
             onChange={(event) => actionsRef.current.zoomTo(Number(event.target.value))}
@@ -99,7 +106,14 @@ export function ThreeDTreeView({
           <Metric label="Partners" value={relationshipCounts.partners} />
           <Metric label="Children" value={relationshipCounts.children} />
         </div>
+        <TreeNavigationControls context={context} onPick={onPick} />
         <div style={styles.dockGroup}>
+          <ViewerSelect
+            label="Canvas"
+            value={viewerOptions.appearanceMode}
+            options={APPEARANCE_MODES}
+            onChange={(appearanceMode) => setViewerOptions((current) => ({ ...current, appearanceMode }))}
+          />
           <ViewerSelect
             label="Style"
             value={viewerOptions.personStyle}

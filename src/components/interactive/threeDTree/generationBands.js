@@ -4,17 +4,22 @@ import { makeCanvasTexture, makePlaneFromTexture, roundedRect } from './threeUti
 
 export function makeGenerationBand(band, palette, style = 'raised') {
   if (style === 'none') return new THREE.Group();
-  const texture = makeBandTexture(band, palette, style);
-  const geometry = new THREE.PlaneGeometry(band.width, band.height);
-  const material = new THREE.MeshBasicMaterial({
-    map: texture,
-    transparent: true,
-    depthWrite: false,
-  });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(band.x, band.y, -34);
-  mesh.renderOrder = 1;
-  return mesh;
+  const group = new THREE.Group();
+  const segments = band.segments?.length ? band.segments : [band];
+  for (const segment of segments) {
+    const texture = makeBandTexture(band, palette, style);
+    const geometry = new THREE.PlaneGeometry(segment.width, band.height);
+    const material = new THREE.MeshBasicMaterial({
+      map: texture,
+      transparent: true,
+      depthWrite: false,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(segment.x, band.y, -34);
+    mesh.renderOrder = 1;
+    group.add(mesh);
+  }
+  return group;
 }
 
 function makeBandTexture(band, palette, style = 'raised') {
@@ -23,23 +28,37 @@ function makeBandTexture(band, palette, style = 'raised') {
     : band.generation < 0
       ? ancestorBandColor(Math.abs(band.generation))
       : descendantBandColor(band.generation);
-  return makeCanvasTexture(1024, 256, (ctx, w, h) => {
-    const insetY = style === 'flat' ? 42 : 32;
-    const height = style === 'pedestal' ? h - 82 : h - 64;
-    ctx.shadowColor = style === 'flat' ? 'transparent' : 'rgba(0,0,0,0.16)';
-    ctx.shadowBlur = style === 'pedestal' ? 36 : 28;
-    ctx.shadowOffsetY = style === 'pedestal' ? 16 : 12;
-    roundedRect(ctx, 24, insetY, w - 48, height, style === 'flat' ? 18 : 34);
-    ctx.fillStyle = fill;
+  return makeCanvasTexture(1280, 320, (ctx, w, h) => {
+    const insetX = 26;
+    const insetY = style === 'flat' ? 48 : 36;
+    const height = style === 'pedestal' ? h - 96 : h - 74;
+    const radius = style === 'flat' ? 24 : 42;
+    ctx.shadowColor = style === 'flat' ? 'transparent' : 'rgba(78, 61, 72, 0.18)';
+    ctx.shadowBlur = style === 'pedestal' ? 42 : 34;
+    ctx.shadowOffsetY = style === 'pedestal' ? 18 : 14;
+    roundedRect(ctx, insetX, insetY, w - insetX * 2, height, radius);
+    const body = ctx.createLinearGradient(0, insetY, 0, insetY + height);
+    body.addColorStop(0, tint(fill, 0.18));
+    body.addColorStop(0.48, fill);
+    body.addColorStop(1, shade(fill, 0.08));
+    ctx.fillStyle = body;
     ctx.fill();
     ctx.shadowColor = 'transparent';
-    if (style === 'pedestal') {
-      ctx.fillStyle = 'rgba(0,0,0,0.07)';
-      roundedRect(ctx, 36, insetY + height - 18, w - 72, 22, 16);
-      ctx.fill();
-    }
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = band.generation === 0 ? 'rgba(191, 82, 150, 0.28)' : 'rgba(130, 112, 72, 0.22)';
+
+    roundedRect(ctx, insetX + 10, insetY + 8, w - (insetX + 10) * 2, Math.max(18, height * 0.32), radius - 10);
+    const shine = ctx.createLinearGradient(0, insetY, 0, insetY + height * 0.45);
+    shine.addColorStop(0, 'rgba(255,255,255,0.48)');
+    shine.addColorStop(1, 'rgba(255,255,255,0.06)');
+    ctx.fillStyle = shine;
+    ctx.fill();
+
+    roundedRect(ctx, insetX + 14, insetY + height - 26, w - (insetX + 14) * 2, 18, 12);
+    ctx.fillStyle = 'rgba(80, 54, 80, 0.055)';
+    ctx.fill();
+
+    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = band.generation === 0 ? 'rgba(186, 64, 145, 0.3)' : 'rgba(126, 117, 79, 0.24)';
+    roundedRect(ctx, insetX, insetY, w - insetX * 2, height, radius);
     ctx.stroke();
 
   });
@@ -65,6 +84,41 @@ export function makeGenerationLabel(band) {
   plane.material.depthTest = false;
   plane.renderOrder = 18;
   return plane;
+}
+
+function tint(color, amount) {
+  return mixRgba(color, '#ffffff', amount);
+}
+
+function shade(color, amount) {
+  return mixRgba(color, '#000000', amount);
+}
+
+function mixRgba(color, target, amount) {
+  const source = parseRgba(color);
+  const mix = parseHex(target);
+  const channel = (a, b) => Math.round(a + (b - a) * amount);
+  return `rgba(${channel(source.r, mix.r)}, ${channel(source.g, mix.g)}, ${channel(source.b, mix.b)}, ${source.a})`;
+}
+
+function parseRgba(color) {
+  const match = String(color).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([.\d]+))?\)/);
+  if (!match) return { r: 255, g: 255, b: 255, a: 1 };
+  return {
+    r: Number(match[1]),
+    g: Number(match[2]),
+    b: Number(match[3]),
+    a: Number(match[4] ?? 1),
+  };
+}
+
+function parseHex(color) {
+  const hex = color.replace('#', '');
+  return {
+    r: parseInt(hex.slice(0, 2), 16),
+    g: parseInt(hex.slice(2, 4), 16),
+    b: parseInt(hex.slice(4, 6), 16),
+  };
 }
 
 function generationLabel(generation) {

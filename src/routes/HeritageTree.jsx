@@ -6,10 +6,35 @@ import Legend from '../components/heritageTree/Legend.jsx';
 import Header from '../components/heritageTree/Header.jsx';
 import AnalyticsModal from '../components/heritageTree/AnalyticsModal.jsx';
 import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { APP_PREFERENCES_EVENT } from '../lib/appPreferences.js';
+
+const MIN_SCALE = 0.1;
+const MAX_SCALE = 2;
+const DRAG_CLICK_THRESHOLD = 6;
+
+function clampScale(scale) {
+  return Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale));
+}
 
 export default function HeritageTree() {
   const [view, setView] = useState({ scale: 0.38, tx: 60, ty: 30 });
-  const dragRef = useRef({ isDragging: false, startX: 0, startY: 0, startTx: 0, startTy: 0 });
+  const pointersRef = useRef(new Map());
+  const dragRef = useRef({
+    isDragging: false,
+    startX: 0,
+    startY: 0,
+    startTx: 0,
+    startTy: 0,
+    moved: false,
+    pinchStartDistance: 0,
+    pinchStartScale: 0,
+    pinchCenterX: 0,
+    pinchCenterY: 0,
+    pinchStartTx: 0,
+    pinchStartTy: 0,
+  });
+  const suppressClickUntilRef = useRef(0);
   const [isDragging, setIsDragging] = useState(false);
   const [treeData, setTreeData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -19,6 +44,7 @@ export default function HeritageTree() {
   const [searchTerm, setSearchTerm] = useState('');
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const { recordName: activeId, setActivePerson } = useActivePerson();
+  const { t, localization } = useTranslation();
 
   const { nodes, connectors, maxGen, individuals, rootId, genBands, genLabels, indis, fams } = useMemo(
     () => treeData ? layoutHeritageTree(treeData, selectedRootId || activeId) : layoutHeritageTree(null),
@@ -28,9 +54,9 @@ export default function HeritageTree() {
 
   const filteredIndividuals = useMemo(() => {
     if (!searchTerm) return individuals;
-    const lower = searchTerm.toLowerCase();
-    return individuals.filter((i) => i.name.toLowerCase().includes(lower));
-  }, [individuals, searchTerm]);
+    const lower = searchTerm.toLocaleLowerCase(localization.locale);
+    return individuals.filter((i) => i.searchText.toLocaleLowerCase(localization.locale).includes(lower));
+  }, [individuals, localization.locale, searchTerm]);
 
   const highlightedIds = useMemo(() => {
     if (!hoveredNodeId) return null;
@@ -83,16 +109,22 @@ export default function HeritageTree() {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const load = async () => {
       setLoading(true);
       const next = await loadHeritageTreeData();
       if (!cancelled) {
         setTreeData(next);
         setLoading(false);
       }
-    })();
+    };
+    load();
+    const onPreferences = () => {
+      load();
+    };
+    window.addEventListener(APP_PREFERENCES_EVENT, onPreferences);
     return () => {
       cancelled = true;
+      window.removeEventListener(APP_PREFERENCES_EVENT, onPreferences);
     };
   }, []);
 
@@ -118,38 +150,130 @@ export default function HeritageTree() {
     setLoading(false);
   };
 
-  const handleMouseDown = (e) => {
-    dragRef.current = { isDragging: true, startX: e.clientX, startY: e.clientY, startTx: view.tx, startTy: view.ty };
+  const beginDrag = (pointer) => {
+    dragRef.current = {
+      ...dragRef.current,
+      isDragging: true,
+      startX: pointer.clientX,
+      startY: pointer.clientY,
+      startTx: view.tx,
+      startTy: view.ty,
+      moved: false,
+      pinchStartDistance: 0,
+    };
     setIsDragging(true);
   };
-  const handleMouseMove = (e) => {
+
+  const beginPinch = () => {
+    const activePointers = [...pointersRef.current.values()];
+    if (activePointers.length < 2) return;
+    const [a, b] = activePointers;
+    const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    dragRef.current = {
+      ...dragRef.current,
+      isDragging: true,
+      moved: true,
+      pinchStartDistance: distance || 1,
+      pinchStartScale: view.scale,
+      pinchCenterX: (a.clientX + b.clientX) / 2,
+      pinchCenterY: (a.clientY + b.clientY) / 2,
+      pinchStartTx: view.tx,
+      pinchStartTy: view.ty,
+    };
+    setIsDragging(true);
+  };
+
+  const shouldIgnorePointer = (target) => target.closest?.('header, .legend, .analytics-backdrop, button, input, select, textarea, a');
+
+  const handlePointerDown = (e) => {
+    if (shouldIgnorePointer(e.target)) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    pointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    if (pointersRef.current.size === 1) beginDrag({ clientX: e.clientX, clientY: e.clientY });
+    if (pointersRef.current.size === 2) beginPinch();
+  };
+
+  const handlePointerMove = (e) => {
+    if (!pointersRef.current.has(e.pointerId)) return;
+    e.preventDefault();
+    pointersRef.current.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+    const activePointers = [...pointersRef.current.values()];
+
+    if (activePointers.length >= 2 && dragRef.current.pinchStartDistance) {
+      const [a, b] = activePointers;
+      const distance = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+      const centerX = (a.clientX + b.clientX) / 2;
+      const centerY = (a.clientY + b.clientY) / 2;
+      const nextScale = clampScale(dragRef.current.pinchStartScale * (distance / dragRef.current.pinchStartDistance));
+      const scaleRatio = nextScale / dragRef.current.pinchStartScale;
+      setView({
+        scale: nextScale,
+        tx: centerX - (dragRef.current.pinchCenterX - dragRef.current.pinchStartTx) * scaleRatio,
+        ty: centerY - (dragRef.current.pinchCenterY - dragRef.current.pinchStartTy) * scaleRatio,
+      });
+      return;
+    }
+
     if (!dragRef.current.isDragging) return;
+    const pointer = activePointers[0];
+    const dx = pointer.clientX - dragRef.current.startX;
+    const dy = pointer.clientY - dragRef.current.startY;
+    if (Math.hypot(dx, dy) > DRAG_CLICK_THRESHOLD) dragRef.current.moved = true;
     setView((prev) => ({
       ...prev,
-      tx: dragRef.current.startTx + (e.clientX - dragRef.current.startX),
-      ty: dragRef.current.startTy + (e.clientY - dragRef.current.startY),
+      tx: dragRef.current.startTx + dx,
+      ty: dragRef.current.startTy + dy,
     }));
   };
-  const handleMouseUp = () => {
+
+  const handlePointerUp = (e) => {
+    if (pointersRef.current.has(e.pointerId)) {
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+      pointersRef.current.delete(e.pointerId);
+    }
+    if (dragRef.current.moved) suppressClickUntilRef.current = Date.now() + 250;
+    if (pointersRef.current.size === 1) {
+      const [pointer] = pointersRef.current.values();
+      beginDrag(pointer);
+      return;
+    }
     dragRef.current.isDragging = false;
+    dragRef.current.pinchStartDistance = 0;
     setIsDragging(false);
+  };
+
+  const handleWheel = (e) => {
+    const zoomDelta = e.deltaY > 0 ? -0.08 : 0.08;
+    setView((prev) => {
+      const nextScale = clampScale(prev.scale + zoomDelta);
+      const scaleRatio = nextScale / prev.scale;
+      return {
+        scale: nextScale,
+        tx: e.clientX - (e.clientX - prev.tx) * scaleRatio,
+        ty: e.clientY - (e.clientY - prev.ty) * scaleRatio,
+      };
+    });
   };
 
   const maxX = nodes.length > 0 ? Math.max(...nodes.map((p) => p.x + CW)) + 140 : window.innerWidth;
   const maxY = nodes.length > 0 ? Math.max(...nodes.map((p) => p.y + p.h)) + 140 : window.innerHeight;
 
   if (loading) {
-    return <div className="heritage-tree-loading">Loading heritage tree...</div>;
+    return <div className="heritage-tree-loading">{t('heritageTree.loading')}</div>;
   }
 
   return (
     <div
       className="heritage-tree-view"
       data-heritage-theme={theme}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      lang={localization.locale}
+      dir={localization.direction}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onWheel={handleWheel}
       style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
     >
       <Header
@@ -197,9 +321,9 @@ export default function HeritageTree() {
 
         {nodes.length === 0 && (
           <div className="heritage-empty-state">
-            The layout engine could not calculate this person&apos;s family tree.
+            {t('heritageTree.emptyTitle')}
             <br />
-            Please select another relative from the dropdown.
+            {t('heritageTree.emptyBody')}
           </div>
         )}
 
@@ -212,6 +336,7 @@ export default function HeritageTree() {
             onMouseEnter={() => setHoveredNodeId(p.id)}
             onMouseLeave={() => setHoveredNodeId(null)}
             onClick={() => {
+              if (Date.now() < suppressClickUntilRef.current) return;
               selectRoot(p.id);
             }}
           />
@@ -224,7 +349,7 @@ export default function HeritageTree() {
 
       {genLabels?.map((l) => (
         <div key={`label-${l.gen}`} className="gen-label" style={{ top: (l.y * view.scale + view.ty + 62) }}>
-          Generation {l.gen}
+          {t('heritageTree.generationLabel', { count: l.gen })}
         </div>
       ))}
 

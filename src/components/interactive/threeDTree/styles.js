@@ -23,6 +23,12 @@ export const styles = {
     border: '1px solid hsl(var(--border))',
     boxShadow: '0 10px 24px rgb(0 0 0 / 0.12)',
     backdropFilter: 'blur(12px)',
+    transition: 'opacity 160ms ease, transform 160ms ease',
+  },
+  controlsHidden: {
+    opacity: 0,
+    pointerEvents: 'none',
+    transform: 'translateY(-5px)',
   },
   bottomDock: {
     position: 'absolute',
@@ -43,12 +49,25 @@ export const styles = {
     backdropFilter: 'blur(14px)',
     color: 'hsl(var(--foreground))',
     overflow: 'auto',
+    transition: 'opacity 160ms ease, transform 160ms ease',
+  },
+  bottomDockHidden: {
+    opacity: 0,
+    pointerEvents: 'none',
+    transform: 'translateX(-50%) translateY(8px)',
   },
   dockGroup: {
     display: 'flex',
     alignItems: 'center',
     gap: 8,
     flexShrink: 0,
+  },
+  navDockGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 0,
+    paddingInlineStart: 2,
   },
   dockLabel: {
     color: 'hsl(var(--muted-foreground))',
@@ -104,6 +123,18 @@ export const styles = {
   select: {
     height: 30,
     minWidth: 84,
+    borderRadius: 6,
+    border: '1px solid hsl(var(--border))',
+    background: 'hsl(var(--secondary))',
+    color: 'hsl(var(--foreground))',
+    font: '700 11px -apple-system, system-ui, sans-serif',
+    padding: '0 24px 0 8px',
+    cursor: 'pointer',
+  },
+  navigationSelect: {
+    height: 30,
+    minWidth: 150,
+    maxWidth: 230,
     borderRadius: 6,
     border: '1px solid hsl(var(--border))',
     background: 'hsl(var(--secondary))',

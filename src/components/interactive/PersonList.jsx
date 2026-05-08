@@ -99,7 +99,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                     ) : null}
                     {showColumn('arabicPatrilinealName') && p.arabicPatrilinealName ? (
                       <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, direction: 'rtl', textAlign: 'start' }}>
-                        <BdiText>{p.arabicPatrilinealName}</BdiText>
+                        <BdiText>{p.arabicPatrilinealTail || p.arabicPatrilinealName}</BdiText>
                       </div>
                     ) : null}
                     {showColumn('outsideFamily') && p.outsideFamily ? (
@@ -111,9 +111,9 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                     {showColumn('startPerson') && p.startPerson ? (
                       <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>✓ {t('persons.startPerson')}</div>
                     ) : null}
-                    {query.trim() && p.lineageSearchText ? (
-                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, marginTop: 2 }}>
-                        <BdiText>{p.lineageSearchText}</BdiText>
+                    {query.trim() && (p.arabicPatrilinealTail || p.arabicPatrilinealName) ? (
+                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, marginTop: 2, direction: 'rtl', textAlign: 'start' }}>
+                        <BdiText>{p.arabicPatrilinealTail || p.arabicPatrilinealName}</BdiText>
                       </div>
                     ) : null}
                   </div>

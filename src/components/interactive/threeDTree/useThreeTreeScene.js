@@ -38,6 +38,12 @@ export function useThreeTreeScene({
   const [hoveredId, setHoveredId] = useState(null);
   const [hoverCard, setHoverCard] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
+  const fitBoundsForOptions = () => {
+    if (viewerOptions.appearanceMode === 'macLight' && viewerOptions.cameraMode === 'top') {
+      return layout.bounds;
+    }
+    return layout.viewBounds || layout.bounds;
+  };
 
   useEffect(() => {
     preloadReferenceModels(viewerOptions.personStyle).then((loaded) => {
@@ -87,7 +93,7 @@ export function useThreeTreeScene({
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.screenSpacePanning = true;
-    controls.minZoom = 0.28;
+    controls.minZoom = 0.1;
     controls.maxZoom = 2.6;
     controls.maxPolarAngle = Math.PI * 0.68;
     controls.mouseButtons = {
@@ -132,7 +138,7 @@ export function useThreeTreeScene({
       camera,
       container,
       controls,
-      getBounds: () => layout.viewBounds || layout.bounds,
+      getBounds: fitBoundsForOptions,
       setZoomPercent,
       viewerOptions,
     });
@@ -277,10 +283,12 @@ export function useThreeTreeScene({
       clickablesRef.current.push(object);
     }
 
-    const fitSignature = cameraFitSignature(layout, activeId, viewerOptions.cameraMode);
+    const fitBounds = fitBoundsForOptions();
+    const fitSignature = cameraFitSignature(layout, activeId, viewerOptions.cameraMode, fitBounds);
     if (fitSignatureRef.current !== fitSignature) {
-      const restored = restoreCameraState(camera, controls, viewerOptions.cameraMode, activeId);
-      if (!restored) fitCamera(camera, controls, layout.viewBounds || layout.bounds, container, viewerOptions.cameraMode);
+      const shouldRestoreCamera = !(viewerOptions.appearanceMode === 'macLight' && viewerOptions.cameraMode === 'top');
+      const restored = shouldRestoreCamera && restoreCameraState(camera, controls, viewerOptions.cameraMode, activeId);
+      if (!restored) fitCamera(camera, controls, fitBounds, container, viewerOptions.cameraMode);
       fitSignatureRef.current = fitSignature;
       setZoomPercent(Math.round(camera.zoom * 100));
     }
@@ -291,7 +299,7 @@ export function useThreeTreeScene({
         camera,
         container,
         controls,
-        getBounds: () => layout.viewBounds || layout.bounds,
+        getBounds: fitBoundsForOptions,
         setZoomPercent,
         viewerOptions,
       }),

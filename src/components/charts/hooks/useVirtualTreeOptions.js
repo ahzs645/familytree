@@ -12,9 +12,10 @@ export function useVirtualTreeOptions() {
   const [virtualHSpacing, setVirtualHSpacing] = useState(24);
   const [virtualVSpacing, setVirtualVSpacing] = useState(110);
   const [virtualTreeData, setVirtualTreeData] = useState(null);
-  const [virtualViewMode, setVirtualViewMode] = useState('2d');
+  const [virtualViewMode, setVirtualViewMode] = useState('3d');
   const [virtualSymbolMode, setVirtualSymbolMode] = useState('sphere');
   const [virtualColorMode, setVirtualColorMode] = useState('gender');
+  const [virtualShowGenerationBands, setVirtualShowGenerationBands] = useState(true);
   const [virtualDof, setVirtualDof] = useState(DOF_DEFAULTS);
 
   return {
@@ -34,6 +35,8 @@ export function useVirtualTreeOptions() {
     setVirtualSymbolMode,
     virtualColorMode,
     setVirtualColorMode,
+    virtualShowGenerationBands,
+    setVirtualShowGenerationBands,
     virtualDof,
     setVirtualDof,
   };

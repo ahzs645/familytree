@@ -1,6 +1,7 @@
 import React from 'react';
 import { lifeSpanLabel } from '../../../models/index.js';
 import { styles, dockToggleStyle } from './styles.js';
+import { buildTreeNavigationOptions, firstNavigationOption } from './navigationOptions.js';
 
 export function Metric({ label, value }) {
   return (
@@ -26,6 +27,48 @@ export function ViewerSelect({ label, value, options, onChange }) {
         ))}
       </select>
     </label>
+  );
+}
+
+export function TreeNavigationControls({ context, onPick }) {
+  const sections = buildTreeNavigationOptions(context);
+  const selectValue = '';
+  const jump = (sectionId) => {
+    const option = firstNavigationOption(context, sectionId);
+    if (option) onPick?.(option.id);
+  };
+  if (!sections.length) return null;
+  return (
+    <div style={styles.navDockGroup}>
+      <button type="button" style={styles.dockButton} onClick={() => jump('parents')} disabled={!sections.some((section) => section.id === 'parents')}>
+        Parent
+      </button>
+      <button type="button" style={styles.dockButton} onClick={() => jump('partners')} disabled={!sections.some((section) => section.id === 'partners')}>
+        Partner
+      </button>
+      <button type="button" style={styles.dockButton} onClick={() => jump('children')} disabled={!sections.some((section) => section.id === 'children')}>
+        Child
+      </button>
+      <select
+        value={selectValue}
+        onChange={(event) => {
+          if (event.target.value) onPick?.(event.target.value);
+        }}
+        style={styles.navigationSelect}
+        aria-label="Navigate family tree"
+      >
+        <option value="">Navigate...</option>
+        {sections.map((section) => (
+          <optgroup key={section.id} label={section.label}>
+            {section.options.map((option) => (
+              <option key={`${section.id}:${option.id}`} value={option.id}>
+                {option.relation}: {option.label}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </div>
   );
 }
 

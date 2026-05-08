@@ -253,7 +253,7 @@
   --label-bg: rgba(249,250,251,0.95); --label-border: #000000;
   --band-line: rgba(0,0,0,0.15);
   --tooltip-bg: #FFFFFF; --tooltip-text: #000000;
-}.heritage-tree-view *{ box-sizing: border-box; margin: 0; padding: 0; }.heritage-tree-view{ font-family: 'Crimson Text', Georgia, serif; background: var(--bg); color: var(--ink); min-height: 100vh; overflow: hidden; }.heritage-tree-view::before{
+}.heritage-tree-view *{ box-sizing: border-box; margin: 0; padding: 0; }.heritage-tree-view{ font-family: 'Crimson Text', Georgia, serif; background: var(--bg); color: var(--ink); min-height: 100vh; overflow: hidden; touch-action: none; overscroll-behavior: contain; }.heritage-tree-view::before{
   content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 1000; opacity: 0.5;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
 }.heritage-tree-view header{
@@ -261,13 +261,13 @@
   background: linear-gradient(180deg,var(--header-bg-1) 0%,var(--header-bg-2) 100%);
   padding: 14px 28px; display:flex; align-items:center; justify-content:space-between;
   border-bottom: 2px solid var(--gold); box-shadow: 0 2px 16px rgba(0,0,0,0.3);
-}.heritage-tree-view header h1{ font-family:'Playfair Display',serif; font-size:1.4rem; color:var(--gold); letter-spacing:.04em; font-weight:600; }.heritage-tree-view header p{ font-family:'Crimson Text',serif; font-style:italic; color:var(--header-sub); font-size:.95rem; }.heritage-tree-view .controls{ display:flex; gap:10px; align-items:center; }.heritage-tree-view .btn{
+}.heritage-tree-view header h1{ font-family:'Playfair Display',serif; font-size:1.4rem; color:var(--gold); letter-spacing:.04em; font-weight:600; }.heritage-tree-view header p{ font-family:'Crimson Text',serif; font-style:italic; color:var(--header-sub); font-size:.95rem; max-width: 34ch; }.heritage-tree-view .controls{ display:flex; gap:10px; align-items:center; }.heritage-tree-view .btn{
   background:var(--btn-bg); border:1px solid var(--gold); color:var(--gold);
   padding:5px 14px; border-radius:3px; font-family:'Crimson Text',serif; font-size:.9rem;
   cursor:pointer; transition:all .2s;
   display: inline-flex; align-items: center; justify-content: center;
   height: 32px; min-width: 32px; padding: 0 10px;
-}.heritage-tree-view .btn:hover{ background:var(--btn-hover); }.heritage-tree-view .search-input{ background: transparent; border: none; color: var(--gold); outline: none; width: 70px; padding: 3px 8px; font-family: 'Crimson Text', serif; font-size: 0.9rem; transition: width 0.2s ease-out; }.heritage-tree-view .search-input::placeholder{ color: var(--gold); opacity: 0.6; }.heritage-tree-view .search-input:focus, .heritage-tree-view .search-input:not(:placeholder-shown){ width: 140px; }.heritage-tree-view .zoom-label{ color:var(--header-sub); font-size:.85rem; min-width:45px; text-align:center; }.heritage-tree-view{ position:fixed; top:62px; left:0; right:0; bottom:0; overflow:hidden; cursor:grab; }.heritage-tree-view.grabbing{ cursor:grabbing; }.heritage-tree-view #canvas{ position:absolute; transform-origin:0 0; will-change:transform; }.heritage-tree-view svg#connectors{ position:absolute; top:0; left:0; pointer-events:none; overflow:visible; }.heritage-tree-view .gen-label{
+}.heritage-tree-view .btn:hover{ background:var(--btn-hover); }.heritage-tree-view .heritage-search-control{ display:flex; align-items:center; background:var(--btn-bg); border:1px solid var(--gold); border-radius:3px; padding:2px 5px; transition:all .2s; }.heritage-tree-view .heritage-control-separator{ width:1px; height:16px; background:var(--gold); opacity:.3; margin:0 5px; }.heritage-tree-view .heritage-toolbar-separator{ width:1px; height:20px; background:rgba(200,153,42,.3); margin:0 5px; }.heritage-tree-view .heritage-root-select, .heritage-tree-view .heritage-theme-select{ border:1px solid var(--gold); background:var(--btn-bg); color:var(--gold); font-family:'Crimson Text',serif; outline:none; cursor:pointer; border-radius:3px; }.heritage-tree-view .heritage-root-select{ padding:3px 5px; border:none; background:transparent; max-width:160px; text-overflow:ellipsis; }.heritage-tree-view .heritage-theme-select{ padding:5px 10px; }.heritage-tree-view select option{ color:#000; background:#fff; }.heritage-tree-view .search-input{ background: transparent; border: none; color: var(--gold); outline: none; width: 70px; padding: 3px 8px; font-family: 'Crimson Text', serif; font-size: 0.9rem; transition: width 0.2s ease-out; }.heritage-tree-view .search-input::placeholder{ color: var(--gold); opacity: 0.6; }.heritage-tree-view .search-input:focus, .heritage-tree-view .search-input:not(:placeholder-shown){ width: 140px; }.heritage-tree-view .zoom-label{ color:var(--header-sub); font-size:.85rem; min-width:45px; text-align:center; }.heritage-tree-view{ position:fixed; top:62px; left:0; right:0; bottom:0; overflow:hidden; cursor:grab; }.heritage-tree-view.grabbing{ cursor:grabbing; }.heritage-tree-view #canvas{ position:absolute; transform-origin:0 0; will-change:transform; }.heritage-tree-view svg#connectors{ position:absolute; top:0; left:0; pointer-events:none; overflow:visible; }.heritage-tree-view .gen-label{
   position:fixed; left:0; font-family:'Playfair Display',serif; font-size:.78rem; font-style:italic;
   color:var(--accent); background:var(--label-bg); border-right:2px solid var(--label-border);
   padding:3px 10px 3px 8px; white-space:nowrap; letter-spacing:.05em;
@@ -293,7 +293,7 @@
   position: absolute; top: -8px; right: -8px; background: var(--accent); color: var(--card-bg);
   width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
   box-shadow: 0 2px 4px var(--shadow); opacity: 0.85; transition: all 0.2s;
-}.heritage-tree-view .card:hover .hidden-indicator{ opacity: 1; transform: scale(1.1); }.heritage-tree-view .card .name{ font-family:'Playfair Display',serif; font-size:.88rem; font-weight:600; color:var(--ink); line-height:1.25; margin-bottom:4px; }.heritage-tree-view .card .dates{ font-size:.78rem; color:var(--accent); line-height:1.4; font-style:italic; }.heritage-tree-view .card .place{ font-size:.74rem; color:var(--accent2); line-height:1.35; margin-top:2px; }
+}.heritage-tree-view .card:hover .hidden-indicator{ opacity: 1; transform: scale(1.1); }.heritage-tree-view .card .name{ font-family:'Playfair Display',serif; font-size:.88rem; font-weight:600; color:var(--ink); line-height:1.25; margin-bottom:4px; overflow-wrap:anywhere; }.heritage-tree-view .card .dates{ font-size:.78rem; color:var(--accent); line-height:1.4; font-style:italic; }.heritage-tree-view .card .place{ font-size:.74rem; color:var(--accent2); line-height:1.35; margin-top:2px; overflow-wrap:anywhere; }
 /* Nationality badges — flag-inspired colors */
 .heritage-tree-view .origin-tag{
   display:inline-block; margin-top:5px;
@@ -386,6 +386,32 @@
   min-height: 0;
   overflow: hidden;
 }
+.heritage-tree-view[dir="rtl"] header {
+  direction: rtl;
+}
+.heritage-tree-view[dir="rtl"] .controls {
+  direction: rtl;
+}
+.heritage-tree-view[dir="rtl"] .gen-label {
+  left: auto;
+  right: 0;
+  border-right: 0;
+  border-left: 2px solid var(--label-border);
+  border-radius: 3px 0 0 3px;
+  padding: 3px 8px 3px 10px;
+}
+.heritage-tree-view[dir="rtl"] .legend {
+  right: auto;
+  left: 16px;
+}
+.heritage-tree-view[dir="rtl"] .hidden-indicator {
+  right: auto;
+  left: -8px;
+}
+.heritage-tree-view .card {
+  direction: auto;
+  text-align: start;
+}
 .heritage-tree-view header {
   position: absolute;
   top: 0;
@@ -427,7 +453,11 @@
 @media (max-width: 760px) {
   .heritage-tree-view header {
     align-items: flex-start;
+    flex-direction: column;
     padding: 14px 16px;
+  }
+  .heritage-tree-view .heritage-title-block {
+    min-width: 0;
   }
   .heritage-tree-view header h1 {
     font-size: 1.25rem;
@@ -437,5 +467,11 @@
   }
   .heritage-tree-view .legend {
     max-width: calc(100% - 32px);
+  }
+  .heritage-tree-view .controls {
+    width: 100%;
+  }
+  .heritage-tree-view .heritage-root-select {
+    max-width: 42vw;
   }
 }

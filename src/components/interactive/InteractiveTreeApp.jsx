@@ -3,7 +3,7 @@
  * Uses ActivePersonContext so the choice persists across routes.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   listAllPersons,
   findStartPerson,
@@ -22,19 +22,26 @@ import { TraumatreeCanvasView } from './TraumatreeCanvasView.jsx';
 import { FamilyTreeView } from './FamilyTreeView.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
+import { resolveInitialTreePersonId } from './initialTreePerson.js';
+import { persistTreeViewMode, readInitialTreeViewMode } from './treeViewMode.js';
 
 export function InteractiveTreeApp() {
   const [persons, setPersons] = useState([]);
   const [context, setContext] = useState(null);
   const [trees, setTrees] = useState({ ancestor: null, descendant: null, graph: null, familyTree: null, loading: false });
-  const [viewMode, setViewMode] = useState('sun');
+  const [searchParams] = useSearchParams();
+  const [viewMode, setViewMode] = useState(() => readInitialTreeViewMode(searchParams));
   const [loading, setLoading] = useState(true);
   const [empty, setEmpty] = useState(false);
   const [mobilePane, setMobilePane] = useState('focus');
-  const [treeChrome, setTreeChrome] = useState({ navigation: true, people: false, inspector: false, header: true });
+  const [treeChrome, setTreeChrome] = useState({ navigation: false, people: false, inspector: false, header: false });
   const isMobile = useIsMobile();
   const { recordName: activeId, setActivePerson } = useActivePerson();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    persistTreeViewMode(viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     (async () => {
@@ -45,8 +52,16 @@ export function InteractiveTreeApp() {
         setLoading(false);
         return;
       }
-      const start = await findLargestDescendantRoot() || await findStartPerson();
-      setActivePerson(start?.recordName || list[0].recordName);
+      const [startPerson, largestRoot] = await Promise.all([
+        findStartPerson(),
+        findLargestDescendantRoot(),
+      ]);
+      setActivePerson(resolveInitialTreePersonId({
+        persons: list,
+        activeId,
+        startPerson,
+        largestRoot,
+      }));
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -77,6 +92,12 @@ export function InteractiveTreeApp() {
   useEffect(() => () => {
     window.dispatchEvent(new CustomEvent('cloudtreeweb:navigation-visibility', { detail: { hidden: false } }));
   }, []);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent('cloudtreeweb:navigation-visibility', {
+      detail: { hidden: viewMode === 'three' && !treeChrome.navigation },
+    }));
+  }, [treeChrome.navigation, viewMode]);
 
   const onPick = useCallback((recordName) => {
     setActivePerson(recordName);

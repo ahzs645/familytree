@@ -1099,6 +1099,55 @@
       "startPersonMarker": "Start-person marker"
     }
   },
+  "heritageTree": {
+    "title": "Heritage Tree",
+    "subtitle": "{count} generations",
+    "subtitleForRoot": "{count} generations for",
+    "loading": "Loading heritage tree...",
+    "emptyTitle": "This person’s family tree could not be laid out.",
+    "emptyBody": "Select another relative from the person list.",
+    "generationLabel": "Generation {count}",
+    "searchPlaceholder": "Search...",
+    "searchTitle": "Type a name, then press Enter",
+    "searchAria": "Search people",
+    "selectRootAria": "Select root person",
+    "searchResults": {
+      "one": "Select from {count} result...",
+      "other": "Select from {count} results..."
+    },
+    "noResults": "No results...",
+    "themeAria": "Select color theme",
+    "uploadAria": "Upload GEDCOM file",
+    "exportPdfAria": "Export tree to PDF",
+    "analyticsAria": "View tree analytics",
+    "zoomOutAria": "Zoom out",
+    "zoomInAria": "Zoom in",
+    "recenterAria": "Recenter on current person",
+    "resetRootAria": "Reset to default person",
+    "reloadAria": "Reload current tree",
+    "portraitAlt": "Portrait of {name}",
+    "hiddenRelations": "Click to reveal hidden relatives",
+    "originTitle": "Geographic origin",
+    "themes": {
+      "classic": "Classic",
+      "dark": "Dark",
+      "ocean": "Ocean",
+      "forest": "Forest",
+      "monochrome": "Monochrome"
+    },
+    "tooltips": {
+      "search": "Search and select the root person",
+      "theme": "Select a visual color theme",
+      "upload": "Upload GEDCOM file",
+      "exportPdf": "Export tree to PDF",
+      "analytics": "Tree analytics",
+      "zoomOut": "Zoom out",
+      "zoomIn": "Zoom in",
+      "recenter": "Recenter on current person",
+      "resetRoot": "Reset to the default person",
+      "reload": "Reload current tree"
+    }
+  },
   "reports": {
     "builders": {
       "ahnentafel": "Ahnentafel Report",

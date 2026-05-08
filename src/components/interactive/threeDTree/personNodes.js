@@ -3,7 +3,7 @@ import { lifeSpanLabel } from '../../../models/index.js';
 import { ROOT_CARD, SKIN } from './constants.js';
 import { makeReferencePersonModel } from './referenceModels.js';
 import { colorsForGender, lightenHex } from './personColors.js';
-import { makeCanvasTexture, makePlaneFromTexture, roundedRect, wrapText } from './threeUtils.js';
+import { makeCanvasTexture, makePlaneFromTexture, roundedRect } from './threeUtils.js';
 
 export function makePersonNode(node, palette, personStyle, hovered = false) {
   const group = new THREE.Group();
@@ -12,11 +12,11 @@ export function makePersonNode(node, palette, personStyle, hovered = false) {
   group.userData.node = node;
 
   const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(58, 56),
-    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.15, depthWrite: false })
+    new THREE.CircleGeometry(64, 64),
+    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.13, depthWrite: false })
   );
-  shadow.scale.set(1.28, 0.38, 1);
-  shadow.position.set(8, -4, -18);
+  shadow.scale.set(1.42, 0.42, 1);
+  shadow.position.set(10, -7, -18);
   shadow.renderOrder = 2;
   group.add(shadow);
 
@@ -28,8 +28,8 @@ export function makePersonNode(node, palette, personStyle, hovered = false) {
   if (hasStatusBadges(node)) group.add(makeStatusBadges(node, false));
   if (hovered) group.add(makeSelectionMark(false, palette, 'hover'));
 
-  const label = makePlaneFromTexture(makePersonLabelTexture(node.person, palette), 168, 66);
-  label.position.set(0, -58, 16);
+  const label = makePlaneFromTexture(makePersonLabelTexture(node.person, palette), 174, 70);
+  label.position.set(0, -62, 16);
   group.add(label);
 
   return group;
@@ -43,10 +43,10 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false) {
 
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(ROOT_CARD.w * 0.47, 72),
-    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.16, depthWrite: false })
+    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.14, depthWrite: false })
   );
-  shadow.scale.set(1.04, 0.96, 1);
-  shadow.position.set(10, -16, -16);
+  shadow.scale.set(1.1, 1.02, 1);
+  shadow.position.set(12, -18, -18);
   shadow.renderOrder = 2;
   group.add(shadow);
 
@@ -308,15 +308,19 @@ function makePersonLabelTexture(person, palette) {
     ctx.fillRect(0, 0, w, h);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    const name = person?.fullName || 'Unknown';
+    const rtl = isRtlText(name);
+    ctx.direction = rtl ? 'rtl' : 'ltr';
     ctx.fillStyle = palette.text;
-    ctx.font = '700 30px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    for (const [line, y] of wrapText(ctx, person?.fullName || 'Unknown', 19, 2).map((line, index) => [line, 48 + index * 34])) {
+    ctx.font = `${rtl ? 800 : 750} ${rtl ? 34 : 32}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+    for (const [line, y] of wrapMeasuredText(ctx, name, 360, 2).map((line, index) => [line, 47 + index * 34])) {
       ctx.fillText(line, w / 2, y);
     }
     const life = lifeSpanLabel(person);
     if (life) {
+      ctx.direction = 'ltr';
       ctx.fillStyle = palette.muted;
-      ctx.font = '600 23px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.font = '650 24px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
       ctx.fillText(life, w / 2, 132);
     }
   });
@@ -329,12 +333,12 @@ function makeFeaturedTexture(person, palette) {
     const radius = w * 0.38;
 
     ctx.clearRect(0, 0, w, h);
-    ctx.shadowColor = 'rgba(0,0,0,0.2)';
-    ctx.shadowBlur = 26;
-    ctx.shadowOffsetY = 12;
+    ctx.shadowColor = 'rgba(41,74,106,0.2)';
+    ctx.shadowBlur = 32;
+    ctx.shadowOffsetY = 14;
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(238, 249, 255, 0.96)';
+    ctx.fillStyle = 'rgba(233, 249, 255, 0.97)';
     ctx.fill();
 
     ctx.shadowColor = 'transparent';
@@ -347,6 +351,15 @@ function makeFeaturedTexture(person, palette) {
     ctx.stroke();
     ctx.setLineDash([]);
 
+    const glow = ctx.createRadialGradient(cx - 42, cy - 70, 8, cx, cy, radius);
+    glow.addColorStop(0, 'rgba(255,255,255,0.62)');
+    glow.addColorStop(0.7, 'rgba(111, 195, 255, 0.08)');
+    glow.addColorStop(1, 'rgba(58, 142, 216, 0.16)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius - 18, 0, Math.PI * 2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+
     ctx.beginPath();
     ctx.arc(cx, cy, radius - 2, 0, Math.PI * 2);
     ctx.lineWidth = 3;
@@ -355,17 +368,60 @@ function makeFeaturedTexture(person, palette) {
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    const name = person?.fullName || 'Unknown';
+    const rtl = isRtlText(name);
+    ctx.direction = rtl ? 'rtl' : 'ltr';
     ctx.fillStyle = '#17191d';
-    ctx.font = '800 35px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    const nameLines = wrapText(ctx, person?.fullName || 'Unknown', 17, 2);
+    ctx.font = `${rtl ? 850 : 800} ${rtl ? 38 : 35}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+    const nameLines = wrapMeasuredText(ctx, name, 370, 2);
     const firstNameY = nameLines.length === 1 ? 340 : 320;
     nameLines.forEach((line, index) => ctx.fillText(line, cx, firstNameY + index * 39));
 
     const life = lifeSpanLabel(person);
     if (life) {
+      ctx.direction = 'ltr';
       ctx.fillStyle = '#747b86';
       ctx.font = '700 28px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
       ctx.fillText(life, cx, 428);
     }
   });
+}
+
+function isRtlText(value) {
+  return /[\u0590-\u08ff]/.test(String(value || ''));
+}
+
+function wrapMeasuredText(ctx, text, maxWidth, maxLines) {
+  const value = String(text || 'Unknown').trim();
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return ['Unknown'];
+  const lines = [];
+  let current = '';
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (ctx.measureText(next).width > maxWidth && current) {
+      lines.push(current);
+      current = word;
+      if (lines.length === maxLines - 1) break;
+    } else {
+      current = next;
+    }
+  }
+  if (current) lines.push(current);
+  const limited = lines.slice(0, maxLines);
+  if (words.join(' ') !== limited.join(' ')) {
+    limited[limited.length - 1] = fitText(ctx, `${limited[limited.length - 1]}...`, maxWidth);
+  } else {
+    limited[limited.length - 1] = fitText(ctx, limited[limited.length - 1], maxWidth);
+  }
+  return limited;
+}
+
+function fitText(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let fitted = String(text || '');
+  while (fitted.length > 1 && ctx.measureText(`${fitted}...`).width > maxWidth) {
+    fitted = fitted.slice(0, -1);
+  }
+  return `${fitted.replace(/\.*$/, '')}...`;
 }

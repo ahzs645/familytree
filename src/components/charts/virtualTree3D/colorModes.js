@@ -41,7 +41,8 @@ export function resolveNodeColor(node, mode = 'gender') {
   if (!node) return UNIFORM_COLOR;
   if (mode === 'uniform') return UNIFORM_COLOR;
   if (mode === 'generation') {
-    const depth = Number.isFinite(node.depth) ? Math.max(0, node.depth) : 0;
+    const rawDepth = Number.isFinite(node.generation) ? node.generation : node.depth;
+    const depth = Number.isFinite(rawDepth) ? Math.abs(rawDepth) : 0;
     return GENERATION_PALETTE[depth % GENERATION_PALETTE.length];
   }
   if (mode === 'lastName') {
