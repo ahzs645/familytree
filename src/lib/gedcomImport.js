@@ -1,125 +1,45 @@
 /**
  * GEDCOM 5.5 / 5.5.1 importer (subset). Parses INDI / FAM / SOUR / NOTE
  * records and the most common event tags into our IndexedDB record shape.
+ *
+ * Pipeline (each stage is its own module under lib/gedcom/):
+ *   tokenize.js  — text → token stream → parsed tree
+ *   constants.js — tag-name maps and HANDLED_TAGS sets
+ *   analyze.js   — token stream → { counts, tags, issues, canImport }
+ *
+ * This file owns the normalize stage (parseGedcomParts: tree → records
+ * + assets) plus the persist orchestrator (importGedcomText,
+ * buildGedcomDataset). Public exports are re-exported from here so the
+ * existing import surface keeps working.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refValue } from './recordRef.js';
 import { DATASET_SCHEMA_VERSION } from './datasetSchemaVersion.js';
-import { compareIssues, hasBlockingIssues, makeValidationIssue } from './validationIssues.js';
 import { Gender } from '../models/index.js';
+import {
+  child,
+  children,
+  parseGedcomTree,
+  tokenizeGedcomText,
+} from './gedcom/tokenize.js';
+import {
+  ATTRIBUTE_TAG_TO_FACT,
+  CONTACT_TAG_TO_FACT,
+  CUSTOM_EVENT_TAG_TO_NAME,
+  EVENT_HANDLED_TAGS,
+  EVENT_TAG_TO_NAME,
+  FAMILY_HANDLED_TAGS,
+  PERSON_HANDLED_TAGS,
+  REPOSITORY_HANDLED_TAGS,
+  SOURCE_HANDLED_TAGS,
+} from './gedcom/constants.js';
 
-function tokenizeLine(line) {
-  // "level [@xref@] tag [value]"
-  const m = line.match(/^\s*(\d+)\s+(?:(@[^@]+@)\s+)?(\S+)(?:\s+(.*))?$/);
-  if (!m) return null;
-  const tag = m[3];
-  const xref = (tag === 'CONC' || tag === 'CONT') ? null : (m[2] || null);
-  return { level: +m[1], xref, tag, value: (m[4] || '').replace(/@@/g, '@') };
-}
-
-export function tokenizeGedcomText(text) {
-  const lines = String(text || '').split(/\r\n|\r|\n/);
-  const tokens = [];
-  const issues = [];
-  let previousToken = null;
-
-  for (const [index, raw] of lines.entries()) {
-    const line = index + 1;
-    if (!raw.trim()) continue;
-
-    const token = tokenizeLine(raw);
-    if (!token) {
-      issues.push(issue('error', line, 'gedcom-syntax', 'Line does not match GEDCOM level/tag syntax.', { details: { raw } }));
-      continue;
-    }
-
-    if (token.level > 99) {
-      issues.push(issue('warning', line, 'excessive-level', `Level ${token.level} is unusually deep for GEDCOM.`, { details: { level: token.level } }));
-    }
-
-    if (previousToken && token.level > previousToken.level + 1) {
-      issues.push(issue('error', line, 'level-jump', `Level jumps from ${previousToken.level} to ${token.level}; expected at most ${previousToken.level + 1}.`, {
-        details: { previousLine: previousToken.line, previousLevel: previousToken.level, level: token.level },
-      }));
-    }
-
-    if ((token.tag === 'CONC' || token.tag === 'CONT') && token.level === 0) {
-      issues.push(issue('error', line, 'orphan-continuation', `${token.tag} cannot appear at level 0.`));
-    }
-
-    tokens.push({ ...token, line, raw });
-    previousToken = { ...token, line };
-  }
-
-  return { tokens, issues };
-}
-
-function parseGedcomTree(text) {
-  const { tokens } = tokenizeGedcomText(text);
-  return parseGedcomTokens(tokens);
-}
-
-function parseGedcomTokens(tokens) {
-  const root = { children: [] };
-  const stack = [root];
-  for (const t of tokens) {
-    while (stack.length > t.level + 1) stack.pop();
-    const node = { ...t, children: [] };
-    const parent = stack[stack.length - 1] || root;
-    parent.children.push(node);
-    stack.push(node);
-  }
-  return root.children;
-}
-
-function child(node, tag) { return node.children.find((c) => c.tag === tag); }
-function children(node, tag) { return node.children.filter((c) => c.tag === tag); }
-
-const EVENT_TAG_TO_NAME = {
-  BIRT: 'Birth', DEAT: 'Death', BURI: 'Burial', BAPM: 'Baptism', CHR: 'Christening',
-  MARR: 'Marriage', DIV: 'Divorced', ENGA: 'Engagement', ANUL: 'Annuled',
-  NATU: 'Naturalization', EMIG: 'Emigration', IMMI: 'Immigration', CENS: 'Census',
-  GRAD: 'Graduation', OCCU: 'Occupation', RESI: 'Residence', RELI: 'Religion',
-  WILL: 'Will', PROB: 'Probate', ADOP: 'Adoption', EVEN: 'GenericEvent',
-  EDUC: 'Education', PROP: 'Possession', TITL: 'NobilityTypeTitle', BARM: 'BarMitzvah',
-  BASM: 'BasMitzvah', BLES: 'Blessing', CONF: 'Confirmation', CREM: 'Cremation',
-  FCOM: 'FirstCommunion', ORDN: 'Ordination', RETI: 'Retirement', CAST: 'CasteName',
-};
-
-const CUSTOM_EVENT_TAG_TO_NAME = {
-  _SEPR: 'Separation',
-  _MILT: 'MilitaryService',
-  _DEG: 'Degree',
-  _MDCL: 'MedicalInformation',
-  _ELEC: 'Elected',
-  _CIRC: 'Circumcision',
-};
-
-const ATTRIBUTE_TAG_TO_FACT = {
-  CAST: 'CasteName',
-  DSCR: 'PhysicalDescription',
-  FACT: 'Other',
-  IDNO: 'NationalID',
-  NATI: 'NationalOrTribalOrigin',
-  NCHI: 'ChildrenCount',
-  NMR: 'MarriageCount',
-  SSN: 'SocialSecurityNumber',
-};
-
-const CONTACT_TAG_TO_FACT = {
-  PHON: 'Phone',
-  EMAIL: 'Email',
-  EMAI: 'Email',
-  WWW: 'Website',
-  URL: 'Website',
-};
-
-const TOP_LEVEL_TAGS = new Set(['HEAD', 'TRLR', 'INDI', 'FAM', 'SOUR', 'NOTE', 'OBJE', 'SUBM', 'REPO']);
-const PERSON_HANDLED_TAGS = new Set(['NAME', 'SEX', 'OBJE', 'NOTE', 'SOUR', 'ALIA', 'ASSO', 'ADDR', 'ADR1', 'ADR2', 'CITY', 'STAE', 'POST', 'CTRY', ...Object.keys(CONTACT_TAG_TO_FACT), ...Object.keys(ATTRIBUTE_TAG_TO_FACT), ...Object.keys(EVENT_TAG_TO_NAME)]);
-const FAMILY_HANDLED_TAGS = new Set(['HUSB', 'WIFE', 'CHIL', 'MARR', 'OBJE', 'ADDR', ...Object.keys(CONTACT_TAG_TO_FACT), ...Object.keys(EVENT_TAG_TO_NAME)]);
-const SOURCE_HANDLED_TAGS = new Set(['TITL', 'AUTH', 'TEXT', 'OBJE', 'REPO', 'PUBL', 'ABBR', 'NOTE']);
-const EVENT_HANDLED_TAGS = new Set(['DATE', 'PLAC', 'NOTE', 'OBJE', 'TYPE', 'SOUR', 'ADDR', ...Object.keys(CONTACT_TAG_TO_FACT)]);
-const REPOSITORY_HANDLED_TAGS = new Set(['NAME', 'ADDR', 'ADR1', 'ADR2', 'CITY', 'STAE', 'POST', 'CTRY', 'NOTE', ...Object.keys(CONTACT_TAG_TO_FACT)]);
+export { tokenizeGedcomText } from './gedcom/tokenize.js';
+export {
+  analyzeGedcomText,
+  canImportGedcomAnalysis,
+  gedcomImportModeLabel,
+} from './gedcom/analyze.js';
 
 let _seq = 0;
 function uuid(prefix) {
@@ -732,77 +652,6 @@ function bytesToBase64(bytes) {
   return btoa(binary);
 }
 
-export function analyzeGedcomText(text) {
-  const { tokens, issues } = tokenizeGedcomText(text);
-  const counts = { INDI: 0, FAM: 0, SOUR: 0, NOTE: 0, OBJE: 0, unsupportedEvents: 0, customTags: 0, continuations: 0 };
-  const declaredXrefs = new Map();
-  const pointerRefs = [];
-  const seenTags = new Set();
-  const customTags = new Set();
-  let hasHead = false;
-  let hasTrailer = false;
-  for (const token of tokens) {
-    seenTags.add(token.tag);
-    if (token.level === 0 && token.tag === 'HEAD') hasHead = true;
-    if (token.level === 0 && token.tag === 'TRLR') hasTrailer = true;
-    if (token.level === 0 && counts[token.tag] !== undefined && token.tag !== 'OBJE') counts[token.tag] += 1;
-    if (token.tag === 'OBJE') counts.OBJE += 1;
-    if (token.tag === 'CONC' || token.tag === 'CONT') counts.continuations += 1;
-    if (token.tag.startsWith('_')) {
-      customTags.add(token.tag);
-      counts.customTags += 1;
-    }
-    if (token.level === 0 && !TOP_LEVEL_TAGS.has(token.tag)) {
-      issues.push(issue('warning', token.line, 'unsupported-top-level-record', `Top-level ${token.tag} record is not mapped by the importer.`, { refs: [token.tag] }));
-    }
-    if (token.xref) {
-      if (declaredXrefs.has(token.xref)) {
-        issues.push(issue('error', token.line, 'duplicate-xref', `Duplicate XREF ${token.xref}; first declared on line ${declaredXrefs.get(token.xref).line}.`, { refs: [token.xref] }));
-      } else {
-        declaredXrefs.set(token.xref, { line: token.line, tag: token.tag });
-      }
-    }
-    if (isPointerValue(token.value)) {
-      pointerRefs.push({ line: token.line, tag: token.tag, value: token.value });
-    }
-    if (token.level > 0 && /^[A-Z0-9_]+$/.test(token.tag) && token.tag.length >= 3 && !EVENT_TAG_TO_NAME[token.tag] && eventLikeTag(token.tag)) {
-      counts.unsupportedEvents += 1;
-      issues.push(issue('warning', token.line, 'unsupported-event-tag', `Event-like tag ${token.tag} is not mapped by the importer.`, { refs: [token.tag] }));
-    }
-  }
-  for (const ref of pointerRefs) {
-    if (!declaredXrefs.has(ref.value)) {
-      issues.push(issue('warning', ref.line, 'unresolved-xref', `${ref.tag} points to missing record ${ref.value}.`, { refs: [ref.value] }));
-    }
-  }
-  if (!hasHead) issues.push(issue('warning', 0, 'missing-head', 'Missing HEAD record.'));
-  if (!hasTrailer) issues.push(issue('warning', 0, 'missing-trailer', 'Missing TRLR record.'));
-  if (counts.OBJE > 0) issues.push(issue('warning', 0, 'media-resource-matching', `${counts.OBJE} media object reference(s) found; matching GedZip resources or an attached media folder will be imported as media assets.`));
-  if (customTags.size > 0) {
-    issues.push(issue('warning', 0, 'custom-tags', `${customTags.size} custom GEDCOM tag type(s) found: ${Array.from(customTags).sort().slice(0, 8).join(', ')}${customTags.size > 8 ? ', …' : ''}.`, {
-      refs: Array.from(customTags).sort(),
-    }));
-  }
-  return {
-    counts,
-    tags: Array.from(seenTags).sort(),
-    issues: issues.sort(compareIssues),
-    canImport: !hasBlockingIssues(issues),
-  };
-}
-
-export function canImportGedcomAnalysis(analysis, mode = 'review') {
-  const issues = Array.isArray(analysis?.issues) ? analysis.issues : [];
-  if (mode === 'strict') return issues.length === 0;
-  if (mode === 'lenient') return !issues.some((item) => item.code === 'duplicate-xref');
-  return !hasBlockingIssues(issues);
-}
-
-export function gedcomImportModeLabel(mode = 'review') {
-  if (mode === 'strict') return 'Strict';
-  if (mode === 'lenient') return 'Lenient';
-  return 'Review warnings';
-}
 
 export function buildGedcomDataset(text, { sourceName = 'GEDCOM import', mediaFiles = [], resourceFiles = [] } = {}) {
   const { records, assets } = parseGedcomParts(text, { mediaFiles, resourceFiles });
@@ -900,21 +749,3 @@ export async function importGedcomText(text, { replace = false, sourceName = 'GE
   return records.length;
 }
 
-function eventLikeTag(tag) {
-  return tag.startsWith('_') || ['BIRT', 'DEAT', 'MARR', 'DIV', 'EVEN', 'FACT', 'ADOP', 'BURI', 'RESI', 'OCCU', 'CENS', 'IMMI', 'EMIG', 'NATU', 'EDUC', 'PROP'].includes(tag);
-}
-
-function isPointerValue(value) {
-  return /^@[^@]+@$/.test(String(value || '').trim());
-}
-
-function issue(severity, line, code, message, extra = {}) {
-  return makeValidationIssue({
-    scope: 'gedcom-import',
-    severity,
-    line,
-    code,
-    message,
-    ...extra,
-  });
-}
