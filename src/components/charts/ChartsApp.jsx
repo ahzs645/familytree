@@ -49,6 +49,26 @@ import {
 import { ChartSelectionProvider } from './ChartSelectionContext.jsx';
 import { PersonSidePanel } from './PersonSidePanel.jsx';
 import { ChartObjectInspector } from './ChartObjectInspector.jsx';
+import { Field, RangeField, CheckOption, SelectOption, Section } from './parts/FormFields.jsx';
+import { RelationshipPathControls } from './parts/RelationshipPathControls.jsx';
+import { ChartPersonBrowser } from './parts/ChartPersonBrowser.jsx';
+import { ChartBottomToolbar } from './parts/ChartBottomToolbar.jsx';
+import { ChartOptionsPanel } from './parts/ChartOptionsPanel.jsx';
+import {
+  shellStyle,
+  headerStyle,
+  mainStyle,
+  canvasRowStyle,
+  popoverStyle,
+  optionSelect,
+  selectStyle,
+  loadingStyle,
+} from './parts/styles.js';
+import { useExportSettings } from './hooks/useExportSettings.js';
+import { usePageSetup } from './hooks/usePageSetup.js';
+import { useVirtualTreeOptions } from './hooks/useVirtualTreeOptions.js';
+import { useRelationshipPaths } from './hooks/useRelationshipPaths.js';
+import { useChartDocument } from './hooks/useChartDocument.js';
 
 const CHART_TYPES = [
   { id: 'ancestor', label: 'Ancestor', needsSecond: false },
@@ -88,10 +108,17 @@ export function ChartsApp() {
   const [completenessColorMode, setCompletenessColorMode] = useState('gender');
   const [completenessRowsByPerson, setCompletenessRowsByPerson] = useState(new Map());
   const { theme: appTheme } = useTheme();
-  const [virtualSource, setVirtualSource] = useState('descendant');
-  const [virtualOrientation, setVirtualOrientation] = useState('vertical');
-  const [virtualHSpacing, setVirtualHSpacing] = useState(24);
-  const [virtualVSpacing, setVirtualVSpacing] = useState(110);
+  const {
+    virtualSource, setVirtualSource,
+    virtualOrientation, setVirtualOrientation,
+    virtualHSpacing, setVirtualHSpacing,
+    virtualVSpacing, setVirtualVSpacing,
+    virtualTreeData, setVirtualTreeData,
+    virtualViewMode, setVirtualViewMode,
+    virtualSymbolMode, setVirtualSymbolMode,
+    virtualColorMode, setVirtualColorMode,
+    virtualDof, setVirtualDof,
+  } = useVirtualTreeOptions();
   const [descendantGenerations, setDescendantGenerations] = useState(5);
   const [hourglassAncestorGens, setHourglassAncestorGens] = useState(4);
   const [hourglassDescendantGens, setHourglassDescendantGens] = useState(3);
@@ -103,43 +130,46 @@ export function ChartsApp() {
   const [genogramData, setGenogramData] = useState(null);
   const [distributionData, setDistributionData] = useState(null);
   const [distributionType, setDistributionType] = useState('gender');
-  const [virtualTreeData, setVirtualTreeData] = useState(null);
-  const [virtualViewMode, setVirtualViewMode] = useState('2d');
-  const [virtualSymbolMode, setVirtualSymbolMode] = useState('sphere');
-  const [virtualColorMode, setVirtualColorMode] = useState('gender');
-  const [virtualDof, setVirtualDof] = useState(DOF_DEFAULTS);
-  const [currentDocumentId, setCurrentDocumentId] = useState(null);
-  const [currentDocumentName, setCurrentDocumentName] = useState('');
-  const [isDirty, setIsDirty] = useState(false);
-  const [isReadOnly, setIsReadOnly] = useState(false);
-  const dirtyGuardRef = useRef(false);
-  const [exportFormat, setExportFormat] = useState('png');
-  const [exportScale, setExportScale] = useState(1);
-  const [exportIncludeBackground, setExportIncludeBackground] = useState(true);
-  const [exportJpegQuality, setExportJpegQuality] = useState(0.92);
-  const [exportFileNameTemplate, setExportFileNameTemplate] = useState('{title}-{date}');
-  const [chartTitle, setChartTitle] = useState('');
-  const [chartNote, setChartNote] = useState('');
-  const [pageSize, setPageSize] = useState('letter');
-  const [pageOrientation, setPageOrientation] = useState('landscape');
-  const [chartBackground, setChartBackground] = useState('');
-  const [backgroundSheetOpen, setBackgroundSheetOpen] = useState(false);
-  const [pageSetupSheetOpen, setPageSetupSheetOpen] = useState(false);
-  const [pageMargins, setPageMargins] = useState({ top: 36, right: 36, bottom: 36, left: 36 });
-  const [pagePrintMargins, setPagePrintMargins] = useState({ top: 36, right: 36, bottom: 36, left: 36 });
-  const [pageOverlap, setPageOverlap] = useState(0);
-  const [pageCutMarks, setPageCutMarks] = useState(false);
-  const [pagePrintPageNumbers, setPagePrintPageNumbers] = useState(false);
-  const [pageOmitEmptyPages, setPageOmitEmptyPages] = useState(true);
+  const {
+    currentDocumentId, setCurrentDocumentId,
+    currentDocumentName, setCurrentDocumentName,
+    isDirty, setIsDirty,
+    isReadOnly, setIsReadOnly,
+    dirtyGuardRef,
+  } = useChartDocument();
+  const {
+    exportFormat, setExportFormat,
+    exportScale, setExportScale,
+    exportIncludeBackground, setExportIncludeBackground,
+    exportJpegQuality, setExportJpegQuality,
+    exportFileNameTemplate, setExportFileNameTemplate,
+  } = useExportSettings();
+  const {
+    chartTitle, setChartTitle,
+    chartNote, setChartNote,
+    pageSize, setPageSize,
+    pageOrientation, setPageOrientation,
+    chartBackground, setChartBackground,
+    backgroundSheetOpen, setBackgroundSheetOpen,
+    pageSetupSheetOpen, setPageSetupSheetOpen,
+    pageMargins, setPageMargins,
+    pagePrintMargins, setPagePrintMargins,
+    pageOverlap, setPageOverlap,
+    pageCutMarks, setPageCutMarks,
+    pagePrintPageNumbers, setPagePrintPageNumbers,
+    pageOmitEmptyPages, setPageOmitEmptyPages,
+  } = usePageSetup();
   const [ancestorTree, setAncestorTree] = useState(null);
   const [descendantTree, setDescendantTree] = useState(null);
   const [secondAncestorTree, setSecondAncestorTree] = useState(null);
-  const [relationshipPaths, setRelationshipPaths] = useState([]);
-  const [selectedRelationshipPathId, setSelectedRelationshipPathId] = useState(null);
-  const [relationshipBloodlineOnly, setRelationshipBloodlineOnly] = useState(false);
-  const [relationshipMaxPaths, setRelationshipMaxPaths] = useState(12);
-  const [relationshipMaxDepth, setRelationshipMaxDepth] = useState(12);
-  const [relationshipExcludeNonBiological, setRelationshipExcludeNonBiological] = useState(false);
+  const {
+    relationshipPaths, setRelationshipPaths,
+    selectedRelationshipPathId, setSelectedRelationshipPathId,
+    relationshipBloodlineOnly, setRelationshipBloodlineOnly,
+    relationshipMaxPaths, setRelationshipMaxPaths,
+    relationshipMaxDepth, setRelationshipMaxDepth,
+    relationshipExcludeNonBiological, setRelationshipExcludeNonBiological,
+  } = useRelationshipPaths();
   const [templates, setTemplates] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1874,450 +1904,9 @@ export function ChartsApp() {
   );
 }
 
-function Field({ label, children, hideOnNarrow }) {
-  return (
-    <div
-      className={hideOnNarrow ? 'hidden sm:flex' : 'flex'}
-      style={{ flexDirection: 'column', marginInlineEnd: 12 }}
-    >
-      <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
-      {children}
-    </div>
-  );
-}
-
 function setOrDelete(params, key, value, defaultValue = null) {
   if (value == null || value === '' || value === defaultValue) params.delete(key);
   else params.set(key, String(value));
 }
-
-function RelationshipPathControls({
-  bloodlineOnly,
-  onBloodlineOnlyChange,
-  maxPaths,
-  onMaxPathsChange,
-  maxDepth,
-  onMaxDepthChange,
-  excludeNonBiological,
-  onExcludeNonBiologicalChange,
-  paths,
-  selectedPathId,
-  onSelectedPathChange,
-  onReset,
-  disabled,
-}) {
-  return (
-    <div style={relationshipControlsStyle}>
-      <label style={relationshipToggleStyle}>
-        <input
-          type="checkbox"
-          checked={bloodlineOnly}
-          onChange={(event) => onBloodlineOnlyChange(event.target.checked)}
-          disabled={disabled}
-        />
-        <span>Bloodlines only</span>
-      </label>
-      <label style={relationshipToggleStyle} title="Skip paths that cross adopted or step relationships.">
-        <input
-          type="checkbox"
-          checked={excludeNonBiological}
-          onChange={(event) => onExcludeNonBiologicalChange(event.target.checked)}
-          disabled={disabled}
-        />
-        <span>Full-blood only</span>
-      </label>
-      <label style={{ display: 'flex', flexDirection: 'column', fontSize: 11 }}>
-        <span style={{ color: 'hsl(var(--muted-foreground))' }}>Max paths</span>
-        <input
-          type="number"
-          min={1}
-          max={40}
-          value={maxPaths}
-          onChange={(event) => onMaxPathsChange(Math.max(1, Math.min(40, Number(event.target.value) || 1)))}
-          disabled={disabled}
-          style={{ ...selectStyle, width: 60 }}
-        />
-      </label>
-      <label style={{ display: 'flex', flexDirection: 'column', fontSize: 11 }}>
-        <span style={{ color: 'hsl(var(--muted-foreground))' }}>Max depth</span>
-        <input
-          type="number"
-          min={2}
-          max={24}
-          value={maxDepth}
-          onChange={(event) => onMaxDepthChange(Math.max(2, Math.min(24, Number(event.target.value) || 2)))}
-          disabled={disabled}
-          style={{ ...selectStyle, width: 60 }}
-        />
-      </label>
-      <select
-        value={selectedPathId || ''}
-        onChange={(event) => onSelectedPathChange(event.target.value || null)}
-        disabled={disabled || paths.length === 0}
-        style={{ ...selectStyle, minWidth: 180 }}
-        title="Relationship path"
-      >
-        <option value="">{disabled ? 'Pick compare person' : paths.length ? 'Select path...' : 'No path found'}</option>
-        {paths.map((path, index) => (
-          <option key={path.id} value={path.id}>
-            {index + 1}. {path.label} ({path.steps.length - 1} step{path.steps.length === 2 ? '' : 's'})
-          </option>
-        ))}
-      </select>
-      <button type="button" onClick={onReset} disabled={disabled} style={selectStyle}>
-        Reset
-      </button>
-    </div>
-  );
-}
-
-function ChartPersonBrowser({ persons, rootId, query, onQueryChange, group, onGroupChange, onPick, onAllPersons, onSmartFilters }) {
-  return (
-    <aside style={chartPersonBrowserStyle}>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-        <button type="button" onClick={onAllPersons} style={optionSelect}>All Persons</button>
-        <button type="button" onClick={onSmartFilters} style={optionSelect}>Smart Filters</button>
-      </div>
-      <label style={{ display: 'block', marginBottom: 8 }}>
-        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Find</div>
-        <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Find person" style={optionSelect} />
-      </label>
-      <label style={{ display: 'block', marginBottom: 10 }}>
-        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Group by</div>
-        <select value={group} onChange={(event) => onGroupChange(event.target.value)} style={optionSelect}>
-          <option value="lastName">Last Name</option>
-          <option value="firstName">First Name</option>
-          <option value="birth">Birth Year</option>
-        </select>
-      </label>
-      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 6 }}>{persons.length.toLocaleString()} persons</div>
-      <div style={{ overflow: 'auto', minHeight: 0 }}>
-        {persons.slice(0, 700).map((person) => {
-          const active = person.recordName === rootId;
-          return (
-            <button
-              type="button"
-              key={person.recordName}
-              onClick={() => onPick(person.recordName)}
-              style={{
-                width: '100%',
-                textAlign: 'start',
-                padding: '7px 8px',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: 6,
-                marginBottom: 5,
-                background: active ? 'hsl(var(--accent))' : 'hsl(var(--background))',
-                color: 'hsl(var(--foreground))',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.fullName || person.recordName}</div>
-              <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{person.birthDate || 'Birth unknown'}</div>
-            </button>
-          );
-        })}
-      </div>
-    </aside>
-  );
-}
-
-function ChartBottomToolbar({
-  personBrowserOpen,
-  onTogglePersonBrowser,
-  onFocus,
-  findText,
-  onFindTextChange,
-  onFind,
-  onSave,
-  onShare,
-  onExport,
-  onTheme,
-  onChart,
-  onStyle,
-  chartOptionsOpen,
-}) {
-  const buttons = [
-    { label: 'Size to Fit', icon: ZoomIn, onClick: onFocus },
-    { label: 'Focus', icon: Focus, onClick: onFocus },
-    { label: 'Save Chart', icon: FileDown, onClick: onSave },
-    { label: 'Share', icon: Share2, onClick: onShare },
-    { label: 'Edit', icon: Settings2, onClick: onTogglePersonBrowser, active: personBrowserOpen },
-    { label: 'Theme', icon: Palette, onClick: onTheme },
-    { label: 'Chart', icon: SlidersHorizontal, onClick: onChart, active: chartOptionsOpen },
-    { label: 'Style', icon: Users, onClick: onStyle },
-  ];
-  return (
-    <footer style={chartToolbarStyle}>
-      {buttons.slice(0, 2).map((button) => <ChartToolButton key={button.label} {...button} />)}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 220 }}>
-        <Search size={14} />
-        <input value={findText} onChange={(event) => onFindTextChange(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && onFind()} placeholder="Find" style={{ ...optionSelect, height: 30 }} />
-        <button type="button" onClick={onFind} style={{ ...optionSelect, width: 'auto', height: 30 }}>Find</button>
-      </div>
-      {buttons.slice(2).map((button) => <ChartToolButton key={button.label} {...button} />)}
-      <button type="button" onClick={onExport} style={{ ...optionSelect, width: 'auto', marginInlineStart: 'auto' }}>Export PNG</button>
-    </footer>
-  );
-}
-
-function ChartToolButton({ label, icon: Icon, onClick, active }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        ...optionSelect,
-        width: 'auto',
-        minHeight: 30,
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        background: active ? 'hsl(var(--accent))' : optionSelect.background,
-      }}
-    >
-      <Icon size={14} />
-      {label}
-    </button>
-  );
-}
-
-function ChartOptionsPanel({
-  tab,
-  onTabChange,
-  onClose,
-  generations,
-  onGenerationsChange,
-  descendantGenerations,
-  onDescendantGenerationsChange,
-  separatedTreeAlignment,
-  onSeparatedTreeAlignmentChange,
-  hidePrivateChartInfo,
-  onHidePrivateChartInfoChange,
-  showKinships,
-  onShowKinshipsChange,
-  maxRecursionDepth,
-  onMaxRecursionDepthChange,
-  spacing,
-  onSpacingChange,
-  personGroupMode,
-  onPersonGroupModeChange,
-  localization,
-  onLocalizationChange,
-}) {
-  const tabs = [
-    ['general', 'General'],
-    ['spacing', 'Spacing'],
-    ['groups', 'Person Groups'],
-    ['localization', 'Localization & Formats'],
-  ];
-  return (
-    <aside style={chartOptionsPanelStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <strong style={{ fontSize: 13 }}>Chart Options</strong>
-        <button type="button" onClick={onClose} style={{ ...optionSelect, width: 'auto', marginInlineStart: 'auto' }}>Close</button>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-        {tabs.map(([id, label]) => (
-          <button key={id} type="button" onClick={() => onTabChange(id)} style={{ ...optionSelect, width: 'auto', background: tab === id ? 'hsl(var(--accent))' : optionSelect.background }}>{label}</button>
-        ))}
-      </div>
-      {tab === 'general' && (
-        <div style={{ display: 'grid', gap: 10 }}>
-          <RangeField label="Parent Generations" value={generations} min={1} max={10} onChange={onGenerationsChange} />
-          <RangeField label="Children Generations" value={descendantGenerations} min={1} max={10} onChange={onDescendantGenerationsChange} />
-          <SelectOption label="Alignment of Separated Trees" value={separatedTreeAlignment} onChange={onSeparatedTreeAlignmentChange} options={[
-            ['shortest', 'Shortest Distance to Origin'],
-            ['centered', 'Centered'],
-            ['left', 'Left Aligned'],
-          ]} />
-          <CheckOption label="Hide Information marked as Private" checked={hidePrivateChartInfo} onChange={onHidePrivateChartInfoChange} />
-          <CheckOption label="Show Kinships" checked={showKinships} onChange={onShowKinshipsChange} />
-          <RangeField label="Maximum Recursion Depth" value={maxRecursionDepth} min={0} max={6} onChange={onMaxRecursionDepthChange} />
-        </div>
-      )}
-      {tab === 'spacing' && (
-        <div style={{ display: 'grid', gap: 10 }}>
-          <RangeField label="Horizontal Spacing" value={spacing.horizontal} min={8} max={120} onChange={(value) => onSpacingChange({ ...spacing, horizontal: value })} />
-          <RangeField label="Vertical Spacing" value={spacing.vertical} min={50} max={220} onChange={(value) => onSpacingChange({ ...spacing, vertical: value })} />
-          <RangeField label="Branch Spacing" value={spacing.branch} min={8} max={120} onChange={(value) => onSpacingChange({ ...spacing, branch: value })} />
-        </div>
-      )}
-      {tab === 'groups' && (
-        <SelectOption label="Person Group" value={personGroupMode} onChange={onPersonGroupModeChange} options={[
-          ['all', 'All Persons'],
-          ['bookmarked', 'Bookmarked'],
-          ['start-family', 'Start-person family'],
-        ]} />
-      )}
-      {tab === 'localization' && (
-        <div style={{ display: 'grid', gap: 10 }}>
-          <SelectOption label="Localization" value={localization} onChange={onLocalizationChange} options={[
-            ['en', 'English'],
-            ['ar', 'Arabic'],
-            ['he', 'Hebrew'],
-            ['system', 'System default'],
-          ]} />
-          <SelectOption label="Name Format" value="display" onChange={() => {}} options={[
-            ['display', 'Display name'],
-            ['last-first', 'Last, First'],
-            ['given-family', 'Given Family'],
-          ]} />
-        </div>
-      )}
-    </aside>
-  );
-}
-
-function RangeField({ label, value, min, max, onChange }) {
-  return (
-    <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-      <span style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--muted-foreground))' }}><span>{label}</span><span>{value}</span></span>
-      <input type="range" min={min} max={max} value={value} onChange={(event) => onChange(Number(event.target.value))} />
-    </label>
-  );
-}
-
-function CheckOption({ label, checked, onChange }) {
-  return (
-    <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
-      {label}
-    </label>
-  );
-}
-
-function SelectOption({ label, value, onChange, options }) {
-  return (
-    <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
-      <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} style={optionSelect}>
-        {options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}
-      </select>
-    </label>
-  );
-}
-
-function Section({ label, children }) {
-  return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 4, letterSpacing: 0.3 }}>{label}</div>
-      {children}
-    </div>
-  );
-}
-
-const shellStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  height: '100%',
-  background: 'hsl(var(--background))',
-};
-const headerStyle = {
-  display: 'flex',
-  alignItems: 'flex-end',
-  gap: 8,
-  padding: '12px 20px',
-  borderBottom: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--card))',
-  flexWrap: 'wrap',
-};
-const mainStyle = { flex: 1, position: 'relative', overflow: 'hidden', minWidth: 0 };
-const canvasRowStyle = { flex: 1, display: 'flex', minHeight: 0, minWidth: 0 };
-const chartPersonBrowserStyle = {
-  width: 260,
-  flexShrink: 0,
-  display: 'flex',
-  flexDirection: 'column',
-  minHeight: 0,
-  padding: 12,
-  borderInlineStart: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--card))',
-  color: 'hsl(var(--foreground))',
-};
-const chartToolbarStyle = {
-  position: 'relative',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  padding: '8px 12px',
-  borderTop: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--card))',
-  color: 'hsl(var(--foreground))',
-  overflowX: 'auto',
-};
-const chartOptionsPanelStyle = {
-  position: 'absolute',
-  right: 18,
-  bottom: 58,
-  zIndex: 30,
-  width: 360,
-  maxWidth: 'calc(100vw - 2rem)',
-  maxHeight: 'min(620px, calc(100vh - 8rem))',
-  overflow: 'auto',
-  padding: 14,
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
-  background: 'hsl(var(--card))',
-  color: 'hsl(var(--foreground))',
-  boxShadow: '0 16px 40px rgba(0,0,0,0.28)',
-};
-const relationshipControlsStyle = {
-  display: 'flex',
-  alignItems: 'flex-end',
-  gap: 8,
-  marginInlineEnd: 12,
-};
-const relationshipToggleStyle = {
-  minHeight: 34,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  color: 'hsl(var(--foreground))',
-  font: '13px -apple-system, system-ui, sans-serif',
-  whiteSpace: 'nowrap',
-};
-const selectStyle = {
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
-  padding: '8px 10px',
-  font: '13px -apple-system, system-ui, sans-serif',
-  outline: 'none',
-  cursor: 'pointer',
-};
-const popoverStyle = {
-  position: 'absolute',
-  insetInlineEnd: 0,
-  top: 'calc(100% + 6px)',
-  width: 280,
-  maxHeight: '70vh',
-  overflowY: 'auto',
-  background: 'hsl(var(--card))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 10,
-  padding: 14,
-  boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
-  zIndex: 20,
-};
-const optionSelect = {
-  width: '100%',
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 6,
-  padding: '6px 8px',
-  font: '12px -apple-system, system-ui, sans-serif',
-  outline: 'none',
-};
-const loadingStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  height: '100%',
-  color: 'hsl(var(--muted-foreground))',
-  background: 'hsl(var(--background))',
-};
 
 export default ChartsApp;

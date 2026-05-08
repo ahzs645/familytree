@@ -108,9 +108,9 @@ export function Home() {
   const localeForFormat = localization?.locale || 'en';
 
   return (
-    <div className="px-6 py-8 pb-16 h-full overflow-auto">
+    <div className="px-4 sm:px-6 py-6 sm:py-8 pb-16 h-full overflow-auto">
       <section className="mb-8">
-        <h1 className="text-3xl font-bold mb-3">{t('home.heroTitle')}</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-3">{t('home.heroTitle')}</h1>
         <p className="text-muted-foreground leading-relaxed max-w-3xl">
           {t('home.heroBody')}
         </p>
@@ -170,7 +170,7 @@ export function Home() {
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('home.nextAnniversaries')}</h2>
             <button type="button" onClick={() => navigate('/anniversaries')} className="text-xs text-primary hover:underline">{t('home.openList')}</button>
           </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))] gap-3">
             {upcomingAnniversaries.map((row) => (
               <button
                 key={`${row.personId}-${row.type}-${row.month}-${row.day}`}
@@ -209,7 +209,7 @@ export function Home() {
               <option value="name">{t('home.sortName')}</option>
             </select>
           </div>
-          <ul className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-3">
+          <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
             {snapshots.map((snapshot) => (
               <li key={snapshot.id} className="p-4 rounded-xl border border-border bg-card">
                 <div className="flex items-start justify-between gap-2 mb-1">

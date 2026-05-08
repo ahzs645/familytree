@@ -46,6 +46,26 @@ import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { linkExistingRelative } from '../lib/relativeLinks.js';
 import { evidenceStateForRecord, loadResearchCompleteness } from '../lib/researchCompleteness.js';
 import { MILK_KINSHIP_RECORD_TYPE, milkKinshipSummary, roleForMilkKinship } from '../lib/milkKinship.js';
+import {
+  Field,
+  Empty,
+  ReadOnly,
+  RemoveBtn,
+  RelatedList,
+  EvidenceMetric,
+  EvidenceBadge,
+  inputClass,
+  toneClass,
+  borderToneClass,
+} from '../components/personEditor/uiPrimitives.jsx';
+import { ParentsBlock } from '../components/personEditor/ParentsBlock.jsx';
+import { MilkKinshipEditor, emptyMilkKinship } from '../components/personEditor/MilkKinshipEditor.jsx';
+import {
+  queryMilkKinshipsForPerson,
+  reconcileMilkKinships,
+  reconcileSubRecords,
+  writeOptionalStringField,
+} from '../components/personEditor/persistence.js';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -80,50 +100,6 @@ const ACCENTS = {
   partners: 'rgb(230 128 128)',
 };
 
-function inputClass() {
-  return 'w-full bg-background text-foreground border border-border rounded-md px-2.5 py-2 text-sm outline-none focus:border-primary';
-}
-
-function Field({ label, children, hint }) {
-  return (
-    <div className="flex-1 min-w-0">
-      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
-      {children}
-      {hint && <div className="text-[11px] text-muted-foreground mt-1">{hint}</div>}
-    </div>
-  );
-}
-
-function EvidenceMetric({ label, value, tone }) {
-  return (
-    <div className="rounded-md border border-border bg-background px-3 py-2">
-      <div className={`text-sm font-semibold ${toneClass(tone)}`}>{value}</div>
-      <div className="text-[11px] text-muted-foreground">{label}</div>
-    </div>
-  );
-}
-
-function EvidenceBadge({ evidence }) {
-  if (!evidence) return null;
-  return (
-    <span className={`ms-auto shrink-0 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${toneClass(evidence.state)} ${borderToneClass(evidence.state)}`}>
-      {evidence.state}
-    </span>
-  );
-}
-
-function toneClass(tone) {
-  if (tone === 'Supported') return 'text-emerald-600';
-  if (tone === 'Weak' || tone === 'Medium') return 'text-amber-500';
-  if (tone === 'Unsourced' || tone === 'High') return 'text-destructive';
-  return 'text-foreground';
-}
-
-function borderToneClass(tone) {
-  if (tone === 'Supported') return 'border-emerald-600/40';
-  if (tone === 'Weak') return 'border-amber-500/40';
-  return 'border-destructive/40';
-}
 
 export default function PersonEditor() {
   const { id } = useParams();
@@ -706,238 +682,3 @@ export default function PersonEditor() {
   );
 }
 
-function ParentsBlock({ context, onPick }) {
-  if (!context.parents || context.parents.length === 0) {
-    return <Empty title="No parents recorded" hint="Add parents via the family editor." />;
-  }
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      {context.parents.flatMap((fam) => [fam.man, fam.woman])
-        .filter(Boolean)
-        .map((p) => (
-          <button key={p.recordName} onClick={() => onPick(p.recordName)}
-            className="text-start p-3 rounded-md border border-border bg-secondary/30 hover:bg-secondary">
-            <div className="text-sm font-medium">{p.fullName}</div>
-            <div className="text-xs text-muted-foreground">{lifeSpanLabel(p) || '—'}</div>
-          </button>
-        ))}
-    </div>
-  );
-}
-
-function Empty({ title, hint }) {
-  return (
-    <div className="text-center py-6">
-      <div className="text-sm text-foreground">{title}</div>
-      {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
-    </div>
-  );
-}
-
-function ReadOnly({ label, value }) {
-  return (
-    <div className="mb-2 last:mb-0">
-      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
-      <div className="text-sm">{value}</div>
-    </div>
-  );
-}
-
-function RemoveBtn({ onClick }) {
-  return (
-    <button onClick={onClick} className="text-destructive border border-border rounded-md w-7 h-7 text-xs hover:bg-destructive/10">×</button>
-  );
-}
-
-function RelatedList({ items, emptyTitle, emptyHint }) {
-  if (!items?.length) return <Empty title={emptyTitle} hint={emptyHint} />;
-  return (
-    <div className="space-y-2">
-      {items.map(({ rel, target, type }) => (
-        <div key={rel.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
-          <span className="text-sm truncate">
-            <span className="text-xs text-muted-foreground me-2">{type}</span>
-            {target?.fields?.cached_fullName?.value || target?.fields?.title?.value || target?.fields?.name?.value || target?.recordName || readRef(rel.fields?.target)}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function emptyMilkKinship(currentPersonId) {
-  return {
-    role: 'child',
-    childId: currentPersonId,
-    nursingMotherId: '',
-    milkFatherId: '',
-    startDate: '',
-    endDate: '',
-    notes: '',
-    isActive: true,
-  };
-}
-
-function MilkKinshipEditor({ item, persons, currentPersonId, onChange, onRemove }) {
-  const updateRole = (role) => {
-    const next = { ...item, role };
-    if (item.role === 'child' && next.childId === currentPersonId) next.childId = '';
-    if (item.role === 'nursingMother' && next.nursingMotherId === currentPersonId) next.nursingMotherId = '';
-    if (item.role === 'milkFather' && next.milkFatherId === currentPersonId) next.milkFatherId = '';
-    if (role === 'child') next.childId = currentPersonId;
-    if (role === 'nursingMother') next.nursingMotherId = currentPersonId;
-    if (role === 'milkFather') next.milkFatherId = currentPersonId;
-    onChange(next);
-  };
-  const role = item.role || 'child';
-  const showMother = role !== 'nursingMother';
-  const showFather = role !== 'milkFather';
-  const showChild = role !== 'child';
-  return (
-    <div className="rounded-md border border-border bg-secondary/20 p-3">
-      <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_auto] gap-2 items-end">
-        <Field label="This person is">
-          <select value={role} onChange={(event) => updateRole(event.target.value)} className={inputClass()}>
-            <option value="child">Breastfed child</option>
-            <option value="nursingMother">Nursing mother</option>
-            <option value="milkFather">Milk father</option>
-          </select>
-        </Field>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {showMother ? (
-            <Field label="Nursing mother">
-              <PersonPicker persons={persons.filter((p) => p.recordName !== currentPersonId)} value={item.nursingMotherId || ''} onChange={(value) => onChange({ ...item, nursingMotherId: value })} />
-            </Field>
-          ) : null}
-          {showFather ? (
-            <Field label="Milk father">
-              <PersonPicker persons={persons.filter((p) => p.recordName !== currentPersonId)} value={item.milkFatherId || ''} onChange={(value) => onChange({ ...item, milkFatherId: value })} />
-            </Field>
-          ) : null}
-          {showChild ? (
-            <Field label="Breastfed child">
-              <PersonPicker persons={persons.filter((p) => p.recordName !== currentPersonId)} value={item.childId || ''} onChange={(value) => onChange({ ...item, childId: value })} />
-            </Field>
-          ) : null}
-        </div>
-        <RemoveBtn onClick={onRemove} />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_120px] gap-2 mt-3">
-        <Field label="Start date">
-          <input value={item.startDate || ''} onChange={(event) => onChange({ ...item, startDate: event.target.value })} className={inputClass()} />
-        </Field>
-        <Field label="End date">
-          <input value={item.endDate || ''} onChange={(event) => onChange({ ...item, endDate: event.target.value })} className={inputClass()} />
-        </Field>
-        <Field label="Active">
-          <select value={item.isActive === false ? 'no' : 'yes'} onChange={(event) => onChange({ ...item, isActive: event.target.value === 'yes' })} className={inputClass()}>
-            <option value="yes">Active</option>
-            <option value="no">Inactive</option>
-          </select>
-        </Field>
-      </div>
-      <div className="mt-3">
-        <Field label="Notes">
-          <textarea value={item.notes || ''} onChange={(event) => onChange({ ...item, notes: event.target.value })} rows={2} className={inputClass() + ' resize-y'} />
-        </Field>
-      </div>
-    </div>
-  );
-}
-
-async function queryMilkKinshipsForPerson(db, personId) {
-  const rows = await Promise.all([
-    db.query(MILK_KINSHIP_RECORD_TYPE, { referenceField: 'child', referenceValue: personId, limit: 1000 }),
-    db.query(MILK_KINSHIP_RECORD_TYPE, { referenceField: 'nursingMother', referenceValue: personId, limit: 1000 }),
-    db.query(MILK_KINSHIP_RECORD_TYPE, { referenceField: 'milkFather', referenceValue: personId, limit: 1000 }),
-  ]);
-  const byId = new Map();
-  for (const row of rows) {
-    for (const record of row.records) byId.set(record.recordName, record);
-  }
-  return [...byId.values()];
-}
-
-function milkKinshipFields(item, currentPersonId) {
-  const role = item.role || 'child';
-  const childId = role === 'child' ? currentPersonId : item.childId;
-  const nursingMotherId = role === 'nursingMother' ? currentPersonId : item.nursingMotherId;
-  const milkFatherId = role === 'milkFather' ? currentPersonId : item.milkFatherId;
-  const fields = {};
-  if (childId) fields.child = { value: refValue(childId, 'Person'), type: 'REFERENCE' };
-  if (nursingMotherId) fields.nursingMother = { value: refValue(nursingMotherId, 'Person'), type: 'REFERENCE' };
-  if (milkFatherId) fields.milkFather = { value: refValue(milkFatherId, 'Person'), type: 'REFERENCE' };
-  fields.isActive = { value: item.isActive !== false, type: 'BOOLEAN' };
-  if (item.startDate) fields.startDate = { value: item.startDate, type: 'STRING' };
-  if (item.endDate) fields.endDate = { value: item.endDate, type: 'STRING' };
-  if (item.notes) fields.notes = { value: item.notes, type: 'STRING' };
-  return fields;
-}
-
-async function reconcileMilkKinships(db, currentPersonId, items) {
-  const existing = await queryMilkKinshipsForPerson(db, currentPersonId);
-  const keep = new Set();
-  for (const item of items) {
-    const fields = milkKinshipFields(item, currentPersonId);
-    if (!fields.child || !fields.nursingMother) continue;
-    if (item.recordName) {
-      keep.add(item.recordName);
-      const prev = existing.find((record) => record.recordName === item.recordName);
-      if (prev) await saveWithChangeLog({ ...prev, fields });
-    } else {
-      const rec = { recordName: uuid('milk'), recordType: MILK_KINSHIP_RECORD_TYPE, fields };
-      await db.saveRecord(rec);
-      await logRecordCreated(rec);
-      keep.add(rec.recordName);
-    }
-  }
-  for (const prev of existing) {
-    if (!keep.has(prev.recordName)) {
-      await db.deleteRecord(prev.recordName);
-      await logRecordDeleted(prev.recordName, MILK_KINSHIP_RECORD_TYPE);
-    }
-  }
-}
-
-function writeOptionalStringField(record, fieldName, value) {
-  const clean = String(value || '').trim();
-  if (clean) record.fields[fieldName] = { value: clean, type: 'STRING' };
-  else delete record.fields[fieldName];
-}
-
-/**
- * Reconcile a list of UI items against existing sub-records of `subType` whose
- * `parentField` references the parent. Adds, updates, deletes accordingly.
- */
-async function reconcileSubRecords(db, parentId, subType, parentField, items, fieldsBuilder, isValid) {
-  const existing = (await db.query(subType, { referenceField: parentField, referenceValue: parentId, limit: 500 })).records;
-  const keep = new Set();
-  for (const item of items) {
-    if (!isValid(item)) continue;
-    if (item.recordName) {
-      keep.add(item.recordName);
-      const prev = existing.find((r) => r.recordName === item.recordName);
-      if (prev) {
-        await saveWithChangeLog({
-          ...prev,
-          fields: { ...prev.fields, ...fieldsBuilder(item), [parentField]: { value: refValue(parentId, 'Person'), type: 'REFERENCE' } },
-        });
-      }
-    } else {
-      const rec = {
-        recordName: uuid(subType.toLowerCase().slice(0, 3)),
-        recordType: subType,
-        fields: { ...fieldsBuilder(item), [parentField]: { value: refValue(parentId, 'Person'), type: 'REFERENCE' } },
-      };
-      await db.saveRecord(rec);
-      await logRecordCreated(rec);
-      keep.add(rec.recordName);
-    }
-  }
-  for (const prev of existing) {
-    if (!keep.has(prev.recordName)) {
-      await db.deleteRecord(prev.recordName);
-      await logRecordDeleted(prev.recordName, subType);
-    }
-  }
-}

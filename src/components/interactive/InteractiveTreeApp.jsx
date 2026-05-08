@@ -435,7 +435,6 @@ const empty = {
 };
 
 const toolbar = {
-  height: 64,
   flexShrink: 0,
   display: 'flex',
   alignItems: 'center',
@@ -444,6 +443,8 @@ const toolbar = {
   padding: '10px 16px',
   borderBottom: '1px solid hsl(var(--border))',
   background: 'hsl(var(--card))',
+  flexWrap: 'wrap',
+  minHeight: 64,
 };
 const treeWorkspace = {
   height: '100%',
@@ -605,6 +606,9 @@ const segmented = {
   border: '1px solid hsl(var(--border))',
   borderRadius: 8,
   background: 'hsl(var(--secondary))',
+  overflowX: 'auto',
+  maxWidth: '100%',
+  flexShrink: 0,
 };
 function segment(active) {
   return {
@@ -614,9 +618,10 @@ function segment(active) {
     color: active ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
     boxShadow: active ? '0 1px 6px rgb(0 0 0 / 0.08)' : 'none',
     padding: '6px 10px',
-    minWidth: 62,
+    minWidth: 56,
     font: '700 12px -apple-system, system-ui, sans-serif',
     cursor: 'pointer',
+    flexShrink: 0,
   };
 }
 
