@@ -1,22 +1,26 @@
 import React from 'react';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
+import { useIsMobile } from '../../lib/useIsMobile.js';
 
 export function FamilyTreeView({ model, activeId, loading, onPick, onEditPerson, onOpenFamily }) {
+  const isMobile = useIsMobile();
   if (loading) return <div style={empty}>Loading family tree...</div>;
   if (!model) return <div style={empty}>Pick a person to view their family tree.</div>;
 
   const hasParents = model.parents.length > 0;
   const hasSpouses = model.spouses.length > 0;
   const hasChildren = model.children.length > 0;
+  const canvasStyle = isMobile ? canvasMobile : canvas;
+  const middleGridStyle = isMobile ? middleGridMobile : middleGrid;
 
   return (
     <div style={workspace}>
-      <div style={canvas}>
+      <div style={canvasStyle}>
         <FamilyBand title="Parents" emptyText="No parents recorded." people={model.parents} onPick={onPick} />
 
         <Connector visible={hasParents || model.siblings.length > 1} />
 
-        <div style={middleGrid}>
+        <div style={middleGridStyle}>
           <FamilyPanel title="Siblings">
             <div style={siblingRow}>
               {model.siblings.map((person) => (
@@ -138,6 +142,7 @@ function nodeStyle(gender, active, large) {
   const [fill, stroke] = palette(gender);
   return {
     width: large ? 240 : 210,
+    maxWidth: '100%',
     minHeight: large ? 86 : 74,
     border: active ? `2px solid ${stroke}` : `1px solid ${stroke}`,
     borderRadius: 8,
@@ -182,6 +187,13 @@ const canvas = {
   display: 'grid',
   alignContent: 'start',
 };
+const canvasMobile = {
+  minHeight: '100%',
+  padding: 12,
+  display: 'grid',
+  alignContent: 'start',
+  gap: 4,
+};
 const panel = {
   border: '1px solid hsl(var(--border))',
   borderRadius: 8,
@@ -221,6 +233,12 @@ const middleGrid = {
   gridTemplateColumns: 'minmax(270px, 1fr) 260px minmax(270px, 1fr)',
   gap: 16,
   alignItems: 'center',
+};
+const middleGridMobile = {
+  display: 'grid',
+  gridTemplateColumns: '1fr',
+  gap: 12,
+  alignItems: 'stretch',
 };
 const subjectColumn = {
   display: 'grid',

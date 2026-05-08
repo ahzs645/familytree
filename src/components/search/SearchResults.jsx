@@ -15,7 +15,7 @@ export function SearchResults({ entityType, result }) {
       <div style={{ padding: '8px 16px', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
         {result.total} match{result.total === 1 ? '' : 'es'}{result.hasMore ? ` (showing first ${result.records.length})` : ''}
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <table style={{ width: '100%', minWidth: 'max-content', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ background: 'hsl(var(--card))', position: 'sticky', top: 0 }}>
             {cols.map((c) => (

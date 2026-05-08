@@ -10,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { buildPersonContext } from '../../lib/personContext.js';
 import { lifeSpanLabel, Gender } from '../../models/index.js';
+import { useIsMobile } from '../../lib/useIsMobile.js';
 import { useChartSelection } from './ChartSelectionContext.jsx';
 
 const GENDER_LABEL = {
@@ -28,6 +29,8 @@ export function PersonSidePanel({
 }) {
   const [context, setContext] = useState(null);
   const [loading, setLoading] = useState(false);
+  const isMobile = useIsMobile();
+  const effectiveWidth = isMobile ? '100%' : width;
   const { openPerson } = useChartSelection();
   const openById = (id) => id && openPerson?.({ recordName: id });
 
@@ -52,7 +55,7 @@ export function PersonSidePanel({
     <aside
       aria-hidden={!open}
       style={{
-        width: open ? width : 0,
+        width: open ? effectiveWidth : 0,
         transition: 'width 220ms ease',
         overflow: 'hidden',
         borderInlineStart: open ? '1px solid hsl(var(--border))' : 'none',
@@ -61,9 +64,12 @@ export function PersonSidePanel({
         display: 'flex',
         flexDirection: 'column',
         flexShrink: 0,
+        ...(isMobile && open
+          ? { position: 'absolute', insetInlineEnd: 0, top: 0, height: '100%', zIndex: 25, boxShadow: '-8px 0 24px rgb(0 0 0 / 0.2)' }
+          : null),
       }}
     >
-      <div style={{ width, display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ width: effectiveWidth, display: 'flex', flexDirection: 'column', height: '100%' }}>
         <header style={headerStyle}>
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', letterSpacing: 0.4 }}>PERSON</div>

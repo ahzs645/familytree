@@ -242,7 +242,7 @@ export function SearchApp() {
             value={textQuery}
             onChange={(e) => setTextQuery(e.target.value)}
             placeholder="Match any field…"
-            style={{ ...input, minWidth: 200 }}
+            style={{ ...input, flex: '1 1 200px', minWidth: 0 }}
             onKeyDown={(e) => e.key === 'Enter' && onRun()}
           />
         </Field>
@@ -251,7 +251,7 @@ export function SearchApp() {
           <select
             value=""
             onChange={(e) => onRunScope(e.target.value)}
-            style={{ ...input, minWidth: 200, cursor: 'pointer' }}
+            style={{ ...input, flex: '1 1 200px', minWidth: 0, cursor: 'pointer' }}
           >
             <option value="">Choose a scope…</option>
             {scopeOptions.map((s) => (
@@ -270,7 +270,7 @@ export function SearchApp() {
             <select
               value=""
               onChange={(e) => e.target.value && onLoadSearch(e.target.value)}
-              style={{ ...input, cursor: 'pointer', minWidth: 180 }}
+              style={{ ...input, cursor: 'pointer', flex: '1 1 180px', minWidth: 0 }}
             >
               <option value="">{savedSearches.length ? 'Load saved…' : 'No saved searches'}</option>
               {savedSearches.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -311,15 +311,15 @@ export function SearchApp() {
         <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Search and Replace</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <Field label="Field">
-            <select value={replaceField} onChange={(e) => setReplaceField(e.target.value)} style={{ ...input, minWidth: 150 }}>
+            <select value={replaceField} onChange={(e) => setReplaceField(e.target.value)} style={{ ...input, flex: '1 1 150px', minWidth: 0 }}>
               {replaceFields.map((field) => <option key={field.id} value={field.id}>{field.label}</option>)}
             </select>
           </Field>
           <Field label="Find">
-            <input value={findText} onChange={(e) => setFindText(e.target.value)} style={{ ...input, minWidth: 180 }} />
+            <input value={findText} onChange={(e) => setFindText(e.target.value)} style={{ ...input, flex: '1 1 180px', minWidth: 0 }} />
           </Field>
           <Field label="Replace with">
-            <input value={replacementText} onChange={(e) => setReplacementText(e.target.value)} style={{ ...input, minWidth: 180 }} />
+            <input value={replacementText} onChange={(e) => setReplacementText(e.target.value)} style={{ ...input, flex: '1 1 180px', minWidth: 0 }} />
           </Field>
           <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6 }}>
             <input type="checkbox" checked={matchCase} onChange={(e) => setMatchCase(e.target.checked)} /> Match case
@@ -360,7 +360,7 @@ export function SearchApp() {
 
 function Field({ label, children }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', marginRight: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', marginRight: 12, minWidth: 0, flex: '1 1 auto' }}>
       <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
       {children}
     </div>
@@ -395,6 +395,6 @@ const input = {
   outline: 'none',
 };
 const previewBox = { marginTop: 10, maxHeight: 180, overflow: 'auto', border: '1px solid hsl(var(--border))', borderRadius: 8 };
-const previewRow = { display: 'grid', gridTemplateColumns: 'minmax(160px, 1.2fr) 120px minmax(160px, 1fr) minmax(160px, 1fr)', gap: 8, padding: '6px 8px', borderBottom: '1px solid hsl(var(--border))', fontSize: 12 };
+const previewRow = { display: 'grid', gridTemplateColumns: 'minmax(120px, 1.2fr) minmax(80px, 0.8fr) minmax(120px, 1fr) minmax(120px, 1fr)', gap: 8, padding: '6px 8px', borderBottom: '1px solid hsl(var(--border))', fontSize: 12, wordBreak: 'break-word' };
 
 export default SearchApp;

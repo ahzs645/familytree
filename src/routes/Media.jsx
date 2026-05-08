@@ -19,6 +19,7 @@ import { FieldRow, editorInput, editorTextarea } from '../components/editors/Fie
 import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { buildMediaSlideshowSearchParams } from '../lib/mediaPresentation.js';
+import { useIsMobile } from '../lib/useIsMobile.js';
 
 const MEDIA_TYPES = [
   { id: 'all', label: 'All', match: null },
@@ -47,6 +48,7 @@ export default function Media() {
   const navigate = useNavigate();
   const location = useLocation();
   const modal = useModal();
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const targetId = searchParams.get('targetId') || searchParams.get('subjectId') || '';
   const targetType = searchParams.get('targetType') || '';
@@ -510,7 +512,8 @@ export default function Media() {
         {!readOnlyGallery && <button onClick={() => folderRef.current?.click()} style={select}>Match media folder</button>}
       </header>
 
-      <div style={body}>
+      <div style={isMobile ? bodyMobile : body}>
+        {(!isMobile || !active) && (
         <div style={readOnlyGallery ? galleryReport : gallery}>
           {filtered.length === 0 && (
             <div style={{ color: 'hsl(var(--muted-foreground))', padding: 40, gridColumn: '1 / -1', textAlign: 'center' }}>
@@ -561,24 +564,30 @@ export default function Media() {
             );
           })}
         </div>
+        )}
 
         {active && (readOnlyGallery ? (
           <GalleryDetail
             record={active}
             assets={activeAssets}
             relations={activeRelations}
+            isMobile={isMobile}
+            onClose={() => setActiveId(null)}
             onOpenRelated={(target) => {
               const route = routeForRecord(target);
               if (route) navigate(route);
             }}
           />
         ) : (
-          <aside style={detail}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+          <aside style={isMobile ? detailMobile : detail}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
+              {isMobile && (
+                <button onClick={() => setActiveId(null)} style={deleteBtn} aria-label="Back to gallery">← Back</button>
+              )}
               <h2 style={{ fontSize: 14, color: 'hsl(var(--foreground))', margin: 0, fontWeight: 600 }}>
                 {iconFor(active.recordType)} {active.recordType.replace('Media', '')}
               </h2>
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {status && <span style={{ color: '#4ade80', fontSize: 12, marginRight: 6 }}>{status}</span>}
                 {active.recordType !== 'MediaURL' && <button onClick={() => replaceFileRef.current?.click()} style={deleteBtn}>Replace</button>}
                 {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('rotate')} style={deleteBtn}>Rotate</button>}
@@ -676,15 +685,17 @@ export default function Media() {
 }
 
 const shell = { display: 'flex', flexDirection: 'column', height: '100%' };
-const header = { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
+const header = { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', flexWrap: 'wrap' };
 const select = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 10px', fontSize: 12 };
 const body = { flex: 1, display: 'flex', overflow: 'hidden' };
+const bodyMobile = { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' };
 const gallery = { flex: 1, overflow: 'auto', padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 };
 const galleryReport = { flex: 1, overflow: 'auto', padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 14, alignContent: 'start' };
 const tile = { padding: 14, border: '1px solid hsl(var(--border))', borderRadius: 8, cursor: 'pointer', minHeight: 110, transition: 'border-color 0.15s, background 0.15s' };
 const reportTile = { ...tile, minHeight: 150, display: 'flex', flexDirection: 'column', justifyContent: 'center' };
 const selectionControl = { position: 'absolute', top: 8, right: 8, display: 'grid', placeItems: 'center', width: 24, height: 24, borderRadius: 6, background: 'hsl(var(--background) / 0.86)', border: '1px solid hsl(var(--border))', cursor: 'pointer' };
 const detail = { width: 360, borderInlineStart: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', padding: 20, overflow: 'auto' };
+const detailMobile = { width: '100%', flex: 1, background: 'hsl(var(--card))', padding: 16, overflow: 'auto' };
 const saveBtn = { background: 'hsl(var(--primary))', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
 const deleteBtn = { background: 'transparent', color: 'hsl(var(--destructive))', border: '1px solid #3a2d30', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };
 const modalBackdrop = { position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.62)', display: 'grid', placeItems: 'center', padding: 20 };
@@ -721,12 +732,19 @@ function editedFilename(fileName, operation, mimeType) {
   return `${base}-${operation}${ext}`;
 }
 
-function GalleryDetail({ record, assets, relations, onOpenRelated }) {
+function GalleryDetail({ record, assets, relations, onOpenRelated, isMobile = false, onClose }) {
   const title = record.fields?.caption?.value || record.fields?.filename?.value || record.fields?.fileName?.value || record.fields?.url?.value || record.recordName;
   const description = record.fields?.description?.value || record.fields?.userDescription?.value || '';
 
   return (
-    <aside style={{ ...detail, width: 420 }}>
+    <aside style={isMobile ? detailMobile : { ...detail, width: 420 }}>
+      {isMobile && onClose && (
+        <button
+          onClick={onClose}
+          style={{ ...deleteBtn, marginBottom: 10 }}
+          aria-label="Back to gallery"
+        >← Back</button>
+      )}
       <div style={{ marginBottom: 14 }}>
         <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>{record.recordType.replace('Media', '')}</div>
         <h2 style={{ fontSize: 16, color: 'hsl(var(--foreground))', margin: '4px 0 0', fontWeight: 700, lineHeight: 1.25 }}>{title}</h2>
