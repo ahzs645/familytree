@@ -5,8 +5,10 @@ import { ConfigurableListTable } from '../components/lists/ConfigurableListTable
 import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadFactRows } from '../lib/listData.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 export default function FactsList() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('');
@@ -40,40 +42,40 @@ export default function FactsList() {
   const columns = useMemo(() => [
     {
       key: 'personName',
-      label: 'Person',
+      label: t('factsList.person'),
       render: (row) => row.personId
         ? <Link to={`/person/${row.personId}`} className="text-primary hover:underline">{row.personName || row.personId}</Link>
-        : <span className="text-muted-foreground">No linked person</span>,
+        : <span className="text-muted-foreground">{t('factsList.noLinkedPerson')}</span>,
     },
-    { key: 'factType', label: 'Fact' },
+    { key: 'factType', label: t('factsList.fact') },
     {
       key: 'value',
-      label: 'Value',
-      render: (row) => row.value || <span className="text-muted-foreground">No value</span>,
+      label: t('factsList.value'),
+      render: (row) => row.value || <span className="text-muted-foreground">{t('factsList.noValue')}</span>,
     },
     {
       key: 'date',
-      label: 'Date',
-      render: (row) => row.formattedDate || <span className="text-muted-foreground">No date</span>,
+      label: t('factsList.date'),
+      render: (row) => row.formattedDate || <span className="text-muted-foreground">{t('factsList.noDate')}</span>,
     },
     {
       key: 'action',
-      label: 'Action',
+      label: t('factsList.action'),
       sortable: false,
       export: false,
       render: (row) => row.personId
-        ? <Link to={`/person/${row.personId}`} className="text-xs text-primary hover:underline">Open person</Link>
+        ? <Link to={`/person/${row.personId}`} className="text-xs text-primary hover:underline">{t('factsList.openPerson')}</Link>
         : null,
     },
-  ], []);
+  ], [t]);
 
-  if (loading) return <div className="p-10 text-muted-foreground">Loading facts...</div>;
+  if (loading) return <div className="p-10 text-muted-foreground">{t('factsList.loading')}</div>;
 
   const filters = (
     <>
-      <label className="text-xs text-muted-foreground ms-auto">Fact type</label>
+      <label className="text-xs text-muted-foreground ms-auto">{t('factsList.factType')}</label>
       <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
-        <option value="">All types</option>
+        <option value="">{t('factsList.allTypes')}</option>
         {typeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
       </select>
       <ScopeFilterSelect
@@ -82,13 +84,13 @@ export default function FactsList() {
         scopes={scoped.scopes}
         loading={scoped.loading}
         error={scoped.error}
-        label="Person scope"
+        label={t('factsList.personScope')}
       />
-      <label className="text-xs text-muted-foreground">Date</label>
+      <label className="text-xs text-muted-foreground">{t('factsList.date')}</label>
       <input
         value={dateFilter}
         onChange={(event) => setDateFilter(event.target.value)}
-        placeholder="YYYY or text"
+        placeholder={t('factsList.datePlaceholder')}
         className="w-32 bg-background text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary"
       />
     </>
@@ -97,8 +99,8 @@ export default function FactsList() {
   return (
     <div className="flex flex-col h-full">
       <ListPageHeader
-        title="Facts List"
-        subtitle="Report-compatible person facts with type and date filtering."
+        title={t('factsList.title')}
+        subtitle={t('factsList.subtitle')}
         count={scoped.rows.length}
         total={rows.length}
       />
@@ -107,10 +109,10 @@ export default function FactsList() {
         rows={scoped.rows}
         columns={columns}
         initialSortKey="personName"
-        searchPlaceholder="Search facts..."
+        searchPlaceholder={t('factsList.searchPlaceholder')}
         toolbar={filters}
-        emptyTitle="No facts"
-        emptyHint="No PersonFact rows match the current filters."
+        emptyTitle={t('factsList.emptyTitle')}
+        emptyHint={t('factsList.emptyHint')}
       />
     </div>
   );

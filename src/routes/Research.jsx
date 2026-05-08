@@ -127,14 +127,16 @@ export default function Research() {
       });
     }
   };
+  const suggestionDisplay = (s) => (typeof s === 'string' ? s : t(s.i18nKey));
+  const suggestionKey = (s) => (typeof s === 'string' ? s : s.key);
   const visible = (filter
-    ? items.filter((i) => i.suggestions.some((s) => matchesSearchText(s, filter)) || matchesSearchText(i.fullName, filter))
+    ? items.filter((i) => i.suggestions.some((s) => matchesSearchText(suggestionDisplay(s), filter)) || matchesSearchText(i.fullName, filter))
     : items
   ).filter((item) => !state.ignoredEntities[item.recordName])
     .map((item) => ({
       ...item,
       suggestions: item.suggestions.filter((suggestion) => {
-        const key = generatedKey(item.recordName, suggestion);
+        const key = generatedKey(item.recordName, suggestionKey(suggestion));
         return !state.done[key] && !state.ignored[key];
       }),
     })).filter((item) => item.suggestions.length > 0);
@@ -273,15 +275,17 @@ export default function Research() {
               </div>
               <ul className="text-sm text-muted-foreground space-y-1">
                 {it.suggestions.map((s, i) => {
-                  const key = generatedKey(it.recordName, s);
+                  const sKey = suggestionKey(s);
+                  const display = suggestionDisplay(s);
+                  const key = generatedKey(it.recordName, sKey);
                   return (
                     <li key={i} className="flex items-start gap-2">
                       <span className="pt-1">·</span>
-                      <span className="flex-1">{s}</span>
+                      <span className="flex-1">{display}</span>
                       <button
                         onClick={() => createTodo({
                           key,
-                          title: s,
+                          title: display,
                           description: t('research.todoDescription', { name: it.fullName }),
                           target: { recordName: it.recordName, recordType: 'Person' },
                         })}

@@ -6,6 +6,7 @@ import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { SORT_PROFILES, useSortProfile } from '../components/lists/useSortProfile.js';
 import { loadPersonAnalysisRows } from '../lib/listData.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const RISK_CLASS = {
   High: 'text-destructive border-destructive/40',
@@ -13,7 +14,11 @@ const RISK_CLASS = {
   Low: 'text-muted-foreground border-border',
 };
 
+const FILTER_IDS = ['attention', 'missing-dates', 'unsourced', 'unplaced', 'parents', 'impossible', 'orphaned', 'duplicates', 'all'];
+const SUMMARY_KEYS = ['attention', 'unsourced', 'unplaced', 'parents', 'impossible', 'duplicates'];
+
 export default function PersonAnalysis() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('attention');
@@ -58,28 +63,36 @@ export default function PersonAnalysis() {
     duplicates: rows.filter((row) => row.duplicateRisk !== 'Low').length,
   }), [rows]);
 
+  const stateLabel = (state) => {
+    if (state === 'Supported') return t('personAnalysis.stateSupported');
+    if (state === 'Weak') return t('personAnalysis.stateWeak');
+    return t('personAnalysis.stateUnsourced');
+  };
+
+  const riskLabel = (risk) => t(`personAnalysis.risk${risk}`, { defaultValue: risk });
+
   const columns = useMemo(() => [
     {
       key: 'personName',
-      label: 'Person',
+      label: t('personAnalysis.person'),
       alwaysVisible: true,
       render: (row) => <Link to={`/person/${row.personId}`} className="text-primary hover:underline">{row.personName}</Link>,
     },
     {
       key: 'age',
-      label: 'Age',
+      label: t('personAnalysis.age'),
       sortValue: (row) => row.age ?? -1,
       render: (row) => row.ageLabel,
     },
     {
       key: 'missingDateLabel',
-      label: 'Missing Dates',
+      label: t('personAnalysis.missingDates'),
       sortValue: (row) => row.missingDates.length,
-      render: (row) => row.missingDates.length ? row.missingDateLabel : <span className="text-muted-foreground">None</span>,
+      render: (row) => row.missingDates.length ? row.missingDateLabel : <span className="text-muted-foreground">{t('personAnalysis.noneShort')}</span>,
     },
     {
       key: 'orphanedRelationships',
-      label: 'Research Gaps',
+      label: t('personAnalysis.researchGaps'),
       render: (row) => row.orphanedRelationships ? (
         <div>
           <div>{row.orphanedRelationships}</div>
@@ -87,69 +100,59 @@ export default function PersonAnalysis() {
         </div>
       ) : (
         <div className="text-xs text-muted-foreground">
-          {row.parentCount === 0 ? 'No parents' : `${row.parentCount} parent${row.parentCount === 1 ? '' : 's'}`}
-          {row.unplacedEvents ? ` · ${row.unplacedEvents} unplaced` : ''}
+          {row.parentCount === 0 ? t('personAnalysis.noParents') : t('personAnalysis.parents', { count: row.parentCount })}
+          {row.unplacedEvents ? ` · ${t('personAnalysis.unplaced', { count: row.unplacedEvents })}` : ''}
           {row.impossibleAgeIssues.length ? ` · ${row.impossibleAgeIssues[0]}` : ''}
         </div>
       ),
     },
     {
       key: 'sourceState',
-      label: 'Evidence',
+      label: t('personAnalysis.evidence'),
       sortValue: (row) => row.sourceCount,
       render: (row) => (
         <div>
           <span className={`inline-block text-[10px] font-bold uppercase tracking-wide rounded border px-2 py-0.5 ${
             row.sourceState === 'Supported' ? 'text-emerald-600 border-emerald-600/40' : row.sourceState === 'Weak' ? 'text-amber-500 border-amber-500/40' : 'text-destructive border-destructive/40'
           }`}>
-            {row.sourceState}
+            {stateLabel(row.sourceState)}
           </span>
-          <div className="mt-1 text-xs text-muted-foreground">{row.sourceCount} source link{row.sourceCount === 1 ? '' : 's'}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{t('personAnalysis.sourceLinks', { count: row.sourceCount })}</div>
         </div>
       ),
     },
     {
       key: 'duplicateRisk',
-      label: 'Duplicate Risk',
+      label: t('personAnalysis.duplicateRisk'),
       render: (row) => (
         <span className={`inline-block text-[10px] font-bold uppercase tracking-wide rounded border px-2 py-0.5 min-w-[62px] text-center ${RISK_CLASS[row.duplicateRisk]}`}>
-          {row.duplicateRisk}
+          {riskLabel(row.duplicateRisk)}
         </span>
       ),
     },
     {
       key: 'action',
-      label: 'Action',
+      label: t('personAnalysis.action'),
       sortable: false,
       export: false,
-      render: (row) => <Link to={`/person/${row.personId}`} className="text-xs text-primary hover:underline">Open person</Link>,
+      render: (row) => <Link to={`/person/${row.personId}`} className="text-xs text-primary hover:underline">{t('personAnalysis.openPerson')}</Link>,
     },
-    { key: 'personId', label: 'Person ID', defaultVisible: false },
-  ], []);
+    { key: 'personId', label: t('personAnalysis.personId'), defaultVisible: false },
+  ], [t]);
 
-  if (loading) return <div className="p-10 text-muted-foreground">Analyzing persons...</div>;
+  if (loading) return <div className="p-10 text-muted-foreground">{t('personAnalysis.loading')}</div>;
 
   const filters = (
     <>
     <div className="ms-auto flex flex-wrap gap-2">
-      {[
-        ['attention', 'Needs attention'],
-        ['missing-dates', 'Missing dates'],
-        ['unsourced', 'Unsourced/weak'],
-        ['unplaced', 'Unplaced events'],
-        ['parents', 'No parents'],
-        ['impossible', 'Impossible ages'],
-        ['orphaned', 'Orphaned links'],
-        ['duplicates', 'Duplicate risk'],
-        ['all', 'All persons'],
-      ].map(([id, label]) => (
+      {FILTER_IDS.map((id) => (
         <button
           key={id}
           type="button"
           onClick={() => setFilter(id)}
           className={`text-xs px-3 py-1.5 rounded-md border ${filter === id ? 'bg-primary text-primary-foreground border-primary' : 'border-border bg-secondary text-foreground'}`}
         >
-          {label}
+          {t(`personAnalysis.filters.${id}`)}
         </button>
       ))}
     </div>
@@ -159,7 +162,7 @@ export default function PersonAnalysis() {
       scopes={scoped.scopes}
       loading={scoped.loading}
       error={scoped.error}
-      label="Person scope"
+      label={t('personAnalysis.personScope')}
     />
     </>
   );
@@ -167,23 +170,16 @@ export default function PersonAnalysis() {
   return (
     <div className="flex flex-col h-full">
       <ListPageHeader
-        title="Research Dashboard"
-        subtitle="Queues for missing dates, source coverage, parent gaps, unplaced events, impossible ages, and duplicate candidates."
+        title={t('personAnalysis.title')}
+        subtitle={t('personAnalysis.subtitle')}
         count={scoped.rows.length}
         total={rows.length}
       />
       <div className="grid grid-cols-2 gap-3 border-b border-border bg-card px-5 py-3 md:grid-cols-6">
-        {[
-          ['Needs attention', summary.attention],
-          ['Unsourced/weak', summary.unsourced],
-          ['Unplaced events', summary.unplaced],
-          ['No parents', summary.parents],
-          ['Impossible ages', summary.impossible],
-          ['Duplicate risk', summary.duplicates],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-md border border-border bg-background px-3 py-2">
-            <div className="text-lg font-semibold tabular-nums">{value}</div>
-            <div className="text-[11px] text-muted-foreground">{label}</div>
+        {SUMMARY_KEYS.map((key) => (
+          <div key={key} className="rounded-md border border-border bg-background px-3 py-2">
+            <div className="text-lg font-semibold tabular-nums">{summary[key]}</div>
+            <div className="text-[11px] text-muted-foreground">{t(`personAnalysis.summary.${key}`)}</div>
           </div>
         ))}
       </div>
@@ -194,10 +190,10 @@ export default function PersonAnalysis() {
         initialSortKey="orphanedRelationships"
         initialSortDirection="desc"
         sortProfile={sortProfile}
-        searchPlaceholder="Search person analysis..."
+        searchPlaceholder={t('personAnalysis.searchPlaceholder')}
         toolbar={filters}
-        emptyTitle="No analysis rows"
-        emptyHint="No persons match the current analysis filter."
+        emptyTitle={t('personAnalysis.emptyTitle')}
+        emptyHint={t('personAnalysis.emptyHint')}
       />
     </div>
   );

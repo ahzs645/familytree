@@ -4,6 +4,7 @@ import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
 import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
 import { SORT_PROFILES, useSortProfile } from '../components/lists/useSortProfile.js';
 import { runPlausibilityChecks } from '../lib/plausibility.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const SEVERITY_CLASS = {
   high: 'text-destructive border-destructive/40',
@@ -17,6 +18,7 @@ function recordHref(row) {
 }
 
 export default function PlausibilityList() {
+  const { t } = useTranslation();
   const [warnings, setWarnings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [severity, setSeverity] = useState('');
@@ -46,40 +48,47 @@ export default function PlausibilityList() {
     return acc;
   }, {}), [warnings]);
 
+  const severityLabel = (level) => t(`plausibilityList.severity${level.charAt(0).toUpperCase()}${level.slice(1)}`);
+
   const columns = useMemo(() => [
     {
       key: 'severity',
-      label: 'Severity',
+      label: t('plausibilityList.severity'),
       sortValue: (row) => ({ high: 3, medium: 2, low: 1 }[row.severity] || 0),
       render: (row) => (
         <span className={`inline-block text-[10px] font-bold uppercase tracking-wide rounded border px-2 py-0.5 min-w-[62px] text-center ${SEVERITY_CLASS[row.severity] || SEVERITY_CLASS.low}`}>
-          {row.severity}
+          {severityLabel(row.severity)}
         </span>
       ),
     },
-    { key: 'rule', label: 'Rule' },
-    { key: 'recordType', label: 'Record Type', defaultVisible: false },
+    { key: 'rule', label: t('plausibilityList.rule') },
+    { key: 'recordType', label: t('plausibilityList.recordType'), defaultVisible: false },
     {
       key: 'recordName',
-      label: 'Record',
+      label: t('plausibilityList.record'),
       alwaysVisible: true,
       render: (row) => <Link to={recordHref(row)} className="text-primary hover:underline">{row.recordName}</Link>,
     },
-    { key: 'message', label: 'Message' },
+    { key: 'message', label: t('plausibilityList.message') },
     {
       key: 'action',
-      label: 'Action',
+      label: t('plausibilityList.action'),
       sortable: false,
       export: false,
-      render: (row) => <Link to={recordHref(row)} className="text-xs text-primary hover:underline">Open</Link>,
+      render: (row) => <Link to={recordHref(row)} className="text-xs text-primary hover:underline">{t('plausibilityList.open')}</Link>,
     },
-  ], []);
+  ], [t]);
 
-  if (loading) return <div className="p-10 text-muted-foreground">Running plausibility checks...</div>;
+  if (loading) return <div className="p-10 text-muted-foreground">{t('plausibilityList.loading')}</div>;
 
   const filters = (
     <div className="ms-auto flex flex-wrap gap-2">
-      {[['', `All (${warnings.length})`], ['high', `High (${counts.high || 0})`], ['medium', `Medium (${counts.medium || 0})`], ['low', `Low (${counts.low || 0})`]].map(([id, label]) => (
+      {[
+        ['', t('plausibilityList.filterAll', { count: warnings.length })],
+        ['high', t('plausibilityList.filterHigh', { count: counts.high || 0 })],
+        ['medium', t('plausibilityList.filterMedium', { count: counts.medium || 0 })],
+        ['low', t('plausibilityList.filterLow', { count: counts.low || 0 })],
+      ].map(([id, label]) => (
         <button
           key={id}
           type="button"
@@ -95,8 +104,8 @@ export default function PlausibilityList() {
   return (
     <div className="flex flex-col h-full">
       <ListPageHeader
-        title="Plausibility List"
-        subtitle="Dedicated list route for the same checker output, with sortable columns and editor links."
+        title={t('plausibilityList.title')}
+        subtitle={t('plausibilityList.subtitle')}
         count={filteredWarnings.length}
         total={warnings.length}
       />
@@ -107,10 +116,10 @@ export default function PlausibilityList() {
         initialSortKey="severity"
         initialSortDirection="desc"
         sortProfile={sortProfile}
-        searchPlaceholder="Search warnings..."
+        searchPlaceholder={t('plausibilityList.searchPlaceholder')}
         toolbar={filters}
-        emptyTitle={warnings.length === 0 ? 'No plausibility issues found' : 'No warnings at this severity'}
-        emptyHint={warnings.length === 0 ? 'The current tree passed all implemented plausibility rules.' : 'Choose another severity or clear the search text.'}
+        emptyTitle={warnings.length === 0 ? t('plausibilityList.emptyAllTitle') : t('plausibilityList.emptyFilteredTitle')}
+        emptyHint={warnings.length === 0 ? t('plausibilityList.emptyAllHint') : t('plausibilityList.emptyFilteredHint')}
       />
     </div>
   );

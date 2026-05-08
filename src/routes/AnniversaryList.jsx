@@ -5,23 +5,12 @@ import { ConfigurableListTable } from '../components/lists/ConfigurableListTable
 import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadAnniversaryRows } from '../lib/listData.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
-const MONTHS = [
-  ['1', 'January'],
-  ['2', 'February'],
-  ['3', 'March'],
-  ['4', 'April'],
-  ['5', 'May'],
-  ['6', 'June'],
-  ['7', 'July'],
-  ['8', 'August'],
-  ['9', 'September'],
-  ['10', 'October'],
-  ['11', 'November'],
-  ['12', 'December'],
-];
+const MONTH_VALUES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
 
 export default function AnniversaryList() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('');
@@ -56,39 +45,39 @@ export default function AnniversaryList() {
   const columns = useMemo(() => [
     {
       key: 'monthDay',
-      label: 'Month/Day',
+      label: t('anniversaryList.monthDay'),
       render: (row) => row.monthDayLabel,
     },
-    { key: 'type', label: 'Type' },
+    { key: 'type', label: t('anniversaryList.type') },
     {
       key: 'personName',
-      label: 'Person',
+      label: t('anniversaryList.person'),
       render: (row) => <Link to={`/person/${row.personId}`} className="text-primary hover:underline">{row.personName}</Link>,
     },
     {
       key: 'year',
-      label: 'Year',
+      label: t('anniversaryList.year'),
       sortValue: (row) => row.year || 0,
       render: (row) => row.yearLabel,
     },
     {
       key: 'action',
-      label: 'Action',
+      label: t('anniversaryList.action'),
       sortable: false,
       export: false,
-      render: (row) => <Link to={`/person/${row.personId}`} className="text-xs text-primary hover:underline">Open person</Link>,
+      render: (row) => <Link to={`/person/${row.personId}`} className="text-xs text-primary hover:underline">{t('anniversaryList.openPerson')}</Link>,
     },
-  ], []);
+  ], [t]);
 
-  if (loading) return <div className="p-10 text-muted-foreground">Loading anniversaries...</div>;
+  if (loading) return <div className="p-10 text-muted-foreground">{t('anniversaryList.loading')}</div>;
 
   const filters = (
     <>
-      <label className="text-xs text-muted-foreground ms-auto">Type</label>
+      <label className="text-xs text-muted-foreground ms-auto">{t('anniversaryList.filterType')}</label>
       <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
-        <option value="">Birth and death</option>
-        <option value="Birth">Birth</option>
-        <option value="Death">Death</option>
+        <option value="">{t('anniversaryList.birthAndDeath')}</option>
+        <option value="Birth">{t('anniversaryList.birth')}</option>
+        <option value="Death">{t('anniversaryList.death')}</option>
       </select>
       <ScopeFilterSelect
         value={scoped.scopeId}
@@ -96,14 +85,14 @@ export default function AnniversaryList() {
         scopes={scoped.scopes}
         loading={scoped.loading}
         error={scoped.error}
-        label="Person scope"
+        label={t('anniversaryList.personScope')}
       />
-      <label className="text-xs text-muted-foreground">Month</label>
+      <label className="text-xs text-muted-foreground">{t('anniversaryList.month')}</label>
       <select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
-        <option value="">All months</option>
-        {MONTHS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        <option value="">{t('anniversaryList.allMonths')}</option>
+        {MONTH_VALUES.map((value) => <option key={value} value={value}>{t(`anniversaryList.months.${value}`)}</option>)}
       </select>
-      <label className="text-xs text-muted-foreground">Day</label>
+      <label className="text-xs text-muted-foreground">{t('anniversaryList.day')}</label>
       <input
         type="number"
         min="1"
@@ -118,8 +107,8 @@ export default function AnniversaryList() {
   return (
     <div className="flex flex-col h-full">
       <ListPageHeader
-        title="Anniversary List"
-        subtitle="Birth and death anniversaries with month/day filtering and readable years."
+        title={t('anniversaryList.title')}
+        subtitle={t('anniversaryList.subtitle')}
         count={scoped.rows.length}
         total={rows.length}
       />
@@ -128,10 +117,10 @@ export default function AnniversaryList() {
         rows={scoped.rows}
         columns={columns}
         initialSortKey="monthDay"
-        searchPlaceholder="Search anniversaries..."
+        searchPlaceholder={t('anniversaryList.searchPlaceholder')}
         toolbar={filters}
-        emptyTitle="No anniversaries"
-        emptyHint="No birth or death dates with month and day match the current filters."
+        emptyTitle={t('anniversaryList.emptyTitle')}
+        emptyHint={t('anniversaryList.emptyHint')}
       />
     </div>
   );

@@ -3,6 +3,7 @@ import { ColumnChooser } from './ColumnChooser.jsx';
 import { SortableListTable } from './SortableListTable.jsx';
 import { useColumnVisibility } from './useColumnVisibility.js';
 import { ListReportToolbar, useListReportOptions } from './ListReportWorkbench.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function ConfigurableListTable({
   listId,
@@ -12,6 +13,7 @@ export function ConfigurableListTable({
   columnChooserLabel,
   ...tableProps
 }) {
+  const { t } = useTranslation();
   const columnVisibility = useColumnVisibility(listId, columns);
   const report = useListReportOptions();
   const controls = (
@@ -28,14 +30,14 @@ export function ConfigurableListTable({
       />
       {sortProfile?.sortOptions?.length ? (
         <>
-          <label className="text-xs text-muted-foreground">{sortProfile.label || 'Sort profile'}</label>
+          <label className="text-xs text-muted-foreground">{sortProfile.label || t('sortProfiles.label')}</label>
           <select
             value={sortProfile.sortKey}
             onChange={(event) => sortProfile.setSortKey(event.target.value)}
             className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm"
           >
             {sortProfile.sortOptions.map((option) => (
-              <option key={option.key} value={option.key}>{option.label}</option>
+              <option key={option.key} value={option.key}>{t(`sortProfiles.${option.key}`, { defaultValue: option.label })}</option>
             ))}
           </select>
         </>

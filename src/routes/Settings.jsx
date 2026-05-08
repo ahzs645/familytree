@@ -142,7 +142,7 @@ export default function Settings() {
               </Field>
               <Field label={t('settingsPage.general.startView')}>
                 <select value={prefs.general.startRoute} onChange={(event) => update('general', 'startRoute', event.target.value)} className={inputClass}>
-                  {APP_FUNCTIONS.filter((item) => !item.unavailable).map((item) => <option key={item.to} value={item.to}>{item.label}</option>)}
+                  {APP_FUNCTIONS.filter((item) => !item.unavailable).map((item) => <option key={item.to} value={item.to}>{t(`appFunctions.${item.to}`, { defaultValue: item.label })}</option>)}
                 </select>
               </Field>
               <Switch label={t('settingsPage.general.confirmDeletes')} checked={prefs.general.confirmDeletes} onChange={(value) => update('general', 'confirmDeletes', value)} />
@@ -166,7 +166,7 @@ export default function Settings() {
               <Field label={t('settingsPage.formats.nameDisplayFormat')}>
                 <select value={prefs.formats.nameDisplayFormat} onChange={(event) => update('formats', 'nameDisplayFormat', event.target.value)} className={inputClass}>
                   {NAME_FORMAT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>{t(`constants.nameFormat.${option.value}`)}</option>
                   ))}
                 </select>
                 <NameFormatPreview preset={prefs.formats.nameDisplayFormat} t={t} />
@@ -174,7 +174,7 @@ export default function Settings() {
               <Field label={t('settingsPage.formats.nameSortFormat')}>
                 <select value={prefs.formats.nameSortFormat} onChange={(event) => update('formats', 'nameSortFormat', event.target.value)} className={inputClass}>
                   {NAME_FORMAT_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>{t(`constants.nameFormat.${option.value}`)}</option>
                   ))}
                 </select>
                 <NameFormatPreview preset={prefs.formats.nameSortFormat} t={t} />
@@ -221,17 +221,17 @@ export default function Settings() {
               </Field>
               <Field label={t('settingsPage.formats.direction')}>
                 <select value={prefs.localization?.direction || 'auto'} onChange={(event) => update('localization', 'direction', event.target.value)} className={inputClass}>
-                  {DIRECTION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  {DIRECTION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{t(`constants.direction.${option.value}`)}</option>)}
                 </select>
               </Field>
               <Field label={t('settingsPage.formats.numberingSystem')}>
                 <select value={prefs.localization?.numberingSystem || 'auto'} onChange={(event) => update('localization', 'numberingSystem', event.target.value)} className={inputClass}>
-                  {NUMBERING_SYSTEM_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  {NUMBERING_SYSTEM_OPTIONS.map((option) => <option key={option.value} value={option.value}>{t(`constants.numberingSystem.${option.value}`)}</option>)}
                 </select>
               </Field>
               <Field label={t('settingsPage.formats.calendar')}>
                 <select value={prefs.localization?.calendar || 'gregory'} onChange={(event) => update('localization', 'calendar', event.target.value)} className={inputClass}>
-                  {CALENDAR_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  {CALENDAR_OPTIONS.map((option) => <option key={option.value} value={option.value}>{t(`constants.calendar.${option.value}`)}</option>)}
                 </select>
               </Field>
             </Grid>
@@ -248,7 +248,7 @@ export default function Settings() {
                   className={inputClass}
                 >
                   {VITAL_MARKER_STYLE_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>{t(`constants.vitalMarker.${option.value}`)}</option>
                   ))}
                 </select>
                 <div className="mt-1 text-[11px] text-muted-foreground">
@@ -505,7 +505,7 @@ export default function Settings() {
                   className={inputClass}
                 >
                   {GEDCOM_ENCODINGS.map((option) => (
-                    <option key={option.id} value={option.id}>{option.label}</option>
+                    <option key={option.id} value={option.id}>{t(`constants.gedcomEncoding.${option.id}`)}</option>
                   ))}
                 </select>
               </Field>
@@ -562,7 +562,7 @@ export default function Settings() {
                     checked={prefs.plausibility?.enabled?.[a.id] !== false}
                     onChange={(e) => update('plausibility', 'enabled', { ...(prefs.plausibility?.enabled || {}), [a.id]: e.target.checked })}
                   />
-                  <span className="flex-1">{a.label}</span>
+                  <span className="flex-1">{t(`constants.plausibility.${a.id}`)}</span>
                 </label>
               ))}
             </div>
@@ -642,13 +642,16 @@ function FunctionsPanel({ prefs, setPrefs, t }) {
   return (
     <Panel title={t('settingsPage.functions.panel')}>
       <div className="space-y-5">
-        {Object.entries(groups).map(([category, items]) => (
+        {Object.entries(groups).map(([category, items]) => {
+          const categoryKey = `categories.${category.toLowerCase()}`;
+          const categoryLabel = t(categoryKey);
+          return (
           <section key={category}>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{category}</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{categoryLabel === categoryKey ? category : categoryLabel}</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {items.map((item) => (
                 <div key={item.to} className="rounded-md border border-border bg-card p-3">
-                  <div className="text-sm font-medium mb-2">{item.label}</div>
+                  <div className="text-sm font-medium mb-2">{t(`appFunctions.${item.to}`, { defaultValue: item.label })}</div>
                   <div className="flex flex-wrap gap-2">
                     <CheckButton active={prefs.functions.favorites.includes(item.to)} onClick={() => toggleList('favorites', item.to)}>{t('settingsPage.functions.favorite')}</CheckButton>
                     <CheckButton active={prefs.functions.emphasized.includes(item.to)} onClick={() => toggleList('emphasized', item.to)}>{t('settingsPage.functions.emphasized')}</CheckButton>
@@ -658,7 +661,8 @@ function FunctionsPanel({ prefs, setPrefs, t }) {
               ))}
             </div>
           </section>
-        ))}
+          );
+        })}
       </div>
     </Panel>
   );

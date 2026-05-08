@@ -20,7 +20,14 @@ export function translate(key, params = {}, options = {}) {
   const catalog = catalogForLocale(localization.locale);
   const fallbackCatalog = MESSAGE_CATALOGS.en;
   const raw = getMessage(catalog, key) ?? getMessage(fallbackCatalog, key);
-  if (raw == null) return String(key || '');
+  if (raw == null) {
+    // When the key is missing from every catalog, prefer the caller's
+    // defaultValue (passed via params.defaultValue) over showing the raw key.
+    if (params && Object.prototype.hasOwnProperty.call(params, 'defaultValue')) {
+      return interpolate(String(params.defaultValue ?? ''), params);
+    }
+    return String(key || '');
+  }
   const value = typeof raw === 'object' && raw !== null
     ? pluralMessage(raw, params.count, localization.locale)
     : raw;

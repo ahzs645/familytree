@@ -5,19 +5,21 @@ import { ConfigurableListTable } from '../components/lists/ConfigurableListTable
 import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadDistinctivePersonRows } from '../lib/listData.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
-const CRITERIA = [
-  { id: 'marker', label: 'Distinctive marker', test: (row) => !!row.markerField },
-  { id: 'bookmarked', label: 'Bookmarked', test: (row) => row.bookmarked },
-  { id: 'startPerson', label: 'Start person', test: (row) => row.startPerson },
-  { id: 'missingBirth', label: 'Missing birth date', test: (row) => !row.birthDate },
-  { id: 'missingDeath', label: 'Missing death date', test: (row) => !row.deathDate },
-  { id: 'missingSurname', label: 'Missing surname', test: (row) => !row.lastName },
-  { id: 'longLifespan', label: 'Long lifespan', test: (row) => row.birthYear && row.deathYear && row.deathYear - row.birthYear >= 90 },
-  { id: 'hasPhoto', label: 'Has photo', test: (row) => row.hasPhoto },
+const CRITERIA_DEFS = [
+  { id: 'marker', test: (row) => !!row.markerField },
+  { id: 'bookmarked', test: (row) => row.bookmarked },
+  { id: 'startPerson', test: (row) => row.startPerson },
+  { id: 'missingBirth', test: (row) => !row.birthDate },
+  { id: 'missingDeath', test: (row) => !row.deathDate },
+  { id: 'missingSurname', test: (row) => !row.lastName },
+  { id: 'longLifespan', test: (row) => row.birthYear && row.deathYear && row.deathYear - row.birthYear >= 90 },
+  { id: 'hasPhoto', test: (row) => row.hasPhoto },
 ];
 
 export default function DistinctivePersons() {
+  const { t } = useTranslation();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [matchMode, setMatchMode] = useState('any');
@@ -40,7 +42,7 @@ export default function DistinctivePersons() {
 
   const hasMarker = rows.some((row) => row.markerField);
   const filteredRows = useMemo(() => {
-    const active = CRITERIA.filter((criterion) => selectedCriteria.has(criterion.id));
+    const active = CRITERIA_DEFS.filter((criterion) => selectedCriteria.has(criterion.id));
     if (active.length === 0) return rows;
     return rows.filter((row) => {
       const matches = active.map((criterion) => criterion.test(row));
@@ -54,41 +56,41 @@ export default function DistinctivePersons() {
   const columns = useMemo(() => [
     {
       key: 'fullName',
-      label: 'Name',
+      label: t('distinctivePersons.name'),
       render: (row) => <Link to={`/person/${row.id}`} className="text-primary hover:underline">{row.fullName}</Link>,
     },
-    { key: 'genderLabel', label: 'Gender' },
+    { key: 'genderLabel', label: t('distinctivePersons.gender') },
     {
       key: 'birthDate',
-      label: 'Born',
-      render: (row) => row.birthDate || <span className="text-muted-foreground">No date</span>,
+      label: t('distinctivePersons.born'),
+      render: (row) => row.birthDate || <span className="text-muted-foreground">{t('distinctivePersons.noDate')}</span>,
     },
     {
       key: 'deathDate',
-      label: 'Died',
-      render: (row) => row.deathDate || <span className="text-muted-foreground">No date</span>,
+      label: t('distinctivePersons.died'),
+      render: (row) => row.deathDate || <span className="text-muted-foreground">{t('distinctivePersons.noDate')}</span>,
     },
     {
       key: 'signals',
-      label: 'Signals',
+      label: t('distinctivePersons.signals'),
       sortValue: (row) => row.tags.length,
       searchValue: (row) => row.tags.join(' '),
       render: (row) => (
         <div className="flex flex-wrap gap-1.5">
           {row.tags.length ? row.tags.map((tag) => (
             <span key={tag} className="rounded border border-border bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">{tag}</span>
-          )) : <span className="text-muted-foreground">No signals</span>}
+          )) : <span className="text-muted-foreground">{t('distinctivePersons.noSignals')}</span>}
         </div>
       ),
     },
     {
       key: 'action',
-      label: 'Action',
+      label: t('distinctivePersons.action'),
       sortable: false,
       export: false,
-      render: (row) => <Link to={`/person/${row.id}`} className="text-xs text-primary hover:underline">Open person</Link>,
+      render: (row) => <Link to={`/person/${row.id}`} className="text-xs text-primary hover:underline">{t('distinctivePersons.openPerson')}</Link>,
     },
-  ], []);
+  ], [t]);
 
   const toggleCriterion = (id) => {
     setSelectedCriteria((current) => {
@@ -99,7 +101,7 @@ export default function DistinctivePersons() {
     });
   };
 
-  if (loading) return <div className="p-10 text-muted-foreground">Loading distinctive persons...</div>;
+  if (loading) return <div className="p-10 text-muted-foreground">{t('distinctivePersons.loading')}</div>;
 
   const filters = (
     <div className="ms-auto flex flex-wrap items-center gap-2">
@@ -109,16 +111,16 @@ export default function DistinctivePersons() {
         scopes={scoped.scopes}
         loading={scoped.loading}
         error={scoped.error}
-        label="Person scope"
+        label={t('distinctivePersons.personScope')}
       />
       <select value={matchMode} onChange={(event) => setMatchMode(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
-        <option value="any">Match any rule</option>
-        <option value="all">Match all rules</option>
+        <option value="any">{t('distinctivePersons.matchAny')}</option>
+        <option value="all">{t('distinctivePersons.matchAll')}</option>
       </select>
-      {CRITERIA.map((criterion) => (
+      {CRITERIA_DEFS.map((criterion) => (
         <label key={criterion.id} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground border border-border rounded-md px-2.5 py-1.5 bg-secondary">
           <input type="checkbox" checked={selectedCriteria.has(criterion.id)} onChange={() => toggleCriterion(criterion.id)} />
-          {criterion.label}
+          {t(`distinctivePersons.criteria.${criterion.id}`)}
         </label>
       ))}
     </div>
@@ -127,8 +129,8 @@ export default function DistinctivePersons() {
   return (
     <div className="flex flex-col h-full">
       <ListPageHeader
-        title="Distinctive Persons"
-        subtitle={hasMarker ? 'Using imported distinctive markers plus optional rule filters.' : 'No distinctive marker field was detected; use manual criteria to define the list.'}
+        title={t('distinctivePersons.title')}
+        subtitle={hasMarker ? t('distinctivePersons.subtitleWithMarker') : t('distinctivePersons.subtitleNoMarker')}
         count={scoped.rows.length}
         total={rows.length}
       />
@@ -138,10 +140,10 @@ export default function DistinctivePersons() {
         columns={columns}
         initialSortKey="signals"
         initialSortDirection="desc"
-        searchPlaceholder="Search distinctive persons..."
+        searchPlaceholder={t('distinctivePersons.searchPlaceholder')}
         toolbar={filters}
-        emptyTitle="No distinctive persons"
-        emptyHint="No person matches the current criteria. Adjust the rule checkboxes or match mode."
+        emptyTitle={t('distinctivePersons.emptyTitle')}
+        emptyHint={t('distinctivePersons.emptyHint')}
       />
     </div>
   );

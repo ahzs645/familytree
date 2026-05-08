@@ -8,6 +8,7 @@ import { FieldRow, editorInput, editorTextarea } from '../components/editors/Fie
 import { ToDoWizardSheet } from '../components/ToDoWizardSheet.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { listCustomTypes, saveCustomType, mergeWithBuiltins } from '../lib/customTypes.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const TARGET_TYPES = ['Person', 'Family', 'Source', 'Place', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
 const TODO_TYPE_BUILTINS = [
@@ -25,8 +26,8 @@ function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function todoTitle(record) {
-  return record?.fields?.title?.value || record?.fields?.name?.value || record?.recordName || 'ToDo';
+function todoTitle(record, fallback = 'ToDo') {
+  return record?.fields?.title?.value || record?.fields?.name?.value || record?.recordName || fallback;
 }
 
 function targetLabel(record) {
@@ -39,6 +40,7 @@ function targetLabel(record) {
 
 export default function ToDos() {
   const modal = useModal();
+  const { t } = useTranslation();
   const [todos, setTodos] = useState([]);
   const [relations, setRelations] = useState([]);
   const [targetsByType, setTargetsByType] = useState({});
@@ -101,7 +103,7 @@ export default function ToDos() {
       recordName: uuid('todo'),
       recordType: 'ToDo',
       fields: {
-        title: { value: 'New ToDo', type: 'STRING' },
+        title: { value: t('todosPage.newTitle'), type: 'STRING' },
         type: { value: 'Research', type: 'STRING' },
         status: { value: 'Open', type: 'STRING' },
         priority: { value: 'Normal', type: 'STRING' },
@@ -116,13 +118,13 @@ export default function ToDos() {
   const onDeleteCompleted = async () => {
     const completed = todos.filter((todo) => COMPLETED_STATUSES.has(String(todo.fields?.status?.value || '').toLowerCase()));
     if (completed.length === 0) {
-      setStatus('No completed ToDos to delete.');
+      setStatus(t('todosPage.noCompleted'));
       setTimeout(() => setStatus(null), 1800);
       return;
     }
-    if (!(await modal.confirm(`Delete ${completed.length} completed ToDo${completed.length === 1 ? '' : 's'}?`, {
-      title: 'Delete completed ToDos',
-      okLabel: 'Delete completed',
+    if (!(await modal.confirm(t('todosPage.deleteCompletedConfirm', { count: completed.length }), {
+      title: t('todosPage.deleteCompletedTitle'),
+      okLabel: t('todosPage.deleteCompletedOk'),
       destructive: true,
     }))) return;
     const completedIds = new Set(completed.map((todo) => todo.recordName));
@@ -132,7 +134,7 @@ export default function ToDos() {
       deleteRecordNames: [...completedIds, ...completedRelations.map((relation) => relation.recordName)],
     });
     for (const todo of completed) await logRecordDeleted(todo.recordName, 'ToDo');
-    setStatus(`Deleted ${completed.length} completed ToDo${completed.length === 1 ? '' : 's'}.`);
+    setStatus(t('todosPage.deletedCompleted', { count: completed.length }));
     if (completedIds.has(activeId)) setActiveId(null);
     await reload();
     setTimeout(() => setStatus(null), 1800);
@@ -140,7 +142,7 @@ export default function ToDos() {
 
   const onDelete = async () => {
     if (!active) return;
-    if (!(await modal.confirm('Delete this ToDo?', { title: 'Delete ToDo', okLabel: 'Delete', destructive: true }))) return;
+    if (!(await modal.confirm(t('todosPage.deleteConfirm'), { title: t('todosPage.deleteTitle'), okLabel: t('todosPage.deleteOk'), destructive: true }))) return;
     const db = getLocalDatabase();
     const deleteNames = [active.recordName, ...activeRelations.map((r) => r.recordName)];
     await db.applyRecordTransaction({ deleteRecordNames: deleteNames });
@@ -168,12 +170,12 @@ export default function ToDos() {
     await saveWithChangeLog(next);
     await reload();
     setSaving(false);
-    setStatus('Saved');
+    setStatus(t('todosPage.saved'));
     setTimeout(() => setStatus(null), 1500);
   };
 
   const addCustomTodoType = async () => {
-    const label = await modal.prompt('ToDo type label:', '', { title: 'Add ToDo type', placeholder: 'Archive lookup' });
+    const label = await modal.prompt(t('todosPage.addTypePrompt'), '', { title: t('todosPage.addTypeTitle'), placeholder: t('todosPage.addTypePlaceholder') });
     const trimmed = label?.trim();
     if (!trimmed) return;
     const saved = await saveCustomType('todo', { label: trimmed });
@@ -207,62 +209,66 @@ export default function ToDos() {
     await reload();
   };
 
+  const todoTypeLabel = (type) => t(`todosPage.todoType.${type.id || type.label}`, { defaultValue: type.label });
+  const statusLabel = (key) => t(`todosPage.status.${key}`, { defaultValue: key });
+  const priorityLabel = (key) => t(`todosPage.priority.${key}`, { defaultValue: key });
+
   const renderRow = (record) => (
     <div>
-      <div className="text-sm text-foreground truncate">{todoTitle(record)}</div>
-      <div className="text-xs text-muted-foreground">{record.fields?.status?.value || 'Open'} · {record.fields?.priority?.value || 'Normal'}</div>
+      <div className="text-sm text-foreground truncate">{todoTitle(record, t('todosPage.fallbackTitle'))}</div>
+      <div className="text-xs text-muted-foreground">{statusLabel(record.fields?.status?.value || 'Open')} · {priorityLabel(record.fields?.priority?.value || 'Normal')}</div>
     </div>
   );
 
   const detail = active ? (
     <div className="p-5 max-w-3xl">
       <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-base font-semibold">{todoTitle(active)}</h2>
+        <h2 className="text-base font-semibold">{todoTitle(active, t('todosPage.fallbackTitle'))}</h2>
         {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
-        <button onClick={onDelete} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">Delete</button>
+        <button onClick={onDelete} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">{t('todosPage.delete')}</button>
         <button onClick={onSave} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? t('todosPage.saving') : t('todosPage.save')}
         </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FieldRow label="Title"><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>
-        <FieldRow label="Due date"><input value={values.dueDate || ''} onChange={(e) => setValues({ ...values, dueDate: e.target.value })} style={editorInput} /></FieldRow>
-        <FieldRow label="Type">
+        <FieldRow label={t('todosPage.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>
+        <FieldRow label={t('todosPage.field.dueDate')}><input value={values.dueDate || ''} onChange={(e) => setValues({ ...values, dueDate: e.target.value })} style={editorInput} /></FieldRow>
+        <FieldRow label={t('todosPage.field.type')}>
           <div className="flex gap-2">
             <select value={values.type || 'Research'} onChange={(e) => setValues({ ...values, type: e.target.value })} style={editorInput}>
-              {todoTypes.map((type) => <option key={type.id || type.label} value={type.label}>{type.label}</option>)}
+              {todoTypes.map((type) => <option key={type.id || type.label} value={type.label}>{todoTypeLabel(type)}</option>)}
             </select>
-            <button type="button" onClick={addCustomTodoType} className="bg-secondary border border-border rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap">Add type</button>
+            <button type="button" onClick={addCustomTodoType} className="bg-secondary border border-border rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap">{t('todosPage.addType')}</button>
           </div>
         </FieldRow>
-        <FieldRow label="Status">
+        <FieldRow label={t('todosPage.field.status')}>
           <select value={values.status || 'Open'} onChange={(e) => setValues({ ...values, status: e.target.value })} style={editorInput}>
-            {TODO_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+            {TODO_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
         </FieldRow>
-        <FieldRow label="Priority">
+        <FieldRow label={t('todosPage.field.priority')}>
           <select value={values.priority || 'Normal'} onChange={(e) => setValues({ ...values, priority: e.target.value })} style={editorInput}>
-            {TODO_PRIORITY_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+            {TODO_PRIORITY_OPTIONS.map((s) => <option key={s} value={s}>{priorityLabel(s)}</option>)}
           </select>
         </FieldRow>
       </div>
-      <FieldRow label="Description">
+      <FieldRow label={t('todosPage.field.description')}>
         <textarea value={values.description || ''} rows={6} onChange={(e) => setValues({ ...values, description: e.target.value })} style={editorTextarea} />
       </FieldRow>
 
       <section className="mt-6 border border-border rounded-md p-3 bg-card">
-        <h3 className="text-sm font-semibold mb-3">Related Entries</h3>
+        <h3 className="text-sm font-semibold mb-3">{t('todosPage.relatedEntries')}</h3>
         <div className="space-y-2 mb-3">
-          {activeRelations.length === 0 ? <div className="text-sm text-muted-foreground">No related entries.</div> : activeRelations.map((rel) => {
+          {activeRelations.length === 0 ? <div className="text-sm text-muted-foreground">{t('todosPage.noRelatedEntries')}</div> : activeRelations.map((rel) => {
             const type = rel.fields?.targetType?.value || '';
             const id = readRef(rel.fields?.target);
             const target = (targetsByType[type] || []).find((r) => r.recordName === id);
             return (
               <div key={rel.recordName} className="flex items-center gap-2 bg-secondary/40 rounded-md p-2">
-                <span className="text-xs text-muted-foreground w-24">{type || 'Record'}</span>
+                <span className="text-xs text-muted-foreground w-24">{type || t('todosPage.recordType')}</span>
                 <span className="text-sm flex-1 truncate">{targetLabel(target) || id}</span>
-                <button onClick={() => removeRelation(rel)} className="text-xs text-destructive">Remove</button>
+                <button onClick={() => removeRelation(rel)} className="text-xs text-destructive">{t('todosPage.removeRelation')}</button>
               </div>
             );
           })}
@@ -272,28 +278,28 @@ export default function ToDos() {
             {TARGET_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
           <select value={targetId} onChange={(e) => setTargetId(e.target.value)} className="bg-background border border-border rounded-md px-2 py-1.5 text-sm">
-            <option value="">Select target...</option>
+            <option value="">{t('todosPage.selectTarget')}</option>
             {(targetsByType[targetType] || []).map((target) => <option key={target.recordName} value={target.recordName}>{targetLabel(target)}</option>)}
           </select>
-          <button onClick={addRelation} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">Add</button>
+          <button onClick={addRelation} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">{t('todosPage.addRelation')}</button>
         </div>
       </section>
     </div>
-  ) : <div className="p-10 text-muted-foreground">No ToDo selected.</div>;
+  ) : <div className="p-10 text-muted-foreground">{t('todosPage.noTodoSelected')}</div>;
 
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h1 className="text-base font-semibold">ToDos</h1>
+        <h1 className="text-base font-semibold">{t('todosPage.title')}</h1>
         <span className="text-xs text-muted-foreground">{todos.length}</span>
         {status && <span className="text-xs text-muted-foreground">{status}</span>}
         <button onClick={onDeleteCompleted} className="ms-auto border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
-          Delete completed
+          {t('todosPage.deleteCompleted')}
         </button>
         <button onClick={() => setWizardOpen(true)} className="border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
-          ToDo Wizard…
+          {t('todosPage.wizardButton')}
         </button>
-        <button onClick={onCreate} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        <button onClick={onCreate} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">{t('todosPage.newButton')}</button>
       </header>
       <ToDoWizardSheet
         open={wizardOpen}
@@ -301,7 +307,7 @@ export default function ToDos() {
         onCreated={() => reload()}
       />
       <div className="flex-1 min-h-0">
-        <MasterDetailList items={todos} activeId={activeId} onPick={setActiveId} renderRow={renderRow} placeholder="Search todos..." detail={detail} />
+        <MasterDetailList items={todos} activeId={activeId} onPick={setActiveId} renderRow={renderRow} placeholder={t('todosPage.searchPlaceholder')} detail={detail} />
       </div>
     </div>
   );

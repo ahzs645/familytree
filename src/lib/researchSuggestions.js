@@ -28,16 +28,21 @@ export async function generateResearchSuggestions() {
     const sum = personSummary(p);
     if (!sum) continue;
     const f = p.fields || {};
+    // Each suggestion is a stable key (used as identity in dismissal state) +
+    // an `i18nKey` that consumers can pass to t() for display. Old code paths
+    // that read `suggestions` as strings still work because we attach
+    // toString() returning the key, but new render code should use t(i18nKey).
     const suggestions = [];
-    if (!f.cached_birthDate?.value) suggestions.push('Find a birth record');
+    const push = (key) => suggestions.push({ key, i18nKey: `researchSuggestions.${key}` });
+    if (!f.cached_birthDate?.value) push('findBirthRecord');
     if (!f.cached_deathDate?.value && f.cached_birthDate?.value) {
       const y = parseInt(String(f.cached_birthDate.value).match(/(\d{4})/)?.[1] || '0', 10);
-      if (y && new Date().getFullYear() - y > 110) suggestions.push('Probable death — find death record');
+      if (y && new Date().getFullYear() - y > 110) push('findDeathRecord');
     }
-    if (!hasParents.has(p.recordName)) suggestions.push('Identify parents');
-    if (!childrenByParent.has(p.recordName)) suggestions.push('Identify spouses / children');
-    if (!f.thumbnailFileIdentifier?.value) suggestions.push('Add a portrait photo');
-    if (!f.cached_fullName?.value) suggestions.push('Confirm full name');
+    if (!hasParents.has(p.recordName)) push('identifyParents');
+    if (!childrenByParent.has(p.recordName)) push('identifySpousesChildren');
+    if (!f.thumbnailFileIdentifier?.value) push('addPortraitPhoto');
+    if (!f.cached_fullName?.value) push('confirmFullName');
 
     if (suggestions.length > 0) {
       out.push({

@@ -5,6 +5,7 @@ import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const TARGET_TYPES = ['Person', 'Family', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
 
@@ -12,8 +13,8 @@ function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function storyTitle(record) {
-  return record?.fields?.title?.value || record?.fields?.name?.value || record?.recordName || 'Story';
+function storyTitle(record, fallback = 'Story') {
+  return record?.fields?.title?.value || record?.fields?.name?.value || record?.recordName || fallback;
 }
 
 function targetLabel(record) {
@@ -23,6 +24,7 @@ function targetLabel(record) {
 }
 
 export default function Stories() {
+  const { t } = useTranslation();
   const [stories, setStories] = useState([]);
   const [sections, setSections] = useState([]);
   const [relations, setRelations] = useState([]);
@@ -72,7 +74,7 @@ export default function Stories() {
 
   const create = async () => {
     const db = getLocalDatabase();
-    const rec = { recordName: uuid('story'), recordType: 'Story', fields: { title: { value: 'New Story', type: 'STRING' } } };
+    const rec = { recordName: uuid('story'), recordType: 'Story', fields: { title: { value: t('stories.newTitle'), type: 'STRING' } } };
     await db.saveRecord(rec);
     await logRecordCreated(rec);
     await reload();
@@ -101,7 +103,7 @@ export default function Stories() {
       recordType: 'StorySection',
       fields: {
         story: writeRef(activeId, 'Story'),
-        title: { value: 'New Section', type: 'STRING' },
+        title: { value: t('stories.newSection'), type: 'STRING' },
         text: { value: '', type: 'STRING' },
         order: { value: storySections.length, type: 'NUMBER' },
       },
@@ -153,38 +155,38 @@ export default function Stories() {
   const detail = active ? (
     <div className="p-5 max-w-4xl">
       <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-base font-semibold">{storyTitle(active)}</h2>
-        <button onClick={save} disabled={saving} className="ms-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold">{saving ? 'Saving...' : 'Save'}</button>
+        <h2 className="text-base font-semibold">{storyTitle(active, t('stories.fallbackTitle'))}</h2>
+        <button onClick={save} disabled={saving} className="ms-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold">{saving ? t('stories.saving') : t('stories.save')}</button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FieldRow label="Title"><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>
-        <FieldRow label="Subtitle"><input value={values.subtitle || ''} onChange={(e) => setValues({ ...values, subtitle: e.target.value })} style={editorInput} /></FieldRow>
-        <FieldRow label="Author"><input value={values.author || ''} onChange={(e) => setValues({ ...values, author: e.target.value })} style={editorInput} /></FieldRow>
-        <FieldRow label="Date"><input value={values.date || ''} onChange={(e) => setValues({ ...values, date: e.target.value })} style={editorInput} /></FieldRow>
+        <FieldRow label={t('stories.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>
+        <FieldRow label={t('stories.field.subtitle')}><input value={values.subtitle || ''} onChange={(e) => setValues({ ...values, subtitle: e.target.value })} style={editorInput} /></FieldRow>
+        <FieldRow label={t('stories.field.author')}><input value={values.author || ''} onChange={(e) => setValues({ ...values, author: e.target.value })} style={editorInput} /></FieldRow>
+        <FieldRow label={t('stories.field.date')}><input value={values.date || ''} onChange={(e) => setValues({ ...values, date: e.target.value })} style={editorInput} /></FieldRow>
       </div>
-      <FieldRow label="Story text"><textarea rows={10} value={values.text || ''} onChange={(e) => setValues({ ...values, text: e.target.value })} style={editorTextarea} /></FieldRow>
+      <FieldRow label={t('stories.field.text')}><textarea rows={10} value={values.text || ''} onChange={(e) => setValues({ ...values, text: e.target.value })} style={editorTextarea} /></FieldRow>
 
       <section className="mt-6 border border-border rounded-md p-3 bg-card">
         <div className="flex items-center mb-3">
-          <h3 className="text-sm font-semibold">Sections · {storySections.length}</h3>
-          <button onClick={addSection} className="ms-auto bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">Add section</button>
+          <h3 className="text-sm font-semibold">{t('stories.sections')} · {storySections.length}</h3>
+          <button onClick={addSection} className="ms-auto bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">{t('stories.addSection')}</button>
         </div>
         <div className="space-y-3">
           {storySections.map((section) => (
             <div key={section.recordName} className="bg-secondary/30 rounded-md p-3">
               <div className="flex gap-2 mb-2">
                 <input value={section.fields?.title?.value || ''} onChange={(e) => updateSection(section, { title: e.target.value })} className="flex-1 bg-background border border-border rounded-md px-2 py-1.5 text-sm" />
-                <button onClick={() => deleteSection(section)} className="text-xs text-destructive">Delete</button>
+                <button onClick={() => deleteSection(section)} className="text-xs text-destructive">{t('stories.deleteSection')}</button>
               </div>
               <textarea rows={4} value={section.fields?.text?.value || ''} onChange={(e) => updateSection(section, { text: e.target.value })} className="w-full bg-background border border-border rounded-md px-2 py-1.5 text-sm" />
             </div>
           ))}
-          {storySections.length === 0 && <div className="text-sm text-muted-foreground">No sections.</div>}
+          {storySections.length === 0 && <div className="text-sm text-muted-foreground">{t('stories.noSections')}</div>}
         </div>
       </section>
 
       <section className="mt-6 border border-border rounded-md p-3 bg-card">
-        <h3 className="text-sm font-semibold mb-3">Related Entries · {storyRelations.length}</h3>
+        <h3 className="text-sm font-semibold mb-3">{t('stories.relatedEntries')} · {storyRelations.length}</h3>
         <div className="space-y-2 mb-3">
           {storyRelations.map((rel) => {
             const type = rel.fields?.targetType?.value || '';
@@ -192,37 +194,37 @@ export default function Stories() {
             const target = (targetsByType[type] || []).find((r) => r.recordName === id);
             return (
               <div key={rel.recordName} className="flex items-center gap-2 bg-secondary/40 rounded-md p-2">
-                <span className="text-xs text-muted-foreground w-24">{type || 'Record'}</span>
+                <span className="text-xs text-muted-foreground w-24">{type || t('stories.recordType')}</span>
                 <span className="text-sm flex-1 truncate">{targetLabel(target) || id}</span>
-                <button onClick={() => removeRelation(rel)} className="text-xs text-destructive">Remove</button>
+                <button onClick={() => removeRelation(rel)} className="text-xs text-destructive">{t('stories.removeRelation')}</button>
               </div>
             );
           })}
-          {storyRelations.length === 0 && <div className="text-sm text-muted-foreground">No related entries.</div>}
+          {storyRelations.length === 0 && <div className="text-sm text-muted-foreground">{t('stories.noRelatedEntries')}</div>}
         </div>
         <div className="grid grid-cols-[140px_1fr_auto] gap-2">
           <select value={targetType} onChange={(e) => { setTargetType(e.target.value); setTargetId(''); }} className="bg-background border border-border rounded-md px-2 py-1.5 text-sm">
             {TARGET_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
           <select value={targetId} onChange={(e) => setTargetId(e.target.value)} className="bg-background border border-border rounded-md px-2 py-1.5 text-sm">
-            <option value="">Select target...</option>
+            <option value="">{t('stories.selectTarget')}</option>
             {(targetsByType[targetType] || []).map((target) => <option key={target.recordName} value={target.recordName}>{targetLabel(target)}</option>)}
           </select>
-          <button onClick={addRelation} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">Add</button>
+          <button onClick={addRelation} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">{t('stories.addRelation')}</button>
         </div>
       </section>
     </div>
-  ) : <div className="p-10 text-muted-foreground">No story selected.</div>;
+  ) : <div className="p-10 text-muted-foreground">{t('stories.noStorySelected')}</div>;
 
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h1 className="text-base font-semibold">Stories</h1>
+        <h1 className="text-base font-semibold">{t('stories.title')}</h1>
         <span className="text-xs text-muted-foreground">{stories.length}</span>
-        <button onClick={create} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        <button onClick={create} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">{t('stories.newButton')}</button>
       </header>
       <div className="flex-1 min-h-0">
-        <MasterDetailList items={stories} activeId={activeId} onPick={setActiveId} renderRow={(s) => <div className="text-sm">{storyTitle(s)}</div>} placeholder="Search stories..." detail={detail} />
+        <MasterDetailList items={stories} activeId={activeId} onPick={setActiveId} renderRow={(s) => <div className="text-sm">{storyTitle(s, t('stories.fallbackTitle'))}</div>} placeholder={t('stories.searchPlaceholder')} detail={detail} />
       </div>
     </div>
   );

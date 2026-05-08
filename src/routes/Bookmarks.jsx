@@ -7,12 +7,13 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { personSummary, familySummary, placeSummary, sourceSummary } from '../models/index.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
-const TYPES = [
-  { id: 'Person', label: 'People', route: 'person', summarize: personSummary },
-  { id: 'Family', label: 'Families', route: 'family', summarize: familySummary },
-  { id: 'Place', label: 'Places', route: 'places', summarize: placeSummary },
-  { id: 'Source', label: 'Sources', route: 'sources', summarize: sourceSummary },
+const TYPE_DEFS = [
+  { id: 'Person', labelKey: 'bookmarks.people', route: 'person', summarize: personSummary },
+  { id: 'Family', labelKey: 'bookmarks.families', route: 'family', summarize: familySummary },
+  { id: 'Place', labelKey: 'bookmarks.places', route: 'places', summarize: placeSummary },
+  { id: 'Source', labelKey: 'bookmarks.sources', route: 'sources', summarize: sourceSummary },
 ];
 
 const ORDER_KEY = 'bookmarks.order';
@@ -40,6 +41,7 @@ function applyOrder(records, savedOrder) {
 }
 
 export default function Bookmarks() {
+  const { t } = useTranslation();
   const [groups, setGroups] = useState(null);
   const [order, setOrder] = useState(() => loadOrder());
   const [editMode, setEditMode] = useState(false);
@@ -50,7 +52,7 @@ export default function Bookmarks() {
     (async () => {
       const db = getLocalDatabase();
       const result = {};
-      for (const t of TYPES) {
+      for (const t of TYPE_DEFS) {
         const { records } = await db.query(t.id, { limit: 100000 });
         result[t.id] = records.filter((r) => r.fields?.isBookmarked?.value);
       }
@@ -72,7 +74,7 @@ export default function Bookmarks() {
     saveOrder(nextOrder);
   };
 
-  if (!groups) return <div className="p-10 text-muted-foreground">Loading…</div>;
+  if (!groups) return <div className="p-10 text-muted-foreground">{t('bookmarks.loading')}</div>;
   const total = Object.values(groups).reduce((n, list) => n + list.length, 0);
 
   return (
@@ -80,11 +82,9 @@ export default function Bookmarks() {
       <div className="max-w-4xl mx-auto p-5">
         <header className="mb-5 flex items-center gap-3">
           <div className="flex-1">
-            <h1 className="text-xl font-bold">Bookmarks</h1>
+            <h1 className="text-xl font-bold">{t('bookmarks.title')}</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {total === 0
-                ? 'No bookmarked records yet. Toggle the Bookmark switch in any record editor.'
-                : `${total} bookmarked record${total === 1 ? '' : 's'}`}
+              {total === 0 ? t('bookmarks.empty') : t('bookmarks.count', { count: total })}
             </p>
           </div>
           {total > 0 ? (
@@ -93,28 +93,28 @@ export default function Bookmarks() {
               onClick={() => setEditMode((v) => !v)}
               className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent"
             >
-              {editMode ? 'Done' : 'Reorder'}
+              {editMode ? t('bookmarks.done') : t('bookmarks.reorder')}
             </button>
           ) : null}
         </header>
 
-        {TYPES.map((t) => {
-          const items = applyOrder(groups[t.id] || [], order[t.id]);
+        {TYPE_DEFS.map((typ) => {
+          const items = applyOrder(groups[typ.id] || [], order[typ.id]);
           if (items.length === 0) return null;
           return (
-            <section key={t.id} className="mb-6">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t.label} · {items.length}</h2>
+            <section key={typ.id} className="mb-6">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">{t(typ.labelKey)} · {items.length}</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {items.map((r, index) => {
-                  const s = t.summarize(r) || {};
+                  const s = typ.summarize(r) || {};
                   const label = s.fullName || s.familyName || s.displayName || s.name || s.title || r.recordName;
-                  const href = t.route === 'person' || t.route === 'family' ? `/${t.route}/${r.recordName}` : `/${t.route}`;
+                  const href = typ.route === 'person' || typ.route === 'family' ? `/${typ.route}/${r.recordName}` : `/${typ.route}`;
                   return (
                     <div key={r.recordName} className="flex items-center gap-2 p-3 rounded-md border border-border bg-card hover:bg-secondary/40 transition-colors">
                       {editMode ? (
                         <div className="flex flex-col gap-1">
-                          <button type="button" onClick={() => move(t.id, r.recordName, -1)} disabled={index === 0} className="text-xs border border-border rounded px-1 disabled:opacity-40" aria-label="Move up">↑</button>
-                          <button type="button" onClick={() => move(t.id, r.recordName, 1)} disabled={index === items.length - 1} className="text-xs border border-border rounded px-1 disabled:opacity-40" aria-label="Move down">↓</button>
+                          <button type="button" onClick={() => move(typ.id, r.recordName, -1)} disabled={index === 0} className="text-xs border border-border rounded px-1 disabled:opacity-40" aria-label={t('bookmarks.moveUp')}>↑</button>
+                          <button type="button" onClick={() => move(typ.id, r.recordName, 1)} disabled={index === items.length - 1} className="text-xs border border-border rounded px-1 disabled:opacity-40" aria-label={t('bookmarks.moveDown')}>↓</button>
                         </div>
                       ) : null}
                       <button onClick={() => !editMode && navigate(href)}

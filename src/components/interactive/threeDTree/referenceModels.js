@@ -96,3 +96,32 @@ function smoothReferenceGeometry(geometry) {
   source.computeVertexNormals?.();
   return source;
 }
+
+function cloneAndRetintMaterial(material, colors, options = {}) {
+  if (Array.isArray(material)) return material.map((item) => cloneAndRetintMaterial(item, colors, options));
+  const clone = material.clone();
+  const name = String(clone.name || '').toLowerCase();
+  clone.flatShading = false;
+  clone.side = THREE.DoubleSide;
+  if (options.preserveReferenceMaterial) {
+    clone.roughness = 0.38;
+    clone.metalness = 0.02;
+    clone.needsUpdate = true;
+    return clone;
+  }
+  if (name.includes('skin')) {
+    clone.color = new THREE.Color(SKIN);
+    clone.emissive = new THREE.Color('#ffe0b6');
+    clone.emissiveIntensity = 0.08;
+    clone.roughness = 0.42;
+    clone.metalness = 0;
+  } else {
+    clone.color = new THREE.Color(colors.base);
+    clone.emissive = new THREE.Color(colors.base);
+    clone.emissiveIntensity = 0.06;
+    clone.roughness = 0.36;
+    clone.metalness = 0.02;
+  }
+  clone.needsUpdate = true;
+  return clone;
+}

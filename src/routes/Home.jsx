@@ -45,6 +45,8 @@ export function Home() {
   }, [sortBy]);
 
   useEffect(() => { reload(); }, [reload]);
+  // Re-fetch anniversaries when the locale changes — month/day/year strings are
+  // formatted at fetch time, so a stale fetch keeps the previous locale's text.
   useEffect(() => {
     if (!hasData) {
       setUpcomingAnniversaries([]);
@@ -56,7 +58,7 @@ export function Home() {
       if (!cancelled) setUpcomingAnniversaries(nextAnniversaries(rows, 30).slice(0, 4));
     })();
     return () => { cancelled = true; };
-  }, [hasData, summary?.total]);
+  }, [hasData, summary?.total, localization?.locale]);
   useEffect(() => {
     try { localStorage.setItem('treeLibrary.homeSortBy', sortBy); } catch {}
   }, [sortBy]);
