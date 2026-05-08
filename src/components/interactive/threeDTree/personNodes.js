@@ -12,11 +12,11 @@ export function makePersonNode(node, palette, personStyle, hovered = false) {
   group.userData.node = node;
 
   const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(64, 64),
-    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.13, depthWrite: false })
+    new THREE.CircleGeometry(70, 64),
+    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.1, depthWrite: false })
   );
-  shadow.scale.set(1.42, 0.42, 1);
-  shadow.position.set(10, -7, -18);
+  shadow.scale.set(1.5, 0.38, 1);
+  shadow.position.set(13, -10, -18);
   shadow.renderOrder = 2;
   group.add(shadow);
 
@@ -28,8 +28,8 @@ export function makePersonNode(node, palette, personStyle, hovered = false) {
   if (hasStatusBadges(node)) group.add(makeStatusBadges(node, false));
   if (hovered) group.add(makeSelectionMark(false, palette, 'hover'));
 
-  const label = makePlaneFromTexture(makePersonLabelTexture(node.person, palette), 174, 70);
-  label.position.set(0, -62, 16);
+  const label = makePlaneFromTexture(makePersonLabelTexture(node.person, palette), 184, 72);
+  label.position.set(0, -66, 16);
   group.add(label);
 
   return group;
@@ -43,10 +43,10 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false) {
 
   const shadow = new THREE.Mesh(
     new THREE.CircleGeometry(ROOT_CARD.w * 0.47, 72),
-    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.14, depthWrite: false })
+    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.12, depthWrite: false })
   );
-  shadow.scale.set(1.1, 1.02, 1);
-  shadow.position.set(12, -18, -18);
+  shadow.scale.set(1.16, 0.98, 1);
+  shadow.position.set(15, -22, -18);
   shadow.renderOrder = 2;
   group.add(shadow);
 
@@ -59,7 +59,7 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false) {
   if (hovered) group.add(makeSelectionMark(true, palette, 'hover'));
 
   const model = makeMacPersonModel(node, palette, true, personStyle);
-  model.position.set(0, 58, 26);
+  model.position.set(0, 60, 28);
   group.add(model);
 
   if (hasMoreRelatives(node)) group.add(makeFurtherRelativesMarker(node, palette, true));
@@ -312,15 +312,15 @@ function makePersonLabelTexture(person, palette) {
     const rtl = isRtlText(name);
     ctx.direction = rtl ? 'rtl' : 'ltr';
     ctx.fillStyle = palette.text;
-    ctx.font = `${rtl ? 800 : 750} ${rtl ? 34 : 32}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
-    for (const [line, y] of wrapMeasuredText(ctx, name, 360, 2).map((line, index) => [line, 47 + index * 34])) {
+    ctx.font = `${rtl ? 800 : 750} ${rtl ? 31 : 29}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+    for (const [line, y] of wrapMeasuredText(ctx, name, 372, 2).map((line, index) => [line, 47 + index * 32])) {
       ctx.fillText(line, w / 2, y);
     }
     const life = lifeSpanLabel(person);
     if (life) {
       ctx.direction = 'ltr';
       ctx.fillStyle = palette.muted;
-      ctx.font = '650 24px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.font = '650 23px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
       ctx.fillText(life, w / 2, 132);
     }
   });
@@ -333,12 +333,12 @@ function makeFeaturedTexture(person, palette) {
     const radius = w * 0.38;
 
     ctx.clearRect(0, 0, w, h);
-    ctx.shadowColor = 'rgba(41,74,106,0.2)';
-    ctx.shadowBlur = 32;
-    ctx.shadowOffsetY = 14;
+    ctx.shadowColor = 'rgba(41,74,106,0.18)';
+    ctx.shadowBlur = 38;
+    ctx.shadowOffsetY = 16;
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(233, 249, 255, 0.97)';
+    ctx.fillStyle = 'rgba(226, 247, 255, 0.96)';
     ctx.fill();
 
     ctx.shadowColor = 'transparent';

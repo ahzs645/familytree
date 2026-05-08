@@ -24,43 +24,49 @@ export function makeGenerationBand(band, palette, style = 'raised') {
 
 function makeBandTexture(band, palette, style = 'raised') {
   const fill = band.generation === 0
-    ? 'rgba(248, 191, 218, 0.68)'
+    ? 'rgba(246, 177, 230, 0.62)'
     : band.generation < 0
       ? ancestorBandColor(Math.abs(band.generation))
       : descendantBandColor(band.generation);
   return makeCanvasTexture(1280, 320, (ctx, w, h) => {
     const insetX = 26;
-    const insetY = style === 'flat' ? 48 : 36;
-    const height = style === 'pedestal' ? h - 96 : h - 74;
+    const insetY = style === 'flat' ? 50 : 34;
+    const height = style === 'pedestal' ? h - 94 : h - 70;
     const radius = style === 'flat' ? 24 : 42;
-    ctx.shadowColor = style === 'flat' ? 'transparent' : 'rgba(78, 61, 72, 0.18)';
-    ctx.shadowBlur = style === 'pedestal' ? 42 : 34;
-    ctx.shadowOffsetY = style === 'pedestal' ? 18 : 14;
+    ctx.shadowColor = style === 'flat' ? 'transparent' : 'rgba(76, 60, 78, 0.22)';
+    ctx.shadowBlur = style === 'pedestal' ? 48 : 38;
+    ctx.shadowOffsetY = style === 'pedestal' ? 20 : 15;
     roundedRect(ctx, insetX, insetY, w - insetX * 2, height, radius);
     const body = ctx.createLinearGradient(0, insetY, 0, insetY + height);
-    body.addColorStop(0, tint(fill, 0.18));
-    body.addColorStop(0.48, fill);
-    body.addColorStop(1, shade(fill, 0.08));
+    body.addColorStop(0, tint(fill, 0.32));
+    body.addColorStop(0.2, tint(fill, 0.1));
+    body.addColorStop(0.58, fill);
+    body.addColorStop(1, shade(fill, 0.1));
     ctx.fillStyle = body;
     ctx.fill();
     ctx.shadowColor = 'transparent';
 
-    roundedRect(ctx, insetX + 10, insetY + 8, w - (insetX + 10) * 2, Math.max(18, height * 0.32), radius - 10);
+    roundedRect(ctx, insetX + 7, insetY + 7, w - (insetX + 7) * 2, Math.max(22, height * 0.36), radius - 8);
     const shine = ctx.createLinearGradient(0, insetY, 0, insetY + height * 0.45);
-    shine.addColorStop(0, 'rgba(255,255,255,0.48)');
-    shine.addColorStop(1, 'rgba(255,255,255,0.06)');
+    shine.addColorStop(0, 'rgba(255,255,255,0.62)');
+    shine.addColorStop(0.7, 'rgba(255,255,255,0.12)');
+    shine.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = shine;
     ctx.fill();
 
-    roundedRect(ctx, insetX + 14, insetY + height - 26, w - (insetX + 14) * 2, 18, 12);
-    ctx.fillStyle = 'rgba(80, 54, 80, 0.055)';
+    roundedRect(ctx, insetX + 14, insetY + height - 24, w - (insetX + 14) * 2, 16, 12);
+    ctx.fillStyle = 'rgba(96, 55, 100, 0.06)';
     ctx.fill();
 
-    ctx.lineWidth = 2.4;
-    ctx.strokeStyle = band.generation === 0 ? 'rgba(186, 64, 145, 0.3)' : 'rgba(126, 117, 79, 0.24)';
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = band.generation === 0 ? 'rgba(192, 57, 158, 0.34)' : 'rgba(126, 117, 79, 0.26)';
     roundedRect(ctx, insetX, insetY, w - insetX * 2, height, radius);
     ctx.stroke();
 
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.56)';
+    roundedRect(ctx, insetX + 3, insetY + 3, w - (insetX + 3) * 2, height - 6, radius - 4);
+    ctx.stroke();
   });
 }
 
@@ -129,20 +135,20 @@ function generationLabel(generation) {
 
 function ancestorBandColor(generation) {
   const colors = [
-    'rgba(255, 220, 191, 0.72)',
-    'rgba(255, 238, 170, 0.67)',
-    'rgba(225, 237, 168, 0.62)',
-    'rgba(189, 228, 200, 0.58)',
+    'rgba(255, 218, 190, 0.62)',
+    'rgba(255, 235, 160, 0.58)',
+    'rgba(220, 236, 160, 0.56)',
+    'rgba(183, 225, 198, 0.54)',
   ];
   return colors[(generation - 1) % colors.length];
 }
 
 function descendantBandColor(generation) {
   const colors = [
-    'rgba(242, 191, 231, 0.65)',
-    'rgba(213, 205, 255, 0.58)',
-    'rgba(194, 226, 248, 0.58)',
-    'rgba(206, 234, 215, 0.56)',
+    'rgba(242, 184, 232, 0.6)',
+    'rgba(213, 202, 255, 0.54)',
+    'rgba(190, 225, 248, 0.54)',
+    'rgba(204, 232, 214, 0.52)',
   ];
   return colors[(generation - 1) % colors.length];
 }

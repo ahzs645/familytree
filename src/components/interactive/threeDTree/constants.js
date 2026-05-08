@@ -12,7 +12,7 @@ export const REFERENCE_MODEL_BASE = `${import.meta.env.BASE_URL}mft-models/`;
 export const VIEWER_OPTIONS_STORAGE_KEY = 'cloudtreeweb:interactive-tree-viewer-options';
 export const VIEWER_OPTIONS_VERSION = 2;
 export const CAMERA_STATE_STORAGE_KEY = 'cloudtreeweb:interactive-tree-camera-state';
-export const CAMERA_STATE_VERSION = 7;
+export const CAMERA_STATE_VERSION = 9;
 export const REFERENCE_MODEL_GROUND_ROTATION_X = Math.PI / 2;
 
 export const PERSON_STYLES = [

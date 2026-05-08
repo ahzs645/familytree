@@ -11,7 +11,7 @@ export function fitCamera(camera, controls, bounds, container, cameraMode = 'til
   const viewportHeight = Math.max(1, rect.height);
   const zoomForWidth = viewportWidth / width;
   const zoomForHeight = viewportHeight / height;
-  const fitPadding = cameraMode === 'top' ? 0.9 : 0.82;
+  const fitPadding = cameraMode === 'top' ? 0.97 : 0.82;
   const nextZoom = THREE.MathUtils.clamp(Math.min(zoomForWidth, zoomForHeight) * fitPadding, 0.1, 1.45);
 
   const position = cameraPositionForMode(cameraMode, centerX, centerY);

@@ -385,7 +385,7 @@ function buildBands(nodes, rootX = 0) {
     const maxX = Math.max(...segments.map((segment) => segment.x + segment.width / 2));
     const centerY = group.reduce((sum, node) => sum + node.y, 0) / group.length;
     const years = yearRange(group.map((node) => node.person));
-    const height = generation === 0 ? 238 : generation < 0 ? 132 : 138;
+    const height = generation === 0 ? 286 : generation < 0 ? 186 : 184;
     const title =
       generation === 0
         ? 'Root Generation'

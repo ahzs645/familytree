@@ -24,16 +24,16 @@ export function makeConnector(link, nodes, palette) {
       : orthogonalPoints(from, to, z);
   }
 
-  const tubeRadius = link.emphasis ? 3.6 : type === 'partner' ? 2.2 : 2.7;
+  const tubeRadius = link.emphasis ? 3.2 : type === 'partner' ? 2 : 2.45;
   for (let i = 1; i < points.length; i += 1) {
-    group.add(makeRibbonSegment(points[i - 1], points[i], palette.shadow, tubeRadius + 4.8, 0.1, -8, 3));
+    group.add(makeRibbonSegment(points[i - 1], points[i], palette.shadow, tubeRadius + 5.6, 0.08, -8, 3));
   }
   for (let i = 1; i < points.length; i += 1) {
     group.add(makeRibbonSegment(points[i - 1], points[i], color, tubeRadius, link.emphasis ? 0.96 : 0.9, 0, 4));
   }
   if (type === 'family' || link.emphasis) {
     for (const point of uniqueConnectorPoints(points)) {
-      group.add(makeConnectionCap(point, color, link.emphasis ? 6.8 : 5.4));
+      group.add(makeConnectionCap(point, color, link.emphasis ? 5.8 : 4.6));
     }
   }
   return group;
@@ -100,9 +100,9 @@ function makeConnectorTexture(color, opacity) {
     ctx.fill();
     if (opacity > 0.2) {
       const highlight = ctx.createLinearGradient(0, pad, 0, h - pad);
-      highlight.addColorStop(0, 'rgba(255,255,255,0.34)');
+      highlight.addColorStop(0, 'rgba(255,255,255,0.42)');
       highlight.addColorStop(0.52, 'rgba(255,255,255,0.06)');
-      highlight.addColorStop(1, 'rgba(96,0,62,0.13)');
+      highlight.addColorStop(1, 'rgba(96,0,62,0.1)');
       roundedRect(ctx, pad, pad, w - pad * 2, h - pad * 2, radius);
       ctx.fillStyle = highlight;
       ctx.fill();
@@ -131,7 +131,7 @@ function makeConnectionCap(point, color, radius) {
     roughness: 0.34,
     metalness: 0.03,
     transparent: true,
-    opacity: 0.94,
+    opacity: 0.9,
   });
   const cap = new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 12), material);
   cap.scale.set(1.2, 1.2, 0.45);
