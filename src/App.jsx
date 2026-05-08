@@ -1,8 +1,10 @@
 /**
  * Top-level React SPA. BrowserRouter + shared providers + AppShell outlet.
- * Each route is code-split with React.lazy so the landing stays small.
+ *
+ * Routes are declared as data in routes/manifest.js and unrolled here.
+ * Each leaf is React.lazy() so the landing route stays small.
  */
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { AppShell } from './components/AppShell.jsx';
 import { ActivePersonProvider } from './contexts/ActivePersonContext.jsx';
@@ -15,67 +17,7 @@ import { startBackupScheduler } from './lib/backup.js';
 import { useObjectDeepLink } from './lib/deepLinks.js';
 import { getShareTokenFromHash } from './lib/shareRoute.js';
 import { SchemaMigrationSheet } from './components/SchemaMigrationSheet.jsx';
-
-const Tree = lazy(() => import('./routes/Tree.jsx'));
-const HeritageTree = lazy(() => import('./routes/HeritageTree.jsx'));
-const Persons = lazy(() => import('./routes/Persons.jsx'));
-const Lists = lazy(() => import('./routes/Lists.jsx'));
-const Charts = lazy(() => import('./routes/Charts.jsx'));
-const Search = lazy(() => import('./routes/Search.jsx'));
-const Duplicates = lazy(() => import('./routes/Duplicates.jsx'));
-const Reports = lazy(() => import('./routes/Reports.jsx'));
-const Books = lazy(() => import('./routes/Books.jsx'));
-const Publish = lazy(() => import('./routes/Publish.jsx'));
-const Websites = lazy(() => import('./routes/Websites.jsx'));
-const ChangeLog = lazy(() => import('./routes/ChangeLog.jsx'));
-const PersonEditor = lazy(() => import('./routes/PersonEditor.jsx'));
-const FamilyEditor = lazy(() => import('./routes/FamilyEditor.jsx'));
-const Places = lazy(() => import('./routes/Places.jsx'));
-const Sources = lazy(() => import('./routes/Sources.jsx'));
-const Events = lazy(() => import('./routes/Events.jsx'));
-const Media = lazy(() => import('./routes/Media.jsx'));
-const Views = lazy(() => import('./routes/Views.jsx'));
-const MapView = lazy(() => import('./routes/MapView.jsx'));
-const Globe = lazy(() => import('./routes/Globe.jsx'));
-const MapsDiagram = lazy(() => import('./routes/MapsDiagram.jsx'));
-const SavedCharts = lazy(() => import('./routes/SavedCharts.jsx'));
-const Statistics = lazy(() => import('./routes/Statistics.jsx'));
-const Plausibility = lazy(() => import('./routes/Plausibility.jsx'));
-const PlausibilityList = lazy(() => import('./routes/PlausibilityList.jsx'));
-const MarriageList = lazy(() => import('./routes/MarriageList.jsx'));
-const FactsList = lazy(() => import('./routes/FactsList.jsx'));
-const AnniversaryList = lazy(() => import('./routes/AnniversaryList.jsx'));
-const DistinctivePersons = lazy(() => import('./routes/DistinctivePersons.jsx'));
-const PersonAnalysis = lazy(() => import('./routes/PersonAnalysis.jsx'));
-const LdsOrdinances = lazy(() => import('./routes/LdsOrdinances.jsx'));
-const Maintenance = lazy(() => import('./routes/Maintenance.jsx'));
-const SmartFilters = lazy(() => import('./routes/SmartFilters.jsx'));
-const CustomTypes = lazy(() => import('./routes/CustomTypes.jsx'));
-const Bookmarks = lazy(() => import('./routes/Bookmarks.jsx'));
-const ToDos = lazy(() => import('./routes/ToDos.jsx'));
-const Stories = lazy(() => import('./routes/Stories.jsx'));
-const PersonGroups = lazy(() => import('./routes/PersonGroups.jsx'));
-const DNAResults = lazy(() => import('./routes/DNAResults.jsx'));
-const SourceRepositories = lazy(() => import('./routes/SourceRepositories.jsx'));
-const Slideshow = lazy(() => import('./routes/Slideshow.jsx'));
-const WorldHistory = lazy(() => import('./routes/WorldHistory.jsx'));
-const Research = lazy(() => import('./routes/Research.jsx'));
-const Templates = lazy(() => import('./routes/Templates.jsx'));
-const Labels = lazy(() => import('./routes/Labels.jsx'));
-const Quiz = lazy(() => import('./routes/Quiz.jsx'));
-const Backup = lazy(() => import('./routes/Backup.jsx'));
-const ExportRoute = lazy(() => import('./routes/Export.jsx'));
-const SubtreeWizard = lazy(() => import('./routes/SubtreeWizard.jsx'));
-const Settings = lazy(() => import('./routes/Settings.jsx'));
-const AuthorInformation = lazy(() => import('./routes/AuthorInformation.jsx'));
-const WebSearch = lazy(() => import('./routes/WebSearch.jsx'));
-const FamilySearch = lazy(() => import('./routes/FamilySearch.jsx'));
-const Favorites = lazy(() => import('./routes/Favorites.jsx'));
-const ChartPreview = lazy(() => import('./routes/ChartPreview.jsx'));
-const ChartSplitWizard = lazy(() => import('./routes/ChartSplitWizard.jsx'));
-const ReferenceNumbering = lazy(() => import('./routes/ReferenceNumbering.jsx'));
-const Lineages = lazy(() => import('./routes/Lineages.jsx'));
-const CustomValidationSchemas = lazy(() => import('./routes/CustomValidationSchemas.jsx'));
+import { ROUTE_MANIFEST, SHARE_PREVIEW_ROUTE, memoLazy } from './routes/manifest.js';
 
 function Fallback() {
   const { t } = useTranslation();
@@ -125,8 +67,28 @@ function SharePreviewGate({ children }) {
 
   const token = getShareTokenFromHash(hash);
   if (!token) return children;
+  const ChartPreviewLazy = memoLazy(SHARE_PREVIEW_ROUTE.loader);
+  return <L><ChartPreviewLazy token={token} /></L>;
+}
 
-  return <L><ChartPreview token={token} /></L>;
+function renderManifestEntry(entry) {
+  // Aliases redirect to a sibling/parent path with the rest of the URL preserved.
+  if (entry.alias) {
+    return <Route key={entry.path} path={entry.path} element={<Navigate to={entry.alias} replace />} />;
+  }
+  const Lazy = memoLazy(entry.loader);
+  const element = Lazy ? <L><Lazy /></L> : null;
+  if (entry.children) {
+    return (
+      <Route key={entry.path} path={entry.path} element={element}>
+        {entry.indexRedirect && (
+          <Route index element={<Navigate to={entry.indexRedirect} replace />} />
+        )}
+        {entry.children.map(renderManifestEntry)}
+      </Route>
+    );
+  }
+  return <Route key={entry.path} path={entry.path} element={element} />;
 }
 
 export function App() {
@@ -142,6 +104,7 @@ export function App() {
       scheduler.stop();
     };
   }, []);
+  const ChartPreviewLazy = memoLazy(SHARE_PREVIEW_ROUTE.loader);
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <ThemeProvider>
@@ -153,86 +116,10 @@ export function App() {
           <SchemaMigrationSheet />
           <SharePreviewGate>
           <Routes>
-            <Route path="view/:token" element={<L><ChartPreview /></L>} />
+            <Route path={SHARE_PREVIEW_ROUTE.path} element={<L><ChartPreviewLazy /></L>} />
             <Route element={<AppShell />}>
               <Route index element={<Home />} />
-              <Route path="tree" element={<L><Tree /></L>} />
-              <Route path="heritage-tree" element={<L><HeritageTree /></L>} />
-              <Route path="persons" element={<L><Persons /></L>} />
-              <Route path="lists" element={<L><Lists /></L>} />
-              <Route path="charts" element={<L><Charts /></L>} />
-              <Route path="search" element={<L><Search /></L>} />
-              <Route path="duplicates" element={<L><Duplicates /></L>} />
-              <Route path="reports" element={<L><Reports /></L>} />
-              <Route path="books" element={<L><Books /></L>} />
-              <Route path="publish" element={<L><Publish /></L>} />
-              <Route path="websites" element={<L><Websites /></L>} />
-              <Route path="change-log" element={<L><ChangeLog /></L>} />
-              <Route path="person/:id" element={<L><PersonEditor /></L>} />
-              <Route path="family/:id" element={<L><FamilyEditor /></L>} />
-              <Route path="places" element={<L><Places /></L>} />
-              <Route path="sources" element={<L><Sources /></L>} />
-              <Route path="events" element={<L><Events /></L>} />
-              <Route path="media" element={<L><Media /></L>} />
-              <Route path="map" element={<L><MapView /></L>} />
-              <Route path="globe" element={<L><Globe /></L>} />
-              <Route path="maps-diagram" element={<L><MapsDiagram /></L>} />
-              <Route path="statistic-maps" element={<L><MapsDiagram /></L>} />
-              <Route path="views" element={<L><Views /></L>}>
-                <Route index element={<Navigate to="virtual-map" replace />} />
-                <Route path="virtual-map" element={<L><MapView /></L>} />
-                <Route path="map" element={<Navigate to="../virtual-map" replace />} />
-                <Route path="virtual-globe" element={<L><Globe /></L>} />
-                <Route path="globe" element={<Navigate to="../virtual-globe" replace />} />
-                <Route path="statistic-maps" element={<L><MapsDiagram /></L>} />
-                <Route path="maps-diagram" element={<Navigate to="../statistic-maps" replace />} />
-                <Route path="media-gallery" element={<L><Media /></L>} />
-                <Route path="media" element={<Navigate to="../media-gallery" replace />} />
-                <Route path="family-quiz" element={<L><Quiz /></L>} />
-                <Route path="quiz" element={<Navigate to="../family-quiz" replace />} />
-              </Route>
-              <Route path="saved-charts" element={<L><SavedCharts /></L>} />
-              <Route path="chart-split" element={<L><ChartSplitWizard /></L>} />
-              <Route path="reference-numbering" element={<L><ReferenceNumbering /></L>} />
-              <Route path="lineages" element={<L><Lineages /></L>} />
-              <Route path="custom-validation" element={<L><CustomValidationSchemas /></L>} />
-              <Route path="statistics" element={<L><Statistics /></L>} />
-              <Route path="plausibility" element={<L><Plausibility /></L>} />
-              <Route path="plausibility-list" element={<L><PlausibilityList /></L>} />
-              <Route path="marriages" element={<L><MarriageList /></L>} />
-              <Route path="marriage-list" element={<L><MarriageList /></L>} />
-              <Route path="facts" element={<L><FactsList /></L>} />
-              <Route path="facts-list" element={<L><FactsList /></L>} />
-              <Route path="anniversaries" element={<L><AnniversaryList /></L>} />
-              <Route path="anniversary-list" element={<L><AnniversaryList /></L>} />
-              <Route path="distinctive-persons" element={<L><DistinctivePersons /></L>} />
-              <Route path="person-analysis" element={<L><PersonAnalysis /></L>} />
-              <Route path="lds-ordinances" element={<L><LdsOrdinances /></L>} />
-              <Route path="maintenance" element={<L><Maintenance /></L>} />
-              <Route path="smart-filters" element={<L><SmartFilters /></L>} />
-              <Route path="custom-types" element={<L><CustomTypes /></L>} />
-              <Route path="bookmarks" element={<L><Bookmarks /></L>} />
-              <Route path="todos" element={<L><ToDos /></L>} />
-              <Route path="stories" element={<L><Stories /></L>} />
-              <Route path="groups" element={<L><PersonGroups /></L>} />
-              <Route path="dna" element={<L><DNAResults /></L>} />
-              <Route path="repositories" element={<L><SourceRepositories /></L>} />
-              <Route path="slideshow" element={<L><Slideshow /></L>} />
-              <Route path="world-history" element={<L><WorldHistory /></L>} />
-              <Route path="research" element={<L><Research /></L>} />
-              <Route path="templates" element={<L><Templates /></L>} />
-              <Route path="labels" element={<L><Labels /></L>} />
-              <Route path="quiz" element={<L><Quiz /></L>} />
-              <Route path="backup" element={<L><Backup /></L>} />
-              <Route path="export" element={<L><ExportRoute /></L>} />
-              <Route path="subtree" element={<L><SubtreeWizard /></L>} />
-              <Route path="settings" element={<L><Settings /></L>} />
-              <Route path="author" element={<L><AuthorInformation /></L>} />
-              <Route path="author-information" element={<L><AuthorInformation /></L>} />
-              <Route path="web-search" element={<L><WebSearch /></L>} />
-              <Route path="familysearch" element={<L><FamilySearch /></L>} />
-              <Route path="family-search" element={<L><FamilySearch /></L>} />
-              <Route path="favorites" element={<L><Favorites /></L>} />
+              {ROUTE_MANIFEST.map(renderManifestEntry)}
               <Route path="*" element={<NotFound />} />
             </Route>
           </Routes>
