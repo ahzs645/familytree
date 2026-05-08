@@ -64,6 +64,11 @@ import {
   selectStyle,
   loadingStyle,
 } from './parts/styles.js';
+import { useExportSettings } from './hooks/useExportSettings.js';
+import { usePageSetup } from './hooks/usePageSetup.js';
+import { useVirtualTreeOptions } from './hooks/useVirtualTreeOptions.js';
+import { useRelationshipPaths } from './hooks/useRelationshipPaths.js';
+import { useChartDocument } from './hooks/useChartDocument.js';
 
 const CHART_TYPES = [
   { id: 'ancestor', label: 'Ancestor', needsSecond: false },
@@ -103,10 +108,17 @@ export function ChartsApp() {
   const [completenessColorMode, setCompletenessColorMode] = useState('gender');
   const [completenessRowsByPerson, setCompletenessRowsByPerson] = useState(new Map());
   const { theme: appTheme } = useTheme();
-  const [virtualSource, setVirtualSource] = useState('descendant');
-  const [virtualOrientation, setVirtualOrientation] = useState('vertical');
-  const [virtualHSpacing, setVirtualHSpacing] = useState(24);
-  const [virtualVSpacing, setVirtualVSpacing] = useState(110);
+  const {
+    virtualSource, setVirtualSource,
+    virtualOrientation, setVirtualOrientation,
+    virtualHSpacing, setVirtualHSpacing,
+    virtualVSpacing, setVirtualVSpacing,
+    virtualTreeData, setVirtualTreeData,
+    virtualViewMode, setVirtualViewMode,
+    virtualSymbolMode, setVirtualSymbolMode,
+    virtualColorMode, setVirtualColorMode,
+    virtualDof, setVirtualDof,
+  } = useVirtualTreeOptions();
   const [descendantGenerations, setDescendantGenerations] = useState(5);
   const [hourglassAncestorGens, setHourglassAncestorGens] = useState(4);
   const [hourglassDescendantGens, setHourglassDescendantGens] = useState(3);
@@ -118,43 +130,46 @@ export function ChartsApp() {
   const [genogramData, setGenogramData] = useState(null);
   const [distributionData, setDistributionData] = useState(null);
   const [distributionType, setDistributionType] = useState('gender');
-  const [virtualTreeData, setVirtualTreeData] = useState(null);
-  const [virtualViewMode, setVirtualViewMode] = useState('2d');
-  const [virtualSymbolMode, setVirtualSymbolMode] = useState('sphere');
-  const [virtualColorMode, setVirtualColorMode] = useState('gender');
-  const [virtualDof, setVirtualDof] = useState(DOF_DEFAULTS);
-  const [currentDocumentId, setCurrentDocumentId] = useState(null);
-  const [currentDocumentName, setCurrentDocumentName] = useState('');
-  const [isDirty, setIsDirty] = useState(false);
-  const [isReadOnly, setIsReadOnly] = useState(false);
-  const dirtyGuardRef = useRef(false);
-  const [exportFormat, setExportFormat] = useState('png');
-  const [exportScale, setExportScale] = useState(1);
-  const [exportIncludeBackground, setExportIncludeBackground] = useState(true);
-  const [exportJpegQuality, setExportJpegQuality] = useState(0.92);
-  const [exportFileNameTemplate, setExportFileNameTemplate] = useState('{title}-{date}');
-  const [chartTitle, setChartTitle] = useState('');
-  const [chartNote, setChartNote] = useState('');
-  const [pageSize, setPageSize] = useState('letter');
-  const [pageOrientation, setPageOrientation] = useState('landscape');
-  const [chartBackground, setChartBackground] = useState('');
-  const [backgroundSheetOpen, setBackgroundSheetOpen] = useState(false);
-  const [pageSetupSheetOpen, setPageSetupSheetOpen] = useState(false);
-  const [pageMargins, setPageMargins] = useState({ top: 36, right: 36, bottom: 36, left: 36 });
-  const [pagePrintMargins, setPagePrintMargins] = useState({ top: 36, right: 36, bottom: 36, left: 36 });
-  const [pageOverlap, setPageOverlap] = useState(0);
-  const [pageCutMarks, setPageCutMarks] = useState(false);
-  const [pagePrintPageNumbers, setPagePrintPageNumbers] = useState(false);
-  const [pageOmitEmptyPages, setPageOmitEmptyPages] = useState(true);
+  const {
+    currentDocumentId, setCurrentDocumentId,
+    currentDocumentName, setCurrentDocumentName,
+    isDirty, setIsDirty,
+    isReadOnly, setIsReadOnly,
+    dirtyGuardRef,
+  } = useChartDocument();
+  const {
+    exportFormat, setExportFormat,
+    exportScale, setExportScale,
+    exportIncludeBackground, setExportIncludeBackground,
+    exportJpegQuality, setExportJpegQuality,
+    exportFileNameTemplate, setExportFileNameTemplate,
+  } = useExportSettings();
+  const {
+    chartTitle, setChartTitle,
+    chartNote, setChartNote,
+    pageSize, setPageSize,
+    pageOrientation, setPageOrientation,
+    chartBackground, setChartBackground,
+    backgroundSheetOpen, setBackgroundSheetOpen,
+    pageSetupSheetOpen, setPageSetupSheetOpen,
+    pageMargins, setPageMargins,
+    pagePrintMargins, setPagePrintMargins,
+    pageOverlap, setPageOverlap,
+    pageCutMarks, setPageCutMarks,
+    pagePrintPageNumbers, setPagePrintPageNumbers,
+    pageOmitEmptyPages, setPageOmitEmptyPages,
+  } = usePageSetup();
   const [ancestorTree, setAncestorTree] = useState(null);
   const [descendantTree, setDescendantTree] = useState(null);
   const [secondAncestorTree, setSecondAncestorTree] = useState(null);
-  const [relationshipPaths, setRelationshipPaths] = useState([]);
-  const [selectedRelationshipPathId, setSelectedRelationshipPathId] = useState(null);
-  const [relationshipBloodlineOnly, setRelationshipBloodlineOnly] = useState(false);
-  const [relationshipMaxPaths, setRelationshipMaxPaths] = useState(12);
-  const [relationshipMaxDepth, setRelationshipMaxDepth] = useState(12);
-  const [relationshipExcludeNonBiological, setRelationshipExcludeNonBiological] = useState(false);
+  const {
+    relationshipPaths, setRelationshipPaths,
+    selectedRelationshipPathId, setSelectedRelationshipPathId,
+    relationshipBloodlineOnly, setRelationshipBloodlineOnly,
+    relationshipMaxPaths, setRelationshipMaxPaths,
+    relationshipMaxDepth, setRelationshipMaxDepth,
+    relationshipExcludeNonBiological, setRelationshipExcludeNonBiological,
+  } = useRelationshipPaths();
   const [templates, setTemplates] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
