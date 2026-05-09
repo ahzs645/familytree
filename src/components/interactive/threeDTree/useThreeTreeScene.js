@@ -114,14 +114,14 @@ export function useThreeTreeScene({
     };
     controls.addEventListener('change', updateZoomReadout);
 
-    scene.add(new THREE.AmbientLight(palette.ambient, 2.2));
+    scene.add(new THREE.AmbientLight(palette.ambient, 2.35));
     const key = new THREE.DirectionalLight(palette.keyLight, 2.5);
     key.position.set(240, -380, 700);
     key.castShadow = true;
     key.shadow.mapSize.width = 2048;
     key.shadow.mapSize.height = 2048;
     scene.add(key);
-    const fill = new THREE.DirectionalLight(palette.fillLight, 1.25);
+    const fill = new THREE.DirectionalLight(palette.fillLight, 1.35);
     fill.position.set(-500, 460, 420);
     scene.add(fill);
 

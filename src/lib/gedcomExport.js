@@ -7,6 +7,7 @@ import { refToRecordName } from './recordRef.js';
 import { isPublicRecord, isLiving, maskLivingDetails, DEFAULT_PRIVACY_POLICY } from './privacy.js';
 import { getAuthorInfo } from './authorInfo.js';
 import { Gender } from '../models/index.js';
+import { affiliationLevelLabel, affiliationName, factAffiliationInfo } from './tribalAffiliations.js';
 
 function escape(text) {
   return String(text == null ? '' : text).replace(/\r?\n/g, ' / ');
@@ -116,6 +117,9 @@ export async function buildGedcom(exportOptions = {}) {
   const rawPlaces = (await db.query('Place', { limit: 100000 })).records;
   const rawSources = (await db.query('Source', { limit: 100000 })).records;
   const rawPersonEvents = (await db.query('PersonEvent', { limit: 100000 })).records;
+  const rawPersonFacts = (await db.query('PersonFact', { limit: 100000 })).records;
+  const rawTribalAffiliations = (await db.query('TribalAffiliation', { limit: 100000 })).records;
+  const rawTribalRelations = (await db.query('TribalAffiliationRelation', { limit: 100000 })).records;
   const rawFamilyEvents = (await db.query('FamilyEvent', { limit: 100000 })).records;
   const rawNotes = (await db.query('Note', { limit: 100000 })).records;
   const rawChildRels = (await db.query('ChildRelation', { limit: 100000 })).records;
@@ -128,6 +132,16 @@ export async function buildGedcom(exportOptions = {}) {
   const sources = rawSources.filter(isPublicRecord);
   const personEvents = rawPersonEvents.filter((event) => (
     isPublicRecord(event) && publicPersonIds.has(refToRecordName(event.fields?.person?.value))
+  ));
+  const personFacts = rawPersonFacts.filter((fact) => (
+    isPublicRecord(fact) && publicPersonIds.has(refToRecordName(fact.fields?.person?.value))
+  ));
+  const tribalAffiliations = rawTribalAffiliations.filter(isPublicRecord);
+  const tribalAffiliationById = new Map(tribalAffiliations.map((affiliation) => [affiliation.recordName, affiliation]));
+  const tribalRelations = rawTribalRelations.filter((relation) => (
+    isPublicRecord(relation) &&
+    publicPersonIds.has(refToRecordName(relation.fields?.person?.value)) &&
+    tribalAffiliationById.has(refToRecordName(relation.fields?.affiliation?.value))
   ));
   const familyEvents = rawFamilyEvents.filter((event) => (
     isPublicRecord(event) && publicFamilyIds.has(refToRecordName(event.fields?.family?.value))
@@ -224,6 +238,24 @@ export async function buildGedcom(exportOptions = {}) {
       appendGedcomExtensions(lines, ev, 2, pointerMap);
     }
 
+    for (const fact of personFacts.filter((item) => refToRecordName(item.fields?.person?.value) === p.recordName)) {
+      const info = factAffiliationInfo(fact);
+      if (!info) continue;
+      appendTribalFact(lines, info.name, affiliationLevelLabel(info.level), fact.fields?.date?.value, fact.fields?.notes?.value);
+    }
+
+    for (const relation of tribalRelations.filter((item) => refToRecordName(item.fields?.person?.value) === p.recordName)) {
+      const affiliation = tribalAffiliationById.get(refToRecordName(relation.fields?.affiliation?.value));
+      if (!affiliation) continue;
+      appendTribalFact(
+        lines,
+        affiliationName(affiliation),
+        affiliationLevelLabel(affiliation.fields?.level?.value || 'clan'),
+        relation.fields?.fromDate?.value || '',
+        relation.fields?.notes?.value || affiliation.fields?.notes?.value || ''
+      );
+    }
+
     // Family pointers
     for (const fam of families) {
       const manRef = refToRecordName(fam.fields?.man?.value);
@@ -283,6 +315,15 @@ export async function buildGedcom(exportOptions = {}) {
 
   lines.push('0 TRLR');
   return lines.join('\n');
+}
+
+function appendTribalFact(lines, value, typeLabel, date = '', note = '') {
+  if (!value) return;
+  const tag = typeLabel === 'Tribe' ? 'NATI' : 'FACT';
+  lines.push(`1 ${tag} ${escape(value)}`);
+  if (tag === 'FACT') lines.push(`2 TYPE ${escape(typeLabel || 'Tribal affiliation')}`);
+  if (date) lines.push(`2 DATE ${escape(date)}`);
+  if (note) pushText(lines, 2, 'NOTE', note);
 }
 
 function buildGedcomPointerMap({ persons, families, sources, personIdx, familyIdx, sourceIdx }) {

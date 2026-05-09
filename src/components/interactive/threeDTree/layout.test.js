@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Gender } from '../../../models/index.js';
-import { GEN_STEP } from './constants.js';
-import { buildInteractiveLayout } from './layout.js';
+import { GEN_STEP, ROOT_CARD } from './constants.js';
+import { bandSplitGap, buildInteractiveLayout } from './layout.js';
 
 function person(recordName, fullName = recordName, extra = {}) {
   return {
@@ -126,10 +126,22 @@ describe('buildInteractiveLayout', () => {
         type: 'family',
       }),
     ]));
+    const rootDrop = layout.links.find((link) => (
+      link.type === 'family' &&
+      link.nodeIds?.length === 1 &&
+      link.nodeIds[0] === 'root'
+    ));
+    expect(rootDrop.points[0].y).toBeGreaterThan(nodes.get('root').y + ROOT_CARD.h * 0.44);
     expect(layout.bands.find((band) => band.generation === 0)).toMatchObject({
       count: 2,
       title: 'Root Generation',
     });
+  });
+
+  it('uses finite split gaps for near-ancestor family band clustering', () => {
+    expect(bandSplitGap(0)).toBe(Infinity);
+    expect(bandSplitGap(-1)).toBe(980);
+    expect(bandSplitGap(-2)).toBe(760);
   });
 });
 

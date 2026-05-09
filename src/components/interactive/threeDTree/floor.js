@@ -7,7 +7,7 @@ export function makeBottomPlane(palette, bounds, mode = 'grid') {
   const sizeY = Math.max(3400, bounds.maxY - bounds.minY + 1800);
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerY = (bounds.minY + bounds.maxY) / 2;
-  const step = 36;
+  const step = 28;
   const left = centerX - sizeX / 2;
   const right = centerX + sizeX / 2;
   const bottom = centerY - sizeY / 2;
@@ -40,8 +40,8 @@ export function makeBottomPlane(palette, bounds, mode = 'grid') {
     const target = index % 4 === 0 ? strong : regular;
     target.push(left, y, -82, right, y, -82);
   }
-  group.add(makeLines(regular, palette.grid, 0.5));
-  group.add(makeLines(strong, palette.gridStrong, 0.34));
+  group.add(makeLines(regular, palette.grid, 0.42));
+  group.add(makeLines(strong, palette.gridStrong, 0.3));
   return group;
 }
 
@@ -51,12 +51,12 @@ function makeBottomPlaneTexture(mode, palette) {
     ctx.fillStyle = palette.background;
     ctx.fillRect(0, 0, w, h);
     const paper = ctx.createRadialGradient(w * 0.5, h * 0.42, 0, w * 0.5, h * 0.42, w * 0.78);
-    paper.addColorStop(0, 'rgba(255,255,255,0.46)');
-    paper.addColorStop(0.58, 'rgba(248,247,242,0.28)');
-    paper.addColorStop(1, 'rgba(224,220,208,0.12)');
+    paper.addColorStop(0, 'rgba(255,255,255,0.58)');
+    paper.addColorStop(0.58, 'rgba(248,247,242,0.24)');
+    paper.addColorStop(1, 'rgba(224,220,208,0.08)');
     ctx.fillStyle = paper;
     ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = 'rgba(130, 122, 105, 0.014)';
+    ctx.fillStyle = 'rgba(130, 122, 105, 0.01)';
     for (let y = 0; y < h; y += 4) {
       ctx.fillRect(0, y, w, 1);
     }

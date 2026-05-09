@@ -78,7 +78,7 @@ export function ThreeDTreeView({
   return (
     <div
       style={styles.shell}
-      onPointerEnter={() => setControlsVisible(true)}
+      onPointerMove={() => setControlsVisible(true)}
       onPointerLeave={() => setControlsVisible(false)}
     >
       <div ref={containerRef} style={styles.canvas} />

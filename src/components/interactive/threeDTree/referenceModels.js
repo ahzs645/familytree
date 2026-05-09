@@ -8,6 +8,7 @@ import {
   REFERENCE_MODEL_GROUND_ROTATION_X,
   SKIN,
 } from './constants.js';
+import { MAC_FAMILY_GRAPH_LAYOUT } from './macTreeStyle.js';
 import { colorsForGender } from './personColors.js';
 
 const referenceModelCache = new Map();
@@ -73,7 +74,9 @@ export function makeReferencePersonModel(node, palette, featured, personStyle = 
   const size = new THREE.Vector3();
   box.getSize(size);
   const largest = Math.max(size.x, size.y, size.z) || 1;
-  const targetSize = featured ? 138 : 104;
+  const targetSize = featured
+    ? MAC_FAMILY_GRAPH_LAYOUT.featuredModelSize
+    : MAC_FAMILY_GRAPH_LAYOUT.regularModelSize;
   const scale = targetSize / largest;
   clone.scale.setScalar(scale);
   clone.updateMatrixWorld(true);

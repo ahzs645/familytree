@@ -3,6 +3,7 @@ import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../../lib/changeLog.js';
 import { readRef, writeRef } from '../../lib/schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary } from '../../models/index.js';
+import { affiliationLevelLabel, affiliationName } from '../../lib/tribalAffiliations.js';
 import {
   CERTAINTY,
   CERTAINTY_LABELS,
@@ -19,7 +20,7 @@ import {
 } from '../../lib/citationEvidence.js';
 
 const MEDIA_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
-const CITABLE_TARGET_TYPES = ['Person', 'Family', 'Place', 'PersonEvent', 'FamilyEvent', ...MEDIA_TYPES];
+const CITABLE_TARGET_TYPES = ['Person', 'Family', 'Place', 'PersonEvent', 'FamilyEvent', 'PersonFact', 'TribalAffiliation', 'TribalAffiliationRelation', ...MEDIA_TYPES];
 
 const inputClass = 'w-full bg-background text-foreground border border-border rounded-md px-2 py-1.5 text-xs outline-none focus:border-primary';
 const buttonClass = 'border border-border rounded-md px-2.5 py-1.5 text-xs hover:bg-accent disabled:opacity-50';
@@ -51,7 +52,18 @@ export function recordDisplayLabel(record) {
   if (record.recordType === 'Family') return familySummary(record)?.familyName || fieldText(record, ['cached_familyName']) || record.recordName;
   if (record.recordType === 'Place') return placeSummary(record)?.displayName || placeSummary(record)?.name || record.recordName;
   if (record.recordType === 'Source') return sourceSummary(record)?.title || record.recordName;
+  if (record.recordType === 'TribalAffiliation') {
+    return `${affiliationName(record)} (${affiliationLevelLabel(record.fields?.level?.value || 'clan')})`;
+  }
+  if (record.recordType === 'TribalAffiliationRelation') {
+    return fieldText(record, ['cached_personName', 'role', 'notes']) || record.recordName;
+  }
   if (record.recordType?.startsWith('Media')) return fieldText(record, ['caption', 'title', 'filename', 'fileName', 'url']) || record.recordName;
+  if (record.recordType === 'PersonFact') {
+    return [fieldText(record, ['description', 'value', 'text']), fieldText(record, ['date'])]
+      .filter(Boolean)
+      .join(' - ') || record.recordName;
+  }
   if (record.recordType === 'PersonEvent' || record.recordType === 'FamilyEvent') {
     return [fieldText(record, ['eventType', 'type', 'description']), fieldText(record, ['date'])]
       .filter(Boolean)

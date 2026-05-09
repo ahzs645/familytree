@@ -13,7 +13,7 @@ import {
   Database, Globe, ListTodo, Bookmark, Copy, ShieldCheck, Microscope,
   FileEdit, UsersRound, Clock, Download, Settings, Wrench, CloudCog,
   HelpCircle, Heart, Presentation, Building2, NotebookPen, Briefcase,
-  GitBranch, Activity, CalendarHeart, GraduationCap, Upload, Network,
+  GitBranch, Activity, CalendarHeart, GraduationCap, Upload, Network, Landmark,
 } from 'lucide-react';
 
 export const NAV_PINNED = [
@@ -34,6 +34,7 @@ export const NAV_GROUPS = [
       { to: '/heritage-tree', label: 'Heritage Tree', icon: GitBranch },
       { to: '/groups', label: 'Person groups', icon: Users },
       { to: '/lineages', label: 'Lineages', icon: Network },
+      { to: '/tribal-affiliations', label: 'Tribal affiliations', icon: Landmark },
       { to: '/distinctive-persons', label: 'Distinctive persons', icon: Sparkles },
       { to: '/dna', label: 'DNA results', icon: Dna },
     ],

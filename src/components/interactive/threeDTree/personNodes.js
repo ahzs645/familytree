@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { lifeSpanLabel } from '../../../models/index.js';
 import { ROOT_CARD, SKIN } from './constants.js';
+import { MAC_FAMILY_GRAPH_LAYOUT } from './macTreeStyle.js';
 import { makeReferencePersonModel } from './referenceModels.js';
 import { colorsForGender, lightenHex } from './personColors.js';
 import { makeCanvasTexture, makePlaneFromTexture, roundedRect } from './threeUtils.js';
@@ -11,12 +12,13 @@ export function makePersonNode(node, palette, personStyle, hovered = false) {
   group.userData.person = node.person;
   group.userData.node = node;
 
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(70, 64),
-    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.1, depthWrite: false })
+  const shadow = makeSoftShadow(
+    palette,
+    MAC_FAMILY_GRAPH_LAYOUT.regularShadowWidth,
+    MAC_FAMILY_GRAPH_LAYOUT.regularShadowHeight,
+    0.17
   );
-  shadow.scale.set(1.5, 0.38, 1);
-  shadow.position.set(13, -10, -18);
+  shadow.position.set(13, -13, -20);
   shadow.renderOrder = 2;
   group.add(shadow);
 
@@ -28,8 +30,12 @@ export function makePersonNode(node, palette, personStyle, hovered = false) {
   if (hasStatusBadges(node)) group.add(makeStatusBadges(node, false));
   if (hovered) group.add(makeSelectionMark(false, palette, 'hover'));
 
-  const label = makePlaneFromTexture(makePersonLabelTexture(node.person, palette), 184, 72);
-  label.position.set(0, -66, 16);
+  const label = makePlaneFromTexture(
+    makePersonLabelTexture(node.person, palette),
+    MAC_FAMILY_GRAPH_LAYOUT.regularLabelWidth,
+    MAC_FAMILY_GRAPH_LAYOUT.regularLabelHeight
+  );
+  label.position.set(0, -59, 16);
   group.add(label);
 
   return group;
@@ -41,12 +47,13 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false) {
   group.userData.person = node.person;
   group.userData.node = node;
 
-  const shadow = new THREE.Mesh(
-    new THREE.CircleGeometry(ROOT_CARD.w * 0.47, 72),
-    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.12, depthWrite: false })
+  const shadow = makeSoftShadow(
+    palette,
+    ROOT_CARD.w * MAC_FAMILY_GRAPH_LAYOUT.featuredShadowScale,
+    ROOT_CARD.h * 0.96,
+    0.21
   );
-  shadow.scale.set(1.16, 0.98, 1);
-  shadow.position.set(15, -22, -18);
+  shadow.position.set(17, -24, -20);
   shadow.renderOrder = 2;
   group.add(shadow);
 
@@ -75,7 +82,7 @@ function makeMacPersonModel(node, palette, featured, personStyle) {
 
   const group = new THREE.Group();
   const colors = colorsForGender(person?.gender, palette);
-  const scale = featured ? 1.1 : 0.88;
+  const scale = featured ? 1.02 : 0.78;
   group.scale.setScalar(scale);
 
   const bottomMaterial = new THREE.MeshStandardMaterial({
@@ -100,11 +107,7 @@ function makeMacPersonModel(node, palette, featured, personStyle) {
     emissiveIntensity: 0.06,
   });
 
-  const bodyShadow = new THREE.Mesh(
-    new THREE.CircleGeometry(82, 64),
-    new THREE.MeshBasicMaterial({ color: palette.shadow, transparent: true, opacity: 0.18, depthWrite: false })
-  );
-  bodyShadow.scale.set(1.34, 0.38, 1);
+  const bodyShadow = makeSoftShadow(palette, 220, 76, 0.2);
   bodyShadow.position.set(14, 4, -18);
   bodyShadow.renderOrder = 3;
   group.add(bodyShadow);
@@ -259,6 +262,32 @@ function makeRootMark(palette) {
   return group;
 }
 
+function makeSoftShadow(palette, width, height, opacity) {
+  const texture = makeCanvasTexture(360, 180, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    const color = colorToRgb(palette.shadow);
+    const gradient = ctx.createRadialGradient(w * 0.5, h * 0.5, h * 0.06, w * 0.5, h * 0.5, w * 0.48);
+    gradient.addColorStop(0, `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity})`);
+    gradient.addColorStop(0.38, `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity * 0.52})`);
+    gradient.addColorStop(0.78, `rgba(${color.r}, ${color.g}, ${color.b}, ${opacity * 0.12})`);
+    gradient.addColorStop(1, `rgba(${color.r}, ${color.g}, ${color.b}, 0)`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, w, h);
+  });
+  const shadow = makePlaneFromTexture(texture, width, height);
+  shadow.material.depthWrite = false;
+  return shadow;
+}
+
+function colorToRgb(color) {
+  const parsed = new THREE.Color(color);
+  return {
+    r: Math.round(parsed.r * 255),
+    g: Math.round(parsed.g * 255),
+    b: Math.round(parsed.b * 255),
+  };
+}
+
 function makeSelectionMark(featured, palette, mode = 'selection') {
   const radius = featured ? ROOT_CARD.w * 0.46 : 68;
   const material = new THREE.MeshBasicMaterial({
@@ -311,17 +340,17 @@ function makePersonLabelTexture(person, palette) {
     const name = person?.fullName || 'Unknown';
     const rtl = isRtlText(name);
     ctx.direction = rtl ? 'rtl' : 'ltr';
-    ctx.fillStyle = palette.text;
-    ctx.font = `${rtl ? 800 : 750} ${rtl ? 31 : 29}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
-    for (const [line, y] of wrapMeasuredText(ctx, name, 372, 2).map((line, index) => [line, 47 + index * 32])) {
+    ctx.fillStyle = '#17191d';
+    ctx.font = `${rtl ? 850 : 780} ${rtl ? 28 : 25}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+    for (const [line, y] of wrapMeasuredText(ctx, name, 366, 2).map((line, index) => [line, 48 + index * 29])) {
       ctx.fillText(line, w / 2, y);
     }
     const life = lifeSpanLabel(person);
     if (life) {
       ctx.direction = 'ltr';
-      ctx.fillStyle = palette.muted;
-      ctx.font = '650 23px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-      ctx.fillText(life, w / 2, 132);
+      ctx.fillStyle = '#747b86';
+      ctx.font = '700 19px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillText(life, w / 2, 134);
     }
   });
 }
@@ -372,16 +401,16 @@ function makeFeaturedTexture(person, palette) {
     const rtl = isRtlText(name);
     ctx.direction = rtl ? 'rtl' : 'ltr';
     ctx.fillStyle = '#17191d';
-    ctx.font = `${rtl ? 850 : 800} ${rtl ? 38 : 35}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+    ctx.font = `${rtl ? 850 : 800} ${rtl ? 34 : 31}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
     const nameLines = wrapMeasuredText(ctx, name, 370, 2);
-    const firstNameY = nameLines.length === 1 ? 340 : 320;
-    nameLines.forEach((line, index) => ctx.fillText(line, cx, firstNameY + index * 39));
+    const firstNameY = nameLines.length === 1 ? 344 : 326;
+    nameLines.forEach((line, index) => ctx.fillText(line, cx, firstNameY + index * 35));
 
     const life = lifeSpanLabel(person);
     if (life) {
       ctx.direction = 'ltr';
       ctx.fillStyle = '#747b86';
-      ctx.font = '700 28px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.font = '700 25px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
       ctx.fillText(life, cx, 428);
     }
   });

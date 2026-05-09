@@ -1,4 +1,5 @@
 import { BAND_LABEL_GUTTER, GEN_STEP, NODE_SPACING, PARTNER_OFFSET, ROOT_CARD } from './constants.js';
+import { MAC_FAMILY_GRAPH_LAYOUT, macBandSplitGap } from './macTreeStyle.js';
 
 export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph = null) {
   if (familyGraph?.nodes?.length) return buildFamilyGraphLayout(familyGraph, activeId);
@@ -130,13 +131,21 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     }
   }
 
-  const GENERATION_STEP = 300;
-  const CHILD_GAP = 206;
-  const ROOT_CARD_WIDTH = 640;
-  const FAMILY_PADDING = 270;
-  const BLOCK_GAP = 230;
-  const BRANCH_GAP = 360;
-  const MAX_DEPTH = 4;
+  const {
+    generationStep: GENERATION_STEP,
+    childGap: CHILD_GAP,
+    rootCardWidth: ROOT_CARD_WIDTH,
+    familyPadding: FAMILY_PADDING,
+    blockGap: BLOCK_GAP,
+    rootParentGap: ROOT_PARENT_GAP,
+    maxDepth: MAX_DEPTH,
+    visibleXRadius: VISIBLE_X_RADIUS,
+    childBusGap: CHILD_BUS_GAP,
+    parentBridgeGap: PARENT_BRIDGE_GAP,
+    familyRouteSplitGap: FAMILY_ROUTE_SPLIT_GAP,
+    maxFamilyHorizontalSpan: MAX_FAMILY_HORIZONTAL_SPAN,
+    maxParentBridgeSpan: MAX_PARENT_BRIDGE_SPAN,
+  } = MAC_FAMILY_GRAPH_LAYOUT;
   const placedById = new Map();
   const routedLinks = [];
   const blockCache = new Map();
@@ -273,8 +282,8 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     const fatherBlock = parents[0] ? measureBlock(parents[0], -1, 'paternal', 1) : null;
     const motherBlock = parents[1] ? measureBlock(parents[1], -1, 'maternal', 1) : null;
     if (fatherBlock && motherBlock) {
-      placeBlock(fatherBlock, -(fatherBlock.width / 2 + BRANCH_GAP / 2), false);
-      placeBlock(motherBlock, motherBlock.width / 2 + BRANCH_GAP / 2, false);
+      placeBlock(fatherBlock, -ROOT_PARENT_GAP / 2, false);
+      placeBlock(motherBlock, ROOT_PARENT_GAP / 2, false);
     } else if (fatherBlock) {
       placeBlock(fatherBlock, -520, false);
     } else if (motherBlock) {
@@ -288,11 +297,27 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
   const nodeById = new Map(uniquePlaced.map((node) => [node.id, node]));
 
   const addSegment = (familyId, type, emphasis, a, b, nodeIds = []) => {
+    if (type === 'family' && Math.abs(a.y - b.y) < 0.1 && Math.abs(a.x - b.x) > MAX_FAMILY_HORIZONTAL_SPAN) {
+      const left = a.x < b.x ? a : b;
+      const right = a.x < b.x ? b : a;
+      addPolyline(familyId, type, emphasis, [
+        left,
+        { x: left.x + MAX_FAMILY_HORIZONTAL_SPAN * 0.18, y: left.y },
+      ], nodeIds);
+      addPolyline(familyId, type, emphasis, [
+        { x: right.x - MAX_FAMILY_HORIZONTAL_SPAN * 0.18, y: right.y },
+        right,
+      ], nodeIds);
+      return;
+    }
+    addPolyline(familyId, type, emphasis, [a, b], nodeIds);
+  };
+  const addPolyline = (familyId, type, emphasis, points, nodeIds = []) => {
     routedLinks.push({
       key: `${familyId}:${type}:${routedLinks.length}`,
       type,
       emphasis,
-      points: [a, b],
+      points,
       nodeIds,
     });
   };
@@ -303,40 +328,92 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     const generation = children[0].generation;
     const childY = -generation * GENERATION_STEP;
     const parentY = parents[0].y;
-    const trunkY = childY + Math.sign(parentY - childY || 1) * 94;
-    const minChildX = Math.min(...children.map((child) => child.x));
-    const maxChildX = Math.max(...children.map((child) => child.x));
-    const parentXs = parents.map((parent) => parent.x);
-    const left = Math.min(minChildX, ...parentXs);
-    const right = Math.max(maxChildX, ...parentXs);
+    const direction = Math.sign(parentY - childY || 1);
+    const parentAttachPoints = parents.map((parent) => ({
+      node: parent,
+      x: parent.x,
+      y: parent.y - direction * nodeVerticalRadius(parent),
+    }));
+    const nearestParentAttachY = direction > 0
+      ? Math.min(...parentAttachPoints.map((point) => point.y))
+      : Math.max(...parentAttachPoints.map((point) => point.y));
+    const preferredBridgeY = nearestParentAttachY - direction * PARENT_BRIDGE_GAP;
     const emphasis = family.id === rootFamily?.id || family.parents.some((id) => id === familyGraph.rootId);
-    const familyNodeIds = [...parents, ...children].map((node) => node.id);
-    addSegment(family.id, 'family', emphasis, { x: left, y: trunkY }, { x: right, y: trunkY }, familyNodeIds);
-    for (const parent of parents) {
-      addSegment(
+
+    const childClusters = clusterFamilyChildren(children, FAMILY_ROUTE_SPLIT_GAP);
+    const familyCenterX = average(parentAttachPoints.map((point) => point.x));
+    const primaryCluster = nearestChildCluster(childClusters, familyCenterX);
+    for (const cluster of childClusters) {
+      const minChildX = Math.min(...cluster.map((child) => child.x));
+      const maxChildX = Math.max(...cluster.map((child) => child.x));
+      const childPadding = cluster.length > 1 ? 34 : 0;
+      const childLeft = minChildX - childPadding;
+      const childRight = maxChildX + childPadding;
+      const childAttachY = direction > 0
+        ? Math.max(...cluster.map((child) => child.y + nodeVerticalRadius(child)))
+        : Math.min(...cluster.map((child) => child.y - nodeVerticalRadius(child)));
+      const childBusY = childAttachY + direction * CHILD_BUS_GAP;
+      const clusterCenter = clusterCenterX(cluster);
+      const localParentAttachPoints = compactParentPoints(
+        localParentPoints(parentAttachPoints, clusterCenter, MAX_FAMILY_HORIZONTAL_SPAN),
+        clusterCenter,
+        MAX_PARENT_BRIDGE_SPAN
+      );
+      const coupleX = average(localParentAttachPoints.map((point) => point.x));
+      const localNearestParentAttachY = direction > 0
+        ? Math.min(...localParentAttachPoints.map((point) => point.y))
+        : Math.max(...localParentAttachPoints.map((point) => point.y));
+      const localPreferredBridgeY = localNearestParentAttachY - direction * PARENT_BRIDGE_GAP;
+      const parentBridgeY = direction > 0
+        ? Math.max(childBusY + PARENT_BRIDGE_GAP, localPreferredBridgeY)
+        : Math.min(childBusY - PARENT_BRIDGE_GAP, localPreferredBridgeY);
+      const clusterAnchorX = clamp(coupleX, childLeft, childRight);
+      const clusterNodeIds = [...localParentAttachPoints.map((point) => point.node), ...cluster].map((node) => node.id);
+      const isPrimaryCluster = cluster === primaryCluster;
+      if (!isPrimaryCluster) continue;
+
+      for (const point of localParentAttachPoints) {
+        addSegment(family.id, 'family', emphasis, point, { x: point.x, y: parentBridgeY }, [point.node.id]);
+      }
+      if (localParentAttachPoints.length > 1) {
+        const sortedParents = [...localParentAttachPoints].sort((a, b) => a.x - b.x);
+        addSegment(
+          family.id,
+          'family',
+          emphasis,
+          { x: sortedParents[0].x, y: parentBridgeY },
+          { x: sortedParents[sortedParents.length - 1].x, y: parentBridgeY },
+          parents.map((parent) => parent.id)
+        );
+      }
+      addPolyline(
         family.id,
         'family',
         emphasis,
-        { x: parent.x, y: parent.y - nodeVerticalRadius(parent) },
-        { x: parent.x, y: trunkY },
-        [parent.id]
+        [
+          { x: coupleX, y: parentBridgeY },
+          { x: clusterAnchorX, y: parentBridgeY },
+          { x: clusterAnchorX, y: childBusY },
+        ],
+        clusterNodeIds
       );
-    }
-    for (const child of children) {
-      addSegment(
-        family.id,
-        'family',
-        emphasis,
-        { x: child.x, y: trunkY },
-        { x: child.x, y: child.y + nodeVerticalRadius(child) },
-        [child.id]
-      );
+      addSegment(family.id, 'family', emphasis, { x: childLeft, y: childBusY }, { x: childRight, y: childBusY }, clusterNodeIds);
+      for (const child of cluster) {
+        addSegment(
+          family.id,
+          'family',
+          emphasis,
+          { x: child.x, y: childBusY },
+          { x: child.x, y: child.y + direction * nodeVerticalRadius(child) },
+          [child.id]
+        );
+      }
     }
   }
 
   const root = nodeById.get(rootId) || uniquePlaced.find((node) => node.featured);
   const rootX = root?.x || 0;
-  const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= 1950 && node.generation >= -4 && node.generation <= 1);
+  const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= VISIBLE_X_RADIUS && node.generation >= -4 && node.generation <= 1);
   const visibleIds = new Set(nodeList.map((node) => node.id));
   const visibleLinks = routedLinks.filter((link) => !link.nodeIds?.length || link.nodeIds.every((id) => visibleIds.has(id)));
   const visibleBands = buildBands(nodeList, rootX);
@@ -435,11 +512,8 @@ function buildBandSegments(group, generation) {
   });
 }
 
-function bandSplitGap(generation) {
-  if (generation >= -1) return Infinity;
-  if (generation === -2) return 880;
-  if (generation === -3) return 640;
-  return 520;
+export function bandSplitGap(generation) {
+  return macBandSplitGap(generation);
 }
 
 function yearRange(persons) {
@@ -495,7 +569,7 @@ function focusBoundsFor(nodes, bands, fallback) {
   const focusedNodes = nodes.filter((node) => (
     node.generation >= -4 &&
     node.generation <= 1 &&
-    Math.abs(node.x - rootX) <= 1950
+    Math.abs(node.x - rootX) <= MAC_FAMILY_GRAPH_LAYOUT.visibleXRadius
   ));
   if (focusedNodes.length === 0) return fallback;
   const focusedGenerations = new Set(focusedNodes.map((node) => node.generation));
@@ -506,8 +580,8 @@ function focusBoundsFor(nodes, bands, fallback) {
       width: Math.min(band.width, 3600),
     }));
   const bounds = boundsFor(focusedNodes, focusedBands);
-  const maxWidth = 3100;
-  const maxHeight = 1700;
+  const maxWidth = MAC_FAMILY_GRAPH_LAYOUT.maxFocusWidth;
+  const maxHeight = MAC_FAMILY_GRAPH_LAYOUT.maxFocusHeight;
   const centerX = (bounds.minX + bounds.maxX) / 2;
   const centerY = (bounds.minY + bounds.maxY) / 2 - 18;
   const width = Math.min(Math.max(bounds.maxX - bounds.minX, 900), maxWidth);
@@ -521,5 +595,59 @@ function focusBoundsFor(nodes, bands, fallback) {
 }
 
 function nodeVerticalRadius(node) {
-  return node.featured ? ROOT_CARD.h * 0.44 : 72;
+  return node.featured
+    ? MAC_FAMILY_GRAPH_LAYOUT.featuredConnectorRadius
+    : MAC_FAMILY_GRAPH_LAYOUT.regularConnectorRadius;
+}
+
+function clusterFamilyChildren(children, splitGap) {
+  const sorted = [...children].sort((a, b) => a.x - b.x);
+  const clusters = [];
+  let current = [];
+  for (const child of sorted) {
+    const previous = current[current.length - 1];
+    if (previous && child.x - previous.x > splitGap) {
+      clusters.push(current);
+      current = [];
+    }
+    current.push(child);
+  }
+  if (current.length) clusters.push(current);
+  return clusters;
+}
+
+function nearestChildCluster(clusters, x) {
+  return clusters.reduce((nearest, cluster) => {
+    if (!nearest) return cluster;
+    return Math.abs(clusterCenterX(cluster) - x) < Math.abs(clusterCenterX(nearest) - x) ? cluster : nearest;
+  }, null);
+}
+
+function clusterCenterX(cluster) {
+  return average(cluster.map((child) => child.x));
+}
+
+function localParentPoints(parentAttachPoints, x, maxDistance) {
+  const local = parentAttachPoints.filter((point) => Math.abs(point.x - x) <= maxDistance);
+  if (local.length) return local;
+  return [parentAttachPoints.reduce((nearest, point) => (
+    !nearest || Math.abs(point.x - x) < Math.abs(nearest.x - x) ? point : nearest
+  ), null)].filter(Boolean);
+}
+
+function compactParentPoints(parentAttachPoints, x, maxSpan) {
+  if (parentAttachPoints.length <= 1) return parentAttachPoints;
+  const span = Math.max(...parentAttachPoints.map((point) => point.x)) - Math.min(...parentAttachPoints.map((point) => point.x));
+  if (span <= maxSpan) return parentAttachPoints;
+  return [parentAttachPoints.reduce((nearest, point) => (
+    !nearest || Math.abs(point.x - x) < Math.abs(nearest.x - x) ? point : nearest
+  ), null)].filter(Boolean);
+}
+
+function average(values) {
+  return values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1);
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }

@@ -46,6 +46,7 @@ import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { linkExistingRelative } from '../lib/relativeLinks.js';
 import { evidenceStateForRecord, loadResearchCompleteness } from '../lib/researchCompleteness.js';
 import { MILK_KINSHIP_RECORD_TYPE, milkKinshipSummary, roleForMilkKinship } from '../lib/milkKinship.js';
+import { affiliationLevelLabel, loadTribalAffiliationModel } from '../lib/tribalAffiliations.js';
 import {
   Field,
   Empty,
@@ -86,6 +87,7 @@ const ACCENTS = {
   events: 'rgb(0 217 115)',
   media: 'rgb(77 128 230)',
   facts: 'rgb(217 0 115)',
+  tribal: 'rgb(20 120 120)',
   milk: 'rgb(20 184 166)',
   grave: 'rgb(107 114 128)',
   notes: 'rgb(217 217 0)',
@@ -115,6 +117,7 @@ export default function PersonEditor() {
   const [notes, setNotes] = useState([]);
   const [associates, setAssociates] = useState([]);
   const [related, setRelated] = useState({ media: [], sources: [], todos: [], stories: [], groups: [] });
+  const [tribalMemberships, setTribalMemberships] = useState([]);
   const [evidence, setEvidence] = useState(null);
   const [allPersons, setAllPersons] = useState([]);
   const [relativeType, setRelativeType] = useState('parent');
@@ -225,6 +228,14 @@ export default function PersonEditor() {
       stories: await hydrate(storyRels, 'story', 'Story'),
       groups: await hydrate(groupRels, 'personGroup', 'PersonGroup'),
     });
+    const tribalModel = await loadTribalAffiliationModel(db);
+    const affiliationsById = new Map(tribalModel.affiliations.map((affiliation) => [affiliation.recordName, affiliation]));
+    setTribalMemberships(
+      tribalModel.memberships
+        .filter((membership) => membership.personId === id)
+        .map((membership) => ({ ...membership, affiliation: affiliationsById.get(membership.affiliationId) }))
+        .filter((membership) => membership.affiliation)
+    );
 
     const labelMap = {};
     for (const lr of lbl.records) {
@@ -532,6 +543,26 @@ export default function PersonEditor() {
                 })}
               </Section>
 
+              <Section title="Tribal Affiliations" accent={ACCENTS.tribal}
+                controls={<button type="button" onClick={() => navigate('/tribal-affiliations')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open</button>}
+              >
+                {tribalMemberships.length === 0 ? (
+                  <Empty title="No tribal affiliations" hint="Add clan, tribe, branch, or house membership from the Tribal Affiliations page." />
+                ) : (
+                  <div className="space-y-2">
+                    {tribalMemberships.map((membership) => (
+                      <div key={membership.relation.recordName} className="flex items-center gap-2 p-2.5 bg-secondary/30 rounded-md">
+                        <span className="text-sm flex-1 min-w-0 truncate">
+                          {membership.affiliation.name}
+                          <span className="text-muted-foreground"> · {affiliationLevelLabel(membership.affiliation.level)}</span>
+                        </span>
+                        {membership.virtual && <span className="text-xs text-muted-foreground">imported fact</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
+
               <Section title="Milk Kinship / الرضاعة" accent={ACCENTS.milk}
                 controls={<button type="button" onClick={() => setMilkKinships((rows) => [...rows, emptyMilkKinship(id)])}
                   className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Add Milk Kinship</button>}
@@ -681,4 +712,3 @@ export default function PersonEditor() {
     </div>
   );
 }
-

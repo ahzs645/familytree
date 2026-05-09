@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { ROOT_CARD } from './constants.js';
-import { makeCanvasTexture, makePlaneFromTexture, roundedRect } from './threeUtils.js';
+import { MAC_FAMILY_GRAPH_LAYOUT } from './macTreeStyle.js';
 
 export function makeConnector(link, nodes, palette) {
   const group = new THREE.Group();
@@ -24,16 +24,12 @@ export function makeConnector(link, nodes, palette) {
       : orthogonalPoints(from, to, z);
   }
 
-  const tubeRadius = link.emphasis ? 3.2 : type === 'partner' ? 2 : 2.45;
-  for (let i = 1; i < points.length; i += 1) {
-    group.add(makeRibbonSegment(points[i - 1], points[i], palette.shadow, tubeRadius + 5.6, 0.08, -8, 3));
-  }
-  for (let i = 1; i < points.length; i += 1) {
-    group.add(makeRibbonSegment(points[i - 1], points[i], color, tubeRadius, link.emphasis ? 0.96 : 0.9, 0, 4));
-  }
+  const tubeRadius = link.emphasis ? 3 : type === 'partner' ? 1.8 : 2.15;
+  group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 4.8, 0.075, { x: 4, y: -5, z: -8 }, 3));
+  group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.92, { x: 0, y: 0, z: 0 }, 4));
   if (type === 'family' || link.emphasis) {
     for (const point of uniqueConnectorPoints(points)) {
-      group.add(makeConnectionCap(point, color, link.emphasis ? 5.8 : 4.6));
+      group.add(makeConnectionCap(point, color, link.emphasis ? 5.8 : 4.4));
     }
   }
   return group;
@@ -66,53 +62,81 @@ function orthogonalPoints(from, to, z) {
 }
 
 function edgeX(a, b) {
-  const radius = a.featured ? ROOT_CARD.w * 0.44 : 58;
+  const radius = a.featured ? ROOT_CARD.w * 0.38 : MAC_FAMILY_GRAPH_LAYOUT.regularConnectorRadius;
   return a.x + Math.sign(b.x - a.x || 1) * radius;
 }
 
 function nodeVerticalRadius(node) {
-  return node.featured ? ROOT_CARD.h * 0.44 : 72;
+  return node.featured
+    ? MAC_FAMILY_GRAPH_LAYOUT.featuredConnectorRadius
+    : MAC_FAMILY_GRAPH_LAYOUT.regularConnectorRadius;
 }
 
-function makeRibbonSegment(a, b, color, radius, opacity, zOffset, renderOrder) {
-  const length = a.distanceTo(b);
-  if (length <= 0.1) return new THREE.Group();
-  const texture = makeConnectorTexture(color, opacity);
-  const mesh = makePlaneFromTexture(texture, length + radius * 2, radius * 2.35);
-  mesh.position.copy(a).add(b).multiplyScalar(0.5);
-  mesh.position.x += zOffset ? 4 : 0;
-  mesh.position.y += zOffset ? -5 : 0;
-  mesh.position.z += zOffset;
-  const direction = new THREE.Vector3().subVectors(b, a);
-  mesh.rotation.z = Math.atan2(direction.y, direction.x);
-  mesh.material.depthWrite = false;
+function makeConnectorTube(points, color, radius, opacity, offset, renderOrder) {
+  const routed = roundedPolylinePoints(points);
+  if (routed.length < 2) return new THREE.Group();
+  const shifted = routed.map((point) => new THREE.Vector3(
+    point.x + offset.x,
+    point.y + offset.y,
+    point.z + offset.z
+  ));
+  const distance = shifted.reduce((sum, point, index) => (
+    index === 0 ? 0 : sum + point.distanceTo(shifted[index - 1])
+  ), 0);
+  const curve = new THREE.CatmullRomCurve3(shifted, false, 'centripetal', 0.08);
+  const geometry = new THREE.TubeGeometry(curve, Math.max(8, Math.ceil(distance / 32)), radius, 10, false);
+  const material = new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.34,
+    metalness: 0.02,
+    emissive: color,
+    emissiveIntensity: opacity > 0.4 ? 0.04 : 0,
+    transparent: true,
+    opacity,
+    depthWrite: false,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = renderOrder;
   return mesh;
 }
 
-function makeConnectorTexture(color, opacity) {
-  return makeCanvasTexture(256, 64, (ctx, w, h) => {
-    ctx.clearRect(0, 0, w, h);
-    const pad = 5;
-    const radius = 24;
-    roundedRect(ctx, pad, pad, w - pad * 2, h - pad * 2, radius);
-    ctx.fillStyle = colorWithAlpha(color, opacity);
-    ctx.fill();
-    if (opacity > 0.2) {
-      const highlight = ctx.createLinearGradient(0, pad, 0, h - pad);
-      highlight.addColorStop(0, 'rgba(255,255,255,0.42)');
-      highlight.addColorStop(0.52, 'rgba(255,255,255,0.06)');
-      highlight.addColorStop(1, 'rgba(96,0,62,0.1)');
-      roundedRect(ctx, pad, pad, w - pad * 2, h - pad * 2, radius);
-      ctx.fillStyle = highlight;
-      ctx.fill();
+function roundedPolylinePoints(points) {
+  if (points.length <= 2) return points;
+  const routed = [points[0].clone()];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    const next = points[index + 1];
+    const before = new THREE.Vector3().subVectors(previous, current);
+    const after = new THREE.Vector3().subVectors(next, current);
+    const beforeLength = before.length();
+    const afterLength = after.length();
+    const isCorner = beforeLength > 0.1 && afterLength > 0.1 && Math.abs(before.normalize().dot(after.normalize())) < 0.98;
+    if (!isCorner) {
+      routed.push(current.clone());
+      continue;
     }
-  });
+    const cornerRadius = Math.min(34, beforeLength * 0.44, afterLength * 0.44);
+    const entry = current.clone().add(before.multiplyScalar(cornerRadius));
+    const exit = current.clone().add(after.multiplyScalar(cornerRadius));
+    routed.push(entry);
+    for (let step = 1; step <= 5; step += 1) {
+      const t = step / 6;
+      routed.push(quadraticPoint(entry, current, exit, t));
+    }
+    routed.push(exit);
+  }
+  routed.push(points[points.length - 1].clone());
+  return routed;
 }
 
-function colorWithAlpha(color, alpha) {
-  const parsed = new THREE.Color(color);
-  return `rgba(${Math.round(parsed.r * 255)},${Math.round(parsed.g * 255)},${Math.round(parsed.b * 255)},${alpha})`;
+function quadraticPoint(a, control, b, t) {
+  const oneMinusT = 1 - t;
+  return new THREE.Vector3(
+    oneMinusT * oneMinusT * a.x + 2 * oneMinusT * t * control.x + t * t * b.x,
+    oneMinusT * oneMinusT * a.y + 2 * oneMinusT * t * control.y + t * t * b.y,
+    oneMinusT * oneMinusT * a.z + 2 * oneMinusT * t * control.z + t * t * b.z
+  );
 }
 
 function uniqueConnectorPoints(points) {
@@ -126,6 +150,7 @@ function uniqueConnectorPoints(points) {
 }
 
 function makeConnectionCap(point, color, radius) {
+  const group = new THREE.Group();
   const material = new THREE.MeshStandardMaterial({
     color,
     roughness: 0.34,
@@ -134,9 +159,21 @@ function makeConnectionCap(point, color, radius) {
     opacity: 0.9,
   });
   const cap = new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 12), material);
-  cap.scale.set(1.2, 1.2, 0.45);
-  cap.position.copy(point);
-  cap.position.z += 1;
+  cap.scale.set(1.24, 1.24, 0.5);
+  cap.position.set(0, 0, 0);
   cap.renderOrder = 5;
-  return cap;
+  group.add(cap);
+
+  const highlight = new THREE.Mesh(
+    new THREE.SphereGeometry(radius * 0.32, 16, 8),
+    new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.54, depthWrite: false })
+  );
+  highlight.scale.set(1.4, 0.9, 0.35);
+  highlight.position.set(-radius * 0.22, radius * 0.24, radius * 0.18);
+  highlight.renderOrder = 6;
+  group.add(highlight);
+
+  group.position.copy(point);
+  group.position.z += 1;
+  return group;
 }

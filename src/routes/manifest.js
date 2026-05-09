@@ -76,6 +76,7 @@ export const ROUTE_MANIFEST = [
   { path: 'todos', loader: () => import('./ToDos.jsx') },
   { path: 'stories', loader: () => import('./Stories.jsx') },
   { path: 'groups', loader: () => import('./PersonGroups.jsx') },
+  { path: 'tribal-affiliations', loader: () => import('./TribalAffiliations.jsx') },
   { path: 'dna', loader: () => import('./DNAResults.jsx') },
   { path: 'repositories', loader: () => import('./SourceRepositories.jsx') },
   { path: 'slideshow', loader: () => import('./Slideshow.jsx') },

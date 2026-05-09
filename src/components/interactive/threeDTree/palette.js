@@ -22,12 +22,12 @@ export function makePalette(dark, lightingMode = 'normal') {
         bandText: '#f4f6fa',
       }
     : {
-        background: '#fbfbf8',
-        grid: '#e9eceb',
-        gridStrong: '#d7ddde',
+        background: '#fbfbf7',
+        grid: '#ecefed',
+        gridStrong: '#dce2e1',
         text: '#1d1f24',
         muted: '#717985',
-        shadow: '#989da4',
+        shadow: '#8d929a',
         ambient: '#ffffff',
         keyLight: '#fff7de',
         fillLight: '#dceaff',
@@ -38,7 +38,7 @@ export function makePalette(dark, lightingMode = 'normal') {
         unknown: '#f3e8c7',
         unknownDeep: '#b9a36d',
         ancestorLine: '#b4a13b',
-        descendantLine: '#d72d92',
+        descendantLine: '#d62b92',
         partnerLine: '#9c8a64',
         bandText: '#33353a',
       };
