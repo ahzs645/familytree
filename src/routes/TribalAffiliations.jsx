@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { buildSeedImportPlan, IRAQI_TRIBES_SEED } from '../lib/arabicTribesDataPackage.js';
 import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../lib/changeLog.js';
 import { readField, writeRef } from '../lib/schema.js';
 import {
@@ -49,10 +50,13 @@ export default function TribalAffiliations() {
     if (!active) return;
     setValues({
       name: active.name || '',
+      arabicName: active.arabicName || readField(active.record, ['arabicName'], ''),
+      englishName: active.englishName || readField(active.record, ['englishName'], ''),
       level: active.level || 'clan',
       parentId: active.parentId || '',
       confidence: active.confidence || 'unknown',
       notes: active.notes || '',
+      evidenceText: active.evidenceText || readField(active.record, ['evidenceText'], ''),
     });
     setPersonId('');
   }, [active]);
@@ -77,6 +81,24 @@ export default function TribalAffiliations() {
     await logRecordCreated(record);
     await reload();
     setActiveId(record.recordName);
+  };
+
+  const importIraqiSeed = async () => {
+    const plan = buildSeedImportPlan(model.affiliations, IRAQI_TRIBES_SEED);
+    if (plan.records.length === 0) {
+      setStatus('Iraqi seed already imported');
+      setTimeout(() => setStatus(null), 1800);
+      return;
+    }
+    const db = getLocalDatabase();
+    for (const record of plan.records) {
+      await db.saveRecord(record);
+      await logRecordCreated(record);
+    }
+    await reload();
+    setActiveId(plan.records[0].recordName);
+    setStatus(`Imported ${plan.records.length} Iraqi seed affiliations`);
+    setTimeout(() => setStatus(null), 2200);
   };
 
   const materializeActive = async () => {
@@ -104,7 +126,7 @@ export default function TribalAffiliations() {
     }
     if (!record) return;
     const next = { ...record, fields: { ...record.fields } };
-    for (const key of ['name', 'level', 'confidence', 'notes']) {
+    for (const key of ['name', 'arabicName', 'englishName', 'level', 'confidence', 'notes', 'evidenceText']) {
       const value = values[key];
       if (value) next.fields[key] = { value, type: 'STRING' };
       else delete next.fields[key];
@@ -180,6 +202,8 @@ export default function TribalAffiliations() {
         <h3 className="text-sm font-semibold mb-3">Affiliation</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FieldRow label="Name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} style={editorInput} /></FieldRow>
+          <FieldRow label="Arabic name"><input dir="rtl" value={values.arabicName || ''} onChange={(e) => setValues({ ...values, arabicName: e.target.value })} style={editorInput} /></FieldRow>
+          <FieldRow label="English name"><input value={values.englishName || ''} onChange={(e) => setValues({ ...values, englishName: e.target.value })} style={editorInput} /></FieldRow>
           <FieldRow label="Level">
             <select value={values.level || 'clan'} onChange={(e) => setValues({ ...values, level: e.target.value })} style={editorInput}>
               {TRIBAL_AFFILIATION_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}
@@ -199,6 +223,18 @@ export default function TribalAffiliations() {
             </select>
           </FieldRow>
         </div>
+        {(active.dataPackageSourceId || active.evidenceText || values.evidenceText) && (
+          <div className="mt-3 rounded-md border border-border/70 bg-secondary/30 p-3">
+            <div className="text-xs font-semibold mb-2">Source evidence</div>
+            {active.dataPackageSourceId && (
+              <div className="text-xs text-muted-foreground mb-2">
+                {active.dataPackageSourceId}
+                {active.dataPackagePageIndex !== '' && active.dataPackagePageIndex !== undefined ? ` · page index ${active.dataPackagePageIndex}` : ''}
+              </div>
+            )}
+            <textarea rows={3} value={values.evidenceText || ''} onChange={(e) => setValues({ ...values, evidenceText: e.target.value })} style={editorTextarea} />
+          </div>
+        )}
         <FieldRow label="Notes"><textarea rows={4} value={values.notes || ''} onChange={(e) => setValues({ ...values, notes: e.target.value })} style={editorTextarea} /></FieldRow>
       </section>
 
@@ -252,7 +288,9 @@ export default function TribalAffiliations() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Tribal Affiliations</h1>
         <span className="text-xs text-muted-foreground">{model.affiliations.length}</span>
-        <button onClick={create} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
+        <button onClick={importIraqiSeed} className={`${status ? '' : 'ms-auto'} border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent`}>Import Iraqi Seed</button>
+        <button onClick={create} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
       </header>
       <div className="flex-1 min-h-0">
         <MasterDetailList

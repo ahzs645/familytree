@@ -1,4 +1,4 @@
-import { openDB } from 'idb';
+import Dexie from 'dexie';
 import { exportBackup } from './backup.js';
 import { getLocalDatabase } from './LocalDatabase.js';
 
@@ -6,20 +6,22 @@ const DB_NAME = 'cloudtreeweb-tree-library';
 const DB_VERSION = 1;
 const STORE = 'snapshots';
 
+let libraryDb = null;
+
 async function openLibrary() {
-  return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains(STORE)) {
-        const store = db.createObjectStore(STORE, { keyPath: 'id' });
-        store.createIndex('byUpdatedAt', 'updatedAt');
-      }
-    },
-  });
+  if (!libraryDb) {
+    libraryDb = new Dexie(DB_NAME);
+    libraryDb.version(DB_VERSION).stores({
+      [STORE]: 'id, updatedAt',
+    });
+  }
+  if (!libraryDb.isOpen()) await libraryDb.open();
+  return libraryDb;
 }
 
 export async function listTreeSnapshots({ sortBy = 'updatedAt' } = {}) {
   const db = await openLibrary();
-  const snapshots = await db.getAll(STORE);
+  const snapshots = await db[STORE].toArray();
   const mapped = snapshots.map(({ backup, ...summary }) => ({
     ...summary,
     favorite: !!summary.favorite,
@@ -46,21 +48,21 @@ function sortSnapshots(list, sortBy) {
 
 export async function setTreeSnapshotFavorite(snapshotId, favorite) {
   const db = await openLibrary();
-  const snapshot = await db.get(STORE, snapshotId);
+  const snapshot = await db[STORE].get(snapshotId);
   if (!snapshot) throw new Error('Tree snapshot was not found.');
-  await db.put(STORE, { ...snapshot, favorite: !!favorite, updatedAt: new Date().toISOString() });
+  await db[STORE].put({ ...snapshot, favorite: !!favorite, updatedAt: new Date().toISOString() });
 }
 
 export async function setTreeSnapshotLabel(snapshotId, label) {
   const db = await openLibrary();
-  const snapshot = await db.get(STORE, snapshotId);
+  const snapshot = await db[STORE].get(snapshotId);
   if (!snapshot) throw new Error('Tree snapshot was not found.');
-  await db.put(STORE, { ...snapshot, label: String(label || ''), updatedAt: new Date().toISOString() });
+  await db[STORE].put({ ...snapshot, label: String(label || ''), updatedAt: new Date().toISOString() });
 }
 
 export async function sendTreeSnapshotAsCopy(snapshotId) {
   const db = await openLibrary();
-  const snapshot = await db.get(STORE, snapshotId);
+  const snapshot = await db[STORE].get(snapshotId);
   if (!snapshot) throw new Error('Tree snapshot was not found.');
   const blob = new Blob([JSON.stringify(snapshot.backup, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -91,13 +93,13 @@ export async function saveCurrentTreeSnapshot(name = '') {
     backup,
   };
   const db = await openLibrary();
-  await db.put(STORE, snapshot);
+  await db[STORE].put(snapshot);
   return snapshot;
 }
 
 export async function restoreTreeSnapshot(snapshotId) {
   const db = await openLibrary();
-  const snapshot = await db.get(STORE, snapshotId);
+  const snapshot = await db[STORE].get(snapshotId);
   if (!snapshot?.backup?.records) throw new Error('Tree snapshot was not found.');
   await getLocalDatabase().importDataset({
     ...snapshot.backup,
@@ -115,18 +117,18 @@ export async function restoreTreeSnapshot(snapshotId) {
 
 export async function renameTreeSnapshot(snapshotId, name) {
   const db = await openLibrary();
-  const snapshot = await db.get(STORE, snapshotId);
+  const snapshot = await db[STORE].get(snapshotId);
   if (!snapshot) throw new Error('Tree snapshot was not found.');
   const next = {
     ...snapshot,
     name: String(name || '').trim() || snapshot.name,
     updatedAt: new Date().toISOString(),
   };
-  await db.put(STORE, next);
+  await db[STORE].put(next);
   return next;
 }
 
 export async function deleteTreeSnapshot(snapshotId) {
   const db = await openLibrary();
-  await db.delete(STORE, snapshotId);
+  await db[STORE].delete(snapshotId);
 }

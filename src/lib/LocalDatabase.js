@@ -1,17 +1,11 @@
 /**
- * LocalDatabase — IndexedDB-backed storage for family tree records.
+ * LocalDatabase — Dexie/IndexedDB-backed storage for family tree records.
  *
- * Replaces CloudKit entirely. All data lives in the browser's IndexedDB.
- * Records are stored in the same format the app expects (recordName, recordType, fields).
- *
- * Usage:
- *   const db = new LocalDatabase();
- *   await db.open();
- *   await db.importRecords(records);  // bulk import from .mftpkg
- *   const persons = await db.query('Person');
- *   const person = await db.getRecord('person-123');
+ * This is the browser-local adapter. The rest of the app should work through
+ * this boundary instead of calling Dexie directly, so a future Convex adapter
+ * can preserve the same application-level commands and record shapes.
  */
-import { openDB } from 'idb';
+import Dexie from 'dexie';
 import { compareStrings, matchesSearchText, startsWithSearchText } from './i18n.js';
 import { refToRecordName } from './recordRef.js';
 import {
@@ -20,10 +14,20 @@ import {
 } from './datasetSchemaVersion.js';
 
 const DB_NAME = 'cloudtreeweb-local';
-export const LOCAL_DB_VERSION = 3;
+export const LOCAL_DB_VERSION = 4;
 const STORE_RECORDS = 'records';
 const STORE_META = 'meta';
 const STORE_ASSETS = 'assets';
+
+function createDexieDatabase() {
+  const db = new Dexie(DB_NAME);
+  db.version(LOCAL_DB_VERSION).stores({
+    [STORE_RECORDS]: 'recordName, recordType',
+    [STORE_META]: 'key',
+    [STORE_ASSETS]: 'assetId, ownerRecordName, sourceIdentifier',
+  });
+  return db;
+}
 
 export class LocalDatabase {
   constructor() {
@@ -31,100 +35,67 @@ export class LocalDatabase {
   }
 
   async open() {
-    if (this._db) return this._db;
-
-    this._db = await openDB(DB_NAME, LOCAL_DB_VERSION, {
-      upgrade(db, oldVersion) {
-        // Records store — keyed by recordName, indexed by recordType
-        if (!db.objectStoreNames.contains(STORE_RECORDS)) {
-          const store = db.createObjectStore(STORE_RECORDS, { keyPath: 'recordName' });
-          store.createIndex('byType', 'recordType', { unique: false });
-          store.createIndex('byTypeAndField', ['recordType', 'fields.lastName.value'], { unique: false });
-        }
-
-        // Metadata store — tree info, import history, preferences
-        if (!db.objectStoreNames.contains(STORE_META)) {
-          db.createObjectStore(STORE_META, { keyPath: 'key' });
-        }
-
-        if (!db.objectStoreNames.contains(STORE_ASSETS)) {
-          const assets = db.createObjectStore(STORE_ASSETS, { keyPath: 'assetId' });
-          assets.createIndex('byOwnerRecordName', 'ownerRecordName', { unique: false });
-          assets.createIndex('bySourceIdentifier', 'sourceIdentifier', { unique: false });
-        }
-      },
-    });
-
+    if (!this._db) this._db = createDexieDatabase();
+    if (!this._db.isOpen()) await this._db.open();
     return this._db;
   }
 
   /** Check if there's any data imported. */
   async hasData() {
     const db = await this.open();
-    const count = await db.count(STORE_RECORDS);
-    return count > 0;
+    return (await db[STORE_RECORDS].count()) > 0;
   }
 
   /** Get total record count. */
   async getRecordCount() {
     const db = await this.open();
-    return db.count(STORE_RECORDS);
+    return db[STORE_RECORDS].count();
   }
 
   /** Get record count by type. */
   async getRecordCountByType(recordType) {
     const db = await this.open();
-    const index = db.transaction(STORE_RECORDS).store.index('byType');
-    return index.count(recordType);
+    return db[STORE_RECORDS].where('recordType').equals(recordType).count();
   }
 
   /** Get a summary of imported data. */
   async getSummary() {
     const db = await this.open();
-    const tx = db.transaction(STORE_RECORDS);
-    const index = tx.store.index('byType');
     const types = {};
-    let cursor = await index.openCursor();
-    while (cursor) {
-      const type = cursor.value.recordType;
+    await db[STORE_RECORDS].each((record) => {
+      const type = record.recordType;
       types[type] = (types[type] || 0) + 1;
-      cursor = await cursor.continue();
-    }
+    });
     const meta = await this.getMeta('importInfo');
     return { types, total: Object.values(types).reduce((a, b) => a + b, 0), meta };
   }
 
-  // ── Record CRUD ──
+  // -- Record CRUD --
 
   /** Get a single record by recordName. */
   async getRecord(recordName) {
     const db = await this.open();
-    return db.get(STORE_RECORDS, recordName);
+    return db[STORE_RECORDS].get(recordName);
   }
 
   /** Get multiple records by recordName array. */
   async getRecords(recordNames) {
     const db = await this.open();
-    const tx = db.transaction(STORE_RECORDS);
-    const results = await Promise.all(recordNames.map((name) => tx.store.get(name)));
+    const results = await Promise.all(recordNames.map((name) => db[STORE_RECORDS].get(name)));
     return results.filter(Boolean);
   }
 
   /** Get every stored record. Use only for maintenance/import/merge operations. */
   async getAllRecords() {
     const db = await this.open();
-    return db.getAll(STORE_RECORDS);
+    return db[STORE_RECORDS].toArray();
   }
 
   /** Query records by type with optional filter, sort, and limit. */
   async query(recordType, options = {}) {
     const db = await this.open();
-    const tx = db.transaction(STORE_RECORDS);
-    const index = tx.store.index('byType');
+    let records = await db[STORE_RECORDS].where('recordType').equals(recordType).toArray();
 
-    let records = await index.getAll(recordType);
-
-    // Apply filters
     if (options.filterBy) {
       for (const filter of options.filterBy) {
         if (!filter.fieldName || !filter.fieldValue) continue;
@@ -142,7 +113,6 @@ export class LocalDatabase {
       }
     }
 
-    // Apply search (text match on common fields)
     if (options.searchText) {
       records = records.filter((r) => {
         const fields = r.fields || {};
@@ -153,7 +123,6 @@ export class LocalDatabase {
       });
     }
 
-    // Apply sort
     if (options.sortBy && options.sortBy.length > 0) {
       const sort = options.sortBy[0];
       records.sort((a, b) => {
@@ -164,7 +133,6 @@ export class LocalDatabase {
       });
     }
 
-    // Apply reference filter (e.g., get all events for a person)
     if (options.referenceField && options.referenceValue) {
       records = records.filter((r) => {
         const ref = r.fields?.[options.referenceField];
@@ -173,7 +141,6 @@ export class LocalDatabase {
       });
     }
 
-    // Apply limit
     const limit = options.limit || 500;
     const hasMore = records.length > limit;
     records = records.slice(0, limit);
@@ -185,89 +152,72 @@ export class LocalDatabase {
   async saveRecord(record) {
     const db = await this.open();
     record.modified = { timestamp: Date.now() };
-    await db.put(STORE_RECORDS, record);
+    await db[STORE_RECORDS].put(record);
     return record;
   }
 
   /** Save multiple records in a single transaction. */
   async saveRecords(records) {
     const db = await this.open();
-    const tx = db.transaction(STORE_RECORDS, 'readwrite');
-    for (const record of records) {
-      record.modified = { timestamp: Date.now() };
-      tx.store.put(record);
-    }
-    await tx.done;
+    const now = Date.now();
+    const next = records.map((record) => {
+      record.modified = { timestamp: now };
+      return record;
+    });
+    await db.transaction('rw', db[STORE_RECORDS], async () => {
+      await db[STORE_RECORDS].bulkPut(next);
+    });
     return records;
   }
 
   /** Apply a records/assets mutation atomically in one IndexedDB transaction. */
   async applyRecordTransaction({ saveRecords = [], deleteRecordNames = [], saveAssets = [], deleteAssetIds = [] } = {}) {
     const db = await this.open();
-    const tx = db.transaction([STORE_RECORDS, STORE_ASSETS], 'readwrite');
     const now = Date.now();
-    for (const record of saveRecords) {
-      if (!record) continue;
-      record.modified = { timestamp: now };
-      tx.objectStore(STORE_RECORDS).put(record);
-    }
-    for (const recordName of deleteRecordNames) {
-      if (recordName) tx.objectStore(STORE_RECORDS).delete(recordName);
-    }
-    for (const asset of saveAssets) {
-      if (asset?.assetId) tx.objectStore(STORE_ASSETS).put(asset);
-    }
-    for (const assetId of deleteAssetIds) {
-      if (assetId) tx.objectStore(STORE_ASSETS).delete(assetId);
-    }
-    await tx.done;
+    await db.transaction('rw', db[STORE_RECORDS], db[STORE_ASSETS], async () => {
+      const recordsToSave = saveRecords.filter(Boolean).map((record) => {
+        record.modified = { timestamp: now };
+        return record;
+      });
+      const assetsToSave = saveAssets.filter((asset) => asset?.assetId);
+      if (recordsToSave.length) await db[STORE_RECORDS].bulkPut(recordsToSave);
+      if (deleteRecordNames.length) await db[STORE_RECORDS].bulkDelete(deleteRecordNames.filter(Boolean));
+      if (assetsToSave.length) await db[STORE_ASSETS].bulkPut(assetsToSave);
+      if (deleteAssetIds.length) await db[STORE_ASSETS].bulkDelete(deleteAssetIds.filter(Boolean));
+    });
   }
 
   /** Delete a record by recordName. */
   async deleteRecord(recordName) {
     const db = await this.open();
-    await db.delete(STORE_RECORDS, recordName);
+    await db[STORE_RECORDS].delete(recordName);
   }
 
-  // ── Bulk Import ──
+  // -- Bulk Import --
 
   /** Import a full dataset (replaces all existing data). */
   async importDataset(dataset) {
     const db = await this.open();
-
-    // Clear existing data
-    const clearTx = db.transaction([STORE_RECORDS, STORE_META, STORE_ASSETS], 'readwrite');
-    await clearTx.objectStore(STORE_RECORDS).clear();
-    await clearTx.objectStore(STORE_META).clear();
-    await clearTx.objectStore(STORE_ASSETS).clear();
-    await clearTx.done;
-
-    // Import records in batches of 500
     const records = Object.values(dataset.records || dataset);
+    const assets = Array.isArray(dataset.assets) ? dataset.assets.filter((asset) => asset?.assetId) : [];
+
+    await db.transaction('rw', db[STORE_RECORDS], db[STORE_META], db[STORE_ASSETS], async () => {
+      await db[STORE_RECORDS].clear();
+      await db[STORE_META].clear();
+      await db[STORE_ASSETS].clear();
+    });
+
     const batchSize = 500;
     for (let i = 0; i < records.length; i += batchSize) {
-      const batch = records.slice(i, i + batchSize);
-      const tx = db.transaction(STORE_RECORDS, 'readwrite');
-      for (const record of batch) {
-        tx.store.put(record);
-      }
-      await tx.done;
+      await db[STORE_RECORDS].bulkPut(records.slice(i, i + batchSize));
     }
 
-    // Save metadata
     await this.setMeta(DATASET_SCHEMA_VERSION_META_KEY, datasetSchemaVersionForImport(dataset));
-    if (dataset.meta) {
-      await this.setMeta('importInfo', dataset.meta);
-    }
-    if (dataset.zones) {
-      await this.setMeta('zones', dataset.zones);
-    }
-    if (Array.isArray(dataset.assets) && dataset.assets.length > 0) {
-      const tx = db.transaction(STORE_ASSETS, 'readwrite');
-      for (const asset of dataset.assets) {
-        if (asset?.assetId) tx.store.put(asset);
-      }
-      await tx.done;
+    if (dataset.meta) await this.setMeta('importInfo', dataset.meta);
+    if (dataset.zones) await this.setMeta('zones', dataset.zones);
+
+    for (let i = 0; i < assets.length; i += batchSize) {
+      await db[STORE_ASSETS].bulkPut(assets.slice(i, i + batchSize));
     }
 
     return records.length;
@@ -276,62 +226,61 @@ export class LocalDatabase {
   /** Clear all data. */
   async clearAll() {
     const db = await this.open();
-    const tx = db.transaction([STORE_RECORDS, STORE_META, STORE_ASSETS], 'readwrite');
-    await tx.objectStore(STORE_RECORDS).clear();
-    await tx.objectStore(STORE_META).clear();
-    await tx.objectStore(STORE_ASSETS).clear();
-    await tx.done;
+    await db.transaction('rw', db[STORE_RECORDS], db[STORE_META], db[STORE_ASSETS], async () => {
+      await db[STORE_RECORDS].clear();
+      await db[STORE_META].clear();
+      await db[STORE_ASSETS].clear();
+    });
   }
 
-  // ── Assets ──
+  // -- Assets --
 
   async saveAsset(asset) {
     if (!asset?.assetId) throw new Error('Asset must include assetId');
     const db = await this.open();
-    await db.put(STORE_ASSETS, asset);
+    await db[STORE_ASSETS].put(asset);
     return asset;
   }
 
   async getAsset(assetId) {
     const db = await this.open();
-    return db.get(STORE_ASSETS, assetId);
+    return db[STORE_ASSETS].get(assetId);
   }
 
   async deleteAsset(assetId) {
     const db = await this.open();
-    await db.delete(STORE_ASSETS, assetId);
+    await db[STORE_ASSETS].delete(assetId);
   }
 
   async listAssetsForRecord(ownerRecordName) {
     const db = await this.open();
-    const index = db.transaction(STORE_ASSETS).store.index('byOwnerRecordName');
-    return index.getAll(ownerRecordName);
+    return db[STORE_ASSETS].where('ownerRecordName').equals(ownerRecordName).toArray();
   }
 
   async listAllAssets() {
     const db = await this.open();
-    return db.getAll(STORE_ASSETS);
+    return db[STORE_ASSETS].toArray();
   }
 
   async getAssetCount() {
     const db = await this.open();
-    return db.count(STORE_ASSETS);
+    return db[STORE_ASSETS].count();
   }
 
-  // ── Metadata ──
+  // -- Metadata --
 
   async getMeta(key) {
     const db = await this.open();
-    const row = await db.get(STORE_META, key);
+    const row = await db[STORE_META].get(key);
     return row?.value ?? null;
   }
 
   async setMeta(key, value) {
     const db = await this.open();
-    await db.put(STORE_META, { key, value });
+    await db[STORE_META].put({ key, value });
   }
 
-  // ── Family Tree Specific Queries ──
+  // -- Family Tree Specific Queries --
 
   async getPersonBirthEvents(personRecordName) {
     const { records } = await this.query('PersonEvent', {
@@ -346,7 +295,6 @@ export class LocalDatabase {
   }
 
   async getPersonsParents(personRecordName) {
-    // Find ChildRelation records where child = personRecordName
     const { records: childRels } = await this.query('ChildRelation', {
       referenceField: 'child',
       referenceValue: personRecordName,
@@ -372,7 +320,6 @@ export class LocalDatabase {
   }
 
   async getPersonsChildrenInformation(personRecordName) {
-    // Find families where this person is man or woman
     const { records: allFamilies } = await this.query('Family', { limit: 100000 });
     const families = allFamilies.filter((f) => {
       const manRef = refToRecordName(f.fields?.man?.value);
@@ -386,7 +333,6 @@ export class LocalDatabase {
       const womanRef = refToRecordName(fam.fields?.woman?.value);
       const partnerId = manRef === personRecordName ? womanRef : manRef;
 
-      // Find children via ChildRelation
       const { records: childRels } = await this.query('ChildRelation', {
         referenceField: 'family',
         referenceValue: fam.recordName,

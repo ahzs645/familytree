@@ -20,8 +20,8 @@
   "dependencies": {
     "better-sqlite3": "^12.9.0",
     "clsx": "^2.1.1",
+    "dexie": "^4.4.2",
     "html2canvas": "^1.4.1",
-    "idb": "^8.0.3",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "lucide-react": "^1.8.0",

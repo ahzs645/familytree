@@ -14,7 +14,7 @@
 // ── IndexedDB Access (lightweight, no idb dependency — runs inside the bundle) ──
 
 var DB_NAME = 'cloudtreeweb-local';
-var DB_VERSION = 3;
+var DB_VERSION = 4;
 var STORE_RECORDS = 'records';
 var STORE_META = 'meta';
 var STORE_ASSETS = 'assets';
@@ -26,7 +26,7 @@ function openIDB() {
       var db = event.target.result;
       if (!db.objectStoreNames.contains(STORE_RECORDS)) {
         var store = db.createObjectStore(STORE_RECORDS, { keyPath: 'recordName' });
-        store.createIndex('byType', 'recordType', { unique: false });
+        store.createIndex('recordType', 'recordType', { unique: false });
       }
       if (!db.objectStoreNames.contains(STORE_META)) {
         db.createObjectStore(STORE_META, { keyPath: 'key' });
@@ -235,7 +235,7 @@ function createCloudKitDatabase(scope) {
 
       // Handle ConclusionType queries — try IndexedDB first, fall back to hardcoded
       if (type && type.startsWith('Conclusion')) {
-        return idbGetAll(STORE_RECORDS, 'byType', type).then(function(dbRecords) {
+        return idbGetAll(STORE_RECORDS, 'recordType', type).then(function(dbRecords) {
           var records = dbRecords.length > 0
             ? dbRecords.map(function(r) {
                 return addRecordMethods({ recordName: r.recordName, recordType: r.recordType, recordChangeTag: 'ct-1',
@@ -248,7 +248,7 @@ function createCloudKitDatabase(scope) {
 
       // PlaceTemplate queries now served from IndexedDB (no longer empty stub)
 
-      return idbGetAll(STORE_RECORDS, 'byType', type).then(function(records) {
+      return idbGetAll(STORE_RECORDS, 'recordType', type).then(function(records) {
         // Apply filters
         // CloudKit reference format: field values are "recordName---RecordType" strings
         // Our imported data stores references as { recordName: "...", action: "NONE" } objects
