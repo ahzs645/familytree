@@ -9,7 +9,7 @@
  * and writes a patched bundle.
  */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,6 +20,11 @@ const shimPath = resolve(__dirname, '../src/lib/CloudKitAdapter.js');
 const outputPath = resolve(__dirname, '../public/static/js/main-demo.js');
 
 console.log('Reading bundle...');
+if (!existsSync(bundlePath)) {
+  console.log(`Legacy bundle not found at ${bundlePath}`);
+  console.log('Skipping CloudKit patch. The Vite app does not require the legacy bundle.');
+  process.exit(0);
+}
 const bundle = readFileSync(bundlePath, 'utf8');
 console.log(`  ${(bundle.length / 1024).toFixed(1)} KB, ${bundle.split('\n').length} lines`);
 

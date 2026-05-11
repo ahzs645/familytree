@@ -35,8 +35,8 @@ jobs:
           cp node_modules/sql.js/dist/sql-wasm.js public/
           cp node_modules/sql.js/dist/sql-wasm.wasm public/
 
-      - name: Patch bundle (replace CloudKit SDK with local adapter)
-        run: node scripts/patch-bundle.js
+      - name: Patch legacy bundle if present
+        run: npm run legacy:patch
 
       - name: Build with Vite
         run: npx vite build --base=/familytree/
