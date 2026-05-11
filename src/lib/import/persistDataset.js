@@ -4,9 +4,8 @@
  * the local IndexedDB. Returns the number of records written, which the
  * orchestrator reports back to the UI.
  */
-import { getLocalDatabase } from '../LocalDatabase.js';
+import { getAppDataClient } from '../data/index.js';
 
 export async function persistDataset(dataset) {
-  const localDB = getLocalDatabase();
-  return localDB.importDataset(dataset);
+  return getAppDataClient().records.importDataset(dataset);
 }

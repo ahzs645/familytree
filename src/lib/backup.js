@@ -4,6 +4,7 @@
  * contents.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/index.js';
 import { getStoredDatasetSchemaVersion } from './datasetMigration.js';
 
 export async function exportBackup() {
@@ -83,8 +84,7 @@ export async function restoreBackup(json) {
   if (!json || json.format !== 'cloudtreeweb-backup' || !json.records) {
     throw new Error('File is not a CloudTreeWeb backup.');
   }
-  const db = getLocalDatabase();
-  await db.importDataset({
+  await getAppDataClient().records.importDataset({
     records: json.records,
     datasetSchemaVersion: json.datasetSchemaVersion,
     assets: Array.isArray(json.assets) ? json.assets : [],
