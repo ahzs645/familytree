@@ -1,11 +1,11 @@
 /**
- * DatabaseStatusContext — lightweight wrapper over LocalDatabase that tracks
+ * DatabaseStatusContext — lightweight wrapper over AppDataClient that tracks
  * whether data has been imported and exposes summary counts. Components
  * subscribe via `useDatabaseStatus()` and receive re-renders after import
  * or clear-all.
  */
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/index.js';
 
 const DatabaseStatusContext = createContext(null);
 
@@ -13,10 +13,9 @@ export function DatabaseStatusProvider({ children }) {
   const [status, setStatus] = useState({ loading: true, hasData: false, summary: null });
 
   const refresh = useCallback(async () => {
-    const db = getLocalDatabase();
-    await db.open();
-    const hasData = await db.hasData();
-    const summary = hasData ? await db.getSummary() : null;
+    const client = getAppDataClient();
+    const hasData = await client.records.hasData();
+    const summary = hasData ? await client.records.summary() : null;
     setStatus({ loading: false, hasData, summary });
   }, []);
 
@@ -25,8 +24,7 @@ export function DatabaseStatusProvider({ children }) {
   }, [refresh]);
 
   const clear = useCallback(async () => {
-    const db = getLocalDatabase();
-    await db.clearAll();
+    await getAppDataClient().records.clearAll();
     await refresh();
   }, [refresh]);
 

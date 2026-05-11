@@ -3,7 +3,7 @@
  * by Home's "Load Sample Tree" CTA on first run. Keeps the payload small
  * (no media) so it fits the landing bundle and loads in one frame.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/index.js';
 import { DATASET_SCHEMA_VERSION } from './datasetSchemaVersion.js';
 
 function uuid(prefix) {
@@ -90,7 +90,6 @@ export function buildSampleTreeRecords() {
 }
 
 export async function loadSampleTree() {
-  const db = getLocalDatabase();
   const records = buildSampleTreeRecords();
   const dataset = {
     format: 'cloudtreeweb-backup',
@@ -101,6 +100,6 @@ export async function loadSampleTree() {
     assets: [],
     meta: { sampleTree: true, loadedAt: new Date().toISOString() },
   };
-  await db.importDataset(dataset);
+  await getAppDataClient().records.importDataset(dataset);
   return records.length;
 }

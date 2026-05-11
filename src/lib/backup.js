@@ -3,18 +3,17 @@
  * a single JSON document; restore replaces all records with the document's
  * contents.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
 import { getAppDataClient } from './data/index.js';
 import { getStoredDatasetSchemaVersion } from './datasetMigration.js';
 
 export async function exportBackup() {
-  const db = getLocalDatabase();
-  const summary = await db.getSummary();
-  const assets = await db.listAllAssets();
+  const client = getAppDataClient();
+  const summary = await client.records.summary();
+  const assets = await client.assets.listAll();
   const datasetSchemaVersion = await getStoredDatasetSchemaVersion();
   const records = {};
   for (const type of Object.keys(summary?.types || {})) {
-    const { records: list } = await db.query(type, { limit: 1000000 });
+    const { records: list } = await client.records.query(type, { limit: 1000000 });
     for (const r of list) records[r.recordName] = r;
   }
   return {
@@ -134,7 +133,7 @@ export const DEFAULT_BACKUP_SETTINGS = Object.freeze({
 });
 
 export async function getBackupSettings() {
-  const stored = await getLocalDatabase().getMeta(BACKUP_SETTINGS_META);
+  const stored = await getAppDataClient().meta.get(BACKUP_SETTINGS_META);
   return { ...DEFAULT_BACKUP_SETTINGS, ...(stored || {}) };
 }
 
@@ -145,17 +144,17 @@ export async function saveBackupSettings(partial) {
     ...partial,
     retention: Math.max(1, Math.min(50, Number(partial?.retention ?? current.retention) || 10)),
   };
-  await getLocalDatabase().setMeta(BACKUP_SETTINGS_META, next);
+  await getAppDataClient().meta.set(BACKUP_SETTINGS_META, next);
   return next;
 }
 
 export async function listBackupHistory() {
-  const list = await getLocalDatabase().getMeta(BACKUP_HISTORY_META);
+  const list = await getAppDataClient().meta.get(BACKUP_HISTORY_META);
   return Array.isArray(list) ? list : [];
 }
 
 export async function takeBackupSnapshot({ reason = 'manual' } = {}) {
-  const db = getLocalDatabase();
+  const client = getAppDataClient();
   const data = await exportBackup();
   const entry = {
     id: `bk-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
@@ -169,7 +168,7 @@ export async function takeBackupSnapshot({ reason = 'manual' } = {}) {
   const { retention } = await getBackupSettings();
   const existing = await listBackupHistory();
   const next = [entry, ...existing].slice(0, Math.max(1, retention));
-  await db.setMeta(BACKUP_HISTORY_META, next);
+  await client.meta.set(BACKUP_HISTORY_META, next);
   return entry;
 }
 
@@ -181,13 +180,12 @@ export async function restoreBackupSnapshot(id) {
 }
 
 export async function deleteBackupSnapshot(id) {
-  const db = getLocalDatabase();
   const list = await listBackupHistory();
-  await db.setMeta(BACKUP_HISTORY_META, list.filter((entry) => entry.id !== id));
+  await getAppDataClient().meta.set(BACKUP_HISTORY_META, list.filter((entry) => entry.id !== id));
 }
 
 export async function clearBackupHistory() {
-  await getLocalDatabase().setMeta(BACKUP_HISTORY_META, []);
+  await getAppDataClient().meta.set(BACKUP_HISTORY_META, []);
 }
 
 /**

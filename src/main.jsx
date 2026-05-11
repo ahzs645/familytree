@@ -9,6 +9,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
+import { getAppDataClient } from './lib/data/index.js';
 import { getLocalDatabase } from './lib/LocalDatabase.js';
 import { getShareTokenFromHash } from './lib/shareRoute.js';
 
@@ -115,8 +116,7 @@ async function loadFromUrl(url) {
 async function autoLoadIfEmpty() {
   if (isSharePreviewRoute()) return;
 
-  const db = getLocalDatabase();
-  await db.open();
+  const client = getAppDataClient();
   const queryUrl = getDatasetUrlFromQuery();
 
   if (queryUrl) {
@@ -124,8 +124,8 @@ async function autoLoadIfEmpty() {
       console.warn('[CloudTreeWeb] ignored ?url= import because remote imports are disabled.');
       return;
     }
-    if (localStorage.getItem(LOADED_URL_KEY) === queryUrl && (await db.hasData())) return;
-    const hasData = await db.hasData();
+    if (localStorage.getItem(LOADED_URL_KEY) === queryUrl && (await client.records.hasData())) return;
+    const hasData = await client.records.hasData();
     const ok = window.confirm(
       hasData
         ? `Importing ${queryUrl} will replace the family tree currently stored in this browser. Continue?`
@@ -140,7 +140,7 @@ async function autoLoadIfEmpty() {
     return;
   }
 
-  if (await db.hasData()) return;
+  if (await client.records.hasData()) return;
   if (localStorage.getItem('cloudtreeweb-has-imported')) return;
   if (!DEMO_DATA_ENABLED) return;
   try {
@@ -148,7 +148,7 @@ async function autoLoadIfEmpty() {
     const res = await fetch(base + 'family-data.json');
     if (!res.ok) return;
     const data = await res.json();
-    const count = await db.importDataset(data);
+    const count = await client.records.importDataset(data);
     localStorage.setItem('cloudtreeweb-has-imported', '1');
     console.log(`[CloudTreeWeb] auto-loaded ${count} records from family-data.json`);
   } catch {

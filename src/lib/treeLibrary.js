@@ -1,6 +1,6 @@
 import Dexie from 'dexie';
 import { exportBackup } from './backup.js';
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/index.js';
 
 const DB_NAME = 'cloudtreeweb-tree-library';
 const DB_VERSION = 1;
@@ -101,7 +101,7 @@ export async function restoreTreeSnapshot(snapshotId) {
   const db = await openLibrary();
   const snapshot = await db[STORE].get(snapshotId);
   if (!snapshot?.backup?.records) throw new Error('Tree snapshot was not found.');
-  await getLocalDatabase().importDataset({
+  await getAppDataClient().records.importDataset({
     ...snapshot.backup,
     meta: {
       ...(snapshot.backup.meta || {}),
