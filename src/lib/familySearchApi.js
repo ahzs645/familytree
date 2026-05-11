@@ -3,6 +3,7 @@ import { readField } from './schema.js';
 import { personSummary } from '../models/index.js';
 
 const META_KEY = 'familySearchApiConfig';
+const SESSION_ACCESS_TOKEN_KEY = 'familySearchApiAccessToken';
 
 export const FAMILYSEARCH_ENVIRONMENTS = {
   production: {
@@ -32,13 +33,25 @@ export const DEFAULT_FAMILYSEARCH_CONFIG = {
 
 export async function getFamilySearchConfig() {
   const config = await getLocalDatabase().getMeta(META_KEY);
-  return normalizeFamilySearchConfig(config || DEFAULT_FAMILYSEARCH_CONFIG);
+  const normalized = normalizeFamilySearchConfig(config || DEFAULT_FAMILYSEARCH_CONFIG);
+  if (normalized.accessToken && readSessionValue(SESSION_ACCESS_TOKEN_KEY) !== normalized.accessToken) {
+    writeSessionValue(SESSION_ACCESS_TOKEN_KEY, normalized.accessToken);
+    await getLocalDatabase().setMeta(META_KEY, persistedFamilySearchConfig(normalized));
+  }
+  return {
+    ...normalized,
+    accessToken: readSessionValue(SESSION_ACCESS_TOKEN_KEY) || normalized.accessToken,
+  };
 }
 
 export async function saveFamilySearchConfig(config) {
   const normalized = normalizeFamilySearchConfig(config);
-  await getLocalDatabase().setMeta(META_KEY, normalized);
-  return normalized;
+  writeSessionValue(SESSION_ACCESS_TOKEN_KEY, normalized.accessToken);
+  await getLocalDatabase().setMeta(META_KEY, persistedFamilySearchConfig(normalized));
+  return {
+    ...normalized,
+    accessToken: readSessionValue(SESSION_ACCESS_TOKEN_KEY),
+  };
 }
 
 export function normalizeFamilySearchConfig(config = {}) {
@@ -52,6 +65,28 @@ export function normalizeFamilySearchConfig(config = {}) {
     accessToken: String(config.accessToken || '').trim(),
     termsConfirmed: !!config.termsConfirmed,
   };
+}
+
+function persistedFamilySearchConfig(config) {
+  const { accessToken, ...persisted } = normalizeFamilySearchConfig(config);
+  return persisted;
+}
+
+function readSessionValue(key) {
+  try {
+    return sessionStorage.getItem(key) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeSessionValue(key, value) {
+  try {
+    if (value) sessionStorage.setItem(key, value);
+    else sessionStorage.removeItem(key);
+  } catch {
+    /* sessionStorage can be unavailable */
+  }
 }
 
 export function buildFamilySearchAuthorizationUrl(config, state = '') {

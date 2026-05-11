@@ -17,7 +17,7 @@ import {
   placeSummary,
   sourceSummary,
 } from '../../models/index.js';
-import { attr, bdi, esc } from './utilities.js';
+import { attr, bdi, esc, mailtoUrl, safeUrl } from './utilities.js';
 import {
   familyLabel,
   mediaLabel,
@@ -91,8 +91,10 @@ function authorFooterHTML(author) {
   const parts = [];
   if (author.authorName) parts.push(`By ${bdi(author.authorName)}`);
   if (author.organization) parts.push(bdi(author.organization));
-  if (author.email) parts.push(`<a href="mailto:${attr(author.email)}">${bdi(author.email)}</a>`);
-  if (author.website) parts.push(`<a href="${attr(author.website)}">${bdi(author.website)}</a>`);
+  const emailHref = mailtoUrl(author.email);
+  const websiteHref = safeUrl(author.website);
+  if (emailHref) parts.push(`<a href="${attr(emailHref)}">${bdi(author.email)}</a>`);
+  if (websiteHref) parts.push(`<a href="${attr(websiteHref)}">${bdi(author.website)}</a>`);
   if (author.copyright) parts.push(bdi(author.copyright));
   if (!parts.length) return '';
   return `<div class="author-credit">${parts.join(' · ')}</div>`;
@@ -189,8 +191,10 @@ function authorHomeSection(author) {
     .filter(Boolean);
   if (addr.length) lines.push(addr.map((part) => bdi(part)).join('<br>'));
   if (author.phone) lines.push(bdi(author.phone));
-  if (author.email) lines.push(`<a href="mailto:${attr(author.email)}">${bdi(author.email)}</a>`);
-  if (author.website) lines.push(`<a href="${attr(author.website)}">${bdi(author.website)}</a>`);
+  const emailHref = mailtoUrl(author.email);
+  const websiteHref = safeUrl(author.website);
+  if (emailHref) lines.push(`<a href="${attr(emailHref)}">${bdi(author.email)}</a>`);
+  if (websiteHref) lines.push(`<a href="${attr(websiteHref)}">${bdi(author.website)}</a>`);
   if (author.notes) lines.push(`<p>${bdi(author.notes)}</p>`);
   if (author.copyright) lines.push(`<p class="muted">${bdi(author.copyright)}</p>`);
   return `<section>
@@ -455,8 +459,9 @@ function mediaAssetHtml(media, model, fromFolder, className) {
 }
 
 function mediaUrlHtml(media) {
-  const url = readField(media, ['url'], '');
-  return url ? `<p><a href="${attr(url)}">${esc(url)}</a></p>` : '';
+  const rawUrl = readField(media, ['url'], '');
+  const url = safeUrl(rawUrl);
+  return url ? `<p><a href="${attr(url)}">${esc(rawUrl)}</a></p>` : '';
 }
 
 function eventPlaceId(event) {

@@ -24,6 +24,25 @@ export function bdi(value) {
   return `<bdi dir="auto">${esc(value)}</bdi>`;
 }
 
+export function safeUrl(value, { protocols = ['http:', 'https:'] } = {}) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw, 'https://cloudtreeweb.local');
+    if (!protocols.includes(url.protocol)) return '';
+    if ((url.protocol === 'http:' || url.protocol === 'https:') && !/^https?:\/\//i.test(raw)) return '';
+    return raw;
+  } catch {
+    return '';
+  }
+}
+
+export function mailtoUrl(value) {
+  const email = String(value || '').trim();
+  if (!email || /[\s<>"']/.test(email)) return '';
+  return `mailto:${email}`;
+}
+
 export function normalizeOptions(options = {}) {
   return normalizeWebsiteOptions(options);
 }

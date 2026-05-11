@@ -3,6 +3,8 @@ import { getLocalDatabase } from './LocalDatabase.js';
 const META_KEY = 'websitePublishTarget';
 const HISTORY_META_KEY = 'websitePublishHistory';
 const HISTORY_MAX_ENTRIES = 50;
+const SESSION_SECRET_KEY = 'websitePublishTargetSecret';
+const SESSION_WEBHOOK_HEADER_KEY = 'websitePublishTargetWebhookHeader';
 
 export const DEFAULT_PUBLISH_TARGET = {
   mode: 'download',
@@ -18,13 +20,21 @@ export const DEFAULT_PUBLISH_TARGET = {
 
 export async function getPublishTarget() {
   const target = await getLocalDatabase().getMeta(META_KEY);
-  return normalizePublishTarget(target || DEFAULT_PUBLISH_TARGET);
+  const normalized = normalizePublishTarget(target || DEFAULT_PUBLISH_TARGET);
+  if (normalized.secret || normalized.webhookHeader) {
+    writeSessionValue(SESSION_SECRET_KEY, normalized.secret);
+    writeSessionValue(SESSION_WEBHOOK_HEADER_KEY, normalized.webhookHeader);
+    await getLocalDatabase().setMeta(META_KEY, persistedPublishTarget(normalized));
+  }
+  return withSessionSecrets(normalized);
 }
 
 export async function savePublishTarget(target) {
   const normalized = normalizePublishTarget(target);
-  await getLocalDatabase().setMeta(META_KEY, normalized);
-  return normalized;
+  writeSessionValue(SESSION_SECRET_KEY, normalized.secret);
+  writeSessionValue(SESSION_WEBHOOK_HEADER_KEY, normalized.webhookHeader);
+  await getLocalDatabase().setMeta(META_KEY, persistedPublishTarget(normalized));
+  return withSessionSecrets(normalized);
 }
 
 export function normalizePublishTarget(target = {}) {
@@ -42,6 +52,39 @@ export function normalizePublishTarget(target = {}) {
     webhookUrl: String(target.webhookUrl || '').trim(),
     webhookHeader: String(target.webhookHeader || '').trim(),
   };
+}
+
+function persistedPublishTarget(target) {
+  return {
+    ...normalizePublishTarget(target),
+    secret: '',
+    webhookHeader: '',
+  };
+}
+
+function withSessionSecrets(target) {
+  return {
+    ...normalizePublishTarget(target),
+    secret: readSessionValue(SESSION_SECRET_KEY),
+    webhookHeader: readSessionValue(SESSION_WEBHOOK_HEADER_KEY),
+  };
+}
+
+function readSessionValue(key) {
+  try {
+    return sessionStorage.getItem(key) || '';
+  } catch {
+    return '';
+  }
+}
+
+function writeSessionValue(key, value) {
+  try {
+    if (value) sessionStorage.setItem(key, value);
+    else sessionStorage.removeItem(key);
+  } catch {
+    /* sessionStorage can be unavailable */
+  }
 }
 
 export function validatePublishTarget(target) {
