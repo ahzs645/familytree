@@ -90,9 +90,11 @@ function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescend
   const xs = others.map((node) => node.x);
   const minX = Math.min(...xs, anchor.x);
   const maxX = Math.max(...xs, anchor.x);
-  // Slimmer default thickness — the Mac source uses ~1.4px lines.
-  const radius = 1.2 * thicknessScale;
-  const shadowRadius = radius + 2.6;
+  // Tube radius in scene units. Default camera shows ~3000 units across
+  // ~1000px so ~2.2 units of radius renders as ~1.5px lines, matching the
+  // Mac source. Slimmer than this stipples due to sub-pixel antialiasing.
+  const radius = 2.2 * thicknessScale;
+  const shadowRadius = radius + 3.0;
 
   const addSegment = (a, b) => {
     const points = [new THREE.Vector3(a.x, a.y, z), new THREE.Vector3(b.x, b.y, z)];
@@ -107,7 +109,7 @@ function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescend
   // Subtle caps at junctions — small enough not to look like beads.
   const junctionXs = new Set([anchor.x, ...xs]);
   for (const x of junctionXs) {
-    group.add(makeConnectionCap(new THREE.Vector3(x, busY, z + 0.5), color, 2.4 * thicknessScale));
+    group.add(makeConnectionCap(new THREE.Vector3(x, busY, z + 0.5), color, 3.0 * thicknessScale));
   }
   return group;
 }
@@ -130,10 +132,10 @@ export function makeConnector(link, nodes, palette, options = {}) {
       : orthogonalPoints(from, to, z);
   }
 
-  const baseRadius = link.emphasis ? 2.0 : type === 'partner' ? 1.0 : 1.2;
+  const baseRadius = link.emphasis ? 3.2 : type === 'partner' ? 1.8 : 2.2;
   const tubeRadius = baseRadius * thicknessScale;
-  group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 2.6, 0.06, { x: 3, y: -3, z: -6 }, 3));
-  group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.95, { x: 0, y: 0, z: 0 }, 4));
+  group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 3.0, 0.06, { x: 3, y: -3, z: -6 }, 3));
+  group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: 0 }, 4));
   if (type === 'family' || link.emphasis) {
     for (const point of uniqueConnectorPoints(points)) {
       group.add(makeConnectionCap(point, color, link.emphasis ? 5.8 : 4.4));
@@ -220,8 +222,14 @@ function makeConnectorTube(points, color, radius, opacity, offset, renderOrder) 
   const distance = shifted.reduce((sum, point, index) => (
     index === 0 ? 0 : sum + point.distanceTo(shifted[index - 1])
   ), 0);
-  const curve = new THREE.CatmullRomCurve3(shifted, false, 'centripetal', 0.08);
-  const geometry = new THREE.TubeGeometry(curve, Math.max(8, Math.ceil(distance / 32)), radius, 10, false);
+  // CatmullRomCurve3 needs ≥3 control points to interpolate cleanly. Use a
+  // dedicated LineCurve3 for straight 2-point segments — TubeGeometry on a
+  // degenerate spline produces stippled/discontinuous output.
+  const curve = shifted.length === 2
+    ? new THREE.LineCurve3(shifted[0], shifted[1])
+    : new THREE.CatmullRomCurve3(shifted, false, 'centripetal', 0.08);
+  const segments = Math.max(6, Math.ceil(distance / 24));
+  const geometry = new THREE.TubeGeometry(curve, segments, radius, 12, false);
   const material = new THREE.MeshStandardMaterial({
     color,
     roughness: 0.34,
