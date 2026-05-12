@@ -2,16 +2,19 @@ import * as THREE from 'three';
 import { BAND_LABEL_GUTTER } from './constants.js';
 import { makeCanvasTexture, makePlaneFromTexture, roundedRect } from './threeUtils.js';
 
-export function makeGenerationBand(band, palette, style = 'raised') {
+export function makeGenerationBand(band, palette, style = 'raised', options = {}) {
   if (style === 'none') return new THREE.Group();
+  const opacity = Number.isFinite(options.generationBandOpacity) ? options.generationBandOpacity : 1;
+  const colorMode = options.generationBandColorMode || 'byGeneration';
   const group = new THREE.Group();
   const segments = band.segments?.length ? band.segments : [band];
   for (const segment of segments) {
-    const texture = makeBandTexture(band, palette, style);
+    const texture = makeBandTexture(band, palette, style, colorMode);
     const geometry = new THREE.PlaneGeometry(segment.width, band.height);
     const material = new THREE.MeshBasicMaterial({
       map: texture,
       transparent: true,
+      opacity: Math.max(0, Math.min(1, opacity / 0.62)), // normalize: defaults render at 1.0 when opacity=0.62
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(geometry, material);
@@ -30,12 +33,8 @@ export function makeGenerationBand(band, palette, style = 'raised') {
   return group;
 }
 
-function makeBandTexture(band, palette, style = 'raised') {
-  const fill = band.generation === 0
-    ? 'rgba(246, 177, 230, 0.62)'
-    : band.generation < 0
-      ? ancestorBandColor(Math.abs(band.generation))
-      : descendantBandColor(band.generation);
+function makeBandTexture(band, palette, style = 'raised', colorMode = 'byGeneration') {
+  const fill = bandFillForMode(band, colorMode);
   return makeCanvasTexture(1280, 320, (ctx, w, h) => {
     const insetX = 26;
     const insetY = style === 'flat' ? 58 : 36;
@@ -178,6 +177,54 @@ function generationLabel(generation) {
   if (generation === 0) return 'Root Generation';
   if (generation < 0) return `Generation ${Math.abs(generation)}`;
   return `Descendant ${generation}`;
+}
+
+function bandFillForMode(band, mode) {
+  const baseGenerationFill = band.generation === 0
+    ? 'rgba(246, 177, 230, 0.62)'
+    : band.generation < 0
+      ? ancestorBandColor(Math.abs(band.generation))
+      : descendantBandColor(band.generation);
+  if (mode === 'byGeneration') return baseGenerationFill;
+  if (mode === 'gray') return 'rgba(170, 174, 178, 0.55)';
+  if (mode === 'highSaturation') {
+    return band.generation === 0
+      ? 'rgba(255, 110, 200, 0.78)'
+      : band.generation < 0
+        ? ancestorBandColorHighSat(Math.abs(band.generation))
+        : descendantBandColorHighSat(band.generation);
+  }
+  if (mode === 'blueGradient') return gradientFill(band.generation, ['rgba(190,224,250,0.6)', 'rgba(120,162,224,0.6)', 'rgba(72,108,196,0.6)']);
+  if (mode === 'greenGradient') return gradientFill(band.generation, ['rgba(210,236,210,0.6)', 'rgba(150,206,158,0.6)', 'rgba(78,162,108,0.6)']);
+  if (mode === 'blueOrange') return gradientFill(band.generation, ['rgba(180,216,244,0.6)', 'rgba(252,200,150,0.6)', 'rgba(244,138,84,0.6)']);
+  if (mode === 'magentaOrange') return gradientFill(band.generation, ['rgba(244,178,228,0.6)', 'rgba(252,194,156,0.6)', 'rgba(240,134,84,0.6)']);
+  return baseGenerationFill;
+}
+
+function gradientFill(generation, palette) {
+  const idx = Math.min(palette.length - 1, Math.abs(generation));
+  return palette[idx];
+}
+
+function ancestorBandColorHighSat(generation) {
+  const colors = [
+    'rgba(244, 120, 196, 0.74)',
+    'rgba(255, 168, 124, 0.7)',
+    'rgba(255, 222, 92, 0.66)',
+    'rgba(160, 222, 100, 0.64)',
+    'rgba(108, 210, 168, 0.62)',
+  ];
+  return colors[(generation - 1) % colors.length];
+}
+
+function descendantBandColorHighSat(generation) {
+  const colors = [
+    'rgba(212, 130, 240, 0.72)',
+    'rgba(168, 142, 248, 0.66)',
+    'rgba(120, 184, 240, 0.66)',
+    'rgba(146, 220, 174, 0.64)',
+  ];
+  return colors[(generation - 1) % colors.length];
 }
 
 function ancestorBandColor(generation) {

@@ -1,18 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
-import {
-  BOTTOM_PLANE_MODES,
-  CAMERA_MODES,
-  GENERATION_BAND_STYLES,
-  LIGHTING_MODES,
-  PERSON_STYLES,
-  APPEARANCE_MODES,
-  VIEWER_OPTIONS_STORAGE_KEY,
-} from './threeDTree/constants.js';
+import { CAMERA_MODES, VIEWER_OPTIONS_STORAGE_KEY } from './threeDTree/constants.js';
 import { buildInteractiveLayout } from './threeDTree/layout.js';
 import { makePalette } from './threeDTree/palette.js';
 import { readInitialViewerOptions } from './threeDTree/viewerOptions.js';
 import { Metric, PersonContextMenu, PersonHoverCard, TreeNavigationControls, ViewerSelect, dockToggleStyle } from './threeDTree/overlays.jsx';
+import { OptionsPanel } from './threeDTree/OptionsPanel.jsx';
 import { styles } from './threeDTree/styles.js';
 import { useThreeTreeScene } from './threeDTree/useThreeTreeScene.js';
 
@@ -28,20 +21,38 @@ export function ThreeDTreeView({
   onShowInfo,
   onOpenAncestorChart,
   onOpenDescendantChart,
+  onAddRelative,
   context,
   chrome = { navigation: true, people: true, inspector: true, header: true },
   onToggleChrome,
+  onReturnToFamilyTree,
 }) {
   const { theme } = useTheme();
   const appDark = theme === 'dark';
   const [viewerOptions, setViewerOptions] = useState(readInitialViewerOptions);
-  const [controlsVisible, setControlsVisible] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [optionsPanelOpen, setOptionsPanelOpen] = useState(false);
+  const [presentationMode, setPresentationMode] = useState(false);
+
+  useEffect(() => {
+    if (!presentationMode) return undefined;
+    const onKey = (event) => {
+      if (event.key === 'Escape') setPresentationMode(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [presentationMode]);
 
   const dark = viewerOptions.appearanceMode === 'app' ? appDark : false;
   const palette = useMemo(() => makePalette(dark, viewerOptions.lightingMode), [dark, viewerOptions.lightingMode]);
   const layout = useMemo(
-    () => buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph),
-    [ancestorTree, descendantTree, activeId, familyGraph]
+    () => buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph, {
+      ancestorGenerations: viewerOptions.ancestorGenerations,
+      descendantGenerations: viewerOptions.descendantGenerations,
+      childSortingMode: viewerOptions.childSortingMode,
+    }),
+    [ancestorTree, descendantTree, activeId, familyGraph, viewerOptions.ancestorGenerations, viewerOptions.descendantGenerations, viewerOptions.childSortingMode]
   );
   const relationshipCounts = useMemo(() => ({
     parents: context?.parents?.flatMap((family) => [family.man, family.woman]).filter(Boolean).length || 0,
@@ -79,14 +90,62 @@ export function ThreeDTreeView({
     <div
       style={styles.shell}
       onPointerMove={() => setControlsVisible(true)}
-      onPointerLeave={() => setControlsVisible(false)}
+      onPointerLeave={() => setControlsVisible(true)}
     >
       <div ref={containerRef} style={styles.canvas} />
+      {presentationMode && (
+        <div style={styles.presentationBadge}>
+          Presentation — press Esc to exit
+        </div>
+      )}
+      {!presentationMode && (
+      <div style={styles.macTopBar}>
+        <button type="button" onClick={() => onReturnToFamilyTree?.()} style={styles.macBarButton}>
+          Return to Family Tree
+        </button>
+        <button type="button" onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} style={styles.macBarButton}>
+          Options
+        </button>
+        <button type="button" onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} style={styles.macBarButton}>
+          Style
+        </button>
+        <button type="button" onClick={() => actionsRef.current.fit()} style={styles.macBarButton}>
+          Size to Fit
+        </button>
+        <div style={styles.macActionWrap}>
+          <button
+            type="button"
+            onClick={() => {
+              setActionsOpen((open) => !open);
+              setControlsVisible(true);
+            }}
+            style={styles.macBarButton}
+            aria-expanded={actionsOpen}
+          >
+            Actions...
+          </button>
+          {actionsOpen && (
+            <div style={styles.macActionMenu}>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onPick?.(activeId); actionsRef.current?.fit?.(); }}>Focus on Person</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); setPresentationMode(true); }}>Enter Presentation</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onEditPerson?.(activeId); }}>Edit Person</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onShowInfo?.(activeId); }}>Show Info</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onOpenAncestorChart?.(activeId); }}>Ancestor Chart</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onOpenDescendantChart?.(activeId); }}>Descendant Chart</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onToggleChrome?.('people'); }}>Person List</button>
+            </div>
+          )}
+        </div>
+      </div>
+      )}
+      {!presentationMode && (
       <div style={{ ...styles.controls, ...(!controlsVisible ? styles.controlsHidden : null) }}>
         <button type="button" onClick={() => actionsRef.current.zoom(0.82)} style={styles.iconButton} title="Zoom in">+</button>
         <button type="button" onClick={() => actionsRef.current.zoom(1.18)} style={styles.iconButton} title="Zoom out">-</button>
         <button type="button" onClick={() => actionsRef.current.fit()} style={styles.fitButton} title="Size to fit">Fit</button>
       </div>
+      )}
+      {!presentationMode && (
       <div style={{ ...styles.bottomDock, ...(!controlsVisible ? styles.bottomDockHidden : null) }}>
         <div style={styles.dockGroup}>
           <span style={styles.dockLabel}>Size to Fit</span>
@@ -108,41 +167,19 @@ export function ThreeDTreeView({
         </div>
         <TreeNavigationControls context={context} onPick={onPick} />
         <div style={styles.dockGroup}>
-          <ViewerSelect
-            label="Canvas"
-            value={viewerOptions.appearanceMode}
-            options={APPEARANCE_MODES}
-            onChange={(appearanceMode) => setViewerOptions((current) => ({ ...current, appearanceMode }))}
-          />
-          <ViewerSelect
-            label="Style"
-            value={viewerOptions.personStyle}
-            options={PERSON_STYLES}
-            onChange={(personStyle) => setViewerOptions((current) => ({ ...current, personStyle }))}
-          />
+          <button
+            type="button"
+            style={styles.dockButton}
+            onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }}
+            aria-pressed={optionsPanelOpen}
+          >
+            Options...
+          </button>
           <ViewerSelect
             label="Camera"
             value={viewerOptions.cameraMode}
             options={CAMERA_MODES}
             onChange={(cameraMode) => setViewerOptions((current) => ({ ...current, cameraMode }))}
-          />
-          <ViewerSelect
-            label="Lighting"
-            value={viewerOptions.lightingMode}
-            options={LIGHTING_MODES}
-            onChange={(lightingMode) => setViewerOptions((current) => ({ ...current, lightingMode }))}
-          />
-          <ViewerSelect
-            label="Floor"
-            value={viewerOptions.bottomPlaneMode}
-            options={BOTTOM_PLANE_MODES}
-            onChange={(bottomPlaneMode) => setViewerOptions((current) => ({ ...current, bottomPlaneMode }))}
-          />
-          <ViewerSelect
-            label="Bands"
-            value={viewerOptions.generationBandStyle}
-            options={GENERATION_BAND_STYLES}
-            onChange={(generationBandStyle) => setViewerOptions((current) => ({ ...current, generationBandStyle }))}
           />
         </div>
         <div style={styles.dockGroup}>
@@ -180,9 +217,30 @@ export function ThreeDTreeView({
           </button>
         </div>
       </div>
-      {(loading || !hasTree) && (
-        <div style={styles.overlay}>
-          {loading ? 'Loading tree...' : 'Pick a person from the list.'}
+      )}
+      {optionsPanelOpen && (
+        <OptionsPanel
+          viewerOptions={viewerOptions}
+          onChange={setViewerOptions}
+          onClose={() => setOptionsPanelOpen(false)}
+        />
+      )}
+      {loading && (
+        <div style={styles.overlay}>Loading tree...</div>
+      )}
+      {!loading && !hasTree && (
+        <div style={styles.emptyCta}>
+          <div style={styles.emptyCtaTitle}>No persons present</div>
+          <div style={styles.emptyCtaMessage}>
+            There are no persons in this family tree. Use the button below to start with a new person.
+          </div>
+          <button
+            type="button"
+            style={styles.emptyCtaButton}
+            onClick={() => onEditPerson?.('new')}
+          >
+            Add First Person
+          </button>
         </div>
       )}
       {hoverCard && !contextMenu && (
@@ -201,6 +259,8 @@ export function ThreeDTreeView({
           onShowInfo={onShowInfo}
           onOpenAncestorChart={onOpenAncestorChart}
           onOpenDescendantChart={onOpenDescendantChart}
+          onAddRelative={onAddRelative}
+          context={context}
         />
       )}
     </div>

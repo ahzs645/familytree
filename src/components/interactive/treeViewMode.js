@@ -1,7 +1,7 @@
 export const TREE_VIEW_MODE_STORAGE_KEY = 'cloudtreeweb:interactive-tree-view-mode';
 export const TREE_VIEW_MODE_STORAGE_VERSION = 2;
 
-export const TREE_VIEW_MODES = ['three', 'sun', 'family', 'canvas', 'details'];
+export const TREE_VIEW_MODES = ['three', 'flat', 'sun', 'family', 'canvas', 'details'];
 
 export function normalizeTreeViewMode(value, fallback = 'three') {
   return TREE_VIEW_MODES.includes(value) ? value : fallback;

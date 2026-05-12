@@ -11,7 +11,7 @@ export function fitCamera(camera, controls, bounds, container, cameraMode = 'til
   const viewportHeight = Math.max(1, rect.height);
   const zoomForWidth = viewportWidth / width;
   const zoomForHeight = viewportHeight / height;
-  const fitPadding = cameraMode === 'top' ? 0.9 : 0.82;
+  const fitPadding = (cameraMode === 'top' || cameraMode === 'topDown') ? 0.9 : 0.82;
   const nextZoom = THREE.MathUtils.clamp(Math.min(zoomForWidth, zoomForHeight) * fitPadding, 0.1, 1.45);
 
   const position = cameraPositionForMode(cameraMode, centerX, centerY);
@@ -97,9 +97,32 @@ function isFiniteCameraState(state) {
 }
 
 function cameraPositionForMode(cameraMode, centerX, centerY) {
-  if (cameraMode === 'top') return new THREE.Vector3(centerX, centerY, 1700);
-  if (cameraMode === 'front') return new THREE.Vector3(centerX, centerY - 1550, 520);
-  if (cameraMode === 'isoLeft') return new THREE.Vector3(centerX - 980, centerY - 980, 1280);
-  if (cameraMode === 'isoRight') return new THREE.Vector3(centerX + 980, centerY - 980, 1280);
-  return new THREE.Vector3(centerX, centerY - 360, 1550);
+  switch (cameraMode) {
+    case 'topDown':
+      return new THREE.Vector3(centerX, centerY, 1700);
+    case 'topDownSlight':
+      return new THREE.Vector3(centerX, centerY - 220, 1600);
+    case 'topDownTilted':
+      return new THREE.Vector3(centerX, centerY - 480, 1500);
+    case 'front':
+      return new THREE.Vector3(centerX, centerY - 1550, 520);
+    case 'frontLeft':
+      return new THREE.Vector3(centerX - 780, centerY - 1380, 520);
+    case 'frontRight':
+      return new THREE.Vector3(centerX + 780, centerY - 1380, 520);
+    case 'topLeft':
+      return new THREE.Vector3(centerX - 560, centerY - 200, 1620);
+    case 'topRight':
+      return new THREE.Vector3(centerX + 560, centerY - 200, 1620);
+    case 'isoLeft':
+      return new THREE.Vector3(centerX - 980, centerY - 980, 1280);
+    case 'isoRight':
+      return new THREE.Vector3(centerX + 980, centerY - 980, 1280);
+    // Legacy fallbacks
+    case 'top':
+      return new THREE.Vector3(centerX, centerY, 1700);
+    case 'tilted':
+    default:
+      return new THREE.Vector3(centerX, centerY - 360, 1550);
+  }
 }

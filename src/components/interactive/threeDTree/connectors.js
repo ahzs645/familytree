@@ -2,16 +2,12 @@ import * as THREE from 'three';
 import { ROOT_CARD } from './constants.js';
 import { MAC_FAMILY_GRAPH_LAYOUT } from './macTreeStyle.js';
 
-export function makeConnector(link, nodes, palette) {
+export function makeConnector(link, nodes, palette, options = {}) {
   const group = new THREE.Group();
   const type = link.type;
-  const color = link.emphasis
-    ? palette.descendantLine
-    : type === 'partner'
-    ? palette.partnerLine
-    : type === 'ancestor'
-      ? palette.ancestorLine
-      : palette.descendantLine;
+  const thicknessScale = Number.isFinite(options.connectionThickness) ? options.connectionThickness : 1;
+  const colorMode = options.connectionColorMode || 'byGenerationLight';
+  const color = colorForConnector(link, type, palette, colorMode);
   const z = link.emphasis ? 5 : 2;
   let points = (link.points || []).map((point) => new THREE.Vector3(point.x, point.y, point.z ?? z));
   if (points.length === 0 && link.from && link.to) {
@@ -24,7 +20,8 @@ export function makeConnector(link, nodes, palette) {
       : orthogonalPoints(from, to, z);
   }
 
-  const tubeRadius = link.emphasis ? 3 : type === 'partner' ? 1.8 : 2.15;
+  const baseRadius = link.emphasis ? 3 : type === 'partner' ? 1.8 : 2.15;
+  const tubeRadius = baseRadius * thicknessScale;
   group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 4.8, 0.075, { x: 4, y: -5, z: -8 }, 3));
   group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.92, { x: 0, y: 0, z: 0 }, 4));
   if (type === 'family' || link.emphasis) {
@@ -33,6 +30,25 @@ export function makeConnector(link, nodes, palette) {
     }
   }
   return group;
+}
+
+function colorForConnector(link, type, palette, mode) {
+  if (mode === 'gray') return '#9098a0';
+  if (mode === 'byGenerationDark') {
+    // Use darker per-line colors; reuse base palette but with emphasis preference.
+    if (type === 'partner') return palette.partnerLine;
+    return link.emphasis || type === 'descendant' ? palette.descendantLine : palette.ancestorLine;
+  }
+  if (mode === 'byBlood') {
+    // Blood relationship: emphasize descendant/ancestor, mute partner.
+    if (type === 'partner') return '#b2b8bf';
+    return link.emphasis ? palette.descendantLine : (type === 'ancestor' ? palette.ancestorLine : palette.descendantLine);
+  }
+  // byGenerationLight (default) — current behavior
+  if (link.emphasis) return palette.descendantLine;
+  if (type === 'partner') return palette.partnerLine;
+  if (type === 'ancestor') return palette.ancestorLine;
+  return palette.descendantLine;
 }
 
 function partnerPoints(from, to, z) {

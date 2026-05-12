@@ -114,16 +114,20 @@ export function useThreeTreeScene({
     };
     controls.addEventListener('change', updateZoomReadout);
 
-    scene.add(new THREE.AmbientLight(palette.ambient, 2.35));
-    const key = new THREE.DirectionalLight(palette.keyLight, 2.5);
+    const illumination = Number.isFinite(viewerOptions.illuminationStrength) ? viewerOptions.illuminationStrength : 1;
+    const shadowStrength = Number.isFinite(viewerOptions.shadowStrength) ? viewerOptions.shadowStrength : 1;
+    scene.add(new THREE.AmbientLight(palette.ambient, 2.35 * illumination));
+    const key = new THREE.DirectionalLight(palette.keyLight, 2.5 * illumination);
     key.position.set(240, -380, 700);
-    key.castShadow = true;
+    key.castShadow = shadowStrength > 0;
     key.shadow.mapSize.width = 2048;
     key.shadow.mapSize.height = 2048;
+    key.shadow.bias = -0.0005;
     scene.add(key);
-    const fill = new THREE.DirectionalLight(palette.fillLight, 1.35);
+    const fill = new THREE.DirectionalLight(palette.fillLight, 1.35 * illumination);
     fill.position.set(-500, 460, 420);
     scene.add(fill);
+    renderer.shadowMap.enabled = shadowStrength > 0;
 
     const stage = new THREE.Group();
     scene.add(stage);
@@ -252,7 +256,7 @@ export function useThreeTreeScene({
     };
     // The scene is rebuilt only when the color system changes; layout changes update the stage below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dark, palette, viewerOptions.cameraMode]);
+  }, [dark, palette, viewerOptions.cameraMode, viewerOptions.illuminationStrength, viewerOptions.shadowStrength]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -267,18 +271,18 @@ export function useThreeTreeScene({
 
     stage.add(makeBottomPlane(palette, layout.bounds, viewerOptions.bottomPlaneMode));
     for (const band of layout.bands) {
-      stage.add(makeGenerationBand(band, palette, viewerOptions.generationBandStyle));
+      stage.add(makeGenerationBand(band, palette, viewerOptions.generationBandStyle, viewerOptions));
       if (viewerOptions.generationBandStyle !== 'none') stage.add(makeGenerationLabel(band));
     }
 
     for (const link of layout.links) {
-      stage.add(makeConnector(link, layout.nodes, palette));
+      stage.add(makeConnector(link, layout.nodes, palette, viewerOptions));
     }
 
     for (const node of layout.nodes) {
       const object = node.featured
-        ? makeFeaturedNode(node, palette, viewerOptions.personStyle, hoveredId === node.id)
-        : makePersonNode(node, palette, viewerOptions.personStyle, hoveredId === node.id);
+        ? makeFeaturedNode(node, palette, viewerOptions.personStyle, hoveredId === node.id, viewerOptions)
+        : makePersonNode(node, palette, viewerOptions.personStyle, hoveredId === node.id, viewerOptions);
       stage.add(object);
       clickablesRef.current.push(object);
     }

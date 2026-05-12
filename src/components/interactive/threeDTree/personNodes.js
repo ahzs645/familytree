@@ -1,12 +1,48 @@
 import * as THREE from 'three';
 import { lifeSpanLabel } from '../../../models/index.js';
+import { yearLabel } from '../../../lib/vitalFormat.js';
 import { ROOT_CARD, SKIN } from './constants.js';
 import { MAC_FAMILY_GRAPH_LAYOUT } from './macTreeStyle.js';
 import { makeReferencePersonModel } from './referenceModels.js';
-import { colorsForGender, lightenHex } from './personColors.js';
+import { colorsForGender, colorsForNode, isLivingPerson, lightenHex } from './personColors.js';
 import { makeCanvasTexture, makePlaneFromTexture, roundedRect } from './threeUtils.js';
 
-export function makePersonNode(node, palette, personStyle, hovered = false) {
+function buildLifeLabel(person, options = {}) {
+  const showBirth = options.displayBirthDate !== false;
+  const showDeath = options.displayDeathDate !== false;
+  if (showBirth && showDeath) return lifeSpanLabel(person) || '';
+  if (showBirth) {
+    const year = yearLabel(person?.birthDate);
+    return year ? `b. ${year}` : '';
+  }
+  if (showDeath) {
+    const year = yearLabel(person?.deathDate);
+    return year ? `d. ${year}` : '';
+  }
+  return '';
+}
+
+function shouldDrawAvatar(viewerOptions) {
+  return (viewerOptions?.personImageStyle || 'round') !== 'none';
+}
+
+function makeLivingHalo(palette, featured) {
+  const radius = featured ? ROOT_CARD.w * 0.5 : 76;
+  const halo = new THREE.Mesh(
+    new THREE.TorusGeometry(radius, featured ? 3.4 : 2.6, 10, 96),
+    new THREE.MeshBasicMaterial({
+      color: '#39d97a',
+      transparent: true,
+      opacity: 0.75,
+      depthWrite: false,
+    })
+  );
+  halo.position.set(0, featured ? 0 : 2, featured ? 36 : 26);
+  halo.renderOrder = 17;
+  return halo;
+}
+
+export function makePersonNode(node, palette, personStyle, hovered = false, viewerOptions = {}) {
   const group = new THREE.Group();
   group.position.set(node.x, node.y, node.z);
   group.userData.person = node.person;
@@ -22,26 +58,33 @@ export function makePersonNode(node, palette, personStyle, hovered = false) {
   shadow.renderOrder = 2;
   group.add(shadow);
 
-  const model = makeMacPersonModel(node, palette, false, personStyle);
-  model.position.set(0, 12, 6);
-  group.add(model);
+  if (shouldDrawAvatar(viewerOptions)) {
+    const model = makeMacPersonModel(node, palette, false, personStyle, viewerOptions);
+    model.position.set(0, 12, 6);
+    group.add(model);
+  }
 
   if (hasMoreRelatives(node)) group.add(makeFurtherRelativesMarker(node, palette, false));
   if (hasStatusBadges(node)) group.add(makeStatusBadges(node, false));
+  if (viewerOptions?.highlightLivingPersons && isLivingPerson(node?.person)) {
+    group.add(makeLivingHalo(palette, false));
+  }
   if (hovered) group.add(makeSelectionMark(false, palette, 'hover'));
 
-  const label = makePlaneFromTexture(
-    makePersonLabelTexture(node.person, palette),
-    MAC_FAMILY_GRAPH_LAYOUT.regularLabelWidth,
-    MAC_FAMILY_GRAPH_LAYOUT.regularLabelHeight
-  );
-  label.position.set(0, -59, 16);
-  group.add(label);
+  if (viewerOptions?.displayLabels !== false) {
+    const label = makePlaneFromTexture(
+      makePersonLabelTexture(node.person, palette, viewerOptions),
+      MAC_FAMILY_GRAPH_LAYOUT.regularLabelWidth,
+      MAC_FAMILY_GRAPH_LAYOUT.regularLabelHeight
+    );
+    label.position.set(0, -59, 16);
+    group.add(label);
+  }
 
   return group;
 }
 
-export function makeFeaturedNode(node, palette, personStyle, hovered = false) {
+export function makeFeaturedNode(node, palette, personStyle, hovered = false, viewerOptions = {}) {
   const group = new THREE.Group();
   group.position.set(node.x, node.y, node.z);
   group.userData.person = node.person;
@@ -57,17 +100,22 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false) {
   shadow.renderOrder = 2;
   group.add(shadow);
 
-  const card = makePlaneFromTexture(makeFeaturedTexture(node.person, palette), ROOT_CARD.w, ROOT_CARD.h);
+  const card = makePlaneFromTexture(makeFeaturedTexture(node.person, palette, viewerOptions), ROOT_CARD.w, ROOT_CARD.h);
   card.position.set(0, 0, 0);
   card.renderOrder = 3;
   group.add(card);
 
   group.add(makeRootMark(palette));
+  if (viewerOptions?.highlightLivingPersons && isLivingPerson(node?.person)) {
+    group.add(makeLivingHalo(palette, true));
+  }
   if (hovered) group.add(makeSelectionMark(true, palette, 'hover'));
 
-  const model = makeMacPersonModel(node, palette, true, personStyle);
-  model.position.set(0, 60, 28);
-  group.add(model);
+  if (shouldDrawAvatar(viewerOptions)) {
+    const model = makeMacPersonModel(node, palette, true, personStyle, viewerOptions);
+    model.position.set(0, 60, 28);
+    group.add(model);
+  }
 
   if (hasMoreRelatives(node)) group.add(makeFurtherRelativesMarker(node, palette, true));
   if (hasStatusBadges(node)) group.add(makeStatusBadges(node, true));
@@ -75,13 +123,13 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false) {
   return group;
 }
 
-function makeMacPersonModel(node, palette, featured, personStyle) {
+function makeMacPersonModel(node, palette, featured, personStyle, viewerOptions = {}) {
   const person = node?.person || node;
   const referenceModel = makeReferencePersonModel(node, palette, featured, personStyle);
   if (referenceModel) return referenceModel;
 
   const group = new THREE.Group();
-  const colors = colorsForGender(person?.gender, palette);
+  const colors = colorsForNode(node, palette, viewerOptions?.personColoringMode || 'byGender');
   const scale = featured ? 1.02 : 0.78;
   group.scale.setScalar(scale);
 
@@ -331,7 +379,7 @@ function cloneAndRetintMaterial(material, colors, options = {}) {
   return clone;
 }
 
-function makePersonLabelTexture(person, palette) {
+function makePersonLabelTexture(person, palette, viewerOptions = {}) {
   return makeCanvasTexture(420, 170, (ctx, w, h) => {
     ctx.fillStyle = 'rgba(255,255,255,0)';
     ctx.fillRect(0, 0, w, h);
@@ -345,7 +393,7 @@ function makePersonLabelTexture(person, palette) {
     for (const [line, y] of wrapMeasuredText(ctx, name, 366, 2).map((line, index) => [line, 48 + index * 29])) {
       ctx.fillText(line, w / 2, y);
     }
-    const life = lifeSpanLabel(person);
+    const life = buildLifeLabel(person, viewerOptions);
     if (life) {
       ctx.direction = 'ltr';
       ctx.fillStyle = '#747b86';
@@ -355,7 +403,7 @@ function makePersonLabelTexture(person, palette) {
   });
 }
 
-function makeFeaturedTexture(person, palette) {
+function makeFeaturedTexture(person, palette, viewerOptions = {}) {
   return makeCanvasTexture(560, 560, (ctx, w, h) => {
     const cx = w / 2;
     const cy = h / 2;
@@ -406,7 +454,7 @@ function makeFeaturedTexture(person, palette) {
     const firstNameY = nameLines.length === 1 ? 344 : 326;
     nameLines.forEach((line, index) => ctx.fillText(line, cx, firstNameY + index * 35));
 
-    const life = lifeSpanLabel(person);
+    const life = buildLifeLabel(person, viewerOptions);
     if (life) {
       ctx.direction = 'ltr';
       ctx.fillStyle = '#747b86';

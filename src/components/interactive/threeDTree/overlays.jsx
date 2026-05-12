@@ -93,6 +93,8 @@ export function PersonContextMenu({
   onShowInfo,
   onOpenAncestorChart,
   onOpenDescendantChart,
+  onAddRelative,
+  context,
 }) {
   const familyId = selectableFamilyId(node);
   const run = (handler) => {
@@ -103,6 +105,12 @@ export function PersonContextMenu({
     onClose?.();
     if (familyId) onOpenFamily?.(familyId);
   };
+  const runAdd = (relation, options = {}) => {
+    onClose?.();
+    onAddRelative?.({ relation, anchorId: person?.recordName, ...options });
+  };
+  const [addOpen, setAddOpen] = useStateLike(false);
+  const partners = (context?.families || []).map((family) => family.partner).filter(Boolean);
   return (
     <div
       style={{ ...styles.contextMenu, left: x, top: y }}
@@ -114,14 +122,63 @@ export function PersonContextMenu({
         <div style={styles.contextName}>{person?.fullName || 'Unnamed person'}</div>
         <div style={styles.contextMeta}>{lifeSpanLabel(person) || 'No life dates'}</div>
       </div>
-      <button type="button" style={styles.contextItem} onClick={() => run(onPick)} role="menuitem">Set as Focus</button>
+      <button type="button" style={styles.contextItem} onClick={() => run(onPick)} role="menuitem">Focus on Person</button>
       <button type="button" style={styles.contextItem} onClick={() => run(onShowInfo)} role="menuitem">Show Info</button>
       <button type="button" style={styles.contextItem} onClick={() => run(onEditPerson)} role="menuitem">Edit Person</button>
-      {familyId && <button type="button" style={styles.contextItem} onClick={runFamily} role="menuitem">Select Family</button>}
+      {familyId && <button type="button" style={styles.contextItem} onClick={runFamily} role="menuitem">Select Family…</button>}
+      {onAddRelative && (
+        <>
+          <div style={styles.contextDivider} />
+          <button
+            type="button"
+            style={styles.contextItem}
+            onClick={() => setAddOpen((open) => !open)}
+            role="menuitem"
+            aria-expanded={addOpen}
+          >
+            {addOpen ? '▾' : '▸'} Add Relatives…
+          </button>
+          {addOpen && (
+            <div style={styles.contextSubmenu}>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('father')}>Add Father</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('mother')}>Add Mother</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('partner')}>Add Partner</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('brother')}>Add Brother</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('sister')}>Add Sister</button>
+              {partners.length === 0 && (
+                <>
+                  <button type="button" style={styles.contextItem} onClick={() => runAdd('son')}>Add Son</button>
+                  <button type="button" style={styles.contextItem} onClick={() => runAdd('daughter')}>Add Daughter</button>
+                </>
+              )}
+              {partners.map((partner) => (
+                <React.Fragment key={partner.recordName}>
+                  <button type="button" style={styles.contextItem} onClick={() => runAdd('son', { partnerId: partner.recordName })}>
+                    Add Son with {partner.fullName || 'partner'}
+                  </button>
+                  <button type="button" style={styles.contextItem} onClick={() => runAdd('daughter', { partnerId: partner.recordName })}>
+                    Add Daughter with {partner.fullName || 'partner'}
+                  </button>
+                </React.Fragment>
+              ))}
+              <div style={styles.contextDivider} />
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingFather')}>Select Existing Person as Father</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingMother')}>Select Existing Person as Mother</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingPartner')}>Select Existing Person as Partner</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingChild')}>Select Existing Person as Child</button>
+            </div>
+          )}
+        </>
+      )}
+      <div style={styles.contextDivider} />
       <button type="button" style={styles.contextItem} onClick={() => run(onOpenAncestorChart)} role="menuitem">Ancestor Chart</button>
       <button type="button" style={styles.contextItem} onClick={() => run(onOpenDescendantChart)} role="menuitem">Descendant Chart</button>
     </div>
   );
+}
+
+function useStateLike(initial) {
+  return React.useState(initial);
 }
 
 function selectableFamilyId(node) {

@@ -1,8 +1,25 @@
 import { BAND_LABEL_GUTTER, GEN_STEP, NODE_SPACING, PARTNER_OFFSET, ROOT_CARD } from './constants.js';
 import { MAC_FAMILY_GRAPH_LAYOUT, macBandSplitGap } from './macTreeStyle.js';
 
-export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph = null) {
+export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph = null, options = {}) {
   if (familyGraph?.nodes?.length) return buildFamilyGraphLayout(familyGraph, activeId);
+
+  const maxAncestorGenerations = Number.isFinite(options.ancestorGenerations) ? Math.max(1, options.ancestorGenerations) : 4;
+  const maxDescendantGenerations = Number.isFinite(options.descendantGenerations) ? Math.max(1, options.descendantGenerations) : 6;
+  const childSortingMode = options.childSortingMode || 'byBirthAsc';
+
+  const sortChildren = (children) => {
+    if (!children?.length) return children || [];
+    const list = [...children];
+    if (childSortingMode === 'byName') {
+      list.sort((a, b) => String(a?.person?.fullName || '').localeCompare(String(b?.person?.fullName || '')));
+    } else if (childSortingMode === 'byBirthDesc') {
+      list.sort((a, b) => parseBirthYear(b?.person) - parseBirthYear(a?.person));
+    } else if (childSortingMode === 'byBirthAsc') {
+      list.sort((a, b) => parseBirthYear(a?.person) - parseBirthYear(b?.person));
+    }
+    return list;
+  };
 
   const nodes = new Map();
   const links = [];
@@ -50,7 +67,7 @@ export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, f
       const x = generation === 0 ? 0 : (slot - (total - 1) / 2) * spacing;
       addNode(node.person, -generation, x, generation === 0 ? 'root' : 'ancestor');
       if (childId) addLink(node.person.recordName, childId, 'ancestor');
-      if (generation >= 4) return;
+      if (generation >= maxAncestorGenerations) return;
       visitAncestor(node.father, generation + 1, slot * 2, node.person.recordName);
       visitAncestor(node.mother, generation + 1, slot * 2 + 1, node.person.recordName);
     };
@@ -67,6 +84,7 @@ export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, f
 
     const placeDescendant = (node, generation, centerX, parentId = null) => {
       if (!node?.person) return;
+      if (generation > maxDescendantGenerations) return;
       addNode(node.person, generation, centerX, generation === 0 ? 'root' : 'descendant');
       if (parentId) addLink(parentId, node.person.recordName, 'descendant');
 
@@ -81,7 +99,7 @@ export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, f
         }
       });
 
-      const children = unions.flatMap((union) => union.children || []);
+      const children = sortChildren(unions.flatMap((union) => union.children || []));
       if (children.length === 0) return;
       const totalWidth = children.reduce((sum, child) => sum + measure(child), 0);
       let cursor = centerX - ((totalWidth - 1) * NODE_SPACING) / 2;
@@ -650,4 +668,9 @@ function average(values) {
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
+}
+
+function parseBirthYear(person) {
+  const year = extractYear(person?.birthDate);
+  return Number.isFinite(year) ? year : Number.MAX_SAFE_INTEGER;
 }

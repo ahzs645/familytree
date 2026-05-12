@@ -17,6 +17,7 @@ import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { PersonList } from './PersonList.jsx';
 import { PersonFocus } from './PersonFocus.jsx';
 import { ThreeDTreeView } from './ThreeDTreeView.jsx';
+import { FlatInteractiveTreeView } from './FlatInteractiveTreeView.jsx';
 import { SunTreeView } from './SunTreeView.jsx';
 import { TraumatreeCanvasView } from './TraumatreeCanvasView.jsx';
 import { FamilyTreeView } from './FamilyTreeView.jsx';
@@ -112,6 +113,11 @@ export function InteractiveTreeApp() {
       return next;
     });
   }, []);
+  const returnToFamilyTreeChrome = useCallback(() => {
+    const next = { navigation: true, people: true, inspector: true, header: true };
+    setTreeChrome(next);
+    window.dispatchEvent(new CustomEvent('cloudtreeweb:navigation-visibility', { detail: { hidden: false } }));
+  }, []);
   const showTreeInfo = useCallback((recordName) => {
     setActivePerson(recordName);
     setMobilePane('focus');
@@ -131,6 +137,23 @@ export function InteractiveTreeApp() {
     },
     [navigate, setActivePerson]
   );
+  const onAddRelative = useCallback(({ relation, anchorId, partnerId }) => {
+    if (!anchorId) return;
+    const isExisting = relation?.startsWith?.('existing');
+    const isChildRelation = ['son', 'daughter', 'existingChild'].includes(relation);
+    const anchorFamily = isChildRelation
+      ? (context?.families?.find((family) => !partnerId || family.partner?.recordName === partnerId)?.recordName || context?.families?.[0]?.recordName)
+      : (relation === 'father' || relation === 'mother' || relation === 'brother' || relation === 'sister' || relation === 'existingFather' || relation === 'existingMother'
+          ? context?.parents?.[0]?.recordName
+          : null);
+    if (anchorFamily) {
+      const tag = isExisting ? 'pickExisting' : 'createNew';
+      navigate(`/family/${encodeURIComponent(anchorFamily)}?addRelative=${encodeURIComponent(relation)}&intent=${tag}`);
+      return;
+    }
+    // Fall back: open person editor of anchor so user can manage relations there.
+    navigate(`/person/${encodeURIComponent(anchorId)}?addRelative=${encodeURIComponent(relation)}${partnerId ? `&partner=${encodeURIComponent(partnerId)}` : ''}`);
+  }, [context, navigate]);
 
   if (loading) return <EmptyMsg text="Loading…" />;
   if (empty) {
@@ -186,6 +209,14 @@ export function InteractiveTreeApp() {
               </button>
               <button
                 type="button"
+                onClick={() => setViewMode('flat')}
+                style={segment(viewMode === 'flat')}
+                aria-selected={viewMode === 'flat'}
+              >
+                Flat
+              </button>
+              <button
+                type="button"
                 onClick={() => setViewMode('sun')}
                 style={segment(viewMode === 'sun')}
                 aria-selected={viewMode === 'sun'}
@@ -235,9 +266,11 @@ export function InteractiveTreeApp() {
                     onShowInfo={showTreeInfo}
                     onOpenAncestorChart={openAncestor}
                     onOpenDescendantChart={openDescendant}
+                    onAddRelative={onAddRelative}
                     context={context}
                     chrome={treeChrome}
                     onToggleChrome={toggleTreeChrome}
+                    onReturnToFamilyTree={returnToFamilyTreeChrome}
                   />
                 </div>
                 {showInspector && (
@@ -251,6 +284,18 @@ export function InteractiveTreeApp() {
                   />
                 )}
               </div>
+            ) : viewMode === 'flat' ? (
+              <FlatInteractiveTreeView
+                ancestorTree={trees.ancestor}
+                descendantTree={trees.descendant}
+                familyGraph={trees.graph}
+                activeId={activeId}
+                loading={trees.loading}
+                onPick={onPick}
+                onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+                onShowInfo={showTreeInfo}
+                onReturnToFamilyTree={returnToFamilyTreeChrome}
+              />
             ) : viewMode === 'sun' ? (
               <SunTreeView
                 descendantTree={trees.descendant}
