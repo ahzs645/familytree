@@ -9,9 +9,9 @@ import { buildInteractiveLayout } from './threeDTree/layout.js';
 import { readInitialViewerOptions } from './threeDTree/viewerOptions.js';
 import { VIEWER_OPTIONS_STORAGE_KEY } from './threeDTree/constants.js';
 
-const CARD_W = 130;
-const CARD_H = 76;
-const BAND_PADDING_Y = 24;
+const CARD_W = 148;
+const CARD_H = 64;
+const BAND_PADDING_Y = 28;
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 3.0;
 
@@ -155,9 +155,7 @@ export function FlatInteractiveTreeView({
                 opacity={bandOpacity}
               />
             ))}
-            {layout.links.map((link) => (
-              <LinkLine key={link.key} link={link} nodes={layout.nodes} />
-            ))}
+            <FamilyConnectors links={layout.links} nodes={layout.nodes} />
             {layout.nodes.map((node) => (
               <PersonCard
                 key={node.id}
@@ -196,7 +194,7 @@ function BandRow({ band, bounds, fullWidth, opacity }) {
         rx={28}
         ry={28}
         fill={bandFill(band.generation)}
-        stroke={bandStroke(band.generation)}
+        stroke={bandStroke()}
         strokeWidth={1.2}
       />
       <text
@@ -217,40 +215,60 @@ function PersonCard({ node, viewerOptions, active, onClick, onDoubleClick }) {
   const x = node.x - CARD_W / 2;
   const y = node.y - CARD_H / 2;
   const name = node.person?.fullName || 'Unknown';
-  const isFemale = String(node.person?.gender || '').toLowerCase().includes('fem');
-  const isMale = String(node.person?.gender || '').toLowerCase().includes('mal') && !isFemale;
-  const fillColor = isMale ? '#dbe7ff' : isFemale ? '#fde0ef' : '#eaedf2';
-  const strokeColor = active ? '#7b5af6' : isMale ? '#9bb5e8' : isFemale ? '#dba6c1' : '#bcc0c7';
+  const gender = Number(node.person?.gender);
+  const isFemale = gender === 1;
+  const isMale = gender === 0;
+  // Mac uses light blue for males, light pink for females, neutral for unknown.
+  const fillColor = isMale ? '#dde9fb' : isFemale ? '#fbd9ec' : '#f0eef6';
+  const innerHighlight = isMale ? '#f1f7ff' : isFemale ? '#fef0f8' : '#f8f6fb';
+  const strokeColor = active ? '#7b5af6' : isMale ? '#a7c1ef' : isFemale ? '#e5a7c8' : '#cbc7d6';
   const dates = buildDates(node.person, viewerOptions);
+  const showAvatar = (viewerOptions?.personImageStyle || 'round') !== 'none';
+  const textInsetX = showAvatar ? 44 : 14;
   return (
     <g transform={`translate(${x}, ${y})`} style={{ cursor: 'pointer' }} onClick={onClick} onDoubleClick={onDoubleClick}>
       <rect
         width={CARD_W}
         height={CARD_H}
-        rx={10}
-        ry={10}
+        rx={9}
+        ry={9}
         fill={fillColor}
         stroke={strokeColor}
-        strokeWidth={active ? 2.4 : 1.2}
+        strokeWidth={active ? 2.2 : 1}
       />
-      {(viewerOptions?.personImageStyle || 'round') !== 'none' && (
-        <circle cx={20} cy={CARD_H / 2} r={14} fill="#f4d3a5" stroke="#c79462" strokeWidth={1} />
+      {/* Subtle inner highlight strip on top half for the soft Mac look */}
+      <rect
+        x={1}
+        y={1}
+        width={CARD_W - 2}
+        height={(CARD_H - 2) / 2}
+        rx={8}
+        ry={8}
+        fill={innerHighlight}
+        opacity={0.65}
+      />
+      {showAvatar && (
+        <>
+          <circle cx={22} cy={CARD_H / 2} r={15} fill="#f5d6a8" stroke="#c79462" strokeWidth={0.8} />
+          <circle cx={22} cy={CARD_H / 2 - 4} r={5.5} fill="#3b2e23" opacity={0.6} />
+          <ellipse cx={22} cy={CARD_H / 2 + 9} rx={9} ry={5} fill="#3b2e23" opacity={0.55} />
+        </>
       )}
       <text
-        x={42}
-        y={28}
-        fill="#17191d"
+        x={textInsetX}
+        y={dates ? 24 : CARD_H / 2 + 4}
+        fill="#1c1d22"
         fontFamily="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
         fontWeight={700}
         fontSize={12}
       >
-        {truncate(name, 16)}
+        {truncate(name, 18)}
       </text>
       {dates && (
         <text
-          x={42}
-          y={46}
-          fill="#646973"
+          x={textInsetX}
+          y={42}
+          fill="#5d6068"
           fontFamily="-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
           fontWeight={600}
           fontSize={10}
@@ -262,26 +280,94 @@ function PersonCard({ node, viewerOptions, active, onClick, onDoubleClick }) {
   );
 }
 
+const LINK_COLOR = '#d04a96';
+const LINK_WIDTH = 1.4;
+
+function FamilyConnectors({ links, nodes }) {
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+  const descendantByParent = new Map();
+  const ancestorByChild = new Map();
+  const passThrough = [];
+
+  for (const link of links) {
+    if (link.type === 'descendant' && link.from && link.to) {
+      if (!descendantByParent.has(link.from)) descendantByParent.set(link.from, []);
+      descendantByParent.get(link.from).push(link);
+    } else if (link.type === 'ancestor' && link.from && link.to) {
+      if (!ancestorByChild.has(link.to)) ancestorByChild.set(link.to, []);
+      ancestorByChild.get(link.to).push(link);
+    } else {
+      passThrough.push(link);
+    }
+  }
+
+  const buses = [];
+  for (const [parentId, parentLinks] of descendantByParent) {
+    const parent = nodeById.get(parentId);
+    const children = parentLinks.map((link) => nodeById.get(link.to)).filter(Boolean);
+    if (!parent || children.length === 0) continue;
+    buses.push({ key: `dbus:${parentId}`, anchor: parent, others: children, descendant: true });
+  }
+  for (const [childId, ancestorLinks] of ancestorByChild) {
+    const child = nodeById.get(childId);
+    const parents = ancestorLinks.map((link) => nodeById.get(link.from)).filter(Boolean);
+    if (!child || parents.length === 0) continue;
+    buses.push({ key: `abus:${childId}`, anchor: child, others: parents, descendant: false });
+  }
+
+  return (
+    <g>
+      {buses.map((bus) => (
+        <BusConnector key={bus.key} anchor={bus.anchor} others={bus.others} descendant={bus.descendant} />
+      ))}
+      {passThrough.map((link) => (
+        <LinkLine key={link.key} link={link} nodes={nodes} />
+      ))}
+    </g>
+  );
+}
+
+function BusConnector({ anchor, others, descendant }) {
+  const anchorEdgeY = descendant ? anchor.y + CARD_H / 2 : anchor.y - CARD_H / 2;
+  const otherY = others[0].y;
+  const otherEdgeY = descendant ? otherY - CARD_H / 2 : otherY + CARD_H / 2;
+  const busY = (anchorEdgeY + otherEdgeY) / 2;
+  const xs = others.map((node) => node.x);
+  const minX = Math.min(...xs, anchor.x);
+  const maxX = Math.max(...xs, anchor.x);
+
+  return (
+    <g stroke={LINK_COLOR} strokeWidth={LINK_WIDTH} fill="none">
+      <line x1={anchor.x} y1={anchorEdgeY} x2={anchor.x} y2={busY} />
+      {Math.abs(maxX - minX) > 1 && (
+        <line x1={minX} y1={busY} x2={maxX} y2={busY} />
+      )}
+      {others.map((other) => (
+        <line key={other.id} x1={other.x} y1={busY} x2={other.x} y2={otherEdgeY} />
+      ))}
+    </g>
+  );
+}
+
 function LinkLine({ link, nodes }) {
   const from = nodes.find((node) => node.id === link.from);
   const to = nodes.find((node) => node.id === link.to);
   if (!from || !to) return null;
 
   if (link.type === 'partner') {
+    // Mac draws partner as a thin solid magenta line right between the two cards.
     return (
       <line
-        x1={from.x}
+        x1={from.x + (to.x > from.x ? CARD_W / 2 : -CARD_W / 2)}
         y1={from.y}
-        x2={to.x}
+        x2={to.x + (from.x > to.x ? CARD_W / 2 : -CARD_W / 2)}
         y2={to.y}
-        stroke="#c97aa6"
-        strokeWidth={1.6}
-        strokeDasharray="6 4"
+        stroke={LINK_COLOR}
+        strokeWidth={LINK_WIDTH}
       />
     );
   }
 
-  // Orthogonal: from bottom of higher to top of lower
   const isFromAbove = from.y < to.y;
   const top = isFromAbove ? from : to;
   const bottom = isFromAbove ? to : from;
@@ -293,8 +379,8 @@ function LinkLine({ link, nodes }) {
     <polyline
       points={points}
       fill="none"
-      stroke={link.type === 'ancestor' ? '#9aa0a8' : '#8da6c6'}
-      strokeWidth={1.4}
+      stroke={LINK_COLOR}
+      strokeWidth={LINK_WIDTH}
     />
   );
 }
@@ -334,20 +420,20 @@ function computeSceneBounds(nodes, bands) {
   };
 }
 
+// Mac source uses uniform pink across all generations with subtle saturation
+// changes; mirror that here. The root band sits slightly more saturated.
 function bandFill(generation) {
-  if (generation === 0) return '#f9d4ec';
-  if (generation < 0) return ['#fbd6e7', '#f7c7d6', '#f3b8c9', '#efaabf', '#ec9bb7'][Math.min(Math.abs(generation) - 1, 4)];
-  return ['#e6d4ee', '#d9c8e8', '#cbbbe1', '#bfb0d9', '#b3a4d1'][Math.min(generation - 1, 4)];
+  if (generation === 0) return '#f4c6e0';
+  const tiers = ['#fbdfee', '#f8d4e8', '#f5cae3', '#f1c0dd', '#edb6d8'];
+  return tiers[Math.min(Math.abs(generation) - 1, tiers.length - 1)];
 }
 
-function bandStroke(generation) {
-  if (generation === 0) return '#e295c3';
-  return generation < 0 ? '#dba2b4' : '#b69ec9';
+function bandStroke() {
+  return '#dba2c0';
 }
 
 function bandTextColor(generation) {
-  if (generation === 0) return '#9b3978';
-  return generation < 0 ? '#8b4960' : '#5e4980';
+  return generation === 0 ? '#9b3978' : '#7e3a64';
 }
 
 function generationLabel(generation) {
@@ -419,7 +505,10 @@ const styles = {
     inset: 0,
     overflow: 'hidden',
     touchAction: 'none',
-    background: 'linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--secondary) / 0.4) 100%)',
+    background: '#f4f3ee',
+    backgroundImage: 'radial-gradient(rgba(0,0,0,0.045) 1px, transparent 1px)',
+    backgroundSize: '12px 12px',
+    backgroundPosition: '0 0',
   },
   overlay: {
     position: 'absolute',

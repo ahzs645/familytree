@@ -17,8 +17,15 @@ export const MAC_FAMILY_GRAPH_LAYOUT = {
   regularShadowWidth: 194,
   regularShadowHeight: 66,
   featuredShadowScale: 1.16,
-  regularConnectorRadius: 38,
-  featuredConnectorRadius: 104,
+  // Distance from node center where connector lines should anchor.
+  // Person model top-of-head sits ~+104 above center; label bottom sits ~-89.
+  // Vertical radii must exceed those so lines never pierce the figure.
+  regularConnectorRadius: 110,
+  featuredConnectorRadius: 132,
+  // Horizontal radii are much smaller — partner lines span the gap between
+  // adjacent figures and need to start near the figure's silhouette edge.
+  regularHorizontalConnectorRadius: 60,
+  featuredHorizontalConnectorRadius: 90,
   childBusGap: 22,
   parentBridgeGap: 28,
   familyRouteSplitGap: 260,

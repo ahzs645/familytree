@@ -10,7 +10,7 @@ export const SKIN_SHADOW = '#dcae7a';
 export const BAND_LABEL_GUTTER = 310;
 export const REFERENCE_MODEL_BASE = `${import.meta.env.BASE_URL}mft-models/`;
 export const VIEWER_OPTIONS_STORAGE_KEY = 'cloudtreeweb:interactive-tree-viewer-options';
-export const VIEWER_OPTIONS_VERSION = 3;
+export const VIEWER_OPTIONS_VERSION = 4;
 export const CAMERA_STATE_STORAGE_KEY = 'cloudtreeweb:interactive-tree-camera-state';
 export const CAMERA_STATE_VERSION = 9;
 export const OPTIONS_PANEL_STATE_STORAGE_KEY = 'cloudtreeweb:interactive-tree-options-panel';
@@ -88,6 +88,7 @@ export const GENERATION_BAND_STYLES = [
 
 // Native exposes 13 generation band color modes; subset wired for now.
 export const GENERATION_BAND_COLOR_MODES = [
+  { id: 'macPink', label: 'Mac Pink (Uniform)' },
   { id: 'byGeneration', label: 'By Generation' },
   { id: 'gray', label: 'Gray' },
   { id: 'highSaturation', label: 'By Generation, High Saturation' },

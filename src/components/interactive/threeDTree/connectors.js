@@ -69,6 +69,10 @@ export function makeFamilyConnectors(links, nodes, palette, options = {}) {
   return group;
 }
 
+// Distance between the bus bar and the children's top edges. Matches the Mac
+// source which keeps the bus visually close to the row it's serving.
+const BUS_OFFSET_FROM_CHILDREN = 30;
+
 function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescendant) {
   const group = new THREE.Group();
   const z = 2;
@@ -77,46 +81,33 @@ function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescend
   const otherY = others[0].y;
   const anchorEdgeY = isDescendant ? anchor.y - anchorEdgeRadius : anchor.y + anchorEdgeRadius;
   const otherEdgeY = isDescendant ? otherY + otherEdgeRadius : otherY - otherEdgeRadius;
-  const busY = (anchorEdgeY + otherEdgeY) / 2;
+  // Bus sits just above the children (or below the parents) — short drops to
+  // each child, long drop from the anchor. Mirrors the Mac source.
+  const busY = isDescendant
+    ? otherEdgeY + BUS_OFFSET_FROM_CHILDREN
+    : otherEdgeY - BUS_OFFSET_FROM_CHILDREN;
 
   const xs = others.map((node) => node.x);
   const minX = Math.min(...xs, anchor.x);
   const maxX = Math.max(...xs, anchor.x);
-  const radius = 2.15 * thicknessScale;
+  // Slimmer default thickness — the Mac source uses ~1.4px lines.
+  const radius = 1.2 * thicknessScale;
+  const shadowRadius = radius + 2.6;
 
-  // 1) Anchor drop (parent or child) → bus
-  const dropPoints = [
-    new THREE.Vector3(anchor.x, anchorEdgeY, z),
-    new THREE.Vector3(anchor.x, busY, z),
-  ];
-  group.add(makeConnectorTube(dropPoints, palette.shadow, radius + 4.8, 0.075, { x: 4, y: -5, z: -8 }, 3));
-  group.add(makeConnectorTube(dropPoints, color, radius, 0.92, { x: 0, y: 0, z: 0 }, 4));
+  const addSegment = (a, b) => {
+    const points = [new THREE.Vector3(a.x, a.y, z), new THREE.Vector3(b.x, b.y, z)];
+    group.add(makeConnectorTube(points, palette.shadow, shadowRadius, 0.06, { x: 3, y: -3, z: -6 }, 3));
+    group.add(makeConnectorTube(points, color, radius, 0.95, { x: 0, y: 0, z: 0 }, 4));
+  };
 
-  // 2) Horizontal bus (one tube across all anchored x-positions)
-  if (Math.abs(maxX - minX) > 1) {
-    const busPoints = [
-      new THREE.Vector3(minX, busY, z),
-      new THREE.Vector3(maxX, busY, z),
-    ];
-    group.add(makeConnectorTube(busPoints, palette.shadow, radius + 4.8, 0.075, { x: 4, y: -5, z: -8 }, 3));
-    group.add(makeConnectorTube(busPoints, color, radius, 0.92, { x: 0, y: 0, z: 0 }, 4));
-  }
+  addSegment({ x: anchor.x, y: anchorEdgeY }, { x: anchor.x, y: busY });
+  if (Math.abs(maxX - minX) > 1) addSegment({ x: minX, y: busY }, { x: maxX, y: busY });
+  for (const other of others) addSegment({ x: other.x, y: busY }, { x: other.x, y: otherEdgeY });
 
-  // 3) Drop from bus to each other node
-  for (const other of others) {
-    const childDrop = [
-      new THREE.Vector3(other.x, busY, z),
-      new THREE.Vector3(other.x, otherEdgeY, z),
-    ];
-    group.add(makeConnectorTube(childDrop, palette.shadow, radius + 4.8, 0.075, { x: 4, y: -5, z: -8 }, 3));
-    group.add(makeConnectorTube(childDrop, color, radius, 0.92, { x: 0, y: 0, z: 0 }, 4));
-  }
-
-  // 4) Connector caps at the T-junctions on the bus to hide tube seams.
+  // Subtle caps at junctions — small enough not to look like beads.
   const junctionXs = new Set([anchor.x, ...xs]);
   for (const x of junctionXs) {
-    const cap = makeConnectionCap(new THREE.Vector3(x, busY, z + 0.5), color, 3.8 * thicknessScale);
-    group.add(cap);
+    group.add(makeConnectionCap(new THREE.Vector3(x, busY, z + 0.5), color, 2.4 * thicknessScale));
   }
   return group;
 }
@@ -139,10 +130,10 @@ export function makeConnector(link, nodes, palette, options = {}) {
       : orthogonalPoints(from, to, z);
   }
 
-  const baseRadius = link.emphasis ? 3 : type === 'partner' ? 1.8 : 2.15;
+  const baseRadius = link.emphasis ? 2.0 : type === 'partner' ? 1.0 : 1.2;
   const tubeRadius = baseRadius * thicknessScale;
-  group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 4.8, 0.075, { x: 4, y: -5, z: -8 }, 3));
-  group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.92, { x: 0, y: 0, z: 0 }, 4));
+  group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 2.6, 0.06, { x: 3, y: -3, z: -6 }, 3));
+  group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.95, { x: 0, y: 0, z: 0 }, 4));
   if (type === 'family' || link.emphasis) {
     for (const point of uniqueConnectorPoints(points)) {
       group.add(makeConnectionCap(point, color, link.emphasis ? 5.8 : 4.4));
@@ -206,7 +197,9 @@ function orthogonalPoints(from, to, z) {
 }
 
 function edgeX(a, b) {
-  const radius = a.featured ? ROOT_CARD.w * 0.38 : MAC_FAMILY_GRAPH_LAYOUT.regularConnectorRadius;
+  const radius = a.featured
+    ? MAC_FAMILY_GRAPH_LAYOUT.featuredHorizontalConnectorRadius
+    : MAC_FAMILY_GRAPH_LAYOUT.regularHorizontalConnectorRadius;
   return a.x + Math.sign(b.x - a.x || 1) * radius;
 }
 

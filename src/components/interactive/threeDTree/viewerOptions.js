@@ -48,9 +48,9 @@ export function defaultViewerOptions() {
     connectionColorMode: 'byGenerationLight',
     connectionCustomColor: '#7b5af6',
 
-    // Generation Bands
+    // Generation Bands — defaults match the Mac Flat viewer aesthetic
     generationBandStyle: 'raised',
-    generationBandColorMode: 'byGeneration',
+    generationBandColorMode: 'macPink',
     generationBandOpacity: 0.62,
     generationBandsFullWidth: true,
 

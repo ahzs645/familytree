@@ -215,6 +215,18 @@ function bandFillForMode(band, mode) {
     : band.generation < 0
       ? ancestorBandColor(Math.abs(band.generation))
       : descendantBandColor(band.generation);
+  if (mode === 'macPink') {
+    // Uniform pink with slight per-generation luminosity, matching the Mac Flat viewer.
+    if (band.generation === 0) return 'rgba(244, 198, 224, 0.78)';
+    const tiers = [
+      'rgba(251, 223, 238, 0.66)',
+      'rgba(248, 212, 232, 0.66)',
+      'rgba(245, 202, 227, 0.66)',
+      'rgba(241, 192, 221, 0.66)',
+      'rgba(237, 182, 216, 0.66)',
+    ];
+    return tiers[Math.min(Math.abs(band.generation) - 1, tiers.length - 1)];
+  }
   if (mode === 'byGeneration') return baseGenerationFill;
   if (mode === 'gray') return 'rgba(170, 174, 178, 0.55)';
   if (mode === 'highSaturation') {
