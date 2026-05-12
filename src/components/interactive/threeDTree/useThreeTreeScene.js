@@ -4,7 +4,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { cameraFitSignature, fitCamera, persistCameraState, restoreCameraState } from './camera.js';
 import {
   makeBottomPlane,
-  makeConnector,
+  makeFamilyConnectors,
   makeFeaturedNode,
   makeGenerationBand,
   makeGenerationLabel,
@@ -275,9 +275,7 @@ export function useThreeTreeScene({
       if (viewerOptions.generationBandStyle !== 'none') stage.add(makeGenerationLabel(band));
     }
 
-    for (const link of layout.links) {
-      stage.add(makeConnector(link, layout.nodes, palette, viewerOptions));
-    }
+    stage.add(makeFamilyConnectors(layout.links, layout.nodes, palette, viewerOptions));
 
     for (const node of layout.nodes) {
       const object = node.featured

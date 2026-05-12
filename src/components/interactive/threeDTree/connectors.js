@@ -2,6 +2,125 @@ import * as THREE from 'three';
 import { ROOT_CARD } from './constants.js';
 import { MAC_FAMILY_GRAPH_LAYOUT } from './macTreeStyle.js';
 
+/**
+ * Build all connectors for a layout in one pass: groups descendant links by
+ * parent and ancestor links by child so siblings share a single horizontal
+ * bus instead of stacking N overlapping L-shapes (which causes z-fighting).
+ * Partner links and any link with pre-computed `points` fall through to
+ * `makeConnector`.
+ */
+export function makeFamilyConnectors(links, nodes, palette, options = {}) {
+  const group = new THREE.Group();
+  if (!links?.length) return group;
+  const nodeById = new Map(nodes.map((node) => [node.id, node]));
+
+  const descendantByParent = new Map();
+  const ancestorByChild = new Map();
+  const passThrough = [];
+
+  for (const link of links) {
+    if (link.points?.length) { passThrough.push(link); continue; }
+    if (link.type === 'descendant' && link.from && link.to) {
+      if (!descendantByParent.has(link.from)) descendantByParent.set(link.from, []);
+      descendantByParent.get(link.from).push(link);
+    } else if (link.type === 'ancestor' && link.from && link.to) {
+      // Layout stores ancestor links as parent→child (from=parent, to=child).
+      // Group by the child so two parents share one upward drop + bus.
+      if (!ancestorByChild.has(link.to)) ancestorByChild.set(link.to, []);
+      ancestorByChild.get(link.to).push(link);
+    } else {
+      passThrough.push(link);
+    }
+  }
+
+  const thicknessScale = Number.isFinite(options.connectionThickness) ? options.connectionThickness : 1;
+  const colorMode = options.connectionColorMode || 'byGenerationLight';
+
+  for (const [parentId, parentLinks] of descendantByParent) {
+    const parent = nodeById.get(parentId);
+    const children = parentLinks.map((link) => nodeById.get(link.to)).filter(Boolean);
+    if (!parent || children.length === 0) continue;
+    if (children.length === 1) {
+      group.add(makeConnector(parentLinks[0], nodes, palette, options));
+      continue;
+    }
+    const color = colorForConnector(parentLinks[0], 'descendant', palette, colorMode, options.connectionCustomColor);
+    group.add(makeFamilyBus(parent, children, color, palette, thicknessScale, /*descendant*/ true));
+  }
+
+  for (const [childId, ancestorLinks] of ancestorByChild) {
+    const child = nodeById.get(childId);
+    // For ancestor links: from=parent, to=child. Group by child, others=parents.
+    const parents = ancestorLinks.map((link) => nodeById.get(link.from)).filter(Boolean);
+    if (!child || parents.length === 0) continue;
+    if (parents.length === 1) {
+      group.add(makeConnector(ancestorLinks[0], nodes, palette, options));
+      continue;
+    }
+    const color = colorForConnector(ancestorLinks[0], 'ancestor', palette, colorMode, options.connectionCustomColor);
+    // Anchor is the child (below), others are the parents (above) → not "descendant"
+    group.add(makeFamilyBus(child, parents, color, palette, thicknessScale, /*descendant*/ false));
+  }
+
+  for (const link of passThrough) {
+    group.add(makeConnector(link, nodes, palette, options));
+  }
+
+  return group;
+}
+
+function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescendant) {
+  const group = new THREE.Group();
+  const z = 2;
+  const anchorEdgeRadius = nodeVerticalRadius(anchor);
+  const otherEdgeRadius = nodeVerticalRadius(others[0]);
+  const otherY = others[0].y;
+  const anchorEdgeY = isDescendant ? anchor.y - anchorEdgeRadius : anchor.y + anchorEdgeRadius;
+  const otherEdgeY = isDescendant ? otherY + otherEdgeRadius : otherY - otherEdgeRadius;
+  const busY = (anchorEdgeY + otherEdgeY) / 2;
+
+  const xs = others.map((node) => node.x);
+  const minX = Math.min(...xs, anchor.x);
+  const maxX = Math.max(...xs, anchor.x);
+  const radius = 2.15 * thicknessScale;
+
+  // 1) Anchor drop (parent or child) → bus
+  const dropPoints = [
+    new THREE.Vector3(anchor.x, anchorEdgeY, z),
+    new THREE.Vector3(anchor.x, busY, z),
+  ];
+  group.add(makeConnectorTube(dropPoints, palette.shadow, radius + 4.8, 0.075, { x: 4, y: -5, z: -8 }, 3));
+  group.add(makeConnectorTube(dropPoints, color, radius, 0.92, { x: 0, y: 0, z: 0 }, 4));
+
+  // 2) Horizontal bus (one tube across all anchored x-positions)
+  if (Math.abs(maxX - minX) > 1) {
+    const busPoints = [
+      new THREE.Vector3(minX, busY, z),
+      new THREE.Vector3(maxX, busY, z),
+    ];
+    group.add(makeConnectorTube(busPoints, palette.shadow, radius + 4.8, 0.075, { x: 4, y: -5, z: -8 }, 3));
+    group.add(makeConnectorTube(busPoints, color, radius, 0.92, { x: 0, y: 0, z: 0 }, 4));
+  }
+
+  // 3) Drop from bus to each other node
+  for (const other of others) {
+    const childDrop = [
+      new THREE.Vector3(other.x, busY, z),
+      new THREE.Vector3(other.x, otherEdgeY, z),
+    ];
+    group.add(makeConnectorTube(childDrop, palette.shadow, radius + 4.8, 0.075, { x: 4, y: -5, z: -8 }, 3));
+    group.add(makeConnectorTube(childDrop, color, radius, 0.92, { x: 0, y: 0, z: 0 }, 4));
+  }
+
+  // 4) Connector caps at the T-junctions on the bus to hide tube seams.
+  const junctionXs = new Set([anchor.x, ...xs]);
+  for (const x of junctionXs) {
+    const cap = makeConnectionCap(new THREE.Vector3(x, busY, z + 0.5), color, 3.8 * thicknessScale);
+    group.add(cap);
+  }
+  return group;
+}
+
 export function makeConnector(link, nodes, palette, options = {}) {
   const group = new THREE.Group();
   const type = link.type;
