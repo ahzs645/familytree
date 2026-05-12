@@ -23,6 +23,7 @@ export const ROUTE_MANIFEST = [
   { path: 'publish', loader: () => import('./Publish.jsx') },
   { path: 'websites', loader: () => import('./Websites.jsx') },
   { path: 'change-log', loader: () => import('./ChangeLog.jsx') },
+  { path: 'person/new', loader: () => import('./NewPerson.jsx') },
   { path: 'person/:id', loader: () => import('./PersonEditor.jsx') },
   { path: 'family/:id', loader: () => import('./FamilyEditor.jsx') },
   { path: 'places', loader: () => import('./Places.jsx') },

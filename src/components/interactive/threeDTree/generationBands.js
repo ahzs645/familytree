@@ -2,30 +2,60 @@ import * as THREE from 'three';
 import { BAND_LABEL_GUTTER } from './constants.js';
 import { makeCanvasTexture, makePlaneFromTexture, roundedRect } from './threeUtils.js';
 
+const STAIR_STYLES = {
+  smallStairs: 12,
+  smallStairsProminent: 12,
+  largeStairs: 28,
+  largeStairsProminent: 28,
+};
+
+function bandHeightOffset(style, generation) {
+  // "Stairs" styles offset each generation upward in z creating a stepped feel.
+  const step = STAIR_STYLES[style];
+  if (!step) return 0;
+  return Math.abs(generation) * step;
+}
+
+function isProminentBlood(style) {
+  return /Prominent$/.test(style);
+}
+
+function normalizeRenderStyle(style) {
+  if (style === 'raisedProminent') return 'raised';
+  if (style === 'pedestalProminent') return 'pedestal';
+  if (style === 'smallStairs' || style === 'smallStairsProminent') return 'raised';
+  if (style === 'largeStairs' || style === 'largeStairsProminent') return 'pedestal';
+  return style;
+}
+
 export function makeGenerationBand(band, palette, style = 'raised', options = {}) {
   if (style === 'none') return new THREE.Group();
   const opacity = Number.isFinite(options.generationBandOpacity) ? options.generationBandOpacity : 1;
   const colorMode = options.generationBandColorMode || 'byGeneration';
+  const renderStyle = normalizeRenderStyle(style);
+  const prominent = isProminentBlood(style);
+  const zOffset = bandHeightOffset(style, band.generation);
+  const effectiveColorMode = prominent && colorMode === 'byGeneration' ? 'highSaturation' : colorMode;
   const group = new THREE.Group();
   const segments = band.segments?.length ? band.segments : [band];
   for (const segment of segments) {
-    const texture = makeBandTexture(band, palette, style, colorMode);
+    const texture = makeBandTexture(band, palette, renderStyle, effectiveColorMode);
     const geometry = new THREE.PlaneGeometry(segment.width, band.height);
     const material = new THREE.MeshBasicMaterial({
       map: texture,
       transparent: true,
-      opacity: Math.max(0, Math.min(1, opacity / 0.62)), // normalize: defaults render at 1.0 when opacity=0.62
+      opacity: Math.max(0, Math.min(1, opacity / 0.62)),
       depthWrite: false,
     });
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(segment.x, band.y, -34);
+    mesh.position.set(segment.x, band.y, -34 + zOffset);
     mesh.renderOrder = 1;
     group.add(mesh);
 
-    if (style !== 'flat') {
+    if (renderStyle !== 'flat') {
       const shadowTexture = makeBandShadowTexture();
       const shadow = makePlaneFromTexture(shadowTexture, segment.width * 1.035, band.height * 1.08);
-      shadow.position.set(segment.x + 10, band.y - 16, -43);
+      shadow.position.set(segment.x + 10, band.y - 16, -43 + zOffset);
       shadow.renderOrder = 0.5;
       group.add(shadow);
     }

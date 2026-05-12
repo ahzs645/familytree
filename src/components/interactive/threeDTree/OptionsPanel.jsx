@@ -146,6 +146,9 @@ function renderGroup(groupId, options, set) {
       return (
         <>
           <SelectRow label="Connection Color" value={options.connectionColorMode} options={CONNECTION_COLOR_MODES} onChange={(v) => set({ connectionColorMode: v })} />
+          {options.connectionColorMode === 'customColor' && (
+            <ColorRow label="Custom Color" value={options.connectionCustomColor || '#7b5af6'} onChange={(v) => set({ connectionCustomColor: v })} />
+          )}
           <SliderRow
             label="Connection Width"
             min={0.4}
@@ -257,6 +260,23 @@ function SliderRow({ label, min, max, step, value, onChange, valueFormatter }) {
         onChange={(event) => onChange(Number(event.target.value))}
         style={panelStyles.slider}
       />
+    </div>
+  );
+}
+
+function ColorRow({ label, value, onChange }) {
+  return (
+    <div style={panelStyles.row}>
+      <span style={panelStyles.rowLabel}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input
+          type="color"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          style={{ width: 36, height: 28, border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 0, background: 'transparent', cursor: 'pointer' }}
+        />
+        <code style={{ font: '600 11px ui-monospace, SFMono-Regular, Menlo, monospace', color: 'hsl(var(--muted-foreground))' }}>{value}</code>
+      </div>
     </div>
   );
 }

@@ -138,21 +138,29 @@ export function InteractiveTreeApp() {
     [navigate, setActivePerson]
   );
   const onAddRelative = useCallback(({ relation, anchorId, partnerId }) => {
-    if (!anchorId) return;
-    const isExisting = relation?.startsWith?.('existing');
-    const isChildRelation = ['son', 'daughter', 'existingChild'].includes(relation);
-    const anchorFamily = isChildRelation
-      ? (context?.families?.find((family) => !partnerId || family.partner?.recordName === partnerId)?.recordName || context?.families?.[0]?.recordName)
-      : (relation === 'father' || relation === 'mother' || relation === 'brother' || relation === 'sister' || relation === 'existingFather' || relation === 'existingMother'
-          ? context?.parents?.[0]?.recordName
-          : null);
-    if (anchorFamily) {
-      const tag = isExisting ? 'pickExisting' : 'createNew';
-      navigate(`/family/${encodeURIComponent(anchorFamily)}?addRelative=${encodeURIComponent(relation)}&intent=${tag}`);
+    if (!anchorId) {
+      // No anchor → empty-tree "Add First Person" or generic new flow.
+      navigate('/person/new');
       return;
     }
-    // Fall back: open person editor of anchor so user can manage relations there.
-    navigate(`/person/${encodeURIComponent(anchorId)}?addRelative=${encodeURIComponent(relation)}${partnerId ? `&partner=${encodeURIComponent(partnerId)}` : ''}`);
+    const isExisting = relation?.startsWith?.('existing');
+    if (isExisting) {
+      // Route to the appropriate FamilyEditor / PersonEditor for picking.
+      const isChildRelation = relation === 'existingChild';
+      const anchorFamily = isChildRelation
+        ? (context?.families?.find((family) => !partnerId || family.partner?.recordName === partnerId)?.recordName || context?.families?.[0]?.recordName)
+        : (relation === 'existingFather' || relation === 'existingMother' ? context?.parents?.[0]?.recordName : null);
+      if (anchorFamily) {
+        navigate(`/family/${encodeURIComponent(anchorFamily)}?addRelative=${encodeURIComponent(relation)}&intent=pickExisting`);
+        return;
+      }
+      navigate(`/person/${encodeURIComponent(anchorId)}?addRelative=${encodeURIComponent(relation)}`);
+      return;
+    }
+    // Create new person with prefilled relation.
+    const params = new URLSearchParams({ relation, anchor: anchorId });
+    if (partnerId) params.set('partner', partnerId);
+    navigate(`/person/new?${params.toString()}`);
   }, [context, navigate]);
 
   if (loading) return <EmptyMsg text="Loading…" />;

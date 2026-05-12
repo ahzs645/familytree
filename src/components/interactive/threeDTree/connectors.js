@@ -7,7 +7,7 @@ export function makeConnector(link, nodes, palette, options = {}) {
   const type = link.type;
   const thicknessScale = Number.isFinite(options.connectionThickness) ? options.connectionThickness : 1;
   const colorMode = options.connectionColorMode || 'byGenerationLight';
-  const color = colorForConnector(link, type, palette, colorMode);
+  const color = colorForConnector(link, type, palette, colorMode, options.connectionCustomColor);
   const z = link.emphasis ? 5 : 2;
   let points = (link.points || []).map((point) => new THREE.Vector3(point.x, point.y, point.z ?? z));
   if (points.length === 0 && link.from && link.to) {
@@ -32,23 +32,32 @@ export function makeConnector(link, nodes, palette, options = {}) {
   return group;
 }
 
-function colorForConnector(link, type, palette, mode) {
+function colorForConnector(link, type, palette, mode, customColor) {
   if (mode === 'gray') return '#9098a0';
+  if (mode === 'blackOrWhite') return palette.background && isDarkBackground(palette.background) ? '#f4f5f7' : '#1c1f24';
+  if (mode === 'customColor') return customColor || '#7b5af6';
   if (mode === 'byGenerationDark') {
-    // Use darker per-line colors; reuse base palette but with emphasis preference.
     if (type === 'partner') return palette.partnerLine;
     return link.emphasis || type === 'descendant' ? palette.descendantLine : palette.ancestorLine;
   }
   if (mode === 'byBlood') {
-    // Blood relationship: emphasize descendant/ancestor, mute partner.
     if (type === 'partner') return '#b2b8bf';
     return link.emphasis ? palette.descendantLine : (type === 'ancestor' ? palette.ancestorLine : palette.descendantLine);
   }
-  // byGenerationLight (default) — current behavior
+  // byGenerationLight (default)
   if (link.emphasis) return palette.descendantLine;
   if (type === 'partner') return palette.partnerLine;
   if (type === 'ancestor') return palette.ancestorLine;
   return palette.descendantLine;
+}
+
+function isDarkBackground(color) {
+  const hex = String(color || '').replace('#', '');
+  if (hex.length !== 6) return false;
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  return (r * 0.299 + g * 0.587 + b * 0.114) < 128;
 }
 
 function partnerPoints(from, to, z) {

@@ -237,7 +237,7 @@ export function ThreeDTreeView({
           <button
             type="button"
             style={styles.emptyCtaButton}
-            onClick={() => onEditPerson?.('new')}
+            onClick={() => onAddRelative?.({ relation: 'new', anchorId: '' })}
           >
             Add First Person
           </button>

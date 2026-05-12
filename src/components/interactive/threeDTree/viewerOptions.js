@@ -46,6 +46,7 @@ export function defaultViewerOptions() {
     // Connections
     connectionThickness: 1.0,
     connectionColorMode: 'byGenerationLight',
+    connectionCustomColor: '#7b5af6',
 
     // Generation Bands
     generationBandStyle: 'raised',
@@ -115,6 +116,7 @@ function migrateAndValidate(parsed, fallback) {
 
     connectionThickness: clampNumber(parsed.connectionThickness, 0.4, 2.5, fallback.connectionThickness),
     connectionColorMode: pickFrom(CONNECTION_COLOR_MODES, parsed.connectionColorMode, fallback.connectionColorMode),
+    connectionCustomColor: pickHex(parsed.connectionCustomColor, fallback.connectionCustomColor),
 
     generationBandStyle: pickFrom(GENERATION_BAND_STYLES, parsed.generationBandStyle, fallback.generationBandStyle),
     generationBandColorMode: pickFrom(GENERATION_BAND_COLOR_MODES, parsed.generationBandColorMode, fallback.generationBandColorMode),
@@ -154,4 +156,9 @@ function clampInt(value, min, max, fallback) {
 function clampNumber(value, min, max, fallback) {
   const n = Number(value);
   return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+}
+
+function pickHex(value, fallback) {
+  if (typeof value !== 'string') return fallback;
+  return /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
 }

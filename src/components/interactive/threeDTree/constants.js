@@ -54,16 +54,35 @@ export const LIGHTING_MODES = [
 ];
 
 export const BOTTOM_PLANE_MODES = [
-  { id: 'grid', label: 'Grid' },
   { id: 'plain', label: 'Plain' },
+  { id: 'grid', label: 'Grid' },
+  { id: 'smallGrid', label: 'Small Grid' },
+  { id: 'largeGrid', label: 'Large Grid' },
   { id: 'checker', label: 'Checker' },
+  { id: 'smallChecker', label: 'Small Checkerboard' },
+  { id: 'largeChecker', label: 'Large Checkerboard' },
   { id: 'dots', label: 'Dots' },
+  { id: 'smallDots', label: 'Small Dots' },
+  { id: 'largeDots', label: 'Large Dots' },
+  { id: 'smallPlaid', label: 'Small Plaid Pattern' },
+  { id: 'largePlaid', label: 'Large Plaid Pattern' },
+  { id: 'smallRectangles', label: 'Small Rectangles' },
+  { id: 'largeRectangles', label: 'Large Rectangles' },
+  { id: 'wood', label: 'Wood' },
+  { id: 'concrete', label: 'Concrete' },
+  { id: 'marble', label: 'Marble' },
 ];
 
 export const GENERATION_BAND_STYLES = [
   { id: 'raised', label: 'Raised' },
+  { id: 'raisedProminent', label: 'Raised (Prominent Blood)' },
   { id: 'flat', label: 'Flat' },
   { id: 'pedestal', label: 'Pedestal' },
+  { id: 'pedestalProminent', label: 'Pedestal (Prominent Blood)' },
+  { id: 'smallStairs', label: 'Small Generation Stairs' },
+  { id: 'smallStairsProminent', label: 'Small Stairs (Prominent Blood)' },
+  { id: 'largeStairs', label: 'Large Generation Stairs' },
+  { id: 'largeStairsProminent', label: 'Large Stairs (Prominent Blood)' },
   { id: 'none', label: 'None' },
 ];
 
@@ -91,7 +110,11 @@ export const CONNECTION_COLOR_MODES = [
   { id: 'byGenerationDark', label: 'By Generation, Dark' },
   { id: 'byBlood', label: 'By Blood Relationship' },
   { id: 'gray', label: 'Gray' },
+  { id: 'blackOrWhite', label: 'Black or White' },
+  { id: 'customColor', label: 'Custom Color' },
 ];
+
+export const DEFAULT_CONNECTION_CUSTOM_COLOR = '#7b5af6';
 
 // Native: _ChildSortingMode_*.
 export const CHILD_SORTING_MODES = [

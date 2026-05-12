@@ -22,6 +22,56 @@ function buildLifeLabel(person, options = {}) {
   return '';
 }
 
+function kinshipLabelForNode(node) {
+  const role = String(node?.role || '').toLowerCase();
+  if (!role || role === 'root') return '';
+  if (role.includes('partner')) return 'Partner';
+  if (role.includes('ancestor')) {
+    const gen = Math.abs(Number(node?.generation) || 0);
+    if (gen === 1) return 'Parent';
+    if (gen === 2) return 'Grandparent';
+    return `${gen}× Great-grandparent`;
+  }
+  if (role.includes('descendant') || role.includes('child')) {
+    const gen = Math.abs(Number(node?.generation) || 0);
+    if (gen === 1) return 'Child';
+    if (gen === 2) return 'Grandchild';
+    return `${gen}× Great-grandchild`;
+  }
+  if (role.includes('matern')) return 'Maternal';
+  if (role.includes('patern')) return 'Paternal';
+  return role.replace(/^\w/, (ch) => ch.toUpperCase());
+}
+
+function buildIconRow(person, options = {}) {
+  const icons = [];
+  if (options.displayNotesIcon && hasNotes(person)) icons.push('📝');
+  if (options.displayMediaIcon && hasMedia(person)) icons.push('🖼');
+  return icons.join(' ');
+}
+
+function hasNotes(person) {
+  if (!person) return false;
+  if (typeof person.hasNotes === 'boolean') return person.hasNotes;
+  if (typeof person.notes === 'string') return person.notes.trim().length > 0;
+  if (Array.isArray(person.notes)) return person.notes.length > 0;
+  return false;
+}
+
+function hasMedia(person) {
+  if (!person) return false;
+  if (typeof person.hasMedia === 'boolean') return person.hasMedia;
+  if (person.thumbnail) return true;
+  if (Array.isArray(person.media)) return person.media.length > 0;
+  return false;
+}
+
+function personGroupLabel(person, options = {}) {
+  if (!options.displayPersonGroups) return '';
+  const group = person?.personGroup || person?.personGroupName || '';
+  return typeof group === 'string' ? group : (group?.name || '');
+}
+
 function shouldDrawAvatar(viewerOptions) {
   return (viewerOptions?.personImageStyle || 'round') !== 'none';
 }
@@ -44,7 +94,8 @@ function makeLivingHalo(palette, featured) {
 
 export function makePersonNode(node, palette, personStyle, hovered = false, viewerOptions = {}) {
   const group = new THREE.Group();
-  group.position.set(node.x, node.y, node.z);
+  const liftZ = hovered && viewerOptions?.liftPersonsOnMouseOver !== false ? 38 : 0;
+  group.position.set(node.x, node.y, node.z + liftZ);
   group.userData.person = node.person;
   group.userData.node = node;
 
@@ -72,12 +123,14 @@ export function makePersonNode(node, palette, personStyle, hovered = false, view
   if (hovered) group.add(makeSelectionMark(false, palette, 'hover'));
 
   if (viewerOptions?.displayLabels !== false) {
+    const labelScale = hovered && viewerOptions?.enlargeNameBadgesOnMouseOver !== false ? 1.32 : 1;
     const label = makePlaneFromTexture(
-      makePersonLabelTexture(node.person, palette, viewerOptions),
-      MAC_FAMILY_GRAPH_LAYOUT.regularLabelWidth,
-      MAC_FAMILY_GRAPH_LAYOUT.regularLabelHeight
+      makePersonLabelTexture(node.person, palette, viewerOptions, node),
+      MAC_FAMILY_GRAPH_LAYOUT.regularLabelWidth * labelScale,
+      MAC_FAMILY_GRAPH_LAYOUT.regularLabelHeight * labelScale
     );
-    label.position.set(0, -59, 16);
+    label.position.set(0, -59 - (labelScale - 1) * 14, 16);
+    label.renderOrder = hovered ? 24 : 14;
     group.add(label);
   }
 
@@ -86,7 +139,8 @@ export function makePersonNode(node, palette, personStyle, hovered = false, view
 
 export function makeFeaturedNode(node, palette, personStyle, hovered = false, viewerOptions = {}) {
   const group = new THREE.Group();
-  group.position.set(node.x, node.y, node.z);
+  const liftZ = hovered && viewerOptions?.liftPersonsOnMouseOver !== false ? 28 : 0;
+  group.position.set(node.x, node.y, node.z + liftZ);
   group.userData.person = node.person;
   group.userData.node = node;
 
@@ -100,7 +154,7 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false, vi
   shadow.renderOrder = 2;
   group.add(shadow);
 
-  const card = makePlaneFromTexture(makeFeaturedTexture(node.person, palette, viewerOptions), ROOT_CARD.w, ROOT_CARD.h);
+  const card = makePlaneFromTexture(makeFeaturedTexture(node.person, palette, viewerOptions, node), ROOT_CARD.w, ROOT_CARD.h);
   card.position.set(0, 0, 0);
   card.renderOrder = 3;
   group.add(card);
@@ -379,8 +433,8 @@ function cloneAndRetintMaterial(material, colors, options = {}) {
   return clone;
 }
 
-function makePersonLabelTexture(person, palette, viewerOptions = {}) {
-  return makeCanvasTexture(420, 170, (ctx, w, h) => {
+function makePersonLabelTexture(person, palette, viewerOptions = {}, node = null) {
+  return makeCanvasTexture(420, 230, (ctx, w, h) => {
     ctx.fillStyle = 'rgba(255,255,255,0)';
     ctx.fillRect(0, 0, w, h);
     ctx.textAlign = 'center';
@@ -390,20 +444,46 @@ function makePersonLabelTexture(person, palette, viewerOptions = {}) {
     ctx.direction = rtl ? 'rtl' : 'ltr';
     ctx.fillStyle = '#17191d';
     ctx.font = `${rtl ? 850 : 780} ${rtl ? 28 : 25}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
-    for (const [line, y] of wrapMeasuredText(ctx, name, 366, 2).map((line, index) => [line, 48 + index * 29])) {
-      ctx.fillText(line, w / 2, y);
+    let cursorY = 48;
+    for (const line of wrapMeasuredText(ctx, name, 366, 2)) {
+      ctx.fillText(line, w / 2, cursorY);
+      cursorY += 29;
     }
+    cursorY = Math.max(cursorY, 96);
     const life = buildLifeLabel(person, viewerOptions);
     if (life) {
       ctx.direction = 'ltr';
       ctx.fillStyle = '#747b86';
       ctx.font = '700 19px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-      ctx.fillText(life, w / 2, 134);
+      ctx.fillText(life, w / 2, cursorY + 8);
+      cursorY += 24;
+    }
+    const kinship = viewerOptions.displayKinships ? kinshipLabelForNode(node) : '';
+    if (kinship) {
+      ctx.direction = 'ltr';
+      ctx.fillStyle = '#5c6580';
+      ctx.font = '650 17px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillText(kinship, w / 2, cursorY + 4);
+      cursorY += 22;
+    }
+    const group = personGroupLabel(person, viewerOptions);
+    if (group) {
+      ctx.direction = 'ltr';
+      ctx.fillStyle = '#8a5cab';
+      ctx.font = '700 16px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillText(`• ${group} •`, w / 2, cursorY + 4);
+      cursorY += 22;
+    }
+    const icons = buildIconRow(person, viewerOptions);
+    if (icons) {
+      ctx.direction = 'ltr';
+      ctx.font = '700 22px -apple-system-emoji, "Apple Color Emoji", sans-serif';
+      ctx.fillText(icons, w / 2, cursorY + 6);
     }
   });
 }
 
-function makeFeaturedTexture(person, palette, viewerOptions = {}) {
+function makeFeaturedTexture(person, palette, viewerOptions = {}, node = null) {
   return makeCanvasTexture(560, 560, (ctx, w, h) => {
     const cx = w / 2;
     const cy = h / 2;
@@ -455,11 +535,35 @@ function makeFeaturedTexture(person, palette, viewerOptions = {}) {
     nameLines.forEach((line, index) => ctx.fillText(line, cx, firstNameY + index * 35));
 
     const life = buildLifeLabel(person, viewerOptions);
+    let bottomY = 428;
     if (life) {
       ctx.direction = 'ltr';
       ctx.fillStyle = '#747b86';
       ctx.font = '700 25px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-      ctx.fillText(life, cx, 428);
+      ctx.fillText(life, cx, bottomY);
+      bottomY += 28;
+    }
+    const kinship = viewerOptions.displayKinships ? kinshipLabelForNode(node) : '';
+    if (kinship) {
+      ctx.direction = 'ltr';
+      ctx.fillStyle = '#5c6580';
+      ctx.font = '650 20px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillText(kinship, cx, bottomY);
+      bottomY += 26;
+    }
+    const group = personGroupLabel(person, viewerOptions);
+    if (group) {
+      ctx.direction = 'ltr';
+      ctx.fillStyle = '#8a5cab';
+      ctx.font = '700 18px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillText(`• ${group} •`, cx, bottomY);
+      bottomY += 24;
+    }
+    const icons = buildIconRow(person, viewerOptions);
+    if (icons) {
+      ctx.direction = 'ltr';
+      ctx.font = '700 26px -apple-system-emoji, "Apple Color Emoji", sans-serif';
+      ctx.fillText(icons, cx, bottomY);
     }
   });
 }
