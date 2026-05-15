@@ -7,7 +7,7 @@
  *   • Media, Notes, Source Citations, Influential Persons
  *   • Labels, Reference Numbers, Bookmarks, Private, Last Edited
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
@@ -28,6 +28,10 @@ import {
   formatTimestamp,
   labelForCatalogType,
 } from '../lib/catalogs.js';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useRecordLock } from '../lib/useRecordLock.js';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
 function uuid(p) {
   return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -81,6 +85,7 @@ export default function FamilyEditor() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const baselineRef = useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -172,6 +177,10 @@ export default function FamilyEditor() {
 
   const onSave = useCallback(async () => {
     if (!family) return;
+    if (isRecordLocked(family)) {
+      setStatus('Unlock this family before saving.');
+      return;
+    }
     setSaving(true);
     const db = getLocalDatabase();
 
@@ -287,6 +296,28 @@ export default function FamilyEditor() {
     setTimeout(() => setStatus(null), 1500);
   }, [family, manId, womanId, marriageDate, children, notes, labels, refNumbers, bookmarked, isPrivate, id, reload]);
 
+  const editableSnapshot = useMemo(() => ({
+    familyFields: family?.fields || {},
+    manId,
+    womanId,
+    marriageDate,
+    children,
+    notes,
+    labels,
+    refNumbers,
+    bookmarked,
+    isPrivate,
+  }), [family, manId, womanId, marriageDate, children, notes, labels, refNumbers, bookmarked, isPrivate]);
+  useEffect(() => {
+    if (!family || saving) return;
+    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') {
+      baselineRef.current = stableStringify(editableSnapshot);
+    }
+  }, [editableSnapshot, family, saving, status]);
+  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!family && !saving);
+  useUnsavedChanges(dirty);
+  const onToggleLock = useRecordLock({ record: family, setRecord: setFamily, setSaving, setStatus, reload });
+
   if (notFound) return <div className="p-10 text-muted-foreground">Family not found.</div>;
   if (!family) return <div className="p-10 text-muted-foreground">Loading…</div>;
 
@@ -304,7 +335,8 @@ export default function FamilyEditor() {
           </h1>
         </div>
         {status && <span className="text-emerald-500 text-xs">{status}</span>}
-        <button disabled={saving} onClick={onSave} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <RecordLockButton record={family} saving={saving} onToggle={onToggleLock} />
+        <button disabled={saving || isRecordLocked(family)} onClick={onSave} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
           {saving ? 'Saving…' : 'Save changes'}
         </button>
       </header>
@@ -368,6 +400,7 @@ export default function FamilyEditor() {
               <Section title="Family Events" accent={ACCENTS.events}
                 controls={<TypePicker placeholder="Add Event" options={FAMILY_EVENT_TYPES}
                   onPick={async (t) => {
+                    if (isRecordLocked(family)) return;
                     const db = getLocalDatabase();
                     const rec = {
                       recordName: uuid('fe'),
@@ -383,7 +416,7 @@ export default function FamilyEditor() {
                   }} />}
               >
                 <Field label="Marriage date">
-                  <input value={marriageDate} onChange={(e) => setMarriageDate(e.target.value)} placeholder="YYYY or YYYY-MM-DD" className={inputClass} />
+                  <input value={marriageDate} onChange={(e) => setMarriageDate(e.target.value)} disabled={isRecordLocked(family)} placeholder="YYYY or YYYY-MM-DD" className={inputClass} />
                 </Field>
                 {events.length === 0 ? (
                   <div className="mt-3">

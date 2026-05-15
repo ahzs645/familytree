@@ -2,7 +2,7 @@
  * Events editor — list PersonEvent + FamilyEvent records; edit conclusion type,
  * date, place, and description. Create new events or delete existing ones.
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
@@ -14,6 +14,10 @@ import { FieldRow, editorInput, editorTextarea } from '../components/editors/Fie
 import { formatEventDate } from '../utils/formatDate.js';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useRecordLock } from '../lib/useRecordLock.js';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -40,6 +44,7 @@ export default function Events() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [queryMessage, setQueryMessage] = useState(null);
+  const baselineRef = useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -109,6 +114,10 @@ export default function Events() {
   const onSave = useCallback(async () => {
     const ev = events.find((e) => e.recordName === activeId);
     if (!ev) return;
+    if (isRecordLocked(ev)) {
+      setStatus('Unlock this event before saving.');
+      return;
+    }
     setSaving(true);
     const next = { ...ev, fields: { ...ev.fields } };
     const typeOptions = ev.recordType === 'FamilyEvent' ? types.Family : types.Person;
@@ -162,6 +171,10 @@ export default function Events() {
   const onDelete = useCallback(async () => {
     const ev = events.find((e) => e.recordName === activeId);
     if (!ev) return;
+    if (isRecordLocked(ev)) {
+      setStatus('Unlock this event before deleting.');
+      return;
+    }
     if (!(await modal.confirm('Delete this event?', { title: 'Delete event', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     await db.deleteRecord(ev.recordName);
@@ -214,6 +227,20 @@ export default function Events() {
   };
 
   const active = events.find((e) => e.recordName === activeId);
+  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
+  useEffect(() => {
+    if (!active || saving) return;
+    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
+  }, [active, editableSnapshot, saving, status]);
+  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
+  useUnsavedChanges(dirty);
+  const onToggleLock = useRecordLock({
+    record: active,
+    setRecord: (next) => setEvents((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
+    setSaving,
+    setStatus,
+    reload,
+  });
   const availableTypes = active?.recordType === 'FamilyEvent' ? types.Family : types.Person;
 
   const detail = active ? (
@@ -230,8 +257,9 @@ export default function Events() {
           >
             Related media
           </button>
-          <button onClick={onDelete} style={deleteBtn}>Delete</button>
-          <button onClick={onSave} disabled={saving} style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
+          <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
+          <button onClick={onDelete} disabled={isRecordLocked(active)} style={deleteBtn}>Delete</button>
+          <button onClick={onSave} disabled={saving || isRecordLocked(active)} style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
         </div>
       </div>
       {queryMessage && (

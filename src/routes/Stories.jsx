@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { readRef, writeRef } from '../lib/schema.js';
@@ -6,6 +7,10 @@ import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useRecordLock } from '../lib/useRecordLock.js';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
 const TARGET_TYPES = ['Person', 'Family', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
 
@@ -25,6 +30,8 @@ function targetLabel(record) {
 
 export default function Stories() {
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const queryStoryId = searchParams.get('storyId');
   const [stories, setStories] = useState([]);
   const [sections, setSections] = useState([]);
   const [relations, setRelations] = useState([]);
@@ -34,6 +41,8 @@ export default function Stories() {
   const [targetType, setTargetType] = useState('Person');
   const [targetId, setTargetId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState(null);
+  const baselineRef = React.useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -56,6 +65,10 @@ export default function Stories() {
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    if (!queryStoryId || stories.length === 0) return;
+    if (stories.some((story) => story.recordName === queryStoryId)) setActiveId(queryStoryId);
+  }, [queryStoryId, stories]);
   useEffect(() => {
     const story = stories.find((s) => s.recordName === activeId);
     if (!story) return;
@@ -83,6 +96,10 @@ export default function Stories() {
 
   const save = async () => {
     if (!active) return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this story before saving.');
+      return;
+    }
     setSaving(true);
     const next = { ...active, fields: { ...active.fields } };
     for (const key of ['title', 'subtitle', 'author', 'date', 'text']) {
@@ -93,9 +110,15 @@ export default function Stories() {
     await saveWithChangeLog(next);
     await reload();
     setSaving(false);
+    setStatus('Saved');
+    setTimeout(() => setStatus(null), 1500);
   };
 
   const addSection = async () => {
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this story before editing sections.');
+      return;
+    }
     if (!activeId) return;
     const db = getLocalDatabase();
     const rec = {
@@ -114,6 +137,10 @@ export default function Stories() {
   };
 
   const updateSection = async (section, patch) => {
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this story before editing sections.');
+      return;
+    }
     const next = { ...section, fields: { ...section.fields } };
     for (const [key, value] of Object.entries(patch)) next.fields[key] = { value, type: key === 'order' ? 'NUMBER' : 'STRING' };
     await saveWithChangeLog(next);
@@ -121,6 +148,10 @@ export default function Stories() {
   };
 
   const deleteSection = async (section) => {
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this story before editing sections.');
+      return;
+    }
     const db = getLocalDatabase();
     await db.deleteRecord(section.recordName);
     await logRecordDeleted(section.recordName, 'StorySection');
@@ -128,6 +159,10 @@ export default function Stories() {
   };
 
   const addRelation = async () => {
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this story before editing relations.');
+      return;
+    }
     if (!activeId || !targetId) return;
     const db = getLocalDatabase();
     const rec = {
@@ -146,17 +181,38 @@ export default function Stories() {
   };
 
   const removeRelation = async (relation) => {
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this story before editing relations.');
+      return;
+    }
     const db = getLocalDatabase();
     await db.deleteRecord(relation.recordName);
     await logRecordDeleted(relation.recordName, 'StoryRelation');
     await reload();
   };
 
+  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
+  useEffect(() => {
+    if (!active || saving) return;
+    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
+  }, [active, editableSnapshot, saving, status]);
+  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
+  useUnsavedChanges(dirty);
+  const onToggleLock = useRecordLock({
+    record: active,
+    setRecord: (next) => setStories((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
+    setSaving,
+    setStatus,
+    reload,
+  });
+
   const detail = active ? (
     <div className="p-5 max-w-4xl">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-semibold">{storyTitle(active, t('stories.fallbackTitle'))}</h2>
-        <button onClick={save} disabled={saving} className="ms-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold">{saving ? t('stories.saving') : t('stories.save')}</button>
+        {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
+        <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
+        <button onClick={save} disabled={saving || isRecordLocked(active)} className="ms-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? t('stories.saving') : t('stories.save')}</button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldRow label={t('stories.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>

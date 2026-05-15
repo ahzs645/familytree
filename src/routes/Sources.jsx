@@ -3,7 +3,8 @@
  * Source Text, Referenced Entries (computed from PersonEvent.source refs),
  * Labels, Reference Numbers, Bookmarks, Private, Last Edited.
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
@@ -17,6 +18,10 @@ import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { MediaRelationsEditor, NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useRecordLock } from '../lib/useRecordLock.js';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
 function uuid(p) {
   return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -69,6 +74,8 @@ function Field({ label, children }) {
 }
 
 export default function Sources() {
+  const [searchParams] = useSearchParams();
+  const querySourceId = searchParams.get('sourceId');
   const [sources, setSources] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [repositories, setRepositories] = useState([]);
@@ -86,6 +93,7 @@ export default function Sources() {
   const [referenced, setReferenced] = useState([]);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
+  const baselineRef = useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -120,6 +128,10 @@ export default function Sources() {
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    if (!querySourceId || sources.length === 0) return;
+    if (sources.some((source) => source.recordName === querySourceId)) setActiveId(querySourceId);
+  }, [querySourceId, sources]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -208,6 +220,10 @@ export default function Sources() {
   const onSave = useCallback(async () => {
     const r = sources.find((s) => s.recordName === activeId);
     if (!r) return;
+    if (isRecordLocked(r)) {
+      setStatus('Unlock this source before saving.');
+      return;
+    }
     setSaving(true);
     const db = getLocalDatabase();
     const next = { ...r, fields: { ...r.fields } };
@@ -295,6 +311,33 @@ export default function Sources() {
     setTimeout(() => setStatus(null), 1500);
   }, [activeId, sources, templateId, repositoryId, info, text, refNumbers, bookmarked, isPrivate, labels, templateFields, templateValues, reload]);
 
+  const active = sources.find((s) => s.recordName === activeId);
+  const editableSnapshot = useMemo(() => ({
+    activeFields: active?.fields || {},
+    templateId,
+    repositoryId,
+    info,
+    text,
+    templateValues,
+    labels,
+    refNumbers,
+    bookmarked,
+    isPrivate,
+  }), [active, templateId, repositoryId, info, text, templateValues, labels, refNumbers, bookmarked, isPrivate]);
+  useEffect(() => {
+    if (!active || saving) return;
+    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
+  }, [active, editableSnapshot, saving, status]);
+  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
+  useUnsavedChanges(dirty);
+  const onToggleLock = useRecordLock({
+    record: active,
+    setRecord: (next) => setSources((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
+    setSaving,
+    setStatus,
+    reload,
+  });
+
   const renderRow = (r) => {
     const s = sourceSummary(r);
     return (
@@ -307,7 +350,6 @@ export default function Sources() {
     );
   };
 
-  const active = sources.find((s) => s.recordName === activeId);
   const detail = active ? (
     <div className="p-5 max-w-4xl">
       <div className="flex items-center mb-4">
@@ -316,7 +358,8 @@ export default function Sources() {
         </h2>
         <div className="ms-auto flex items-center gap-3">
           {status && <span className="text-emerald-500 text-xs">{status}</span>}
-          <button onClick={onSave} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+          <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
+          <button onClick={onSave} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>

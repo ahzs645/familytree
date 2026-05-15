@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../lib/changeLog.js';
 import { readRef, writeRef } from '../lib/schema.js';
@@ -6,6 +7,10 @@ import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useRecordLock } from '../lib/useRecordLock.js';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
 const TEST_TYPES = ['Autosomal', 'ATDNA', 'Y-DNA', 'MTDNA', 'mtDNA', 'X-DNA', 'Other'];
 const STATUS_VALUES = ['Ordered', 'Processing', 'Complete', 'Needs Review', 'Archived'];
@@ -29,12 +34,15 @@ function personLabel(record) {
 
 export default function DNAResults() {
   const modal = useModal();
+  const [searchParams] = useSearchParams();
+  const queryDnaId = searchParams.get('dnaId');
   const [results, setResults] = useState([]);
   const [persons, setPersons] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [values, setValues] = useState({});
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
+  const baselineRef = React.useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -50,6 +58,10 @@ export default function DNAResults() {
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    if (!queryDnaId || results.length === 0) return;
+    if (results.some((result) => result.recordName === queryDnaId)) setActiveId(queryDnaId);
+  }, [queryDnaId, results]);
 
   useEffect(() => {
     const active = results.find((record) => record.recordName === activeId);
@@ -82,6 +94,10 @@ export default function DNAResults() {
 
   const onSave = useCallback(async () => {
     if (!active) return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this DNA result before saving.');
+      return;
+    }
     setSaving(true);
     const next = { ...active, fields: { ...active.fields } };
     for (const field of DNA_FIELDS) {
@@ -100,6 +116,10 @@ export default function DNAResults() {
 
   const onDelete = useCallback(async () => {
     if (!active) return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this DNA result before deleting.');
+      return;
+    }
     if (!(await modal.confirm('Delete this DNA result?', { title: 'Delete DNA result', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     await db.deleteRecord(active.recordName);
@@ -120,6 +140,21 @@ export default function DNAResults() {
     );
   };
 
+  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
+  useEffect(() => {
+    if (!active || saving) return;
+    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
+  }, [active, editableSnapshot, saving, status]);
+  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
+  useUnsavedChanges(dirty);
+  const onToggleLock = useRecordLock({
+    record: active,
+    setRecord: (next) => setResults((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
+    setSaving,
+    setStatus,
+    reload,
+  });
+
   const activePerson = personById.get(values.person);
   const detailMode = dnaDetailMode(values.testType);
   const detail = active ? (
@@ -127,8 +162,9 @@ export default function DNAResults() {
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-semibold truncate">{dnaLabel(active)}</h2>
         {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
-        <button onClick={onDelete} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">Delete</button>
-        <button onClick={onSave} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
+        <button onClick={onDelete} disabled={isRecordLocked(active)} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
+        <button onClick={onSave} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
           {saving ? 'Saving...' : 'Save'}
         </button>
       </div>

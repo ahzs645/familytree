@@ -1,10 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useRecordLock } from '../lib/useRecordLock.js';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -15,6 +20,8 @@ function groupName(record) {
 }
 
 export default function PersonGroups() {
+  const [searchParams] = useSearchParams();
+  const queryGroupId = searchParams.get('groupId');
   const [groups, setGroups] = useState([]);
   const [relations, setRelations] = useState([]);
   const [persons, setPersons] = useState([]);
@@ -22,6 +29,8 @@ export default function PersonGroups() {
   const [values, setValues] = useState({});
   const [personId, setPersonId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState(null);
+  const baselineRef = React.useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -37,6 +46,10 @@ export default function PersonGroups() {
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    if (!queryGroupId || groups.length === 0) return;
+    if (groups.some((group) => group.recordName === queryGroupId)) setActiveId(queryGroupId);
+  }, [queryGroupId, groups]);
   useEffect(() => {
     const group = groups.find((g) => g.recordName === activeId);
     if (!group) return;
@@ -56,6 +69,10 @@ export default function PersonGroups() {
 
   const save = async () => {
     if (!active) return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this group before saving.');
+      return;
+    }
     setSaving(true);
     const next = { ...active, fields: { ...active.fields } };
     for (const key of ['name', 'description', 'color']) {
@@ -66,6 +83,8 @@ export default function PersonGroups() {
     await saveWithChangeLog(next);
     await reload();
     setSaving(false);
+    setStatus('Saved');
+    setTimeout(() => setStatus(null), 1500);
   };
 
   const create = async () => {
@@ -78,6 +97,10 @@ export default function PersonGroups() {
   };
 
   const addMember = async () => {
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this group before editing members.');
+      return;
+    }
     if (!activeId || !personId || memberRelations.some((r) => readRef(r.fields?.person) === personId)) return;
     const db = getLocalDatabase();
     const rec = {
@@ -95,17 +118,38 @@ export default function PersonGroups() {
   };
 
   const removeMember = async (rel) => {
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this group before editing members.');
+      return;
+    }
     const db = getLocalDatabase();
     await db.deleteRecord(rel.recordName);
     await logRecordDeleted(rel.recordName, 'PersonGroupRelation');
     await reload();
   };
 
+  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
+  useEffect(() => {
+    if (!active || saving) return;
+    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
+  }, [active, editableSnapshot, saving, status]);
+  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
+  useUnsavedChanges(dirty);
+  const onToggleLock = useRecordLock({
+    record: active,
+    setRecord: (next) => setGroups((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
+    setSaving,
+    setStatus,
+    reload,
+  });
+
   const detail = active ? (
     <div className="p-5 max-w-3xl">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-semibold">{groupName(active)}</h2>
-        <button onClick={save} disabled={saving} className="ms-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold">{saving ? 'Saving...' : 'Save'}</button>
+        {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
+        <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
+        <button onClick={save} disabled={saving || isRecordLocked(active)} className="ms-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? 'Saving...' : 'Save'}</button>
       </div>
       <FieldRow label="Group name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} style={editorInput} /></FieldRow>
       <FieldRow label="Color"><input value={values.color || ''} onChange={(e) => setValues({ ...values, color: e.target.value })} style={editorInput} /></FieldRow>

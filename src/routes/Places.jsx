@@ -3,7 +3,7 @@
  * component inputs (Place / County / State / Country, etc.). DMS coordinate
  * display. Map widget for click-to-set coords. Place Details sub-list.
  */
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
@@ -35,6 +35,10 @@ import {
   saveMapPreferences,
 } from '../lib/placeGeocoding.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useRecordLock } from '../lib/useRecordLock.js';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
 function uuid(p) {
   return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -102,6 +106,7 @@ export default function Places() {
   const [placeQueryMessage, setPlaceQueryMessage] = useState(null);
   const [showBatchSheet, setShowBatchSheet] = useState(false);
   const [showConvertSheet, setShowConvertSheet] = useState(false);
+  const baselineRef = useRef(null);
   const queryPlaceId = searchParams.get('placeId');
 
   const reload = useCallback(async () => {
@@ -221,6 +226,10 @@ export default function Places() {
   const onSave = useCallback(async () => {
     const record = places.find((p) => p.recordName === activeId);
     if (!record) return;
+    if (isRecordLocked(record)) {
+      setStatus('Unlock this place before saving.');
+      return;
+    }
     setSaving(true);
     const db = getLocalDatabase();
     const nextFields = { ...record.fields };
@@ -420,6 +429,31 @@ export default function Places() {
   }, []);
 
   const active = places.find((p) => p.recordName === activeId);
+  const editableSnapshot = useMemo(() => ({
+    activeFields: active?.fields || {},
+    templateId,
+    components,
+    details,
+    labels,
+    refNumbers,
+    bookmarked,
+    isPrivate,
+    latitude,
+    longitude,
+  }), [active, templateId, components, details, labels, refNumbers, bookmarked, isPrivate, latitude, longitude]);
+  useEffect(() => {
+    if (!active || saving) return;
+    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
+  }, [active, editableSnapshot, saving, status]);
+  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
+  useUnsavedChanges(dirty);
+  const onToggleLock = useRecordLock({
+    record: active,
+    setRecord: (next) => setPlaces((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
+    setSaving,
+    setStatus,
+    reload,
+  });
   const lat = parseFloat(latitude);
   const lng = parseFloat(longitude);
   const hasPoint = Number.isFinite(lat) && Number.isFinite(lng);
@@ -442,7 +476,8 @@ export default function Places() {
         </h2>
         <div className="ms-auto flex items-center gap-3">
           {status && <span className="text-emerald-500 text-xs">{status}</span>}
-          <button onClick={onSave} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+          <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
+          <button onClick={onSave} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { readRef, writeRef } from '../lib/schema.js';
@@ -9,6 +10,10 @@ import { ToDoWizardSheet } from '../components/ToDoWizardSheet.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { listCustomTypes, saveCustomType, mergeWithBuiltins } from '../lib/customTypes.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { useUnsavedChanges, stableStringify, useDirtySnapshot } from '../lib/editorState.js';
+import { useRecordLock } from '../lib/useRecordLock.js';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
 const TARGET_TYPES = ['Person', 'Family', 'Source', 'Place', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
 const TODO_TYPE_BUILTINS = [
@@ -41,6 +46,8 @@ function targetLabel(record) {
 export default function ToDos() {
   const modal = useModal();
   const { t } = useTranslation();
+  const [searchParams] = useSearchParams();
+  const queryTodoId = searchParams.get('todoId');
   const [todos, setTodos] = useState([]);
   const [relations, setRelations] = useState([]);
   const [targetsByType, setTargetsByType] = useState({});
@@ -52,6 +59,7 @@ export default function ToDos() {
   const [status, setStatus] = useState(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [todoTypes, setTodoTypes] = useState(TODO_TYPE_BUILTINS);
+  const baselineRef = React.useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -72,6 +80,10 @@ export default function ToDos() {
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    if (!queryTodoId || todos.length === 0) return;
+    if (todos.some((todo) => todo.recordName === queryTodoId)) setActiveId(queryTodoId);
+  }, [queryTodoId, todos]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -142,6 +154,10 @@ export default function ToDos() {
 
   const onDelete = async () => {
     if (!active) return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this ToDo before deleting.');
+      return;
+    }
     if (!(await modal.confirm(t('todosPage.deleteConfirm'), { title: t('todosPage.deleteTitle'), okLabel: t('todosPage.deleteOk'), destructive: true }))) return;
     const db = getLocalDatabase();
     const deleteNames = [active.recordName, ...activeRelations.map((r) => r.recordName)];
@@ -153,6 +169,10 @@ export default function ToDos() {
 
   const onSave = async () => {
     if (!active) return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this ToDo before saving.');
+      return;
+    }
     setSaving(true);
     const next = { ...active, fields: { ...active.fields } };
     for (const key of ['title', 'type', 'status', 'priority', 'dueDate']) {
@@ -220,13 +240,29 @@ export default function ToDos() {
     </div>
   );
 
+  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
+  useEffect(() => {
+    if (!active || saving) return;
+    if (baselineRef.current == null || status === t('todosPage.saved') || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
+  }, [active, editableSnapshot, saving, status, t]);
+  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
+  useUnsavedChanges(dirty);
+  const onToggleLock = useRecordLock({
+    record: active,
+    setRecord: (next) => setTodos((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
+    setSaving,
+    setStatus,
+    reload,
+  });
+
   const detail = active ? (
     <div className="p-5 max-w-3xl">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-semibold">{todoTitle(active, t('todosPage.fallbackTitle'))}</h2>
         {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
-        <button onClick={onDelete} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">{t('todosPage.delete')}</button>
-        <button onClick={onSave} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
+        <button onClick={onDelete} disabled={isRecordLocked(active)} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">{t('todosPage.delete')}</button>
+        <button onClick={onSave} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
           {saving ? t('todosPage.saving') : t('todosPage.save')}
         </button>
       </div>

@@ -1,8 +1,8 @@
 /**
- * GEDCOM 5.5.1 export. Walks the IndexedDB and emits a .ged document.
+ * GEDCOM 5.5.1 export. Walks the active app data client and emits a .ged document.
  * Subset focus: INDI / FAM / EVENT / PLAC / SOUR / NOTE.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/index.js';
 import { refToRecordName } from './recordRef.js';
 import { isPublicRecord, isLiving, maskLivingDetails, DEFAULT_PRIVACY_POLICY } from './privacy.js';
 import { getAuthorInfo } from './authorInfo.js';
@@ -111,18 +111,18 @@ export async function buildGedcom(exportOptions = {}) {
   const passesLiving = (record) => !policy.hideLivingPersons || policy.hideLivingDetailsOnly || !isLiving(record, policy.livingPersonThresholdYears);
   const maskIfNeeded = (record) => (policy.hideLivingDetailsOnly ? maskLivingDetails(record, policy) : record);
 
-  const db = getLocalDatabase();
-  const rawPersons = (await db.query('Person', { limit: 100000 })).records;
-  const rawFamilies = (await db.query('Family', { limit: 100000 })).records;
-  const rawPlaces = (await db.query('Place', { limit: 100000 })).records;
-  const rawSources = (await db.query('Source', { limit: 100000 })).records;
-  const rawPersonEvents = (await db.query('PersonEvent', { limit: 100000 })).records;
-  const rawPersonFacts = (await db.query('PersonFact', { limit: 100000 })).records;
-  const rawTribalAffiliations = (await db.query('TribalAffiliation', { limit: 100000 })).records;
-  const rawTribalRelations = (await db.query('TribalAffiliationRelation', { limit: 100000 })).records;
-  const rawFamilyEvents = (await db.query('FamilyEvent', { limit: 100000 })).records;
-  const rawNotes = (await db.query('Note', { limit: 100000 })).records;
-  const rawChildRels = (await db.query('ChildRelation', { limit: 100000 })).records;
+  const client = getAppDataClient();
+  const rawPersons = (await client.records.query('Person', { limit: 100000 })).records;
+  const rawFamilies = (await client.records.query('Family', { limit: 100000 })).records;
+  const rawPlaces = (await client.records.query('Place', { limit: 100000 })).records;
+  const rawSources = (await client.records.query('Source', { limit: 100000 })).records;
+  const rawPersonEvents = (await client.records.query('PersonEvent', { limit: 100000 })).records;
+  const rawPersonFacts = (await client.records.query('PersonFact', { limit: 100000 })).records;
+  const rawTribalAffiliations = (await client.records.query('TribalAffiliation', { limit: 100000 })).records;
+  const rawTribalRelations = (await client.records.query('TribalAffiliationRelation', { limit: 100000 })).records;
+  const rawFamilyEvents = (await client.records.query('FamilyEvent', { limit: 100000 })).records;
+  const rawNotes = (await client.records.query('Note', { limit: 100000 })).records;
+  const rawChildRels = (await client.records.query('ChildRelation', { limit: 100000 })).records;
 
   const persons = rawPersons.filter((record) => isPublicRecord(record) && passesLiving(record)).map(maskIfNeeded);
   const publicPersonIds = new Set(persons.map((p) => p.recordName));

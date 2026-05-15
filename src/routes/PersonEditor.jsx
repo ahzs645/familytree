@@ -16,7 +16,7 @@
  *
  * Every save appends a ChangeLogEntry via saveWithChangeLog().
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
@@ -40,7 +40,10 @@ import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { TypePicker } from '../components/editors/TypePicker.jsx';
 import { AssociateRelationsEditor, MediaRelationsEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { OldestAncestorsWidget } from '../components/editors/OldestAncestorsWidget.jsx';
-import { isRecordLocked, setRecordLocked } from '../lib/recordLock.js';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { useDirtySnapshot, useUnsavedChanges, stableStringify } from '../lib/editorState.js';
+import { useRecordLock } from '../lib/useRecordLock.js';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { listAllPersons } from '../lib/treeQuery.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { linkExistingRelative } from '../lib/relativeLinks.js';
@@ -131,6 +134,7 @@ export default function PersonEditor() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const baselineRef = useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -262,6 +266,30 @@ export default function PersonEditor() {
 
   useEffect(() => { reload(); }, [reload]);
 
+  const editableSnapshot = useMemo(() => ({
+    recordFields: record?.fields || {},
+    values,
+    additionalNames,
+    facts,
+    grave,
+    milkKinships,
+    notes,
+    labels,
+    refNumbers,
+    bookmarked,
+    isStartPerson,
+    isPrivate,
+    outsideFamily,
+  }), [record, values, additionalNames, facts, grave, milkKinships, notes, labels, refNumbers, bookmarked, isStartPerson, isPrivate, outsideFamily]);
+  useEffect(() => {
+    if (!record || saving) return;
+    const next = stableStringify(editableSnapshot);
+    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = next;
+  }, [editableSnapshot, record, saving, status]);
+  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!record && !saving);
+  useUnsavedChanges(dirty);
+  const onToggleLock = useRecordLock({ record, setRecord, setSaving, setStatus, reload });
+
   const onSave = useCallback(async () => {
     if (!record) return;
     setSaving(true);
@@ -334,6 +362,7 @@ export default function PersonEditor() {
     await reload();
     setSaving(false);
     setStatus('Saved');
+    baselineRef.current = stableStringify(editableSnapshot);
     setTimeout(() => setStatus(null), 1500);
   }, [record, values, refNumbers, bookmarked, isStartPerson, isPrivate, outsideFamily, grave, additionalNames, facts, notes, milkKinships, labels, id, reload]);
 
@@ -357,17 +386,7 @@ export default function PersonEditor() {
           {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
         </div>
         {status && <span className="text-emerald-500 text-xs">{status}</span>}
-        {record ? (
-          <button
-            type="button"
-            onClick={() => setRecord((r) => setRecordLocked(r, !isRecordLocked(r)))}
-            className={`border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent ${isRecordLocked(record) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400' : ''}`}
-            aria-pressed={isRecordLocked(record)}
-            title={isRecordLocked(record) ? 'Record is locked — editing is prevented until you unlock it.' : 'Lock this record to prevent accidental edits.'}
-          >
-            {isRecordLocked(record) ? '🔒 Locked' : '🔓 Unlocked'}
-          </button>
-        ) : null}
+        <RecordLockButton record={record} saving={saving} onToggle={onToggleLock} />
         <button disabled={saving || (record && isRecordLocked(record))} onClick={onSave} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
           {saving ? 'Saving…' : 'Save changes'}
         </button>

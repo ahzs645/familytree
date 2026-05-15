@@ -2,7 +2,7 @@
  * Media viewer + editor — gallery view of MediaPicture / MediaPDF / MediaURL /
  * MediaAudio / MediaVideo records. Filter by type. Edit caption/description.
  */
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordDeleted } from '../lib/changeLog.js';
@@ -24,6 +24,10 @@ import { GalleryDetail } from '../components/media/GalleryDetail.jsx';
 import { MediaPreview } from '../components/media/MediaPreview.jsx';
 import { useMediaCapture } from '../components/media/useMediaCapture.js';
 import { canvasToBlob, editedFilename, loadImage } from '../components/media/mediaHelpers.js';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useRecordLock } from '../lib/useRecordLock.js';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
 const MEDIA_TYPES = [
   { id: 'all', label: 'All', match: null },
@@ -74,6 +78,7 @@ export default function Media() {
   const folderRef = React.useRef(null);
   const addFilesRef = React.useRef(null);
   const replaceFileRef = React.useRef(null);
+  const baselineRef = useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -149,6 +154,10 @@ export default function Media() {
   const onSave = useCallback(async () => {
     const m = media.find((r) => r.recordName === activeId);
     if (!m) return;
+    if (isRecordLocked(m)) {
+      setStatus('Unlock this media record before saving.');
+      return;
+    }
     setSaving(true);
     const next = { ...m, fields: { ...m.fields } };
     if (values.caption) next.fields.caption = { value: values.caption, type: 'STRING' };
@@ -168,6 +177,10 @@ export default function Media() {
   const onDelete = useCallback(async () => {
     const m = media.find((r) => r.recordName === activeId);
     if (!m) return;
+    if (isRecordLocked(m)) {
+      setStatus('Unlock this media record before deleting.');
+      return;
+    }
     if (!(await modal.confirm('Delete this media record?', { title: 'Delete media', okLabel: 'Delete', destructive: true }))) return;
     const db = getLocalDatabase();
     await db.deleteRecord(m.recordName);
@@ -218,11 +231,29 @@ export default function Media() {
   }, [reload, modal]);
 
   const active = media.find((m) => m.recordName === activeId);
+  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
+  useEffect(() => {
+    if (!active || saving) return;
+    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
+  }, [active, editableSnapshot, saving, status]);
+  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving && !readOnlyGallery);
+  useUnsavedChanges(dirty);
+  const onToggleLock = useRecordLock({
+    record: active,
+    setRecord: (next) => setMedia((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
+    setSaving,
+    setStatus,
+    reload,
+  });
 
   const onReplaceFile = useCallback(async (files) => {
     const file = files?.[0];
     const m = media.find((r) => r.recordName === activeId);
     if (!file || !m) return;
+    if (isRecordLocked(m)) {
+      setStatus('Unlock this media record before replacing its file.');
+      return;
+    }
     setStatus('Replacing media file…');
     try {
       const next = await replaceMediaRecordAsset(m, file);
@@ -239,6 +270,10 @@ export default function Media() {
 
   const onEditImage = useCallback(async (operation) => {
     if (!active || active.recordType !== 'MediaPicture') return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this media record before editing its image.');
+      return;
+    }
     const asset = activeAssets[0];
     if (!asset?.dataBase64) {
       setStatus('No local image asset is available to edit.');
@@ -473,11 +508,12 @@ export default function Media() {
               </h2>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {status && <span style={{ color: '#4ade80', fontSize: 12, marginRight: 6 }}>{status}</span>}
-                {active.recordType !== 'MediaURL' && <button onClick={() => replaceFileRef.current?.click()} style={deleteBtn}>Replace</button>}
-                {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('rotate')} style={deleteBtn}>Rotate</button>}
-                {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('crop-square')} style={deleteBtn}>Crop</button>}
-                <button onClick={onDelete} style={deleteBtn}>Delete</button>
-                <button onClick={onSave} disabled={saving} style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
+                <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
+                {active.recordType !== 'MediaURL' && <button onClick={() => replaceFileRef.current?.click()} disabled={isRecordLocked(active)} style={deleteBtn}>Replace</button>}
+                {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('rotate')} disabled={isRecordLocked(active)} style={deleteBtn}>Rotate</button>}
+                {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('crop-square')} disabled={isRecordLocked(active)} style={deleteBtn}>Crop</button>}
+                <button onClick={onDelete} disabled={isRecordLocked(active)} style={deleteBtn}>Delete</button>
+                <button onClick={onSave} disabled={saving || isRecordLocked(active)} style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
               </div>
             </div>
             <FieldRow label="Caption">
@@ -587,4 +623,3 @@ const modal = { width: 'min(720px, 94vw)', background: 'hsl(var(--card))', color
 const videoPreview = { width: '100%', maxHeight: '62vh', background: '#000', borderRadius: 8, border: '1px solid hsl(var(--border))' };
 const audioCapturePanel = { minHeight: 160, border: '1px solid hsl(var(--border))', borderRadius: 8, background: 'hsl(var(--background))', display: 'grid', placeItems: 'center', gap: 12, padding: 20 };
 const recordingDot = { width: 22, height: 22, borderRadius: 999, background: '#ef4444', boxShadow: '0 0 0 8px rgba(239,68,68,0.16)' };
-

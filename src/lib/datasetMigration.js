@@ -6,7 +6,7 @@
  * surface a migration dialog so the user can snapshot a backup before the
  * on-disk rewrite kicks in.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/index.js';
 import {
   DATASET_SCHEMA_VERSION,
   DATASET_SCHEMA_VERSION_META_KEY,
@@ -16,16 +16,16 @@ import {
 export { DATASET_SCHEMA_VERSION };
 
 export async function getStoredDatasetSchemaVersion() {
-  const db = getLocalDatabase();
-  const value = normalizeDatasetSchemaVersion(await db.getMeta(DATASET_SCHEMA_VERSION_META_KEY), null);
+  const client = getAppDataClient();
+  const value = normalizeDatasetSchemaVersion(await client.meta.get(DATASET_SCHEMA_VERSION_META_KEY), null);
   if (value !== null) return value;
-  if (await db.hasData()) return 0;
+  if (await client.records.hasData()) return 0;
   return DATASET_SCHEMA_VERSION;
 }
 
 export async function markDatasetSchemaVersion(version = DATASET_SCHEMA_VERSION) {
-  const db = getLocalDatabase();
-  await db.setMeta(DATASET_SCHEMA_VERSION_META_KEY, normalizeDatasetSchemaVersion(version));
+  const client = getAppDataClient();
+  await client.meta.set(DATASET_SCHEMA_VERSION_META_KEY, normalizeDatasetSchemaVersion(version));
 }
 
 export async function describeMigrationPlan(fromVersion, toVersion = DATASET_SCHEMA_VERSION) {

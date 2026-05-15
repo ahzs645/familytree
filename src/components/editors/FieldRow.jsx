@@ -5,13 +5,13 @@ import React from 'react';
 
 export function FieldRow({ label, children, hint }) {
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 5 }}>
+    <label style={{ marginBottom: 14, display: 'block' }}>
+      <span style={{ display: 'block', color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 5 }}>
         {label}
-      </div>
+      </span>
       {children}
-      {hint && <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginTop: 4 }}>{hint}</div>}
-    </div>
+      {hint && <span style={{ display: 'block', color: 'hsl(var(--muted-foreground))', fontSize: 11, marginTop: 4 }}>{hint}</span>}
+    </label>
   );
 }
 

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../lib/changeLog.js';
 import { readLabel, readRef } from '../lib/schema.js';
@@ -6,6 +7,10 @@ import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.j
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useRecordLock } from '../lib/useRecordLock.js';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -43,6 +48,8 @@ function toHexColor(value) {
 
 export default function Labels() {
   const modal = useModal();
+  const [searchParams] = useSearchParams();
+  const queryLabelId = searchParams.get('labelId');
   const [labels, setLabels] = useState([]);
   const [relations, setRelations] = useState([]);
   const [targets, setTargets] = useState(new Map());
@@ -50,6 +57,7 @@ export default function Labels() {
   const [values, setValues] = useState({});
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
+  const baselineRef = React.useRef(null);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -66,6 +74,10 @@ export default function Labels() {
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    if (!queryLabelId || labels.length === 0) return;
+    if (labels.some((label) => label.recordName === queryLabelId)) setActiveId(queryLabelId);
+  }, [queryLabelId, labels]);
 
   useEffect(() => {
     const active = labels.find((record) => record.recordName === activeId);
@@ -99,6 +111,10 @@ export default function Labels() {
 
   const onSave = useCallback(async () => {
     if (!active) return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this label before saving.');
+      return;
+    }
     setSaving(true);
     const next = { ...active, fields: { ...active.fields } };
     if (values.name) {
@@ -126,6 +142,10 @@ export default function Labels() {
 
   const onDelete = useCallback(async () => {
     if (!active) return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this label before deleting.');
+      return;
+    }
     const message = activeRelations.length
       ? `Delete this label and remove ${activeRelations.length} label assignment(s)?`
       : 'Delete this label?';
@@ -153,14 +173,30 @@ export default function Labels() {
     );
   };
 
+  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
+  useEffect(() => {
+    if (!active || saving) return;
+    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
+  }, [active, editableSnapshot, saving, status]);
+  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
+  useUnsavedChanges(dirty);
+  const onToggleLock = useRecordLock({
+    record: active,
+    setRecord: (next) => setLabels((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
+    setSaving,
+    setStatus,
+    reload,
+  });
+
   const detail = active ? (
     <div className="p-5 max-w-3xl">
       <div className="flex items-center gap-2 mb-4">
         <span className="w-5 h-5 rounded-sm border border-border" style={{ background: normalizeCssColor(values.color) }} />
         <h2 className="text-base font-semibold truncate">{labelName(active)}</h2>
         {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
-        <button onClick={onDelete} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">Delete</button>
-        <button onClick={onSave} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
+        <button onClick={onDelete} disabled={isRecordLocked(active)} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
+        <button onClick={onSave} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
           {saving ? 'Saving...' : 'Save'}
         </button>
       </div>
