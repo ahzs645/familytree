@@ -39,6 +39,10 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    // MapLibre/Three and the immersive HeritageTree route are intentionally
+    // lazy-loaded heavy chunks. Keep Vite's size warning aligned with that
+    // explicit budget so real regressions still show up above this line.
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       input: {
         main: 'index.html',
