@@ -124,9 +124,13 @@ await captureWrite('place name save', checkPlaceWrite);
 await captureWrite('source title save', checkSourceWrite);
 if (sample.personEvent) await captureWrite('event date save', () => checkEventWrite(sample.personEvent));
 await captureWrite('person note add/remove', checkPersonNoteAddRemove);
+await captureWrite('family child add/remove staged save', checkFamilyChildAddRemove);
+await captureWrite('person source relation attach/remove immediate', checkPersonSourceRelationAddRemove);
+await captureWrite('person media relation attach/remove immediate', checkPersonMediaRelationAddRemove);
 await captureWrite('todo create/delete', checkCreateDeleteTodo);
 await captureWrite('story create/delete', checkCreateDeleteStory);
 await captureWrite('group create/delete', checkCreateDeleteGroup);
+await captureWrite('group member add/remove immediate', checkGroupMemberAddRemove);
 await captureWrite('repository create/delete', checkCreateDeleteRepository);
 await captureWrite('label create/delete', checkCreateDeleteLabel);
 
@@ -261,6 +265,64 @@ async function checkPersonNoteAddRemove() {
   return { ok: added === before + 1 && removed === before, detail: `${before}->${added}->${removed}` };
 }
 
+async function checkFamilyChildAddRemove() {
+  await setLocked(sample.family, false);
+  const candidate = await familyChildCandidate(sample.family);
+  if (!candidate) return { ok: false, detail: 'no available child candidate' };
+  await page.goto(`${BASE}/family/${sample.family}`, { waitUntil: 'networkidle' });
+  const before = await countRecords('ChildRelation', 'family', sample.family);
+  await page.locator('button').filter({ hasText: /Choose person/i }).first().click();
+  await page.locator('input:not([type]), input[type="text"], input[type="search"]').last().fill(candidate.fullName);
+  await page.locator('div[style*="cursor: pointer"]').filter({ hasText: candidate.fullName }).first().click();
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await page.waitForTimeout(250);
+  const added = await countRecords('ChildRelation', 'family', sample.family);
+  const childrenSection = page.locator('div.rounded-lg', { hasText: 'Children' }).first();
+  await childrenSection.locator('button[title="Stage child removal until Save changes"]').last().click();
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await page.waitForTimeout(250);
+  const removed = await countRecords('ChildRelation', 'family', sample.family);
+  return { ok: added === before + 1 && removed === before, detail: `${before}->${added}->${removed}` };
+}
+
+async function checkPersonSourceRelationAddRemove() {
+  await setLocked(sample.person, false);
+  const source = await firstAvailableRelationTarget('SourceRelation', 'target', sample.person, 'source', 'Source');
+  if (!source) return { ok: false, detail: 'no available source candidate' };
+  await page.goto(`${BASE}/person/${sample.person}`, { waitUntil: 'networkidle' });
+  const before = await countRecords('SourceRelation', 'target', sample.person);
+  const section = page.locator('div.rounded-lg', { hasText: 'Source Citations' }).first();
+  await section.locator('select').last().selectOption(source.recordName);
+  await section.getByRole('button', { name: 'Attach now' }).click();
+  await page.waitForTimeout(250);
+  const added = await countRecords('SourceRelation', 'target', sample.person);
+  await section.getByRole('button', { name: 'Remove now' }).last().click();
+  await page.waitForTimeout(250);
+  const removed = await countRecords('SourceRelation', 'target', sample.person);
+  return { ok: added === before + 1 && removed === before, detail: `${before}->${added}->${removed}` };
+}
+
+async function checkPersonMediaRelationAddRemove() {
+  await setLocked(sample.person, false);
+  const media = await createSmokeMedia();
+  try {
+    await page.goto(`${BASE}/person/${sample.person}`, { waitUntil: 'networkidle' });
+    const before = await countRecords('MediaRelation', 'target', sample.person);
+    const section = page.locator('div.rounded-lg', { hasText: 'Media' }).first();
+    await section.locator('select').first().selectOption('MediaPicture');
+    await section.locator('select').last().selectOption(media.recordName);
+    await section.getByRole('button', { name: 'Attach now' }).click();
+    await page.waitForTimeout(250);
+    const added = await countRecords('MediaRelation', 'target', sample.person);
+    await section.getByRole('button', { name: 'Remove now' }).last().click();
+    await page.waitForTimeout(250);
+    const removed = await countRecords('MediaRelation', 'target', sample.person);
+    return { ok: added === before + 1 && removed === before, detail: `${before}->${added}->${removed}` };
+  } finally {
+    await deleteRecordDirect(media.recordName);
+  }
+}
+
 async function checkCreateDeleteTodo() {
   await page.goto(`${BASE}/todos`, { waitUntil: 'domcontentloaded' });
   const before = await countType('ToDo');
@@ -296,6 +358,27 @@ async function checkCreateDeleteGroup() {
   await deleteRecordDirect(createdId);
   const afterDelete = await countType('PersonGroup');
   return { ok: afterCreate === before + 1 && afterDelete === before, detail: `${before}->${afterCreate}->${afterDelete}` };
+}
+
+async function checkGroupMemberAddRemove() {
+  const groupId = await createSmokeGroup();
+  try {
+    await setLocked(groupId, false);
+    await page.goto(`${BASE}/groups?groupId=${encodeURIComponent(groupId)}`, { waitUntil: 'networkidle' });
+    const candidate = await groupMemberCandidate(groupId);
+    if (!candidate) return { ok: false, detail: 'no available member candidate' };
+    const before = await countRecords('PersonGroupRelation', 'personGroup', groupId);
+    await page.locator('.p-5 select').first().selectOption(candidate.recordName);
+    await page.getByRole('button', { name: 'Add now' }).click();
+    await page.waitForTimeout(250);
+    const added = await countRecords('PersonGroupRelation', 'personGroup', groupId);
+    await page.getByRole('button', { name: 'Remove now' }).last().click();
+    await page.waitForTimeout(250);
+    const removed = await countRecords('PersonGroupRelation', 'personGroup', groupId);
+    return { ok: added === before + 1 && removed === before, detail: `${before}->${added}->${removed}` };
+  } finally {
+    await deleteRecordDirect(groupId);
+  }
 }
 
 async function checkCreateDeleteRepository() {
@@ -365,6 +448,89 @@ async function setLocked(recordName, locked) {
     else delete fields.isLocked;
     await db.saveRecord({ ...record, fields });
   }, { recordName, locked });
+}
+
+async function familyChildCandidate(familyId) {
+  return page.evaluate(async (familyId) => {
+    const { getLocalDatabase } = await import('/src/lib/LocalDatabase.js');
+    const { readRef } = await import('/src/lib/schema.js');
+    const db = getLocalDatabase();
+    const family = await db.getRecord(familyId);
+    const partnerIds = new Set([readRef(family?.fields?.man), readRef(family?.fields?.woman)].filter(Boolean));
+    const children = await db.query('ChildRelation', { referenceField: 'family', referenceValue: familyId, limit: 100000 });
+    const childIds = new Set(children.records.map((rel) => readRef(rel.fields?.child)).filter(Boolean));
+    const persons = (await db.query('Person', { limit: 100000 })).records;
+    const labels = new Map();
+    for (const person of persons) {
+      if (childIds.has(person.recordName) || partnerIds.has(person.recordName)) continue;
+      const fullName = person.fields?.cached_fullName?.value ||
+        [person.fields?.firstName?.value, person.fields?.lastName?.value].filter(Boolean).join(' ');
+      if (!fullName) continue;
+      labels.set(fullName, (labels.get(fullName) || 0) + 1);
+    }
+    for (const person of persons) {
+      if (childIds.has(person.recordName) || partnerIds.has(person.recordName)) continue;
+      const fullName = person.fields?.cached_fullName?.value ||
+        [person.fields?.firstName?.value, person.fields?.lastName?.value].filter(Boolean).join(' ');
+      if (fullName && labels.get(fullName) === 1) return { recordName: person.recordName, fullName };
+    }
+    return null;
+  }, familyId);
+}
+
+async function groupMemberCandidate(groupId) {
+  return page.evaluate(async (groupId) => {
+    const { getLocalDatabase } = await import('/src/lib/LocalDatabase.js');
+    const { readRef } = await import('/src/lib/schema.js');
+    const db = getLocalDatabase();
+    const members = await db.query('PersonGroupRelation', { referenceField: 'personGroup', referenceValue: groupId, limit: 100000 });
+    const memberIds = new Set(members.records.map((rel) => readRef(rel.fields?.person)).filter(Boolean));
+    const person = (await db.query('Person', { limit: 100000 })).records.find((record) => !memberIds.has(record.recordName));
+    return person ? { recordName: person.recordName } : null;
+  }, groupId);
+}
+
+async function firstAvailableRelationTarget(relationType, ownerField, ownerId, targetField, targetType) {
+  return page.evaluate(async ({ relationType, ownerField, ownerId, targetField, targetType }) => {
+    const { getLocalDatabase } = await import('/src/lib/LocalDatabase.js');
+    const { readRef } = await import('/src/lib/schema.js');
+    const db = getLocalDatabase();
+    const relations = await db.query(relationType, { referenceField: ownerField, referenceValue: ownerId, limit: 100000 });
+    const attached = new Set(relations.records.map((rel) => readRef(rel.fields?.[targetField])).filter(Boolean));
+    const target = (await db.query(targetType, { limit: 100000 })).records.find((record) => !attached.has(record.recordName));
+    return target ? { recordName: target.recordName } : null;
+  }, { relationType, ownerField, ownerId, targetField, targetType });
+}
+
+async function createSmokeMedia() {
+  return page.evaluate(async () => {
+    const { getLocalDatabase } = await import('/src/lib/LocalDatabase.js');
+    const record = {
+      recordName: `media-smoke-${Date.now()}`,
+      recordType: 'MediaPicture',
+      fields: {
+        title: { value: `Smoke media ${Date.now()}`, type: 'STRING' },
+        caption: { value: 'Smoke media', type: 'STRING' },
+      },
+    };
+    await getLocalDatabase().saveRecord(record);
+    return { recordName: record.recordName };
+  });
+}
+
+async function createSmokeGroup() {
+  return page.evaluate(async () => {
+    const { getLocalDatabase } = await import('/src/lib/LocalDatabase.js');
+    const record = {
+      recordName: `grp-smoke-${Date.now()}`,
+      recordType: 'PersonGroup',
+      fields: {
+        name: { value: `Smoke group ${Date.now()}`, type: 'STRING' },
+      },
+    };
+    await getLocalDatabase().saveRecord(record);
+    return record.recordName;
+  });
 }
 
 async function captureWrite(label, fn) {

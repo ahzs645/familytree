@@ -41,7 +41,7 @@ import { TypePicker } from '../components/editors/TypePicker.jsx';
 import { AssociateRelationsEditor, MediaRelationsEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { OldestAncestorsWidget } from '../components/editors/OldestAncestorsWidget.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { useDirtySnapshot, useUnsavedChanges, stableStringify } from '../lib/editorState.js';
+import { confirmUnsavedChanges, useDirtySnapshot, useUnsavedChanges, stableStringify } from '../lib/editorState.js';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { listAllPersons } from '../lib/treeQuery.js';
@@ -289,6 +289,9 @@ export default function PersonEditor() {
   const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!record && !saving);
   useUnsavedChanges(dirty);
   const onToggleLock = useRecordLock({ record, setRecord, setSaving, setStatus, reload });
+  const guardedNavigate = useCallback((to, options) => {
+    if (confirmUnsavedChanges(dirty)) navigate(to, options);
+  }, [dirty, navigate]);
 
   const onSave = useCallback(async () => {
     if (!record) return;
@@ -378,7 +381,7 @@ export default function PersonEditor() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <button onClick={() => navigate(-1)} className="text-xs text-muted-foreground border border-border rounded-md px-3 py-1.5 hover:bg-accent">
+        <button onClick={() => guardedNavigate(-1)} className="text-xs text-muted-foreground border border-border rounded-md px-3 py-1.5 hover:bg-accent">
           ← Back
         </button>
         <div className="flex-1 min-w-0">
@@ -397,7 +400,7 @@ export default function PersonEditor() {
 
           {context && (
             <Section title="Parents & Relatives" accent={ACCENTS.parents}>
-              <ParentsBlock context={context} onPick={(rn) => navigate(`/person/${rn}`)} />
+              <ParentsBlock context={context} onPick={(rn) => guardedNavigate(`/person/${rn}`)} />
               <div className="mt-4 grid grid-cols-[130px_1fr_auto] gap-2">
                 <select value={relativeType} onChange={(event) => setRelativeType(event.target.value)} className={inputClass()}>
                   <option value="parent">Parent</option>
@@ -520,7 +523,7 @@ export default function PersonEditor() {
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
                           <span className="text-sm">{label}{date && <span className="text-muted-foreground"> · {date}</span>}</span>
                           <EvidenceBadge evidence={evidence?.byRecord?.get(e.recordName)} />
-                          <button onClick={() => navigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-primary hover:underline">edit</button>
+                          <button onClick={() => guardedNavigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-primary hover:underline">edit</button>
                         </div>
                       );
                     })}
@@ -529,7 +532,7 @@ export default function PersonEditor() {
               </Section>
 
               <Section title="Media" accent={ACCENTS.media}
-                controls={<button onClick={() => navigate(`/views/media-gallery?targetId=${encodeURIComponent(id)}&targetType=Person`)} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Gallery</button>}
+                controls={<button onClick={() => guardedNavigate(`/views/media-gallery?targetId=${encodeURIComponent(id)}&targetType=Person`)} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Gallery</button>}
               >
                 <MediaRelationsEditor ownerRecordName={id} ownerRecordType="Person" onChanged={reload} />
               </Section>
@@ -563,7 +566,7 @@ export default function PersonEditor() {
               </Section>
 
               <Section title="Tribal Affiliations" accent={ACCENTS.tribal}
-                controls={<button type="button" onClick={() => navigate('/tribal-affiliations')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open</button>}
+                controls={<button type="button" onClick={() => guardedNavigate('/tribal-affiliations')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open</button>}
               >
                 {tribalMemberships.length === 0 ? (
                   <Empty title="No tribal affiliations" hint="Add clan, tribe, branch, or house membership from the Tribal Affiliations page." />
@@ -642,7 +645,7 @@ export default function PersonEditor() {
               </Section>
 
               <Section title="Source Citations" accent={ACCENTS.sources}
-                controls={<button onClick={() => navigate('/sources')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Sources</button>}>
+                controls={<button onClick={() => guardedNavigate('/sources')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Sources</button>}>
                 <SourceCitationsEditor ownerRecordName={id} ownerRecordType="Person" ownerRole="target" onChanged={reload} />
               </Section>
 
@@ -714,7 +717,7 @@ export default function PersonEditor() {
                 {context.families.map((fam) => (
                   <button
                     key={fam.family.recordName}
-                    onClick={() => navigate(`/family/${fam.family.recordName}`)}
+                    onClick={() => guardedNavigate(`/family/${fam.family.recordName}`)}
                     className="text-start p-3 rounded-md border border-border bg-secondary/30 hover:bg-secondary"
                   >
                     <div className="text-xs text-muted-foreground mb-1">Family</div>

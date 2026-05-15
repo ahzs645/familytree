@@ -52,3 +52,10 @@ export function useUnsavedChanges(when, message = UNSAVED_CHANGES_MESSAGE) {
     return () => document.removeEventListener('click', onClick, true);
   }, [active, message]);
 }
+
+export function confirmUnsavedChanges(when, message = UNSAVED_CHANGES_MESSAGE) {
+  if (!when) return true;
+  if (typeof window === 'undefined') return true;
+  if (window.localStorage?.getItem('cloudtreeweb:disable-unsaved-guard') === '1') return true;
+  return window.confirm(message);
+}

@@ -161,16 +161,16 @@ export default function PersonGroups() {
           {members.length === 0 ? <div className="text-sm text-muted-foreground">No members.</div> : members.map(({ rel, person }) => (
             <div key={rel.recordName} className="flex items-center gap-2 bg-secondary/40 rounded-md p-2">
               <span className="text-sm flex-1">{person?.summary.fullName || readRef(rel.fields?.person)}</span>
-              <button onClick={() => removeMember(rel)} className="text-xs text-destructive">Remove</button>
+              <button onClick={() => removeMember(rel)} className="text-xs text-destructive">Remove now</button>
             </div>
           ))}
         </div>
         <div className="grid grid-cols-[1fr_auto] gap-2">
-          <select value={personId} onChange={(e) => setPersonId(e.target.value)} className="bg-background border border-border rounded-md px-2 py-1.5 text-sm">
+          <select value={personId} onChange={(e) => setPersonId(e.target.value)} className="bg-background border border-border rounded-md px-2 py-1.5 text-sm" aria-label="Group member person">
             <option value="">Select person...</option>
             {persons.map(({ rec, summary }) => <option key={rec.recordName} value={rec.recordName}>{summary.fullName}</option>)}
           </select>
-          <button onClick={addMember} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">Add</button>
+          <button onClick={addMember} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">Add now</button>
         </div>
       </section>
     </div>

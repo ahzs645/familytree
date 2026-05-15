@@ -95,7 +95,7 @@ function RelationRow({ rel, target, label, typeLabel, children, onRemove }) {
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground min-w-20">{typeLabel || target?.recordType || 'Record'}</span>
         <span className="text-sm flex-1 min-w-0 truncate">{label || recordDisplayLabel(target) || readRef(rel.fields?.target) || rel.recordName}</span>
-        <button onClick={onRemove} className="text-xs text-destructive hover:underline">Remove</button>
+        <button onClick={onRemove} className="text-xs text-destructive hover:underline">Remove now</button>
       </div>
       {children}
     </div>
@@ -174,10 +174,10 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
         </div>
       )}
       <div className="grid grid-cols-[130px_1fr_auto] gap-2">
-        <select value={mediaType} onChange={(e) => { setMediaType(e.target.value); setMediaId(''); }} className={inputClass}>
+        <select value={mediaType} onChange={(e) => { setMediaType(e.target.value); setMediaId(''); }} className={inputClass} aria-label="Media type">
           {MEDIA_TYPES.map((type) => <option key={type} value={type}>{type.replace('Media', '')}</option>)}
         </select>
-        <select value={mediaId} onChange={(e) => setMediaId(e.target.value)} className={inputClass}>
+        <select value={mediaId} onChange={(e) => setMediaId(e.target.value)} className={inputClass} aria-label="Media record">
           <option value="">Select media...</option>
           {filteredMedia.map((record) => (
             <option key={record.recordName} value={record.recordName} disabled={attachedIds.has(record.recordName)}>
@@ -185,7 +185,7 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
             </option>
           ))}
         </select>
-        <button onClick={addRelation} disabled={!mediaId || attachedIds.has(mediaId)} className={primaryButtonClass}>Attach</button>
+        <button onClick={addRelation} disabled={!mediaId || attachedIds.has(mediaId)} className={primaryButtonClass}>Attach now</button>
       </div>
     </div>
   );
@@ -318,14 +318,16 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                       onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, page: e.target.value } }))}
                       className={inputClass}
                       placeholder="Page"
+                      aria-label="Citation page"
                     />
                     <input
                       value={draft.citation || ''}
                       onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, citation: e.target.value } }))}
                       className={inputClass}
                       placeholder="Citation text"
+                      aria-label="Citation text"
                     />
-                    <button onClick={() => saveRelation(rel)} className={buttonClass}>Save</button>
+                    <button onClick={() => saveRelation(rel)} className={buttonClass}>Save citation now</button>
                   </div>
                   <div className="grid grid-cols-[1fr_150px] gap-2 mt-2">
                     <textarea
@@ -333,6 +335,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                       onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, transcription: e.target.value } }))}
                       className={`${inputClass} min-h-16 resize-y`}
                       placeholder="Transcription / excerpt"
+                      aria-label="Citation transcription"
                     />
                     <div className="space-y-2">
                       <select
@@ -350,6 +353,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                         onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, attribution: e.target.value } }))}
                         className={inputClass}
                         placeholder="Attribution"
+                        aria-label="Citation attribution"
                       />
                     </div>
                   </div>
@@ -376,10 +380,10 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
         </>
       )}
       <div className="grid grid-cols-[130px_1fr_auto] gap-2">
-        <select value={selectedType} onChange={(e) => { setSelectedType(e.target.value); setSelectedId(''); }} className={inputClass}>
+        <select value={selectedType} onChange={(e) => { setSelectedType(e.target.value); setSelectedId(''); }} className={inputClass} aria-label={ownerRole === 'source' ? 'Citation target type' : 'Citation source type'}>
           {poolTypes.map((type) => <option key={type} value={type}>{type.replace('Media', '')}</option>)}
         </select>
-        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className={inputClass}>
+        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className={inputClass} aria-label={ownerRole === 'source' ? 'Citation target record' : 'Citation source record'}>
           <option value="">Select {ownerRole === 'source' ? 'target' : 'source'}...</option>
           {filteredPool.map((record) => (
             <option key={record.recordName} value={record.recordName} disabled={attachedIds.has(record.recordName)}>
@@ -387,7 +391,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
             </option>
           ))}
         </select>
-        <button onClick={addRelation} disabled={!selectedId || attachedIds.has(selectedId)} className={primaryButtonClass}>Attach</button>
+        <button onClick={addRelation} disabled={!selectedId || attachedIds.has(selectedId)} className={primaryButtonClass}>Attach now</button>
       </div>
     </div>
   );
@@ -496,6 +500,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
                     value={draft.type || ''}
                     onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, type: e.target.value } }))}
                     className={inputClass}
+                    aria-label="Associate relation type"
                   >
                     <option value="">Relation type...</option>
                     {relationTypes.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
@@ -504,11 +509,12 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
                     value={draft.targetPerson || ''}
                     onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, targetPerson: e.target.value } }))}
                     className={inputClass}
+                    aria-label="Associate person"
                   >
                     <option value="">Select person...</option>
                     {persons.map((person) => <option key={person.recordName} value={person.recordName}>{recordDisplayLabel(person)}</option>)}
                   </select>
-                  <button onClick={() => saveRelation(rel)} disabled={!draft.type || !draft.targetPerson} className={buttonClass}>Save</button>
+                  <button onClick={() => saveRelation(rel)} disabled={!draft.type || !draft.targetPerson} className={buttonClass}>Save relation now</button>
                 </div>
               </RelationRow>
             );
@@ -516,14 +522,14 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
         </div>
       )}
       <div className="grid grid-cols-[150px_1fr_auto] gap-2">
-        <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className={inputClass}>
+        <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className={inputClass} aria-label="New associate relation type">
           {relationTypes.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
         </select>
-        <select value={personId} onChange={(e) => setPersonId(e.target.value)} className={inputClass}>
+        <select value={personId} onChange={(e) => setPersonId(e.target.value)} className={inputClass} aria-label="New associate person">
           <option value="">Select person...</option>
           {persons.map((person) => <option key={person.recordName} value={person.recordName}>{recordDisplayLabel(person)}</option>)}
         </select>
-        <button onClick={addRelation} disabled={!personId || !typeId} className={primaryButtonClass}>Attach</button>
+        <button onClick={addRelation} disabled={!personId || !typeId} className={primaryButtonClass}>Attach now</button>
       </div>
     </div>
   );
@@ -602,6 +608,7 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
                 onChange={(e) => setNotes((items) => items.map((item, i) => i === index ? { ...item, title: e.target.value } : item))}
                 className={inputClass}
                 placeholder="Title"
+                aria-label="Note title"
               />
               <textarea
                 value={note.text}
@@ -609,18 +616,19 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
                 className={`${inputClass} mt-2 resize-y`}
                 rows={3}
                 placeholder="Note text"
+                aria-label="Note text"
               />
               <div className="text-right mt-2">
-                <button onClick={() => setNotes((items) => items.filter((_, i) => i !== index))} className="text-xs text-destructive hover:underline">Remove</button>
+                <button onClick={() => setNotes((items) => items.filter((_, i) => i !== index))} className="text-xs text-destructive hover:underline">Stage removal</button>
               </div>
             </div>
           ))}
         </div>
       )}
       <div className="flex gap-2">
-        <button onClick={() => setNotes((items) => [...items, { title: '', text: '' }])} className={primaryButtonClass}>Add Note</button>
+        <button onClick={() => setNotes((items) => [...items, { title: '', text: '' }])} className={primaryButtonClass}>Stage note</button>
         <button onClick={saveNotes} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-60">
-          {saving ? 'Saving...' : 'Save Notes'}
+          {saving ? 'Saving...' : 'Save notes'}
         </button>
       </div>
     </div>

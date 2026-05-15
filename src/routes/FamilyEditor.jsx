@@ -29,7 +29,7 @@ import {
   labelForCatalogType,
 } from '../lib/catalogs.js';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { confirmUnsavedChanges, stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
@@ -317,6 +317,9 @@ export default function FamilyEditor() {
   const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!family && !saving);
   useUnsavedChanges(dirty);
   const onToggleLock = useRecordLock({ record: family, setRecord: setFamily, setSaving, setStatus, reload });
+  const guardedNavigate = useCallback((to, options) => {
+    if (confirmUnsavedChanges(dirty)) navigate(to, options);
+  }, [dirty, navigate]);
 
   if (notFound) return <div className="p-10 text-muted-foreground">Family not found.</div>;
   if (!family) return <div className="p-10 text-muted-foreground">Loading…</div>;
@@ -328,7 +331,7 @@ export default function FamilyEditor() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <button onClick={() => navigate(-1)} className="text-xs text-muted-foreground border border-border rounded-md px-3 py-1.5 hover:bg-accent">← Back</button>
+        <button onClick={() => guardedNavigate(-1)} className="text-xs text-muted-foreground border border-border rounded-md px-3 py-1.5 hover:bg-accent">← Back</button>
         <div className="flex-1 min-w-0">
           <h1 className="text-base font-semibold truncate">
             Family · {summary?.familyName || [man?.fullName, woman?.fullName].filter(Boolean).join(' & ') || family.recordName}
@@ -350,7 +353,7 @@ export default function FamilyEditor() {
                 <PersonPicker persons={persons} value={manId} onChange={setManId} />
               </Field>
               {man && <div className="mt-2 text-xs text-muted-foreground">{man.fullName} {lifeSpanLabel(man) && `· ${lifeSpanLabel(man)}`}</div>}
-              <button onClick={() => manId && navigate(`/person/${manId}`)} disabled={!manId}
+              <button onClick={() => manId && guardedNavigate(`/person/${manId}`)} disabled={!manId}
                 className="mt-3 text-xs text-primary hover:underline disabled:opacity-50">
                 Open person editor →
               </button>
@@ -360,7 +363,7 @@ export default function FamilyEditor() {
                 <PersonPicker persons={persons} value={womanId} onChange={setWomanId} />
               </Field>
               {woman && <div className="mt-2 text-xs text-muted-foreground">{woman.fullName} {lifeSpanLabel(woman) && `· ${lifeSpanLabel(woman)}`}</div>}
-              <button onClick={() => womanId && navigate(`/person/${womanId}`)} disabled={!womanId}
+              <button onClick={() => womanId && guardedNavigate(`/person/${womanId}`)} disabled={!womanId}
                 className="mt-3 text-xs text-primary hover:underline disabled:opacity-50">
                 Open person editor →
               </button>
@@ -389,8 +392,8 @@ export default function FamilyEditor() {
                         </span>
                         <button disabled={i === 0} onClick={() => moveChild(i, -1)} className="text-xs text-muted-foreground border border-border rounded-md w-7 h-7 hover:bg-accent disabled:opacity-30">↑</button>
                         <button disabled={i === children.length - 1} onClick={() => moveChild(i, 1)} className="text-xs text-muted-foreground border border-border rounded-md w-7 h-7 hover:bg-accent disabled:opacity-30">↓</button>
-                        <button onClick={() => navigate(`/person/${c.childRecordName}`)} className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent">edit</button>
-                        <button onClick={() => removeChild(i)} className="text-destructive border border-border rounded-md w-7 h-7 text-xs hover:bg-destructive/10">×</button>
+                        <button onClick={() => guardedNavigate(`/person/${c.childRecordName}`)} className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent">edit</button>
+                        <button onClick={() => removeChild(i)} title="Stage child removal until Save changes" className="text-destructive border border-border rounded-md w-7 h-7 text-xs hover:bg-destructive/10">×</button>
                       </div>
                     ))}
                   </div>
@@ -431,7 +434,7 @@ export default function FamilyEditor() {
                       return (
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
                           <span className="text-sm">{label}{date && <span className="text-muted-foreground"> · {date}</span>}</span>
-                          <button onClick={() => navigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-primary hover:underline">open in Events</button>
+                          <button onClick={() => guardedNavigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-primary hover:underline">open in Events</button>
                         </div>
                       );
                     })}
@@ -440,7 +443,7 @@ export default function FamilyEditor() {
               </Section>
 
               <Section title="Media" accent={ACCENTS.media}
-                controls={<button onClick={() => navigate(`/views/media-gallery?targetId=${encodeURIComponent(id)}&targetType=Family`)} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Gallery</button>}>
+                controls={<button onClick={() => guardedNavigate(`/views/media-gallery?targetId=${encodeURIComponent(id)}&targetType=Family`)} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Gallery</button>}>
                 <MediaRelationsEditor ownerRecordName={id} ownerRecordType="Family" onChanged={reload} />
               </Section>
 
@@ -463,7 +466,7 @@ export default function FamilyEditor() {
               </Section>
 
               <Section title="Source Citations" accent={ACCENTS.sources}
-                controls={<button onClick={() => navigate('/sources')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Sources</button>}>
+                controls={<button onClick={() => guardedNavigate('/sources')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Sources</button>}>
                 <SourceCitationsEditor ownerRecordName={id} ownerRecordType="Family" ownerRole="target" onChanged={reload} />
               </Section>
 
