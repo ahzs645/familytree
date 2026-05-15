@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAppPreferences } from '../lib/appPreferences.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
 import {
@@ -32,9 +32,43 @@ const TASK_TYPES = [
   { id: 'sync-review', label: 'Sync Review' },
 ];
 
+const TASKS_BY_PANE = {
+  overview: null,
+  matches: null,
+  'auto-matches': 'match-review',
+  'record-matches': 'record-match-review',
+  ordinances: 'ordinance-review',
+  memories: 'picture-review',
+  discussions: 'record-match-review',
+  'change-history': 'sync-review',
+  records: 'record-match-review',
+  sync: 'sync-review',
+  statistics: null,
+};
+
+const FAMILYSEARCH_PANES = [
+  { id: 'overview', label: 'Overview', description: 'Local IDs, API connection, and full workflow controls.' },
+  { id: 'matches', label: 'Matches', description: 'Matched versus unmatched people and quick actions.' },
+  { id: 'auto-matches', label: 'Auto-Matches', description: 'Open tasks flagged for API auto-match review.' },
+  { id: 'record-matches', label: 'Record Matches', description: 'Review and resolve record-match workflow tasks.' },
+  { id: 'ordinances', label: 'Ordinances', description: 'Track ordinance review queue (local-first for now).' },
+  { id: 'memories', label: 'Memories', description: 'Quickly route memory-related FamilySearch work.' },
+  { id: 'discussions', label: 'Discussions', description: 'Review discussion-style FamilySearch review tasks.' },
+  { id: 'change-history', label: 'Change History', description: 'Review queued sync/change-history actions.' },
+  { id: 'records', label: 'Records', description: 'Open records linked to FamilySearch match tasks.' },
+  { id: 'statistics', label: 'Statistics', description: 'Summary totals and task depth for parity-style reporting.' },
+];
+
+const DEFAULT_PANE = 'overview';
+
 export default function FamilySearch() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const modal = useModal();
+  const paneFromQuery = searchParams.get('pane');
+  const activePane = FAMILYSEARCH_PANES.find((entry) => entry.id === paneFromQuery)?.id || DEFAULT_PANE;
+  const activePaneMeta = FAMILYSEARCH_PANES.find((entry) => entry.id === activePane) || FAMILYSEARCH_PANES[0];
+
   const [people, setPeople] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState('unmatched');
@@ -55,6 +89,14 @@ export default function FamilySearch() {
   const [sourceFoldersOpen, setSourceFoldersOpen] = useState(false);
   const [batchDownloadOpen, setBatchDownloadOpen] = useState(false);
 
+  const setPane = useCallback((nextPane) => {
+    setSearchParams((params) => {
+      const next = new URLSearchParams(params);
+      next.set('pane', nextPane);
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
     const [{ records }, savedTasks, prefs] = await Promise.all([
@@ -68,26 +110,41 @@ export default function FamilySearch() {
       familySearchID: readField(record, ['familySearchID', 'familySearchId'], ''),
     })).filter((entry) => entry.summary));
     setTasks(Array.isArray(savedTasks) ? savedTasks : []);
-    setTaskType(prefs.familySearch.defaultTaskType || 'match-review');
+    setTaskType(prefs.familySearch?.defaultTaskType || 'match-review');
   }, []);
 
   useEffect(() => { reload(); }, [reload]);
+
   useEffect(() => {
     let cancel = false;
     (async () => {
       const config = await getFamilySearchConfig();
       if (!cancel) setApiConfig(config);
     })();
-    return () => { cancel = true; };
+    return () => {
+      cancel = true;
+    };
   }, []);
 
   const stats = useMemo(() => {
     const matched = people.filter((entry) => entry.familySearchID).length;
     const openTasks = tasks.filter((task) => task.status !== 'done').length;
-    return { total: people.length, matched, unmatched: people.length - matched, openTasks };
+    const doneTasks = tasks.filter((task) => task.status === 'done').length;
+    const taskCounts = TASK_TYPES.reduce((acc, current) => {
+      acc[current.id] = tasks.filter((task) => task.type === current.id).length;
+      return acc;
+    }, {});
+    return {
+      total: people.length,
+      matched,
+      unmatched: people.length - matched,
+      openTasks,
+      doneTasks,
+      taskCounts,
+    };
   }, [people, tasks]);
 
-  const visible = useMemo(() => {
+  const filteredBySearch = useMemo(() => {
     const q = query.trim();
     return people.filter((entry) => {
       if (filter === 'matched' && !entry.familySearchID) return false;
@@ -97,6 +154,27 @@ export default function FamilySearch() {
       return matchesSearchText(entry.summary.fullName, q) || matchesSearchText(entry.familySearchID, q);
     });
   }, [filter, people, query, tasks]);
+
+  const peopleByPane = useMemo(() => {
+    if (activePane === 'overview') return filteredBySearch;
+    if (activePane === 'matches') return filteredBySearch.filter((entry) => !entry.familySearchID);
+
+    const taskTypeForPane = TASKS_BY_PANE[activePane];
+    if (!taskTypeForPane) {
+      return activePane === 'statistics' ? [] : filteredBySearch;
+    }
+
+    return filteredBySearch.filter((entry) => tasks.some((task) =>
+      task.personId === entry.record.recordName
+      && task.type === taskTypeForPane
+      && task.status !== 'done',
+    ));
+  }, [activePane, filteredBySearch, tasks]);
+
+  const tasksByPane = useMemo(() => {
+    const taskTypeForPane = TASKS_BY_PANE[activePane];
+    return taskTypeForPane ? tasks.filter((task) => task.type === taskTypeForPane) : tasks;
+  }, [activePane, tasks]);
 
   const saveTasks = useCallback(async (next) => {
     setTasks(next);
@@ -234,13 +312,15 @@ export default function FamilySearch() {
     }
   }, [apiConfig, mergeDuplicateId, mergeReason, mergeSurvivorId, resourcesToCopy, resourcesToDelete, modal]);
 
+  const hasPanePersonRows = activePane !== 'statistics';
+
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-6xl mx-auto p-5">
-        <header className="flex items-center gap-3 mb-5">
+        <header className="flex items-center gap-3 mb-3">
           <div>
             <h1 className="text-xl font-bold">FamilySearch</h1>
-            <p className="text-sm text-muted-foreground mt-1">Local FamilySearch ID review, search launch, and task tracking.</p>
+            <p className="text-sm text-muted-foreground mt-1">{activePaneMeta.description}</p>
           </div>
           {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
           <div className={`${status ? '' : 'ms-auto'} flex gap-2`}>
@@ -252,6 +332,23 @@ export default function FamilySearch() {
             </button>
           </div>
         </header>
+
+        <section className="flex flex-wrap gap-2 mb-4">
+          {FAMILYSEARCH_PANES.map((pane) => (
+            <button
+              key={pane.id}
+              onClick={() => setPane(pane.id)}
+              className={`rounded-md border px-2.5 py-1.5 text-xs ${
+                pane.id === activePane
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'border-border bg-secondary hover:bg-accent'
+              }`}
+            >
+              {pane.label}
+            </button>
+          ))}
+        </section>
+
         <FamilySearchSourceFoldersSheet open={sourceFoldersOpen} onClose={() => setSourceFoldersOpen(false)} />
         <FamilySearchBatchDownloadSheet open={batchDownloadOpen} onClose={() => setBatchDownloadOpen(false)} />
 
@@ -285,30 +382,73 @@ export default function FamilySearch() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
           <main className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-border text-sm font-semibold">{visible.length} people</div>
-            <div className="divide-y divide-border">
-              {visible.slice(0, 300).map((entry) => {
-                const personTasks = tasks.filter((task) => task.personId === entry.record.recordName && task.status !== 'done');
-                return (
-                  <div key={entry.record.recordName} className="p-4 flex flex-col md:flex-row gap-3 md:items-center">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium truncate">{entry.summary.fullName}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {entry.familySearchID ? `FamilySearch ID ${entry.familySearchID}` : 'No FamilySearch ID'}{personTasks.length ? ` · ${personTasks.length} open task${personTasks.length === 1 ? '' : 's'}` : ''}
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button onClick={() => navigate(`/web-search?provider=familysearch&personId=${encodeURIComponent(entry.record.recordName)}`)} className={secondaryButton}>Search</button>
-                      <button onClick={() => onFindMatches(entry)} className={secondaryButton}>API matches</button>
-                      <button onClick={() => onComparePerson(entry)} className={secondaryButton}>Compare</button>
-                      <button onClick={() => startEditingId(entry)} className={secondaryButton}>ID</button>
-                      <button onClick={() => addTask(entry.record.recordName)} className={secondaryButton}>Task</button>
-                      <button onClick={() => navigate(`/person/${entry.record.recordName}`)} className={secondaryButton}>Open</button>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="px-4 py-3 border-b border-border text-sm font-semibold">
+              {hasPanePersonRows ? (
+                <>
+                  {activePaneMeta.label} · {peopleByPane.length} people
+                </>
+              ) : 'Statistics'}
             </div>
+
+            {hasPanePersonRows ? (
+              <div className="divide-y divide-border">
+                {peopleByPane.length === 0 ? (
+                  <div className="p-8 text-sm text-muted-foreground">No people for this pane yet.</div>
+                ) : (
+                  peopleByPane.slice(0, 300).map((entry) => {
+                    const personTasks = tasks.filter((task) => task.personId === entry.record.recordName && task.status !== 'done');
+                    return (
+                      <div key={entry.record.recordName} className="p-4 flex flex-col md:flex-row gap-3 md:items-center">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-medium truncate">{entry.summary.fullName}</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {entry.familySearchID ? `FamilySearch ID ${entry.familySearchID}` : 'No FamilySearch ID'}{personTasks.length ? ` · ${personTasks.length} open task${personTasks.length === 1 ? '' : 's'}` : ''}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => navigate(`/web-search?provider=familysearch&personId=${encodeURIComponent(entry.record.recordName)}`)} className={secondaryButton}>Search</button>
+                          <button onClick={() => onFindMatches(entry)} className={secondaryButton}>API matches</button>
+                          <button onClick={() => onComparePerson(entry)} className={secondaryButton}>Compare</button>
+                          <button onClick={() => startEditingId(entry)} className={secondaryButton}>ID</button>
+                          <button onClick={() => addTask(entry.record.recordName)} className={secondaryButton}>Task</button>
+                          <button onClick={() => navigate(`/person/${entry.record.recordName}`)} className={secondaryButton}>Open</button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            ) : (
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <div className="text-xs text-muted-foreground">Done tasks</div>
+                  <div className="text-2xl font-bold mt-1">{stats.doneTasks.toLocaleString()}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <div className="text-xs text-muted-foreground">People with ID</div>
+                  <div className="text-2xl font-bold mt-1">{stats.matched.toLocaleString()}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <div className="text-xs text-muted-foreground">People without ID</div>
+                  <div className="text-2xl font-bold mt-1">{stats.unmatched.toLocaleString()}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-4">
+                  <div className="text-xs text-muted-foreground">Pending tasks</div>
+                  <div className="text-2xl font-bold mt-1">{stats.openTasks.toLocaleString()}</div>
+                </div>
+                <div className="rounded-lg border border-border bg-background p-4 sm:col-span-2">
+                  <div className="text-xs text-muted-foreground">Task by type</div>
+                  <div className="grid grid-cols-2 gap-2 text-sm mt-2">
+                    {TASK_TYPES.map((entry) => (
+                      <div key={entry.id} className="flex justify-between">
+                        <span className="text-muted-foreground">{entry.label}</span>
+                        <span className="font-semibold">{Number(stats.taskCounts[entry.id] || 0).toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </main>
 
           <aside className="space-y-5">
@@ -408,11 +548,11 @@ export default function FamilySearch() {
 
             <section className="rounded-lg border border-border bg-card p-4">
               <h2 className="text-base font-semibold mb-3">Tasks</h2>
-              {tasks.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No FamilySearch tasks.</div>
+              {tasksByPane.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No FamilySearch tasks in this pane.</div>
               ) : (
                 <div className="space-y-2">
-                  {tasks.slice(0, 12).map((task) => (
+                  {tasksByPane.slice(0, 12).map((task) => (
                     <div key={task.id} className="rounded-md border border-border bg-background p-3">
                       <div className="text-sm font-medium">{task.personName}</div>
                       <div className="text-xs text-muted-foreground mt-1">{taskLabel(task.type)} · {task.status}</div>

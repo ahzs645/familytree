@@ -108,6 +108,7 @@ export default function Places() {
   const [showConvertSheet, setShowConvertSheet] = useState(false);
   const baselineRef = useRef(null);
   const queryPlaceId = searchParams.get('placeId');
+  const focus = searchParams.get('focus');
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -155,6 +156,21 @@ export default function Places() {
       setPlaceQueryMessage(`The linked place record "${queryPlaceId}" was not found in the current Places list.`);
     }
   }, [places, queryPlaceId]);
+
+  useEffect(() => {
+    if (!focus) return;
+    if (focus !== 'missing-coordinates') return;
+
+    if (places.length === 0) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      const section = document.getElementById(focus);
+      section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setShowBatchSheet(true);
+    });
+  }, [focus, places.length]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -531,7 +547,8 @@ export default function Places() {
         )}
       </Section>
 
-      <Section title="Coordinate" accent={ACCENTS.coord}>
+      <div id="missing-coordinates">
+        <Section title="Coordinate" accent={ACCENTS.coord}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Latitude">
             <input value={latitude} onChange={(e) => setLatitude(e.target.value)} className={inputClass} />
@@ -550,7 +567,8 @@ export default function Places() {
           <button onClick={onConvertToDetails} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title="Generate PlaceDetail rows from the current place components">Place to Details</button>
           <button onClick={() => setShowConvertSheet(true)} disabled={!activeId} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title="Collapse this Place into a PlaceDetail of a parent place">Convert to Detail…</button>
         </div>
-      </Section>
+        </Section>
+      </div>
 
       <Section title="Map" accent={ACCENTS.map}>
         <div className="h-80 rounded-md overflow-hidden border border-border">

@@ -11,9 +11,13 @@ import { lazy } from 'react';
 const lazyRoute = (importer) => lazy(importer);
 
 export const ROUTE_MANIFEST = [
+  { path: 'welcome', alias: '/' },
+  { path: 'about', alias: '/author' },
+  { path: 'help', alias: '/actions' },
   { path: 'tree', loader: () => import('./Tree.jsx') },
   { path: 'heritage-tree', loader: () => import('./HeritageTree.jsx') },
   { path: 'persons', loader: () => import('./Persons.jsx') },
+  { path: 'families', loader: () => import('./Families.jsx') },
   { path: 'lists', loader: () => import('./Lists.jsx') },
   { path: 'charts', loader: () => import('./Charts.jsx') },
   { path: 'search', loader: () => import('./Search.jsx') },
@@ -29,6 +33,7 @@ export const ROUTE_MANIFEST = [
   { path: 'places', loader: () => import('./Places.jsx') },
   { path: 'sources', loader: () => import('./Sources.jsx') },
   { path: 'events', loader: () => import('./Events.jsx') },
+  { path: 'family-events', loader: () => import('./FamilyEvents.jsx') },
   { path: 'media', loader: () => import('./Media.jsx') },
   { path: 'map', loader: () => import('./MapView.jsx') },
   { path: 'globe', loader: () => import('./Globe.jsx') },
@@ -89,6 +94,7 @@ export const ROUTE_MANIFEST = [
   { path: 'backup', loader: () => import('./Backup.jsx') },
   { path: 'export', loader: () => import('./Export.jsx') },
   { path: 'subtree', loader: () => import('./SubtreeWizard.jsx') },
+  { path: 'actions', loader: () => import('./Actions.jsx') },
 
   {
     path: 'settings',
@@ -119,6 +125,7 @@ export const ROUTE_MANIFEST = [
   { path: 'web-search', loader: () => import('./WebSearch.jsx') },
   { path: 'familysearch', loader: () => import('./FamilySearch.jsx') },
   { path: 'family-search', loader: () => import('./FamilySearch.jsx') },
+  { path: 'search-and-replace', loader: () => import('./Search.jsx') },
   { path: 'favorites', loader: () => import('./Favorites.jsx') },
 ];
 

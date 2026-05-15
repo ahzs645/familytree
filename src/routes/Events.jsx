@@ -28,7 +28,12 @@ const KIND_OPTIONS = [
   { value: 'FamilyEvent', label: 'Family Event' },
 ];
 
-export default function Events() {
+export default function Events({
+  initialKindFilter = 'all',
+  showKindFilter = true,
+  showPersonEventCreate = true,
+  showFamilyEventCreate = true,
+} = {}) {
   const navigate = useNavigate();
   const modal = useModal();
   const [searchParams] = useSearchParams();
@@ -39,7 +44,7 @@ export default function Events() {
   const [families, setFamilies] = useState([]);
   const [places, setPlaces] = useState([]);
   const [activeId, setActiveId] = useState(null);
-  const [kindFilter, setKindFilter] = useState('all');
+  const [kindFilter, setKindFilter] = useState(initialKindFilter);
   const [values, setValues] = useState({});
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
@@ -92,6 +97,17 @@ export default function Events() {
       setQueryMessage(`The linked event record "${queryEventId}" was not found in this tree.`);
     }
   }, [events, kindFilter, queryEventId]);
+
+  useEffect(() => {
+    const explicitKind = searchParams.get('kind');
+    if (explicitKind === 'all' || explicitKind === 'PersonEvent' || explicitKind === 'FamilyEvent') {
+      if (explicitKind !== kindFilter) setKindFilter(explicitKind);
+      return;
+    }
+    if (initialKindFilter && initialKindFilter !== kindFilter) {
+      setKindFilter(initialKindFilter);
+    }
+  }, [initialKindFilter, kindFilter, searchParams]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -345,14 +361,20 @@ export default function Events() {
 
   const toolbar = (
     <div style={toolbarStyle}>
-      <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} style={smallSelect}>
-        <option value="all">All events</option>
-        <option value="PersonEvent">Person events</option>
-        <option value="FamilyEvent">Family events</option>
-      </select>
+      {showKindFilter ? (
+        <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} style={smallSelect}>
+          <option value="all">All events</option>
+          <option value="PersonEvent">Person events</option>
+          <option value="FamilyEvent">Family events</option>
+        </select>
+      ) : (
+        <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+          {kindFilter === 'FamilyEvent' ? 'Family events' : kindFilter === 'PersonEvent' ? 'Person events' : 'All events'}
+        </span>
+      )}
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-        <button onClick={() => onCreate('PersonEvent')} style={smallBtn}>+ Person event</button>
-        <button onClick={() => onCreate('FamilyEvent')} style={smallBtn}>+ Family event</button>
+        {showPersonEventCreate ? <button onClick={() => onCreate('PersonEvent')} style={smallBtn}>+ Person event</button> : null}
+        {showFamilyEventCreate ? <button onClick={() => onCreate('FamilyEvent')} style={smallBtn}>+ Family event</button> : null}
       </div>
     </div>
   );

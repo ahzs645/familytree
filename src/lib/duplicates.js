@@ -1,5 +1,5 @@
 /**
- * Duplicate detection for Person, Family, and Source records.
+ * Duplicate detection for Person, Family, Source, and Place records.
  *
  * Approach:
  * - Person: block by soundex-ish key of lastName, then score pairs by name + date similarity.
@@ -15,6 +15,7 @@ import { planReferenceRewrite, countReferencesTo } from './referenceGraph.js';
 
 const PERSON_THRESHOLD = 0.85;
 const SOURCE_THRESHOLD = 0.85;
+const PLACE_THRESHOLD = 0.86;
 const MIN_FIELD_SIM = 0.7;
 const SKIPPED_DUPLICATE_PAIRS_META = 'duplicateSkippedPairs';
 
@@ -333,6 +334,55 @@ export async function findDuplicateSources(threshold = SOURCE_THRESHOLD) {
   }
   pairs.sort((x, y) => y.score - x.score);
   return filterSkippedDuplicatePairs('Source', pairs);
+}
+
+function readPlaceDisplayName(record) {
+  const fields = record?.fields || {};
+  return (
+    fields.placeName?.value ||
+    fields.cached_normallocationString?.value ||
+    fields.cached_normalizedLocationString?.value ||
+    fields.cached_standardizedLocationString?.value ||
+    fields.name?.value ||
+    fields.title?.value ||
+    ''
+  );
+}
+
+function findDuplicatePlaceCandidates(records = [], threshold = PLACE_THRESHOLD) {
+  const places = records.filter((record) => record.recordType === 'Place');
+  const blocks = new Map();
+  for (const place of places) {
+    const name = readPlaceDisplayName(place);
+    const block = normalize(name).slice(0, 6);
+    if (!block) continue;
+    if (!blocks.has(block)) blocks.set(block, []);
+    blocks.get(block).push(place);
+  }
+  const pairs = [];
+  for (const group of blocks.values()) {
+    if (group.length < 2) continue;
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        const a = group[i];
+        const b = group[j];
+        const score = similarity(readPlaceDisplayName(a), readPlaceDisplayName(b));
+        if (score >= threshold) {
+          const reasons = [];
+          if (score >= 0.97) reasons.push('Nearly identical names');
+          else reasons.push('Similar names');
+          pairs.push({ a, b, score, reasons });
+        }
+      }
+    }
+  }
+  return pairs.sort((x, y) => y.score - x.score);
+}
+
+export async function findDuplicatePlaces(threshold = PLACE_THRESHOLD) {
+  const db = getLocalDatabase();
+  const { records } = await db.query('Place', { limit: 100000 });
+  return filterSkippedDuplicatePairs('Place', findDuplicatePlaceCandidates(records, threshold));
 }
 
 export function duplicatePairKey(kind, a, b) {

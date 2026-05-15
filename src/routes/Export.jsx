@@ -2,7 +2,7 @@
  * Export hub — GEDCOM, full backup, static website.
  */
 import React, { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { listAllPersons, findStartPerson } from '../lib/treeQuery.js';
 import { downloadGedcom } from '../lib/gedcomExport.js';
@@ -44,6 +44,7 @@ const btnSecondary = 'bg-secondary border border-border text-foreground rounded-
 export default function Export() {
   const { summary, refresh } = useDatabaseStatus();
   const modal = useModal();
+  const [searchParams] = useSearchParams();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(null);
   const [gedIssues, setGedIssues] = useState(null);
@@ -78,6 +79,15 @@ export default function Export() {
       setGedcomImportMode(prefs.importDefaults?.gedcomMode || 'review');
     })();
   }, [snapshotSortBy]);
+
+  React.useEffect(() => {
+    const focus = searchParams.get('focus');
+    if (!focus) return;
+    requestAnimationFrame(() => {
+      const section = document.getElementById(focus);
+      section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [searchParams]);
 
   React.useEffect(() => {
     try { localStorage.setItem('treeLibrary.sortBy', snapshotSortBy); } catch {}
@@ -308,207 +318,225 @@ export default function Export() {
           Publishing tools are available in <Link to="/publish" className="text-primary hover:underline">Publish</Link>.
         </p>
 
-        <Card title="GEDCOM export" description="Standard genealogy interchange format. Lossy for app-specific fields.">
-          <button onClick={wrap('Building GEDCOM…', downloadGedcom)} disabled={busy} className={btn}>Download .ged</button>
-        </Card>
+        <div id="gedcom-export">
+          <Card title="GEDCOM export" description="Standard genealogy interchange format. Lossy for app-specific fields.">
+            <button onClick={wrap('Building GEDCOM…', downloadGedcom)} disabled={busy} className={btn}>Download .ged</button>
+          </Card>
+        </div>
 
         <Card title="Graphviz export" description="Static DOT graph with union nodes, dashed secondary parent-child links, and group clusters.">
           <button onClick={wrap('Building Graphviz DOT…', downloadGraphvizDot)} disabled={busy} className={btn}>Download .dot</button>
         </Card>
 
-        <Card title="GEDCOM / GedZip import" description="Merge .ged, .uged, .uged16, or GedZip .zip files from another tool. Records are added with new local IDs.">
-          <input ref={gedRef} type="file" accept={GEDCOM_ACCEPT} className="hidden"
-            onChange={(e) => onGedFile(e.target.files?.[0])} />
-          <input
-            ref={gedMediaFolderRef}
-            type="file"
-            multiple
-            webkitdirectory=""
-            className="hidden"
-            onChange={(e) => onGedMediaFolder(e.target.files)}
-          />
-          <button onClick={() => gedRef.current?.click()} disabled={busy} className={btnSecondary}>
-            Choose GEDCOM or GedZip…
-          </button>
-          {(gedIssues || pendingGedcom) && (
-            <div className="mt-4 rounded-md border border-border bg-background p-3 text-xs">
-              <div className="font-semibold mb-1">GEDCOM review</div>
-              <label className="block text-muted-foreground mb-2">
-                Import mode
-                <select
-                  value={gedcomImportMode}
-                  onChange={(event) => setGedcomImportMode(event.target.value)}
-                  className="ms-2 h-8 rounded-md border border-border bg-secondary px-2 text-foreground"
-                >
-                  <option value="review">Review warnings</option>
-                  <option value="strict">Strict</option>
-                  <option value="lenient">Lenient</option>
-                </select>
-              </label>
-              <div className="text-muted-foreground mb-2">
-                {pendingGedcom?.fileName && <span className="text-foreground">{pendingGedcom.fileName} · </span>}
-                {pendingGedcom?.format && <span>{pendingGedcom.format} · </span>}
-                {gedIssues.counts.INDI} persons · {gedIssues.counts.FAM} families · {gedIssues.counts.SOUR} sources · {gedIssues.issues.length} issue(s)
-              </div>
-              <div className="text-muted-foreground mb-2">
-                Media resources ready for OBJE matching: {(pendingGedcom?.resourceFiles?.length || 0).toLocaleString()}.
-              </div>
-              <div className="text-muted-foreground mb-2">
-                Conflict summary: GEDCOM records are imported with new local IDs, so existing records are not overwritten.
-              </div>
-              {gedIssues.issues.slice(0, 8).map((issue, i) => (
-                <div key={i} className={issue.severity === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
-                  {issue.line ? `Line ${issue.line}: ` : ''}{issue.message}
-                </div>
-              ))}
-              <div className="mt-3 flex gap-2">
-                <button onClick={onConfirmGedImport} disabled={busy || !canImportGedcomAnalysis(pendingGedcom?.analysis, gedcomImportMode)} className={btn}>
-                  Import reviewed GEDCOM
-                </button>
-                <button onClick={() => gedMediaFolderRef.current?.click()} disabled={busy || !pendingGedcom} className={btnSecondary}>
-                  Attach media folder…
-                </button>
-                <button
-                  onClick={() => { setPendingGedcom(null); setGedIssues(null); if (gedRef.current) gedRef.current.value = ''; if (gedMediaFolderRef.current) gedMediaFolderRef.current.value = ''; }}
-                  disabled={busy}
-                  className={btnSecondary}
-                >
-                  Clear review
-                </button>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        <Card title="Merge another tree" description="Merge a CloudTreeWeb backup into the current database. Name collisions are renamed and references are rewritten.">
-          <input ref={mergeRef} type="file" accept="application/json" className="hidden"
-            onChange={(e) => onBackupMergeFile(e.target.files?.[0])} />
-          <button onClick={() => mergeRef.current?.click()} disabled={busy} className={btnSecondary}>
-            Choose backup to merge…
-          </button>
-          {pendingMerge && (
-            <div className="mt-4 rounded-md border border-border bg-background p-3 text-xs">
-              <div className="font-semibold mb-1">Backup merge preview</div>
-              <div className="text-muted-foreground mb-2">
-                <span className="text-foreground">{pendingMerge.fileName}</span> · {pendingMerge.preview.records.toLocaleString()} records ·{' '}
-                {pendingMerge.preview.assets.toLocaleString()} assets · {pendingMerge.preview.collisions.toLocaleString()} record collisions ·{' '}
-                {pendingMerge.preview.assetCollisions.toLocaleString()} asset collisions
-              </div>
-              {pendingMerge.preview.collisionSamples.length > 0 && (
+        <div id="gedcom-import">
+          <Card title="GEDCOM / GedZip import" description="Merge .ged, .uged, .uged16, or GedZip .zip files from another tool. Records are added with new local IDs.">
+            <input ref={gedRef} type="file" accept={GEDCOM_ACCEPT} className="hidden"
+              onChange={(e) => onGedFile(e.target.files?.[0])} />
+            <input
+              ref={gedMediaFolderRef}
+              type="file"
+              multiple
+              webkitdirectory=""
+              className="hidden"
+              onChange={(e) => onGedMediaFolder(e.target.files)}
+            />
+            <button onClick={() => gedRef.current?.click()} disabled={busy} className={btnSecondary}>
+              Choose GEDCOM or GedZip…
+            </button>
+            {(gedIssues || pendingGedcom) && (
+              <div className="mt-4 rounded-md border border-border bg-background p-3 text-xs">
+                <div className="font-semibold mb-1">GEDCOM review</div>
+                <label className="block text-muted-foreground mb-2">
+                  Import mode
+                  <select
+                    value={gedcomImportMode}
+                    onChange={(event) => setGedcomImportMode(event.target.value)}
+                    className="ms-2 h-8 rounded-md border border-border bg-secondary px-2 text-foreground"
+                  >
+                    <option value="review">Review warnings</option>
+                    <option value="strict">Strict</option>
+                    <option value="lenient">Lenient</option>
+                  </select>
+                </label>
                 <div className="text-muted-foreground mb-2">
-                  Record collision samples: {pendingMerge.preview.collisionSamples.map((item) => `${item.recordName} (${item.recordType})`).join(', ')}
+                  {pendingGedcom?.fileName && <span className="text-foreground">{pendingGedcom.fileName} · </span>}
+                  {pendingGedcom?.format && <span>{pendingGedcom.format} · </span>}
+                  {gedIssues.counts.INDI} persons · {gedIssues.counts.FAM} families · {gedIssues.counts.SOUR} sources · {gedIssues.issues.length} issue(s)
                 </div>
-              )}
-              <label className="block text-muted-foreground mb-1">Rollback note saved with changelog metadata</label>
-              <textarea
-                value={rollbackNote}
-                onChange={(e) => setRollbackNote(e.target.value)}
-                className="w-full min-h-20 rounded-md border border-border bg-card text-foreground p-2 text-xs"
-              />
-              <div className="mt-3 flex gap-2">
-                <button onClick={onConfirmMergeBackup} disabled={busy} className={btn}>Merge reviewed backup</button>
-                <button
-                  onClick={() => { setPendingMerge(null); setRollbackNote(''); if (mergeRef.current) mergeRef.current.value = ''; }}
-                  disabled={busy}
-                  className={btnSecondary}
-                >
-                  Clear review
-                </button>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        <Card title="Contacts import" description="Import CSV or vCard contacts as new person records. This is the browser equivalent of MacFamilyTree contact import.">
-          <input
-            ref={contactsRef}
-            type="file"
-            accept=".csv,text/csv,.vcf,.vcard,text/vcard,text/x-vcard"
-            className="hidden"
-            onChange={(e) => onContactsFile(e.target.files?.[0])}
-          />
-          <button onClick={() => contactsRef.current?.click()} disabled={busy} className={btnSecondary}>
-            Choose CSV or vCard…
-          </button>
-        </Card>
-
-        <Card title="Subtree export / remove" description="Export or remove a person and their descendant subtree, including related events, facts, notes, labels, media/source relations, and assets.">
-          <div className="flex flex-wrap items-end gap-2">
-            <div>
-              <label className="block text-xs text-muted-foreground mb-1">Root person</label>
-              <PersonPicker persons={persons} value={subtreeRoot} onChange={setSubtreeRoot} />
-            </div>
-            <button onClick={onSubtreeExport} disabled={busy || !subtreeRoot} className={btn}>Export subtree</button>
-            <button onClick={onSubtreeRemove} disabled={busy || !subtreeRoot} className={btnSecondary}>Remove subtree</button>
-          </div>
-        </Card>
-
-        <Card title="Tree picker library" description="Save, restore, rename, and delete local tree snapshots without relying on iCloud. Restoring replaces the active database.">
-          <div className="grid gap-3">
-            <div className="flex flex-wrap gap-2">
-              <input
-                value={snapshotName}
-                onChange={(event) => setSnapshotName(event.target.value)}
-                placeholder="Snapshot name"
-                className="min-w-0 flex-1 rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm"
-              />
-              <button onClick={onSaveTreeSnapshot} disabled={busy || !summary} className={btn}>Save current tree</button>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={snapshotSortBy}
-                onChange={(event) => setSnapshotSortBy(event.target.value)}
-                className="rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm"
-                aria-label="Sort snapshots"
-              >
-                <option value="updatedAt">Sort: Change date</option>
-                <option value="name">Sort: Name</option>
-                <option value="favorites">Sort: Favorites first</option>
-              </select>
-              <select
-                value={selectedSnapshot}
-                onChange={(event) => setSelectedSnapshot(event.target.value)}
-                className="min-w-[220px] flex-1 rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm"
-              >
-                <option value="">No saved trees</option>
-                {treeSnapshots.map((snapshot) => (
-                  <option key={snapshot.id} value={snapshot.id}>
-                    {snapshot.favorite ? '★ ' : ''}{snapshot.name}{snapshot.label ? ` [${snapshot.label}]` : ''} · {snapshot.recordCount.toLocaleString()} records
-                  </option>
+                <div className="text-muted-foreground mb-2">
+                  Media resources ready for OBJE matching: {(pendingGedcom?.resourceFiles?.length || 0).toLocaleString()}.
+                </div>
+                <div className="text-muted-foreground mb-2">
+                  Conflict summary: GEDCOM records are imported with new local IDs, so existing records are not overwritten.
+                </div>
+                {gedIssues.issues.slice(0, 8).map((issue, i) => (
+                  <div key={i} className={issue.severity === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
+                    {issue.line ? `Line ${issue.line}: ` : ''}{issue.message}
+                  </div>
                 ))}
-              </select>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button onClick={onRestoreTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Restore</button>
-              <button onClick={onRenameTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Rename</button>
-              <button onClick={onToggleFavorite} disabled={busy || !selectedSnapshot} className={btnSecondary}>Favorite</button>
-              <button onClick={onSetLabel} disabled={busy || !selectedSnapshot} className={btnSecondary}>Label</button>
-              <button onClick={onSendAsCopy} disabled={busy || !selectedSnapshot} className={btnSecondary}>Send as Copy</button>
-              <button onClick={onDeleteTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Delete</button>
-            </div>
-            {selectedSnapshotInfo && (
-              <div className="text-xs text-muted-foreground">
-                Selected: {selectedSnapshotInfo.recordCount.toLocaleString()} records · {selectedSnapshotInfo.assetCount.toLocaleString()} assets · updated {new Date(selectedSnapshotInfo.updatedAt).toLocaleString()}
+                <div className="mt-3 flex gap-2">
+                  <button onClick={onConfirmGedImport} disabled={busy || !canImportGedcomAnalysis(pendingGedcom?.analysis, gedcomImportMode)} className={btn}>
+                    Import reviewed GEDCOM
+                  </button>
+                  <button onClick={() => gedMediaFolderRef.current?.click()} disabled={busy || !pendingGedcom} className={btnSecondary}>
+                    Attach media folder…
+                  </button>
+                  <button
+                    onClick={() => { setPendingGedcom(null); setGedIssues(null); if (gedRef.current) gedRef.current.value = ''; if (gedMediaFolderRef.current) gedMediaFolderRef.current.value = ''; }}
+                    disabled={busy}
+                    className={btnSecondary}
+                  >
+                    Clear review
+                  </button>
+                </div>
               </div>
             )}
-          </div>
-        </Card>
+          </Card>
+        </div>
 
-        <Card title="Full backup" description="Every record packaged into a single JSON file.">
-          <button onClick={wrap('Preparing backup…', downloadBackup)} disabled={busy} className={btn}>Download backup</button>
-        </Card>
+        <div id="merge-tree">
+          <Card title="Merge another tree" description="Merge a CloudTreeWeb backup into the current database. Name collisions are renamed and references are rewritten.">
+            <input ref={mergeRef} type="file" accept="application/json" className="hidden"
+              onChange={(e) => onBackupMergeFile(e.target.files?.[0])} />
+            <button onClick={() => mergeRef.current?.click()} disabled={busy} className={btnSecondary}>
+              Choose backup to merge…
+            </button>
+            {pendingMerge && (
+              <div className="mt-4 rounded-md border border-border bg-background p-3 text-xs">
+                <div className="font-semibold mb-1">Backup merge preview</div>
+                <div className="text-muted-foreground mb-2">
+                  <span className="text-foreground">{pendingMerge.fileName}</span> · {pendingMerge.preview.records.toLocaleString()} records ·{' '}
+                  {pendingMerge.preview.assets.toLocaleString()} assets · {pendingMerge.preview.collisions.toLocaleString()} record collisions ·{' '}
+                  {pendingMerge.preview.assetCollisions.toLocaleString()} asset collisions
+                </div>
+                {pendingMerge.preview.collisionSamples.length > 0 && (
+                  <div className="text-muted-foreground mb-2">
+                    Record collision samples: {pendingMerge.preview.collisionSamples.map((item) => `${item.recordName} (${item.recordType})`).join(', ')}
+                  </div>
+                )}
+                <label className="block text-muted-foreground mb-1">Rollback note saved with changelog metadata</label>
+                <textarea
+                  value={rollbackNote}
+                  onChange={(e) => setRollbackNote(e.target.value)}
+                  className="w-full min-h-20 rounded-md border border-border bg-card text-foreground p-2 text-xs"
+                />
+                <div className="mt-3 flex gap-2">
+                  <button onClick={onConfirmMergeBackup} disabled={busy} className={btn}>Merge reviewed backup</button>
+                  <button
+                    onClick={() => { setPendingMerge(null); setRollbackNote(''); if (mergeRef.current) mergeRef.current.value = ''; }}
+                    disabled={busy}
+                    className={btnSecondary}
+                  >
+                    Clear review
+                  </button>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
 
-        <Card title="CloudTreeWeb .mftpkg package" description="Round-trip package for this app: database.json plus bundled media copies in a .mftpkg zip container.">
-          <button onClick={wrap('Preparing .mftpkg…', downloadMFTPackage)} disabled={busy} className={btn}>Download .mftpkg</button>
-        </Card>
+        <div id="contacts-import">
+          <Card title="Contacts import" description="Import CSV or vCard contacts as new person records. This is the browser equivalent of MacFamilyTree contact import.">
+            <input
+              ref={contactsRef}
+              type="file"
+              accept=".csv,text/csv,.vcf,.vcard,text/vcard,text/x-vcard"
+              className="hidden"
+              onChange={(e) => onContactsFile(e.target.files?.[0])}
+            />
+            <button onClick={() => contactsRef.current?.click()} disabled={busy} className={btnSecondary}>
+              Choose CSV or vCard…
+            </button>
+          </Card>
+        </div>
 
-        <Card title="Publish surfaces" description="Use dedicated publish pages for websites and book bundles. This page stays focused on data transfer.">
-          <div className="flex flex-wrap gap-2">
-            <Link to="/websites" className={btnSecondary}>Open Websites</Link>
-            <Link to="/books" className={btnSecondary}>Open Books</Link>
-            <Link to="/publish" className={btn}>Open Publish hub</Link>
-          </div>
-        </Card>
+        <div id="subtree-actions">
+          <Card title="Subtree export / remove" description="Export or remove a person and their descendant subtree, including related events, facts, notes, labels, media/source relations, and assets.">
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <label className="block text-xs text-muted-foreground mb-1">Root person</label>
+                <PersonPicker persons={persons} value={subtreeRoot} onChange={setSubtreeRoot} />
+              </div>
+              <button onClick={onSubtreeExport} disabled={busy || !subtreeRoot} className={btn}>Export subtree</button>
+              <button onClick={onSubtreeRemove} disabled={busy || !subtreeRoot} className={btnSecondary}>Remove subtree</button>
+            </div>
+          </Card>
+        </div>
+
+        <div id="tree-picker">
+          <Card title="Tree picker library" description="Save, restore, rename, and delete local tree snapshots without relying on iCloud. Restoring replaces the active database.">
+            <div className="grid gap-3">
+              <div className="flex flex-wrap gap-2">
+                <input
+                  value={snapshotName}
+                  onChange={(event) => setSnapshotName(event.target.value)}
+                  placeholder="Snapshot name"
+                  className="min-w-0 flex-1 rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm"
+                />
+                <button onClick={onSaveTreeSnapshot} disabled={busy || !summary} className={btn}>Save current tree</button>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={snapshotSortBy}
+                  onChange={(event) => setSnapshotSortBy(event.target.value)}
+                  className="rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm"
+                  aria-label="Sort snapshots"
+                >
+                  <option value="updatedAt">Sort: Change date</option>
+                  <option value="name">Sort: Name</option>
+                  <option value="favorites">Sort: Favorites first</option>
+                </select>
+                <select
+                  value={selectedSnapshot}
+                  onChange={(event) => setSelectedSnapshot(event.target.value)}
+                  className="min-w-[220px] flex-1 rounded-md border border-border bg-card text-foreground px-3 py-2 text-sm"
+                >
+                  <option value="">No saved trees</option>
+                  {treeSnapshots.map((snapshot) => (
+                    <option key={snapshot.id} value={snapshot.id}>
+                      {snapshot.favorite ? '★ ' : ''}{snapshot.name}{snapshot.label ? ` [${snapshot.label}]` : ''} · {snapshot.recordCount.toLocaleString()} records
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button onClick={onRestoreTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Restore</button>
+                <button onClick={onRenameTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Rename</button>
+                <button onClick={onToggleFavorite} disabled={busy || !selectedSnapshot} className={btnSecondary}>Favorite</button>
+                <button onClick={onSetLabel} disabled={busy || !selectedSnapshot} className={btnSecondary}>Label</button>
+                <button onClick={onSendAsCopy} disabled={busy || !selectedSnapshot} className={btnSecondary}>Send as Copy</button>
+                <button onClick={onDeleteTreeSnapshot} disabled={busy || !selectedSnapshot} className={btnSecondary}>Delete</button>
+              </div>
+              {selectedSnapshotInfo && (
+                <div className="text-xs text-muted-foreground">
+                  Selected: {selectedSnapshotInfo.recordCount.toLocaleString()} records · {selectedSnapshotInfo.assetCount.toLocaleString()} assets · updated {new Date(selectedSnapshotInfo.updatedAt).toLocaleString()}
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        <div id="full-backup">
+          <Card title="Full backup" description="Every record packaged into a single JSON file.">
+            <button onClick={wrap('Preparing backup…', downloadBackup)} disabled={busy} className={btn}>Download backup</button>
+          </Card>
+        </div>
+
+        <div id="mftpkg">
+          <Card title="CloudTreeWeb .mftpkg package" description="Round-trip package for this app: database.json plus bundled media copies in a .mftpkg zip container.">
+            <button onClick={wrap('Preparing .mftpkg…', downloadMFTPackage)} disabled={busy} className={btn}>Download .mftpkg</button>
+          </Card>
+        </div>
+
+        <div id="publish">
+          <Card title="Publish surfaces" description="Use dedicated publish pages for websites and book bundles. This page stays focused on data transfer.">
+            <div className="flex flex-wrap gap-2">
+              <Link to="/websites" className={btnSecondary}>Open Websites</Link>
+              <Link to="/books" className={btnSecondary}>Open Books</Link>
+              <Link to="/publish" className={btn}>Open Publish hub</Link>
+            </div>
+          </Card>
+        </div>
 
         {status && <div className="rounded-md border border-border bg-card p-3 text-sm">{status}</div>}
       </div>

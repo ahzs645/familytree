@@ -2,7 +2,7 @@ export const APP_FUNCTIONS = [
   { to: '/tree', label: 'Interactive Tree', category: 'Edit' },
   { to: '/persons', label: 'Edit Persons', category: 'Edit' },
   { to: '/groups', label: 'Edit Person Groups', category: 'Edit' },
-  { to: '/families', label: 'Edit Families', category: 'Edit', unavailable: true },
+  { to: '/families', label: 'Edit Families', category: 'Edit' },
   { to: '/places', label: 'Edit Places', category: 'Edit' },
   { to: '/sources', label: 'Edit Sources', category: 'Edit' },
   { to: '/stories', label: 'Edit Stories', category: 'Edit' },
@@ -13,6 +13,9 @@ export const APP_FUNCTIONS = [
   { to: '/todos', label: 'Edit ToDo List', category: 'Edit' },
   { to: '/research', label: 'Research Assistant', category: 'Edit' },
   { to: '/search', label: 'Search', category: 'Edit' },
+  { to: '/search-and-replace', label: 'Search and Replace', category: 'Edit' },
+  { to: '/repositories', label: 'Source Repositories', category: 'Edit' },
+  { to: '/subtree', label: 'Subtree', category: 'Edit' },
   { to: '/maintenance', label: 'Database Maintenance', category: 'Edit' },
   { to: '/change-log', label: 'Change Log', category: 'Edit' },
 
@@ -30,6 +33,7 @@ export const APP_FUNCTIONS = [
   { to: '/statistics', label: 'Statistics', category: 'Lists' },
   { to: '/plausibility-list', label: 'Plausibility List', category: 'Lists' },
   { to: '/marriages', label: 'Marriage List', category: 'Lists' },
+  { to: '/family-events', label: 'Family Events', category: 'Lists' },
   { to: '/facts', label: 'Facts List', category: 'Lists' },
   { to: '/anniversaries', label: 'Anniversary List', category: 'Lists' },
   { to: '/distinctive-persons', label: 'Distinctive Persons', category: 'Lists' },
@@ -46,6 +50,7 @@ export const APP_FUNCTIONS = [
   { to: '/bookmarks', label: 'Bookmarks', category: 'Favorites' },
   { to: '/labels', label: 'Labels', category: 'Favorites' },
   { to: '/settings', label: 'Settings', category: 'Favorites' },
+  { to: '/actions', label: 'Actions', category: 'Tools' },
 ];
 
 export const DEFAULT_FAVORITE_FUNCTIONS = [

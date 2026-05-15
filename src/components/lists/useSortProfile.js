@@ -74,6 +74,12 @@ export const SORT_PROFILES = Object.freeze({
     { key: 'marriageDate', label: 'Marriage date' },
     { key: 'id', label: 'Family ID' },
   ],
+  Families: [
+    { key: 'partner1Name', label: 'Partner 1' },
+    { key: 'partner2Name', label: 'Partner 2' },
+    { key: 'marriageDate', label: 'Marriage date' },
+    { key: 'id', label: 'Family ID' },
+  ],
   Plausibility: [
     { key: 'severity', label: 'Severity' },
     { key: 'rule', label: 'Rule' },

@@ -1,11 +1,13 @@
 /**
  * DuplicatesApp — scan for duplicate persons/families/sources and merge them.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   clearSkippedDuplicatePairs,
   findDuplicateFamilies,
   findDuplicatePersons,
+  findDuplicatePlaces,
   findDuplicateSources,
   getSkippedDuplicatePairs,
   skipDuplicatePair,
@@ -16,13 +18,21 @@ const SCANS = [
   { id: 'Person', label: 'Persons', run: findDuplicatePersons },
   { id: 'Family', label: 'Families', run: findDuplicateFamilies },
   { id: 'Source', label: 'Sources', run: findDuplicateSources },
+  { id: 'Place', label: 'Places', run: findDuplicatePlaces },
 ];
 
 export function DuplicatesApp() {
-  const [kind, setKind] = useState('Person');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialKind = SCANS.find((entry) => entry.id === searchParams.get('kind'))?.id || 'Person';
+  const [kind, setKind] = useState(initialKind);
   const [pairs, setPairs] = useState([]);
   const [scanning, setScanning] = useState(false);
   const [skippedCount, setSkippedCount] = useState(0);
+  useEffect(() => {
+    const paramKind = searchParams.get('kind');
+    const nextKind = SCANS.find((entry) => entry.id === paramKind)?.id;
+    if (nextKind && nextKind !== kind) setKind(nextKind);
+  }, [kind, searchParams]);
 
   const onScan = useCallback(async () => {
     setScanning(true);
@@ -52,11 +62,21 @@ export function DuplicatesApp() {
   return (
     <div style={shell}>
       <header style={header}>
-        <select value={kind} onChange={(e) => setKind(e.target.value)} style={input}>
-          {SCANS.map((s) => (
-            <option key={s.id} value={s.id}>{s.label}</option>
-          ))}
-        </select>
+      <select
+        value={kind}
+        onChange={(e) => {
+          const nextKind = e.target.value;
+          setKind(nextKind);
+          const next = new URLSearchParams(searchParams);
+          next.set('kind', nextKind);
+          setSearchParams(next, { replace: true });
+        }}
+        style={input}
+      >
+        {SCANS.map((s) => (
+          <option key={s.id} value={s.id}>{s.label}</option>
+        ))}
+      </select>
         <button onClick={onScan} disabled={scanning} style={{ ...input, background: 'hsl(var(--primary))', cursor: 'pointer' }}>
           {scanning ? 'Scanning…' : 'Scan'}
         </button>

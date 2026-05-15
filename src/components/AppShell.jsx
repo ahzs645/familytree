@@ -6,11 +6,13 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, ChevronRight, X, Sun, Moon } from 'lucide-react';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { APP_PREFERENCES_EVENT, getAppPreferences } from '../lib/appPreferences.js';
 import { applyDocumentLocalization, resolveLocalization, SUPPORTED_LOCALES } from '../lib/i18n.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { routeLabelKey } from '../lib/navigationLabels.js';
+import { downloadBackup } from '../lib/backup.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { cn } from '../lib/utils.js';
 import { NavigationDrawer } from './NavigationDrawer.jsx';
@@ -20,6 +22,28 @@ import { NAV_GROUPS, NAV_PINNED, findGroupForPath, isLinkActive } from '../lib/n
 
 const DRAWER_COLLAPSED_KEY = 'app.drawer.collapsed';
 const NAV_VISIBILITY_EVENT = 'cloudtreeweb:navigation-visibility';
+const HELP_LINKS = {
+  manual: 'https://www.macfamilytree.com/manuals/',
+  tutorials: 'https://www.macfamilytree.com/videos/',
+  faq: 'https://www.macfamilytree.com/faq/',
+  feedback: 'https://www.macfamilytree.com/contact/',
+  website: 'https://www.macfamilytree.com/',
+  updates: 'https://www.macfamilytree.com/updates/',
+  buyNow: 'https://www.macfamilytree.com/store/',
+};
+
+function openExternal(url) {
+  try {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  } catch {
+    /* no-op */
+  }
+}
+
+function execEditCommand(command) {
+  const supported = document.execCommand?.(command);
+  return supported;
+}
 
 function MobileMenu({ hiddenRoutes, theme, onToggleTheme, localization, onChangeLocale, statusState, recordCountLabel }) {
   const { t } = useTranslation();
@@ -207,8 +231,9 @@ function MobileNavLink({ link, indented, pathname }) {
 
 export function AppShell() {
   const { t, localization: liveLocalization, setLocale } = useTranslation();
-  const { hasData, summary, loading } = useDatabaseStatus();
+  const { hasData, summary, loading, clear, refresh } = useDatabaseStatus();
   const { theme, toggle } = useTheme();
+  const modal = useModal();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [preferences, setPreferences] = useState(null);
@@ -218,7 +243,43 @@ export function AppShell() {
   const [navigationHidden, setNavigationHidden] = useState(false);
 
   useKeyboardShortcuts({
+    'ctrl+n': async () => {
+      const confirmed = await modal.confirm(t('actions.newDocumentConfirm'), {
+        title: t('actions.newDocument'),
+        okLabel: t('actions.newDocumentButton'),
+        destructive: true,
+      });
+      if (!confirmed) return;
+      await clear();
+      await refresh();
+      navigate('/');
+      modal.toast(t('actions.newDocumentDone'), { kind: 'success' });
+    },
+    'ctrl+o': () => navigate('/backup?focus=restore-backup'),
+    'ctrl+s': async () => {
+      await downloadBackup();
+      modal.toast('Backup downloaded.', { kind: 'success' });
+    },
+    'ctrl+w': () => navigate('/'),
+    'ctrl+shift+w': () => navigate('/'),
+    'ctrl+,': () => navigate('/settings'),
+    'ctrl+q': () => window.location.reload(),
     'ctrl+f': () => navigate('/search'),
+    'ctrl+shift+f': () => navigate('/search-and-replace'),
+    'ctrl+[': () => window.history.back(),
+    'ctrl+]': () => window.history.forward(),
+    'ctrl+arrowleft': () => window.history.back(),
+    'ctrl+arrowright': () => window.history.forward(),
+    'ctrl+p': () => window.print(),
+    'ctrl+z': () => execEditCommand('undo'),
+    'ctrl+shift+z': () => execEditCommand('redo'),
+    'ctrl+y': () => execEditCommand('redo'),
+    'ctrl+x': () => execEditCommand('cut'),
+    'ctrl+c': () => execEditCommand('copy'),
+    'ctrl+v': () => execEditCommand('paste'),
+    'delete': () => execEditCommand('delete'),
+    'backspace': () => execEditCommand('delete'),
+    'ctrl+a': () => execEditCommand('selectAll'),
     'g t': () => navigate('/tree'),
     'g p': () => navigate('/persons'),
     'g c': () => navigate('/charts'),
@@ -226,7 +287,16 @@ export function AppShell() {
     'g b': () => navigate('/bookmarks'),
     'g r': () => navigate('/reports'),
     'g ,': () => navigate('/settings'),
-    '?': () => navigate('/settings'),
+    'ctrl+e': () => navigate('/settings/edit-controllers'),
+    'ctrl+1': () => navigate('/'),
+    'ctrl+shift+1': () => openExternal(HELP_LINKS.manual),
+    'ctrl+shift+2': () => openExternal(HELP_LINKS.tutorials),
+    'ctrl+shift+3': () => openExternal(HELP_LINKS.faq),
+    'ctrl+shift+4': () => openExternal(HELP_LINKS.feedback),
+    'ctrl+shift+5': () => openExternal(HELP_LINKS.website),
+    'ctrl+shift+6': () => openExternal(HELP_LINKS.updates),
+    'ctrl+shift+7': () => openExternal(HELP_LINKS.buyNow),
+    '?': () => openExternal(HELP_LINKS.manual),
   });
 
   useEffect(() => {

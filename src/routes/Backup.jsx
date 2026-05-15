@@ -3,6 +3,7 @@
  */
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
+import { useSearchParams } from 'react-router-dom';
 import {
   downloadBackup,
   restoreBackup,
@@ -20,6 +21,7 @@ import { useModal } from '../contexts/ModalContext.jsx';
 export default function Backup() {
   const modal = useModal();
   const { summary, refresh } = useDatabaseStatus();
+  const [searchParams] = useSearchParams();
   const fileRef = useRef(null);
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -38,6 +40,15 @@ export default function Backup() {
     })();
     return () => { cancel = true; };
   }, []);
+
+  React.useEffect(() => {
+    const focus = searchParams.get('focus');
+    if (!focus) return;
+    requestAnimationFrame(() => {
+      const section = document.getElementById(focus);
+      section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, [searchParams]);
 
   const refreshHistory = useCallback(async () => {
     setHistory(await listBackupHistory());
@@ -138,7 +149,7 @@ export default function Backup() {
           Export your entire local database to a JSON file you can keep offsite, then restore it on the same or a different device.
         </p>
 
-        <div className="rounded-lg border border-border bg-card p-5 mb-4">
+        <div id="create-backup" className="rounded-lg border border-border bg-card p-5 mb-4">
           <h2 className="text-sm font-semibold mb-2">Export</h2>
           <p className="text-xs text-muted-foreground mb-4">
             {summary ? `${summary.total.toLocaleString()} records and any imported media assets will be packaged.` : 'No data loaded.'}
@@ -149,7 +160,7 @@ export default function Backup() {
           </button>
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-5 mb-4">
+        <div id="restore-backup" className="rounded-lg border border-border bg-card p-5 mb-4">
           <h2 className="text-sm font-semibold mb-2">Restore</h2>
           <p className="text-xs text-muted-foreground mb-4">
             Replaces every record currently in the browser with the contents of a backup file. This cannot be undone.
@@ -163,7 +174,7 @@ export default function Backup() {
           </button>
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-5 mb-4">
+        <div id="backup-settings" className="rounded-lg border border-border bg-card p-5 mb-4">
           <h2 className="text-sm font-semibold mb-2">Scheduled snapshots</h2>
           <p className="text-xs text-muted-foreground mb-4">
             In-app snapshots live inside the browser database — handy for quick rollbacks, but don't replace the downloaded backup for offsite safety. Media assets are omitted from in-app snapshots to keep storage lean.

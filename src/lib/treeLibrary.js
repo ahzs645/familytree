@@ -32,6 +32,11 @@ export async function listTreeSnapshots({ sortBy = 'updatedAt' } = {}) {
   return sortSnapshots(mapped, sortBy);
 }
 
+export async function clearTreeSnapshots() {
+  const db = await openLibrary();
+  await db[STORE].clear();
+}
+
 function sortSnapshots(list, sortBy) {
   const arr = [...list];
   const byName = (a, b) => String(a.name || '').localeCompare(String(b.name || ''));
