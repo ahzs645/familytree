@@ -416,12 +416,12 @@ export default function PersonEditor() {
             </Section>
           )}
           {record?.recordName && (
-            <Section title="Oldest Ancestors" accent={ACCENTS.parents}>
+            <Section title="Oldest Ancestors" accent={ACCENTS.parents} collapsible defaultCollapsed persistKey="person">
               <OldestAncestorsWidget recordName={record.recordName} />
             </Section>
           )}
           {evidence?.row && (
-            <Section title="Evidence Summary" accent={ACCENTS.sources}>
+            <Section title="Evidence Summary" accent={ACCENTS.sources} collapsible defaultCollapsed persistKey="person">
               <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                 <EvidenceMetric label="Source state" value={evidence.row.sourceState} tone={evidence.row.sourceState} />
                 <EvidenceMetric label="Source links" value={evidence.row.sourceCount} />
@@ -566,6 +566,7 @@ export default function PersonEditor() {
               </Section>
 
               <Section title="Tribal Affiliations" accent={ACCENTS.tribal}
+                collapsible defaultCollapsed persistKey="person"
                 controls={<button type="button" onClick={() => guardedNavigate('/tribal-affiliations')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open</button>}
               >
                 {tribalMemberships.length === 0 ? (
@@ -586,6 +587,7 @@ export default function PersonEditor() {
               </Section>
 
               <Section title="Milk Kinship / الرضاعة" accent={ACCENTS.milk}
+                collapsible defaultCollapsed persistKey="person"
                 controls={<button type="button" onClick={() => setMilkKinships((rows) => [...rows, emptyMilkKinship(id)])}
                   className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Add Milk Kinship</button>}
               >
@@ -607,7 +609,7 @@ export default function PersonEditor() {
                 )}
               </Section>
 
-              <Section title="Grave & Cemetery" accent={ACCENTS.grave}>
+              <Section title="Grave & Cemetery" accent={ACCENTS.grave} collapsible defaultCollapsed persistKey="person">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Field label="Cemetery">
                     <input value={grave.cemetery} onChange={(event) => setGrave((g) => ({ ...g, cemetery: event.target.value }))} className={inputClass()} />
@@ -649,11 +651,11 @@ export default function PersonEditor() {
                 <SourceCitationsEditor ownerRecordName={id} ownerRecordType="Person" ownerRole="target" onChanged={reload} />
               </Section>
 
-              <Section title="ToDos, Stories & Groups" accent={ACCENTS.sources}>
+              <Section title="ToDos, Stories & Groups" accent={ACCENTS.sources} collapsible defaultCollapsed persistKey="person">
                 <RelatedList items={[...related.todos, ...related.stories, ...related.groups]} emptyTitle="No related records" emptyHint="Imported ToDos, stories, and groups linked to this person appear here." />
               </Section>
 
-              <Section title="Influential Persons" accent={ACCENTS.influential}>
+              <Section title="Influential Persons" accent={ACCENTS.influential} collapsible defaultCollapsed persistKey="person">
                 <AssociateRelationsEditor ownerRecordName={id} ownerRecordType="Person" relationTypes={INFLUENTIAL_PERSON_TYPES_PERSON} onChanged={reload} />
               </Section>
 
@@ -675,7 +677,7 @@ export default function PersonEditor() {
                 </div>
               </Section>
 
-              <Section title="Reference Numbers" accent={ACCENTS.ref}>
+              <Section title="Reference Numbers" accent={ACCENTS.ref} collapsible defaultCollapsed persistKey="person">
                 <div className="grid grid-cols-1 gap-3">
                   {REFERENCE_NUMBER_FIELDS.map((f) => (
                     <Field key={f.id} label={f.label}>
@@ -704,7 +706,7 @@ export default function PersonEditor() {
                 <p className="text-[11px] text-muted-foreground mt-2">Use for spouses, milk relatives, friends, and invitees who should remain searchable without being treated as a core descendant branch.</p>
               </Section>
 
-              <Section title="Last Edited" accent={ACCENTS.edited}>
+              <Section title="Last Edited" accent={ACCENTS.edited} collapsible defaultCollapsed persistKey="person">
                 <ReadOnly label="Change Date" value={formatTimestamp(record.fields?.mft_changeDate?.value || record.modified?.timestamp)} />
                 <ReadOnly label="Creation Date" value={formatTimestamp(record.fields?.mft_creationDate?.value || record.created?.timestamp)} />
               </Section>

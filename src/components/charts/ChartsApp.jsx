@@ -63,6 +63,8 @@ import {
   optionSelect,
   selectStyle,
   loadingStyle,
+  morePopoverTabs,
+  morePopoverTab as morePopoverTabStyle,
 } from './parts/styles.js';
 import { useExportSettings } from './hooks/useExportSettings.js';
 import { usePageSetup } from './hooks/usePageSetup.js';
@@ -176,10 +178,22 @@ export function ChartsApp() {
   const [loading, setLoading] = useState(true);
   const [empty, setEmpty] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  // Which group of options is visible in the "More" popover. The popover used
+  // to stack ~14 unrelated Sections vertically; the tab strip splits them into
+  // View / Layout / Page / Library / Overlays / Export so the panel scans at
+  // a glance on both desktop and mobile.
+  const [morePopoverTab, setMorePopoverTab] = useState('view');
   const [findText, setFindText] = useState('');
   const [chartOptionsOpen, setChartOptionsOpen] = useState(false);
   const [chartOptionsTab, setChartOptionsTab] = useState('general');
-  const [personBrowserOpen, setPersonBrowserOpen] = useState(true);
+  // The People browser pane is helpful on desktop where it sits beside the
+  // canvas, but on a phone it covers the chart entirely. Default it closed at
+  // mobile widths — users can still open it via the People button on the
+  // bottom toolbar.
+  const [personBrowserOpen, setPersonBrowserOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return !window.matchMedia('(max-width: 767px)').matches;
+  });
   const [personBrowserQuery, setPersonBrowserQuery] = useState('');
   const [personBrowserGroup, setPersonBrowserGroup] = useState('lastName');
   const [chartSpacing, setChartSpacing] = useState({ horizontal: 24, vertical: 110, branch: 44 });
@@ -1015,6 +1029,28 @@ export function ChartsApp() {
           </button>
           {moreOpen && (
             <div style={popoverStyle}>
+              <div style={morePopoverTabs} role="tablist" aria-label="Chart options">
+                {[
+                  ['view', 'View'],
+                  ['layout', 'Layout'],
+                  ['page', 'Page'],
+                  ['library', 'Library'],
+                  ['overlays', 'Overlays'],
+                  ['export', 'Export'],
+                ].map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={morePopoverTab === id}
+                    onClick={() => setMorePopoverTab(id)}
+                    style={morePopoverTabStyle(morePopoverTab === id)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {morePopoverTab === 'view' && (<>
               <Section label="Theme">
                 <select value={themeId} onChange={(e) => setThemeId(e.target.value)} style={optionSelect}>
                   {THEMES.map((t) => (
@@ -1046,7 +1082,9 @@ export function ChartsApp() {
                   <option value="panel">Click person to inspect</option>
                 </select>
               </Section>
+              </>)}
 
+              {morePopoverTab === 'layout' && (<>
               <Section label="Generations">
                 <input
                   type="number"
@@ -1155,7 +1193,9 @@ export function ChartsApp() {
                   />
                 </Section>
               )}
+              </>)}
 
+              {morePopoverTab === 'page' && (<>
               <Section label="Title">
                 <input value={chartTitle} onChange={(e) => setChartTitle(e.target.value)} placeholder="Optional title" style={optionSelect} />
               </Section>
@@ -1194,7 +1234,9 @@ export function ChartsApp() {
                   </button>
                 </div>
               </Section>
+              </>)}
 
+              {morePopoverTab === 'library' && (<>
               <Section label="Templates">
                 <div style={{ display: 'flex', gap: 6 }}>
                   <select
@@ -1280,7 +1322,9 @@ export function ChartsApp() {
                   </select>
                 )}
               </Section>
+              </>)}
 
+              {morePopoverTab === 'overlays' && (<>
               <Section label={`Overlays${isReadOnly ? ' (read-only)' : ''}`}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
                   <button onClick={addTextOverlay} style={optionSelect} disabled={isReadOnly}>Text</button>
@@ -1321,7 +1365,9 @@ export function ChartsApp() {
                   />
                 </Section>
               )}
+              </>)}
 
+              {morePopoverTab === 'export' && (<>
               <Section label="Find + Export">
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 6, marginBottom: 6 }}>
                   <input
@@ -1390,6 +1436,7 @@ export function ChartsApp() {
                   <button onClick={exportPdf} style={optionSelect}>Save PDF</button>
                 </div>
               </Section>
+              </>)}
             </div>
           )}
         </div>
@@ -1840,16 +1887,11 @@ export function ChartsApp() {
         onSave={onSaveDocument}
         onShare={onShareChart}
         onExport={exportPng}
-        onTheme={() => {
-          setChartOptionsTab('localization');
-          setChartOptionsOpen((open) => !open);
-        }}
+        // Theme/Spacing/Localization are tabs inside ChartOptionsPanel — exposing
+        // them as separate toolbar buttons was redundant. The user picks a tab
+        // inside the panel after opening it.
         onChart={() => {
           setChartOptionsTab('general');
-          setChartOptionsOpen((open) => !open);
-        }}
-        onStyle={() => {
-          setChartOptionsTab('spacing');
           setChartOptionsOpen((open) => !open);
         }}
         chartOptionsOpen={chartOptionsOpen}

@@ -206,56 +206,36 @@ export function InteractiveTreeApp() {
                 {context?.selfSummary?.fullName || 'No person selected'}
               </div>
             </div>
-            <div style={segmented} role="tablist" aria-label="Tree view mode">
-              <button
-                type="button"
-                onClick={() => setViewMode('three')}
-                style={segment(viewMode === 'three')}
-                aria-selected={viewMode === 'three'}
+            {/* Six tree view modes — the segmented control fits on desktop but
+             * runs off the right edge on phones (3D Flat Sun Family Canvas
+             * Details is ~360px even at minimum widths). On narrow screens
+             * we collapse to a native select that takes one short line. */}
+            {isMobile ? (
+              <select
+                value={viewMode}
+                onChange={(event) => setViewMode(event.target.value)}
+                aria-label="Tree view mode"
+                style={viewModeSelect}
               >
-                3D
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('flat')}
-                style={segment(viewMode === 'flat')}
-                aria-selected={viewMode === 'flat'}
-              >
-                Flat
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('sun')}
-                style={segment(viewMode === 'sun')}
-                aria-selected={viewMode === 'sun'}
-              >
-                Sun
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('family')}
-                style={segment(viewMode === 'family')}
-                aria-selected={viewMode === 'family'}
-              >
-                Family
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('canvas')}
-                style={segment(viewMode === 'canvas')}
-                aria-selected={viewMode === 'canvas'}
-              >
-                Canvas
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('details')}
-                style={segment(viewMode === 'details')}
-                aria-selected={viewMode === 'details'}
-              >
-                Details
-              </button>
-            </div>
+                {TREE_VIEW_MODES.map(([id, label]) => (
+                  <option key={id} value={id}>{label}</option>
+                ))}
+              </select>
+            ) : (
+              <div style={segmented} role="tablist" aria-label="Tree view mode">
+                {TREE_VIEW_MODES.map(([id, label]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setViewMode(id)}
+                    style={segment(viewMode === id)}
+                    aria-selected={viewMode === id}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           )}
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -671,6 +651,27 @@ const title = {
   overflow: 'hidden',
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
+};
+// Ordered list of tree-view modes — kept here so both the desktop segmented
+// control and the mobile <select> render the same options in the same order.
+const TREE_VIEW_MODES = [
+  ['three', '3D'],
+  ['flat', 'Flat'],
+  ['sun', 'Sun'],
+  ['family', 'Family'],
+  ['canvas', 'Canvas'],
+  ['details', 'Details'],
+];
+const viewModeSelect = {
+  height: 36,
+  borderRadius: 8,
+  border: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  padding: '0 10px',
+  font: '600 13px -apple-system, system-ui, sans-serif',
+  cursor: 'pointer',
+  flexShrink: 0,
 };
 const segmented = {
   display: 'flex',

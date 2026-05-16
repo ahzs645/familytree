@@ -98,7 +98,8 @@ export const popoverStyle = {
   position: 'absolute',
   insetInlineEnd: 0,
   top: 'calc(100% + 6px)',
-  width: 280,
+  width: 380,
+  maxWidth: 'calc(100vw - 24px)',
   maxHeight: '70vh',
   overflowY: 'auto',
   background: 'hsl(var(--card))',
@@ -109,6 +110,36 @@ export const popoverStyle = {
   boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
   zIndex: 20,
 };
+
+// Tab strip inside the chart "More" popover. Switches which option group is
+// visible so 14+ sections don't pile up in one column. Bottom-border tab style
+// keeps the active state visible while taking less horizontal room than pills,
+// so all six labels fit inside the popover at desktop width and degrade to a
+// horizontal scroll only on the narrowest phones.
+export const morePopoverTabs = {
+  display: 'flex',
+  gap: 2,
+  marginBottom: 10,
+  marginInline: -2,
+  borderBottom: '1px solid hsl(var(--border))',
+  overflowX: 'auto',
+  WebkitOverflowScrolling: 'touch',
+};
+export function morePopoverTab(active) {
+  return {
+    flex: '0 0 auto',
+    padding: '7px 9px 8px',
+    marginBottom: -1,
+    fontSize: 12,
+    fontWeight: 600,
+    border: 'none',
+    borderBottom: active ? '2px solid hsl(var(--primary))' : '2px solid transparent',
+    background: 'transparent',
+    color: active ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  };
+}
 
 export const optionSelect = {
   width: '100%',
