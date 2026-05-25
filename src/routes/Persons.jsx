@@ -221,8 +221,8 @@ export default function Persons() {
   return (
     <div className="flex flex-col h-full">
       <header className="border-b border-border bg-card px-4 md:px-5 py-3">
-        <div className="flex items-center gap-2 mb-2 md:mb-3">
-          <div className="min-w-0 me-auto">
+        <div className="flex flex-wrap items-start gap-2 mb-2 md:mb-3">
+          <div className="min-w-0 flex-1">
             <h1 className="text-base font-semibold leading-tight">{t('persons.heading')}</h1>
             <div className="text-xs text-muted-foreground">
               {t('persons.summary', {
@@ -231,28 +231,30 @@ export default function Persons() {
               })}
             </div>
           </div>
-          <ColumnChooser
-            columns={listColumns}
-            isVisible={columnVisibility.isVisible}
-            onToggle={columnVisibility.toggle}
-            onReset={columnVisibility.resetToDefaults}
-          />
-          <ListReportToolbar
-            title={t('persons.listTitle')}
-            rows={visiblePersons}
-            columns={EXPORT_COLUMNS}
-            options={report.options}
-            update={report.update}
-            updateInfoColumn={report.updateInfoColumn}
-            onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
-            compact
-          />
-          <ExportMenu
-            onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)}
-            onJson={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)}
-            controlClass={controlClass}
-            t={t}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <ColumnChooser
+              columns={listColumns}
+              isVisible={columnVisibility.isVisible}
+              onToggle={columnVisibility.toggle}
+              onReset={columnVisibility.resetToDefaults}
+            />
+            <ListReportToolbar
+              title={t('persons.listTitle')}
+              rows={visiblePersons}
+              columns={EXPORT_COLUMNS}
+              options={report.options}
+              update={report.update}
+              updateInfoColumn={report.updateInfoColumn}
+              onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
+              compact
+            />
+            <ExportMenu
+              onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)}
+              onJson={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)}
+              controlClass={controlClass}
+              t={t}
+            />
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center md:gap-3">
           <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-filter">{t('persons.filter')}</label>

@@ -148,7 +148,7 @@ export default function Research() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
+      <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">{t('research.title')}</h1>
         <span className="text-xs text-muted-foreground">{t('research.openQuestions', { count: visible.length })}</span>
         {status && <span className="text-xs text-muted-foreground">{status}</span>}
@@ -162,7 +162,7 @@ export default function Research() {
           </button>
         )}
         <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('research.filterPlaceholder')}
-          className="ms-auto bg-secondary border border-border rounded-md px-3 py-1.5 text-sm w-64" />
+          className="w-full bg-secondary border border-border rounded-md px-3 py-1.5 text-sm md:ms-auto md:w-64" />
       </header>
       <main className="flex-1 overflow-auto p-5 bg-background">
         <div className="max-w-3xl mx-auto space-y-2">

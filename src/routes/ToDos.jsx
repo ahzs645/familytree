@@ -328,17 +328,19 @@ export default function ToDos() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
+      <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">{t('todosPage.title')}</h1>
         <span className="text-xs text-muted-foreground">{todos.length}</span>
         {status && <span className="text-xs text-muted-foreground">{status}</span>}
-        <button onClick={onDeleteCompleted} className="ms-auto border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
-          {t('todosPage.deleteCompleted')}
-        </button>
-        <button onClick={() => setWizardOpen(true)} className="border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
-          {t('todosPage.wizardButton')}
-        </button>
-        <button onClick={onCreate} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">{t('todosPage.newButton')}</button>
+        <div className="ms-auto flex flex-wrap items-center gap-2">
+          <button onClick={onDeleteCompleted} className="border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
+            {t('todosPage.deleteCompleted')}
+          </button>
+          <button onClick={() => setWizardOpen(true)} className="border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
+            {t('todosPage.wizardButton')}
+          </button>
+          <button onClick={onCreate} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">{t('todosPage.newButton')}</button>
+        </div>
       </header>
       <ToDoWizardSheet
         open={wizardOpen}
