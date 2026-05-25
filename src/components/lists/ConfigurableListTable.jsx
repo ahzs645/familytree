@@ -19,15 +19,6 @@ export function ConfigurableListTable({
   const controls = (
     <>
       {toolbar}
-      <ListReportToolbar
-        title={tableProps.reportTitle || tableProps.title || 'List Report'}
-        rows={tableProps.rows || []}
-        columns={columns}
-        options={report.options}
-        update={report.update}
-        updateInfoColumn={report.updateInfoColumn}
-        onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
-      />
       {sortProfile?.sortOptions?.length ? (
         <div className="inline-flex items-center gap-2">
           <label className="text-xs text-muted-foreground whitespace-nowrap">{sortProfile.label || t('sortProfiles.label')}</label>
@@ -42,13 +33,24 @@ export function ConfigurableListTable({
           </select>
         </div>
       ) : null}
-      <ColumnChooser
-        columns={columns}
-        isVisible={columnVisibility.isVisible}
-        onToggle={columnVisibility.toggle}
-        onReset={columnVisibility.resetToDefaults}
-        label={columnChooserLabel}
-      />
+      <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2">
+        <ListReportToolbar
+          title={tableProps.reportTitle || tableProps.title || 'List Report'}
+          rows={tableProps.rows || []}
+          columns={columns}
+          options={report.options}
+          update={report.update}
+          updateInfoColumn={report.updateInfoColumn}
+          onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
+        />
+        <ColumnChooser
+          columns={columns}
+          isVisible={columnVisibility.isVisible}
+          onToggle={columnVisibility.toggle}
+          onReset={columnVisibility.resetToDefaults}
+          label={columnChooserLabel}
+        />
+      </div>
     </>
   );
   return (
