@@ -36,7 +36,10 @@ import {
 } from '../lib/placeGeocoding.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useDirtyBaseline } from '../lib/editorState.js';
+import { useSaveShortcut } from '../lib/useSaveShortcut.js';
+import { SaveStatus } from '../components/editors/SaveStatus.jsx';
+import { EditorSectionNavProvider, EditorSectionNavBar } from '../components/editors/EditorSectionNav.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
@@ -106,7 +109,7 @@ export default function Places() {
   const [placeQueryMessage, setPlaceQueryMessage] = useState(null);
   const [showBatchSheet, setShowBatchSheet] = useState(false);
   const [showConvertSheet, setShowConvertSheet] = useState(false);
-  const baselineRef = useRef(null);
+  const [loadSeq, setLoadSeq] = useState(0);
   const queryPlaceId = searchParams.get('placeId');
   const focus = searchParams.get('focus');
 
@@ -129,6 +132,7 @@ export default function Places() {
         .sort((a, b) => a.name.localeCompare(b.name))
     );
     if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
+    setLoadSeq((n) => n + 1);
   }, [activeId]);
 
   useEffect(() => {
@@ -457,12 +461,12 @@ export default function Places() {
     latitude,
     longitude,
   }), [active, templateId, components, details, labels, refNumbers, bookmarked, isPrivate, latitude, longitude]);
-  useEffect(() => {
-    if (!active || saving) return;
-    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
-  }, [active, editableSnapshot, saving, status]);
-  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
-  useUnsavedChanges(dirty);
+  const dirty = useDirtyBaseline(editableSnapshot, {
+    recordKey: active?.recordName,
+    reloadKey: loadSeq,
+    enabled: !!active && !saving,
+  });
+  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && dirty });
   const onToggleLock = useRecordLock({
     record: active,
     setRecord: (next) => setPlaces((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
@@ -484,20 +488,24 @@ export default function Places() {
     );
   };
 
-  const detail = active ? (
-    <div className="p-5 max-w-4xl">
-      <div className="flex items-center mb-4">
-        <h2 className="text-base font-semibold truncate">
+  const detailHeader = active ? (
+    <div className="border-b border-border bg-card">
+      <div className="flex items-center gap-3 px-5 py-3">
+        <h2 className="text-base font-semibold truncate flex-1 min-w-0">
           {placeSummary(active)?.displayName || active.recordName}
         </h2>
-        <div className="ms-auto flex items-center gap-3">
-          {status && <span className="text-emerald-500 text-xs">{status}</span>}
-          <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-          <button onClick={onSave} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
+        <SaveStatus status={status} dirty={dirty} />
+        <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
+        <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+          {saving ? 'Saving…' : 'Save'}
+        </button>
       </div>
+      <EditorSectionNavBar />
+    </div>
+  ) : null;
+
+  const detail = active ? (
+    <div className="p-5 max-w-4xl">
       {placeQueryMessage && (
         <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
           {placeQueryMessage}
@@ -650,7 +658,7 @@ export default function Places() {
   }
 
   return (
-    <>
+    <EditorSectionNavProvider>
       <MasterDetailList
         items={places}
         activeId={activeId}
@@ -658,6 +666,7 @@ export default function Places() {
         renderRow={renderRow}
         placeholder="Search places…"
         detail={detail}
+        detailHeader={detailHeader}
       />
       {showBatchSheet && (
         <BatchPlaceLookupSheet
@@ -676,7 +685,7 @@ export default function Places() {
           }}
         />
       )}
-    </>
+    </EditorSectionNavProvider>
   );
 }
 

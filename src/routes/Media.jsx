@@ -25,7 +25,9 @@ import { MediaPreview } from '../components/media/MediaPreview.jsx';
 import { useMediaCapture } from '../components/media/useMediaCapture.js';
 import { canvasToBlob, editedFilename, loadImage } from '../components/media/mediaHelpers.js';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useDirtyBaseline } from '../lib/editorState.js';
+import { useSaveShortcut } from '../lib/useSaveShortcut.js';
+import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
@@ -78,7 +80,7 @@ export default function Media() {
   const folderRef = React.useRef(null);
   const addFilesRef = React.useRef(null);
   const replaceFileRef = React.useRef(null);
-  const baselineRef = useRef(null);
+  const [loadSeq, setLoadSeq] = useState(0);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -88,6 +90,7 @@ export default function Media() {
       all.push(...records);
     }
     setMedia(all);
+    setLoadSeq((n) => n + 1);
   }, []);
 
   useEffect(() => {
@@ -232,12 +235,12 @@ export default function Media() {
 
   const active = media.find((m) => m.recordName === activeId);
   const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  useEffect(() => {
-    if (!active || saving) return;
-    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
-  }, [active, editableSnapshot, saving, status]);
-  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving && !readOnlyGallery);
-  useUnsavedChanges(dirty);
+  const dirty = useDirtyBaseline(editableSnapshot, {
+    recordKey: active?.recordName,
+    reloadKey: loadSeq,
+    enabled: !!active && !saving && !readOnlyGallery,
+  });
+  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && !readOnlyGallery && dirty });
   const onToggleLock = useRecordLock({
     record: active,
     setRecord: (next) => setMedia((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
@@ -507,13 +510,13 @@ export default function Media() {
                 {iconFor(active.recordType)} {active.recordType.replace('Media', '')}
               </h2>
               <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {status && <span style={{ color: '#4ade80', fontSize: 12, marginRight: 6 }}>{status}</span>}
+                <SaveStatus status={status} dirty={dirty} />
                 <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
                 {active.recordType !== 'MediaURL' && <button onClick={() => replaceFileRef.current?.click()} disabled={isRecordLocked(active)} style={deleteBtn}>Replace</button>}
                 {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('rotate')} disabled={isRecordLocked(active)} style={deleteBtn}>Rotate</button>}
                 {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('crop-square')} disabled={isRecordLocked(active)} style={deleteBtn}>Crop</button>}
                 <button onClick={onDelete} disabled={isRecordLocked(active)} style={deleteBtn}>Delete</button>
-                <button onClick={onSave} disabled={saving || isRecordLocked(active)} style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
+                <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
               </div>
             </div>
             <FieldRow label="Caption">

@@ -8,7 +8,9 @@ import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useDirtyBaseline } from '../lib/editorState.js';
+import { useSaveShortcut } from '../lib/useSaveShortcut.js';
+import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
@@ -50,7 +52,7 @@ export default function SourceRepositories() {
   const [values, setValues] = useState({});
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
-  const baselineRef = React.useRef(null);
+  const [loadSeq, setLoadSeq] = useState(0);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -62,6 +64,7 @@ export default function SourceRepositories() {
     setRepositories(sorted);
     setSources(sourceRows.records.sort((a, b) => sourceTitle(a).localeCompare(sourceTitle(b))));
     if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
+    setLoadSeq((n) => n + 1);
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -147,12 +150,12 @@ export default function SourceRepositories() {
   };
 
   const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  useEffect(() => {
-    if (!active || saving) return;
-    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
-  }, [active, editableSnapshot, saving, status]);
-  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
-  useUnsavedChanges(dirty);
+  const dirty = useDirtyBaseline(editableSnapshot, {
+    recordKey: active?.recordName,
+    reloadKey: loadSeq,
+    enabled: !!active && !saving,
+  });
+  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && dirty });
   const onToggleLock = useRecordLock({
     record: active,
     setRecord: (next) => setRepositories((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
@@ -165,10 +168,10 @@ export default function SourceRepositories() {
     <div className="p-5 max-w-4xl">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-semibold truncate">{repoName(active)}</h2>
-        {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
+        <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
         <button onClick={onDelete} disabled={isRecordLocked(active)} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
-        <button onClick={onSave} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
           {saving ? 'Saving...' : 'Save'}
         </button>
       </div>

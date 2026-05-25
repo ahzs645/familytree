@@ -8,7 +8,7 @@ import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useDirtyBaseline } from '../lib/editorState.js';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
@@ -42,7 +42,7 @@ export default function Stories() {
   const [targetId, setTargetId] = useState('');
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
-  const baselineRef = React.useRef(null);
+  const [loadSeq, setLoadSeq] = useState(0);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -62,6 +62,7 @@ export default function Stories() {
     });
     setTargetsByType(nextTargets);
     if (!activeId && sorted.length) setActiveId(sorted[0].recordName);
+    setLoadSeq((n) => n + 1);
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -192,12 +193,11 @@ export default function Stories() {
   };
 
   const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  useEffect(() => {
-    if (!active || saving) return;
-    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
-  }, [active, editableSnapshot, saving, status]);
-  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
-  useUnsavedChanges(dirty);
+  const dirty = useDirtyBaseline(editableSnapshot, {
+    recordKey: active?.recordName,
+    reloadKey: loadSeq,
+    enabled: !!active && !saving,
+  });
   const onToggleLock = useRecordLock({
     record: active,
     setRecord: (next) => setStories((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),

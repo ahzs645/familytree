@@ -19,7 +19,10 @@ import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { MediaRelationsEditor, NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useDirtyBaseline } from '../lib/editorState.js';
+import { useSaveShortcut } from '../lib/useSaveShortcut.js';
+import { SaveStatus } from '../components/editors/SaveStatus.jsx';
+import { EditorSectionNavProvider, EditorSectionNavBar } from '../components/editors/EditorSectionNav.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
@@ -93,7 +96,7 @@ export default function Sources() {
   const [referenced, setReferenced] = useState([]);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
-  const baselineRef = useRef(null);
+  const [loadSeq, setLoadSeq] = useState(0);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -125,6 +128,7 @@ export default function Sources() {
         .sort((a, b) => a.name.localeCompare(b.name))
     );
     if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
+    setLoadSeq((n) => n + 1);
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -324,12 +328,12 @@ export default function Sources() {
     bookmarked,
     isPrivate,
   }), [active, templateId, repositoryId, info, text, templateValues, labels, refNumbers, bookmarked, isPrivate]);
-  useEffect(() => {
-    if (!active || saving) return;
-    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
-  }, [active, editableSnapshot, saving, status]);
-  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
-  useUnsavedChanges(dirty);
+  const dirty = useDirtyBaseline(editableSnapshot, {
+    recordKey: active?.recordName,
+    reloadKey: loadSeq,
+    enabled: !!active && !saving,
+  });
+  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && dirty });
   const onToggleLock = useRecordLock({
     record: active,
     setRecord: (next) => setSources((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
@@ -350,21 +354,24 @@ export default function Sources() {
     );
   };
 
-  const detail = active ? (
-    <div className="p-5 max-w-4xl">
-      <div className="flex items-center mb-4">
-        <h2 className="text-base font-semibold truncate">
+  const detailHeader = active ? (
+    <div className="border-b border-border bg-card">
+      <div className="flex items-center gap-3 px-5 py-3">
+        <h2 className="text-base font-semibold truncate flex-1 min-w-0">
           {sourceSummary(active)?.title || active.recordName}
         </h2>
-        <div className="ms-auto flex items-center gap-3">
-          {status && <span className="text-emerald-500 text-xs">{status}</span>}
-          <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-          <button onClick={onSave} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
+        <SaveStatus status={status} dirty={dirty} />
+        <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
+        <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+          {saving ? 'Saving…' : 'Save'}
+        </button>
       </div>
+      <EditorSectionNavBar />
+    </div>
+  ) : null;
 
+  const detail = active ? (
+    <div className="p-5 max-w-4xl">
       <Section title="Source Information" accent={ACCENTS.info}>
         <Field label="Source Template">
           <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className={inputClass}>
@@ -463,14 +470,17 @@ export default function Sources() {
   }
 
   return (
-    <MasterDetailList
-      items={sources}
-      activeId={activeId}
-      onPick={setActiveId}
-      renderRow={renderRow}
-      placeholder="Search sources…"
-      detail={detail}
-    />
+    <EditorSectionNavProvider>
+      <MasterDetailList
+        items={sources}
+        activeId={activeId}
+        onPick={setActiveId}
+        renderRow={renderRow}
+        placeholder="Search sources…"
+        detail={detail}
+        detailHeader={detailHeader}
+      />
+    </EditorSectionNavProvider>
   );
 }
 

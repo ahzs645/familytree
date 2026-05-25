@@ -97,7 +97,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                         {lifeSpanLabel(p)}
                       </div>
                     ) : null}
-                    {showColumn('arabicPatrilinealName') && p.arabicPatrilinealName ? (
+                    {showColumn('arabicPatrilinealName') && p.arabicPatrilinealName && !p.nameIsPatrilineal ? (
                       <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, direction: 'rtl', textAlign: 'start' }}>
                         <BdiText>{p.arabicPatrilinealTail || p.arabicPatrilinealName}</BdiText>
                       </div>
@@ -111,7 +111,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                     {showColumn('startPerson') && p.startPerson ? (
                       <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>✓ {t('persons.startPerson')}</div>
                     ) : null}
-                    {query.trim() && (p.arabicPatrilinealTail || p.arabicPatrilinealName) ? (
+                    {query.trim() && !p.nameIsPatrilineal && (p.arabicPatrilinealTail || p.arabicPatrilinealName) ? (
                       <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, marginTop: 2, direction: 'rtl', textAlign: 'start' }}>
                         <BdiText>{p.arabicPatrilinealTail || p.arabicPatrilinealName}</BdiText>
                       </div>

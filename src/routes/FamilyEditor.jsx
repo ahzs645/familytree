@@ -29,7 +29,9 @@ import {
   labelForCatalogType,
 } from '../lib/catalogs.js';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { confirmUnsavedChanges, stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { confirmUnsavedChanges, useDirtyBaseline } from '../lib/editorState.js';
+import { useSaveShortcut } from '../lib/useSaveShortcut.js';
+import { EditorSectionNavProvider, EditorSectionNavBar } from '../components/editors/EditorSectionNav.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
@@ -85,7 +87,7 @@ export default function FamilyEditor() {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [notFound, setNotFound] = useState(false);
-  const baselineRef = useRef(null);
+  const [loadSeq, setLoadSeq] = useState(0);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -154,6 +156,8 @@ export default function FamilyEditor() {
     });
 
     if (persons.length === 0) setPersons(await listAllPersons({ includePrivate: true }));
+    // Signal a finished hydration so the dirty baseline captures the full record.
+    setLoadSeq((n) => n + 1);
   }, [id, persons.length]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -308,18 +312,18 @@ export default function FamilyEditor() {
     bookmarked,
     isPrivate,
   }), [family, manId, womanId, marriageDate, children, notes, labels, refNumbers, bookmarked, isPrivate]);
-  useEffect(() => {
-    if (!family || saving) return;
-    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') {
-      baselineRef.current = stableStringify(editableSnapshot);
-    }
-  }, [editableSnapshot, family, saving, status]);
-  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!family && !saving);
-  useUnsavedChanges(dirty);
+  const dirty = useDirtyBaseline(editableSnapshot, {
+    recordKey: family?.recordName,
+    reloadKey: loadSeq,
+    enabled: !!family && !saving,
+  });
   const onToggleLock = useRecordLock({ record: family, setRecord: setFamily, setSaving, setStatus, reload });
   const guardedNavigate = useCallback((to, options) => {
     if (confirmUnsavedChanges(dirty)) navigate(to, options);
   }, [dirty, navigate]);
+
+  const locked = !!family && isRecordLocked(family);
+  useSaveShortcut(onSave, { enabled: !saving && !locked && dirty });
 
   if (notFound) return <div className="p-10 text-muted-foreground">Family not found.</div>;
   if (!family) return <div className="p-10 text-muted-foreground">Loading…</div>;
@@ -329,20 +333,35 @@ export default function FamilyEditor() {
   const summary = familySummary(family);
 
   return (
+    <EditorSectionNavProvider>
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <button onClick={() => guardedNavigate(-1)} className="text-xs text-muted-foreground border border-border rounded-md px-3 py-1.5 hover:bg-accent">← Back</button>
         <div className="flex-1 min-w-0">
           <h1 className="text-base font-semibold truncate">
-            Family · {summary?.familyName || [man?.fullName, woman?.fullName].filter(Boolean).join(' & ') || family.recordName}
+            {/* Prefer the couple's names; familyName() returns a generic
+                "Family" placeholder when no custom name is set, so don't let
+                that win over the actual partners. */}
+            {[man?.fullName, woman?.fullName].filter(Boolean).join(' & ')
+              || (summary?.familyName && summary.familyName !== 'Family' ? summary.familyName : '')
+              || `Family · ${family.recordName}`}
           </h1>
         </div>
-        {status && <span className="text-emerald-500 text-xs">{status}</span>}
+        {status ? (
+          <span className="text-emerald-500 text-xs">{status}</span>
+        ) : dirty ? (
+          <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />Unsaved changes
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground">All changes saved</span>
+        )}
         <RecordLockButton record={family} saving={saving} onToggle={onToggleLock} />
-        <button disabled={saving || isRecordLocked(family)} onClick={onSave} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <button disabled={saving || locked || !dirty} onClick={onSave} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
           {saving ? 'Saving…' : 'Save changes'}
         </button>
       </header>
+      <EditorSectionNavBar />
 
       <main className="flex-1 overflow-auto bg-background">
         <div className="max-w-6xl mx-auto p-5">
@@ -454,7 +473,7 @@ export default function FamilyEditor() {
                   <Empty title="No notes present" hint="Use the button above to add one." />
                 ) : notes.map((n, i) => (
                   <div key={n.recordName || i} className="mb-3">
-                    <textarea value={n.text} rows={3}
+                    <textarea value={n.text} rows={3} dir="auto"
                       onChange={(e) => setNotes((a) => a.map((x, j) => j === i ? { ...x, text: e.target.value } : x))}
                       className={inputClass + ' resize-y'} />
                     <div className="text-right">
@@ -515,6 +534,7 @@ export default function FamilyEditor() {
         </div>
       </main>
     </div>
+    </EditorSectionNavProvider>
   );
 }
 

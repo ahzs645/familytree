@@ -49,6 +49,34 @@ describe('person lineage search', () => {
     expect(lineage.get('daughter').arabicPatrilinealName).toBe('فاطمة بنت أحمد بن رعد');
   });
 
+  it('names a person with no given name after their father (ابن/بنت)', () => {
+    const people = [
+      person('grandfather', 'رعد الجليل', 'رعد', 'الجليل', Gender.Male),
+      person('father', 'أحمد رعد الجليل', 'أحمد', 'الجليل', Gender.Male),
+      namelessPerson('son', Gender.Male),
+      namelessPerson('daughter', Gender.Female),
+    ];
+    const families = [
+      family('fam1', 'grandfather', null),
+      family('fam2', 'father', null),
+    ];
+    const childRelations = [
+      childRelation('cr1', 'fam1', 'father'),
+      childRelation('cr2', 'fam2', 'son'),
+      childRelation('cr3', 'fam2', 'daughter'),
+    ];
+
+    const lineage = buildPersonLineage(people, families, childRelations);
+    // No leaked "No" token, and a real "son/daughter of <father>" identifier.
+    expect(lineage.get('son').arabicPatrilinealName).toBe('ابن أحمد بن رعد');
+    expect(lineage.get('daughter').arabicPatrilinealName).toBe('بنت أحمد بن رعد');
+  });
+
+  it('leaves a truly rootless nameless person without a patrilineal name', () => {
+    const lineage = buildPersonLineage([namelessPerson('orphan', Gender.Male)], [], []);
+    expect(lineage.get('orphan').arabicPatrilinealName).toBe('');
+  });
+
   it('formats compact Arabic lineage without repeating the person name', () => {
     expect(buildArabicPatrilinealTail('احمد بن رعد بن جليل بن ابراهيم', 'احمد')).toBe('بن رعد بن جليل بن ابراهيم');
     expect(buildArabicPatrilinealTail('احمد بن رعد', 'يوسف')).toBe('احمد بن رعد');
@@ -64,6 +92,16 @@ function person(recordName, fullName, firstName, lastName, gender = Gender.Male)
       cached_fullName: field(fullName),
       firstName: field(firstName),
       lastName: field(lastName),
+      gender: field(gender, 'NUMBER'),
+    },
+  };
+}
+
+function namelessPerson(recordName, gender = Gender.Male) {
+  return {
+    recordName,
+    recordType: 'Person',
+    fields: {
       gender: field(gender, 'NUMBER'),
     },
   };

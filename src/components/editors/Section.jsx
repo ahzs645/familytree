@@ -12,6 +12,7 @@
 import React, { useEffect, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
+import { useEditorSection } from './EditorSectionNav.jsx';
 
 const ICON_BASE = '/ctw-icons/content-controller-icons/';
 
@@ -71,6 +72,8 @@ export function Section({
 }) {
   const iconSrc = icon || defaultIconForTitle(title);
   const storageKey = sectionStorageKey(persistKey, title);
+  // Register with the in-page section nav when an editor provides one.
+  const { id: sectionId, ref: sectionRef } = useEditorSection(typeof title === 'string' ? title : '');
 
   const [collapsed, setCollapsed] = useState(() => {
     if (!collapsible) return false;
@@ -108,7 +111,7 @@ export function Section({
     : undefined;
 
   return (
-    <div className="rounded-lg border border-border bg-card mb-4 overflow-hidden">
+    <div ref={sectionRef} id={sectionId} className="rounded-lg border border-border bg-card mb-4 overflow-hidden scroll-mt-24">
       <div
         className={cn(
           'flex items-center gap-3 px-4 py-3 bg-secondary/40',
@@ -123,7 +126,9 @@ export function Section({
       >
         {iconSrc ? (
           <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border border-border bg-background/70">
-            <img src={iconSrc} alt="" className="h-5 w-5 object-contain" />
+            {/* Source icons are white glyphs (built for a dark toolbar); invert
+                in light mode so they're not invisible, keep as-is in dark. */}
+            <img src={iconSrc} alt="" className="h-5 w-5 object-contain invert dark:invert-0" />
           </span>
         ) : (
           <span

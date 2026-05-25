@@ -347,7 +347,7 @@ export default function Persons() {
                       <BdiText>{kinshipById.get(active.id).label}</BdiText>
                     </div>
                   ) : null}
-                  {active.arabicPatrilinealName ? (
+                  {active.arabicPatrilinealName && !active.nameIsPatrilineal ? (
                     <div className="mt-2 text-sm text-muted-foreground" dir="rtl">
                       <BdiText>{active.arabicPatrilinealName}</BdiText>
                     </div>

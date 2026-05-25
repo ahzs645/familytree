@@ -1,7 +1,7 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { runPlausibilityChecks } from './plausibility.js';
 import { readConclusionType, readField, readRef } from './schema.js';
-import { personSummary, familySummary, placeSummary, sourceSummary, Gender } from '../models/index.js';
+import { personSummary, familySummary, placeSummary, sourceSummary, Gender, NO_NAME } from '../models/index.js';
 import { parseEventDate, formatEventDate } from '../utils/formatDate.js';
 import { compareStrings, getCurrentLocalization, localeWithExtensions } from './i18n.js';
 import { loadResearchCompleteness } from './researchCompleteness.js';
@@ -64,11 +64,20 @@ export async function loadPersonRows() {
       const summary = personSummary(record);
       const lineageInfo = lineage.get(record.recordName) || {};
       if (!summary) return null;
+      // Many records (esp. Arabic trees) have no given name — only a
+      // patrilineal descriptor like "بنت حيدر بن رحمان". Surface that as the
+      // display name instead of a bare "No name recorded", and flag it so the
+      // list doesn't also repeat it on the secondary line.
+      const hasGivenName = summary.fullName && summary.fullName !== NO_NAME;
+      const patrilineal = lineageInfo.arabicPatrilinealName || '';
+      const nameIsPatrilineal = !hasGivenName && !!patrilineal;
       return {
         id: record.recordName,
         record,
         ...summary,
         ...lineageInfo,
+        fullName: hasGivenName ? summary.fullName : (patrilineal || summary.fullName),
+        nameIsPatrilineal,
         genderLabel: genderLabel(summary.gender),
         birthYear: yearOf(summary.birthDate),
         deathYear: yearOf(summary.deathDate),

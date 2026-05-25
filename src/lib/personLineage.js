@@ -1,4 +1,4 @@
-import { Gender, personSummary } from '../models/index.js';
+import { Gender, NO_NAME, personSummary } from '../models/index.js';
 import { compareStrings, matchesSearchText, normalizeSearchText } from './i18n.js';
 import { readRef } from './schema.js';
 
@@ -28,7 +28,13 @@ export function buildPersonLineage(records = [], families = [], childRelations =
   const fullName = (personId) => personSummary(peopleById.get(personId))?.fullName || '';
   const firstName = (personId) => {
     const summary = personSummary(peopleById.get(personId));
-    return summary?.firstName || String(summary?.fullName || '').trim().split(/\s+/)[0] || '';
+    if (summary?.firstName) return summary.firstName;
+    // Fall back to the first token of the display name — but never the
+    // "No name recorded" placeholder, which would otherwise leak the literal
+    // word "No" into lineage chains and search text.
+    const full = String(summary?.fullName || '').trim();
+    if (!full || full === NO_NAME) return '';
+    return full.split(/\s+/)[0] || '';
   };
   const gender = (personId) => personSummary(peopleById.get(personId))?.gender;
 
@@ -61,11 +67,28 @@ export function buildArabicPatrilinealName(personId, helpers = {}) {
   const { firstName, gender, parentIdsFor, maxGenerations = 12 } = helpers;
   if (!personId || typeof firstName !== 'function' || typeof parentIdsFor !== 'function') return '';
   const ownName = firstName(personId);
-  if (!ownName) return '';
 
-  const parts = [ownName];
+  const parts = [];
   let currentId = personId;
   const seen = new Set([personId]);
+
+  if (ownName) {
+    parts.push(ownName);
+  } else {
+    // No given name recorded — open the chain with "son/daughter of <father>"
+    // (ابن/بنت) so the person still reads as a real patrilineal identifier
+    // instead of a bare "No name recorded" placeholder.
+    const fatherId = parentIdsFor(personId)?.fatherId;
+    if (!fatherId) return '';
+    if (typeof gender === 'function' && gender(fatherId) != null && gender(fatherId) !== Gender.Male) return '';
+    const fatherName = firstName(fatherId);
+    if (!fatherName) return '';
+    const ownGender = typeof gender === 'function' ? gender(personId) : null;
+    parts.push(`${ownGender === Gender.Female ? 'بنت' : 'ابن'} ${fatherName}`);
+    seen.add(fatherId);
+    currentId = fatherId;
+  }
+
   for (let depth = 0; depth < maxGenerations; depth += 1) {
     const fatherId = parentIdsFor(currentId)?.fatherId;
     if (!fatherId || seen.has(fatherId)) break;
@@ -78,7 +101,10 @@ export function buildArabicPatrilinealName(personId, helpers = {}) {
     parts.push(`${relationWord} ${fatherName}`);
     currentId = fatherId;
   }
-  return parts.length > 1 ? parts.join(' ') : '';
+  // A bare given name with no ancestors isn't a patrilineal name; but a
+  // "son of <father>" lead already is, even without further generations.
+  if (ownName) return parts.length > 1 ? parts.join(' ') : '';
+  return parts.join(' ');
 }
 
 export function buildArabicPatrilinealTail(arabicPatrilinealName, ownName) {

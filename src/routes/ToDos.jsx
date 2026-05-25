@@ -11,7 +11,9 @@ import { useModal } from '../contexts/ModalContext.jsx';
 import { listCustomTypes, saveCustomType, mergeWithBuiltins } from '../lib/customTypes.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { useUnsavedChanges, stableStringify, useDirtySnapshot } from '../lib/editorState.js';
+import { useDirtyBaseline } from '../lib/editorState.js';
+import { useSaveShortcut } from '../lib/useSaveShortcut.js';
+import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
@@ -59,7 +61,7 @@ export default function ToDos() {
   const [status, setStatus] = useState(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [todoTypes, setTodoTypes] = useState(TODO_TYPE_BUILTINS);
-  const baselineRef = React.useRef(null);
+  const [loadSeq, setLoadSeq] = useState(0);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -77,6 +79,7 @@ export default function ToDos() {
     });
     setTargetsByType(nextTargets);
     if (!sorted.some((record) => record.recordName === activeId)) setActiveId(sorted[0]?.recordName || null);
+    setLoadSeq((n) => n + 1);
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -241,12 +244,12 @@ export default function ToDos() {
   );
 
   const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  useEffect(() => {
-    if (!active || saving) return;
-    if (baselineRef.current == null || status === t('todosPage.saved') || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
-  }, [active, editableSnapshot, saving, status, t]);
-  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
-  useUnsavedChanges(dirty);
+  const dirty = useDirtyBaseline(editableSnapshot, {
+    recordKey: active?.recordName,
+    reloadKey: loadSeq,
+    enabled: !!active && !saving,
+  });
+  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && dirty });
   const onToggleLock = useRecordLock({
     record: active,
     setRecord: (next) => setTodos((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
@@ -259,10 +262,10 @@ export default function ToDos() {
     <div className="p-5 max-w-3xl">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-semibold">{todoTitle(active, t('todosPage.fallbackTitle'))}</h2>
-        {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
+        <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
         <button onClick={onDelete} disabled={isRecordLocked(active)} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">{t('todosPage.delete')}</button>
-        <button onClick={onSave} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
           {saving ? t('todosPage.saving') : t('todosPage.save')}
         </button>
       </div>

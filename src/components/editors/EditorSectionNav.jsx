@@ -1,0 +1,112 @@
+/**
+ * In-page section navigation for long record editors.
+ *
+ * Sections register themselves through context (no hard-coded list), so the
+ * jump bar stays in sync as sections appear/disappear (collapsible, conditional
+ * blocks, etc.). The bar is rendered between the editor header and the scroll
+ * area so it stays pinned; clicking a chip scrolls its section into view, and
+ * an IntersectionObserver highlights whichever section is currently on screen.
+ *
+ * When no provider is present (most other Section usages), the hook is inert —
+ * Section works exactly as before.
+ */
+import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { cn } from '../../lib/utils.js';
+
+const SectionNavContext = createContext(null);
+
+export function EditorSectionNavProvider({ children }) {
+  const [sections, setSections] = useState([]);
+  const register = useCallback((entry) => {
+    setSections((prev) => {
+      const next = prev.filter((s) => s.id !== entry.id);
+      next.push(entry);
+      return next;
+    });
+  }, []);
+  const unregister = useCallback((id) => {
+    setSections((prev) => prev.filter((s) => s.id !== id));
+  }, []);
+  const value = useMemo(() => ({ sections, register, unregister }), [sections, register, unregister]);
+  return <SectionNavContext.Provider value={value}>{children}</SectionNavContext.Provider>;
+}
+
+/**
+ * Called by <Section>. Returns a ref to attach to the section root and an id;
+ * registers the section with the nav while mounted. Inert without a provider.
+ */
+export function useEditorSection(title) {
+  const ctx = useContext(SectionNavContext);
+  const id = useId();
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!ctx || !ref.current) return undefined;
+    ctx.register({ id, title, el: ref.current });
+    return () => ctx.unregister(id);
+  }, [ctx, id, title]);
+
+  return { id: ctx ? id : undefined, ref, enabled: !!ctx };
+}
+
+export function EditorSectionNavBar({ className }) {
+  const ctx = useContext(SectionNavContext);
+  const [activeId, setActiveId] = useState(null);
+
+  const ordered = useMemo(() => {
+    const list = [...(ctx?.sections || [])].filter((s) => s.el && s.title);
+    return list.sort((a, b) => {
+      const pos = a.el.compareDocumentPosition(b.el);
+      // eslint-disable-next-line no-bitwise
+      if (pos & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+      // eslint-disable-next-line no-bitwise
+      if (pos & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+      return 0;
+    });
+  }, [ctx?.sections]);
+
+  useEffect(() => {
+    if (ordered.length < 2) return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (!visible.length) return;
+        const match = ordered.find((s) => s.el === visible[0].target);
+        if (match) setActiveId(match.id);
+      },
+      { rootMargin: '-96px 0px -65% 0px', threshold: 0 }
+    );
+    ordered.forEach((s) => observer.observe(s.el));
+    return () => observer.disconnect();
+  }, [ordered]);
+
+  if (ordered.length < 2) return null;
+
+  return (
+    <nav
+      aria-label="Editor sections"
+      className={cn(
+        'flex items-center gap-1 overflow-x-auto border-b border-border bg-card/90 px-4 py-1.5 backdrop-blur',
+        className
+      )}
+    >
+      {ordered.map((s) => (
+        <button
+          key={s.id}
+          type="button"
+          onClick={() => s.el?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          className={cn(
+            'whitespace-nowrap rounded-md px-2.5 py-1 text-xs transition-colors',
+            s.id === activeId
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          )}
+        >
+          {s.title}
+        </button>
+      ))}
+    </nav>
+  );
+}

@@ -7,7 +7,7 @@ import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useDirtyBaseline } from '../lib/editorState.js';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
@@ -30,7 +30,7 @@ export default function PersonGroups() {
   const [personId, setPersonId] = useState('');
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
-  const baselineRef = React.useRef(null);
+  const [loadSeq, setLoadSeq] = useState(0);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -43,6 +43,7 @@ export default function PersonGroups() {
     setRelations(r.records);
     setPersons(p.records.map((rec) => ({ rec, summary: personSummary(rec) })).filter((x) => x.summary).sort((a, b) => a.summary.fullName.localeCompare(b.summary.fullName)));
     if (!activeId && g.records.length) setActiveId(g.records[0].recordName);
+    setLoadSeq((n) => n + 1);
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
@@ -129,12 +130,11 @@ export default function PersonGroups() {
   };
 
   const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  useEffect(() => {
-    if (!active || saving) return;
-    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
-  }, [active, editableSnapshot, saving, status]);
-  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
-  useUnsavedChanges(dirty);
+  const dirty = useDirtyBaseline(editableSnapshot, {
+    recordKey: active?.recordName,
+    reloadKey: loadSeq,
+    enabled: !!active && !saving,
+  });
   const onToggleLock = useRecordLock({
     record: active,
     setRecord: (next) => setGroups((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),

@@ -6,7 +6,7 @@
 import React, { useMemo, useState } from 'react';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 
-export function MasterDetailList({ items, activeId, onPick, renderRow, placeholder = 'Search…', detail }) {
+export function MasterDetailList({ items, activeId, onPick, renderRow, placeholder = 'Search…', detail, detailHeader = null }) {
   const [query, setQuery] = useState('');
   const [mobileView, setMobileView] = useState('list');
   const isMobile = useIsMobile();
@@ -69,7 +69,7 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
         </aside>
       )}
       {showDetail && (
-        <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {isMobile && (
             <div style={mobileBackBar}>
               <button type="button" onClick={() => setMobileView('list')} style={backButton}>
@@ -77,6 +77,9 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
               </button>
             </div>
           )}
+          {/* Optional pinned header (e.g. title + save + section nav) that
+              stays put while the detail body scrolls underneath it. */}
+          {detailHeader && <div style={{ flexShrink: 0 }}>{detailHeader}</div>}
           <div style={{ flex: 1, overflow: 'auto' }}>{detail}</div>
         </main>
       )}

@@ -14,6 +14,9 @@ import { Gender } from './constants.js';
 import { formatDisplayName, formatSortName, getActiveDisplayFormat, DEFAULT_DISPLAY_FORMAT } from '../lib/nameFormat.js';
 import { lifeSpanLabelFor } from '../lib/vitalFormat.js';
 
+/** Placeholder shown when a person record carries no usable name at all. */
+export const NO_NAME = 'No name recorded';
+
 const TYPE_TO_CLASS = {
   Person: PersonRecord,
   Family: FamilyRecord,
@@ -43,7 +46,7 @@ export function personSummary(input) {
     recordName: rec.recordName(),
     firstName: rec.firstName(),
     lastName: rec.lastName(),
-    fullName: formatted || rec.fullName() || 'No name recorded',
+    fullName: formatted || rec.fullName() || NO_NAME,
     fullNameForSorting: formatSortName(rec.record) || rec.fullNameForSorting(),
     gender: rec.gender, // 0=Male, 1=Female, 2=UnknownGender, 3=Intersex
     birthDate: rec.birthDate(),

@@ -15,7 +15,9 @@ import { formatEventDate } from '../utils/formatDate.js';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { stableStringify, useDirtySnapshot, useUnsavedChanges } from '../lib/editorState.js';
+import { useDirtyBaseline } from '../lib/editorState.js';
+import { useSaveShortcut } from '../lib/useSaveShortcut.js';
+import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
@@ -49,7 +51,7 @@ export default function Events({
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [queryMessage, setQueryMessage] = useState(null);
-  const baselineRef = useRef(null);
+  const [loadSeq, setLoadSeq] = useState(0);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -76,6 +78,7 @@ export default function Events({
       Family: familyTypes.records.map((r) => ({ id: r.recordName, label: readConclusionType(r) })).filter((r) => r.label),
     });
     if (merged.length > 0 && !activeId) setActiveId(merged[0].recordName);
+    setLoadSeq((n) => n + 1);
   }, [activeId]);
 
   useEffect(() => {
@@ -244,12 +247,12 @@ export default function Events({
 
   const active = events.find((e) => e.recordName === activeId);
   const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  useEffect(() => {
-    if (!active || saving) return;
-    if (baselineRef.current == null || status === 'Saved' || status === 'Locked' || status === 'Unlocked') baselineRef.current = stableStringify(editableSnapshot);
-  }, [active, editableSnapshot, saving, status]);
-  const dirty = useDirtySnapshot(editableSnapshot, baselineRef.current, !!active && !saving);
-  useUnsavedChanges(dirty);
+  const dirty = useDirtyBaseline(editableSnapshot, {
+    recordKey: active?.recordName,
+    reloadKey: loadSeq,
+    enabled: !!active && !saving,
+  });
+  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && dirty });
   const onToggleLock = useRecordLock({
     record: active,
     setRecord: (next) => setEvents((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
@@ -266,7 +269,7 @@ export default function Events({
           {active.recordType === 'PersonEvent' ? 'Person event' : 'Family event'}
         </h2>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          {status && <span style={{ color: '#4ade80', fontSize: 12 }}>{status}</span>}
+          <SaveStatus status={status} dirty={dirty} />
           <button
             onClick={() => navigate(`/views/media-gallery?targetId=${encodeURIComponent(active.recordName)}&targetType=${active.recordType}`)}
             style={smallBtn}
@@ -275,7 +278,7 @@ export default function Events({
           </button>
           <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
           <button onClick={onDelete} disabled={isRecordLocked(active)} style={deleteBtn}>Delete</button>
-          <button onClick={onSave} disabled={saving || isRecordLocked(active)} style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
+          <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
         </div>
       </div>
       {queryMessage && (
