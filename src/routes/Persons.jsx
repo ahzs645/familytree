@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Download } from 'lucide-react';
 import { BdiText } from '../components/BdiText.jsx';
 import { PersonList } from '../components/interactive/PersonList.jsx';
 import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
@@ -232,22 +233,24 @@ export default function Persons() {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <ColumnChooser
-              columns={listColumns}
-              isVisible={columnVisibility.isVisible}
-              onToggle={columnVisibility.toggle}
-              onReset={columnVisibility.resetToDefaults}
-            />
-            <ListReportToolbar
-              title={t('persons.listTitle')}
-              rows={visiblePersons}
-              columns={EXPORT_COLUMNS}
-              options={report.options}
-              update={report.update}
-              updateInfoColumn={report.updateInfoColumn}
-              onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
-              compact
-            />
+            <div className="hidden md:flex md:flex-wrap md:items-center md:gap-2">
+              <ColumnChooser
+                columns={listColumns}
+                isVisible={columnVisibility.isVisible}
+                onToggle={columnVisibility.toggle}
+                onReset={columnVisibility.resetToDefaults}
+              />
+              <ListReportToolbar
+                title={t('persons.listTitle')}
+                rows={visiblePersons}
+                columns={EXPORT_COLUMNS}
+                options={report.options}
+                update={report.update}
+                updateInfoColumn={report.updateInfoColumn}
+                onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
+                compact
+              />
+            </div>
             <ExportMenu
               onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)}
               onJson={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)}
@@ -506,12 +509,14 @@ function ExportMenu({ onCsv, onJson, controlClass, t }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`${controlClass} inline-flex items-center gap-1.5 px-3`}
+        className={`${controlClass} inline-flex items-center justify-center gap-1.5`}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={t('persons.exportLabel')}
       >
-        {t('persons.exportLabel')}
-        <span aria-hidden="true" className="text-xs">▾</span>
+        <Download className="h-4 w-4 md:hidden" aria-hidden="true" />
+        <span className="hidden md:inline">{t('persons.exportLabel')}</span>
+        <span aria-hidden="true" className="hidden text-xs md:inline">▾</span>
       </button>
       {open ? (
         <div
