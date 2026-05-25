@@ -48,8 +48,39 @@ export function useDirtyBaseline(snapshot, { recordKey = null, reloadKey = 0, en
   snapshotRef.current = snapshot;
 
   useEffect(() => {
-    if (recordKey == null) return;
-    setBaseline(stableStringify(snapshotRef.current));
+    if (recordKey == null) return undefined;
+    // A freshly loaded/reloaded record hydrates its sub-records across several
+    // async ticks (facts, children, labels, coordinates…). Fold those into the
+    // baseline during a short "settle" window so they aren't mistaken for
+    // edits — but end the window the instant the user interacts, so a real
+    // edit is captured as dirty rather than absorbed. (recordKey re-arms on
+    // record switch; reloadKey re-arms after save/lock when the key is stable.)
+    let stopped = false;
+    const timers = [];
+    const capture = () => { if (!stopped) setBaseline(stableStringify(snapshotRef.current)); };
+    function endSettle() {
+      if (stopped) return;
+      stopped = true;
+      capture();
+      timers.forEach(clearTimeout);
+      document.removeEventListener('pointerdown', endSettle, true);
+      document.removeEventListener('keydown', endSettle, true);
+    }
+    capture();
+    timers.push(
+      setTimeout(capture, 60),
+      setTimeout(capture, 250),
+      setTimeout(capture, 600),
+      setTimeout(endSettle, 900),
+    );
+    document.addEventListener('pointerdown', endSettle, true);
+    document.addEventListener('keydown', endSettle, true);
+    return () => {
+      stopped = true;
+      timers.forEach(clearTimeout);
+      document.removeEventListener('pointerdown', endSettle, true);
+      document.removeEventListener('keydown', endSettle, true);
+    };
   }, [recordKey, reloadKey]);
 
   const dirty = useDirtySnapshot(snapshot, baseline, enabled);
