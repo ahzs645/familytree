@@ -120,7 +120,7 @@ export default function WorldHistory() {
             Categories ({enabledCategories === null ? allCategories.length : enabledCategories.size}/{allCategories.length})
           </button>
           {categoryMenuOpen ? (
-            <div className="absolute end-0 mt-1 w-64 bg-popover border border-border rounded-md shadow-lg z-20 p-2">
+            <div className="absolute end-0 mt-1 w-64 max-w-[calc(100vw-2rem)] bg-popover border border-border rounded-md shadow-lg z-20 p-2">
               <div className="flex gap-2 mb-2">
                 <button type="button" onClick={enableAll} className="flex-1 border border-border rounded-md px-2 py-1 text-xs hover:bg-accent">All</button>
                 <button type="button" onClick={disableAll} className="flex-1 border border-border rounded-md px-2 py-1 text-xs hover:bg-accent">None</button>
