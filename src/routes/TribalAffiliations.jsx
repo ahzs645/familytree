@@ -285,12 +285,14 @@ export default function TribalAffiliations() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
+      <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Tribal Affiliations</h1>
         <span className="text-xs text-muted-foreground">{model.affiliations.length}</span>
-        {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
-        <button onClick={importIraqiSeed} className={`${status ? '' : 'ms-auto'} border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent`}>Import Iraqi Seed</button>
-        <button onClick={create} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        {status && <span className="text-xs text-emerald-500">{status}</span>}
+        <div className="ms-auto flex flex-wrap items-center gap-2">
+          <button onClick={importIraqiSeed} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Import Iraqi Seed</button>
+          <button onClick={create} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        </div>
       </header>
       <div className="flex-1 min-h-0">
         <MasterDetailList

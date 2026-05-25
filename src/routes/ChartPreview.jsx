@@ -75,7 +75,7 @@ function PreviewBody({ payload }) {
 
   return (
     <div className="bg-background text-foreground flex flex-col overflow-hidden" style={{ height: '100dvh', minHeight: '100vh' }}>
-      <header className="shrink-0 border-b border-border bg-card px-5 py-3 flex items-center gap-3">
+      <header className="shrink-0 border-b border-border bg-card px-5 py-3 flex flex-wrap items-center gap-x-3 gap-y-1">
         <Link to="/" className="text-xs text-muted-foreground hover:underline">CloudTreeWeb</Link>
         <span className="text-muted-foreground">/</span>
         <h1 className="text-base font-semibold">{chart?.name || 'Shared Chart'}</h1>

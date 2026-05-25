@@ -37,14 +37,16 @@ function SettingsLayout() {
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-5xl mx-auto p-5">
-        <header className="flex items-center gap-3 mb-5">
-          <div>
+        <header className="flex flex-wrap items-center gap-3 mb-5">
+          <div className="min-w-0 flex-1">
             <h1 className="text-xl font-bold">{t('settingsPage.title')}</h1>
             <p className="text-sm text-muted-foreground mt-1">{t('settingsPage.subtitle')}</p>
           </div>
-          {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
-          <button onClick={save} className={primaryButton}>{t('settingsPage.save')}</button>
-          <button onClick={reset} className={secondaryButton}>{t('settingsPage.reset')}</button>
+          {status && <span className="text-xs text-emerald-500">{status}</span>}
+          <div className="ms-auto flex flex-wrap items-center gap-3">
+            <button onClick={save} className={primaryButton}>{t('settingsPage.save')}</button>
+            <button onClick={reset} className={secondaryButton}>{t('settingsPage.reset')}</button>
+          </div>
         </header>
 
         <nav className="flex flex-wrap gap-2 border-b border-border mb-5">
