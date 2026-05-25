@@ -30,7 +30,7 @@ function searchText(row, columns, rowSearchValue) {
 export function ListPageHeader({ title, subtitle, count, total, actions, children }) {
   const localization = getCurrentLocalization();
   return (
-    <header className="flex flex-wrap items-end gap-3 px-5 py-3 border-b border-border bg-card">
+    <header className="flex flex-wrap items-end gap-3 px-4 md:px-5 py-3 border-b border-border bg-card">
       <div className="min-w-0 me-auto">
         <h1 className="text-base font-semibold truncate">{title}</h1>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
@@ -96,7 +96,7 @@ export function SortableListTable({
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex flex-wrap items-center gap-2 px-5 py-2 border-b border-border bg-background">
+      <div className="flex flex-wrap items-center gap-2 px-4 md:px-5 py-2 border-b border-border bg-background">
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}

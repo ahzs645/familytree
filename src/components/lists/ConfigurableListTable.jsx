@@ -29,18 +29,18 @@ export function ConfigurableListTable({
         onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
       />
       {sortProfile?.sortOptions?.length ? (
-        <>
-          <label className="text-xs text-muted-foreground">{sortProfile.label || t('sortProfiles.label')}</label>
+        <div className="inline-flex items-center gap-2">
+          <label className="text-xs text-muted-foreground whitespace-nowrap">{sortProfile.label || t('sortProfiles.label')}</label>
           <select
             value={sortProfile.sortKey}
             onChange={(event) => sortProfile.setSortKey(event.target.value)}
-            className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm"
+            className="min-w-0 bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm"
           >
             {sortProfile.sortOptions.map((option) => (
               <option key={option.key} value={option.key}>{t(`sortProfiles.${option.key}`, { defaultValue: option.label })}</option>
             ))}
           </select>
-        </>
+        </div>
       ) : null}
       <ColumnChooser
         columns={columns}
