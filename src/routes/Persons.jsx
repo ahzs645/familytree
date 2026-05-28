@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { SlidersHorizontal } from 'lucide-react';
 import { BdiText } from '../components/BdiText.jsx';
 import { PersonList } from '../components/interactive/PersonList.jsx';
 import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
@@ -218,10 +219,68 @@ export default function Persons() {
     { value: 'death', label: t('persons.sortDeath') },
   ];
 
+  const listActions = (
+    <>
+      <ColumnChooser
+        columns={listColumns}
+        isVisible={columnVisibility.isVisible}
+        onToggle={columnVisibility.toggle}
+        onReset={columnVisibility.resetToDefaults}
+      />
+      <ListReportToolbar
+        title={t('persons.listTitle')}
+        rows={visiblePersons}
+        columns={EXPORT_COLUMNS}
+        options={report.options}
+        update={report.update}
+        updateInfoColumn={report.updateInfoColumn}
+        onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
+        compact
+      />
+      <ExportMenu
+        onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)}
+        onJson={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)}
+        controlClass={controlClass}
+        t={t}
+      />
+    </>
+  );
+
+  const filterControls = (
+    <>
+      <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-filter">{t('persons.filter')}</label>
+      <Select
+        id="persons-filter"
+        value={filter}
+        onChange={setFilter}
+        options={filterOptions}
+        ariaLabel={t('persons.filterAria')}
+        className="w-full md:w-48"
+      />
+      <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-sort">{t('persons.sort')}</label>
+      <Select
+        id="persons-sort"
+        value={sortKey}
+        onChange={setSortKey}
+        options={sortOptions}
+        ariaLabel={t('persons.sortAria')}
+        className="w-full md:w-48"
+      />
+      <div className="col-span-2 md:min-w-[280px] md:max-w-[360px]">
+        <PersonPicker persons={persons} value={mePersonId} onChange={setMePersonId} />
+      </div>
+      {mePersonId ? (
+        <button type="button" onClick={() => setMePersonId('')} className="h-10 rounded-md border border-border bg-secondary px-3 text-xs text-muted-foreground hover:bg-accent">
+          {t('persons.clearMe')}
+        </button>
+      ) : null}
+    </>
+  );
+
   return (
     <div className="flex flex-col h-full">
-      <header className="border-b border-border bg-card px-4 md:px-5 py-3">
-        <div className="flex flex-wrap items-start gap-2 mb-2 md:mb-3">
+      <header className="border-b border-border bg-card px-3 py-2 md:px-5 md:py-3">
+        <div className="flex items-start gap-2 md:mb-3">
           <div className="min-w-0 flex-1">
             <h1 className="text-base font-semibold leading-tight">{t('persons.heading')}</h1>
             <div className="text-xs text-muted-foreground">
@@ -231,63 +290,42 @@ export default function Persons() {
               })}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <ColumnChooser
-              columns={listColumns}
-              isVisible={columnVisibility.isVisible}
-              onToggle={columnVisibility.toggle}
-              onReset={columnVisibility.resetToDefaults}
-            />
-            <ListReportToolbar
-              title={t('persons.listTitle')}
-              rows={visiblePersons}
-              columns={EXPORT_COLUMNS}
-              options={report.options}
-              update={report.update}
-              updateInfoColumn={report.updateInfoColumn}
-              onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
-              compact
-            />
-            <ExportMenu
-              onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)}
-              onJson={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)}
-              controlClass={controlClass}
-              t={t}
-            />
-          </div>
+          {isMobile ? (
+            <details className="group relative">
+              <summary className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-secondary text-foreground hover:bg-accent [&::-webkit-details-marker]:hidden" aria-label={t('persons.filter')}>
+                <SlidersHorizontal size={17} />
+              </summary>
+              <div className="absolute end-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-1.5rem))] rounded-md border border-border bg-card p-3 shadow-xl">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  {listActions}
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {filterControls}
+                </div>
+                {mePerson ? (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {t('persons.meHint', { name: mePerson.fullName })}
+                  </div>
+                ) : null}
+              </div>
+            </details>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              {listActions}
+            </div>
+          )}
         </div>
-        <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:items-center md:gap-3">
-          <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-filter">{t('persons.filter')}</label>
-          <Select
-            id="persons-filter"
-            value={filter}
-            onChange={setFilter}
-            options={filterOptions}
-            ariaLabel={t('persons.filterAria')}
-            className="w-full md:w-48"
-          />
-          <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-sort">{t('persons.sort')}</label>
-          <Select
-            id="persons-sort"
-            value={sortKey}
-            onChange={setSortKey}
-            options={sortOptions}
-            ariaLabel={t('persons.sortAria')}
-            className="w-full md:w-48"
-          />
-          <div className="col-span-2 md:min-w-[280px] md:max-w-[360px]">
-            <PersonPicker persons={persons} value={mePersonId} onChange={setMePersonId} />
-          </div>
-          {mePersonId ? (
-            <button type="button" onClick={() => setMePersonId('')} className="h-10 rounded-md border border-border bg-secondary px-3 text-xs text-muted-foreground hover:bg-accent">
-              {t('persons.clearMe')}
-            </button>
-          ) : null}
-        </div>
-        {mePerson ? (
-          <div className="mt-2 text-xs text-muted-foreground">
-            {t('persons.meHint', { name: mePerson.fullName })}
-          </div>
+        {!isMobile ? (
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              {filterControls}
+            </div>
+            {mePerson ? (
+              <div className="mt-2 text-xs text-muted-foreground">
+                {t('persons.meHint', { name: mePerson.fullName })}
+              </div>
+            ) : null}
+          </>
         ) : null}
       </header>
 
