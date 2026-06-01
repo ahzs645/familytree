@@ -38,7 +38,7 @@ export function useThreeTreeScene({
   const cameraTweenRef = useRef(null);
   const nodeTweensRef = useRef([]);
   const firstFitRef = useRef(true);
-  const structureSignatureRef = useRef(null);
+  const prevNodeIdsRef = useRef(null);
   const animationsEnabled = viewerOptions?.animationDuration !== 0;
   const animationScale = Number.isFinite(viewerOptions?.animationDuration) ? viewerOptions.animationDuration : 1;
   const [zoomPercent, setZoomPercent] = useState(100);
@@ -347,19 +347,25 @@ export function useThreeTreeScene({
       setZoomPercent(Math.round(camera.zoom * 100));
     }
 
-    // Node "build-in" pop on the first assembly of the tree. Focus changes are
-    // handled by the camera fly-to above, so we don't re-pop every node on each
-    // click (that would be too busy alongside the camera move).
-    const structureSignature = `${activeId || ''}|${layout.nodes.map((node) => node.id).join(',')}`;
-    const isFirstAssembly = structureSignatureRef.current === null && layout.nodes.length > 0;
-    if (tweens && animationsEnabled && isFirstAssembly) {
-      nodeObjects.forEach((object, index) => {
+    // Build-in "order-in" morph: on the first assembly every node pops; on a
+    // re-root only the NEW nodes rise/scale in while nodes that persist stay put
+    // (matches MFT's re-root, where stable people don't re-animate). Hover/option
+    // rebuilds keep the same id set, so nothing re-pops. New objects are detected
+    // by person id vs. the previous frame's id set.
+    const previousIds = prevNodeIdsRef.current;
+    const currentIds = new Set(layout.nodes.map((node) => node.id));
+    if (tweens && animationsEnabled && layout.nodes.length > 0) {
+      let order = 0;
+      for (const object of nodeObjects) {
+        const id = object.userData.node?.id;
+        const isNew = previousIds === null || !previousIds.has(id);
+        if (!isNew) continue;
         const finalZ = object.position.z;
         object.position.z = finalZ - 28;
         object.scale.setScalar(0.62);
         const tween = tweens.add({
           duration: 0.42 * (animationScale || 1),
-          delay: Math.min(0.45, index * 0.012) * (animationScale || 1),
+          delay: Math.min(0.5, order * 0.012) * (animationScale || 1),
           ease: easeOutBack,
           onUpdate: (t) => {
             object.position.z = finalZ - 28 + 28 * t;
@@ -371,11 +377,12 @@ export function useThreeTreeScene({
           },
         });
         nodeTweensRef.current.push(tween);
-      });
+        order += 1;
+      }
     }
-    // Only remember the signature once real nodes exist, so the empty initial
-    // render doesn't pre-empt the build-in animation for the real tree.
-    if (layout.nodes.length > 0) structureSignatureRef.current = structureSignature;
+    // Remember the id set once real nodes exist, so the empty initial render
+    // doesn't pre-empt the build-in animation for the real tree.
+    if (layout.nodes.length > 0) prevNodeIdsRef.current = currentIds;
 
     actionsRef.current = {
       ...actionsRef.current,

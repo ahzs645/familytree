@@ -3,7 +3,7 @@
  * Pick entity type, build filter rows, run search, view results.
  */
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ENTITY_TYPES, SEARCH_FIELDS, FILTER_OPS, runSearch } from '../../lib/search.js';
 import { listAllScopes, runScope } from '../../lib/smartScopes.js';
 import { applySearchReplace, previewSearchReplace, replaceableFields, undoLastSearchReplace } from '../../lib/searchReplace.js';
@@ -59,7 +59,9 @@ export function SearchApp() {
   const [replacePreview, setReplacePreview] = useState(null);
   const [replaceStatus, setReplaceStatus] = useState('');
   const [savedSearches, setSavedSearches] = useState([]);
+  const location = useLocation();
   const navigate = useNavigate();
+  const isSearchReplaceRoute = location.pathname === '/search-and-replace';
 
   const loadSaved = useCallback(async () => {
     const list = await getLocalDatabase().getMeta(SAVED_SEARCHES_KEY);
@@ -279,7 +281,7 @@ export function SearchApp() {
         </Field>
 
         <button onClick={onAddFilter} style={{ ...input, cursor: 'pointer', marginTop: 14 }}>+ Filter</button>
-        <button onClick={onRun} disabled={running} style={{ ...input, cursor: 'pointer', marginTop: 14, background: 'hsl(var(--primary))' }}>
+        <button onClick={onRun} disabled={running} style={{ ...primaryButton, cursor: 'pointer', marginTop: 14 }}>
           {running ? 'Running…' : 'Search'}
         </button>
 
@@ -324,54 +326,56 @@ export function SearchApp() {
         ))}
       </div>
 
-      <section style={replacePanel}>
-        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Search and Replace</div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <Field label="Field">
-            <Select
-              value={replaceField}
-              onChange={setReplaceField}
-              options={replaceFieldOptions}
-              style={{ width: '100%', minWidth: 0 }}
-              triggerClassName="h-auto"
-              triggerStyle={input}
-            />
-          </Field>
-          <Field label="Find">
-            <input value={findText} onChange={(e) => setFindText(e.target.value)} style={{ ...input, width: '100%', minWidth: 0 }} />
-          </Field>
-          <Field label="Replace with">
-            <input value={replacementText} onChange={(e) => setReplacementText(e.target.value)} style={{ ...input, width: '100%', minWidth: 0 }} />
-          </Field>
-          <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <input type="checkbox" checked={matchCase} onChange={(e) => setMatchCase(e.target.checked)} /> Match case
-          </label>
-          <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <input type="checkbox" checked={wholeField} onChange={(e) => setWholeField(e.target.checked)} /> Whole field
-          </label>
-          <button onClick={onPreviewReplace} disabled={running || !replaceField || !findText} style={input}>Preview</button>
-          <button onClick={onApplyReplace} disabled={running || !replacePreview?.changes?.length} style={{ ...input, background: 'hsl(var(--primary))' }}>Apply</button>
-          <button onClick={onUndoReplace} disabled={running} style={input}>Undo Last</button>
-        </div>
-        {replaceStatus && <div style={{ marginTop: 8, color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>{replaceStatus}</div>}
-        {replacePreview?.changes?.length > 0 && (
-          <div style={previewBox}>
-            {replacePreview.changes.slice(0, 20).map((change) => (
-              <div key={`${change.recordName}-${change.fieldName}`} style={previewRow}>
-                <strong>{change.label}</strong>
-                <span style={{ color: 'hsl(var(--muted-foreground))' }}>{change.fieldName}</span>
-                <span>{String(change.before)}</span>
-                <span style={{ color: 'hsl(var(--primary))' }}>{String(change.after)}</span>
-              </div>
-            ))}
-            {replacePreview.changes.length > 20 && (
-              <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, padding: 6 }}>
-                {replacePreview.changes.length - 20} more replacement previews hidden.
-              </div>
-            )}
+      {isSearchReplaceRoute && (
+        <section style={replacePanel}>
+          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Search and Replace</div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <Field label="Field">
+              <Select
+                value={replaceField}
+                onChange={setReplaceField}
+                options={replaceFieldOptions}
+                style={{ width: '100%', minWidth: 0 }}
+                triggerClassName="h-auto"
+                triggerStyle={input}
+              />
+            </Field>
+            <Field label="Find">
+              <input value={findText} onChange={(e) => setFindText(e.target.value)} style={{ ...input, width: '100%', minWidth: 0 }} />
+            </Field>
+            <Field label="Replace with">
+              <input value={replacementText} onChange={(e) => setReplacementText(e.target.value)} style={{ ...input, width: '100%', minWidth: 0 }} />
+            </Field>
+            <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input type="checkbox" checked={matchCase} onChange={(e) => setMatchCase(e.target.checked)} /> Match case
+            </label>
+            <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <input type="checkbox" checked={wholeField} onChange={(e) => setWholeField(e.target.checked)} /> Whole field
+            </label>
+            <button onClick={onPreviewReplace} disabled={running || !replaceField || !findText} style={input}>Preview</button>
+            <button onClick={onApplyReplace} disabled={running || !replacePreview?.changes?.length} style={primaryButton}>Apply</button>
+            <button onClick={onUndoReplace} disabled={running} style={input}>Undo Last</button>
           </div>
-        )}
-      </section>
+          {replaceStatus && <div style={{ marginTop: 8, color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>{replaceStatus}</div>}
+          {replacePreview?.changes?.length > 0 && (
+            <div style={previewBox}>
+              {replacePreview.changes.slice(0, 20).map((change) => (
+                <div key={`${change.recordName}-${change.fieldName}`} style={previewRow}>
+                  <strong>{change.label}</strong>
+                  <span style={{ color: 'hsl(var(--muted-foreground))' }}>{change.fieldName}</span>
+                  <span>{String(change.before)}</span>
+                  <span style={{ color: 'hsl(var(--primary))' }}>{String(change.after)}</span>
+                </div>
+              ))}
+              {replacePreview.changes.length > 20 && (
+                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, padding: 6 }}>
+                  {replacePreview.changes.length - 20} more replacement previews hidden.
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       <main style={main}>
         <SearchResults entityType={entityType} result={result} />
@@ -415,6 +419,11 @@ const input = {
   padding: '8px 10px',
   font: '13px -apple-system, system-ui, sans-serif',
   outline: 'none',
+};
+const primaryButton = {
+  ...input,
+  background: 'hsl(var(--primary))',
+  color: 'hsl(var(--primary-foreground))',
 };
 const previewBox = { marginTop: 10, maxHeight: 180, overflow: 'auto', border: '1px solid hsl(var(--border))', borderRadius: 8 };
 const previewRow = { display: 'grid', gridTemplateColumns: 'minmax(120px, 1.2fr) minmax(80px, 0.8fr) minmax(120px, 1fr) minmax(120px, 1fr)', gap: 8, padding: '6px 8px', borderBottom: '1px solid hsl(var(--border))', fontSize: 12, wordBreak: 'break-word' };

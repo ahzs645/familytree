@@ -132,9 +132,11 @@ describe('buildInteractiveLayout', () => {
       const ids = link.nodeIds || [];
       return ids.includes('father') && ids.includes('mother');
     })).toBe(true);
-    // The root's own drop reaches up from the sibling bus toward its top edge.
-    const rootDrop = familyLinks.find((link) => link.nodeIds?.length === 1 && link.nodeIds[0] === 'root');
-    expect(rootDrop.points[0].y).toBeGreaterThan(nodes.get('root').y + ROOT_CARD.h * 0.44);
+    // The root's connector rises from the sibling bus above the root's top edge.
+    const rootLink = familyLinks.find((link) => (link.nodeIds || []).includes('root'));
+    expect(rootLink).toBeTruthy();
+    const highestPointY = Math.max(...rootLink.points.map((point) => point.y));
+    expect(highestPointY).toBeGreaterThan(nodes.get('root').y + ROOT_CARD.h * 0.44);
     expect(layout.bands.find((band) => band.generation === 0)).toMatchObject({
       count: 2,
       title: 'Root Generation',

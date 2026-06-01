@@ -94,6 +94,7 @@ export function PersonContextMenu({
   onOpenAncestorChart,
   onOpenDescendantChart,
   onAddRelative,
+  onDeletePerson,
   context,
 }) {
   const familyId = selectableFamilyId(node);
@@ -173,6 +174,19 @@ export function PersonContextMenu({
       <div style={styles.contextDivider} />
       <button type="button" style={styles.contextItem} onClick={() => run(onOpenAncestorChart)} role="menuitem">Ancestor Chart</button>
       <button type="button" style={styles.contextItem} onClick={() => run(onOpenDescendantChart)} role="menuitem">Descendant Chart</button>
+      {onDeletePerson && (
+        <>
+          <div style={styles.contextDivider} />
+          <button
+            type="button"
+            style={{ ...styles.contextItem, color: '#c1322b' }}
+            onClick={() => run(onDeletePerson)}
+            role="menuitem"
+          >
+            Delete Person…
+          </button>
+        </>
+      )}
     </div>
   );
 }

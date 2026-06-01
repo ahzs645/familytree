@@ -13,6 +13,7 @@ import {
   findLargestDescendantRoot,
 } from '../../lib/treeQuery.js';
 import { buildFamilyTreeViewModel, buildPersonContext } from '../../lib/personContext.js';
+import { deletePerson } from '../../lib/subtree.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { PersonList } from './PersonList.jsx';
 import { PersonFocus } from './PersonFocus.jsx';
@@ -29,6 +30,7 @@ import { BdiText, LtrText } from '../BdiText.jsx';
 
 export function InteractiveTreeApp() {
   const [persons, setPersons] = useState([]);
+  const [dataVersion, setDataVersion] = useState(0);
   const [context, setContext] = useState(null);
   const [trees, setTrees] = useState({ ancestor: null, descendant: null, graph: null, familyTree: null, loading: false });
   const [searchParams] = useSearchParams();
@@ -89,7 +91,7 @@ export function InteractiveTreeApp() {
     return () => {
       cancelled = true;
     };
-  }, [activeId, viewMode]);
+  }, [activeId, viewMode, dataVersion]);
 
   useEffect(() => () => {
     window.dispatchEvent(new CustomEvent('cloudtreeweb:navigation-visibility', { detail: { hidden: false } }));
@@ -105,6 +107,34 @@ export function InteractiveTreeApp() {
     setActivePerson(recordName);
     setMobilePane('focus');
   }, [setActivePerson]);
+  const onDeletePerson = useCallback(async (recordName) => {
+    if (!recordName) return;
+    const target = persons.find((p) => p.recordName === recordName);
+    const name = target?.fullName || 'this person';
+    if (typeof window !== 'undefined'
+      && !window.confirm(`Delete ${name}?\n\nThe person is removed and detached from their families. Their descendants are kept.`)) {
+      return;
+    }
+    await deletePerson(recordName);
+    const list = await listAllPersons();
+    setPersons(list);
+    if (list.length === 0) {
+      setEmpty(true);
+      setActivePerson('');
+      return;
+    }
+    // If we deleted the focused person (or the active one no longer exists),
+    // re-root on a sensible survivor.
+    if (recordName === activeId || !list.some((p) => p.recordName === activeId)) {
+      const start = await findStartPerson().catch(() => null);
+      const fallback = start?.recordName && list.some((p) => p.recordName === start.recordName)
+        ? start.recordName
+        : list[0].recordName;
+      setActivePerson(fallback);
+    }
+    // Force the tree to rebuild even when a non-focused person was removed.
+    setDataVersion((version) => version + 1);
+  }, [persons, activeId, setActivePerson]);
   const toggleTreeChrome = useCallback((key) => {
     setTreeChrome((current) => {
       const next = { ...current, [key]: !current[key] };
@@ -256,6 +286,7 @@ export function InteractiveTreeApp() {
                     onOpenAncestorChart={openAncestor}
                     onOpenDescendantChart={openDescendant}
                     onAddRelative={onAddRelative}
+                    onDeletePerson={onDeletePerson}
                     context={context}
                     chrome={treeChrome}
                     onToggleChrome={toggleTreeChrome}

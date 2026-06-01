@@ -9,7 +9,7 @@ import {
   SKIN,
 } from './constants.js';
 import { MAC_FAMILY_GRAPH_LAYOUT } from './macTreeStyle.js';
-import { colorsForGender } from './personColors.js';
+import { colorsForGender, colorsForNode } from './personColors.js';
 
 const referenceModelCache = new Map();
 const referenceModelPreloadPromises = new Map();
@@ -45,7 +45,7 @@ function referenceModelFileNames(personStyle = 'simplified') {
   return [...new Set(names)];
 }
 
-export function makeReferencePersonModel(node, palette, featured, personStyle = 'simplified') {
+export function makeReferencePersonModel(node, palette, featured, personStyle = 'simplified', viewerOptions = {}) {
   const person = node?.person || node;
   const genderName = REFERENCE_MODEL_GENDERS[person?.gender] || REFERENCE_MODEL_GENDERS.unknown;
   const style = PERSON_STYLES.find((item) => item.id === personStyle) || PERSON_STYLES[0];
@@ -56,7 +56,9 @@ export function makeReferencePersonModel(node, palette, featured, personStyle = 
 
   const wrapper = new THREE.Group();
   const clone = template.clone(true);
-  const colors = colorsForGender(person?.gender, palette);
+  // Honour the active person-colouring mode (byGender/byGeneration/byPedigree)
+  // on the real .dae models too — previously they always reverted to gender.
+  const colors = colorsForNode(node, palette, viewerOptions?.personColoringMode || 'byGender');
   clone.traverse((child) => {
     if (!child.isMesh) return;
     child.castShadow = true;

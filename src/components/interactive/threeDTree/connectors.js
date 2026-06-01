@@ -93,7 +93,7 @@ function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescend
   // Tube radius in scene units. The native flat viewer draws hairline
   // connectors, so keep these slim — ~1.5 units renders near 1px at the
   // default top-down framing. The faint shadow tube sits just behind.
-  const radius = 1.5 * thicknessScale;
+  const radius = 2.4 * thicknessScale;
   const shadowRadius = radius + 1.6;
 
   const addSegment = (a, b) => {
@@ -126,7 +126,7 @@ export function makeConnector(link, nodes, palette, options = {}) {
       : orthogonalPoints(from, to, z);
   }
 
-  const baseRadius = link.emphasis ? 2.0 : type === 'partner' ? 1.3 : 1.5;
+  const baseRadius = link.emphasis ? 3.0 : type === 'partner' ? 1.9 : 2.4;
   const tubeRadius = baseRadius * thicknessScale;
   group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.4, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
   group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: 0 }, 4));

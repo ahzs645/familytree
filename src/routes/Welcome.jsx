@@ -15,9 +15,10 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { ImportDropZone } from '../components/ImportDropZone.jsx';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { logRecordCreated } from '../lib/changeLog.js';
-import { saveActiveTree, startNewTree } from '../lib/treeLibrary.js';
+import { saveActiveTree, startNewTree, upsertActiveTreeSnapshot } from '../lib/treeLibrary.js';
 import { Gender } from '../models/index.js';
 
 function uuid(prefix) {
@@ -86,6 +87,12 @@ export default function Welcome() {
     }
   };
 
+  const onImported = async (result) => {
+    await upsertActiveTreeSnapshot({ name: result?.treeName || treeName.trim() || t('onboarding.defaultTreeName', { defaultValue: 'My family tree' }) });
+    await refresh();
+    navigate('/tree', { replace: true });
+  };
+
   return (
     <div className="px-4 sm:px-6 py-8 sm:py-12 pb-16 h-full overflow-auto">
       <div className="max-w-xl mx-auto">
@@ -103,6 +110,17 @@ export default function Welcome() {
               ? t('onboarding.step1Body', { defaultValue: 'Pick a name so you can switch between trees later. You can rename it any time from “My family trees.”' })
               : t('onboarding.step2Body', { defaultValue: 'You become the starting person of this tree. After this step you can add parents, a partner, and children directly in the tree view.' })}
           </p>
+        </section>
+
+        <section className="mb-6 rounded-xl border border-border bg-card p-5 sm:p-6">
+          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+            {t('import.title', { defaultValue: 'Import family tree' })}
+          </div>
+          <h2 className="text-lg font-semibold mb-2">Open an existing tree</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+            Import a MacFamilyTree package, GEDCOM file, or backup instead of starting from scratch.
+          </p>
+          <ImportDropZone onImported={onImported} />
         </section>
 
         <ol className="flex items-center gap-2 mb-6 text-xs text-muted-foreground" aria-label={t('onboarding.stepsAria', { defaultValue: 'Onboarding steps' })}>

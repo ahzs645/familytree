@@ -23,6 +23,7 @@ export function ThreeDTreeView({
   onOpenAncestorChart,
   onOpenDescendantChart,
   onAddRelative,
+  onDeletePerson,
   context,
   chrome = { navigation: true, people: true, inspector: true, header: true },
   onToggleChrome,
@@ -264,6 +265,7 @@ export function ThreeDTreeView({
           onOpenAncestorChart={onOpenAncestorChart}
           onOpenDescendantChart={onOpenDescendantChart}
           onAddRelative={onAddRelative}
+          onDeletePerson={onDeletePerson}
           context={context}
         />
       )}

@@ -159,7 +159,8 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false, vi
   card.renderOrder = 3;
   group.add(card);
 
-  group.add(makeRootMark(palette));
+  const rootColors = colorsForNode(node, palette, viewerOptions?.personColoringMode || 'byGender');
+  group.add(makeRootMark(palette, rootColors));
   if (viewerOptions?.highlightLivingPersons && isLivingPerson(node?.person)) {
     group.add(makeLivingHalo(palette, true));
   }
@@ -190,7 +191,7 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false, vi
 
 function makeMacPersonModel(node, palette, featured, personStyle, viewerOptions = {}) {
   const person = node?.person || node;
-  const referenceModel = makeReferencePersonModel(node, palette, featured, personStyle);
+  const referenceModel = makeReferencePersonModel(node, palette, featured, personStyle, viewerOptions);
   if (referenceModel) return referenceModel;
 
   const group = new THREE.Group();
@@ -275,33 +276,49 @@ function makeMacPersonModel(node, palette, featured, personStyle, viewerOptions 
 }
 
 function hasMoreRelatives(node) {
-  return (node?.more?.relatives || 0) > 0;
+  const more = node?.more;
+  if (!more) return false;
+  return (more.parents || 0) > 0 || (more.families || 0) > 0 || (more.relatives || 0) > 0;
 }
 
-// Small "further relatives available" pin shown below a person who has more
-// family (ancestors/descendants) hidden off the direct chart — mirrors the
-// native viewer's subtle indicator instead of a prominent "+N" badge.
-function makeFurtherRelativesMarker(node, palette, featured) {
+// One small pin (stem + bulb) pointing `dir` (+1 up toward hidden ancestors,
+// -1 down toward hidden descendants), tinted by the person's resolved colour.
+function makeFurtherPersonsPin(node, palette, featured, dir, baseY) {
   const group = new THREE.Group();
-  const color = node?.person?.gender === 'female' || /female/i.test(node?.person?.gender || '')
-    ? '#c98a52'
-    : '#5c84c4';
+  const color = colorsForGender(node?.person?.gender, palette).deep;
   const material = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.04 });
   const stemHeight = featured ? 16 : 12;
   const radius = featured ? 1.8 : 1.4;
   const stem = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, stemHeight, 10), material);
-  stem.position.set(0, stemHeight / 2, 0);
+  stem.position.set(0, dir * stemHeight / 2, 0);
   group.add(stem);
   const bulb = new THREE.Mesh(new THREE.SphereGeometry(featured ? 4.6 : 3.6, 18, 12), material);
+  bulb.position.set(0, dir * stemHeight, 0);
   group.add(bulb);
   const highlight = new THREE.Mesh(
     new THREE.SphereGeometry(featured ? 1.5 : 1.2, 8, 6),
     new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false })
   );
-  highlight.position.set(-1.1, 0.9, 2.4);
+  highlight.position.set(-1.1, dir * stemHeight - 0.9, 2.4);
   group.add(highlight);
-  group.position.set(0, featured ? -ROOT_CARD.h * 0.5 - 82 : -100, 12);
+  group.position.set(0, baseY, 12);
   group.renderOrder = 19;
+  return group;
+}
+
+// Directional "further relatives available" indicator — a pin above the person
+// when ancestors are hidden, and below when descendants are hidden — mirroring
+// the native viewer's FurtherPersonsMark (up=parents, down=children).
+function makeFurtherRelativesMarker(node, palette, featured) {
+  const group = new THREE.Group();
+  const more = node?.more || {};
+  const topY = featured ? ROOT_CARD.h * 0.5 + 8 : 64;
+  const bottomY = featured ? -ROOT_CARD.h * 0.5 - 84 : -102;
+  let drew = false;
+  if ((more.parents || 0) > 0) { group.add(makeFurtherPersonsPin(node, palette, featured, 1, topY)); drew = true; }
+  if ((more.families || 0) > 0) { group.add(makeFurtherPersonsPin(node, palette, featured, -1, bottomY)); drew = true; }
+  // Fallback for a generic "more relatives" count with no direction.
+  if (!drew && (more.relatives || 0) > 0) group.add(makeFurtherPersonsPin(node, palette, featured, -1, bottomY));
   return group;
 }
 
@@ -353,11 +370,14 @@ function makeStatusBadges(node, featured) {
   return group;
 }
 
-function makeRootMark(palette) {
+function makeRootMark(palette, colors = null) {
   const group = new THREE.Group();
+  // Tint the root ring by the focused person's resolved colour (gender / active
+  // colouring mode) — MFT's root mark is tinted, not a fixed blue.
+  const ringColor = colors?.deep || palette.male;
   const ring = new THREE.Mesh(
     new THREE.TorusGeometry(ROOT_CARD.w * 0.38, 4.5, 10, 96),
-    new THREE.MeshBasicMaterial({ color: palette.male, transparent: true, opacity: 0.92, depthWrite: false })
+    new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.92, depthWrite: false })
   );
   ring.position.set(0, 0, 31);
   ring.renderOrder = 11;

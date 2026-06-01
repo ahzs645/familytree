@@ -86,7 +86,7 @@ export default function Maintenance() {
           <p className="text-xs text-muted-foreground mb-3">Hub links to maintenance workflows that live elsewhere in the app.</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
             <Link to="/duplicates" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Duplicates</Link>
-            <Link to="/search" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Search &amp; Replace</Link>
+            <Link to="/search-and-replace" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Search &amp; Replace</Link>
             <Link to="/export" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Merge / Import</Link>
             <Link to="/backup" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Backup / Restore</Link>
             <Link to="/places" className="rounded-md border border-border bg-secondary px-3 py-2 hover:bg-accent">Places &amp; Geocoding</Link>

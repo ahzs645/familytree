@@ -126,3 +126,73 @@ export async function removeSubtree(rootPersonRecordName) {
   await db.applyRecordTransaction({ deleteRecordNames: [...names] });
   return names.size;
 }
+
+/**
+ * Delete a SINGLE person without removing their descendants. Removes the person
+ * record and its own sub-records (events, facts, names, notes), the child
+ * relations linking them to their parents, any source/media/todo/label
+ * relations targeting them, and detaches them from every family they parent
+ * (clearing the man/woman field, deleting the family only if it becomes empty —
+ * no remaining parent and no children). Returns the count of deleted records.
+ */
+export async function deletePerson(personRecordName) {
+  const db = getLocalDatabase();
+  const person = await db.getRecord(personRecordName);
+  if (!person) return 0;
+
+  const deleteNames = new Set([personRecordName]);
+  const saveRecords = [];
+
+  // 1. The person's own attached records.
+  for (const type of ['PersonEvent', 'PersonFact', 'AdditionalName', 'Note']) {
+    const { records } = await db.query(type, { referenceField: 'person', referenceValue: personRecordName, limit: 100000 });
+    for (const record of records) deleteNames.add(record.recordName);
+  }
+
+  // 2. Child relations where this person is the CHILD (links to their parents).
+  const asChild = await db.query('ChildRelation', { referenceField: 'child', referenceValue: personRecordName, limit: 100000 });
+  for (const rel of asChild.records) deleteNames.add(rel.recordName);
+
+  // 3. Relations elsewhere that target this person.
+  for (const type of ['SourceRelation', 'MediaRelation', 'ToDoRelation', 'LabelRelation']) {
+    const { records } = await db.query(type, { limit: 100000 });
+    for (const record of records) {
+      const target = refToRecordName(record.fields?.target?.value)
+        || refToRecordName(record.fields?.baseObject?.value)
+        || refToRecordName(record.fields?.targetPerson?.value)
+        || refToRecordName(record.fields?.person?.value);
+      if (target === personRecordName) deleteNames.add(record.recordName);
+    }
+  }
+
+  // 4. Detach from every family this person parents; keep the family (and its
+  //    children) if a co-parent or children remain, else delete the empty family.
+  const familyIds = new Set();
+  for (const field of ['man', 'woman']) {
+    const { records } = await db.query('Family', { referenceField: field, referenceValue: personRecordName, limit: 100000 });
+    for (const family of records) familyIds.add(family.recordName);
+  }
+  for (const familyId of familyIds) {
+    const family = await db.getRecord(familyId);
+    if (!family) continue;
+    const fields = { ...(family.fields || {}) };
+    const manId = refToRecordName(fields.man?.value);
+    const womanId = refToRecordName(fields.woman?.value);
+    if (manId === personRecordName) delete fields.man;
+    if (womanId === personRecordName) delete fields.woman;
+    const otherParent = (manId === personRecordName ? womanId : manId);
+    const childRels = await db.query('ChildRelation', { referenceField: 'family', referenceValue: familyId, limit: 100000 });
+    const hasChildren = childRels.records.length > 0;
+    if (!otherParent && !hasChildren) {
+      deleteNames.add(familyId);
+    } else {
+      saveRecords.push({ ...family, fields });
+    }
+  }
+
+  await db.applyRecordTransaction({
+    saveRecords,
+    deleteRecordNames: [...deleteNames],
+  });
+  return deleteNames.size;
+}
