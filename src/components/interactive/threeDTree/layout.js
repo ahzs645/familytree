@@ -330,6 +330,10 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     }
     addPolyline(familyId, type, emphasis, [a, b], nodeIds);
   };
+  // Generation of the family currently being routed. Connectors inherit it so
+  // the "By Generation, Light" colour mode can tint each link by the row it
+  // feeds into, matching the native multi-hue look.
+  let routingGeneration = 0;
   const addPolyline = (familyId, type, emphasis, points, nodeIds = []) => {
     routedLinks.push({
       key: `${familyId}:${type}:${routedLinks.length}`,
@@ -337,6 +341,7 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
       emphasis,
       points,
       nodeIds,
+      generation: routingGeneration,
     });
   };
   for (const family of familyGraph.families || []) {
@@ -344,6 +349,7 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     const children = (family.children || []).map((id) => nodeById.get(id)).filter(Boolean);
     if (parents.length === 0 || children.length === 0) continue;
     const generation = children[0].generation;
+    routingGeneration = generation;
     const childY = -generation * GENERATION_STEP;
     const parentY = parents[0].y;
     const direction = Math.sign(parentY - childY || 1);

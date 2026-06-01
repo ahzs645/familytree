@@ -99,7 +99,7 @@ export function EditorSectionNavBar({ className }) {
     <nav
       aria-label="Editor sections"
       className={cn(
-        'flex items-center gap-1 snap-x scroll-px-4 overflow-x-auto border-b border-border bg-card/90 px-4 py-1.5 backdrop-blur',
+        'no-scrollbar flex items-center gap-1 snap-x scroll-px-4 overflow-x-auto border-b border-border bg-card/90 px-4 py-1.5 backdrop-blur',
         '[mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]',
         className
       )}

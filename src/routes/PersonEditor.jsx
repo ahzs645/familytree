@@ -107,6 +107,9 @@ const ACCENTS = {
   partners: 'rgb(230 128 128)',
 };
 
+// Stable DOM id for the Source Citations section so "Unsourced" evidence
+// badges can scroll the user straight to where they attach a source.
+const SOURCE_CITATIONS_ANCHOR = 'person-source-citations';
 
 export default function PersonEditor() {
   const { id } = useParams();
@@ -295,6 +298,12 @@ export default function PersonEditor() {
   const guardedNavigate = useCallback((to, options) => {
     if (confirmUnsavedChanges(dirty)) navigate(to, options);
   }, [dirty, navigate]);
+
+  // Jump to the Source Citations section (the "Unsourced" badges call this).
+  const scrollToSourceCitations = useCallback(() => {
+    const el = document.getElementById(SOURCE_CITATIONS_ANCHOR);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   const onSave = useCallback(async () => {
     if (!record) return;
@@ -542,7 +551,7 @@ export default function PersonEditor() {
                       return (
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
                           <span className="text-sm">{label}{date && <span className="text-muted-foreground"> · {date}</span>}</span>
-                          <EvidenceBadge evidence={evidence?.byRecord?.get(e.recordName)} />
+                          <EvidenceBadge evidence={evidence?.byRecord?.get(e.recordName)} onClick={scrollToSourceCitations} />
                           <button onClick={() => guardedNavigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-primary hover:underline">edit</button>
                         </div>
                       );
@@ -579,7 +588,7 @@ export default function PersonEditor() {
                         className={inputClass() + ' w-[120px] shrink-0'}
                       />
                       <div className="flex items-center gap-2 ms-auto shrink-0">
-                        <EvidenceBadge evidence={it.recordName ? evidence?.byRecord?.get(it.recordName) : null} />
+                        <EvidenceBadge evidence={it.recordName ? evidence?.byRecord?.get(it.recordName) : null} onClick={scrollToSourceCitations} />
                         <RemoveBtn onClick={() => setFacts((a) => a.filter((_, j) => j !== i))} />
                       </div>
                     </div>
@@ -669,7 +678,7 @@ export default function PersonEditor() {
                 ))}
               </Section>
 
-              <Section title="Source Citations" accent={ACCENTS.sources}
+              <Section title="Source Citations" accent={ACCENTS.sources} domId={SOURCE_CITATIONS_ANCHOR}
                 controls={<button onClick={() => guardedNavigate('/sources')} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Sources</button>}>
                 <SourceCitationsEditor ownerRecordName={id} ownerRecordType="Person" ownerRole="target" onChanged={reload} />
               </Section>

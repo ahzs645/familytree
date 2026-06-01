@@ -78,6 +78,41 @@
   }
 }
 
+/* Scrollable-but-no-visible-scrollbar. Used by horizontal strips (e.g. the
+ * editor section nav) that scroll on overflow but shouldn't show a bar. */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Consistent native <select> styling across the interface. Replaces the
+ * browser's default (OS-dependent) arrow with a themed chevron and reserves
+ * room for it. Placed outside @layer base so the padding override beats
+ * Tailwind's px-* utilities the selects carry. Excludes multi/listbox selects
+ * and the heritage tree, which has its own gold serif select theme. */
+select:not([multiple]):not([size]):not(.heritage-root-select):not(.heritage-theme-select) {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='16'%20height='16'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23888c94'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='m6%209%206%206%206-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.625rem center;
+  background-size: 1rem;
+  padding-inline-end: 2rem !important;
+}
+[dir="rtl"] select:not([multiple]):not([size]):not(.heritage-root-select):not(.heritage-theme-select) {
+  background-position: left 0.625rem center;
+}
+/* Native <option> popups are OS-drawn; force readable theme colors so they
+ * don't fall back to white-on-white in dark mode on some browsers. */
+select:not(.heritage-root-select):not(.heritage-theme-select) option {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+}
+
 /* Prevent iOS zoom-on-focus. Inputs under 16px trigger auto-zoom on Safari.
  * Placed outside @layer base so it takes precedence over Tailwind's text-* utilities. */
 @media (max-width: 767px) {

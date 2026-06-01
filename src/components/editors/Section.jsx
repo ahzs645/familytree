@@ -10,45 +10,74 @@
  * localStorage so the user's choices stick across reloads.
  */
 import React, { useEffect, useState } from 'react';
-import { ChevronRight } from 'lucide-react';
+import {
+  ChevronRight,
+  Users,
+  Heart,
+  Mars,
+  Venus,
+  Baby,
+  User,
+  UserPlus,
+  Calendar,
+  FileText,
+  Image,
+  StickyNote,
+  Quote,
+  Link2,
+  Star,
+  Tag,
+  Hash,
+  Bookmark,
+  Lock,
+  Clock,
+  MapPin,
+  Map,
+  Crosshair,
+  BookOpen,
+  AlignLeft,
+  ListTodo,
+} from 'lucide-react';
 import { cn } from '../../lib/utils.js';
 import { useEditorSection } from './EditorSectionNav.jsx';
 
-const ICON_BASE = '/ctw-icons/content-controller-icons/';
-
+// Section headers used to load MacFamilyTree-style PNG glyphs from
+// /ctw-icons/. Those broke under subpath deploys (absolute /ctw-icons/ 404s)
+// and needed inverting to stay visible. Lucide vectors theme automatically and
+// ship no extra assets, so we map titles to icon components instead.
 const DEFAULT_SECTION_ICONS = [
-  [/^Parents$/, 'EditFamilyChildRelationsContentControllerIcon.png'],
-  [/^Partners$/, 'EditFamilyChildRelationsContentControllerIcon.png'],
-  [/^Man$/, 'EditFamilyEditManContentControllerIcon.png'],
-  [/^Woman$/, 'EditFamilyEditWomanContentControllerIcon.png'],
-  [/^Children\b/, 'EditFamilyChildRelationsContentControllerIcon.png'],
-  [/^Name & Gender$/, 'EditPersonNameContentControllerIcon.png'],
-  [/^Additional Names$/, 'EditPersonAdditionalNamesContentControllerIcon.png'],
-  [/^(Events|Family Events)$/, 'EditEventGeneralContentControllerIcon.png'],
-  [/^Facts$/, 'EditPersonFactsContentControllerIcon.png'],
-  [/^Media$/, 'EditMediaContentControllerIcon.png'],
-  [/^Notes$/, 'EditNotesContentControllerIcon.png'],
-  [/^Source Citations$/, 'EditSourceRelationsContentControllerIcon.png'],
-  [/^Referenced Entries$/, 'EditSourceReferencedEntriesContentControllerIcon.png'],
-  [/^Influential Persons$/, 'EditAssociatesContentControllerIcon.png'],
-  [/^Labels$/, 'EditLabelsContentControllerIcon.png'],
-  [/^Reference Numbers$/, 'EditReferenceNumbersContentControllerIcon.png'],
-  [/^Bookmarks$/, 'EditBookmarkContentControllerIcon.png'],
-  [/^Private$/, 'EditPrivateContentControllerIcon.png'],
-  [/^Last Edited$/, 'EditCreationAndChangeDateContentControllerIcon.png'],
-  [/^Place Name$/, 'EditPlaceNameContentControllerIcon.png'],
-  [/^Place Details\b/, 'EditPlaceDetailsContentControllerIcon.png'],
-  [/^Coordinate$/, 'EditEventCoordinateContentControllerIcon.png'],
-  [/^Source Information$/, 'EditSourceGeneralContentControllerIcon.png'],
-  [/^Template Fields$/, 'EditSourceGeneralContentControllerIcon.png'],
-  [/^Source Text$/, 'EditSourceTextContentControllerIcon.png'],
-  [/^ToDos, Stories & Groups$/, 'EditSourceReferencedEntriesContentControllerIcon.png'],
+  [/^Parents$/, Users],
+  [/^Partners$/, Heart],
+  [/^Man$/, Mars],
+  [/^Woman$/, Venus],
+  [/^Children\b/, Baby],
+  [/^Name & Gender$/, User],
+  [/^Additional Names$/, UserPlus],
+  [/^(Events|Family Events)$/, Calendar],
+  [/^Facts$/, FileText],
+  [/^Media$/, Image],
+  [/^Notes$/, StickyNote],
+  [/^Source Citations$/, Quote],
+  [/^Referenced Entries$/, Link2],
+  [/^Influential Persons$/, Star],
+  [/^Labels$/, Tag],
+  [/^Reference Numbers$/, Hash],
+  [/^Bookmarks$/, Bookmark],
+  [/^Private$/, Lock],
+  [/^Last Edited$/, Clock],
+  [/^Place Name$/, MapPin],
+  [/^Place Details\b/, Map],
+  [/^Coordinate$/, Crosshair],
+  [/^Source Information$/, BookOpen],
+  [/^Template Fields$/, BookOpen],
+  [/^Source Text$/, AlignLeft],
+  [/^ToDos, Stories & Groups$/, ListTodo],
 ];
 
 function defaultIconForTitle(title) {
   if (typeof title !== 'string') return null;
   const match = DEFAULT_SECTION_ICONS.find(([pattern]) => pattern.test(title));
-  return match ? `${ICON_BASE}${match[1]}` : null;
+  return match ? match[1] : null;
 }
 
 function sectionStorageKey(persistKey, title) {
@@ -69,8 +98,9 @@ export function Section({
   collapsible = false,
   defaultCollapsed = false,
   persistKey,
+  domId,
 }) {
-  const iconSrc = icon || defaultIconForTitle(title);
+  const IconComponent = icon || defaultIconForTitle(title);
   const storageKey = sectionStorageKey(persistKey, title);
   // Register with the in-page section nav when an editor provides one.
   const { id: sectionId, ref: sectionRef } = useEditorSection(typeof title === 'string' ? title : '');
@@ -111,7 +141,7 @@ export function Section({
     : undefined;
 
   return (
-    <div ref={sectionRef} id={sectionId} className="rounded-lg border border-border bg-card mb-4 overflow-hidden scroll-mt-24">
+    <div ref={sectionRef} id={domId || sectionId} className="rounded-lg border border-border bg-card mb-4 overflow-hidden scroll-mt-24">
       <div
         className={cn(
           'flex flex-wrap items-center gap-3 px-4 py-3 bg-secondary/40',
@@ -124,11 +154,9 @@ export function Section({
         tabIndex={collapsible ? 0 : undefined}
         aria-expanded={collapsible ? !collapsed : undefined}
       >
-        {iconSrc ? (
+        {IconComponent ? (
           <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border border-border bg-background/70">
-            {/* Source icons are white glyphs (built for a dark toolbar); invert
-                in light mode so they're not invisible, keep as-is in dark. */}
-            <img src={iconSrc} alt="" className="h-5 w-5 object-contain invert dark:invert-0" />
+            <IconComponent size={18} className="text-foreground" aria-hidden="true" />
           </span>
         ) : (
           <span

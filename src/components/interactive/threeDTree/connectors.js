@@ -90,11 +90,11 @@ function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescend
   const xs = others.map((node) => node.x);
   const minX = Math.min(...xs, anchor.x);
   const maxX = Math.max(...xs, anchor.x);
-  // Tube radius in scene units. Default camera shows ~3000 units across
-  // ~1000px so ~2.2 units of radius renders as ~1.5px lines, matching the
-  // Mac source. Slimmer than this stipples due to sub-pixel antialiasing.
-  const radius = 2.2 * thicknessScale;
-  const shadowRadius = radius + 3.0;
+  // Tube radius in scene units. The native flat viewer draws hairline
+  // connectors, so keep these slim — ~1.5 units renders near 1px at the
+  // default top-down framing. The faint shadow tube sits just behind.
+  const radius = 1.5 * thicknessScale;
+  const shadowRadius = radius + 1.6;
 
   const addSegment = (a, b) => {
     const points = [new THREE.Vector3(a.x, a.y, z), new THREE.Vector3(b.x, b.y, z)];
@@ -109,7 +109,7 @@ function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescend
   // Subtle caps at junctions — small enough not to look like beads.
   const junctionXs = new Set([anchor.x, ...xs]);
   for (const x of junctionXs) {
-    group.add(makeConnectionCap(new THREE.Vector3(x, busY, z + 0.5), color, 3.0 * thicknessScale));
+    group.add(makeConnectionCap(new THREE.Vector3(x, busY, z + 0.5), color, 1.7 * thicknessScale));
   }
   return group;
 }
@@ -144,23 +144,55 @@ export function makeConnector(link, nodes, palette, options = {}) {
   return group;
 }
 
+// "By Generation, Light" connector hues. The native viewer walks a soft
+// rainbow as generations climb away from the root: rose at the root, through
+// amber / gold / green / teal, up to blue and violet for distant ancestors.
+// Tuned a touch deeper than the band fills so hairlines stay legible on pink.
+const CONNECTOR_GENERATION_COLORS = [
+  '#d98fb4', // 0 — root / descendants (muted rose, not hot magenta)
+  '#e0a25a', // 1 — parents / children (amber)
+  '#d8b24c', // 2 — grandparents (gold)
+  '#8fb061', // 3 — (green)
+  '#5ea69a', // 4 — (teal)
+  '#6f93c8', // 5 — (blue)
+  '#9080c2', // 6 — (violet)
+];
+
+function connectorGenerationColor(generation) {
+  const index = Math.min(CONNECTOR_GENERATION_COLORS.length - 1, Math.abs(Number(generation) || 0));
+  return CONNECTOR_GENERATION_COLORS[index];
+}
+
 function colorForConnector(link, type, palette, mode, customColor) {
   if (mode === 'gray') return '#9098a0';
   if (mode === 'blackOrWhite') return palette.background && isDarkBackground(palette.background) ? '#f4f5f7' : '#1c1f24';
   if (mode === 'customColor') return customColor || '#7b5af6';
   if (mode === 'byGenerationDark') {
     if (type === 'partner') return palette.partnerLine;
+    if (Number.isFinite(link.generation)) return shadeHex(connectorGenerationColor(link.generation), 0.22);
     return link.emphasis || type === 'descendant' ? palette.descendantLine : palette.ancestorLine;
   }
   if (mode === 'byBlood') {
     if (type === 'partner') return '#b2b8bf';
     return link.emphasis ? palette.descendantLine : (type === 'ancestor' ? palette.ancestorLine : palette.descendantLine);
   }
-  // byGenerationLight (default)
-  if (link.emphasis) return palette.descendantLine;
+  // byGenerationLight (default) — colour each connector by the generation it
+  // feeds into so siblings/branches read as a soft per-row gradient.
   if (type === 'partner') return palette.partnerLine;
+  if (Number.isFinite(link.generation)) return connectorGenerationColor(link.generation);
+  if (link.emphasis) return palette.descendantLine;
   if (type === 'ancestor') return palette.ancestorLine;
   return palette.descendantLine;
+}
+
+function shadeHex(hex, amount) {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return hex;
+  const next = [0, 2, 4].map((index) => {
+    const value = parseInt(normalized.slice(index, index + 2), 16);
+    return Math.round(value * (1 - amount)).toString(16).padStart(2, '0');
+  });
+  return `#${next.join('')}`;
 }
 
 function isDarkBackground(color) {

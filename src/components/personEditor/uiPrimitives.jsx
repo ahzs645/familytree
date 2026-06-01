@@ -60,12 +60,24 @@ export function EvidenceMetric({ label, value, tone }) {
   );
 }
 
-export function EvidenceBadge({ evidence }) {
+export function EvidenceBadge({ evidence, onClick }) {
   if (!evidence) return null;
+  const cls = `ms-auto shrink-0 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${toneClass(evidence.state)} ${borderToneClass(evidence.state)}`;
+  if (!onClick) {
+    return <span className={cls}>{evidence.state}</span>;
+  }
+  // Clickable: jumps to the Source Citations section so the user can attach a
+  // source. Title differs by state so "Supported" reads as "manage", not "fix".
+  const isUnsourced = evidence.state === 'Unsourced';
   return (
-    <span className={`ms-auto shrink-0 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${toneClass(evidence.state)} ${borderToneClass(evidence.state)}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      title={isUnsourced ? 'Add a source citation' : 'Manage source citations'}
+      className={`${cls} cursor-pointer transition-opacity hover:opacity-70 focus-visible:opacity-70`}
+    >
       {evidence.state}
-    </span>
+    </button>
   );
 }
 
