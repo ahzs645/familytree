@@ -95,7 +95,7 @@ async function main() {
         parsed.generationBandStyle = 'raised';
         parsed.generationBandOpacity = 0.78;
         parsed.connectionColorMode = 'byGenerationLight';
-        parsed.bottomPlaneMode = 'plain';
+        parsed.bottomPlaneMode = 'grid';
         parsed.lightingMode = 'normal';
         parsed.displayLabels = true;
         parsed.displayBirthDate = true;

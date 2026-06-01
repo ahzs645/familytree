@@ -70,44 +70,34 @@ function makeBandTexture(band, palette, style = 'raised', colorMode = 'byGenerat
     const insetY = style === 'flat' ? 58 : 36;
     const height = style === 'pedestal' ? h - 96 : h - 74;
     const radius = style === 'flat' ? 20 : 30;
-    ctx.shadowColor = style === 'flat' ? 'transparent' : 'rgba(88, 70, 86, 0.18)';
-    ctx.shadowBlur = style === 'pedestal' ? 50 : 40;
-    ctx.shadowOffsetX = 8;
-    ctx.shadowOffsetY = style === 'pedestal' ? 20 : 15;
+    ctx.shadowColor = style === 'flat' ? 'transparent' : 'rgba(120, 96, 116, 0.10)';
+    ctx.shadowBlur = style === 'pedestal' ? 30 : 22;
+    ctx.shadowOffsetX = 4;
+    ctx.shadowOffsetY = style === 'pedestal' ? 12 : 8;
     roundedRect(ctx, insetX, insetY, w - insetX * 2, height, radius);
+    // Soft, near-flat pastel fill — the native flat viewer has only a gentle
+    // top-to-bottom shade, no glossy plastic sheen.
     const body = ctx.createLinearGradient(0, insetY, 0, insetY + height);
-    body.addColorStop(0, tint(fill, 0.56));
-    body.addColorStop(0.2, tint(fill, 0.28));
-    body.addColorStop(0.62, fill);
-    body.addColorStop(1, shade(fill, 0.05));
+    body.addColorStop(0, tint(fill, 0.22));
+    body.addColorStop(0.35, tint(fill, 0.08));
+    body.addColorStop(0.75, fill);
+    body.addColorStop(1, shade(fill, 0.03));
     ctx.fillStyle = body;
     ctx.fill();
     ctx.shadowColor = 'transparent';
     ctx.shadowOffsetX = 0;
 
-    roundedRect(ctx, insetX + 7, insetY + 7, w - (insetX + 7) * 2, Math.max(26, height * 0.32), radius - 8);
-    const shine = ctx.createLinearGradient(0, insetY, 0, insetY + height * 0.45);
-    shine.addColorStop(0, 'rgba(255,255,255,0.66)');
-    shine.addColorStop(0.58, 'rgba(255,255,255,0.13)');
+    // Whisper-thin highlight along the very top edge only (no broad shine band).
+    roundedRect(ctx, insetX + 7, insetY + 6, w - (insetX + 7) * 2, Math.max(14, height * 0.16), radius - 8);
+    const shine = ctx.createLinearGradient(0, insetY, 0, insetY + height * 0.22);
+    shine.addColorStop(0, 'rgba(255,255,255,0.30)');
     shine.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = shine;
     ctx.fill();
 
-    const lowerBevel = ctx.createLinearGradient(0, insetY + height - 44, 0, insetY + height);
-    lowerBevel.addColorStop(0, 'rgba(255,255,255,0)');
-    lowerBevel.addColorStop(1, 'rgba(104, 62, 96, 0.09)');
-    roundedRect(ctx, insetX + 10, insetY + height - 44, w - (insetX + 10) * 2, 34, 18);
-    ctx.fillStyle = lowerBevel;
-    ctx.fill();
-
-    ctx.lineWidth = 2.1;
-    ctx.strokeStyle = band.generation === 0 ? 'rgba(196, 55, 164, 0.24)' : 'rgba(126, 117, 79, 0.18)';
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = band.generation === 0 ? 'rgba(196, 55, 164, 0.16)' : 'rgba(126, 117, 79, 0.12)';
     roundedRect(ctx, insetX, insetY, w - insetX * 2, height, radius);
-    ctx.stroke();
-
-    ctx.lineWidth = 1.2;
-    ctx.strokeStyle = 'rgba(255,255,255,0.62)';
-    roundedRect(ctx, insetX + 3, insetY + 3, w - (insetX + 3) * 2, height - 6, radius - 4);
     ctx.stroke();
   });
 }
@@ -216,14 +206,16 @@ function bandFillForMode(band, mode) {
       ? ancestorBandColor(Math.abs(band.generation))
       : descendantBandColor(band.generation);
   if (mode === 'macPink') {
-    // Uniform pink with slight per-generation luminosity, matching the Mac Flat viewer.
-    if (band.generation === 0) return 'rgba(244, 198, 224, 0.78)';
+    // Mac Flat viewer pink: strongest at the root/recent rows, fading toward
+    // near-white for distant ancestors (and far descendants). The earlier
+    // build had this inverted, which made the oldest band the most saturated.
+    if (band.generation === 0) return 'rgba(240, 190, 220, 0.80)';
     const tiers = [
-      'rgba(251, 223, 238, 0.66)',
-      'rgba(248, 212, 232, 0.66)',
-      'rgba(245, 202, 227, 0.66)',
-      'rgba(241, 192, 221, 0.66)',
-      'rgba(237, 182, 216, 0.66)',
+      'rgba(242, 196, 224, 0.74)', // gen ±1 — pink, close to the root
+      'rgba(245, 206, 229, 0.66)',
+      'rgba(248, 216, 234, 0.58)',
+      'rgba(250, 226, 240, 0.52)',
+      'rgba(252, 236, 245, 0.46)', // distant generations — almost white
     ];
     return tiers[Math.min(Math.abs(band.generation) - 1, tiers.length - 1)];
   }

@@ -100,6 +100,12 @@ function smoothReferenceGeometry(geometry) {
   return source;
 }
 
+function softenColor(hex, amount) {
+  const color = new THREE.Color(hex);
+  color.lerp(new THREE.Color('#ffffff'), Math.max(0, Math.min(1, amount)));
+  return color;
+}
+
 function cloneAndRetintMaterial(material, colors, options = {}) {
   if (Array.isArray(material)) return material.map((item) => cloneAndRetintMaterial(item, colors, options));
   const clone = material.clone();
@@ -107,23 +113,26 @@ function cloneAndRetintMaterial(material, colors, options = {}) {
   clone.flatShading = false;
   clone.side = THREE.DoubleSide;
   if (options.preserveReferenceMaterial) {
-    clone.roughness = 0.38;
-    clone.metalness = 0.02;
+    clone.roughness = 0.62;
+    clone.metalness = 0;
     clone.needsUpdate = true;
     return clone;
   }
+  // The native flat viewer renders soft, matte pastel figures. Keep the
+  // retint flat: no emissive glow (which reads as a glossy marble) and a high
+  // roughness so the key light produces a gentle sheen, not a hotspot.
   if (name.includes('skin')) {
-    clone.color = new THREE.Color(SKIN);
-    clone.emissive = new THREE.Color('#ffe0b6');
-    clone.emissiveIntensity = 0.08;
-    clone.roughness = 0.42;
+    clone.color = new THREE.Color(softenColor(SKIN, 0.12));
+    clone.emissive = new THREE.Color('#000000');
+    clone.emissiveIntensity = 0;
+    clone.roughness = 0.82;
     clone.metalness = 0;
   } else {
-    clone.color = new THREE.Color(colors.base);
-    clone.emissive = new THREE.Color(colors.base);
-    clone.emissiveIntensity = 0.06;
-    clone.roughness = 0.36;
-    clone.metalness = 0.02;
+    clone.color = new THREE.Color(softenColor(colors.base, 0.24));
+    clone.emissive = new THREE.Color('#000000');
+    clone.emissiveIntensity = 0;
+    clone.roughness = 0.72;
+    clone.metalness = 0;
   }
   clone.needsUpdate = true;
   return clone;

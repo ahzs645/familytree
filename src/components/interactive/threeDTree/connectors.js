@@ -132,13 +132,13 @@ export function makeConnector(link, nodes, palette, options = {}) {
       : orthogonalPoints(from, to, z);
   }
 
-  const baseRadius = link.emphasis ? 3.2 : type === 'partner' ? 1.8 : 2.2;
+  const baseRadius = link.emphasis ? 2.0 : type === 'partner' ? 1.3 : 1.5;
   const tubeRadius = baseRadius * thicknessScale;
-  group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 3.0, 0.06, { x: 3, y: -3, z: -6 }, 3));
+  group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.6, 0.06, { x: 3, y: -3, z: -6 }, 3));
   group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: 0 }, 4));
   if (type === 'family' || link.emphasis) {
     for (const point of uniqueConnectorPoints(points)) {
-      group.add(makeConnectionCap(point, color, link.emphasis ? 5.8 : 4.4));
+      group.add(makeConnectionCap(point, color, link.emphasis ? 2.6 : 1.9));
     }
   }
   return group;
@@ -264,10 +264,8 @@ function makeConnectorTube(points, color, radius, opacity, offset, renderOrder) 
   const geometry = new THREE.TubeGeometry(curve, segments, radius, 12, false);
   const material = new THREE.MeshStandardMaterial({
     color,
-    roughness: 0.34,
-    metalness: 0.02,
-    emissive: color,
-    emissiveIntensity: opacity > 0.4 ? 0.04 : 0,
+    roughness: 0.52,
+    metalness: 0,
     transparent: true,
     opacity,
     depthWrite: false,
