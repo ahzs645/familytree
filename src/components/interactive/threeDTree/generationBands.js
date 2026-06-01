@@ -28,37 +28,74 @@ function normalizeRenderStyle(style) {
   return style;
 }
 
+function roundedRectShape(width, height, radius) {
+  const w = width / 2;
+  const h = height / 2;
+  const r = Math.min(radius, w, h);
+  const shape = new THREE.Shape();
+  shape.moveTo(-w + r, -h);
+  shape.lineTo(w - r, -h);
+  shape.quadraticCurveTo(w, -h, w, -h + r);
+  shape.lineTo(w, h - r);
+  shape.quadraticCurveTo(w, h, w - r, h);
+  shape.lineTo(-w + r, h);
+  shape.quadraticCurveTo(-w, h, -w, h - r);
+  shape.lineTo(-w, -h + r);
+  shape.quadraticCurveTo(-w, -h, -w + r, -h);
+  return shape;
+}
+
+function rgbaToColor(rgba) {
+  const match = String(rgba).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!match) return new THREE.Color('#f3c6e0');
+  return new THREE.Color(`rgb(${match[1]}, ${match[2]}, ${match[3]})`);
+}
+
 export function makeGenerationBand(band, palette, style = 'raised', options = {}) {
   if (style === 'none') return new THREE.Group();
-  const opacity = Number.isFinite(options.generationBandOpacity) ? options.generationBandOpacity : 1;
+  const opacity = Number.isFinite(options.generationBandOpacity) ? options.generationBandOpacity : 0.62;
   const colorMode = options.generationBandColorMode || 'byGeneration';
   const renderStyle = normalizeRenderStyle(style);
   const prominent = isProminentBlood(style);
   const zOffset = bandHeightOffset(style, band.generation);
   const effectiveColorMode = prominent && colorMode === 'byGeneration' ? 'highSaturation' : colorMode;
+  const color = rgbaToColor(bandFillForMode(band, effectiveColorMode));
+  // Real extruded slab so the band reads as a 3D pedestal (visible depth/side
+  // when the camera tilts) like the native viewer, not a flat sticker.
+  const depth = renderStyle === 'pedestal' ? 70 : renderStyle === 'flat' ? 10 : 44;
   const group = new THREE.Group();
   const segments = band.segments?.length ? band.segments : [band];
   for (const segment of segments) {
-    const texture = makeBandTexture(band, palette, renderStyle, effectiveColorMode);
-    const geometry = new THREE.PlaneGeometry(segment.width, band.height);
-    const material = new THREE.MeshBasicMaterial({
-      map: texture,
-      transparent: true,
-      opacity: Math.max(0, Math.min(1, opacity / 0.62)),
-      depthWrite: false,
+    const shape = roundedRectShape(segment.width, band.height, 34);
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth,
+      bevelEnabled: true,
+      bevelThickness: 7,
+      bevelSize: 6,
+      bevelSegments: 2,
+      curveSegments: 8,
+    });
+    geometry.translate(0, 0, -depth);
+    const material = new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.82,
+      metalness: 0,
+      transparent: opacity < 0.99,
+      opacity: Math.max(0.5, Math.min(1, opacity / 0.62)),
     });
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.set(segment.x, band.y, -34 + zOffset);
+    // Top face sits just behind the figures; the slab extrudes away from camera.
+    mesh.position.set(segment.x, band.y, -8 + zOffset);
+    mesh.castShadow = false;
+    mesh.receiveShadow = true;
     mesh.renderOrder = 1;
     group.add(mesh);
 
-    if (renderStyle !== 'flat') {
-      const shadowTexture = makeBandShadowTexture();
-      const shadow = makePlaneFromTexture(shadowTexture, segment.width * 1.035, band.height * 1.08);
-      shadow.position.set(segment.x + 10, band.y - 16, -43 + zOffset);
-      shadow.renderOrder = 0.5;
-      group.add(shadow);
-    }
+    const shadowTexture = makeBandShadowTexture();
+    const shadow = makePlaneFromTexture(shadowTexture, segment.width * 1.04, band.height * 1.12);
+    shadow.position.set(segment.x + 12, band.y - 18, -8 - depth - 10 + zOffset);
+    shadow.renderOrder = 0.5;
+    group.add(shadow);
   }
   return group;
 }

@@ -37,6 +37,7 @@ import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 function uuid(p) {
   return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -323,10 +324,11 @@ export default function FamilyEditor() {
     reloadKey: loadSeq,
     enabled: !!family && !saving,
   });
+  const modal = useModal();
   const onToggleLock = useRecordLock({ record: family, setRecord: setFamily, setSaving, setStatus, reload });
-  const guardedNavigate = useCallback((to, options) => {
-    if (confirmUnsavedChanges(dirty)) navigate(to, options);
-  }, [dirty, navigate]);
+  const guardedNavigate = useCallback(async (to, options) => {
+    if (await confirmUnsavedChanges(dirty, modal)) navigate(to, options);
+  }, [dirty, modal, navigate]);
 
   const locked = !!family && isRecordLocked(family);
   useSaveShortcut(onSave, { enabled: !saving && !locked && dirty });

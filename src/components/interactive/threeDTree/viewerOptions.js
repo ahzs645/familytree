@@ -54,8 +54,9 @@ export function defaultViewerOptions() {
     generationBandOpacity: 0.62,
     generationBandsFullWidth: true,
 
-    // Camera
-    cameraMode: 'topDown',
+    // Camera — a gentle tilt reveals the 3D pedestal slab depth, matching the
+    // native viewer (straight top-down flattens the slabs).
+    cameraMode: 'topDownTilted',
 
     // Lighting
     lightingMode: 'normal',

@@ -27,8 +27,10 @@ import { Gender, lifeSpanLabel } from '../../models/index.js';
 import { resolveInitialTreePersonId } from './initialTreePerson.js';
 import { persistTreeViewMode, readInitialTreeViewMode } from './treeViewMode.js';
 import { BdiText, LtrText } from '../BdiText.jsx';
+import { useModal } from '../../contexts/ModalContext.jsx';
 
 export function InteractiveTreeApp() {
+  const modal = useModal();
   const [persons, setPersons] = useState([]);
   const [dataVersion, setDataVersion] = useState(0);
   const [context, setContext] = useState(null);
@@ -111,8 +113,11 @@ export function InteractiveTreeApp() {
     if (!recordName) return;
     const target = persons.find((p) => p.recordName === recordName);
     const name = target?.fullName || 'this person';
-    if (typeof window !== 'undefined'
-      && !window.confirm(`Delete ${name}?\n\nThe person is removed and detached from their families. Their descendants are kept.`)) {
+    if (!(await modal.confirm(`Delete ${name}?\n\nThe person is removed and detached from their families. Their descendants are kept.`, {
+      title: 'Delete person',
+      okLabel: 'Delete',
+      destructive: true,
+    }))) {
       return;
     }
     await deletePerson(recordName);
@@ -134,7 +139,7 @@ export function InteractiveTreeApp() {
     }
     // Force the tree to rebuild even when a non-focused person was removed.
     setDataVersion((version) => version + 1);
-  }, [persons, activeId, setActivePerson]);
+  }, [persons, activeId, modal, setActivePerson]);
   const toggleTreeChrome = useCallback((key) => {
     setTreeChrome((current) => {
       const next = { ...current, [key]: !current[key] };

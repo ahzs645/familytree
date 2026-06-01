@@ -55,12 +55,9 @@ async function main() {
   await page.goto(BASE + '/tree', { waitUntil: 'networkidle' });
   await page.waitForFunction(() => document.querySelectorAll('canvas').length > 0, { timeout: 30000 }).catch(() => null);
   await page.waitForFunction(() => !/Loading tree/.test(document.body.innerText || ''), { timeout: 30000 }).catch(() => null);
-  await page.waitForTimeout(2600);
-  await page.evaluate(() => {
-    const fit = [...document.querySelectorAll('button')].find((b) => /Size to Fit/.test(b.textContent || ''));
-    if (fit) fit.click();
-  });
-  await page.waitForTimeout(900);
+  await page.waitForTimeout(3200);
+  // Rely on the initial auto-fit (snap) for framing; the animated "Size to Fit"
+  // action is only used when explicitly zooming below.
   // Optional zoom-in (ZOOM = number of wheel ticks) to inspect connectors/text up close.
   const zoomTicks = Number(process.env.ZOOM || 0);
   if (zoomTicks > 0) {
@@ -80,6 +77,8 @@ async function main() {
     }
     await page.waitForTimeout(700);
   }
+  // Dim (not remove) the chrome overlays so the canvas reads clearly, without
+  // resizing the canvas container (hiding siblings + resize mis-frames the fit).
   await page.evaluate(() => {
     const canvas = document.querySelector('canvas');
     if (!canvas) return;
@@ -88,12 +87,10 @@ async function main() {
     if (!viewerShell) return;
     for (const child of viewerShell.children) {
       if (child === canvasShell) continue;
-      child.style.display = 'none';
+      child.style.opacity = '0';
     }
   });
-  await page.waitForTimeout(200);
-  await page.evaluate(() => window.dispatchEvent(new Event('resize')));
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(300);
   const outPath = resolve(OUT_DIR, `current-${MODE}.png`);
   await page.screenshot({ path: outPath, fullPage: false });
   console.log('saved', outPath);

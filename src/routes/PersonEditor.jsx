@@ -68,6 +68,7 @@ import {
 import { ParentsBlock } from '../components/personEditor/ParentsBlock.jsx';
 import { MilkKinshipEditor, emptyMilkKinship } from '../components/personEditor/MilkKinshipEditor.jsx';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
 import {
   queryMilkKinshipsForPerson,
@@ -300,10 +301,11 @@ export default function PersonEditor() {
     reloadKey: loadSeq,
     enabled: !!record && !saving,
   });
+  const modal = useModal();
   const onToggleLock = useRecordLock({ record, setRecord, setSaving, setStatus, reload });
-  const guardedNavigate = useCallback((to, options) => {
-    if (confirmUnsavedChanges(dirty)) navigate(to, options);
-  }, [dirty, navigate]);
+  const guardedNavigate = useCallback(async (to, options) => {
+    if (await confirmUnsavedChanges(dirty, modal)) navigate(to, options);
+  }, [dirty, modal, navigate]);
 
   // Jump to the Source Citations section (the "Unsourced" badges call this).
   const scrollToSourceCitations = useCallback(() => {

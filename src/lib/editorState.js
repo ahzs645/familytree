@@ -1,5 +1,6 @@
-import { useBeforeUnload } from 'react-router-dom';
+import { useBeforeUnload, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useModal } from '../contexts/ModalContext.jsx';
 
 export const UNSAVED_CHANGES_MESSAGE = 'You have unsaved changes. Leave this editor without saving?';
 
@@ -89,6 +90,8 @@ export function useDirtyBaseline(snapshot, { recordKey = null, reloadKey = 0, en
 }
 
 export function useUnsavedChanges(when, message = UNSAVED_CHANGES_MESSAGE) {
+  const modal = useModal();
+  const navigate = useNavigate();
   const disabled = typeof window !== 'undefined' && window.localStorage?.getItem('cloudtreeweb:disable-unsaved-guard') === '1';
   const active = !!when && !disabled;
   useBeforeUnload((event) => {
@@ -107,19 +110,29 @@ export function useUnsavedChanges(when, message = UNSAVED_CHANGES_MESSAGE) {
       const next = new URL(href, window.location.href);
       if (next.origin !== window.location.origin) return;
       if (next.pathname === window.location.pathname && next.search === window.location.search && next.hash === window.location.hash) return;
-      if (!window.confirm(message)) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
+      event.preventDefault();
+      event.stopPropagation();
+      modal.confirm(message, {
+        title: 'Unsaved changes',
+        okLabel: 'Leave editor',
+        destructive: true,
+      }).then((confirmed) => {
+        if (!confirmed) return;
+        navigate(`${next.pathname}${next.search}${next.hash}`);
+      });
     };
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);
-  }, [active, message]);
+  }, [active, message, modal, navigate]);
 }
 
-export function confirmUnsavedChanges(when, message = UNSAVED_CHANGES_MESSAGE) {
+export async function confirmUnsavedChanges(when, modal, message = UNSAVED_CHANGES_MESSAGE) {
   if (!when) return true;
   if (typeof window === 'undefined') return true;
   if (window.localStorage?.getItem('cloudtreeweb:disable-unsaved-guard') === '1') return true;
-  return window.confirm(message);
+  return modal.confirm(message, {
+    title: 'Unsaved changes',
+    okLabel: 'Leave editor',
+    destructive: true,
+  });
 }

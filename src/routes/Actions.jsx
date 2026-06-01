@@ -114,7 +114,10 @@ export default function Actions() {
   };
 
   const onAcceptCloudKitShare = async () => {
-    const raw = window.prompt(t('actions.acceptCloudSharePrompt'));
+    const raw = await modal.prompt(t('actions.acceptCloudSharePrompt'), '', {
+      title: t('actions.acceptCloudShareTitle', { defaultValue: 'Open cloud share' }),
+      placeholder: 'Share link or token',
+    });
     if (!raw) return;
     const token = parseCloudShareInput(raw);
     if (token) {

@@ -124,8 +124,8 @@ export function useThreeTreeScene({
 
     const illumination = Number.isFinite(viewerOptions.illuminationStrength) ? viewerOptions.illuminationStrength : 1;
     const shadowStrength = Number.isFinite(viewerOptions.shadowStrength) ? viewerOptions.shadowStrength : 1;
-    scene.add(new THREE.AmbientLight(palette.ambient, 2.35 * illumination));
-    const key = new THREE.DirectionalLight(palette.keyLight, 2.5 * illumination);
+    scene.add(new THREE.AmbientLight(palette.ambient, 1.45 * illumination));
+    const key = new THREE.DirectionalLight(palette.keyLight, 1.85 * illumination);
     key.position.set(240, -380, 700);
     key.castShadow = shadowStrength > 0;
     key.shadow.mapSize.width = 2048;
