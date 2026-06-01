@@ -39,6 +39,13 @@ export function useThreeTreeScene({
   const nodeTweensRef = useRef([]);
   const firstFitRef = useRef(true);
   const prevNodeIdsRef = useRef(null);
+  // Live refs so the once-registered keydown handler always sees current data.
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const onPickRef = useRef(onPick);
+  onPickRef.current = onPick;
+  const activeIdRef = useRef(activeId);
+  activeIdRef.current = activeId;
   const animationsEnabled = viewerOptions?.animationDuration !== 0;
   const animationScale = Number.isFinite(viewerOptions?.animationDuration) ? viewerOptions.animationDuration : 1;
   const [zoomPercent, setZoomPercent] = useState(100);
@@ -46,6 +53,7 @@ export function useThreeTreeScene({
   const [hoveredId, setHoveredId] = useState(null);
   const [hoverCard, setHoverCard] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
+  const [selectedId, setSelectedId] = useState(null);
   const fitBoundsForOptions = () => {
     if (viewerOptions.appearanceMode === 'macLight' && viewerOptions.cameraMode === 'top') {
       return layout.bounds;
@@ -205,7 +213,13 @@ export function useThreeTreeScene({
       const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
       if (moved > 6) return;
       const person = intersectPerson(event);
-      if (person?.person) onPick?.(person.person.recordName);
+      // Native model: single-click SELECTS (highlight ring); double-click focuses
+      // (re-roots, see onDblClick). Clicking empty space clears the selection.
+      setSelectedId(person?.person ? person.person.recordName : null);
+    };
+    const onDblClick = (event) => {
+      const person = intersectPerson(event);
+      if (person?.person) onPickRef.current?.(person.person.recordName);
     };
     const onPointerMove = (event) => {
       const person = intersectPerson(event);
@@ -231,11 +245,41 @@ export function useThreeTreeScene({
       setContextMenu(person ? { node: person, person: person.person, x: event.clientX, y: event.clientY } : null);
     };
 
+    // Arrow-key navigation: move focus to the nearest person in that direction
+    // from the current root (the native viewer's findObjectNextToObject:).
+    const DIRECTIONS = {
+      ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1],
+    };
+    const onKeyDown = (event) => {
+      const dir = DIRECTIONS[event.key];
+      if (!dir) return;
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+      const nodes = layoutRef.current?.nodes || [];
+      const current = nodes.find((n) => n.id === activeIdRef.current) || nodes.find((n) => n.featured);
+      if (!current) return;
+      let best = null;
+      let bestScore = Infinity;
+      for (const node of nodes) {
+        if (node.id === current.id) continue;
+        const dx = node.x - current.x;
+        const dy = node.y - current.y;
+        const along = dx * dir[0] + dy * dir[1];
+        if (along <= 1) continue; // node must lie in the pressed direction
+        const perp = Math.abs(dx * dir[1] - dy * dir[0]);
+        const score = along + perp * 2.5; // prefer aligned + nearby
+        if (score < bestScore) { bestScore = score; best = node; }
+      }
+      if (best) { event.preventDefault(); onPickRef.current?.(best.id); }
+    };
+
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
     renderer.domElement.addEventListener('pointerup', onPointerUp);
     renderer.domElement.addEventListener('pointermove', onPointerMove);
     renderer.domElement.addEventListener('pointerleave', onPointerLeave);
     renderer.domElement.addEventListener('contextmenu', onContextMenu);
+    renderer.domElement.addEventListener('dblclick', onDblClick);
+    window.addEventListener('keydown', onKeyDown);
 
     let raf = 0;
     let lastFrame = performance.now();
@@ -262,6 +306,8 @@ export function useThreeTreeScene({
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       renderer.domElement.removeEventListener('pointerleave', onPointerLeave);
       renderer.domElement.removeEventListener('contextmenu', onContextMenu);
+      renderer.domElement.removeEventListener('dblclick', onDblClick);
+      window.removeEventListener('keydown', onKeyDown);
       controls.removeEventListener('change', updateZoomReadout);
       controls.dispose();
       disposeObject(stage);
@@ -312,9 +358,10 @@ export function useThreeTreeScene({
 
     const nodeObjects = [];
     for (const node of layout.nodes) {
+      const selected = selectedId === node.id && !node.featured;
       const object = node.featured
         ? makeFeaturedNode(node, palette, viewerOptions.personStyle, hoveredId === node.id, viewerOptions)
-        : makePersonNode(node, palette, viewerOptions.personStyle, hoveredId === node.id, viewerOptions);
+        : makePersonNode(node, palette, viewerOptions.personStyle, hoveredId === node.id, viewerOptions, selected);
       stage.add(object);
       clickablesRef.current.push(object);
       nodeObjects.push(object);
@@ -399,7 +446,12 @@ export function useThreeTreeScene({
         cameraTweenRef,
       }),
     };
-  }, [layout, palette, modelRevision, viewerOptions, hoveredId, activeId]);
+  }, [layout, palette, modelRevision, viewerOptions, hoveredId, activeId, selectedId]);
+
+  // A focus change (re-root) clears the click-selection.
+  useEffect(() => {
+    setSelectedId(null);
+  }, [activeId]);
 
   return {
     actionsRef,

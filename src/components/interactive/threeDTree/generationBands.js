@@ -243,16 +243,18 @@ function bandFillForMode(band, mode) {
       ? ancestorBandColor(Math.abs(band.generation))
       : descendantBandColor(band.generation);
   if (mode === 'macPink') {
-    // Pink slabs with a real RGB gradient (slabs are solid, so alpha no longer
-    // carries the gradient): saturated magenta-pink at the root/recent rows
-    // fading to light pink for distant generations — matching the source.
-    if (band.generation === 0) return 'rgb(231, 150, 198)';
+    // The source's pedigree band gradient runs COOL, not uniform pink: vivid
+    // magenta-pink at the focal/parents rows, drifting through lavender at the
+    // grandparents to soft periwinkle-blue for the most distant ancestors. (This
+    // is the cool half of the pedigree spectrum — deliberately NOT the warm
+    // yellow/green "rainbow" of byGeneration, which the source never shows.)
+    if (band.generation === 0) return 'rgb(236, 158, 204)';
     const tiers = [
-      'rgb(235, 165, 206)', // gen ±1 — saturated pink near the root
-      'rgb(240, 184, 216)',
-      'rgb(244, 201, 225)',
-      'rgb(248, 217, 234)',
-      'rgb(251, 232, 242)', // distant generations — light pink
+      'rgb(233, 150, 202)', // gen ±1 (parents) — most saturated magenta-pink
+      'rgb(214, 162, 214)', // gen ±2 (grandparents) — pink drifting to lavender
+      'rgb(191, 172, 223)', // gen ±3 — lavender / soft purple
+      'rgb(175, 188, 230)', // gen ±4 — periwinkle
+      'rgb(182, 202, 236)', // distant generations — light periwinkle-blue
     ];
     return tiers[Math.min(Math.abs(band.generation) - 1, tiers.length - 1)];
   }

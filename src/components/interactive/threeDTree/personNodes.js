@@ -92,7 +92,7 @@ function makeLivingHalo(palette, featured) {
   return halo;
 }
 
-export function makePersonNode(node, palette, personStyle, hovered = false, viewerOptions = {}) {
+export function makePersonNode(node, palette, personStyle, hovered = false, viewerOptions = {}, selected = false) {
   const group = new THREE.Group();
   const liftZ = hovered && viewerOptions?.liftPersonsOnMouseOver !== false ? 38 : 0;
   group.position.set(node.x, node.y, node.z + liftZ);
@@ -120,6 +120,7 @@ export function makePersonNode(node, palette, personStyle, hovered = false, view
   if (viewerOptions?.highlightLivingPersons && isLivingPerson(node?.person)) {
     group.add(makeLivingHalo(palette, false));
   }
+  if (selected && !hovered) group.add(makeSelectionMark(false, palette, 'selection'));
   if (hovered) group.add(makeSelectionMark(false, palette, 'hover'));
 
   if (viewerOptions?.displayLabels !== false) {
@@ -281,25 +282,32 @@ function hasMoreRelatives(node) {
   return (more.parents || 0) > 0 || (more.families || 0) > 0 || (more.relatives || 0) > 0;
 }
 
-// One small pin (stem + bulb) pointing `dir` (+1 up toward hidden ancestors,
-// -1 down toward hidden descendants), tinted by the person's resolved colour.
+// One small teardrop "pin" pointing `dir` (+1 up toward hidden ancestors, -1
+// down toward hidden descendants/secondary families) — a rounded head tapering
+// to a point in the pointed direction, tinted by the person's resolved colour.
+// Mirrors the native viewer's FurtherPersonsMark: the taper aims at where the
+// hidden relatives live (down = this person's own families/children).
 function makeFurtherPersonsPin(node, palette, featured, dir, baseY) {
   const group = new THREE.Group();
   const color = colorsForGender(node?.person?.gender, palette).deep;
-  const material = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.04 });
-  const stemHeight = featured ? 16 : 12;
-  const radius = featured ? 1.8 : 1.4;
-  const stem = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, stemHeight, 10), material);
-  stem.position.set(0, dir * stemHeight / 2, 0);
-  group.add(stem);
-  const bulb = new THREE.Mesh(new THREE.SphereGeometry(featured ? 4.6 : 3.6, 18, 12), material);
-  bulb.position.set(0, dir * stemHeight, 0);
-  group.add(bulb);
+  const material = new THREE.MeshStandardMaterial({ color, roughness: 0.46, metalness: 0.05 });
+  const headR = featured ? 4.8 : 3.8;
+  const tipLen = featured ? 12 : 9.5;
+  // Rounded head sitting at the band edge…
+  const head = new THREE.Mesh(new THREE.SphereGeometry(headR, 18, 14), material);
+  head.position.set(0, 0, 0);
+  group.add(head);
+  // …tapering to a point in the pointed direction (cone tip = the "arrow").
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(headR, tipLen, 16), material);
+  // Cone apex points +Y by default; rotate π to point it down when dir < 0.
+  tip.rotation.x = dir < 0 ? Math.PI : 0;
+  tip.position.set(0, dir * (tipLen / 2 + headR * 0.35), 0);
+  group.add(tip);
   const highlight = new THREE.Mesh(
     new THREE.SphereGeometry(featured ? 1.5 : 1.2, 8, 6),
     new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false })
   );
-  highlight.position.set(-1.1, dir * stemHeight - 0.9, 2.4);
+  highlight.position.set(-headR * 0.32, headR * 0.32, headR * 0.7);
   group.add(highlight);
   group.position.set(0, baseY, 12);
   group.renderOrder = 19;

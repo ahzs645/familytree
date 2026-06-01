@@ -93,8 +93,8 @@ function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescend
   // Tube radius in scene units. The native flat viewer draws hairline
   // connectors, so keep these slim — ~1.5 units renders near 1px at the
   // default top-down framing. The faint shadow tube sits just behind.
-  const radius = 2.4 * thicknessScale;
-  const shadowRadius = radius + 1.6;
+  const radius = 1.45 * thicknessScale;
+  const shadowRadius = radius + 0.8;
 
   const addSegment = (a, b) => {
     const points = [new THREE.Vector3(a.x, a.y, z), new THREE.Vector3(b.x, b.y, z)];
@@ -126,24 +126,24 @@ export function makeConnector(link, nodes, palette, options = {}) {
       : orthogonalPoints(from, to, z);
   }
 
-  const baseRadius = link.emphasis ? 2.5 : type === 'partner' ? 1.6 : 1.9;
+  const baseRadius = link.emphasis ? 1.7 : type === 'partner' ? 1.05 : 1.35;
   const tubeRadius = baseRadius * thicknessScale;
   group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.4, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
   group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: 0 }, 4));
   return group;
 }
 
-// Native flat-viewer connector colour: a warm brick/crimson that lightens
-// slightly as generations climb away from the root. (Matches the source far
-// better than the earlier rainbow — MFT draws these connectors in red.)
+// Native flat-viewer connector colour: a muted dusty rose-brown, NOT the heavy
+// dark maroon we had — the source's hairlines read as a soft terracotta/rose
+// that lightens slightly as generations climb away from the root.
 const CONNECTOR_GENERATION_COLORS = [
-  '#9a3528', // 0 — root / descendants (deep brick/maroon, matching the source)
-  '#a13b2e', // 1 — parents / children
-  '#a84334', // 2 — grandparents
-  '#af4b3b', // 3
-  '#b55443', // 4
-  '#ba5d4c', // 5
-  '#bf6856', // 6 — distant ancestors
+  '#b06257', // 0 — root / descendants (muted rose-brown)
+  '#b56a5e', // 1 — parents / children
+  '#ba7266', // 2 — grandparents
+  '#bf7b6e', // 3
+  '#c48476', // 4
+  '#c98d7f', // 5
+  '#ce9789', // 6 — distant ancestors
 ];
 
 function connectorGenerationColor(generation) {

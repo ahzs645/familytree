@@ -88,7 +88,7 @@ export const GENERATION_BAND_STYLES = [
 
 // Native exposes 13 generation band color modes; subset wired for now.
 export const GENERATION_BAND_COLOR_MODES = [
-  { id: 'macPink', label: 'Mac Pink (Uniform)' },
+  { id: 'macPink', label: 'Mac Pedigree (Pink → Blue)' },
   { id: 'byGeneration', label: 'By Generation' },
   { id: 'gray', label: 'Gray' },
   { id: 'highSaturation', label: 'By Generation, High Saturation' },
