@@ -9,6 +9,8 @@ import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/ch
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { readConclusionType, readRef } from '../lib/schema.js';
 import { personSummary, placeSummary } from '../models/index.js';
+import { buildPersonLineage, attachLineageToPersonSummaries } from '../lib/personLineage.js';
+import { personDisplayName } from '../lib/personDisplayName.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { formatEventDate } from '../utils/formatDate.js';
@@ -55,11 +57,12 @@ export default function Events({
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
-    const [pe, fe, personRecs, familyRecs, placeRecs, personTypes, familyTypes] = await Promise.all([
+    const [pe, fe, personRecs, familyRecs, childRelations, placeRecs, personTypes, familyTypes] = await Promise.all([
       db.query('PersonEvent', { limit: 100000 }),
       db.query('FamilyEvent', { limit: 100000 }),
       db.query('Person', { limit: 100000 }),
       db.query('Family', { limit: 100000 }),
+      db.query('ChildRelation', { limit: 100000 }),
       db.query('Place', { limit: 100000 }),
       db.query('ConclusionPersonEventType', { limit: 1000 }),
       db.query('ConclusionFamilyEventType', { limit: 1000 }),
@@ -70,7 +73,10 @@ export default function Events({
       return String(bd).localeCompare(String(ad));
     });
     setEvents(merged);
-    setPersons(personRecs.records.map(personSummary).filter(Boolean));
+    // Attach Arabic-patrilineal lineage so events for name-less records show a
+    // readable descriptor instead of "No name recorded" (see personDisplayName).
+    const lineage = buildPersonLineage(personRecs.records, familyRecs.records, childRelations.records);
+    setPersons(attachLineageToPersonSummaries(personRecs.records.map(personSummary).filter(Boolean), lineage));
     setFamilies(familyRecs.records);
     setPlaces(placeRecs.records);
     setTypes({
@@ -220,14 +226,14 @@ export default function Events({
     let subjectLabel = '';
     if (e.recordType === 'PersonEvent') {
       const p = personByName.get(subjectRef);
-      subjectLabel = p ? personSummary(p).fullName : subjectRef;
+      subjectLabel = p ? personDisplayName(p) : subjectRef;
     } else {
       const f = familyByName.get(subjectRef);
       if (f) {
         const manRef = readRef(f.fields?.man);
         const womanRef = readRef(f.fields?.woman);
-        const manName = manRef ? personSummary(personByName.get(manRef))?.fullName : null;
-        const womanName = womanRef ? personSummary(personByName.get(womanRef))?.fullName : null;
+        const manName = manRef ? personDisplayName(personByName.get(manRef)) : null;
+        const womanName = womanRef ? personDisplayName(personByName.get(womanRef)) : null;
         subjectLabel = [manName, womanName].filter(Boolean).join(' & ') || subjectRef;
       } else {
         subjectLabel = subjectRef;
@@ -315,7 +321,7 @@ export default function Events({
             >
               <option value="">—</option>
               {persons.map((p) => (
-                <option key={p.recordName} value={p.recordName}>{p.fullName}</option>
+                <option key={p.recordName} value={p.recordName}>{personDisplayName(p)}</option>
               ))}
             </select>
           </FieldRow>
@@ -364,6 +370,7 @@ export default function Events({
 
   const toolbar = (
     <div style={toolbarStyle}>
+      <h1 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))', marginInlineEnd: 4 }}>Events</h1>
       {showKindFilter ? (
         <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} style={smallSelect}>
           <option value="all">All events</option>
@@ -375,7 +382,7 @@ export default function Events({
           {kindFilter === 'FamilyEvent' ? 'Family events' : kindFilter === 'PersonEvent' ? 'Person events' : 'All events'}
         </span>
       )}
-      <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+      <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 6 }}>
         {showPersonEventCreate ? <button onClick={() => onCreate('PersonEvent')} style={smallBtn}>+ Person event</button> : null}
         {showFamilyEventCreate ? <button onClick={() => onCreate('FamilyEvent')} style={smallBtn}>+ Family event</button> : null}
       </div>

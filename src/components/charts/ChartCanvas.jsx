@@ -27,6 +27,7 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
   ref
 ) {
   const svgRef = useRef(null);
+  const contentRef = useRef(null);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
   const drag = useRef(null);
   const overlayDrag = useRef(null);
@@ -147,7 +148,42 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
     }
   };
 
-  const onReset = () => setView({ x: 0, y: 0, k: 1 });
+  // Scale + center the drawn content inside the visible SVG. Without this the
+  // view stays anchored at the top-left origin and, on small screens, a chart's
+  // subject can render entirely off-screen with no way to recover via Reset.
+  const fitToContent = useCallback(() => {
+    const svg = svgRef.current;
+    const content = contentRef.current;
+    if (!svg || !content) return;
+    let bbox;
+    try { bbox = content.getBBox(); } catch { return; }
+    if (!bbox || bbox.width < 1 || bbox.height < 1) return;
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const k = Math.min(maxZoom, Math.max(minZoom, Math.min(rect.width / bbox.width, rect.height / bbox.height) * 0.92));
+    const x = (rect.width - bbox.width * k) / 2 - bbox.x * k;
+    const y = (rect.height - bbox.height * k) / 2 - bbox.y * k;
+    setView({ x, y, k });
+  }, [minZoom, maxZoom]);
+
+  const onReset = useCallback(() => fitToContent(), [fitToContent]);
+
+  // Fit on first render and whenever the chart's top-level content changes
+  // (person / chart-type switch). Retries one frame if the SVG isn't yet
+  // measurable. Manual pan/zoom is preserved across unrelated re-renders.
+  const childCount = React.Children.count(children);
+  useEffect(() => {
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      const content = contentRef.current;
+      let bbox;
+      try { bbox = content?.getBBox(); } catch { /* not ready */ }
+      if (bbox && bbox.width >= 1 && bbox.height >= 1) fitToContent();
+      else raf2 = requestAnimationFrame(() => fitToContent());
+    });
+    return () => { cancelAnimationFrame(raf1); if (raf2) cancelAnimationFrame(raf2); };
+  }, [childCount, fitToContent]);
+
   const background = page.backgroundColor || theme.background;
 
   const exportOptions = {
@@ -190,7 +226,7 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
             {page.note && <text x={24} y={56} fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{page.note}</text>}
           </g>
         )}
-        <g transform={`translate(${view.x},${view.y}) scale(${view.k})`}>{children}</g>
+        <g ref={contentRef} transform={`translate(${view.x},${view.y}) scale(${view.k})`}>{children}</g>
         <OverlayLayer
           overlays={overlays}
           theme={theme}

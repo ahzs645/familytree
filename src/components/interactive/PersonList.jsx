@@ -6,11 +6,14 @@ import React, { useMemo, useState } from 'react';
 import { BdiText } from '../BdiText.jsx';
 import { compareStrings, getCurrentLocalization, graphemes, normalizeSearchText } from '../../lib/i18n.js';
 import { comparePersonSearchResults, matchesPersonLineageSearch } from '../../lib/personLineage.js';
+import { hasRealName, shortPersonId } from '../../lib/personDisplayName.js';
+import { useIsMobile } from '../../lib/useIsMobile.js';
 import { lifeSpanLabel } from '../../models/index.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null, renderBadge = null }) {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const showColumn = (key) => !visibleColumns || visibleColumns.has(key);
   const [query, setQuery] = useState('');
   const localization = getCurrentLocalization();
@@ -39,6 +42,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
     <div style={shell}>
       <div style={searchBar}>
         <input
+          dir="auto"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('persons.searchPlaceholder')}
@@ -63,6 +67,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                   }}
                   style={{
                     ...row,
+                    ...(isMobile ? { minHeight: 44 } : null),
                     background: p.recordName === activeId ? 'hsl(var(--secondary))' : isSelected ? 'hsl(var(--primary) / 0.08)' : 'transparent',
                     borderInlineStart: p.recordName === activeId ? '3px solid hsl(var(--primary))' : isSelected ? '3px solid hsl(var(--primary) / 0.5)' : '3px solid transparent',
                     display: onToggleSelect ? 'flex' : 'block',
@@ -83,6 +88,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                       onClick={(event) => event.stopPropagation()}
                       onChange={(event) => onToggleSelect(p.recordName, { range: event.nativeEvent?.shiftKey })}
                       aria-label={`${t('common.select')} ${p.fullName}`}
+                      style={{ width: 18, height: 18, flexShrink: 0 }}
                     />
                   ) : null}
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -95,6 +101,14 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                     {showColumn('lifespan') && (p.birthDate || p.deathDate) ? (
                       <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
                         {lifeSpanLabel(p)}
+                      </div>
+                    ) : null}
+                    {/* Disambiguate otherwise-identical nameless rows: when there is
+                        no real name, no dates, and no patrilineal tail to show,
+                        surface the record id so 800+ rows aren't indistinguishable. */}
+                    {!hasRealName(p) && !(p.birthDate || p.deathDate) && !p.arabicPatrilinealName ? (
+                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
+                        {shortPersonId(p.recordName)}
                       </div>
                     ) : null}
                     {showColumn('arabicPatrilinealName') && p.arabicPatrilinealName && !p.nameIsPatrilineal ? (
@@ -141,9 +155,7 @@ const search = {
   borderRadius: 6,
   padding: '0 12px',
   font: '14px -apple-system, system-ui, sans-serif',
-  outline: 'none',
   boxSizing: 'border-box',
-  direction: 'auto',
 };
 const list = { flex: 1, overflow: 'auto' };
 const sectionHeader = {

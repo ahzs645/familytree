@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { Menu, ChevronRight, X, Sun, Moon } from 'lucide-react';
+import { Menu, ChevronRight, X, Sun, Moon, Search } from 'lucide-react';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
@@ -112,14 +112,22 @@ function MobileMenu({ hiddenRoutes, theme, onToggleTheme, localization, onChange
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="flex items-center justify-center w-11 h-11 -me-2 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label={t('common.close', { defaultValue: 'Close' })}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto py-2">
+            <div
+              className="flex-1 overflow-y-auto py-2"
+              style={{
+                // Fade the last group header into the footer so the list reads
+                // as scrollable rather than hard-cropped.
+                WebkitMaskImage: 'linear-gradient(to bottom, black calc(100% - 24px), transparent)',
+                maskImage: 'linear-gradient(to bottom, black calc(100% - 24px), transparent)',
+              }}
+            >
               {/* Pinned shortcuts */}
               {visiblePinned.map((link) => (
                 <MobileNavLink key={link.to} link={link} pathname={location.pathname} />
@@ -166,7 +174,7 @@ function MobileMenu({ hiddenRoutes, theme, onToggleTheme, localization, onChange
             </div>
 
             {/* Footer: status + theme + locale (rarely-used controls live here, not the top bar) */}
-            <div className="flex items-center gap-2 border-t border-border px-3 py-2">
+            <div className="flex items-center gap-2 border-t border-border px-3 py-2 shadow-[0_-4px_8px_-4px_hsl(var(--foreground)/0.12)]">
               <div className="flex items-center gap-2 flex-1 min-w-0" title={recordCountLabel}>
                 <span
                   className={cn(
@@ -179,7 +187,7 @@ function MobileMenu({ hiddenRoutes, theme, onToggleTheme, localization, onChange
               <button
                 type="button"
                 onClick={onToggleTheme}
-                className="flex items-center justify-center w-8 h-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="flex items-center justify-center w-11 h-11 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
                 title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               >
@@ -188,7 +196,7 @@ function MobileMenu({ hiddenRoutes, theme, onToggleTheme, localization, onChange
               <select
                 value={localization.locale}
                 onChange={(event) => onChangeLocale(event.target.value)}
-                className="h-8 rounded-md border border-border bg-secondary px-2 text-xs text-foreground"
+                className="h-11 rounded-md border border-border bg-secondary px-2 text-xs text-foreground"
                 aria-label={t('settings.language')}
               >
                 {SUPPORTED_LOCALES.map((locale) => (
@@ -241,6 +249,7 @@ export function AppShell() {
     try { return localStorage.getItem(DRAWER_COLLAPSED_KEY) === '1'; } catch { return false; }
   });
   const [navigationHidden, setNavigationHidden] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
   useKeyboardShortcuts({
     'ctrl+n': async () => {
@@ -340,14 +349,14 @@ export function AppShell() {
   const hiddenRoutes = new Set(preferences?.functions?.hidden || []);
   const emphasizedRoutes = new Set(preferences?.functions?.emphasized || []);
 
-  const palette = <CommandPalette />;
+  const palette = <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />;
 
   if (isMobile) {
     return (
       <div className="flex flex-col h-screen bg-background text-foreground" lang={localization.locale} dir={localization.direction}>
         {palette}
         <header
-          className="flex items-center gap-3 px-4 h-12 border-b border-border bg-card flex-shrink-0"
+          className="flex items-center gap-3 px-4 min-h-12 border-b border-border bg-card flex-shrink-0"
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
           <span className="text-sm font-bold text-foreground shrink-0">CloudTreeWeb</span>
@@ -358,7 +367,15 @@ export function AppShell() {
             )}
             title={recordCountLabel}
           />
-          <div className="ms-auto">
+          <button
+            type="button"
+            onClick={() => setPaletteOpen(true)}
+            className="ms-auto flex items-center justify-center w-10 h-10 rounded-md border border-border bg-secondary text-secondary-foreground"
+            aria-label={t('commandPalette.ariaLabel', { defaultValue: 'Search commands' })}
+          >
+            <Search size={20} />
+          </button>
+          <div>
             <MobileMenu
               hiddenRoutes={hiddenRoutes}
               theme={theme}
@@ -388,6 +405,7 @@ export function AppShell() {
         emphasizedRoutes={emphasizedRoutes}
         recordCountLabel={recordCountLabel}
         statusState={statusState}
+        onOpenPalette={() => setPaletteOpen(true)}
       />
       )}
       <main className="flex-1 relative overflow-hidden min-w-0">

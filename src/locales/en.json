@@ -727,6 +727,8 @@
     "saving": "Saving...",
     "save": "Save",
     "noStorySelected": "No story selected.",
+    "emptyTitle": "No stories yet",
+    "emptyHint": "Tap + New to write your first story.",
     "field": {
       "title": "Title",
       "subtitle": "Subtitle",

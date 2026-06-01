@@ -280,7 +280,7 @@ export default function Stories() {
         <button onClick={create} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">{t('stories.newButton')}</button>
       </header>
       <div className="flex-1 min-h-0">
-        <MasterDetailList items={stories} activeId={activeId} onPick={setActiveId} renderRow={(s) => <div className="text-sm">{storyTitle(s, t('stories.fallbackTitle'))}</div>} placeholder={t('stories.searchPlaceholder')} detail={detail} />
+        <MasterDetailList items={stories} activeId={activeId} onPick={setActiveId} renderRow={(s) => <div className="text-sm">{storyTitle(s, t('stories.fallbackTitle'))}</div>} placeholder={t('stories.searchPlaceholder')} detail={detail} emptyTitle={t('stories.emptyTitle')} emptyHint={t('stories.emptyHint')} />
       </div>
     </div>
   );

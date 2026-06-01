@@ -10,6 +10,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useIsMobile } from '../../lib/useIsMobile.js';
 import {
   DEFAULT_MAP_PREFERENCES,
   MAP_PREFERENCES_EVENT,
@@ -270,6 +271,7 @@ function addConnectionLayer(map, data) {
 export function Map({
   center = [0, 20],
   zoom = 1.5,
+  bounds = null,
   markers = [],
   onClick,
   className = '',
@@ -281,10 +283,13 @@ export function Map({
   connections = [],
 }) {
   const { theme } = useTheme();
+  const isMobile = useIsMobile();
   const [preferences, setPreferences] = useState(DEFAULT_MAP_PREFERENCES);
   const containerRef = useRef(null);
   const mapRef = useRef(null);
   const markerRefs = useRef([]);
+  const navControlRef = useRef(null);
+  const isMobileRef = useRef(isMobile);
   const [ready, setReady] = useState(false);
   const styleUrl = useMemo(() => styleUrlFor(theme, preferences), [theme, preferences]);
   const useSourceClustering = showMarkers && preferences.markerClustering && markers.length >= 60 && !markers.some((marker) => marker.draggable);
@@ -322,7 +327,12 @@ export function Map({
       renderWorldCopies: !projection,
     });
     mapRef.current = map;
-    map.addControl(new maplibregl.NavigationControl({ showCompass: !!projection }), 'top-right');
+    // On phones the +/- control shares the top-right with nothing useful while
+    // the custom control bar sits along the bottom edge; drop it to the
+    // bottom-right so the two clusters don't collide. (Desktop keeps top-right.)
+    const navControl = new maplibregl.NavigationControl({ showCompass: !!projection });
+    navControlRef.current = navControl;
+    map.addControl(navControl, isMobileRef.current ? 'bottom-right' : 'top-right');
     // Globe projection has to be applied after the style has finished parsing;
     // passing it in the constructor (or calling setProjection from 'load')
     // leaves the tile manager in mercator mode and no tiles get requested.
@@ -355,6 +365,17 @@ export function Map({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Re-place the +/- NavigationControl when the layout crosses the mobile
+  // breakpoint so it stays out of the control bar's way (bottom on mobile).
+  useEffect(() => {
+    isMobileRef.current = isMobile;
+    const map = mapRef.current;
+    const navControl = navControlRef.current;
+    if (!map || !navControl) return;
+    try { map.removeControl(navControl); } catch { /* not added yet */ }
+    map.addControl(navControl, isMobile ? 'bottom-right' : 'top-right');
+  }, [isMobile]);
 
   // Swap basemap when the theme/preferences change. setStyle resets the projection,
   // so re-apply it once the new style finishes loading.
@@ -542,17 +563,42 @@ export function Map({
     }
   }, [markers, ready, showMarkers, useSourceClustering]);
 
-  // Update center/zoom when the inputs change.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !ready) return;
-    map.jumpTo({ center, zoom });
-  }, [center[0], center[1], zoom, ready]);
+  // A valid bounds is [[minLng,minLat],[maxLng,maxLat]] with finite numbers.
+  const validBounds = useMemo(() => {
+    if (!Array.isArray(bounds) || bounds.length !== 2) return null;
+    const [sw, ne] = bounds;
+    if (!Array.isArray(sw) || !Array.isArray(ne)) return null;
+    const nums = [sw[0], sw[1], ne[0], ne[1]];
+    if (!nums.every((n) => Number.isFinite(n))) return null;
+    return [[sw[0], sw[1]], [ne[0], ne[1]]];
+  }, [bounds]);
+  // Stable key so the framing effect only re-runs when the box actually moves,
+  // not when the parent hands us a fresh array with identical numbers.
+  const boundsKey = validBounds ? validBounds.flat().join(',') : '';
 
-  const resetView = () => {
+  // Frame the marker bounding box when we have one, otherwise fall back to the
+  // explicit world/center view. `animate` picks jump (load) vs ease (reset).
+  const frameView = useCallback((animate) => {
     const map = mapRef.current;
     if (!map) return;
-    map.easeTo({ center, zoom, duration: 350 });
+    if (validBounds) {
+      map.fitBounds(validBounds, { padding: 48, maxZoom: 9, duration: animate ? 350 : 0 });
+      return;
+    }
+    if (animate) map.easeTo({ center, zoom, duration: 350 });
+    else map.jumpTo({ center, zoom });
+  // validBounds tracks boundsKey; center is a stable [lng,lat] tuple from props.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boundsKey, center[0], center[1], zoom]);
+
+  // Apply the initial / updated view when inputs change.
+  useEffect(() => {
+    if (!ready) return;
+    frameView(false);
+  }, [frameView, ready]);
+
+  const resetView = () => {
+    frameView(true);
   };
 
   const recenterNearMarker = () => {
@@ -587,7 +633,7 @@ export function Map({
             id="map-basemap"
             value={preferences.basemap}
             onChange={(event) => updatePreference({ basemap: event.target.value })}
-            className="h-8 rounded-md border border-border bg-secondary px-2 text-xs text-foreground"
+            className="h-9 sm:h-8 rounded-md border border-border bg-secondary px-2 text-xs text-foreground"
             title="Basemap style"
           >
             <option value="auto">Auto</option>
@@ -595,7 +641,7 @@ export function Map({
             <option value="voyager">Voyager</option>
             <option value="dark">Dark</option>
           </select>
-          <label className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-secondary px-2 text-foreground" title="Toggle map labels">
+          <label className="inline-flex h-9 sm:h-8 items-center gap-1.5 rounded-md border border-border bg-secondary px-2 text-foreground" title="Toggle map labels">
             <input
               type="checkbox"
               checked={preferences.showLabels}
@@ -604,7 +650,7 @@ export function Map({
             Labels
           </label>
           {markers.length >= 60 ? (
-            <label className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-secondary px-2 text-foreground" title="Cluster nearby markers">
+            <label className="inline-flex h-9 sm:h-8 items-center gap-1.5 rounded-md border border-border bg-secondary px-2 text-foreground" title="Cluster nearby markers">
               <input
                 type="checkbox"
                 checked={preferences.markerClustering}
@@ -616,7 +662,7 @@ export function Map({
           <button
             type="button"
             onClick={resetView}
-            className="h-8 rounded-md border border-border bg-secondary px-2 text-foreground hover:bg-accent"
+            className="h-9 sm:h-8 rounded-md border border-border bg-secondary px-2 text-foreground hover:bg-accent"
             title="Reset zoom and center"
           >
             Reset
@@ -625,7 +671,7 @@ export function Map({
             type="button"
             onClick={recenterNearMarker}
             disabled={markers.length === 0}
-            className="h-8 rounded-md border border-border bg-secondary px-2 text-foreground hover:bg-accent disabled:opacity-50"
+            className="h-9 sm:h-8 rounded-md border border-border bg-secondary px-2 text-foreground hover:bg-accent disabled:opacity-50"
             title="Recenter to the marker nearest the current map center"
           >
             Near center

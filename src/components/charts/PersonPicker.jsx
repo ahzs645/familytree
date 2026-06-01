@@ -5,6 +5,7 @@ import React, { useState, useMemo } from 'react';
 import { BdiText } from '../BdiText.jsx';
 import { getCurrentLocalization } from '../../lib/i18n.js';
 import { comparePersonSearchResults, matchesPersonLineageSearch } from '../../lib/personLineage.js';
+import { personDisplayName } from '../../lib/personDisplayName.js';
 import { lifeSpanLabel } from '../../models/index.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
@@ -25,10 +26,10 @@ export function PersonPicker({ persons, value, onChange }) {
   const selected = persons.find((p) => p.recordName === value);
 
   return (
-    <div style={{ position: 'relative', minWidth: 260 }}>
+    <div style={{ position: 'relative', width: '100%', minWidth: 0, maxWidth: 260 }}>
       <button onClick={() => setOpen((v) => !v)} style={triggerStyle}>
         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {selected ? <BdiText>{selected.fullName}</BdiText> : t('persons.choosePerson')}
+          {selected ? <BdiText>{personDisplayName(selected)}</BdiText> : t('persons.choosePerson')}
         </span>
         <span style={{ color: 'hsl(var(--muted-foreground))', marginInlineStart: 8 }}>▾</span>
       </button>
@@ -36,6 +37,7 @@ export function PersonPicker({ persons, value, onChange }) {
         <div style={popoverStyle}>
           <input
             autoFocus
+            dir="auto"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('persons.search')}
@@ -64,7 +66,7 @@ export function PersonPicker({ persons, value, onChange }) {
                   (e.currentTarget.style.background = p.recordName === value ? 'hsl(var(--secondary))' : 'transparent')
                 }
               >
-                <div style={{ color: 'hsl(var(--foreground))', fontSize: 14 }}><BdiText>{p.fullName}</BdiText></div>
+                <div style={{ color: 'hsl(var(--foreground))', fontSize: 14 }}><BdiText>{personDisplayName(p)}</BdiText></div>
                 {(p.birthDate || p.deathDate) && (
                   <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
                     {lifeSpanLabel(p)}
@@ -118,8 +120,6 @@ const inputStyle = {
   borderBottom: '1px solid hsl(var(--border))',
   padding: '10px 12px',
   font: '13px -apple-system, system-ui, sans-serif',
-  outline: 'none',
-  direction: 'auto',
 };
 
 export default PersonPicker;

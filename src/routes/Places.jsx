@@ -548,7 +548,8 @@ export default function Places() {
                   onChange={(e) => setDetails((a) => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
                   className={inputClass} />
                 <button onClick={() => setDetails((a) => a.filter((_, j) => j !== i))}
-                  className="text-destructive border border-border rounded-md w-8 h-8 text-sm hover:bg-destructive/10">×</button>
+                  aria-label="Remove place detail"
+                  className="text-destructive border border-border rounded-md inline-flex items-center justify-center shrink-0 min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 text-sm hover:bg-destructive/10">×</button>
               </div>
             ))}
           </div>

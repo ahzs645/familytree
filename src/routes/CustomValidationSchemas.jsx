@@ -89,7 +89,7 @@ export default function CustomValidationSchemas() {
           <button onClick={create} className="ms-auto rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">New</button>
         </header>
         {schemas.map((schema) => (
-          <button key={schema.id} onClick={() => setActiveId(schema.id)} className={`block w-full text-left px-3 py-2 border-b border-border text-sm ${schema.id === activeId ? 'bg-primary/10' : 'hover:bg-accent'}`}>
+          <button key={schema.id} onClick={() => setActiveId(schema.id)} className={`block w-full text-start px-3 py-2 border-b border-border text-sm ${schema.id === activeId ? 'bg-primary/10' : 'hover:bg-accent'}`}>
             <div className="font-medium truncate">{schema.name}</div>
             <div className="text-xs text-muted-foreground">{schema.enabled === false ? 'disabled' : schema.scopeType}</div>
           </button>

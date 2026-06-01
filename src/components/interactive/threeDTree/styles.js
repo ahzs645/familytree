@@ -40,6 +40,12 @@ export const styles = {
     cursor: 'pointer',
     whiteSpace: 'nowrap',
   },
+  // Mobile touch-target bump (merge over the base buttons on small screens).
+  macBarButtonMobile: {
+    height: 40,
+    minHeight: 40,
+    padding: '0 14px',
+  },
   macActionWrap: {
     position: 'relative',
     flexShrink: 0,
@@ -114,6 +120,25 @@ export const styles = {
     pointerEvents: 'none',
     transform: 'translateX(-50%) translateY(8px)',
   },
+  // Mobile: tighten the dock so it covers less of the canvas; cap its height and
+  // let the contents scroll instead of wrapping into many tall rows.
+  bottomDockMobile: {
+    left: 8,
+    right: 8,
+    transform: 'none',
+    maxWidth: 'none',
+    flexWrap: 'nowrap',
+    justifyContent: 'flex-start',
+    gap: 8,
+    padding: '6px 8px',
+    overflowX: 'auto',
+    overflowY: 'hidden',
+  },
+  bottomDockHiddenMobile: {
+    opacity: 0,
+    pointerEvents: 'none',
+    transform: 'translateY(8px)',
+  },
   dockGroup: {
     display: 'flex',
     alignItems: 'center',
@@ -166,6 +191,13 @@ export const styles = {
     font: '750 11px -apple-system, system-ui, sans-serif',
     padding: '0 10px',
     cursor: 'pointer',
+  },
+  // Mobile touch-target bump for dock buttons (merge over dockButton).
+  dockButtonMobile: {
+    height: 38,
+    minHeight: 38,
+    flexShrink: 0,
+    padding: '0 12px',
   },
   selectLabel: {
     display: 'flex',
@@ -362,9 +394,10 @@ export const styles = {
   },
 };
 
-export function dockToggleStyle(active) {
+export function dockToggleStyle(active, mobile = false) {
   return {
     ...styles.dockButton,
+    ...(mobile ? styles.dockButtonMobile : null),
     background: active ? 'hsl(var(--primary) / 0.14)' : 'hsl(var(--secondary))',
     borderColor: active ? 'hsl(var(--primary) / 0.45)' : 'hsl(var(--border))',
     color: active ? 'hsl(var(--foreground))' : 'hsl(var(--muted-foreground))',

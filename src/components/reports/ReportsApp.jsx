@@ -161,6 +161,7 @@ export function ReportsApp() {
   const [generationError, setGenerationError] = useState('');
   const [authorInfo, setAuthorInfo] = useState(null);
   const [speaking, setSpeaking] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const generationRequestRef = useRef(0);
   const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -371,6 +372,17 @@ export function ReportsApp() {
           </select>
         </Field>
 
+        <button
+          type="button"
+          onClick={() => setOptionsOpen((open) => !open)}
+          style={{ ...input, alignSelf: 'flex-end' }}
+          className="sm:hidden"
+          aria-expanded={optionsOpen}
+        >
+          {optionsOpen ? t('common.close') : 'Options'}
+        </button>
+
+        <div className={`${optionsOpen ? 'contents' : 'hidden'} sm:contents`}>
         {needsSubject && (
           <Field label={builder.subjectLabel || 'Subject'}>
             {builder.subjectType === 'Story' ? (
@@ -454,6 +466,7 @@ export function ReportsApp() {
         </Field>
 
         {builder.helpText && <div style={helpText}>{builder.helpText}</div>}
+        </div>
       </header>
 
       <main style={main}>

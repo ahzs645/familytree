@@ -419,7 +419,7 @@ export default function PersonEditor() {
           {context && (
             <Section title="Parents & Relatives" accent={ACCENTS.parents}>
               <ParentsBlock context={context} onPick={(rn) => guardedNavigate(`/person/${rn}`)} />
-              <div className="mt-4 grid grid-cols-[130px_1fr_auto] gap-2">
+              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[130px_1fr_auto]">
                 <select value={relativeType} onChange={(event) => setRelativeType(event.target.value)} className={inputClass()}>
                   <option value="parent">Parent</option>
                   <option value="spouse">Spouse</option>
@@ -427,7 +427,7 @@ export default function PersonEditor() {
                   <option value="sibling">Sibling</option>
                 </select>
                 <PersonPicker persons={allPersons.filter((person) => person.recordName !== id)} value={relativeId} onChange={setRelativeId} />
-                <button type="button" onClick={onLinkRelative} disabled={!relativeId} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50">
+                <button type="button" onClick={onLinkRelative} disabled={!relativeId} className="w-full sm:w-auto bg-secondary border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50">
                   Link
                 </button>
               </div>
@@ -578,8 +578,10 @@ export default function PersonEditor() {
                         onChange={(e) => setFacts((a) => a.map((x, j) => j === i ? { ...x, date: e.target.value } : x))}
                         className={inputClass() + ' w-[120px] shrink-0'}
                       />
-                      <EvidenceBadge evidence={it.recordName ? evidence?.byRecord?.get(it.recordName) : null} />
-                      <RemoveBtn onClick={() => setFacts((a) => a.filter((_, j) => j !== i))} />
+                      <div className="flex items-center gap-2 ms-auto shrink-0">
+                        <EvidenceBadge evidence={it.recordName ? evidence?.byRecord?.get(it.recordName) : null} />
+                        <RemoveBtn onClick={() => setFacts((a) => a.filter((_, j) => j !== i))} />
+                      </div>
                     </div>
                   );
                 })}
@@ -660,7 +662,7 @@ export default function PersonEditor() {
                       dir="auto"
                       className={inputClass() + ' resize-y'}
                     />
-                    <div className="text-right">
+                    <div className="text-end">
                       <RemoveBtn onClick={() => setNotes((a) => a.filter((_, j) => j !== i))} />
                     </div>
                   </div>

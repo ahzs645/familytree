@@ -143,7 +143,7 @@ export function SortableListTable({
               </div>
             ))}
           </div>
-          <table className="hidden md:table w-full min-w-[760px] border-collapse text-sm">
+          <table className="hidden md:table w-full border-collapse text-sm" style={{ minWidth: `${columns.length * 140}px` }}>
             <thead className="sticky top-0 z-10 bg-card border-b border-border">
               <tr>
                 {columns.map((column) => {

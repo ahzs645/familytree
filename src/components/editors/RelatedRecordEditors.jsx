@@ -173,7 +173,7 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
           ))}
         </div>
       )}
-      <div className="grid grid-cols-[130px_1fr_auto] gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[130px_1fr_auto]">
         <select value={mediaType} onChange={(e) => { setMediaType(e.target.value); setMediaId(''); }} className={inputClass} aria-label="Media type">
           {MEDIA_TYPES.map((type) => <option key={type} value={type}>{type.replace('Media', '')}</option>)}
         </select>
@@ -312,7 +312,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                   {evidenceSummary(rel) && (
                     <div className="mt-1 text-[11px] text-muted-foreground">{evidenceSummary(rel)}</div>
                   )}
-                  <div className="grid grid-cols-[120px_1fr_auto] gap-2 mt-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[120px_1fr_auto] mt-2">
                     <input
                       value={draft.page || ''}
                       onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, page: e.target.value } }))}
@@ -329,7 +329,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                     />
                     <button onClick={() => saveRelation(rel)} className={buttonClass}>Save citation now</button>
                   </div>
-                  <div className="grid grid-cols-[1fr_150px] gap-2 mt-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_150px] mt-2">
                     <textarea
                       value={draft.transcription || ''}
                       onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, transcription: e.target.value } }))}
@@ -357,7 +357,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-2 mt-2" role="group" aria-label="Citation certainty">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 mt-2" role="group" aria-label="Citation certainty">
                     {CERTAINTY_AXES.map(({ key, label }) => (
                       <label key={key} className="text-[11px] text-muted-foreground">
                         <span className="block mb-0.5">{label} quality</span>
@@ -379,7 +379,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
           </div>
         </>
       )}
-      <div className="grid grid-cols-[130px_1fr_auto] gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[130px_1fr_auto]">
         <select value={selectedType} onChange={(e) => { setSelectedType(e.target.value); setSelectedId(''); }} className={inputClass} aria-label={ownerRole === 'source' ? 'Citation target type' : 'Citation source type'}>
           {poolTypes.map((type) => <option key={type} value={type}>{type.replace('Media', '')}</option>)}
         </select>
@@ -495,7 +495,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
                 typeLabel={relationLabel(draft.type)}
                 onRemove={() => removeRelation(rel)}
               >
-                <div className="grid grid-cols-[150px_1fr_auto] gap-2 mt-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[150px_1fr_auto] mt-2">
                   <select
                     value={draft.type || ''}
                     onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, type: e.target.value } }))}
@@ -521,7 +521,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
           })}
         </div>
       )}
-      <div className="grid grid-cols-[150px_1fr_auto] gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[150px_1fr_auto]">
         <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className={inputClass} aria-label="New associate relation type">
           {relationTypes.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
         </select>
@@ -618,7 +618,7 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
                 placeholder="Note text"
                 aria-label="Note text"
               />
-              <div className="text-right mt-2">
+              <div className="text-end mt-2">
                 <button onClick={() => setNotes((items) => items.filter((_, i) => i !== index))} className="text-xs text-destructive hover:underline">Stage removal</button>
               </div>
             </div>

@@ -114,7 +114,7 @@ export function Section({
     <div ref={sectionRef} id={sectionId} className="rounded-lg border border-border bg-card mb-4 overflow-hidden scroll-mt-24">
       <div
         className={cn(
-          'flex items-center gap-3 px-4 py-3 bg-secondary/40',
+          'flex flex-wrap items-center gap-3 px-4 py-3 bg-secondary/40',
           collapsed ? 'border-b border-transparent' : 'border-b border-border',
           collapsible && 'cursor-pointer select-none hover:bg-secondary/60'
         )}

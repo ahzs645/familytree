@@ -270,6 +270,8 @@ export default function DNAResults() {
           renderRow={renderRow}
           placeholder="Search DNA results..."
           detail={detail}
+          emptyTitle="No DNA results yet"
+          emptyHint="Tap + New to add a DNA test result."
         />
       </div>
     </div>

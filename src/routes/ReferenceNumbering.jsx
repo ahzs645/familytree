@@ -61,9 +61,9 @@ export default function ReferenceNumbering() {
           <table className="w-full text-sm">
             <thead className="bg-muted text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="text-left p-2">Number</th>
-                <th className="text-left p-2">Person</th>
-                <th className="text-left p-2">Generation</th>
+                <th className="text-start p-2">Number</th>
+                <th className="text-start p-2">Person</th>
+                <th className="text-start p-2">Generation</th>
               </tr>
             </thead>
             <tbody>

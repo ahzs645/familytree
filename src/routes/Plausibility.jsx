@@ -53,18 +53,22 @@ export default function Plausibility() {
         ) : (
           <div className="space-y-1.5">
             {filtered.map((w, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 bg-card border border-border rounded-md">
-                <span className={`inline-block text-[10px] font-bold uppercase tracking-wider rounded border px-2 py-0.5 min-w-[60px] text-center ${SEV_COLORS[w.severity]}`}>
-                  {w.severity}
-                </span>
-                <span className="flex-1 text-sm">{w.message}</span>
-                <span className="text-[11px] text-muted-foreground font-mono">{w.rule}</span>
-                <button
-                  onClick={() => navigate(w.recordType === 'Family' ? `/family/${w.recordName}` : `/person/${w.recordName}`)}
-                  className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent"
-                >
-                  open
-                </button>
+              <div key={i} className="flex flex-col gap-2 p-3 bg-card border border-border rounded-md sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex items-start gap-3 sm:flex-1">
+                  <span className={`inline-block shrink-0 text-[10px] font-bold uppercase tracking-wider rounded border px-2 py-0.5 min-w-[60px] text-center ${SEV_COLORS[w.severity]}`}>
+                    {w.severity}
+                  </span>
+                  <span className="flex-1 text-sm">{w.message}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3 ps-[72px] sm:ps-0">
+                  <span className="text-[11px] text-muted-foreground/70 font-mono">{w.rule}</span>
+                  <button
+                    onClick={() => navigate(w.recordType === 'Family' ? `/family/${w.recordName}` : `/person/${w.recordName}`)}
+                    className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent"
+                  >
+                    open
+                  </button>
+                </div>
               </div>
             ))}
           </div>

@@ -124,7 +124,7 @@ export function TimePicker({
           ref={popRef}
           role="dialog"
           aria-label="Choose time"
-          className="absolute z-40 mt-1 rounded-md border border-border bg-popover text-popover-foreground shadow-lg p-3"
+          className="absolute z-40 mt-1 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover text-popover-foreground shadow-lg p-3"
           style={{ minWidth: 220 }}
         >
           <div className="flex items-center justify-center gap-3">

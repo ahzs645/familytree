@@ -53,7 +53,9 @@ export function BooksApp() {
   const [status, setStatus] = useState('');
   const [progress, setProgress] = useState(null);
   const [validation, setValidation] = useState({ errors: [], warnings: [] });
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const controllerRef = React.useRef(null);
+  const previewRef = React.useRef(null);
 
   useEffect(() => {
     (async () => {
@@ -239,8 +241,26 @@ export function BooksApp() {
         <input
           value={book.title}
           onChange={(e) => setBook({ ...book, title: e.target.value })}
-          style={{ ...input, minWidth: 220, fontSize: 14, fontWeight: 600 }}
+          style={{ ...input, minWidth: 220, fontSize: 14, fontWeight: 600, flex: '1 1 160px' }}
         />
+        <button
+          type="button"
+          onClick={() => setOptionsOpen((open) => !open)}
+          style={input}
+          className="sm:hidden"
+          aria-expanded={optionsOpen}
+        >
+          {optionsOpen ? 'Close' : 'Options'}
+        </button>
+        <button
+          type="button"
+          onClick={() => previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          style={input}
+          className="sm:hidden"
+        >
+          Preview
+        </button>
+        <div className={`${optionsOpen ? 'contents' : 'hidden'} sm:contents`}>
         <button onClick={onSave} style={input}>Save</button>
         <select value="" onChange={(e) => e.target.value && onLoad(e.target.value)} style={{ ...input, minWidth: 140 }}>
           <option value="">Load saved…</option>
@@ -269,6 +289,7 @@ export function BooksApp() {
         <button onClick={onPDF} disabled={busy} style={input}>PDF Preview</button>
         <button onClick={onBundle} disabled={busy} style={input}>Website/book bundle</button>
         {busy && controllerRef.current && <button onClick={() => controllerRef.current?.abort()} style={input}>Cancel</button>}
+        </div>
       </header>
 
       {(validation.errors.length > 0 || validation.warnings.length > 0) && (
@@ -290,10 +311,10 @@ export function BooksApp() {
         </div>
       )}
 
-      <div style={body}>
-        <aside style={leftPane}>
+      <div style={body} className="flex-col overflow-auto sm:flex-row sm:overflow-hidden">
+        <aside style={leftPane} className="w-full sm:w-[360px]">
           <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 600, padding: '12px 14px 8px', letterSpacing: 0.4 }}>SECTIONS</div>
-          <div style={{ flex: 1, overflow: 'auto', padding: '0 14px' }}>
+          <div style={{ flex: 1, padding: '0 14px' }} className="overflow-visible sm:overflow-auto">
             {book.sections.map((s, i) => (
               <SectionEditor
                 key={i}
@@ -321,7 +342,7 @@ export function BooksApp() {
             </select>
           </div>
         </aside>
-        <main style={main}>
+        <main ref={previewRef} style={main} className="min-h-[60vh] overflow-visible border-t border-border sm:min-h-0 sm:overflow-auto sm:border-t-0">
           {(status || progress) && (
             <div style={statusBar}>
               <span>{progress?.message || status}</span>
@@ -337,9 +358,9 @@ export function BooksApp() {
 
 const shell = { display: 'flex', flexDirection: 'column', height: '100%', background: 'hsl(var(--background))' };
 const header = { display: 'flex', gap: 6, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', flexWrap: 'wrap' };
-const body = { flex: 1, display: 'flex', overflow: 'hidden' };
-const leftPane = { width: 360, display: 'flex', flexDirection: 'column', borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
-const main = { flex: 1, overflow: 'auto' };
+const body = { flex: 1, display: 'flex', minHeight: 0 };
+const leftPane = { display: 'flex', flexDirection: 'column', borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
+const main = { flex: 1, minHeight: 0 };
 const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer' };
 const statusBar = { display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 14px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))', fontSize: 12 };
 const loadingStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--background))' };

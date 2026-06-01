@@ -395,26 +395,31 @@ export default function FamilyEditor() {
             <div className="min-w-0">
               <Section title={`Children · ${children.length}`} accent={ACCENTS.children}
                 controls={
-                  <div className="max-w-[260px]">
+                  <div className="hidden sm:block max-w-[260px]">
                     <PersonPicker persons={persons} value={null} onChange={addChild} />
                   </div>
                 }
               >
+                <div className="sm:hidden mb-3">
+                  <PersonPicker persons={persons} value={null} onChange={addChild} />
+                </div>
                 {children.length === 0 ? (
                   <Empty title="No children recorded" hint="Use the picker above to add a child." />
                 ) : (
                   <div className="space-y-1.5">
                     {children.map((c, i) => (
-                      <div key={c.childRecordName} className="flex items-center gap-2 p-2 bg-secondary/30 rounded-md">
+                      <div key={c.childRecordName} className="flex flex-wrap items-center gap-2 p-2 bg-secondary/30 rounded-md">
                         <span className="text-xs text-muted-foreground w-6">{i + 1}.</span>
-                        <span className="text-sm flex-1 truncate">
+                        <span className="text-sm flex-1 min-w-0 truncate">
                           {c.summary?.fullName || c.childRecordName}
                           {lifeSpanLabel(c.summary) && <span className="text-muted-foreground ms-2 text-xs">{lifeSpanLabel(c.summary)}</span>}
                         </span>
-                        <button disabled={i === 0} onClick={() => moveChild(i, -1)} className="text-xs text-muted-foreground border border-border rounded-md w-7 h-7 hover:bg-accent disabled:opacity-30">↑</button>
-                        <button disabled={i === children.length - 1} onClick={() => moveChild(i, 1)} className="text-xs text-muted-foreground border border-border rounded-md w-7 h-7 hover:bg-accent disabled:opacity-30">↓</button>
-                        <button onClick={() => guardedNavigate(`/person/${c.childRecordName}`)} className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent">edit</button>
-                        <button onClick={() => removeChild(i)} title="Stage child removal until Save changes" className="text-destructive border border-border rounded-md w-7 h-7 text-xs hover:bg-destructive/10">×</button>
+                        <div className="flex w-full sm:w-auto justify-end gap-1">
+                          <button disabled={i === 0} onClick={() => moveChild(i, -1)} className="text-xs text-muted-foreground border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 hover:bg-accent disabled:opacity-30">↑</button>
+                          <button disabled={i === children.length - 1} onClick={() => moveChild(i, 1)} className="text-xs text-muted-foreground border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 hover:bg-accent disabled:opacity-30">↓</button>
+                          <button onClick={() => guardedNavigate(`/person/${c.childRecordName}`)} className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent">edit</button>
+                          <button onClick={() => removeChild(i)} title="Stage child removal until Save changes" className="text-destructive border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 text-xs hover:bg-destructive/10 ms-1">×</button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -478,7 +483,7 @@ export default function FamilyEditor() {
                     <textarea value={n.text} rows={3} dir="auto"
                       onChange={(e) => setNotes((a) => a.map((x, j) => j === i ? { ...x, text: e.target.value } : x))}
                       className={inputClass + ' resize-y'} />
-                    <div className="text-right">
+                    <div className="text-end">
                       <button onClick={() => setNotes((a) => a.filter((_, j) => j !== i))}
                         className="text-destructive border border-border rounded-md w-7 h-7 text-xs hover:bg-destructive/10 mt-1">×</button>
                     </div>

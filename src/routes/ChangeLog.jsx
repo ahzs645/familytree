@@ -231,7 +231,7 @@ function SubEntries({ subs, entityType, author, targetId }) {
             key={s.recordName}
             className="flex items-center px-4 py-2 border-t border-border/40 first:border-t-0"
           >
-            <span className="flex-1 text-sm text-foreground pr-4 break-words" dir="auto">
+            <span className="flex-1 text-sm text-foreground pe-4 break-words" dir="auto">
               {subEntryDescription(s, entityType)}
             </span>
             {ts && (

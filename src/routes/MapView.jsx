@@ -62,13 +62,22 @@ export default function MapView() {
     return out;
   }, [places, coordinates, navigate]);
 
+  // Frame the marker bounding box so spread-out places stay in view instead of
+  // opening on empty ocean at the geometric midpoint. Fall back to a world view
+  // when nothing is plotted. The Map component fits the bounds (padding/maxZoom).
   const initial = useMemo(() => {
-    if (markers.length === 0) return { center: [0, 20], zoom: 1.5 };
+    if (markers.length === 0) return { center: [0, 20], zoom: 1.5, bounds: null };
     const lats = markers.map((m) => m.lat);
     const lngs = markers.map((m) => m.lng);
-    const cLat = (Math.min(...lats) + Math.max(...lats)) / 2;
-    const cLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
-    return { center: [cLng, cLat], zoom: 4 };
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    return {
+      center: [(minLng + maxLng) / 2, (minLat + maxLat) / 2],
+      zoom: 4,
+      bounds: [[minLng, minLat], [maxLng, maxLat]],
+    };
   }, [markers]);
 
   return (
@@ -84,7 +93,7 @@ export default function MapView() {
         </span>
       </header>
       <div className="flex-1 relative">
-        <BaseMap center={initial.center} zoom={initial.zoom} markers={markers} />
+        <BaseMap center={initial.center} zoom={initial.zoom} bounds={initial.bounds} markers={markers} />
       </div>
     </div>
   );

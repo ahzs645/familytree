@@ -238,6 +238,8 @@ export default function SourceRepositories() {
           renderRow={renderRow}
           placeholder="Search repositories..."
           detail={detail}
+          emptyTitle="No repositories yet"
+          emptyHint="Tap + New to add a repository."
         />
       </div>
     </div>

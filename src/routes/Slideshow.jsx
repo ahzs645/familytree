@@ -6,6 +6,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { getAppPreferences } from '../lib/appPreferences.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import {
   mediaAssetSrc,
   mediaDisplayLabel,
@@ -16,6 +17,8 @@ import {
 } from '../lib/mediaPresentation.js';
 
 export default function Slideshow() {
+  const { localization } = useTranslation();
+  const isRtl = localization.direction === 'rtl';
   const [searchParams] = useSearchParams();
   const [media, setMedia] = useState([]);
   const [assetsByMedia, setAssetsByMedia] = useState({});
@@ -209,9 +212,9 @@ export default function Slideshow() {
           </div>
         ) : null}
         <button onClick={() => setIndex((i) => (i - 1 + order.length) % order.length)}
-          className="absolute left-4 top-1/2 -translate-y-1/2 bg-card/80 backdrop-blur border border-border rounded-full w-10 h-10">‹</button>
+          className="absolute start-4 top-1/2 -translate-y-1/2 bg-card/80 backdrop-blur border border-border rounded-full w-10 h-10">{isRtl ? '›' : '‹'}</button>
         <button onClick={() => setIndex((i) => (i + 1) % order.length)}
-          className="absolute right-4 top-1/2 -translate-y-1/2 bg-card/80 backdrop-blur border border-border rounded-full w-10 h-10">›</button>
+          className="absolute end-4 top-1/2 -translate-y-1/2 bg-card/80 backdrop-blur border border-border rounded-full w-10 h-10">{isRtl ? '‹' : '›'}</button>
       </main>
     </div>
   );

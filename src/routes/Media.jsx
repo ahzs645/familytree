@@ -421,17 +421,24 @@ export default function Media() {
         )}
         <button onClick={selectVisible} disabled={!filtered.length} style={select}>Select visible</button>
         <button onClick={clearSelection} disabled={!selectedIds.length} style={select}>Clear selection</button>
-        <button onClick={startSlideshow} disabled={!selectedIds.length && !activeId} style={select}>
-          Slideshow {selectedIds.length ? `(${selectedIds.length})` : ''}
-        </button>
-        <button onClick={() => setMode(readOnlyGallery ? 'editor' : 'gallery')} style={select}>
-          {readOnlyGallery ? 'Edit records' : 'Gallery report'}
-        </button>
         {!readOnlyGallery && <button onClick={() => addFilesRef.current?.click()} style={select}>Add files</button>}
-        {!readOnlyGallery && <button onClick={onAddURL} style={select}>Add URL</button>}
-        {!readOnlyGallery && <button onClick={onStartCamera} style={select}>Camera</button>}
-        {!readOnlyGallery && <button onClick={onStartAudioRecording} style={select}>Record audio</button>}
-        {!readOnlyGallery && <button onClick={() => folderRef.current?.click()} style={select}>Match media folder</button>}
+        <MoreMenu
+          items={[
+            {
+              label: `Slideshow${selectedIds.length ? ` (${selectedIds.length})` : ''}`,
+              onClick: startSlideshow,
+              disabled: !selectedIds.length && !activeId,
+            },
+            {
+              label: readOnlyGallery ? 'Edit records' : 'Gallery report',
+              onClick: () => setMode(readOnlyGallery ? 'editor' : 'gallery'),
+            },
+            !readOnlyGallery && { label: 'Add URL', onClick: onAddURL },
+            !readOnlyGallery && { label: 'Camera', onClick: onStartCamera },
+            !readOnlyGallery && { label: 'Record audio', onClick: onStartAudioRecording },
+            !readOnlyGallery && { label: 'Match media folder', onClick: () => folderRef.current?.click() },
+          ]}
+        />
       </header>
 
       <div style={isMobile ? bodyMobile : body}>
@@ -607,9 +614,63 @@ export default function Media() {
   );
 }
 
+function MoreMenu({ items }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (event) => {
+      if (ref.current && !ref.current.contains(event.target)) setOpen(false);
+    };
+    const onKey = (event) => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const visible = items.filter(Boolean);
+  if (!visible.length) return null;
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={select}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        More <span aria-hidden="true">▾</span>
+      </button>
+      {open ? (
+        <div role="menu" style={moreMenuPanel}>
+          {visible.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              role="menuitem"
+              disabled={item.disabled}
+              onClick={() => { setOpen(false); item.onClick(); }}
+              style={moreMenuItem}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const shell = { display: 'flex', flexDirection: 'column', height: '100%' };
 const header = { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', flexWrap: 'wrap' };
 const select = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 10px', fontSize: 12 };
+const moreMenuPanel = { position: 'absolute', insetInlineEnd: 0, top: '100%', zIndex: 20, marginTop: 4, minWidth: 180, background: 'hsl(var(--popover, var(--card)))', color: 'hsl(var(--popover-foreground, var(--foreground)))', border: '1px solid hsl(var(--border))', borderRadius: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.35)', padding: 4, display: 'flex', flexDirection: 'column' };
+const moreMenuItem = { width: '100%', textAlign: 'start', background: 'transparent', color: 'inherit', border: 'none', borderRadius: 6, padding: '8px 10px', fontSize: 13, cursor: 'pointer' };
 const body = { flex: 1, display: 'flex', overflow: 'hidden' };
 const bodyMobile = { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' };
 const gallery = { flex: 1, overflow: 'auto', padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 };

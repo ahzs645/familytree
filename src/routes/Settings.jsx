@@ -49,13 +49,13 @@ function SettingsLayout() {
           </div>
         </header>
 
-        <nav className="flex flex-wrap gap-2 border-b border-border mb-5">
+        <nav className="flex gap-2 overflow-x-auto whitespace-nowrap border-b border-border mb-5">
           {tabs.map((tab) => (
             <NavLink
               key={tab.id}
               to={tab.id}
               className={({ isActive }) =>
-                `px-3 py-2 text-xs font-semibold border-b-2 ${isActive ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`
+                `shrink-0 px-3 py-2.5 text-sm font-semibold border-b-2 ${isActive ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`
               }
             >
               {tab.label}

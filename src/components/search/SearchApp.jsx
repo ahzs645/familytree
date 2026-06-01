@@ -242,7 +242,7 @@ export function SearchApp() {
             value={textQuery}
             onChange={(e) => setTextQuery(e.target.value)}
             placeholder="Match any field…"
-            style={{ ...input, flex: '1 1 200px', minWidth: 0 }}
+            style={{ ...input, width: '100%', minWidth: 0 }}
             onKeyDown={(e) => e.key === 'Enter' && onRun()}
           />
         </Field>
@@ -251,7 +251,7 @@ export function SearchApp() {
           <select
             value=""
             onChange={(e) => onRunScope(e.target.value)}
-            style={{ ...input, flex: '1 1 200px', minWidth: 0, cursor: 'pointer' }}
+            style={{ ...input, width: '100%', minWidth: 0, cursor: 'pointer' }}
           >
             <option value="">Choose a scope…</option>
             {scopeOptions.map((s) => (
@@ -311,15 +311,15 @@ export function SearchApp() {
         <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Search and Replace</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <Field label="Field">
-            <select value={replaceField} onChange={(e) => setReplaceField(e.target.value)} style={{ ...input, flex: '1 1 150px', minWidth: 0 }}>
+            <select value={replaceField} onChange={(e) => setReplaceField(e.target.value)} style={{ ...input, width: '100%', minWidth: 0 }}>
               {replaceFields.map((field) => <option key={field.id} value={field.id}>{field.label}</option>)}
             </select>
           </Field>
           <Field label="Find">
-            <input value={findText} onChange={(e) => setFindText(e.target.value)} style={{ ...input, flex: '1 1 180px', minWidth: 0 }} />
+            <input value={findText} onChange={(e) => setFindText(e.target.value)} style={{ ...input, width: '100%', minWidth: 0 }} />
           </Field>
           <Field label="Replace with">
-            <input value={replacementText} onChange={(e) => setReplacementText(e.target.value)} style={{ ...input, flex: '1 1 180px', minWidth: 0 }} />
+            <input value={replacementText} onChange={(e) => setReplacementText(e.target.value)} style={{ ...input, width: '100%', minWidth: 0 }} />
           </Field>
           <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6 }}>
             <input type="checkbox" checked={matchCase} onChange={(e) => setMatchCase(e.target.checked)} /> Match case

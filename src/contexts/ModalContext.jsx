@@ -90,7 +90,7 @@ export function ModalProvider({ children }) {
       {stack.map((m) => (
         <ModalView key={m.id} modal={m} onClose={(v) => close(m.id, v)} />
       ))}
-      <div className="fixed bottom-4 left-4 right-4 sm:left-auto z-[80] flex flex-col items-stretch sm:items-end gap-2 pointer-events-none">
+      <div className="fixed bottom-4 start-4 end-4 sm:start-auto z-[80] flex flex-col items-stretch sm:items-end gap-2 pointer-events-none">
         {toasts.map((toast) => (
           <ToastView key={toast.id} toast={toast} onClose={() => closeToast(toast.id)} />
         ))}

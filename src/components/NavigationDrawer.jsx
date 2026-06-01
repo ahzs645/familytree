@@ -8,7 +8,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Sun, Moon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Sun, Moon, Search } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { cn } from '../lib/utils.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
@@ -17,6 +17,10 @@ import { routeLabelKey } from '../lib/navigationLabels.js';
 import { NAV_PINNED, NAV_GROUPS, findGroupForPath, isLinkActive } from '../lib/navigationConfig.js';
 
 const OPEN_GROUPS_KEY = 'app.drawer.openGroups.v2';
+// On the home/empty route findGroupForPath() returns null, which used to leave
+// every group collapsed and the lower drawer blank. Fall back to opening the
+// most-used group so the drawer always shows navigable links.
+const DEFAULT_OPEN_GROUP = 'people';
 
 function readOpenGroups() {
   try {
@@ -38,6 +42,7 @@ export function NavigationDrawer({
   emphasizedRoutes,
   recordCountLabel,
   statusState,
+  onOpenPalette,
 }) {
   const { t, localization, setLocale } = useTranslation();
   const { theme, toggle } = useTheme();
@@ -47,7 +52,7 @@ export function NavigationDrawer({
     const stored = readOpenGroups();
     if (stored) return stored;
     const current = findGroupForPath(location.pathname);
-    return current ? { [current]: true } : {};
+    return { [current || DEFAULT_OPEN_GROUP]: true };
   });
 
   // When the route changes, auto-open the group that contains it (without
@@ -113,6 +118,34 @@ export function NavigationDrawer({
         </button>
       </div>
 
+      {/* Command palette trigger (⌘K) */}
+      {onOpenPalette && (
+        <div className={cn('px-2 pt-2', collapsed && 'px-0')}>
+          <button
+            type="button"
+            onClick={onOpenPalette}
+            className={cn(
+              'flex items-center rounded-md border border-border bg-secondary/60 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors',
+              collapsed
+                ? 'justify-center w-7 h-7 mx-auto'
+                : 'gap-2 w-full px-2 py-1.5'
+            )}
+            title={t('commandPalette.ariaLabel', { defaultValue: 'Search commands' })}
+            aria-label={t('commandPalette.ariaLabel', { defaultValue: 'Search commands' })}
+          >
+            <Search size={15} className="flex-shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="flex-1 text-start text-[13px] truncate">
+                  {t('commandPalette.placeholder')}
+                </span>
+                <kbd className="text-[10px] font-semibold border border-border rounded px-1.5 py-0.5">⌘K</kbd>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* Scrollable nav */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden py-2">
         <div className="pb-2">
@@ -160,44 +193,62 @@ export function NavigationDrawer({
         })}
       </div>
 
-      {/* Footer: status + theme + locale */}
-      <div className="flex items-center gap-2 border-t border-border px-2 py-2">
-        <div
-          className={cn('flex items-center gap-2 flex-1 min-w-0 px-2 py-1', collapsed && 'justify-center px-0')}
-          title={recordCountLabel}
-        >
+      {/* Footer: status + theme + locale. The top shadow signals the nav list
+          above can scroll; the record count gets its own line so the locale
+          <select> can't crowd it into a "6585 re…" truncation. */}
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-2 border-t border-border px-0 py-2 shadow-[0_-4px_8px_-4px_hsl(var(--foreground)/0.12)]">
           <span
             className={cn(
               'inline-block w-2 h-2 rounded-full flex-shrink-0',
               statusState === 'loading' ? 'bg-muted-foreground' : statusState === 'ok' ? 'bg-emerald-500' : 'bg-destructive'
             )}
+            title={recordCountLabel}
           />
-          {!collapsed && (
-            <span className="text-xs text-muted-foreground truncate">{recordCountLabel}</span>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={toggle}
-          className="flex items-center justify-center w-7 h-7 rounded text-muted-foreground hover:bg-accent hover:text-foreground"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
-        </button>
-        {!collapsed && (
-          <select
-            value={localization.locale}
-            onChange={(event) => setLocale(event.target.value)}
-            className="h-7 rounded border border-border bg-secondary px-1 text-xs text-foreground outline-none"
-            aria-label={t('settings.language')}
+          <button
+            type="button"
+            onClick={toggle}
+            className="flex items-center justify-center w-7 h-7 rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
           >
-            {SUPPORTED_LOCALES.map((locale) => (
-              <option key={locale.value} value={locale.value}>{locale.nativeLabel}</option>
-            ))}
-          </select>
-        )}
-      </div>
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 border-t border-border px-2 py-2 shadow-[0_-4px_8px_-4px_hsl(var(--foreground)/0.12)]">
+          <div className="flex items-center gap-2 min-w-0 px-2" title={recordCountLabel}>
+            <span
+              className={cn(
+                'inline-block w-2 h-2 rounded-full flex-shrink-0',
+                statusState === 'loading' ? 'bg-muted-foreground' : statusState === 'ok' ? 'bg-emerald-500' : 'bg-destructive'
+              )}
+            />
+            <span className="text-xs text-muted-foreground truncate">{recordCountLabel}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggle}
+              className="flex items-center justify-center w-7 h-7 rounded text-muted-foreground hover:bg-accent hover:text-foreground flex-shrink-0"
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+            </button>
+            <select
+              value={localization.locale}
+              onChange={(event) => setLocale(event.target.value)}
+              className="h-7 flex-1 min-w-0 rounded border border-border bg-secondary px-1 text-xs text-foreground outline-none"
+              aria-label={t('settings.language')}
+            >
+              {SUPPORTED_LOCALES.map((locale) => (
+                <option key={locale.value} value={locale.value}>{locale.nativeLabel}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
     </aside>
   );
 }

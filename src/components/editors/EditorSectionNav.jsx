@@ -52,6 +52,14 @@ export function useEditorSection(title) {
 export function EditorSectionNavBar({ className }) {
   const ctx = useContext(SectionNavContext);
   const [activeId, setActiveId] = useState(null);
+  // Map of section id -> chip button element, so we can scroll the active chip
+  // into view (the strip shows only a few chips on mobile).
+  const chipRefs = useRef(new Map());
+
+  const scrollChipIntoView = useCallback((id) => {
+    const chip = chipRefs.current.get(id);
+    chip?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }, []);
 
   const ordered = useMemo(() => {
     const list = [...(ctx?.sections || [])].filter((s) => s.el && s.title);
@@ -74,13 +82,16 @@ export function EditorSectionNavBar({ className }) {
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
         if (!visible.length) return;
         const match = ordered.find((s) => s.el === visible[0].target);
-        if (match) setActiveId(match.id);
+        if (match) {
+          setActiveId(match.id);
+          scrollChipIntoView(match.id);
+        }
       },
       { rootMargin: '-96px 0px -65% 0px', threshold: 0 }
     );
     ordered.forEach((s) => observer.observe(s.el));
     return () => observer.disconnect();
-  }, [ordered]);
+  }, [ordered, scrollChipIntoView]);
 
   if (ordered.length < 2) return null;
 
@@ -88,7 +99,8 @@ export function EditorSectionNavBar({ className }) {
     <nav
       aria-label="Editor sections"
       className={cn(
-        'flex items-center gap-1 overflow-x-auto border-b border-border bg-card/90 px-4 py-1.5 backdrop-blur',
+        'flex items-center gap-1 snap-x scroll-px-4 overflow-x-auto border-b border-border bg-card/90 px-4 py-1.5 backdrop-blur',
+        '[mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]',
         className
       )}
     >
@@ -96,9 +108,16 @@ export function EditorSectionNavBar({ className }) {
         <button
           key={s.id}
           type="button"
-          onClick={() => s.el?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+          ref={(el) => {
+            if (el) chipRefs.current.set(s.id, el);
+            else chipRefs.current.delete(s.id);
+          }}
+          onClick={() => {
+            s.el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            scrollChipIntoView(s.id);
+          }}
           className={cn(
-            'whitespace-nowrap rounded-md px-2.5 py-1 text-xs transition-colors',
+            'snap-start whitespace-nowrap rounded-md px-2.5 py-1 text-xs transition-colors',
             s.id === activeId
               ? 'bg-primary text-primary-foreground'
               : 'text-muted-foreground hover:bg-accent hover:text-foreground'

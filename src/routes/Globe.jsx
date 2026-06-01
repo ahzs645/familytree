@@ -173,7 +173,7 @@ export default function Globe() {
           ))}
         </div>
         {yearBounds.min !== null && yearBounds.max !== null && (
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
             <span className="whitespace-nowrap">Year {yearFrom}–{yearTo}</span>
             <input
               type="range"
@@ -181,7 +181,7 @@ export default function Globe() {
               max={yearBounds.max}
               value={yearFrom ?? yearBounds.min}
               onChange={(event) => setYearFrom(Math.min(Number(event.target.value), yearTo ?? yearBounds.max))}
-              className="w-28"
+              className="min-w-0 flex-1 max-w-[42vw]"
               aria-label="Year from"
             />
             <input
@@ -190,7 +190,7 @@ export default function Globe() {
               max={yearBounds.max}
               value={yearTo ?? yearBounds.max}
               onChange={(event) => setYearTo(Math.max(Number(event.target.value), yearFrom ?? yearBounds.min))}
-              className="w-28"
+              className="min-w-0 flex-1 max-w-[42vw]"
               aria-label="Year to"
             />
             <button

@@ -181,7 +181,7 @@ export function DatePicker({
           ref={popRef}
           role="dialog"
           aria-label="Choose date"
-          className="absolute z-40 mt-1 w-80 rounded-md border border-border bg-popover text-popover-foreground shadow-lg p-3"
+          className="absolute z-40 mt-1 w-80 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover text-popover-foreground shadow-lg p-3"
         >
           {qualifiers ? (
             <div className="mb-3 space-y-2">

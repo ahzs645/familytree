@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useIsMobile } from '../../lib/useIsMobile.js';
 import { CAMERA_MODES, VIEWER_OPTIONS_STORAGE_KEY } from './threeDTree/constants.js';
 import { buildInteractiveLayout } from './threeDTree/layout.js';
 import { makePalette } from './threeDTree/palette.js';
@@ -29,6 +30,9 @@ export function ThreeDTreeView({
 }) {
   const { theme } = useTheme();
   const appDark = theme === 'dark';
+  const isMobile = useIsMobile();
+  const macBarButtonStyle = isMobile ? { ...styles.macBarButton, ...styles.macBarButtonMobile } : styles.macBarButton;
+  const dockButtonStyle = isMobile ? { ...styles.dockButton, ...styles.dockButtonMobile } : styles.dockButton;
   const [viewerOptions, setViewerOptions] = useState(readInitialViewerOptions);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -100,16 +104,16 @@ export function ThreeDTreeView({
       )}
       {!presentationMode && (
       <div style={styles.macTopBar}>
-        <button type="button" onClick={() => onReturnToFamilyTree?.()} style={styles.macBarButton}>
+        <button type="button" onClick={() => onReturnToFamilyTree?.()} style={macBarButtonStyle}>
           Return to Family Tree
         </button>
-        <button type="button" onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} style={styles.macBarButton}>
+        <button type="button" onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} style={macBarButtonStyle}>
           Options
         </button>
-        <button type="button" onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} style={styles.macBarButton}>
+        <button type="button" onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} style={macBarButtonStyle}>
           Style
         </button>
-        <button type="button" onClick={() => actionsRef.current.fit()} style={styles.macBarButton}>
+        <button type="button" onClick={() => actionsRef.current.fit()} style={macBarButtonStyle}>
           Size to Fit
         </button>
         <div style={styles.macActionWrap}>
@@ -119,7 +123,7 @@ export function ThreeDTreeView({
               setActionsOpen((open) => !open);
               setControlsVisible(true);
             }}
-            style={styles.macBarButton}
+            style={macBarButtonStyle}
             aria-expanded={actionsOpen}
           >
             Actions...
@@ -146,7 +150,7 @@ export function ThreeDTreeView({
       </div>
       )}
       {!presentationMode && (
-      <div style={{ ...styles.bottomDock, ...(!controlsVisible ? styles.bottomDockHidden : null) }}>
+      <div style={{ ...styles.bottomDock, ...(isMobile ? styles.bottomDockMobile : null), ...(!controlsVisible ? (isMobile ? styles.bottomDockHiddenMobile : styles.bottomDockHidden) : null) }}>
         <div style={styles.dockGroup}>
           <span style={styles.dockLabel}>Size to Fit</span>
           <input
@@ -169,7 +173,7 @@ export function ThreeDTreeView({
         <div style={styles.dockGroup}>
           <button
             type="button"
-            style={styles.dockButton}
+            style={dockButtonStyle}
             onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }}
             aria-pressed={optionsPanelOpen}
           >
@@ -185,7 +189,7 @@ export function ThreeDTreeView({
         <div style={styles.dockGroup}>
           <button
             type="button"
-            style={dockToggleStyle(chrome.navigation)}
+            style={dockToggleStyle(chrome.navigation, isMobile)}
             onClick={() => onToggleChrome?.('navigation')}
             aria-pressed={chrome.navigation}
           >
@@ -193,7 +197,7 @@ export function ThreeDTreeView({
           </button>
           <button
             type="button"
-            style={dockToggleStyle(chrome.people)}
+            style={dockToggleStyle(chrome.people, isMobile)}
             onClick={() => onToggleChrome?.('people')}
             aria-pressed={chrome.people}
           >
@@ -201,7 +205,7 @@ export function ThreeDTreeView({
           </button>
           <button
             type="button"
-            style={dockToggleStyle(chrome.inspector)}
+            style={dockToggleStyle(chrome.inspector, isMobile)}
             onClick={() => onToggleChrome?.('inspector')}
             aria-pressed={chrome.inspector}
           >
@@ -209,7 +213,7 @@ export function ThreeDTreeView({
           </button>
           <button
             type="button"
-            style={dockToggleStyle(chrome.header)}
+            style={dockToggleStyle(chrome.header, isMobile)}
             onClick={() => onToggleChrome?.('header')}
             aria-pressed={chrome.header}
           >

@@ -339,7 +339,7 @@ function Info({ label, value }) {
   return (
     <div className="flex justify-between gap-3 border-b border-border py-2 text-sm">
       <span className="text-muted-foreground">{label}</span>
-      <span className="text-right">{value || 'Unknown'}</span>
+      <span className="text-end">{value || 'Unknown'}</span>
     </div>
   );
 }

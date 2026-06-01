@@ -48,7 +48,7 @@ function Field({ label, children }) {
   );
 }
 
-const row = { display: 'flex', gap: 4 };
+const row = { display: 'flex', flexWrap: 'wrap', gap: 6 };
 const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer' };
 
 export default PresentationSettingsControls;

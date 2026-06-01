@@ -47,7 +47,7 @@ export function ReadOnly({ label, value }) {
 
 export function RemoveBtn({ onClick }) {
   return (
-    <button onClick={onClick} className="text-destructive border border-border rounded-md w-7 h-7 text-xs hover:bg-destructive/10">×</button>
+    <button onClick={onClick} className="text-destructive border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 text-xs hover:bg-destructive/10">×</button>
   );
 }
 

@@ -128,7 +128,7 @@ export function Select({
           tabIndex={-1}
           onKeyDown={onKeyDown}
           className={cn(
-            'absolute z-40 mt-1 min-w-full max-h-64 overflow-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1',
+            'absolute z-40 mt-1 min-w-full max-w-[calc(100vw-1rem)] max-h-64 overflow-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1',
             align === 'end' ? 'end-0' : 'start-0'
           )}
         >

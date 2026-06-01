@@ -75,7 +75,7 @@ export default function Lineages() {
           <button onClick={create} className="ms-auto rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">New</button>
         </header>
         {definitions.map((item) => (
-          <button key={item.id} onClick={() => setActiveId(item.id)} className={`block w-full text-left px-3 py-2 border-b border-border text-sm ${item.id === activeId ? 'bg-primary/10' : 'hover:bg-accent'}`}>
+          <button key={item.id} onClick={() => setActiveId(item.id)} className={`block w-full text-start px-3 py-2 border-b border-border text-sm ${item.id === activeId ? 'bg-primary/10' : 'hover:bg-accent'}`}>
             <div className="font-medium truncate">{item.name}</div>
             <div className="text-xs text-muted-foreground truncate">{item.type}</div>
           </button>

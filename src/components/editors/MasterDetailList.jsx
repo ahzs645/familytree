@@ -6,7 +6,7 @@
 import React, { useMemo, useState } from 'react';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 
-export function MasterDetailList({ items, activeId, onPick, renderRow, placeholder = 'Search…', detail, detailHeader = null }) {
+export function MasterDetailList({ items, activeId, onPick, renderRow, placeholder = 'Search…', detail, detailHeader = null, emptyTitle, emptyHint }) {
   const [query, setQuery] = useState('');
   const [mobileView, setMobileView] = useState('list');
   const isMobile = useIsMobile();
@@ -44,27 +44,41 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
             </div>
           </div>
           <div style={{ flex: 1, overflow: 'auto' }}>
-            {filtered.map((it) => (
-              <div
-                key={it.recordName || it.id}
-                onClick={() => handlePick(it.recordName || it.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    handlePick(it.recordName || it.id);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
-                style={{
-                  ...row,
-                  background: (it.recordName || it.id) === activeId ? 'hsl(var(--secondary))' : 'transparent',
-                  borderInlineStart: (it.recordName || it.id) === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
-                }}
-              >
-                {renderRow(it)}
+            {filtered.length === 0 ? (
+              <div style={emptyState}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))' }}>
+                  {emptyTitle || 'Nothing here yet'}
+                </div>
+                {emptyHint && (
+                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+                    {emptyHint}
+                  </div>
+                )}
               </div>
-            ))}
+            ) : (
+              filtered.map((it) => (
+                <div
+                  key={it.recordName || it.id}
+                  onClick={() => handlePick(it.recordName || it.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handlePick(it.recordName || it.id);
+                    }
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  style={{
+                    ...row,
+                    ...(isMobile ? { minHeight: 44 } : null),
+                    background: (it.recordName || it.id) === activeId ? 'hsl(var(--secondary))' : 'transparent',
+                    borderInlineStart: (it.recordName || it.id) === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
+                  }}
+                >
+                  {renderRow(it)}
+                </div>
+              ))
+            )}
           </div>
         </aside>
       )}
@@ -117,5 +131,13 @@ const search = {
   boxSizing: 'border-box',
 };
 const row = { padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid hsl(var(--border))' };
+const emptyState = {
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  textAlign: 'center',
+  padding: '48px 24px',
+};
 
 export default MasterDetailList;
