@@ -117,6 +117,10 @@ export async function buildDescendantTree(rootRecordName, maxGenerations = 4) {
 export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) {
   const maxAncestorGenerations = options.maxAncestorGenerations ?? 4;
   const maxDescendantGenerations = options.maxDescendantGenerations ?? 1;
+  // Persons the user has clicked to expand-in-place: each reveals that person's
+  // otherwise-hidden families (the "further persons" the down-pin points at),
+  // mirroring the native viewer's click-to-expand on the further-persons mark.
+  const expandedIds = new Set(options.expandedIds || []);
   const db = getLocalDatabase();
   const root = await db.getRecord(rootRecordName);
   if (!isPublicRecord(root)) return null;
@@ -237,6 +241,30 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
     }
   };
   visitDescendantFamilies(rootRecordName, 0, 1);
+
+  // Expand-in-place: for each visible person the user has expanded, pull in any
+  // of their families that aren't shown yet (partner + children one level down).
+  // addFamily also seeds the partner/children hints, so the new members appear
+  // attached to the expanded person.
+  const expandPersonInPlace = (personId) => {
+    const generation = nodeHints.get(personId)?.generation ?? 0;
+    // Own (hidden) families: partner + children one generation down (down-pin).
+    for (const family of familyById.values()) {
+      const manId = refToRecordName(family.fields?.man?.value);
+      const womanId = refToRecordName(family.fields?.woman?.value);
+      if (manId !== personId && womanId !== personId) continue;
+      if (familyIds.has(family.recordName)) continue;
+      addFamily(family.recordName, generation + 1, 'descendant');
+    }
+    // Hidden parent families: parents one generation up (up-pin).
+    for (const familyId of parentFamiliesByChild.get(personId) || []) {
+      if (familyIds.has(familyId)) continue;
+      addFamily(familyId, generation, 'ancestor', null, personId);
+    }
+  };
+  for (const personId of expandedIds) {
+    if (personIds.has(personId)) expandPersonInPlace(personId);
+  }
 
   const publicPeople = [...personIds].map((personId) => personById.get(personId)).filter(Boolean);
   const publicPersonIds = new Set(publicPeople.map((person) => person.recordName));

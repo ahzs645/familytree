@@ -327,6 +327,16 @@ function makeFurtherRelativesMarker(node, palette, featured) {
   if ((more.families || 0) > 0) { group.add(makeFurtherPersonsPin(node, palette, featured, -1, bottomY)); drew = true; }
   // Fallback for a generic "more relatives" count with no direction.
   if (!drew && (more.relatives || 0) > 0) group.add(makeFurtherPersonsPin(node, palette, featured, -1, bottomY));
+  // Tag the marker so a click on any pin toggles expand-in-place for this person,
+  // and add a generous transparent hit-pad so the small pin is easy to click.
+  group.userData.expandFor = node?.id || node?.person?.recordName || null;
+  const pad = new THREE.Mesh(
+    new THREE.SphereGeometry(featured ? 22 : 18, 8, 6),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+  );
+  pad.position.set(0, (more.parents || 0) > 0 && (more.families || 0) === 0 ? topY : bottomY, 12);
+  pad.userData.expandFor = group.userData.expandFor;
+  group.add(pad);
   return group;
 }
 

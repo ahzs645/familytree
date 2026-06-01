@@ -20,6 +20,8 @@ export function useThreeTreeScene({
   dark,
   layout,
   onPick,
+  onToggleExpand,
+  expandedIds,
   palette,
   viewerOptions,
 }) {
@@ -44,6 +46,8 @@ export function useThreeTreeScene({
   layoutRef.current = layout;
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
+  const onToggleExpandRef = useRef(onToggleExpand);
+  onToggleExpandRef.current = onToggleExpand;
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
   const animationsEnabled = viewerOptions?.animationDuration !== 0;
@@ -197,8 +201,17 @@ export function useThreeTreeScene({
       raycaster.setFromCamera(pointer, camera);
       const hit = raycaster.intersectObjects(clickablesRef.current, true)[0];
       let object = hit?.object;
-      while (object && !object.userData.person) object = object.parent;
-      return object?.userData.node || (object?.userData.person ? { person: object.userData.person } : null);
+      // Walk up to the owning person, noting an expand-pin on the way (the pin is
+      // a child of the person group, so we see it before the person itself).
+      let expandFor = null;
+      while (object) {
+        if (expandFor === null && object.userData.expandFor) expandFor = object.userData.expandFor;
+        if (object.userData.person) break;
+        object = object.parent;
+      }
+      const node = object?.userData.node || (object?.userData.person ? { person: object.userData.person } : null);
+      if (node) node.expandFor = expandFor;
+      return node;
     };
 
     const onPointerDown = (event) => {
@@ -213,6 +226,12 @@ export function useThreeTreeScene({
       const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
       if (moved > 6) return;
       const person = intersectPerson(event);
+      // Clicking a "further persons" pin expands/collapses that person's hidden
+      // families in place (native click-to-expand on the further-persons mark).
+      if (person?.expandFor && onToggleExpandRef.current) {
+        onToggleExpandRef.current(person.expandFor);
+        return;
+      }
       // Native model: single-click SELECTS (highlight ring); double-click focuses
       // (re-roots, see onDblClick). Clicking empty space clears the selection.
       setSelectedId(person?.person ? person.person.recordName : null);

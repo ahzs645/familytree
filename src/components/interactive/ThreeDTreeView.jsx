@@ -24,6 +24,8 @@ export function ThreeDTreeView({
   onOpenDescendantChart,
   onAddRelative,
   onDeletePerson,
+  onToggleExpand,
+  expandedIds,
   context,
   chrome = { navigation: true, people: true, inspector: true, header: true },
   onToggleChrome,
@@ -77,6 +79,8 @@ export function ThreeDTreeView({
     dark,
     layout,
     onPick,
+    onToggleExpand,
+    expandedIds,
     palette,
     viewerOptions,
   });

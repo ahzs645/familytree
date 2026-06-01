@@ -41,6 +41,8 @@ export function InteractiveTreeApp() {
   const [empty, setEmpty] = useState(false);
   const [mobilePane, setMobilePane] = useState('focus');
   const [treeChrome, setTreeChrome] = useState({ navigation: false, people: false, inspector: false, header: false });
+  // Persons expanded-in-place via their "further persons" pin (reset on re-root).
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
   const isMobile = useIsMobile();
   const { recordName: activeId, setActivePerson } = useActivePerson();
   const navigate = useNavigate();
@@ -82,7 +84,11 @@ export function InteractiveTreeApp() {
         buildPersonContext(activeId),
         buildAncestorTree(activeId, 4),
         buildDescendantTree(activeId, viewMode === 'sun' ? 9 : 4),
-        buildInteractiveFamilyGraph(activeId, { maxAncestorGenerations: 4, maxDescendantGenerations: 1 }),
+        buildInteractiveFamilyGraph(activeId, {
+          maxAncestorGenerations: 4,
+          maxDescendantGenerations: 1,
+          expandedIds: [...expandedIds],
+        }),
         buildFamilyTreeViewModel(activeId),
       ]);
       if (!cancelled) {
@@ -93,7 +99,7 @@ export function InteractiveTreeApp() {
     return () => {
       cancelled = true;
     };
-  }, [activeId, viewMode, dataVersion]);
+  }, [activeId, viewMode, dataVersion, expandedIds]);
 
   useEffect(() => () => {
     window.dispatchEvent(new CustomEvent('cloudtreeweb:navigation-visibility', { detail: { hidden: false } }));
@@ -108,7 +114,19 @@ export function InteractiveTreeApp() {
   const onPick = useCallback((recordName) => {
     setActivePerson(recordName);
     setMobilePane('focus');
+    // A fresh root is a fresh context — drop any in-place expansions.
+    setExpandedIds((current) => (current.size ? new Set() : current));
   }, [setActivePerson]);
+  // Toggle a person's expand-in-place state (reveal/hide their further families).
+  const onToggleExpand = useCallback((recordName) => {
+    if (!recordName) return;
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      if (next.has(recordName)) next.delete(recordName);
+      else next.add(recordName);
+      return next;
+    });
+  }, []);
   const onDeletePerson = useCallback(async (recordName) => {
     if (!recordName) return;
     const target = persons.find((p) => p.recordName === recordName);
@@ -292,6 +310,8 @@ export function InteractiveTreeApp() {
                     onOpenDescendantChart={openDescendant}
                     onAddRelative={onAddRelative}
                     onDeletePerson={onDeletePerson}
+                    onToggleExpand={onToggleExpand}
+                    expandedIds={expandedIds}
                     context={context}
                     chrome={treeChrome}
                     onToggleChrome={toggleTreeChrome}
