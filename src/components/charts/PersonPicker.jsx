@@ -11,7 +11,7 @@ import { personDisplayName } from '../../lib/personDisplayName.js';
 import { lifeSpanLabel } from '../../models/index.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
-export function PersonPicker({ persons, value, onChange }) {
+export function PersonPicker({ persons, value, onChange, triggerClassName }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -71,7 +71,10 @@ export function PersonPicker({ persons, value, onChange }) {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm ps-3 pe-8 text-start outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 hover:bg-accent inline-flex items-center relative"
+        className={cn(
+          'w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm ps-3 pe-8 text-start outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 hover:bg-accent inline-flex items-center relative',
+          triggerClassName
+        )}
       >
         <span className={cn('truncate flex-1', !selected && 'text-muted-foreground')}>
           {selected ? <BdiText>{personDisplayName(selected)}</BdiText> : t('persons.choosePerson')}

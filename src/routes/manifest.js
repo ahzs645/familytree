@@ -11,7 +11,7 @@ import { lazy } from 'react';
 const lazyRoute = (importer) => lazy(importer);
 
 export const ROUTE_MANIFEST = [
-  { path: 'welcome', alias: '/' },
+  { path: 'welcome', loader: () => import('./Welcome.jsx') },
   { path: 'about', alias: '/author' },
   { path: 'help', alias: '/actions' },
   { path: 'tree', loader: () => import('./Tree.jsx') },

@@ -43,6 +43,22 @@ describe('book compilation', () => {
     expect(report.blocks).toContainEqual({ kind: 'paragraph', text: '1. One · 3. Two' });
   });
 
+  it('compiles chapter sections with numbering and notes', async () => {
+    const report = await compileBook({
+      title: 'Chaptered Book',
+      sections: [
+        { kind: 'chapter', text: 'Origins', subtitle: 'Early family lines', chapterType: 'content', chapterNumber: '1', note: 'Draft chapter.' },
+        { kind: 'toc', tocStyle: 'plain' },
+        { kind: 'chapter', text: 'Records', chapterType: 'appendix' },
+      ],
+    });
+
+    expect(report.blocks).toContainEqual({ kind: 'title', text: '1. Origins', level: 1 });
+    expect(report.blocks).toContainEqual({ kind: 'paragraph', text: 'Early family lines' });
+    expect(report.blocks).toContainEqual({ kind: 'paragraph', text: 'Draft chapter.' });
+    expect(report.blocks).toContainEqual({ kind: 'list', items: ['1. Origins', 'Records'] });
+  });
+
   it('applies shared presentation settings to compiled book output', async () => {
     const report = await compileBook({
       title: 'Styled Book',

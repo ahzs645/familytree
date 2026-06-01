@@ -197,50 +197,13 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     return [...rest.slice(0, mid), ...required, ...rest.slice(mid)];
   };
 
-  const measureBlock = (childId, generation, branch, depth) => {
-    const family = familyByChild.get(childId);
-    if (!family || depth > MAX_DEPTH) {
-      return {
-        id: `leaf:${childId}:${generation}`,
-        family: null,
-        generation,
-        branch,
-        preferredChildId: childId,
-        children: [childId].filter((id) => sourceNodes.has(id)),
-        parentBlocks: [],
-        width: 260,
-      };
-    }
-    const key = `${family.id}:${childId}:${generation}:${branch}`;
-    if (blockCache.has(key)) return blockCache.get(key);
-    const childNodes = orderFamilyChildren(family, childId, generation);
-    const childIds = childNodes.map((node) => node.person.recordName);
-    // In this ancestor-dominant view a block's children are the siblings of one
-    // ancestor and are leaves at the child row (no downward expansion), so each
-    // reserves one CHILD_GAP slot. The block reserves their summed footprint
-    // plus padding, which placeChildren then consumes as a width cursor.
-    const childWidths = childIds.map(() => CHILD_GAP);
-    const childWidth = Math.max(320, childWidths.reduce((sum, width) => sum + width, 0) + FAMILY_PADDING);
-    const parentBlocks = (family.parents || [])
-      .filter((id) => sourceNodes.has(id))
-      .map((parentId, index) => measureBlock(parentId, generation - 1, branch || (index === 0 ? 'paternal' : 'maternal'), depth + 1));
-    const parentWidth = parentBlocks.length > 0
-      ? parentBlocks.reduce((sum, block) => sum + block.width, 0) + BLOCK_GAP * (parentBlocks.length - 1)
-      : 0;
-    const block = {
-      id: family.id,
-      family,
-      generation,
-      branch,
-      preferredChildId: childId,
-      children: childIds,
-      childWidths,
-      parentBlocks,
-      width: Math.max(childWidth, parentWidth, 360),
-    };
-    blockCache.set(key, block);
-    return block;
-  };
+  // Horizontal couple gap, sibling pitch, and the minimum same-generation gap.
+  const PARTNER_GAP = 188;
+  const SIBLING_GAP = CHILD_GAP;
+  const MIN_GEN_GAP = 168;
+  // Each generation up, a lineage drifts outward by this much (paternal left,
+  // maternal right) — the native viewer's gentle ancestor "bow".
+  const FAN_BIAS = 70;
 
   const addNode = (personId, generation, x, familyBlockId, priority = 0) => {
     const source = sourceNodes.get(personId);
@@ -261,80 +224,79 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     return next;
   };
 
-  const placeChildren = (block, centerX, compactRoot = false) => {
-    const generation = block.generation;
-    if (compactRoot) {
-      const companion = block.children.find((id) => id !== rootId);
-      if (companion) addNode(companion, generation, centerX - 132, block.id, 80);
-      addNode(rootId, generation, centerX + 78, block.id, 900);
-      return;
-    }
-    // Pack children by their measured slot widths, centred on the couple
-    // midpoint (centerX) — MFT centres the sibling row under the couple and
-    // lets the connector bus absorb the offset to the in-line ancestor. If a
-    // capped-but-wide row would exceed the block's reserved footprint, compress
-    // the pitch so it never overruns into the neighbouring branch.
-    const widths = (block.childWidths && block.childWidths.length === block.children.length)
-      ? block.childWidths
-      : block.children.map(() => CHILD_GAP);
-    const totalWidth = widths.reduce((sum, width) => sum + width, 0);
-    const scale = totalWidth > block.width && block.children.length > 1 ? block.width / totalWidth : 1;
-    let cursor = centerX - (totalWidth * scale) / 2;
-    block.children.forEach((childId, index) => {
-      const slot = widths[index] * scale;
-      addNode(childId, generation, cursor + slot / 2, block.id, 60 - Math.abs(generation));
-      cursor += slot;
+  // Place a person's siblings (other children of `family`) on alternating sides
+  // of the person at SIBLING_GAP, nearest-first — the in-line ancestor stays put
+  // and aunts/uncles fan outward beside them within the generation band.
+  const placeSiblings = (family, focalId, focalX, generation) => {
+    const siblingIds = orderFamilyChildren(family, focalId, generation)
+      .map((node) => node.person.recordName)
+      .filter((id) => id !== focalId);
+    let leftX = focalX;
+    let rightX = focalX;
+    siblingIds.forEach((id, index) => {
+      if (index % 2 === 0) {
+        rightX += SIBLING_GAP;
+        addNode(id, generation, rightX, family.id, 40 - Math.abs(generation));
+      } else {
+        leftX -= SIBLING_GAP;
+        addNode(id, generation, leftX, family.id, 40 - Math.abs(generation));
+      }
     });
   };
 
-  const placeParentBlocks = (block, centerX) => {
-    if (block.parentBlocks.length === 0) return;
-    const totalWidth = block.parentBlocks.reduce((sum, child) => sum + child.width, 0) + BLOCK_GAP * (block.parentBlocks.length - 1);
-    let cursor = centerX - totalWidth / 2;
-    for (const parentBlock of block.parentBlocks) {
-      const parentCenter = cursor + parentBlock.width / 2;
-      placeBlock(parentBlock, parentCenter, false);
-      cursor += parentBlock.width + BLOCK_GAP;
-    }
-  };
-
-  const placeBlock = (block, centerX, compactRoot = false) => {
-    block.x = centerX;
-    block.y = -block.generation * GENERATION_STEP;
-    placeChildren(block, centerX, compactRoot);
-    placeParentBlocks(block, centerX);
+  // Walk up from a placed person, positioning each ancestor couple close above
+  // their child (partner-spaced) with siblings beside them. Generations live on
+  // separate Y bands, so lineages may overlap in X across generations — only
+  // same-generation overlap is resolved afterward. Lineages bow outward (FAN_BIAS).
+  const placeAncestors = (personId, personX, generation, depth) => {
+    if (depth > MAX_DEPTH) return;
+    const family = familyByChild.get(personId);
+    if (!family) return;
+    const parents = (family.parents || []).filter((id) => sourceNodes.has(id));
+    if (parents.length === 0) return;
+    const parentGen = generation - 1;
+    const fatherX = parents.length > 1 ? personX - PARTNER_GAP / 2 : personX;
+    const motherX = parents.length > 1 ? personX + PARTNER_GAP / 2 : personX;
+    parents.forEach((parentId, index) => {
+      const bias = parents.length > 1 ? (index === 0 ? -1 : 1) : 0;
+      const px = index === 0 ? fatherX : motherX;
+      addNode(parentId, parentGen, px, family.id, 70 - Math.abs(parentGen));
+      const parentFamily = familyByChild.get(parentId);
+      if (parentFamily) placeSiblings(parentFamily, parentId, px, parentGen);
+      placeAncestors(parentId, px + bias * FAN_BIAS, parentGen, depth + 1);
+    });
   };
 
   if (rootFamily) {
+    // Root + a companion sibling (compact root), then fan the ancestors up.
     const rootChildren = orderFamilyChildren(rootFamily, rootId, 0, true).map((node) => node.person.recordName);
-    const rootBlock = {
-      id: rootFamily.id,
-      family: rootFamily,
-      generation: 0,
-      branch: 'root',
-      preferredChildId: rootId,
-      children: rootChildren,
-      parentBlocks: [],
-      width: ROOT_CARD_WIDTH,
-    };
-    placeBlock(rootBlock, 0, true);
-
-    const parents = (rootFamily.parents || []).filter((id) => sourceNodes.has(id));
-    const fatherBlock = parents[0] ? measureBlock(parents[0], -1, 'paternal', 1) : null;
-    const motherBlock = parents[1] ? measureBlock(parents[1], -1, 'maternal', 1) : null;
-    // Seed the two pedigree halves from their MEASURED widths so they never
-    // overlap, regardless of how broad each side's ancestry is. ROOT_PARENT_GAP
-    // is the minimum clearance between the halves' inner edges.
-    if (fatherBlock && motherBlock) {
-      placeBlock(fatherBlock, -(fatherBlock.width / 2 + ROOT_PARENT_GAP / 2), false);
-      placeBlock(motherBlock, motherBlock.width / 2 + ROOT_PARENT_GAP / 2, false);
-    } else if (fatherBlock) {
-      placeBlock(fatherBlock, -(fatherBlock.width / 2 + ROOT_PARENT_GAP / 2), false);
-    } else if (motherBlock) {
-      placeBlock(motherBlock, motherBlock.width / 2 + ROOT_PARENT_GAP / 2, false);
-    }
+    const companion = rootChildren.find((id) => id !== rootId);
+    if (companion) addNode(companion, 0, -132, rootFamily.id, 80);
+    addNode(rootId, 0, 78, rootFamily.id, 900);
+    placeAncestors(rootId, 78, 0, 1);
   } else {
     addNode(rootId, 0, 0, 'root', 900);
+  }
+
+  // Resolve overlap WITHIN each generation row only (separate Y bands let
+  // lineages overlap across generations). Push apart preserving order, then
+  // recentre the row on its natural midpoint so it doesn't drift sideways.
+  const rowsByGeneration = new Map();
+  for (const node of placedById.values()) {
+    if (!rowsByGeneration.has(node.generation)) rowsByGeneration.set(node.generation, []);
+    rowsByGeneration.get(node.generation).push(node);
+  }
+  for (const row of rowsByGeneration.values()) {
+    if (row.length < 2) continue;
+    row.sort((a, b) => a.x - b.x);
+    const meanBefore = row.reduce((sum, node) => sum + node.x, 0) / row.length;
+    for (let i = 1; i < row.length; i += 1) {
+      const minX = row[i - 1].x + MIN_GEN_GAP;
+      if (row[i].x < minX) row[i].x = minX;
+    }
+    const meanAfter = row.reduce((sum, node) => sum + node.x, 0) / row.length;
+    const shift = meanBefore - meanAfter;
+    for (const node of row) node.x += shift;
   }
 
   const uniquePlaced = [...placedById.values()];

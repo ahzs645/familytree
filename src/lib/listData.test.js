@@ -134,6 +134,49 @@ describe('list data helpers', () => {
       status: 'Complete',
     }));
   });
+
+  it('labels conclusion-type rows in LDS ordinance lists', async () => {
+    mockState.db = createMockDb([
+      {
+        recordName: 'UniqueID_PersonEvent_LDSBaptism',
+        recordType: 'ConclusionPersonEventType',
+        fields: {
+          ordinance: field('_PersonEvent_LDSBaptism'),
+        },
+      },
+      {
+        recordName: 'UniqueID_FamilyEvent_Divorce_Filing',
+        recordType: 'ConclusionFamilyEventType',
+        fields: {
+          ordinance: field('_FamilyEvent_Divorce_Filing'),
+        },
+      },
+      {
+        recordName: 'UniqueID_PersonFact_Phone',
+        recordType: 'ConclusionPersonFactType',
+        fields: {
+          ordinance: field('_PersonFact_Phone'),
+        },
+      },
+    ]);
+
+    const result = await loadLdsOrdinanceRows();
+
+    expect(result.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        ownerName: 'LDS Baptism',
+        ordinance: 'LDS Baptism',
+      }),
+      expect.objectContaining({
+        ownerName: 'Divorce Filing',
+        ordinance: 'Divorce Filing',
+      }),
+      expect.objectContaining({
+        ownerName: 'Phone Number',
+        ordinance: 'Phone Number',
+      }),
+    ]));
+  });
 });
 
 function createMockDb(records) {

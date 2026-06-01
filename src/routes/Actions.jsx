@@ -79,20 +79,10 @@ export default function Actions() {
     }
   };
 
-  const onNewDocument = async () => {
-    const confirmed = await modal.confirm(t('actions.newDocumentConfirm'), {
-      title: t('actions.newDocument'),
-      okLabel: t('actions.newDocumentButton'),
-      destructive: true,
-    });
-    if (!confirmed) return;
-    await withBusy(t('actions.newDocumentWorking'), async () => {
-      await clear();
-      await refresh();
-      navigate('/');
-      modal.toast(t('actions.newDocumentDone'), { kind: 'success' });
-      return t('actions.newDocumentDone');
-    });
+  const onNewDocument = () => {
+    // Non-destructive now: /welcome saves the current tree back to the library
+    // (via startNewTree) before creating the new one and adding yourself.
+    navigate('/welcome');
   };
 
   const onHardReset = async () => {

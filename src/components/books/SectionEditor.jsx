@@ -55,12 +55,12 @@ export function SectionEditor({
         >
           {SECTION_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
         </select>
-        {(section.kind === 'title' || section.kind === 'cover') && (
+        {(section.kind === 'title' || section.kind === 'cover' || section.kind === 'chapter') && (
           <>
             <input
               value={section.text || ''}
               onChange={(e) => onChange({ ...section, text: e.target.value })}
-              placeholder="Book title"
+              placeholder={section.kind === 'chapter' ? 'Chapter title' : 'Book title'}
               style={{ ...input, flex: 1 }}
             />
             <input
@@ -69,17 +69,39 @@ export function SectionEditor({
               placeholder="Subtitle (optional)"
               style={{ ...input, flex: 1 }}
             />
-            <select
-              value={section.titlePreset || ''}
-              onChange={(e) => onChange({ ...section, titlePreset: e.target.value || undefined })}
-              style={{ ...input, minWidth: 210 }}
-              aria-label="Title page contents"
-            >
-              <option value="">Default title page contents</option>
-              {TITLE_PAGE_PRESETS.map((preset) => (
-                <option key={preset.id} value={preset.id}>{preset.label}</option>
-              ))}
-            </select>
+            {(section.kind === 'title' || section.kind === 'cover') && (
+              <select
+                value={section.titlePreset || ''}
+                onChange={(e) => onChange({ ...section, titlePreset: e.target.value || undefined })}
+                style={{ ...input, minWidth: 210 }}
+                aria-label="Title page contents"
+              >
+                <option value="">Default title page contents</option>
+                {TITLE_PAGE_PRESETS.map((preset) => (
+                  <option key={preset.id} value={preset.id}>{preset.label}</option>
+                ))}
+              </select>
+            )}
+            {section.kind === 'chapter' && (
+              <>
+                <select
+                  value={section.chapterType || 'content'}
+                  onChange={(e) => onChange({ ...section, chapterType: e.target.value })}
+                  style={{ ...input, minWidth: 150 }}
+                  aria-label="Chapter type"
+                >
+                  <option value="preface">Preface Chapter</option>
+                  <option value="content">Content Chapter</option>
+                  <option value="appendix">Appendix Chapter</option>
+                </select>
+                <input
+                  value={section.chapterNumber || ''}
+                  onChange={(e) => onChange({ ...section, chapterNumber: e.target.value })}
+                  placeholder="Chapter number"
+                  style={{ ...input, width: 140 }}
+                />
+              </>
+            )}
             {section.kind === 'cover' && (
               <>
                 <input
@@ -99,6 +121,22 @@ export function SectionEditor({
                   value={section.publisher || ''}
                   onChange={(e) => onChange({ ...section, publisher: e.target.value })}
                   placeholder="Publisher"
+                  style={{ ...input, flex: 1 }}
+                />
+              </>
+            )}
+            {(section.kind === 'title' || section.kind === 'cover') && (
+              <>
+                <input
+                  value={section.imageCaption || ''}
+                  onChange={(e) => onChange({ ...section, imageCaption: e.target.value })}
+                  placeholder="Title Page Image"
+                  style={{ ...input, flex: 1 }}
+                />
+                <input
+                  value={section.crestCaption || ''}
+                  onChange={(e) => onChange({ ...section, crestCaption: e.target.value })}
+                  placeholder="Family Crest"
                   style={{ ...input, flex: 1 }}
                 />
               </>
@@ -204,7 +242,7 @@ export function SectionEditor({
 }
 
 function titleForSection(section, def) {
-  if (section.kind === 'cover' || section.kind === 'title') return section.text || def?.label || 'Untitled section';
+  if (section.kind === 'cover' || section.kind === 'title' || section.kind === 'chapter') return section.text || def?.label || 'Untitled section';
   return def?.label || 'Section';
 }
 

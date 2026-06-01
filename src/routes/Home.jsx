@@ -11,40 +11,51 @@
  * Wayfinding lives in the sidebar; this page no longer mirrors it.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { ImportDropZone } from '../components/ImportDropZone.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { loadSampleTree } from '../lib/sampleTree.js';
 import {
+  ACTIVE_TREE_CHANGED_EVENT,
   deleteTreeSnapshot,
+  getActiveTreeId,
   listTreeSnapshots,
   renameTreeSnapshot,
-  restoreTreeSnapshot,
   setTreeSnapshotFavorite,
   setTreeSnapshotLabel,
+  switchToTree,
 } from '../lib/treeLibrary.js';
 import { loadAnniversaryRows } from '../lib/listData.js';
 
 export function Home() {
   const navigate = useNavigate();
   const { t, localization } = useTranslation();
-  const { hasData, summary, refresh, clear } = useDatabaseStatus();
+  const { hasData, summary, loading, refresh, clear } = useDatabaseStatus();
   const modal = useModal();
 
   const [sortBy, setSortBy] = useState(() => {
     try { return localStorage.getItem('treeLibrary.homeSortBy') || 'favorites'; } catch { return 'favorites'; }
   });
   const [snapshots, setSnapshots] = useState([]);
+  const [snapshotsLoaded, setSnapshotsLoaded] = useState(false);
+  const [activeTreeId, setActiveTreeIdState] = useState(() => getActiveTreeId());
   const [upcomingAnniversaries, setUpcomingAnniversaries] = useState([]);
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
     setSnapshots(await listTreeSnapshots({ sortBy }));
+    setSnapshotsLoaded(true);
   }, [sortBy]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  useEffect(() => {
+    const onActiveChange = () => setActiveTreeIdState(getActiveTreeId());
+    window.addEventListener(ACTIVE_TREE_CHANGED_EVENT, onActiveChange);
+    return () => window.removeEventListener(ACTIVE_TREE_CHANGED_EVENT, onActiveChange);
+  }, []);
   // Re-fetch anniversaries when the locale changes — month/day/year strings are
   // formatted at fetch time, so a stale fetch keeps the previous locale's text.
   useEffect(() => {
@@ -88,8 +99,9 @@ export function Home() {
   });
 
   const onRestore = withBusy(async (snapshot) => {
+    if (snapshot.id === activeTreeId) return;
     if (!(await modal.confirm(t('home.openConfirm', { name: snapshot.name }), { title: t('home.openTitle'), okLabel: t('home.openOk') }))) return;
-    await restoreTreeSnapshot(snapshot.id);
+    await switchToTree(snapshot.id);
     await refresh();
     await reload();
   });
@@ -107,6 +119,13 @@ export function Home() {
 
   const localeForFormat = localization?.locale || 'en';
 
+  // First-run: no data, no library, no active pointer → guide the user
+  // straight into onboarding. Wait until both status and library list
+  // settled so we don't bounce mid-load.
+  if (!loading && snapshotsLoaded && !hasData && snapshots.length === 0 && !activeTreeId) {
+    return <Navigate to="/welcome" replace />;
+  }
+
   return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 pb-16 h-full overflow-auto">
       <section className="mb-8">
@@ -117,6 +136,20 @@ export function Home() {
       </section>
 
       <section className="mb-8">
+        {!hasData && (
+          <div className="mb-4 flex flex-wrap items-center justify-center gap-3 text-sm">
+            <button
+              type="button"
+              onClick={() => navigate('/welcome')}
+              className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90"
+            >
+              {t('home.createTree', { defaultValue: 'Create a new family tree' })}
+            </button>
+            <span className="text-xs text-muted-foreground">
+              {t('home.createTreeHint', { defaultValue: 'Start from scratch — add yourself, then your relatives.' })}
+            </span>
+          </div>
+        )}
         <ImportDropZone onImported={() => navigate('/tree')} />
         {!hasData && (
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-sm">
@@ -210,13 +243,20 @@ export function Home() {
             </select>
           </div>
           <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-3">
-            {snapshots.map((snapshot) => (
-              <li key={snapshot.id} className="p-4 rounded-xl border border-border bg-card">
+            {snapshots.map((snapshot) => {
+              const isActive = snapshot.id === activeTreeId;
+              return (
+              <li key={snapshot.id} className={`p-4 rounded-xl border bg-card ${isActive ? 'border-primary ring-1 ring-primary/30' : 'border-border'}`}>
                 <div className="flex items-start justify-between gap-2 mb-1">
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold truncate">
                       {snapshot.favorite && <span aria-hidden className="text-yellow-500 me-1">★</span>}
                       {snapshot.name}
+                      {isActive && (
+                        <span className="ms-2 inline-block rounded-full bg-primary/15 text-primary text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 align-middle">
+                          {t('home.treeCurrent', { defaultValue: 'Current' })}
+                        </span>
+                      )}
                     </div>
                     <div className="text-[11px] text-muted-foreground mt-0.5">
                       {t('home.treeStats', {
@@ -241,13 +281,14 @@ export function Home() {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-3">
-                  <button onClick={() => onRestore(snapshot)} disabled={busy} className="text-xs bg-primary text-primary-foreground rounded-md px-2.5 py-1 font-medium">{t('home.treeOpen')}</button>
+                  <button onClick={() => onRestore(snapshot)} disabled={busy || isActive} className="text-xs bg-primary text-primary-foreground rounded-md px-2.5 py-1 font-medium disabled:opacity-60">{isActive ? t('home.treeCurrentBtn', { defaultValue: 'Open' }) : t('home.treeOpen')}</button>
                   <button onClick={() => onRename(snapshot)} disabled={busy} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1 hover:bg-accent">{t('home.treeRename')}</button>
                   <button onClick={() => onLabel(snapshot)} disabled={busy} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1 hover:bg-accent">{t('home.treeLabel')}</button>
                   <button onClick={() => onDelete(snapshot)} disabled={busy} className="text-xs border border-border bg-transparent text-destructive rounded-md px-2.5 py-1 hover:bg-destructive/10 ms-auto">{t('home.treeDelete')}</button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
       )}

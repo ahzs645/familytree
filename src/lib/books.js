@@ -62,6 +62,7 @@ export const DEFAULT_TITLE_PAGE_PRESET = TITLE_PAGE_PRESETS[0].id;
 
 export const SECTION_KINDS = [
   { id: 'cover', label: 'Cover Page' },
+  { id: 'chapter', label: 'Chapter' },
   { id: 'title', label: 'Title Page' },
   { id: 'toc', label: 'Table of Contents' },
   { id: 'person-summary', label: 'Person Summary', needsPerson: true },
@@ -163,7 +164,7 @@ export async function validateBook(book) {
         errors.push({ sectionIndex: i, message: 'Saved Chart Embed: saved chart no longer exists.' });
       }
     }
-    if (kind === 'cover' || kind === 'title') {
+    if (kind === 'cover' || kind === 'title' || kind === 'chapter') {
       if (!(section.text || '').trim()) warnings.push({ sectionIndex: i, message: `${def.label}: empty title.` });
     }
   }
@@ -253,6 +254,8 @@ async function sectionToBlocks(section, author = null) {
     case 'cover':
     case 'title':
       return buildTitlePage(section, author);
+    case 'chapter':
+      return buildChapterBlocks(section);
     case 'toc':
       // Placeholder — materialized after all sections compile so page numbers are consistent.
       return [{ kind: '__toc_placeholder__', tocStyle: section.tocStyle || 'numbered' }];
@@ -319,6 +322,23 @@ async function sectionToBlocks(section, author = null) {
     default:
       return [block.paragraph(`Unsupported section: ${section.kind}`)];
   }
+}
+
+function buildChapterBlocks(section) {
+  const chapterType = section.chapterType || 'content';
+  const chapterNumber = section.chapterNumber ? `${section.chapterNumber}. ` : '';
+  const label = chapterType === 'preface'
+    ? 'Preface'
+    : chapterType === 'appendix'
+      ? 'Appendix'
+      : 'Chapter';
+  const title = section.text || label;
+  const heading = chapterNumber && chapterType === 'content' ? `${chapterNumber}${title}` : title;
+  return [
+    block.title(heading, 1),
+    section.subtitle ? block.paragraph(section.subtitle) : null,
+    section.note ? block.paragraph(section.note) : null,
+  ].filter(Boolean);
 }
 
 async function buildSavedReportInsert(savedReportId) {

@@ -3,7 +3,7 @@
  * save the configuration, export to any supported format.
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { Download, FileText, PanelLeftClose, PanelLeftOpen, Play, Save, Search, Square } from 'lucide-react';
+import { Download, FileText, PanelLeftClose, PanelLeftOpen, Play, RotateCcw, RotateCw, Save, Search, Square, Trash2 } from 'lucide-react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { compareStrings } from '../../lib/i18n.js';
@@ -38,10 +38,11 @@ import {
   buildMarriageListReport,
   buildMapReport,
 } from '../../lib/reports/builders.js';
-import { applyPageStyle, listSavedReports, saveReport, deleteSavedReport, newReportId } from '../../lib/reports/savedReports.js';
+import { applyPageStyle, listSavedReports, saveReport, deleteSavedReport, renameSavedReport, newReportId } from '../../lib/reports/savedReports.js';
 import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
 import { DEFAULT_PAGE_STYLE, PRESENTATION_THEMES, normalizePageStyle } from '../../lib/presentationSettings.js';
 import { getAuthorInfo } from '../../lib/authorInfo.js';
+import { listBooks, saveBook, newBookId, normalizeBookPresentationSettings } from '../../lib/books.js';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
 import { PresentationSettingsControls } from '../presentation/PresentationSettingsControls.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
@@ -173,7 +174,13 @@ export function ReportsApp() {
   const [pageStyle, setPageStyle] = useState(() => normalizePageStyle(DEFAULT_PAGE_STYLE));
   const [themeId, setThemeId] = useState('plain');
   const [report, setReport] = useState(null);
+  const [customReport, setCustomReport] = useState(null);
+  const [customizing, setCustomizing] = useState(false);
+  const [undoStack, setUndoStack] = useState([]);
+  const [redoStack, setRedoStack] = useState([]);
   const [savedList, setSavedList] = useState([]);
+  const [savedBooks, setSavedBooks] = useState([]);
+  const [bookTargetId, setBookTargetId] = useState('');
   const [empty, setEmpty] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reportLoading, setReportLoading] = useState(false);
@@ -219,22 +226,26 @@ export function ReportsApp() {
     });
   }, [reportSearch]);
   const builderCategories = useMemo(() => getReportBuilderCategories(filteredBuilders), [filteredBuilders]);
-  const reportStats = useMemo(() => summarizeReport(report), [report]);
+  const displayReport = customReport || report;
+  const reportStats = useMemo(() => summarizeReport(displayReport), [displayReport]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [personList, storyList, savedReports, start] = await Promise.all([
+        const [personList, storyList, savedReports, books, start] = await Promise.all([
           listAllPersons(),
           listAllStories(),
           listSavedReports(),
+          listBooks(),
           findStartPerson(),
         ]);
         if (cancelled) return;
         setPersons(personList);
         setStories(storyList);
         setSavedList(savedReports);
+        setSavedBooks(books);
+        setBookTargetId(books[0]?.id || '');
         setEmpty(personList.length === 0 && storyList.length === 0);
 
         const firstTarget = personList.some((person) => person.recordName === activePersonId)
@@ -301,7 +312,14 @@ export function ReportsApp() {
         const optioned = applyReportContentOptions(ast, normalizedOptions);
         const localized = localizeReportAst(optioned, t);
         const styled = applyPageStyle(localized, pageStyle);
-        if (!cancelled && generationRequestRef.current === requestId) setReport(styled);
+        if (!cancelled && generationRequestRef.current === requestId) {
+          setReport(styled);
+          if (!customizing) {
+            setCustomReport(null);
+            setUndoStack([]);
+            setRedoStack([]);
+          }
+        }
       } catch (error) {
         if (!cancelled && generationRequestRef.current === requestId) {
           setReport(null);
@@ -315,7 +333,7 @@ export function ReportsApp() {
     return () => {
       cancelled = true;
     };
-  }, [loading, builder, targetId, secondTargetId, options, pageStyle, t]);
+  }, [loading, builder, targetId, secondTargetId, options, pageStyle, t, customizing]);
 
   const updateOption = useCallback((key, value) => {
     setOptions((current) => ({ ...current, [key]: value }));
@@ -325,7 +343,14 @@ export function ReportsApp() {
     setBuilderId(nextBuilderId);
     setOptions(defaultOptionsForBuilder(nextBuilderId));
     setGenerationError('');
+    setCustomizing(false);
+    setCustomReport(null);
+    setUndoStack([]);
+    setRedoStack([]);
   }, []);
+
+  const builderLabel = (entry) => t(`reports.builders.${entry.id}`);
+  const selectedBuilderLabel = builderLabel(builder);
 
   const onSave = useCallback(async () => {
     const name = await modal.prompt('Name for this report:', '', { title: t('reports.saveReport') });
@@ -360,14 +385,121 @@ export function ReportsApp() {
     setSavedList(await listSavedReports());
   }, [modal, t]);
 
+  const onRename = useCallback(async (id) => {
+    const entry = savedList.find((r) => r.id === id);
+    if (!entry) return;
+    const name = await modal.prompt('Rename this saved report:', entry.name || '', { title: 'Rename Report' });
+    if (!name || name === entry.name) return;
+    await renameSavedReport(id, name);
+    setSavedList(await listSavedReports());
+  }, [modal, savedList]);
+
+  const currentReportPayload = useCallback((name) => createSavedReportPayload({
+    name,
+    builderId,
+    targetId,
+    secondTargetId,
+    options,
+    pageStyle,
+    themeId,
+  }), [builderId, targetId, secondTargetId, options, pageStyle, themeId]);
+
+  const onAddToBook = useCallback(async () => {
+    const reportName = await modal.prompt('Name this report section:', selectedBuilderLabel, { title: 'Add Report to Book' });
+    if (!reportName) return;
+    const savedReport = await saveReport(currentReportPayload(reportName));
+    const books = await listBooks();
+    const existing = books.find((book) => book.id === bookTargetId);
+    const targetBook = existing || {
+      id: newBookId(),
+      title: 'Family Reports',
+      presentationSettings: normalizeBookPresentationSettings(),
+      sections: [
+        { kind: 'cover', text: 'Family Reports', subtitle: '', author: '', date: '' },
+        { kind: 'toc', tocStyle: 'numbered' },
+      ],
+    };
+    const nextBook = {
+      ...targetBook,
+      sections: [...(targetBook.sections || []), { kind: 'saved-report', savedReportId: savedReport.id }],
+    };
+    await saveBook(nextBook);
+    setSavedList(await listSavedReports());
+    const nextBooks = await listBooks();
+    setSavedBooks(nextBooks);
+    setBookTargetId(nextBook.id);
+  }, [bookTargetId, currentReportPayload, modal, selectedBuilderLabel]);
+
+  const beginCustomize = useCallback(() => {
+    if (!displayReport) return;
+    setCustomReport(cloneReport(displayReport));
+    setCustomizing(true);
+    setUndoStack([]);
+    setRedoStack([]);
+  }, [displayReport]);
+
+  const finishCustomize = useCallback(() => {
+    setCustomizing(false);
+    setUndoStack([]);
+    setRedoStack([]);
+  }, []);
+
+  const discardCustomize = useCallback(() => {
+    setCustomReport(null);
+    setCustomizing(false);
+    setUndoStack([]);
+    setRedoStack([]);
+  }, []);
+
+  const pushCustomReport = useCallback((next) => {
+    setCustomReport((current) => {
+      if (!current) return next;
+      setUndoStack((stack) => [...stack, cloneReport(current)].slice(-30));
+      setRedoStack([]);
+      return next;
+    });
+  }, []);
+
+  const deleteCustomBlock = useCallback((index) => {
+    if (!customReport?.blocks?.length) return;
+    pushCustomReport({
+      ...customReport,
+      blocks: customReport.blocks.filter((_, blockIndex) => blockIndex !== index),
+    });
+  }, [customReport, pushCustomReport]);
+
+  const onUndo = useCallback(() => {
+    setUndoStack((stack) => {
+      if (!stack.length) return stack;
+      const previous = stack[stack.length - 1];
+      setCustomReport((current) => {
+        if (current) setRedoStack((redo) => [...redo, cloneReport(current)].slice(-30));
+        return previous;
+      });
+      return stack.slice(0, -1);
+    });
+  }, []);
+
+  const onRedo = useCallback(() => {
+    setRedoStack((stack) => {
+      if (!stack.length) return stack;
+      const next = stack[stack.length - 1];
+      setCustomReport((current) => {
+        if (current) setUndoStack((undo) => [...undo, cloneReport(current)].slice(-30));
+        return next;
+      });
+      return stack.slice(0, -1);
+    });
+  }, []);
+
   const onExport = useCallback((fmt) => {
-    if (!report) return;
-    downloadReport(fmt, report, {
-      filenameBase: report.title,
+    if (!displayReport) return;
+    downloadReport(fmt, displayReport, {
+      filenameBase: displayReport.title,
       author: authorInfo,
       theme: themeId === 'plain' ? null : { id: themeId },
     });
-  }, [report, authorInfo, themeId]);
+  }, [displayReport, authorInfo, themeId]);
 
   const onSpeak = useCallback(() => {
     if (!speechSupported) return;
@@ -377,7 +509,7 @@ export function ReportsApp() {
       setSpeaking(false);
       return;
     }
-    const text = reportToSpeech(report);
+    const text = reportToSpeech(displayReport);
     if (!text) return;
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.onend = () => setSpeaking(false);
@@ -385,10 +517,7 @@ export function ReportsApp() {
     synth.cancel();
     synth.speak(utterance);
     setSpeaking(true);
-  }, [report, speaking, speechSupported]);
-
-  const builderLabel = (entry) => t(`reports.builders.${entry.id}`);
-  const selectedBuilderLabel = builderLabel(builder);
+  }, [displayReport, speaking, speechSupported]);
 
   if (loading) return <div style={loadingStyle}>{t('common.loading')}</div>;
   if (empty) {
@@ -424,7 +553,7 @@ export function ReportsApp() {
           {speechSupported && (
             <button
               onClick={onSpeak}
-              disabled={!report || reportLoading}
+              disabled={!displayReport || reportLoading}
               style={actionButton}
               title={speaking ? 'Stop speaking' : 'Read this report aloud'}
             >
@@ -432,7 +561,7 @@ export function ReportsApp() {
               <span>{speaking ? 'Stop' : 'Play'}</span>
             </button>
           )}
-          <ExportSelect disabled={!report || reportLoading} onExport={onExport} />
+          <ExportSelect disabled={!displayReport || reportLoading} onExport={onExport} />
         </div>
       </header>
 
@@ -544,6 +673,12 @@ export function ReportsApp() {
                 {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
               </select>
               {savedList.length > 0 && (
+                <select value="" onChange={(e) => { if (e.target.value) onRename(e.target.value); e.target.value = ''; }} style={input}>
+                  <option value="">Rename Report…</option>
+                  {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+                </select>
+              )}
+              {savedList.length > 0 && (
                 <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} style={input}>
                   <option value="">Delete Report…</option>
                   {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
@@ -551,13 +686,50 @@ export function ReportsApp() {
               )}
               {savedList.length === 0 && <div style={microcopy}>Save a report to reuse its type, subjects, style, and page settings.</div>}
             </InspectorSection>
+
+            <InspectorSection title="Report Editing">
+              {!customizing ? (
+                <button type="button" onClick={beginCustomize} disabled={!displayReport || reportLoading} style={actionButton}>Edit Report</button>
+              ) : (
+                <>
+                  <div style={buttonRow}>
+                    <button type="button" onClick={finishCustomize} style={primaryButton}>Finish</button>
+                    <button type="button" onClick={discardCustomize} style={actionButton}>Discard</button>
+                  </div>
+                  <div style={buttonRow}>
+                    <button type="button" onClick={onUndo} disabled={undoStack.length === 0} style={actionButton}><RotateCcw size={15} /> Undo</button>
+                    <button type="button" onClick={onRedo} disabled={redoStack.length === 0} style={actionButton}><RotateCw size={15} /> Redo</button>
+                  </div>
+                  <div style={blockEditorList}>
+                    {(customReport?.blocks || []).map((block, index) => (
+                      <div key={`${block.kind}-${index}`} style={blockEditorRow}>
+                        <span style={blockEditorText}>{blockLabel(block, index)}</span>
+                        <button type="button" onClick={() => deleteCustomBlock(index)} style={dangerIconButton} title="Delete block" aria-label="Delete report block">
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              <div style={microcopy}>Edits affect the current generated preview and export. Saved report recipes still regenerate from live data.</div>
+            </InspectorSection>
+
+            <InspectorSection title="Books">
+              <select value={bookTargetId} onChange={(event) => setBookTargetId(event.target.value)} style={input}>
+                <option value="">New book: Family Reports</option>
+                {savedBooks.map((book) => <option key={book.id} value={book.id}>{book.title || 'Untitled Book'}</option>)}
+              </select>
+              <button type="button" onClick={onAddToBook} style={actionButton}>Add to Book</button>
+              <div style={microcopy}>Adds this report as a saved-report section so Books can compile it with other chapters and charts.</div>
+            </InspectorSection>
           </div>
         </aside>
 
         <main style={main}>
           {reportLoading && <div style={statusText}>{t('reports.generating', { label: selectedBuilderLabel })}</div>}
           {generationError && <div style={errorText}>{generationError}</div>}
-          <ReportPreview report={report} />
+          <ReportPreview report={displayReport} />
         </main>
       </div>
     </div>
@@ -671,6 +843,24 @@ function summarizeReport(report) {
   }, { blocks: 0, tables: 0, pageBreaks: 0 });
 }
 
+function cloneReport(report) {
+  return {
+    ...report,
+    blocks: (report?.blocks || []).map((block) => ({ ...block })),
+    pageStyle: report?.pageStyle ? { ...report.pageStyle } : report?.pageStyle,
+  };
+}
+
+function blockLabel(block, index) {
+  if (!block) return `Block ${index + 1}`;
+  if (block.kind === 'title') return `Heading: ${block.text || 'Untitled'}`;
+  if (block.kind === 'paragraph') return `Paragraph: ${String(block.text || '').slice(0, 48) || 'Empty'}`;
+  if (block.kind === 'table') return `Table: ${(block.rows || []).length} rows`;
+  if (block.kind === 'list') return `List: ${(block.items || []).length} items`;
+  if (block.kind === 'pageBreak') return 'Page break';
+  return `${block.kind || 'Block'} ${index + 1}`;
+}
+
 function exportLabel(format) {
   const label = format.label || format.id.toUpperCase();
   if (format.id === 'html') return 'Save as HTML File…';
@@ -780,6 +970,13 @@ const primaryButton = {
   color: 'hsl(var(--primary-foreground))',
   borderColor: 'hsl(var(--primary))',
 };
+const dangerIconButton = {
+  ...iconButton,
+  width: 28,
+  height: 28,
+  color: 'hsl(var(--destructive))',
+  background: 'hsl(var(--background))',
+};
 const exportSelectLabel = {
   height: 34,
   display: 'inline-flex',
@@ -850,6 +1047,18 @@ const activeReportButton = {
 const reportButtonText = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
 const emptyList = { color: 'hsl(var(--muted-foreground))', fontSize: 13, padding: 12 };
 const checkRow = { ...input, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' };
+const buttonRow = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 };
+const blockEditorList = { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflow: 'auto' };
+const blockEditorRow = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 8,
+  background: 'hsl(var(--background))',
+  padding: '6px 7px 6px 10px',
+};
+const blockEditorText = { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'hsl(var(--foreground))' };
 const microcopy = { color: 'hsl(var(--muted-foreground))', fontSize: 12, lineHeight: 1.35 };
 const loadingStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--background))', fontFamily: '-apple-system, system-ui, sans-serif' };
 const helpText = { color: 'hsl(var(--muted-foreground))', fontSize: 12, lineHeight: 1.4, margin: '0 0 10px' };

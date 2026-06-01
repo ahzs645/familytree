@@ -281,6 +281,7 @@ export function Map({
   showMarkers = true,
   heatmap = null,
   connections = [],
+  emptyMessage = '',
 }) {
   const { theme } = useTheme();
   const isMobile = useIsMobile();
@@ -623,6 +624,11 @@ export function Map({
   return (
     <div className={className} style={{ width: '100%', height: '100%', position: 'relative' }}>
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+      {emptyMessage && markers.length === 0 ? (
+        <div className="pointer-events-none absolute inset-x-4 top-1/2 z-10 mx-auto max-w-md -translate-y-1/2 rounded-md border border-border bg-card/95 p-4 text-center text-sm text-muted-foreground shadow-lg backdrop-blur">
+          {emptyMessage}
+        </div>
+      ) : null}
       {showControls ? (
         <div
           className="absolute start-3 end-3 bottom-3 md:end-auto md:bottom-auto md:top-3 z-10 flex flex-wrap items-center gap-2 rounded-md border border-border bg-card/95 px-2.5 py-2 text-xs shadow-lg backdrop-blur max-w-full md:max-w-[calc(100%-120px)]"

@@ -6,7 +6,13 @@ import { parseEventDate, formatEventDate } from '../utils/formatDate.js';
 import { compareStrings, getCurrentLocalization, localeWithExtensions } from './i18n.js';
 import { loadResearchCompleteness } from './researchCompleteness.js';
 import { buildPersonLineage } from './personLineage.js';
-import { labelForCatalogType, normalizeConclusionTypeId, PERSON_FACT_TYPES } from './catalogs.js';
+import {
+  FAMILY_EVENT_TYPES,
+  labelForCatalogType,
+  normalizeConclusionTypeId,
+  PERSON_EVENT_TYPES,
+  PERSON_FACT_TYPES,
+} from './catalogs.js';
 import { humanizeType } from '../utils/humanizeType.js';
 
 export const MEDIA_RECORD_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
@@ -275,7 +281,8 @@ export async function loadLdsOrdinanceRows() {
     matchedFields.forEach(([key]) => detectedSchema.add(`${record.recordType}.${key}`));
 
     const owner = ownerForLdsRow(record, personsById, familiesById);
-    const ordinance = readConclusionType(record) || readField(record, ['ordinanceType', 'ordinance', 'type', 'name', 'title'], record.recordType);
+    const rawOrdinance = readConclusionType(record) || readField(record, ['ordinanceType', 'ordinance', 'type', 'name', 'title'], record.recordType);
+    const ordinance = labelForConclusionType(rawOrdinance);
     rows.push({
       id: record.recordName,
       recordType: record.recordType,
@@ -311,7 +318,25 @@ function ownerForLdsRow(record, personsById, familiesById) {
   if (familyId) {
     return { id: familyId, type: 'Family', name: familyLabel(familiesById.get(familyId), personsById) || familyId };
   }
+  if (/^Conclusion(?:Person|Family)?(?:Event|Fact)Type$/.test(record.recordType)) {
+    return { id: '', type: record.recordType, name: labelForConclusionType(record.recordName) };
+  }
   return { id: '', type: record.recordType, name: record.recordName };
+}
+
+function labelForConclusionType(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+  const normalized = normalizeConclusionTypeId(value);
+  const catalogTypes = value.includes('FamilyEvent')
+    ? FAMILY_EVENT_TYPES
+    : value.includes('PersonFact')
+      ? PERSON_FACT_TYPES
+      : PERSON_EVENT_TYPES;
+  const catalogLabel = labelForCatalogType(catalogTypes, value);
+  return catalogLabel && catalogLabel !== normalized
+    ? catalogLabel
+    : humanizeType(normalized || value);
 }
 
 function familyLabel(family, personsById) {

@@ -6,8 +6,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils.js';
 
 const TABS = [
-  { to: '/views/virtual-map', label: 'Map', aliases: ['/map', '/globe', '/views/virtual-globe'] },
-  { to: '/views/statistic-maps', label: 'Statistic Maps', aliases: ['/maps-diagram', '/statistic-maps'] },
+  { to: '/views/virtual-map', label: 'Maps', aliases: ['/map', '/globe', '/maps-diagram', '/statistic-maps', '/views/virtual-globe', '/views/statistic-maps'] },
   { to: '/views/media-gallery', label: 'Media Gallery', aliases: ['/media'] },
   { to: '/views/family-quiz', label: 'Family Quiz', aliases: ['/quiz'] },
 ];

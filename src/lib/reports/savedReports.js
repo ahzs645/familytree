@@ -31,6 +31,19 @@ export async function deleteSavedReport(id) {
   await db.setMeta(META_KEY, list.filter((r) => r.id !== id));
 }
 
+export async function renameSavedReport(id, name) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed) throw new Error('Saved report name is required.');
+  const db = getLocalDatabase();
+  const list = await listSavedReports();
+  const idx = list.findIndex((r) => r.id === id);
+  if (idx < 0) throw new Error('Saved report not found.');
+  const stamped = { ...list[idx], name: trimmed, savedAt: Date.now() };
+  list[idx] = stamped;
+  await db.setMeta(META_KEY, list);
+  return stamped;
+}
+
 export function newReportId() {
   return 'rpt-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
 }

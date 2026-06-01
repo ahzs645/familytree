@@ -22,6 +22,14 @@ export default function MapView() {
   const [places, setPlaces] = useState([]);
   const [coordinates, setCoordinates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const inViews = location.pathname.startsWith('/views/');
+
+  const navigateMapMode = (mode) => {
+    const targets = inViews
+      ? { map: '/views/virtual-map', globe: '/views/virtual-globe', statistics: '/views/statistic-maps' }
+      : { map: '/map', globe: '/globe', statistics: '/maps-diagram' };
+    navigate(targets[mode] || targets.map);
+  };
 
   useEffect(() => {
     (async () => {
@@ -85,10 +93,8 @@ export default function MapView() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <strong className="text-sm">Virtual Map</strong>
-        <MapModeSwitch activeMode="map" onModeChange={(mode) => {
-          if (mode === 'globe') navigate(location.pathname.startsWith('/views/') ? '/views/virtual-globe' : '/globe');
-        }} />
+        <strong className="text-sm">Maps</strong>
+        <MapModeSwitch activeMode="map" onModeChange={navigateMapMode} />
         <span className="text-xs text-muted-foreground">
           {loading
             ? 'Loading places…'
@@ -98,7 +104,13 @@ export default function MapView() {
         </span>
       </header>
       <div className="flex-1 relative">
-        <BaseMap center={initial.center} zoom={initial.zoom} bounds={initial.bounds} markers={markers} />
+        <BaseMap
+          center={initial.center}
+          zoom={initial.zoom}
+          bounds={initial.bounds}
+          markers={markers}
+          emptyMessage={loading ? '' : 'No coordinates available. Assign coordinates to places to make them appear on the map.'}
+        />
       </div>
     </div>
   );

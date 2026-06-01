@@ -13,7 +13,7 @@ import {
   Database, Globe, ListTodo, Bookmark, Copy, ShieldCheck, Microscope,
   FileEdit, UsersRound, Clock, Download, Settings, Wrench, CloudCog,
   HelpCircle, Heart, Presentation, Building2, NotebookPen, Briefcase,
-  GitBranch, Activity, CalendarHeart, GraduationCap, Upload, Network, Landmark,
+  GitBranch, CalendarHeart, GraduationCap, Upload, Network, Landmark,
 } from 'lucide-react';
 
 export const NAV_PINNED = [
@@ -81,8 +81,7 @@ export const NAV_GROUPS = [
       { to: '/charts', label: 'Charts', icon: BarChart3 },
       { to: '/saved-charts', label: 'Saved charts', icon: Presentation },
       { to: '/reports', label: 'Reports', icon: FileText },
-      { to: '/map', label: 'Map', icon: MapIcon },
-      { to: '/maps-diagram', label: 'Statistic Maps', icon: Activity },
+      { to: '/map', label: 'Maps', icon: MapIcon, aliases: ['/globe', '/maps-diagram', '/statistic-maps', '/views/virtual-map', '/views/virtual-globe', '/views/statistic-maps'] },
       { to: '/media', label: 'Media Gallery', icon: ImageIcon },
       { to: '/slideshow', label: 'Slideshow', icon: Play },
       { to: '/books', label: 'Books', icon: Briefcase },
@@ -127,7 +126,7 @@ export const NAV_GROUPS = [
 
 export function findGroupForPath(pathname) {
   for (const group of NAV_GROUPS) {
-    if (group.links.some((l) => pathname === l.to || pathname.startsWith(`${l.to}/`))) {
+    if (group.links.some((l) => isLinkActive(l, pathname))) {
       return group.id;
     }
   }

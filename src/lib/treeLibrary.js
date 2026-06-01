@@ -6,7 +6,35 @@ const DB_NAME = 'cloudtreeweb-tree-library';
 const DB_VERSION = 1;
 const STORE = 'snapshots';
 
+// localStorage pointer to the library snapshot that the active dataset belongs
+// to. Stored outside Dexie meta because importDataset() clears the meta store.
+const ACTIVE_TREE_KEY = 'cloudtreeweb.activeTreeId';
+export const ACTIVE_TREE_CHANGED_EVENT = 'cloudtreeweb:active-tree-changed';
+export const TREES_CHANGED_EVENT = 'cloudtreeweb:trees-changed';
+
 let libraryDb = null;
+
+function newTreeId() {
+  return `tree-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function emitTreesChanged() {
+  try { window.dispatchEvent(new CustomEvent(TREES_CHANGED_EVENT)); } catch { /* SSR/test */ }
+}
+
+export function getActiveTreeId() {
+  try { return localStorage.getItem(ACTIVE_TREE_KEY); } catch { return null; }
+}
+
+export function setActiveTreeId(id) {
+  try {
+    if (id) localStorage.setItem(ACTIVE_TREE_KEY, id);
+    else localStorage.removeItem(ACTIVE_TREE_KEY);
+  } catch { /* ignore */ }
+  try {
+    window.dispatchEvent(new CustomEvent(ACTIVE_TREE_CHANGED_EVENT, { detail: { id: id || null } }));
+  } catch { /* SSR/test */ }
+}
 
 async function openLibrary() {
   if (!libraryDb) {
@@ -56,6 +84,7 @@ export async function setTreeSnapshotFavorite(snapshotId, favorite) {
   const snapshot = await db[STORE].get(snapshotId);
   if (!snapshot) throw new Error('Tree snapshot was not found.');
   await db[STORE].put({ ...snapshot, favorite: !!favorite, updatedAt: new Date().toISOString() });
+  emitTreesChanged();
 }
 
 export async function setTreeSnapshotLabel(snapshotId, label) {
@@ -63,6 +92,7 @@ export async function setTreeSnapshotLabel(snapshotId, label) {
   const snapshot = await db[STORE].get(snapshotId);
   if (!snapshot) throw new Error('Tree snapshot was not found.');
   await db[STORE].put({ ...snapshot, label: String(label || ''), updatedAt: new Date().toISOString() });
+  emitTreesChanged();
 }
 
 export async function sendTreeSnapshotAsCopy(snapshotId) {
@@ -130,10 +160,99 @@ export async function renameTreeSnapshot(snapshotId, name) {
     updatedAt: new Date().toISOString(),
   };
   await db[STORE].put(next);
+  emitTreesChanged();
   return next;
 }
 
 export async function deleteTreeSnapshot(snapshotId) {
   const db = await openLibrary();
   await db[STORE].delete(snapshotId);
+  if (getActiveTreeId() === snapshotId) setActiveTreeId(null);
+  emitTreesChanged();
+}
+
+function defaultTreeName() {
+  return `Tree ${new Date().toISOString().slice(0, 10)}`;
+}
+
+/**
+ * Save the current active dataset into the library under the active-tree
+ * pointer (upsert). If there is no active pointer, generates one and stores it
+ * — so an imported-but-never-saved tree gets captured on first switch instead
+ * of being lost.
+ *
+ * No-op when the dataset is empty AND there is no existing entry AND no name
+ * was provided (avoids creating phantom empty entries on first run).
+ *
+ * Returns the upserted snapshot summary (without backup), or null on no-op.
+ */
+export async function upsertActiveTreeSnapshot({ name } = {}) {
+  const backup = await exportBackup();
+  const recordCount = Object.keys(backup.records || {}).length;
+  const assetCount = Array.isArray(backup.assets) ? backup.assets.length : 0;
+
+  let id = getActiveTreeId();
+  const db = await openLibrary();
+  const existing = id ? await db[STORE].get(id) : null;
+
+  if (!id) {
+    if (recordCount === 0 && !name) return null;
+    id = newTreeId();
+    setActiveTreeId(id);
+  }
+
+  const now = new Date().toISOString();
+  const next = {
+    id,
+    name: String(name || existing?.name || defaultTreeName()).trim() || defaultTreeName(),
+    createdAt: existing?.createdAt || now,
+    updatedAt: now,
+    favorite: existing?.favorite ?? false,
+    label: existing?.label || '',
+    counts: backup.counts || {},
+    recordCount,
+    assetCount,
+    backup,
+  };
+  await db[STORE].put(next);
+  emitTreesChanged();
+  const { backup: _omit, ...summary } = next;
+  return summary;
+}
+
+/** Convenience: save the current dataset back into its active-tree entry. */
+export async function saveActiveTree() {
+  return upsertActiveTreeSnapshot();
+}
+
+/**
+ * Non-destructive tree switch: save the current tree back to the library
+ * first, then restore the target snapshot and update the active pointer.
+ * Returns the result from restoreTreeSnapshot, or null when switching to the
+ * already-active tree.
+ */
+export async function switchToTree(snapshotId) {
+  if (!snapshotId) throw new Error('switchToTree requires a snapshot id.');
+  if (getActiveTreeId() === snapshotId) return null;
+  await saveActiveTree();
+  const result = await restoreTreeSnapshot(snapshotId);
+  setActiveTreeId(snapshotId);
+  return result;
+}
+
+/**
+ * Start a fresh empty tree: save the current one back, clear the active
+ * dataset, generate a new active id, and create the library entry so it
+ * shows up in "My trees" immediately. The caller (onboarding) is expected
+ * to populate the dataset and then call saveActiveTree() to sync counts.
+ *
+ * Returns the new active-tree id.
+ */
+export async function startNewTree(name) {
+  await saveActiveTree();
+  await getAppDataClient().records.clearAll();
+  const id = newTreeId();
+  setActiveTreeId(id);
+  await upsertActiveTreeSnapshot({ name: name || defaultTreeName() });
+  return id;
 }

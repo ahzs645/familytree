@@ -264,6 +264,7 @@ export default function Persons() {
         options={filterOptions}
         ariaLabel={t('persons.filterAria')}
         className="w-full md:w-48"
+        triggerClassName="h-8 text-xs"
       />
       <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-sort">{t('persons.sort')}</label>
       <Select
@@ -273,12 +274,13 @@ export default function Persons() {
         options={sortOptions}
         ariaLabel={t('persons.sortAria')}
         className="w-full md:w-48"
+        triggerClassName="h-8 text-xs"
       />
       <div className="col-span-2 md:min-w-[280px] md:max-w-[360px]">
-        <PersonPicker persons={persons} value={mePersonId} onChange={setMePersonId} />
+        <PersonPicker persons={persons} value={mePersonId} onChange={setMePersonId} triggerClassName="h-8 text-xs" />
       </div>
       {mePersonId ? (
-        <button type="button" onClick={() => setMePersonId('')} className="h-10 rounded-md border border-border bg-secondary px-3 text-xs text-muted-foreground hover:bg-accent">
+        <button type="button" onClick={() => setMePersonId('')} className="h-8 rounded-md border border-border bg-secondary px-2.5 text-xs text-muted-foreground hover:bg-accent">
           {t('persons.clearMe')}
         </button>
       ) : null}

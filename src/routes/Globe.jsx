@@ -49,6 +49,7 @@ function classifyOverlay(type) {
 export default function Globe() {
   const navigate = useNavigate();
   const location = useLocation();
+  const inViews = location.pathname.startsWith('/views/');
   const [points, setPoints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [overlay, setOverlay] = useState('all');
@@ -154,16 +155,20 @@ export default function Globe() {
   const yearRange = yearBounds.min !== null && yearBounds.max !== null
     ? `${yearBounds.min}–${yearBounds.max}`
     : '';
+  const navigateMapMode = (mode) => {
+    const targets = inViews
+      ? { map: '/views/virtual-map', globe: '/views/virtual-globe', statistics: '/views/statistic-maps' }
+      : { map: '/map', globe: '/globe', statistics: '/maps-diagram' };
+    navigate(targets[mode] || targets.globe);
+  };
 
   return (
     <div className="flex flex-col h-full">
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h1 className="text-base font-semibold">Virtual Globe</h1>
-        <MapModeSwitch activeMode="globe" onModeChange={(mode) => {
-          if (mode === 'map') navigate(location.pathname.startsWith('/views/') ? '/views/virtual-map' : '/map');
-        }} />
+        <h1 className="text-base font-semibold">Maps</h1>
+        <MapModeSwitch activeMode="globe" onModeChange={navigateMapMode} />
         <span className="text-xs text-muted-foreground">
-          {loading ? 'Loading…' : `${filtered.length.toLocaleString()} / ${points.length.toLocaleString()} event location${points.length === 1 ? '' : 's'}`}
+          {loading ? 'Loading all person events…' : `${filtered.length.toLocaleString()} / ${points.length.toLocaleString()} person and family event location${points.length === 1 ? '' : 's'}`}
         </span>
         <div className="flex items-center gap-1 flex-wrap">
           {OVERLAY_TYPES.map((type) => (
@@ -232,6 +237,7 @@ export default function Globe() {
             opacity: visualOptions.heatOpacity,
           }}
           projection={{ type: 'globe' }}
+          emptyMessage={loading ? '' : 'The Virtual Globe cannot display any person or family events because no coordinates have been provided.'}
         />
         <VisualOptionsDrawer
           kind="globe"

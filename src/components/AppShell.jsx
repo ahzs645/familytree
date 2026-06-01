@@ -237,7 +237,7 @@ function MobileNavLink({ link, indented, pathname }) {
 
 export function AppShell() {
   const { t, localization: liveLocalization, setLocale } = useTranslation();
-  const { hasData, summary, loading, clear, refresh } = useDatabaseStatus();
+  const { hasData, summary, loading } = useDatabaseStatus();
   const { theme, toggle } = useTheme();
   const modal = useModal();
   const isMobile = useIsMobile();
@@ -250,17 +250,10 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   useKeyboardShortcuts({
-    'ctrl+n': async () => {
-      const confirmed = await modal.confirm(t('actions.newDocumentConfirm'), {
-        title: t('actions.newDocument'),
-        okLabel: t('actions.newDocumentButton'),
-        destructive: true,
-      });
-      if (!confirmed) return;
-      await clear();
-      await refresh();
-      navigate('/');
-      modal.toast(t('actions.newDocumentDone'), { kind: 'success' });
+    'ctrl+n': () => {
+      // Non-destructive: /welcome saves the current tree to the library
+      // (via startNewTree) before creating a new one. No confirm needed.
+      navigate('/welcome');
     },
     'ctrl+o': () => navigate('/backup?focus=restore-backup'),
     'ctrl+s': async () => {

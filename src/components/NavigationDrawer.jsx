@@ -15,6 +15,7 @@ import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { routeLabelKey } from '../lib/navigationLabels.js';
 import { NAV_PINNED, NAV_GROUPS, findGroupForPath, isLinkActive } from '../lib/navigationConfig.js';
 import { LanguageSelect } from './LanguageSelect.jsx';
+import { TreeSwitcher } from './TreeSwitcher.jsx';
 
 const OPEN_GROUPS_KEY = 'app.drawer.openGroups.v2';
 // On the home/empty route findGroupForPath() returns null, which used to leave
@@ -116,6 +117,11 @@ export function NavigationDrawer({
             ? (localization.direction === 'rtl' ? <ChevronLeft size={16} /> : <ChevronRight size={16} />)
             : (localization.direction === 'rtl' ? <ChevronRight size={16} /> : <ChevronLeft size={16} />)}
         </button>
+      </div>
+
+      {/* Current tree + switcher dropdown */}
+      <div className={cn('border-b border-border', collapsed ? 'px-1.5 py-2 flex justify-center' : 'px-2 py-2')}>
+        <TreeSwitcher collapsed={collapsed} />
       </div>
 
       {/* Command palette trigger (⌘K) */}

@@ -3,11 +3,12 @@
  * with discoverable filters and an event detail panel.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { refToRecordName } from '../lib/recordRef.js';
 import { readConclusionType } from '../lib/schema.js';
 import { Map as MapView } from '../components/ui/Map.jsx';
+import { MapModeSwitch } from '../components/ui/MapModeSwitch.jsx';
 import { VisualOptionsDrawer } from '../components/charts/VisualOptionsDrawer.jsx';
 import { formatEventDate } from '../utils/formatDate.js';
 import { personSummary } from '../models/index.js';
@@ -51,6 +52,9 @@ const STATISTIC_SOURCES = [
 ];
 
 export default function MapsDiagram() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const inViews = location.pathname.startsWith('/views/');
   const [events, setEvents] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [statisticSourceId, setStatisticSourceId] = useState('events-heat');
@@ -65,6 +69,12 @@ export default function MapsDiagram() {
   const [allYears, setAllYears] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [visualOptions, setVisualOptions] = useState(() => normalizeVisualViewOptions('mapStory'));
+  const navigateMapMode = (mode) => {
+    const targets = inViews
+      ? { map: '/views/virtual-map', globe: '/views/virtual-globe', statistics: '/views/statistic-maps' }
+      : { map: '/map', globe: '/globe', statistics: '/maps-diagram' };
+    navigate(targets[mode] || targets.statistics);
+  };
 
   useEffect(() => {
     let cancel = false;
@@ -232,7 +242,10 @@ export default function MapsDiagram() {
       <header className="border-b border-border bg-card px-3 py-3 md:px-5">
         <div className="flex items-start gap-3">
         <div className="min-w-0">
-          <h1 className="text-base font-semibold">Map + Timeline Story</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-base font-semibold">Maps</h1>
+            <MapModeSwitch activeMode="statistics" onModeChange={navigateMapMode} />
+          </div>
           <div className="text-xs text-muted-foreground">
             {loading ? 'Loading events…' : `${filtered.length} of ${events.length} placed event${events.length === 1 ? '' : 's'} · ${statisticSource.label}`}
           </div>
@@ -361,6 +374,7 @@ export default function MapsDiagram() {
               fixedRadius: visualOptions.fixedHeatRadius,
               gradient: visualOptions.heatGradient,
             }}
+            emptyMessage={loading ? '' : 'Not enough information to display this map. Make sure you have entered data for the selected statistics type and coordinates for event places.'}
           />
         </div>
         <aside className="min-h-0 overflow-auto border-t border-border bg-card p-4 lg:border-l lg:border-t-0">
