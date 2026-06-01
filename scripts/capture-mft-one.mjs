@@ -73,8 +73,9 @@ async function main() {
       return { x: r.left + r.width / 2, y: r.top + r.height * fy };
     });
     await page.mouse.move(box.x, box.y);
-    for (let i = 0; i < zoomTicks; i += 1) {
-      await page.mouse.wheel(0, -120);
+    const delta = zoomTicks < 0 ? 120 : -120; // negative ZOOM => zoom out
+    for (let i = 0; i < Math.abs(zoomTicks); i += 1) {
+      await page.mouse.wheel(0, delta);
       await page.waitForTimeout(90);
     }
     await page.waitForTimeout(700);

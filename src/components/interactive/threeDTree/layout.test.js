@@ -116,21 +116,24 @@ describe('buildInteractiveLayout', () => {
     });
     expect(nodes.get('father')).toMatchObject({ generation: -1 });
     expect(nodes.get('mother')).toMatchObject({ generation: -1 });
-    expect(layout.links).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        emphasis: true,
-        nodeIds: expect.arrayContaining(['father', 'mother', 'root', 'sibling']),
-        points: expect.arrayContaining([
-          expect.objectContaining({ y: expect.any(Number) }),
-        ]),
-        type: 'family',
-      }),
-    ]));
-    const rootDrop = layout.links.find((link) => (
-      link.type === 'family' &&
-      link.nodeIds?.length === 1 &&
-      link.nodeIds[0] === 'root'
-    ));
+    // One assembly per family with per-segment scoped nodeIds (couple bar /
+    // trunk / sibling bus / per-child drops). The assembly collectively
+    // connects the couple to every child, and all segments are emphasised.
+    const familyLinks = layout.links.filter((link) => link.type === 'family');
+    expect(familyLinks.length).toBeGreaterThan(0);
+    expect(familyLinks.every((link) => link.emphasis === true)).toBe(true);
+    expect(familyLinks.every((link) => (link.points?.length || 0) >= 2)).toBe(true);
+    const connectedIds = new Set(familyLinks.flatMap((link) => link.nodeIds || []));
+    for (const id of ['father', 'mother', 'root', 'sibling']) {
+      expect([...connectedIds]).toContain(id);
+    }
+    // The couple's trunk references both parents together.
+    expect(familyLinks.some((link) => {
+      const ids = link.nodeIds || [];
+      return ids.includes('father') && ids.includes('mother');
+    })).toBe(true);
+    // The root's own drop reaches up from the sibling bus toward its top edge.
+    const rootDrop = familyLinks.find((link) => link.nodeIds?.length === 1 && link.nodeIds[0] === 'root');
     expect(rootDrop.points[0].y).toBeGreaterThan(nodes.get('root').y + ROOT_CARD.h * 0.44);
     expect(layout.bands.find((band) => band.generation === 0)).toMatchObject({
       count: 2,

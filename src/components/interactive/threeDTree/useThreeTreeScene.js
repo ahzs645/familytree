@@ -321,7 +321,10 @@ export function useThreeTreeScene({
 
     const fitBounds = fitBoundsForOptions();
     const fitSignature = cameraFitSignature(layout, activeId, viewerOptions.cameraMode, fitBounds);
-    if (fitSignatureRef.current !== fitSignature) {
+    // Never frame an empty layout — doing so would consume the first-fit on the
+    // 0-node initial render and snap the camera to the empty fallback bounds,
+    // leaving the real tree off-screen when it arrives.
+    if (layout.nodes.length > 0 && fitSignatureRef.current !== fitSignature) {
       const shouldRestoreCamera = !(viewerOptions.appearanceMode === 'macLight' && viewerOptions.cameraMode === 'top');
       if (firstFitRef.current) {
         // First framing of a freshly built scene → snap into place.
@@ -348,7 +351,7 @@ export function useThreeTreeScene({
     // handled by the camera fly-to above, so we don't re-pop every node on each
     // click (that would be too busy alongside the camera move).
     const structureSignature = `${activeId || ''}|${layout.nodes.map((node) => node.id).join(',')}`;
-    const isFirstAssembly = structureSignatureRef.current === null;
+    const isFirstAssembly = structureSignatureRef.current === null && layout.nodes.length > 0;
     if (tweens && animationsEnabled && isFirstAssembly) {
       nodeObjects.forEach((object, index) => {
         const finalZ = object.position.z;
@@ -370,7 +373,9 @@ export function useThreeTreeScene({
         nodeTweensRef.current.push(tween);
       });
     }
-    structureSignatureRef.current = structureSignature;
+    // Only remember the signature once real nodes exist, so the empty initial
+    // render doesn't pre-empt the build-in animation for the real tree.
+    if (layout.nodes.length > 0) structureSignatureRef.current = structureSignature;
 
     actionsRef.current = {
       ...actionsRef.current,

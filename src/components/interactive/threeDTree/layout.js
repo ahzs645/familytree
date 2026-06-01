@@ -179,16 +179,22 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
       const companion = ordered.find((node) => node.person.recordName !== preferredChildId);
       return [...required, companion].filter(Boolean);
     }
+    // Fewer collateral siblings the deeper we go (the MFT viewer minifies and
+    // limits distant brothers/sisters so the tree stays compact).
     const maxByGeneration = new Map([
-      [-1, 13],
-      [-2, 10],
-      [-3, 8],
-      [-4, 6],
+      [-1, 7],
+      [-2, 5],
+      [-3, 4],
+      [-4, 3],
     ]);
-    const max = maxByGeneration.get(generation) || 8;
+    const max = maxByGeneration.get(generation) || 4;
     const required = preferredChildId ? ordered.filter((node) => node.person.recordName === preferredChildId) : [];
-    const rest = ordered.filter((node) => node.person.recordName !== preferredChildId);
-    return [...required, ...rest].slice(0, max);
+    const rest = ordered.filter((node) => node.person.recordName !== preferredChildId).slice(0, Math.max(0, max - required.length));
+    // Centre the in-line ancestor among the kept siblings so the direct lineage
+    // forms a straight column and siblings spread symmetrically (rather than the
+    // preferred child sitting at the far-left edge of a one-sided block).
+    const mid = Math.floor(rest.length / 2);
+    return [...rest.slice(0, mid), ...required, ...rest.slice(mid)];
   };
 
   const measureBlock = (childId, generation, branch, depth) => {
@@ -209,7 +215,12 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     if (blockCache.has(key)) return blockCache.get(key);
     const childNodes = orderFamilyChildren(family, childId, generation);
     const childIds = childNodes.map((node) => node.person.recordName);
-    const childWidth = Math.max(320, (Math.max(childIds.length, 1) - 1) * CHILD_GAP + FAMILY_PADDING);
+    // In this ancestor-dominant view a block's children are the siblings of one
+    // ancestor and are leaves at the child row (no downward expansion), so each
+    // reserves one CHILD_GAP slot. The block reserves their summed footprint
+    // plus padding, which placeChildren then consumes as a width cursor.
+    const childWidths = childIds.map(() => CHILD_GAP);
+    const childWidth = Math.max(320, childWidths.reduce((sum, width) => sum + width, 0) + FAMILY_PADDING);
     const parentBlocks = (family.parents || [])
       .filter((id) => sourceNodes.has(id))
       .map((parentId, index) => measureBlock(parentId, generation - 1, branch || (index === 0 ? 'paternal' : 'maternal'), depth + 1));
@@ -223,6 +234,7 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
       branch,
       preferredChildId: childId,
       children: childIds,
+      childWidths,
       parentBlocks,
       width: Math.max(childWidth, parentWidth, 360),
     };
@@ -257,10 +269,21 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
       addNode(rootId, generation, centerX + 78, block.id, 900);
       return;
     }
-    const preferredIndex = block.children.indexOf(block.preferredChildId);
-    const centerIndex = preferredIndex >= 0 ? preferredIndex : Math.floor(block.children.length / 2);
+    // Pack children by their measured slot widths, centred on the couple
+    // midpoint (centerX) — MFT centres the sibling row under the couple and
+    // lets the connector bus absorb the offset to the in-line ancestor. If a
+    // capped-but-wide row would exceed the block's reserved footprint, compress
+    // the pitch so it never overruns into the neighbouring branch.
+    const widths = (block.childWidths && block.childWidths.length === block.children.length)
+      ? block.childWidths
+      : block.children.map(() => CHILD_GAP);
+    const totalWidth = widths.reduce((sum, width) => sum + width, 0);
+    const scale = totalWidth > block.width && block.children.length > 1 ? block.width / totalWidth : 1;
+    let cursor = centerX - (totalWidth * scale) / 2;
     block.children.forEach((childId, index) => {
-      addNode(childId, generation, centerX + (index - centerIndex) * CHILD_GAP, block.id, 60 - Math.abs(generation));
+      const slot = widths[index] * scale;
+      addNode(childId, generation, cursor + slot / 2, block.id, 60 - Math.abs(generation));
+      cursor += slot;
     });
   };
 
@@ -299,13 +322,16 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     const parents = (rootFamily.parents || []).filter((id) => sourceNodes.has(id));
     const fatherBlock = parents[0] ? measureBlock(parents[0], -1, 'paternal', 1) : null;
     const motherBlock = parents[1] ? measureBlock(parents[1], -1, 'maternal', 1) : null;
+    // Seed the two pedigree halves from their MEASURED widths so they never
+    // overlap, regardless of how broad each side's ancestry is. ROOT_PARENT_GAP
+    // is the minimum clearance between the halves' inner edges.
     if (fatherBlock && motherBlock) {
-      placeBlock(fatherBlock, -ROOT_PARENT_GAP / 2, false);
-      placeBlock(motherBlock, ROOT_PARENT_GAP / 2, false);
+      placeBlock(fatherBlock, -(fatherBlock.width / 2 + ROOT_PARENT_GAP / 2), false);
+      placeBlock(motherBlock, motherBlock.width / 2 + ROOT_PARENT_GAP / 2, false);
     } else if (fatherBlock) {
-      placeBlock(fatherBlock, -520, false);
+      placeBlock(fatherBlock, -(fatherBlock.width / 2 + ROOT_PARENT_GAP / 2), false);
     } else if (motherBlock) {
-      placeBlock(motherBlock, 520, false);
+      placeBlock(motherBlock, motherBlock.width / 2 + ROOT_PARENT_GAP / 2, false);
     }
   } else {
     addNode(rootId, 0, 0, 'root', 900);
@@ -354,70 +380,51 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     const preferredBridgeY = nearestParentAttachY - direction * PARENT_BRIDGE_GAP;
     const emphasis = family.id === rootFamily?.id || family.parents.some((id) => id === familyGraph.rootId);
 
-    const childClusters = clusterFamilyChildren(children, FAMILY_ROUTE_SPLIT_GAP);
-    for (const cluster of childClusters) {
-      const minChildX = Math.min(...cluster.map((child) => child.x));
-      const maxChildX = Math.max(...cluster.map((child) => child.x));
-      const childPadding = cluster.length > 1 ? 34 : 0;
-      const childLeft = minChildX - childPadding;
-      const childRight = maxChildX + childPadding;
-      const childAttachY = direction > 0
-        ? Math.max(...cluster.map((child) => child.y + nodeVerticalRadius(child)))
-        : Math.min(...cluster.map((child) => child.y - nodeVerticalRadius(child)));
-      const childBusY = childAttachY + direction * CHILD_BUS_GAP;
-      const clusterCenter = clusterCenterX(cluster);
-      const localParentAttachPoints = compactParentPoints(
-        localParentPoints(parentAttachPoints, clusterCenter, MAX_FAMILY_HORIZONTAL_SPAN),
-        clusterCenter,
-        MAX_PARENT_BRIDGE_SPAN
-      );
-      const coupleX = average(localParentAttachPoints.map((point) => point.x));
-      const localNearestParentAttachY = direction > 0
-        ? Math.min(...localParentAttachPoints.map((point) => point.y))
-        : Math.max(...localParentAttachPoints.map((point) => point.y));
-      const localPreferredBridgeY = localNearestParentAttachY - direction * PARENT_BRIDGE_GAP;
-      const parentBridgeY = direction > 0
-        ? Math.max(childBusY + PARENT_BRIDGE_GAP, localPreferredBridgeY)
-        : Math.min(childBusY - PARENT_BRIDGE_GAP, localPreferredBridgeY);
-      const clusterAnchorX = clamp(coupleX, childLeft, childRight);
-      const clusterNodeIds = [...localParentAttachPoints.map((point) => point.node), ...cluster].map((node) => node.id);
+    // ONE connector assembly per family (no per-cluster fragmentation, which
+    // produced forked/duplicate trunks). MFT's model: couple bar -> single
+    // trunk -> one U-shaped sibling bus -> a drop to each child's top edge.
+    const sortedChildren = [...children].sort((a, b) => a.x - b.x);
+    const minChildX = Math.min(...sortedChildren.map((child) => child.x));
+    const maxChildX = Math.max(...sortedChildren.map((child) => child.x));
+    const childAttachY = direction > 0
+      ? Math.max(...sortedChildren.map((child) => child.y + nodeVerticalRadius(child)))
+      : Math.min(...sortedChildren.map((child) => child.y - nodeVerticalRadius(child)));
+    const childBusY = childAttachY + direction * CHILD_BUS_GAP;
+    const coupleX = average(parentAttachPoints.map((point) => point.x));
+    const anchorX = clamp(coupleX, minChildX, maxChildX);
+    const parentBridgeY = direction > 0
+      ? Math.max(childBusY + PARENT_BRIDGE_GAP, preferredBridgeY)
+      : Math.min(childBusY - PARENT_BRIDGE_GAP, preferredBridgeY);
+    const parentIds = parentAttachPoints.map((point) => point.node.id);
 
-      for (const point of localParentAttachPoints) {
-        addSegment(family.id, 'family', emphasis, point, { x: point.x, y: parentBridgeY }, [point.node.id]);
-      }
-      if (localParentAttachPoints.length > 1) {
-        const sortedParents = [...localParentAttachPoints].sort((a, b) => a.x - b.x);
-        addSegment(
-          family.id,
-          'family',
-          emphasis,
-          { x: sortedParents[0].x, y: parentBridgeY },
-          { x: sortedParents[sortedParents.length - 1].x, y: parentBridgeY },
-          parents.map((parent) => parent.id)
-        );
-      }
-      addPolyline(
-        family.id,
-        'family',
-        emphasis,
-        [
-          { x: coupleX, y: parentBridgeY },
-          { x: clusterAnchorX, y: parentBridgeY },
-          { x: clusterAnchorX, y: childBusY },
-        ],
-        clusterNodeIds
-      );
-      addSegment(family.id, 'family', emphasis, { x: childLeft, y: childBusY }, { x: childRight, y: childBusY }, clusterNodeIds);
-      for (const child of cluster) {
-        addSegment(
-          family.id,
-          'family',
-          emphasis,
-          { x: child.x, y: childBusY },
-          { x: child.x, y: child.y + direction * nodeVerticalRadius(child) },
-          [child.id]
-        );
-      }
+    // 1) each parent drops to the couple-bar line
+    for (const point of parentAttachPoints) {
+      addSegment(family.id, 'family', emphasis, point, { x: point.x, y: parentBridgeY }, [point.node.id]);
+    }
+    // 2) couple bar joining the parents (only when both are present)
+    if (parentAttachPoints.length > 1) {
+      const xs = parentAttachPoints.map((point) => point.x);
+      addSegment(family.id, 'family', emphasis,
+        { x: Math.min(...xs), y: parentBridgeY }, { x: Math.max(...xs), y: parentBridgeY }, parentIds);
+    }
+    // 3) single trunk: couple midpoint -> anchor over the children -> sibling bus
+    addPolyline(family.id, 'family', emphasis, [
+      { x: coupleX, y: parentBridgeY },
+      { x: anchorX, y: parentBridgeY },
+      { x: anchorX, y: childBusY },
+    ], parentIds);
+    // 4) one sibling bus spanning every child
+    if (maxChildX - minChildX > 0.5) {
+      addSegment(family.id, 'family', emphasis,
+        { x: minChildX, y: childBusY }, { x: maxChildX, y: childBusY },
+        sortedChildren.map((child) => child.id));
+    }
+    // 5) drop from the bus to each child's top edge
+    for (const child of sortedChildren) {
+      addSegment(family.id, 'family', emphasis,
+        { x: child.x, y: childBusY },
+        { x: child.x, y: child.y + direction * nodeVerticalRadius(child) },
+        [child.id]);
     }
   }
 
@@ -425,7 +432,10 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
   const rootX = root?.x || 0;
   const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= VISIBLE_X_RADIUS && node.generation >= -4 && node.generation <= 1);
   const visibleIds = new Set(nodeList.map((node) => node.id));
-  const visibleLinks = routedLinks.filter((link) => !link.nodeIds?.length || link.nodeIds.every((id) => visibleIds.has(id)));
+  // Keep a connector segment if ANY node it touches is visible (each segment's
+  // nodeIds are scoped to just the nodes it physically connects), so a clipped
+  // sibling can't drop the shared trunk/bus for the visible members.
+  const visibleLinks = routedLinks.filter((link) => !link.nodeIds?.length || link.nodeIds.some((id) => visibleIds.has(id)));
   const visibleBands = buildBands(nodeList, rootX);
   const bounds = boundsFor(nodeList, visibleBands, visibleLinks);
   const viewBounds = focusBoundsFor(nodeList, visibleBands, bounds);
@@ -520,7 +530,11 @@ function buildBandSegments(group, generation, rootX = 0) {
   // like the native viewer. Root + descendant generations stay continuous.
   const paternal = sorted.filter((node) => node.x < rootX);
   const maternal = sorted.filter((node) => node.x >= rootX);
-  const sides = generation < 0 && paternal.length && maternal.length
+  // MFT mints one pedigree id per person and stamps BOTH of that person's
+  // parents with it, so the focused person's parents (gen -1) share ONE band;
+  // the paternal|maternal split only emerges at the grandparents (gen <= -2),
+  // the first row reached by two independent ancestor builds.
+  const sides = generation <= -2 && paternal.length && maternal.length
     ? [{ side: 'paternal', nodes: paternal }, { side: 'maternal', nodes: maternal }]
     : [{ side: 'all', nodes: sorted }];
   const split = sides.length === 2;
