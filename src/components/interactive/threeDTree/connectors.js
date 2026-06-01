@@ -279,7 +279,7 @@ function roundedPolylinePoints(points) {
       routed.push(current.clone());
       continue;
     }
-    const cornerRadius = Math.min(15, beforeLength * 0.4, afterLength * 0.4);
+    const cornerRadius = Math.min(28, beforeLength * 0.45, afterLength * 0.45);
     const entry = current.clone().add(before.multiplyScalar(cornerRadius));
     const exit = current.clone().add(after.multiplyScalar(cornerRadius));
     routed.push(entry);

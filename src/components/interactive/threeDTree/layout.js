@@ -302,6 +302,14 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
   const uniquePlaced = [...placedById.values()];
   const nodeById = new Map(uniquePlaced.map((node) => [node.id, node]));
 
+  // Decide visibility up front so connectors are only routed between nodes that
+  // actually render — a connector can never run toward a clipped, off-screen
+  // node ("line going nowhere").
+  const root = nodeById.get(rootId) || uniquePlaced.find((node) => node.featured);
+  const rootX = root?.x || 0;
+  const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= VISIBLE_X_RADIUS && node.generation >= -4 && node.generation <= 1);
+  const visibleIds = new Set(nodeList.map((node) => node.id));
+
   const addSegment = (familyId, type, emphasis, a, b, nodeIds = []) => {
     // Always draw the full segment. (A previous build split long horizontal
     // sibling buses into two end-stubs with a gap, which read as "broken"
@@ -323,8 +331,8 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     });
   };
   for (const family of familyGraph.families || []) {
-    const parents = (family.parents || []).map((id) => nodeById.get(id)).filter(Boolean);
-    const children = (family.children || []).map((id) => nodeById.get(id)).filter(Boolean);
+    const parents = (family.parents || []).map((id) => nodeById.get(id)).filter((node) => node && visibleIds.has(node.id));
+    const children = (family.children || []).map((id) => nodeById.get(id)).filter((node) => node && visibleIds.has(node.id));
     if (parents.length === 0 || children.length === 0) continue;
     const generation = children[0].generation;
     routingGeneration = generation;
@@ -375,29 +383,27 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
       { x: anchorX, y: parentBridgeY },
       { x: anchorX, y: childBusY },
     ], parentIds);
-    // 4) one sibling bus spanning every child
-    if (maxChildX - minChildX > 0.5) {
-      addSegment(family.id, 'family', emphasis,
-        { x: minChildX, y: childBusY }, { x: maxChildX, y: childBusY },
-        sortedChildren.map((child) => child.id));
-    }
-    // 5) drop from the bus to each child's top edge
+    // 4) per-child rounded path from the trunk foot along the sibling bus to the
+    //    child's column, then down to the child. The rounded corner at each turn
+    //    gives the native viewer's curved look; the overlapping horizontal runs
+    //    form a single continuous bus.
     for (const child of sortedChildren) {
-      addSegment(family.id, 'family', emphasis,
-        { x: child.x, y: childBusY },
-        { x: child.x, y: child.y + direction * nodeVerticalRadius(child) },
-        [child.id]);
+      const childTopY = child.y + direction * nodeVerticalRadius(child);
+      if (Math.abs(child.x - anchorX) > 1) {
+        addPolyline(family.id, 'family', emphasis, [
+          { x: anchorX, y: childBusY },
+          { x: child.x, y: childBusY },
+          { x: child.x, y: childTopY },
+        ], [child.id]);
+      } else {
+        addSegment(family.id, 'family', emphasis,
+          { x: child.x, y: childBusY }, { x: child.x, y: childTopY }, [child.id]);
+      }
     }
   }
 
-  const root = nodeById.get(rootId) || uniquePlaced.find((node) => node.featured);
-  const rootX = root?.x || 0;
-  const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= VISIBLE_X_RADIUS && node.generation >= -4 && node.generation <= 1);
-  const visibleIds = new Set(nodeList.map((node) => node.id));
-  // Keep a connector segment if ANY node it touches is visible (each segment's
-  // nodeIds are scoped to just the nodes it physically connects), so a clipped
-  // sibling can't drop the shared trunk/bus for the visible members.
-  const visibleLinks = routedLinks.filter((link) => !link.nodeIds?.length || link.nodeIds.some((id) => visibleIds.has(id)));
+  // All routed links already reference only visible nodes (filtered above).
+  const visibleLinks = routedLinks;
   const visibleBands = buildBands(nodeList, rootX);
   const bounds = boundsFor(nodeList, visibleBands, visibleLinks);
   const viewBounds = focusBoundsFor(nodeList, visibleBands, bounds);
