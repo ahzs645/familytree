@@ -22,8 +22,7 @@ export const APP_FUNCTIONS = [
   { to: '/charts', label: 'Charts', category: 'Charts' },
   { to: '/saved-charts', label: 'Saved Charts', category: 'Charts' },
 
-  { to: '/views/virtual-map', label: 'Virtual Map', category: 'Views' },
-  { to: '/views/virtual-globe', label: 'Virtual Globe', category: 'Views' },
+  { to: '/views/virtual-map', label: 'Map', category: 'Views' },
   { to: '/views/statistic-maps', label: 'Statistic Maps', category: 'Views' },
   { to: '/views/media-gallery', label: 'Media Gallery', category: 'Views' },
   { to: '/views/family-quiz', label: 'Family Quiz', category: 'Views' },

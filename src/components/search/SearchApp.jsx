@@ -11,6 +11,7 @@ import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { FilterRow } from './FilterRow.jsx';
 import { SearchResults } from './SearchResults.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
+import { Select } from '../ui/Select.jsx';
 
 const SAVED_SEARCHES_KEY = 'savedSearches';
 
@@ -119,6 +120,23 @@ export function SearchApp() {
   }, [entityType, filters, textQuery, navigate, modal]);
 
   const replaceFields = useMemo(() => replaceableFields(entityType), [entityType]);
+  const entityTypeOptions = useMemo(() => ENTITY_TYPES.map((type) => ({ value: type.id, label: type.label })), []);
+  const scopeSelectOptions = useMemo(() => [
+    { value: '', label: 'Choose a scope…' },
+    ...scopeOptions.map((scope) => ({
+      value: scope.id,
+      label: `${scope.imported ? 'Imported: ' : ''}${scope.label}${scope.imported && !scope.executable ? ' (preserved)' : ''}`,
+    })),
+  ], [scopeOptions]);
+  const savedSearchOptions = useMemo(() => [
+    { value: '', label: savedSearches.length ? 'Load saved…' : 'No saved searches' },
+    ...savedSearches.map((search) => ({ value: search.id, label: search.name })),
+  ], [savedSearches]);
+  const deleteSavedSearchOptions = useMemo(() => [
+    { value: '', label: 'Del…' },
+    ...savedSearches.map((search) => ({ value: search.id, label: search.name })),
+  ], [savedSearches]);
+  const replaceFieldOptions = useMemo(() => replaceFields.map((field) => ({ value: field.id, label: field.label })), [replaceFields]);
 
   useEffect(() => {
     setReplaceField(replaceFields[0]?.id || '');
@@ -230,11 +248,13 @@ export function SearchApp() {
     <div style={shell}>
       <header style={header}>
         <Field label="Entity">
-          <select value={entityType} onChange={(e) => { setEntityType(e.target.value); setFilters([]); setResult(null); }} style={input}>
-            {ENTITY_TYPES.map((t) => (
-              <option key={t.id} value={t.id}>{t.label}</option>
-            ))}
-          </select>
+          <Select
+            value={entityType}
+            onChange={(value) => { setEntityType(value); setFilters([]); setResult(null); }}
+            options={entityTypeOptions}
+            triggerClassName="h-auto"
+            triggerStyle={input}
+          />
         </Field>
 
         <Field label="Free text">
@@ -248,16 +268,14 @@ export function SearchApp() {
         </Field>
 
         <Field label="Smart Scope">
-          <select
+          <Select
             value=""
-            onChange={(e) => onRunScope(e.target.value)}
-            style={{ ...input, width: '100%', minWidth: 0, cursor: 'pointer' }}
-          >
-            <option value="">Choose a scope…</option>
-            {scopeOptions.map((s) => (
-              <option key={s.id} value={s.id}>{s.imported ? 'Imported: ' : ''}{s.label}{s.imported && !s.executable ? ' (preserved)' : ''}</option>
-            ))}
-          </select>
+            onChange={onRunScope}
+            options={scopeSelectOptions}
+            style={{ width: '100%', minWidth: 0 }}
+            triggerClassName="h-auto"
+            triggerStyle={{ ...input, cursor: 'pointer' }}
+          />
         </Field>
 
         <button onClick={onAddFilter} style={{ ...input, cursor: 'pointer', marginTop: 14 }}>+ Filter</button>
@@ -267,25 +285,24 @@ export function SearchApp() {
 
         <Field label="Saved searches">
           <div style={{ display: 'flex', gap: 4 }}>
-            <select
+            <Select
               value=""
-              onChange={(e) => e.target.value && onLoadSearch(e.target.value)}
-              style={{ ...input, cursor: 'pointer', flex: '1 1 180px', minWidth: 0 }}
-            >
-              <option value="">{savedSearches.length ? 'Load saved…' : 'No saved searches'}</option>
-              {savedSearches.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+              onChange={(value) => value && onLoadSearch(value)}
+              options={savedSearchOptions}
+              style={{ flex: '1 1 180px', minWidth: 0 }}
+              triggerClassName="h-auto"
+              triggerStyle={{ ...input, cursor: 'pointer' }}
+            />
             <button onClick={onSaveSearch} style={{ ...input, cursor: 'pointer' }} title="Persist the current search">Save</button>
             {savedSearches.length > 0 && (
-              <select
+              <Select
                 value=""
-                onChange={(e) => e.target.value && onDeleteSearch(e.target.value)}
-                style={{ ...input, cursor: 'pointer', width: 80 }}
-                title="Delete a saved search"
-              >
-                <option value="">Del…</option>
-                {savedSearches.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+                onChange={(value) => value && onDeleteSearch(value)}
+                options={deleteSavedSearchOptions}
+                style={{ width: 80 }}
+                triggerClassName="h-auto"
+                triggerStyle={{ ...input, cursor: 'pointer' }}
+              />
             )}
             <button onClick={onSaveAsSmartFilter} style={{ ...input, cursor: 'pointer' }} title="Open this search in the Smart Filter editor">
               → Smart Filter
@@ -311,9 +328,14 @@ export function SearchApp() {
         <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Search and Replace</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <Field label="Field">
-            <select value={replaceField} onChange={(e) => setReplaceField(e.target.value)} style={{ ...input, width: '100%', minWidth: 0 }}>
-              {replaceFields.map((field) => <option key={field.id} value={field.id}>{field.label}</option>)}
-            </select>
+            <Select
+              value={replaceField}
+              onChange={setReplaceField}
+              options={replaceFieldOptions}
+              style={{ width: '100%', minWidth: 0 }}
+              triggerClassName="h-auto"
+              triggerStyle={input}
+            />
           </Field>
           <Field label="Find">
             <input value={findText} onChange={(e) => setFindText(e.target.value)} style={{ ...input, width: '100%', minWidth: 0 }} />

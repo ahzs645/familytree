@@ -15,6 +15,8 @@ export function Select({
   placeholder = 'Select…',
   className,
   triggerClassName,
+  style,
+  triggerStyle,
   ariaLabel,
   id,
   disabled = false,
@@ -88,7 +90,7 @@ export function Select({
   };
 
   return (
-    <div className={cn('relative', className)}>
+    <div className={cn('relative', className)} style={style}>
       <button
         id={buttonId}
         ref={buttonRef}
@@ -106,6 +108,7 @@ export function Select({
           'inline-flex items-center relative',
           triggerClassName
         )}
+        style={triggerStyle}
       >
         <span className={cn('truncate flex-1', !selected && 'text-muted-foreground')}>
           {selected ? selected.label : placeholder}

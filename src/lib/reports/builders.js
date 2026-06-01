@@ -30,6 +30,7 @@ export {
   buildPersonsList,
   buildPlacesList,
   buildSourcesList,
+  buildSourceCitationAuditReport,
   buildToDoListReport,
 } from './builders/listReports.js';
 

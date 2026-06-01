@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { analyzeGedcomText, canImportGedcomAnalysis, parseGedcom, tokenizeGedcomText } from './gedcomImport.js';
+import { analyzeGedcomText, buildGedcomDataset, canImportGedcomAnalysis, parseGedcom, tokenizeGedcomText } from './gedcomImport.js';
 
 describe('analyzeGedcomText', () => {
   it('reports duplicate XREFs as blocking shared validation issues', () => {
@@ -282,6 +282,29 @@ describe('parseGedcom', () => {
       sourcePerson: { value: `${person.recordName}---Person` },
       relationType: { value: 'Witness' },
     });
+  });
+
+  it('stamps GEDCOM SourceRelation records with lineage batch and event records', () => {
+    const dataset = buildGedcomDataset([
+      '0 HEAD',
+      '0 @I1@ INDI',
+      '1 NAME Jane /Doe/',
+      '1 SOUR @S1@',
+      '2 PAGE certificate 12',
+      '0 @S1@ SOUR',
+      '1 TITL Certificate Index',
+      '0 TRLR',
+    ].join('\n'), { sourceName: 'lineage.ged' });
+    const records = Object.values(dataset.records);
+    const rel = records.find((record) => record.recordType === 'SourceRelation');
+    const batch = records.find((record) => record.recordType === 'LineageBatch');
+    const event = records.find((record) => record.recordType === 'LineageEvent');
+
+    expect(batch?.fields.kind.value).toBe('gedcomImport');
+    expect(event?.fields.eventType.value).toBe('imported');
+    expect(rel?.fields.lineageBatch.value).toBe(`${batch.recordName}---LineageBatch`);
+    expect(rel?.fields.lineageCreatedByEvent.value).toBe(`${event.recordName}---LineageEvent`);
+    expect(rel?.fields.lineageSourceRecord.value).toBe('@S1@');
   });
 
   it('uses HEAD.PLAC.FORM to create structured place records for event places', () => {

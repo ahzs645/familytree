@@ -123,6 +123,7 @@ export async function buildGedcom(exportOptions = {}) {
   const rawFamilyEvents = (await client.records.query('FamilyEvent', { limit: 100000 })).records;
   const rawNotes = (await client.records.query('Note', { limit: 100000 })).records;
   const rawChildRels = (await client.records.query('ChildRelation', { limit: 100000 })).records;
+  const rawSourceRelations = (await client.records.query('SourceRelation', { limit: 100000 })).records;
 
   const persons = rawPersons.filter((record) => isPublicRecord(record) && passesLiving(record)).map(maskIfNeeded);
   const publicPersonIds = new Set(persons.map((p) => p.recordName));
@@ -151,6 +152,18 @@ export async function buildGedcom(exportOptions = {}) {
     const family = refToRecordName(rel.fields?.family?.value);
     const child = refToRecordName(rel.fields?.child?.value);
     return family && child && publicFamilyIds.has(family) && publicPersonIds.has(child);
+  });
+  const sourceRelations = rawSourceRelations.filter((rel) => {
+    const source = refToRecordName(rel.fields?.source?.value);
+    const target = refToRecordName(rel.fields?.target?.value);
+    if (!source || !target) return false;
+    if (!sources.some((record) => record.recordName === source)) return false;
+    const type = rel.fields?.targetType?.value || '';
+    if (type === 'Person') return publicPersonIds.has(target);
+    if (type === 'Family') return publicFamilyIds.has(target);
+    if (type === 'PersonEvent') return personEvents.some((event) => event.recordName === target);
+    if (type === 'FamilyEvent') return familyEvents.some((event) => event.recordName === target);
+    return false;
   });
 
   const personIdx = new Map(persons.map((p, i) => [p.recordName, i + 1]));
@@ -212,6 +225,7 @@ export async function buildGedcom(exportOptions = {}) {
     if (g === Gender.Male) lines.push('1 SEX M');
     else if (g === Gender.Female) lines.push('1 SEX F');
     appendGedcomExtensions(lines, p, 1, pointerMap);
+    appendSourceCitations(lines, sourceRelations, p.recordName, 1, sourceIdx);
 
     // Birth/death from cached fields
     if (f.cached_birthDate?.value) {
@@ -236,6 +250,7 @@ export async function buildGedcom(exportOptions = {}) {
       }
       if (ev.fields?.description?.value) pushText(lines, 2, 'NOTE', ev.fields.description.value);
       appendGedcomExtensions(lines, ev, 2, pointerMap);
+      appendSourceCitations(lines, sourceRelations, ev.recordName, 2, sourceIdx);
     }
 
     for (const fact of personFacts.filter((item) => refToRecordName(item.fields?.person?.value) === p.recordName)) {
@@ -295,11 +310,13 @@ export async function buildGedcom(exportOptions = {}) {
       lines.push('1 MARR');
       lines.push(`2 DATE ${escape(fam.fields.cached_marriageDate.value)}`);
     }
+    appendSourceCitations(lines, sourceRelations, fam.recordName, 1, sourceIdx);
     for (const ev of familyEvents.filter((e) => refToRecordName(e.fields?.family?.value) === fam.recordName)) {
       const tag = eventTag(refToRecordName(ev.fields?.conclusionType?.value) || ev.fields?.eventType?.value);
       lines.push(`1 ${tag}`);
       if (ev.fields?.date?.value) lines.push(`2 DATE ${escape(ev.fields.date.value)}`);
       appendGedcomExtensions(lines, ev, 2, pointerMap);
+      appendSourceCitations(lines, sourceRelations, ev.recordName, 2, sourceIdx);
     }
   }
 
@@ -324,6 +341,20 @@ function appendTribalFact(lines, value, typeLabel, date = '', note = '') {
   if (tag === 'FACT') lines.push(`2 TYPE ${escape(typeLabel || 'Tribal affiliation')}`);
   if (date) lines.push(`2 DATE ${escape(date)}`);
   if (note) pushText(lines, 2, 'NOTE', note);
+}
+
+function appendSourceCitations(lines, sourceRelations, targetRecordName, level, sourceIdx) {
+  for (const rel of sourceRelations.filter((record) => refToRecordName(record.fields?.target?.value) === targetRecordName)) {
+    const sourceId = refToRecordName(rel.fields?.source?.value);
+    const sourceNumber = sourceIdx.get(sourceId);
+    if (!sourceNumber) continue;
+    lines.push(`${level} SOUR ${id('S', sourceNumber)}`);
+    if (rel.fields?.page?.value) pushText(lines, level + 1, 'PAGE', rel.fields.page.value);
+    const text = rel.fields?.text?.value || rel.fields?.citation?.value;
+    if (text) pushText(lines, level + 1, 'TEXT', text);
+    const note = rel.fields?.note?.value || rel.fields?.transcription?.value || rel.fields?.excerpt?.value;
+    if (note) pushText(lines, level + 1, 'NOTE', note);
+  }
 }
 
 function buildGedcomPointerMap({ persons, families, sources, personIdx, familyIdx, sourceIdx }) {

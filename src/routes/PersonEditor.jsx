@@ -35,6 +35,7 @@ import {
   labelForCatalogType,
   normalizeConclusionTypeId,
 } from '../lib/catalogs.js';
+import { resolveLabelDefinitions } from '../lib/labels.js';
 import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { TypePicker } from '../components/editors/TypePicker.jsx';
@@ -133,6 +134,7 @@ export default function PersonEditor() {
   const [relativeType, setRelativeType] = useState('parent');
   const [relativeId, setRelativeId] = useState('');
   const [labels, setLabels] = useState({}); // labelId -> bool
+  const [labelDefs, setLabelDefs] = useState(LABELS);
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
   const [isStartPerson, setIsStartPerson] = useState(false);
@@ -167,16 +169,18 @@ export default function PersonEditor() {
     for (const f of REFERENCE_NUMBER_FIELDS) refs[f.id] = r.fields?.[f.id]?.value ?? '';
     setRefNumbers(refs);
 
-    const [an, fact, note, lbl, ev, ar, analysis, allPersonRows] = await Promise.all([
+    const [an, fact, note, lbl, labelRows, ev, ar, analysis, allPersonRows] = await Promise.all([
       db.query('AdditionalName', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('PersonFact', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('Note', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('LabelRelation', { referenceField: 'targetPerson', referenceValue: id, limit: 500 }),
+      db.query('Label', { limit: 100000 }),
       db.query('PersonEvent', { referenceField: 'person', referenceValue: id, limit: 500 }),
       db.query('AssociateRelation', { referenceField: 'sourcePerson', referenceValue: id, limit: 500 }),
       loadResearchCompleteness(),
       db.query('Person', { limit: 100000 }),
     ]);
+    setLabelDefs(resolveLabelDefinitions(labelRows.records));
     const personEvidence = analysis.rowsByPerson.get(id);
     setEvidence({
       row: personEvidence,
@@ -701,7 +705,7 @@ export default function PersonEditor() {
             <div>
               <Section title="Labels" accent={ACCENTS.labels}>
                 <div className="space-y-1">
-                  {LABELS.map((def) => (
+                  {labelDefs.map((def) => (
                     <EditSwitch
                       key={def.id}
                       label={def.label}

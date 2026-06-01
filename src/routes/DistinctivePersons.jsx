@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
 import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
 import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { listToolbarButtonClass, listToolbarSelectTriggerClass } from '../components/lists/listToolbarClasses.js';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadDistinctivePersonRows } from '../lib/listData.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
@@ -113,12 +114,12 @@ export default function DistinctivePersons() {
         error={scoped.error}
         label={t('distinctivePersons.personScope')}
       />
-      <select value={matchMode} onChange={(event) => setMatchMode(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
+      <select value={matchMode} onChange={(event) => setMatchMode(event.target.value)} className={listToolbarSelectTriggerClass}>
         <option value="any">{t('distinctivePersons.matchAny')}</option>
         <option value="all">{t('distinctivePersons.matchAll')}</option>
       </select>
       {CRITERIA_DEFS.map((criterion) => (
-        <label key={criterion.id} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground border border-border rounded-md px-2.5 py-1.5 bg-secondary">
+        <label key={criterion.id} className={`${listToolbarButtonClass} text-muted-foreground`}>
           <input type="checkbox" checked={selectedCriteria.has(criterion.id)} onChange={() => toggleCriterion(criterion.id)} />
           {t(`distinctivePersons.criteria.${criterion.id}`)}
         </label>

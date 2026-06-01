@@ -7,10 +7,12 @@
  * slider on top of the 3D projection.
  */
 import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { refToRecordName } from '../lib/recordRef.js';
 import { readConclusionType } from '../lib/schema.js';
 import { Map as MapView } from '../components/ui/Map.jsx';
+import { MapModeSwitch } from '../components/ui/MapModeSwitch.jsx';
 import { VisualOptionsDrawer } from '../components/charts/VisualOptionsDrawer.jsx';
 import {
   buildChronologicalConnections,
@@ -45,6 +47,8 @@ function classifyOverlay(type) {
 }
 
 export default function Globe() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [points, setPoints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [overlay, setOverlay] = useState('all');
@@ -155,6 +159,9 @@ export default function Globe() {
     <div className="flex flex-col h-full">
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Virtual Globe</h1>
+        <MapModeSwitch activeMode="globe" onModeChange={(mode) => {
+          if (mode === 'map') navigate(location.pathname.startsWith('/views/') ? '/views/virtual-map' : '/map');
+        }} />
         <span className="text-xs text-muted-foreground">
           {loading ? 'Loading…' : `${filtered.length.toLocaleString()} / ${points.length.toLocaleString()} event location${points.length === 1 ? '' : 's'}`}
         </span>

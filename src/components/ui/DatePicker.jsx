@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { formatInteger, getCurrentLocalization, localeWithExtensions } from '../../lib/i18n.js';
 import { cn } from '../../lib/utils.js';
+import { Select } from './Select.jsx';
 import {
   PREFIX,
   PREFIX_LABELS,
@@ -92,6 +93,13 @@ export function DatePicker({
   const monthTitle = useMemo(() => (
     new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long' }).format(new Date(viewYear, viewMonth, 1))
   ), [locale, viewMonth, viewYear]);
+  const prefixOptions = useMemo(() => (
+    Object.values(PREFIX).map((p) => ({ value: p, label: PREFIX_LABELS[p] }))
+  ), []);
+  const eraOptions = useMemo(() => ([
+    { value: ERA.AD, label: 'AD/CE' },
+    { value: ERA.BC, label: 'BC/BCE' },
+  ]), []);
 
   useEffect(() => {
     if (open && primary) {
@@ -184,92 +192,89 @@ export function DatePicker({
           className="absolute z-40 mt-1 w-80 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover text-popover-foreground shadow-lg p-3"
         >
           {qualifiers ? (
-            <div className="mb-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <label className="text-[11px] font-semibold text-muted-foreground w-14">Qualifier</label>
-                <select
-                  value={parsed.prefix}
-                  onChange={(e) => {
-                    const next = { ...parsed, prefix: e.target.value };
-                    if (!isRangePrefix(next.prefix)) next.date2 = '';
-                    commit(next);
-                  }}
-                  className="flex-1 h-8 rounded-md border border-border bg-secondary text-xs px-2"
-                >
-                  {Object.values(PREFIX).map((p) => (
-                    <option key={p || 'exact'} value={p}>{PREFIX_LABELS[p]}</option>
-                  ))}
-                </select>
-                <select
-                  value={parsed.era}
-                  onChange={(e) => commit({ ...parsed, era: e.target.value })}
-                  className="h-8 rounded-md border border-border bg-secondary text-xs px-2"
-                  aria-label="Era"
-                >
-                  <option value={ERA.AD}>AD/CE</option>
-                  <option value={ERA.BC}>BC/BCE</option>
-                </select>
+            <div className="mb-3 space-y-2 border-b border-border pb-3">
+              <div className="flex items-end gap-2">
+                <div className="flex-1 space-y-1">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Qualifier</label>
+                  <Select
+                    value={parsed.prefix}
+                    onChange={(next) => {
+                      const updated = { ...parsed, prefix: next };
+                      if (!isRangePrefix(updated.prefix)) updated.date2 = '';
+                      commit(updated);
+                    }}
+                    options={prefixOptions}
+                    ariaLabel="Date qualifier"
+                    triggerClassName="h-9 text-xs"
+                  />
+                </div>
+                <div className="w-24 space-y-1">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Era</label>
+                  <Select
+                    value={parsed.era}
+                    onChange={(next) => commit({ ...parsed, era: next })}
+                    options={eraOptions}
+                    ariaLabel="Era"
+                    align="end"
+                    triggerClassName="h-9 text-xs"
+                  />
+                </div>
               </div>
               {rangeActive ? (
-                <div className="flex items-center gap-1 text-xs">
+                <div className="flex items-center gap-1.5 text-xs">
                   <button
                     type="button"
                     onClick={() => { activeDateField.current = 'date1'; }}
                     className={cn(
-                      'flex-1 h-8 rounded-md border text-start px-2 truncate',
+                      'flex-1 h-9 rounded-md border text-start px-2.5 truncate transition-colors',
                       activeDateField.current === 'date1'
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border bg-secondary'
+                        ? 'border-primary bg-primary/10 text-foreground font-medium'
+                        : 'border-border bg-secondary text-muted-foreground hover:bg-accent'
                     )}
                   >
                     {parsed.date1 || (parsed.prefix === PREFIX.BET ? 'from…' : 'start…')}
                   </button>
-                  <span className="text-muted-foreground">{parsed.prefix === PREFIX.BET ? 'AND' : 'TO'}</span>
+                  <span className="text-[10px] font-semibold text-muted-foreground">{parsed.prefix === PREFIX.BET ? 'AND' : 'TO'}</span>
                   <button
                     type="button"
                     onClick={() => { activeDateField.current = 'date2'; }}
                     className={cn(
-                      'flex-1 h-8 rounded-md border text-start px-2 truncate',
+                      'flex-1 h-9 rounded-md border text-start px-2.5 truncate transition-colors',
                       activeDateField.current === 'date2'
-                        ? 'border-primary bg-primary/10'
-                        : 'border-border bg-secondary'
+                        ? 'border-primary bg-primary/10 text-foreground font-medium'
+                        : 'border-border bg-secondary text-muted-foreground hover:bg-accent'
                     )}
                   >
                     {parsed.date2 || 'end…'}
                   </button>
                 </div>
               ) : null}
-              <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={activeDateField.current === 'date2' ? parsed.date2 : parsed.date1}
+                onChange={(e) => {
+                  const field = activeDateField.current === 'date2' ? 'date2' : 'date1';
+                  commit({ ...parsed, [field]: e.target.value });
+                }}
+                placeholder="YYYY, YYYY-MM, or YYYY-MM-DD"
+                className="w-full h-9 rounded-md border border-border bg-secondary text-xs px-2.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              {parsed.prefix === PREFIX.INT ? (
                 <input
                   type="text"
-                  value={activeDateField.current === 'date2' ? parsed.date2 : parsed.date1}
-                  onChange={(e) => {
-                    const field = activeDateField.current === 'date2' ? 'date2' : 'date1';
-                    commit({ ...parsed, [field]: e.target.value });
-                  }}
-                  placeholder="YYYY, YYYY-MM, or YYYY-MM-DD"
-                  className="flex-1 h-8 rounded-md border border-border bg-secondary text-xs px-2"
+                  value={parsed.phrase}
+                  onChange={(e) => commit({ ...parsed, phrase: e.target.value })}
+                  placeholder="Interpretation phrase, e.g. census entry"
+                  className="w-full h-9 rounded-md border border-border bg-secondary text-xs px-2.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
-              </div>
-              {parsed.prefix === PREFIX.INT ? (
-                <div className="flex items-center gap-2">
-                  <label className="text-[11px] font-semibold text-muted-foreground w-14">Phrase</label>
-                  <input
-                    type="text"
-                    value={parsed.phrase}
-                    onChange={(e) => commit({ ...parsed, phrase: e.target.value })}
-                    placeholder="e.g. census entry"
-                    className="flex-1 h-8 rounded-md border border-border bg-secondary text-xs px-2"
-                  />
-                </div>
               ) : null}
             </div>
           ) : null}
 
-          <div className="flex items-center gap-2 mb-2">
-            <button type="button" onClick={() => stepMonth(-1)} className="h-8 w-8 rounded-md hover:bg-accent inline-flex items-center justify-center" aria-label="Previous month">‹</button>
+          <div className="flex items-center gap-1 mb-2">
+            <button type="button" onClick={() => stepMonth(-1)} className="h-8 w-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground inline-flex items-center justify-center text-lg leading-none transition-colors" aria-label="Previous month">‹</button>
             <div className="flex-1 text-center text-sm font-semibold">{monthTitle}</div>
-            <button type="button" onClick={() => stepMonth(1)} className="h-8 w-8 rounded-md hover:bg-accent inline-flex items-center justify-center" aria-label="Next month">›</button>
+            <button type="button" onClick={() => stepMonth(1)} className="h-8 w-8 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground inline-flex items-center justify-center text-lg leading-none transition-colors" aria-label="Next month">›</button>
           </div>
           <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
             {weekdays.map((d) => (
@@ -287,12 +292,13 @@ export function DatePicker({
                   key={index}
                   type="button"
                   onClick={() => pickCalendarDate(date)}
+                  aria-pressed={isSelected}
                   className={cn(
-                    'h-9 rounded-md text-sm inline-flex items-center justify-center',
+                    'aspect-square rounded-md text-sm inline-flex items-center justify-center transition-colors',
                     isSelected
-                      ? 'bg-primary text-primary-foreground font-semibold'
+                      ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
                       : isToday
-                        ? 'border border-primary text-foreground'
+                        ? 'border border-primary text-primary font-medium hover:bg-accent'
                         : 'text-foreground hover:bg-accent'
                   )}
                 >
@@ -301,18 +307,18 @@ export function DatePicker({
               );
             })}
           </div>
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
             <button
               type="button"
               onClick={() => pickCalendarDate(today)}
-              className="h-9 flex-1 rounded-md border border-border text-sm hover:bg-accent"
+              className="h-9 flex-1 rounded-md border border-border text-sm hover:bg-accent transition-colors"
             >
               Today
             </button>
             <button
               type="button"
               onClick={() => { onChange?.(''); setOpen(false); }}
-              className="h-9 flex-1 rounded-md border border-border text-sm hover:bg-accent"
+              className="h-9 flex-1 rounded-md border border-border text-sm hover:bg-accent transition-colors"
             >
               Clear
             </button>
@@ -320,7 +326,7 @@ export function DatePicker({
               <button
                 type="button"
                 onClick={() => { setOpen(false); buttonRef.current?.focus(); }}
-                className="h-9 flex-1 rounded-md bg-primary text-primary-foreground text-sm hover:opacity-90"
+                className="h-9 flex-1 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
               >
                 Done
               </button>

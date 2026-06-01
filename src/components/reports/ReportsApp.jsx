@@ -3,6 +3,7 @@
  * save the configuration, export to any supported format.
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { Download, FileText, PanelLeftClose, PanelLeftOpen, Play, Save, Search, Square } from 'lucide-react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { compareStrings } from '../../lib/i18n.js';
@@ -17,6 +18,7 @@ import {
   buildPersonsList,
   buildPlacesList,
   buildSourcesList,
+  buildSourceCitationAuditReport,
   buildEventsList,
   buildAnniversaryList,
   buildAhnentafelReport,
@@ -51,34 +53,49 @@ import { localizeReportAst } from '../../lib/reports/localizeReport.js';
 export { normalizePageStyle };
 
 export const REPORT_BUILDERS = [
-  { id: 'person-summary', label: 'Person Summary', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, helpText: 'Summarizes the selected person, parents, families, children, and direct events.', run: (rn) => buildPersonSummary(rn) },
-  { id: 'person-events', label: 'Person Events Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, helpText: 'Lists the selected person\'s direct events and linked family events with context.', run: (rn) => buildPersonEventsReport(rn) },
-  { id: 'ancestor-narrative', label: 'Ancestor Narrative', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, helpText: 'Builds a generation-by-generation ancestor narrative from the selected proband.', run: (rn, o) => buildAncestorNarrative(rn, o.generations) },
-  { id: 'gia-pha-lineage', label: 'Gia phả / Family Lineage Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Lineage subject', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, helpText: 'Builds a Vietnamese-oriented lineage register with ancestor and descendant branch codes.', run: (rn, o) => buildGiaPhaLineageReport(rn, o.generations) },
-  { id: 'descendant-narrative', label: 'Descendant Narrative', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 4 }, helpText: 'Builds a descendant narrative grouped by generation.', run: (rn, o) => buildDescendantNarrative(rn, o.generations) },
-  { id: 'narrative', label: 'Narrative Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 4 }, helpText: 'Combines family context and descendant narrative for the selected person.', run: (rn, o) => buildNarrativeReport(rn, o.generations) },
-  { id: 'family-group-sheet', label: 'Family Group Sheet', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, helpText: 'Shows partner families and children for the selected person.', run: (rn) => buildFamilyGroupSheet(rn) },
-  { id: 'story-report', label: 'Story Report', needsSubject: true, subjectType: 'Story', subjectLabel: 'Story', includeHeader: true, defaultOptions: {}, helpText: 'Prints a selected story with metadata, sections, and related people, families, events, and media.', run: (rn) => buildStoryReport(rn) },
-  { id: 'kinship-report', label: 'Kinship Report', needsSubject: true, needsSecondSubject: true, subjectType: 'Person', subjectLabel: 'Person A', secondSubjectType: 'Person', secondSubjectLabel: 'Person B', includeHeader: true, defaultOptions: {}, helpText: 'Finds the shortest known family path between two selected people.', run: (rn, _o, second) => buildKinshipReport(rn, second) },
-  { id: 'ahnentafel', label: 'Ahnentafel Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 6 }, helpText: 'Numbers ancestors using the standard Ahnentafel sequence.', run: (rn, o) => buildAhnentafelReport(rn, o.generations) },
-  { id: 'register', label: 'Register Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 4 }, helpText: 'Creates a register-style descendant report from the selected person.', run: (rn, o) => buildRegisterReport(rn, o.generations) },
-  { id: 'descendancy', label: 'Descendancy Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, helpText: 'Creates a tabular descendant report with parent context.', run: (rn, o) => buildDescendancyReport(rn, o.generations) },
-  { id: 'persons-list', label: 'Persons List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists every public person with gender and life dates.', run: () => buildPersonsList() },
-  { id: 'places-list', label: 'Places List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists recorded places with short names and GeoName identifiers.', run: () => buildPlacesList() },
-  { id: 'sources-list', label: 'Sources List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists sources with dates and source text excerpts.', run: () => buildSourcesList() },
-  { id: 'events-list', label: 'Events List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists person and family events with owner and place context.', run: () => buildEventsList() },
-  { id: 'facts-list', label: 'Facts List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists recorded person facts with values and dates.', run: () => buildFactsListReport() },
-  { id: 'marriage-list', label: 'Marriage List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists families and recorded marriage dates.', run: () => buildMarriageListReport() },
-  { id: 'anniversary-list', label: 'Anniversary List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists birth and death anniversaries by month and day.', run: () => buildAnniversaryList() },
-  { id: 'timeline-report', label: 'Timeline Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Orders all person and family events by date.', run: () => buildTimelineReport() },
-  { id: 'media-gallery-report', label: 'Media Gallery Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists media records and their file or URL references.', run: () => buildMediaGalleryReport() },
-  { id: 'status-report', label: 'Status Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Shows high-level database completeness and count metrics.', run: () => buildStatusReport() },
-  { id: 'today-report', label: 'Today Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Shows recorded births and deaths that match today\'s month and day.', run: () => buildTodayReport() },
-  { id: 'changes-list', label: 'Changes List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists recent change-log entries in reverse chronological order.', run: () => buildChangesListReport() },
-  { id: 'map-report', label: 'Map Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists places with latitude, longitude, and GeoName identifiers.', run: () => buildMapReport() },
-  { id: 'todo-list', label: 'ToDo List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists ToDo records with status, priority, due date, and description.', run: () => buildToDoListReport() },
-  { id: 'plausibility-list', label: 'Plausibility List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Runs plausibility checks and lists resulting warnings.', run: () => buildPlausibilityReport() },
+  { id: 'person-summary', category: 'Person Reports', label: 'Person Summary', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, helpText: 'Summarizes the selected person, parents, families, children, and direct events.', run: (rn) => buildPersonSummary(rn) },
+  { id: 'person-events', category: 'Person Reports', label: 'Person Events Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, helpText: 'Lists the selected person\'s direct events and linked family events with context.', run: (rn) => buildPersonEventsReport(rn) },
+  { id: 'ancestor-narrative', category: 'Lineage Reports', label: 'Ancestor Narrative', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, helpText: 'Builds a generation-by-generation ancestor narrative from the selected proband.', run: (rn, o) => buildAncestorNarrative(rn, o.generations) },
+  { id: 'gia-pha-lineage', category: 'Lineage Reports', label: 'Gia phả / Family Lineage Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Lineage subject', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, helpText: 'Builds a Vietnamese-oriented lineage register with ancestor and descendant branch codes.', run: (rn, o) => buildGiaPhaLineageReport(rn, o.generations) },
+  { id: 'descendant-narrative', category: 'Lineage Reports', label: 'Descendant Narrative', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 4 }, helpText: 'Builds a descendant narrative grouped by generation.', run: (rn, o) => buildDescendantNarrative(rn, o.generations) },
+  { id: 'narrative', category: 'Person Reports', label: 'Narrative Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 4 }, helpText: 'Combines family context and descendant narrative for the selected person.', run: (rn, o) => buildNarrativeReport(rn, o.generations) },
+  { id: 'family-group-sheet', category: 'Family Reports', label: 'Family Group Sheet', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, helpText: 'Shows partner families and children for the selected person.', run: (rn) => buildFamilyGroupSheet(rn) },
+  { id: 'story-report', category: 'Story & Media', label: 'Story Report', needsSubject: true, subjectType: 'Story', subjectLabel: 'Story', includeHeader: true, defaultOptions: {}, helpText: 'Prints a selected story with metadata, sections, and related people, families, events, and media.', run: (rn) => buildStoryReport(rn) },
+  { id: 'kinship-report', category: 'Analysis', label: 'Kinship Report', needsSubject: true, needsSecondSubject: true, subjectType: 'Person', subjectLabel: 'Person A', secondSubjectType: 'Person', secondSubjectLabel: 'Person B', includeHeader: true, defaultOptions: {}, helpText: 'Finds the shortest known family path between two selected people.', run: (rn, _o, second) => buildKinshipReport(rn, second) },
+  { id: 'ahnentafel', category: 'Lineage Reports', label: 'Ahnentafel Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 6 }, helpText: 'Numbers ancestors using the standard Ahnentafel sequence.', run: (rn, o) => buildAhnentafelReport(rn, o.generations) },
+  { id: 'register', category: 'Lineage Reports', label: 'Register Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 4 }, helpText: 'Creates a register-style descendant report from the selected person.', run: (rn, o) => buildRegisterReport(rn, o.generations) },
+  { id: 'descendancy', category: 'Lineage Reports', label: 'Descendancy Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, helpText: 'Creates a tabular descendant report with parent context.', run: (rn, o) => buildDescendancyReport(rn, o.generations) },
+  { id: 'persons-list', category: 'Lists', label: 'Persons List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists every public person with gender and life dates.', run: () => buildPersonsList() },
+  { id: 'places-list', category: 'Lists', label: 'Places List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists recorded places with short names and GeoName identifiers.', run: () => buildPlacesList() },
+  { id: 'sources-list', category: 'Lists', label: 'Sources List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists sources with dates and source text excerpts.', run: () => buildSourcesList() },
+  { id: 'source-citation-audit', category: 'Lists', label: 'Source Citation Audit', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists source citations, referenced entries, citation text, and private lineage metadata.', run: () => buildSourceCitationAuditReport() },
+  { id: 'events-list', category: 'Lists', label: 'Events List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists person and family events with owner and place context.', run: () => buildEventsList() },
+  { id: 'facts-list', category: 'Lists', label: 'Facts List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists recorded person facts with values and dates.', run: () => buildFactsListReport() },
+  { id: 'marriage-list', category: 'Family Reports', label: 'Marriage List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists families and recorded marriage dates.', run: () => buildMarriageListReport() },
+  { id: 'anniversary-list', category: 'Lists', label: 'Anniversary List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists birth and death anniversaries by month and day.', run: () => buildAnniversaryList() },
+  { id: 'timeline-report', category: 'Analysis', label: 'Timeline Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Orders all person and family events by date.', run: () => buildTimelineReport() },
+  { id: 'media-gallery-report', category: 'Story & Media', label: 'Media Gallery Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists media records and their file or URL references.', run: () => buildMediaGalleryReport() },
+  { id: 'status-report', category: 'Analysis', label: 'Status Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Shows high-level database completeness and count metrics.', run: () => buildStatusReport() },
+  { id: 'today-report', category: 'Analysis', label: 'Today Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Shows recorded births and deaths that match today\'s month and day.', run: () => buildTodayReport() },
+  { id: 'changes-list', category: 'Lists', label: 'Changes List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists recent change-log entries in reverse chronological order.', run: () => buildChangesListReport() },
+  { id: 'map-report', category: 'Analysis', label: 'Map Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists places with latitude, longitude, and GeoName identifiers.', run: () => buildMapReport() },
+  { id: 'todo-list', category: 'Lists', label: 'ToDo List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists ToDo records with status, priority, due date, and description.', run: () => buildToDoListReport() },
+  { id: 'plausibility-list', category: 'Analysis', label: 'Plausibility List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Runs plausibility checks and lists resulting warnings.', run: () => buildPlausibilityReport() },
 ];
+
+export function getReportBuilderCategories(builders = REPORT_BUILDERS) {
+  const categories = [];
+  for (const builder of builders) {
+    const name = builder.category || 'Reports';
+    let category = categories.find((entry) => entry.name === name);
+    if (!category) {
+      category = { name, builders: [] };
+      categories.push(category);
+    }
+    category.builders.push(builder);
+  }
+  return categories;
+}
 
 export function getReportBuilder(id) {
   return REPORT_BUILDERS.find((builder) => builder.id === id) || null;
@@ -164,6 +181,8 @@ export function ReportsApp() {
   const [authorInfo, setAuthorInfo] = useState(null);
   const [speaking, setSpeaking] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(true);
+  const [reportSearch, setReportSearch] = useState('');
   const generationRequestRef = useRef(0);
   const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -191,6 +210,16 @@ export function ReportsApp() {
   const usesGenerations = !!builder?.usesGenerations;
   const generationValue = Number(options.generations ?? builder?.defaultOptions?.generations ?? 5);
   const subjectItems = useMemo(() => getSubjectItemsForBuilder(builder, { persons, stories }), [builder, persons, stories]);
+  const filteredBuilders = useMemo(() => {
+    const query = reportSearch.trim().toLowerCase();
+    if (!query) return REPORT_BUILDERS;
+    return REPORT_BUILDERS.filter((entry) => {
+      const haystack = `${entry.label} ${entry.category || ''} ${entry.helpText || ''}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [reportSearch]);
+  const builderCategories = useMemo(() => getReportBuilderCategories(filteredBuilders), [filteredBuilders]);
+  const reportStats = useMemo(() => summarizeReport(report), [report]);
 
   useEffect(() => {
     let cancelled = false;
@@ -359,6 +388,7 @@ export function ReportsApp() {
   }, [report, speaking, speechSupported]);
 
   const builderLabel = (entry) => t(`reports.builders.${entry.id}`);
+  const selectedBuilderLabel = builderLabel(builder);
 
   if (loading) return <div style={loadingStyle}>{t('common.loading')}</div>;
   if (empty) {
@@ -371,134 +401,215 @@ export function ReportsApp() {
 
   return (
     <div style={shell}>
-      <header style={header}>
-        <Field label={t('reports.type')}>
-          <select value={builderId} onChange={(e) => onBuilderChange(e.target.value)} style={input}>
-            {REPORT_BUILDERS.map((entry) => (
-              <option key={entry.id} value={entry.id}>{builderLabel(entry)}</option>
-            ))}
-          </select>
-        </Field>
-
+      <header style={topbar}>
         <button
           type="button"
-          onClick={() => setOptionsOpen((open) => !open)}
-          style={{ ...input, alignSelf: 'flex-end' }}
-          className="sm:hidden"
-          aria-expanded={optionsOpen}
+          onClick={() => setLibraryOpen((open) => !open)}
+          style={iconButton}
+          title={libraryOpen ? 'Hide report library' : 'Show report library'}
+          aria-label={libraryOpen ? 'Hide report library' : 'Show report library'}
         >
-          {optionsOpen ? t('common.close') : 'Options'}
+          {libraryOpen ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}
         </button>
-
-        <div className={`${optionsOpen ? 'contents' : 'hidden'} sm:contents`}>
-        {needsSubject && (
-          <Field label={builder.subjectLabel || 'Subject'}>
-            {builder.subjectType === 'Story' ? (
-              <RecordSelect items={stories} value={targetId} onChange={setTargetId} placeholder={t('reports.selectStory')} />
-            ) : (
-              <PersonPicker persons={persons} value={targetId} onChange={(id) => { setTargetId(id); setActivePerson(id); }} />
-            )}
-          </Field>
-        )}
-
-        {needsSecondSubject && (
-          <Field label={builder.secondSubjectLabel || 'Second subject'}>
-            <PersonPicker persons={persons} value={secondTargetId} onChange={setSecondTargetId} />
-          </Field>
-        )}
-
-        {usesGenerations && (
-          <Field label={t('reports.generations')}>
-            <input
-              type="number"
-              min={2}
-              max={10}
-              value={generationValue}
-              onChange={(e) => updateOption('generations', Math.min(10, Math.max(2, +e.target.value || builder.defaultOptions.generations || 5)))}
-              style={{ ...input, width: 70 }}
-            />
-          </Field>
-        )}
-
-        <Field label={t('reports.header')}>
-          <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-            <input type="checkbox" checked={options.includeHeader !== false} onChange={(e) => updateOption('includeHeader', e.target.checked)} /> {t('reports.title')}
-          </label>
-        </Field>
-
-        <PresentationSettingsControls value={pageStyle} onChange={setPageStyle} />
-
-        <Field label={t('reports.theme')}>
-          <select value={themeId} onChange={(event) => setThemeId(event.target.value)} style={input}>
-            {PRESENTATION_THEMES.map((theme) => (
-              <option key={theme.id} value={theme.id}>{theme.label}</option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label={t('reports.export')}>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {EXPORT_FORMATS.map((format) => (
-              <button key={format.id} onClick={() => onExport(format.id)} disabled={!report || reportLoading} style={input} title={format.label}>{format.label}</button>
-            ))}
-          </div>
-        </Field>
-
-        {speechSupported && (
-          <Field label={t('reports.speak')}>
+        <div style={{ minWidth: 0 }}>
+          <div style={eyebrow}>Reports</div>
+          <h1 style={title}>{selectedBuilderLabel}</h1>
+        </div>
+        <div style={topbarMeta}>
+          <span>{builder.category || 'Reports'}</span>
+          {reportStats && <span>{reportStats.blocks} blocks</span>}
+          {reportStats && <span>{reportStats.tables} tables</span>}
+        </div>
+        <div style={topbarActions}>
+          {speechSupported && (
             <button
               onClick={onSpeak}
               disabled={!report || reportLoading}
-              style={input}
+              style={actionButton}
               title={speaking ? 'Stop speaking' : 'Read this report aloud'}
             >
-              {speaking ? 'Stop' : 'Play'}
+              {speaking ? <Square size={15} /> : <Play size={15} />}
+              <span>{speaking ? 'Stop' : 'Play'}</span>
             </button>
-          </Field>
-        )}
-
-        <Field label={t('reports.saved')}>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <select value="" onChange={(e) => e.target.value && onApplySaved(e.target.value)} style={{ ...input, minWidth: 120 }}>
-              <option value="">{t('reports.load')}</option>
-              {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-            </select>
-            <button onClick={onSave} style={input}>{t('common.save')}</button>
-            {savedList.length > 0 && (
-              <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} style={{ ...input, width: 70 }}>
-                <option value="">Del…</option>
-                {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-              </select>
-            )}
-          </div>
-        </Field>
-
-        {builder.helpText && <div style={helpText}>{builder.helpText}</div>}
+          )}
+          <ExportSelect disabled={!report || reportLoading} onExport={onExport} />
         </div>
       </header>
 
-      <main style={main}>
-        {reportLoading && <div style={statusText}>{t('reports.generating', { label: builderLabel(builder) })}</div>}
-        {generationError && <div style={errorText}>{generationError}</div>}
-        <ReportPreview report={report} />
-      </main>
+      <div style={{ ...workspace, gridTemplateColumns: libraryOpen ? workspace.gridTemplateColumns : 'minmax(260px, 330px) minmax(0, 1fr)' }}>
+        {libraryOpen && (
+          <aside style={libraryPanel}>
+            <div style={searchBox}>
+              <Search size={15} />
+              <input
+                value={reportSearch}
+                onChange={(event) => setReportSearch(event.target.value)}
+                placeholder="Find report"
+                style={searchInput}
+              />
+            </div>
+            <div style={reportList}>
+              {builderCategories.map((category) => (
+                <section key={category.name} style={categorySection}>
+                  <div style={categoryLabel}>{category.name}</div>
+                  {category.builders.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => onBuilderChange(entry.id)}
+                      style={entry.id === builderId ? activeReportButton : reportButton}
+                    >
+                      <FileText size={15} />
+                      <span style={reportButtonText}>{builderLabel(entry)}</span>
+                    </button>
+                  ))}
+                </section>
+              ))}
+              {builderCategories.length === 0 && <div style={emptyList}>No reports match your search.</div>}
+            </div>
+          </aside>
+        )}
+
+        <aside style={inspector}>
+          <div style={inspectorHeader}>
+            <div>
+              <div style={eyebrow}>Report</div>
+              <div style={inspectorTitle}>{selectedBuilderLabel}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOptionsOpen((open) => !open)}
+              style={compactButton}
+              className="lg:hidden"
+              aria-expanded={optionsOpen}
+            >
+              {optionsOpen ? t('common.close') : 'Options'}
+            </button>
+          </div>
+          <p style={helpText}>{builder.helpText}</p>
+
+          <div className={`${optionsOpen ? 'block' : 'hidden'} lg:block`} style={inspectorBody}>
+            <InspectorSection title="Edit">
+              {needsSubject && (
+                <Field label={builder.subjectLabel || 'Subject'}>
+                  {builder.subjectType === 'Story' ? (
+                    <RecordSelect items={stories} value={targetId} onChange={setTargetId} placeholder={t('reports.selectStory')} />
+                  ) : (
+                    <PersonPicker persons={persons} value={targetId} onChange={(id) => { setTargetId(id); setActivePerson(id); }} />
+                  )}
+                </Field>
+              )}
+
+              {needsSecondSubject && (
+                <Field label={builder.secondSubjectLabel || 'Second subject'}>
+                  <PersonPicker persons={persons} value={secondTargetId} onChange={setSecondTargetId} />
+                </Field>
+              )}
+
+              {usesGenerations && (
+                <Field label={t('reports.generations')}>
+                  <input
+                    type="number"
+                    min={2}
+                    max={10}
+                    value={generationValue}
+                    onChange={(e) => updateOption('generations', Math.min(10, Math.max(2, +e.target.value || builder.defaultOptions.generations || 5)))}
+                    style={{ ...input, width: '100%' }}
+                  />
+                </Field>
+              )}
+
+              <Field label={t('reports.header')}>
+                <label style={checkRow}>
+                  <input type="checkbox" checked={options.includeHeader !== false} onChange={(e) => updateOption('includeHeader', e.target.checked)} /> {t('reports.title')}
+                </label>
+              </Field>
+            </InspectorSection>
+
+            <InspectorSection title="Style & Page">
+              <PresentationSettingsControls value={pageStyle} onChange={setPageStyle} />
+              <Field label={t('reports.theme')}>
+                <select value={themeId} onChange={(event) => setThemeId(event.target.value)} style={input}>
+                  {PRESENTATION_THEMES.map((theme) => (
+                    <option key={theme.id} value={theme.id}>{theme.label}</option>
+                  ))}
+                </select>
+              </Field>
+            </InspectorSection>
+
+            <InspectorSection title={t('reports.saved')}>
+              <button onClick={onSave} style={primaryButton}><Save size={15} /> Save Report…</button>
+              <select value="" onChange={(e) => e.target.value && onApplySaved(e.target.value)} style={input}>
+                <option value="">{savedList.length ? t('reports.load') : 'No saved reports'}</option>
+                {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+              </select>
+              {savedList.length > 0 && (
+                <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} style={input}>
+                  <option value="">Delete Report…</option>
+                  {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+                </select>
+              )}
+              {savedList.length === 0 && <div style={microcopy}>Save a report to reuse its type, subjects, style, and page settings.</div>}
+            </InspectorSection>
+          </div>
+        </aside>
+
+        <main style={main}>
+          {reportLoading && <div style={statusText}>{t('reports.generating', { label: selectedBuilderLabel })}</div>}
+          {generationError && <div style={errorText}>{generationError}</div>}
+          <ReportPreview report={report} />
+        </main>
+      </div>
     </div>
   );
 }
 
 function Field({ label, children }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', marginInlineEnd: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
       <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
       {children}
     </div>
   );
 }
 
+function InspectorSection({ title, children }) {
+  return (
+    <section style={inspectorSection}>
+      <h2 style={sectionTitle}>{title}</h2>
+      <div style={sectionBody}>{children}</div>
+    </section>
+  );
+}
+
+function ExportSelect({ disabled, onExport }) {
+  return (
+    <label style={exportSelectLabel}>
+      <Download size={15} />
+      <select
+        value=""
+        disabled={disabled}
+        onChange={(event) => {
+          if (!event.target.value) return;
+          onExport(event.target.value);
+          event.target.value = '';
+        }}
+        style={exportSelect}
+        title="Export report"
+      >
+        <option value="">Export…</option>
+        {EXPORT_FORMATS.map((format) => (
+          <option key={format.id} value={format.id}>{exportLabel(format)}</option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function RecordSelect({ items, value, onChange, placeholder }) {
   const { t } = useTranslation();
   return (
-    <select value={value || ''} onChange={(event) => onChange(event.target.value || null)} style={{ ...input, minWidth: 260 }}>
+    <select value={value || ''} onChange={(event) => onChange(event.target.value || null)} style={input}>
       <option value="">{placeholder || t('reports.selectRecord')}</option>
       {items.map((item) => (
         <option key={item.recordName} value={item.recordName}>{item.label}</option>
@@ -550,6 +661,26 @@ function reportToSpeech(report) {
   return lines.join('. ').slice(0, 32000);
 }
 
+function summarizeReport(report) {
+  if (!report?.blocks?.length) return null;
+  return report.blocks.reduce((summary, block) => {
+    summary.blocks += 1;
+    if (block.kind === 'table') summary.tables += 1;
+    if (block.kind === 'pageBreak') summary.pageBreaks += 1;
+    return summary;
+  }, { blocks: 0, tables: 0, pageBreaks: 0 });
+}
+
+function exportLabel(format) {
+  const label = format.label || format.id.toUpperCase();
+  if (format.id === 'html') return 'Save as HTML File…';
+  if (format.id === 'pdf') return 'Save as PDF Document…';
+  if (format.id === 'csv') return 'Save as CSV File…';
+  if (format.id === 'txt') return 'Save as Plain Text…';
+  if (format.id === 'rtf') return 'Save as RTF Text…';
+  return `Save as ${label}…`;
+}
+
 function storySubject(record) {
   if (!record) return null;
   return {
@@ -558,12 +689,170 @@ function storySubject(record) {
   };
 }
 
-const shell = { display: 'flex', flexDirection: 'column', height: '100%', background: 'hsl(var(--background))' };
-const header = { display: 'flex', alignItems: 'flex-end', gap: 8, padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', flexWrap: 'wrap' };
-const main = { flex: 1, overflow: 'auto', position: 'relative' };
-const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer' };
+const shell = { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'hsl(var(--background))' };
+const topbar = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 12,
+  minHeight: 64,
+  padding: '10px 16px',
+  borderBottom: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--card))',
+};
+const topbarMeta = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  minWidth: 0,
+  marginInlineStart: 'auto',
+  color: 'hsl(var(--muted-foreground))',
+  fontSize: 12,
+  whiteSpace: 'nowrap',
+};
+const topbarActions = { display: 'flex', alignItems: 'center', gap: 8 };
+const workspace = {
+  flex: 1,
+  minHeight: 0,
+  display: 'grid',
+  gridTemplateColumns: 'minmax(220px, 280px) minmax(260px, 330px) minmax(0, 1fr)',
+  background: 'hsl(var(--secondary))',
+};
+const libraryPanel = {
+  minWidth: 0,
+  borderInlineEnd: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--background))',
+  display: 'flex',
+  flexDirection: 'column',
+  minHeight: 0,
+};
+const inspector = {
+  minWidth: 0,
+  borderInlineEnd: '1px solid hsl(var(--border))',
+  background: 'hsl(var(--card))',
+  overflow: 'auto',
+  padding: 16,
+};
+const inspectorHeader = { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 8 };
+const inspectorTitle = { fontSize: 16, fontWeight: 700, lineHeight: 1.25, color: 'hsl(var(--foreground))' };
+const inspectorBody = {};
+const inspectorSection = { borderTop: '1px solid hsl(var(--border))', paddingTop: 14, marginTop: 14 };
+const sectionTitle = { margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: 'hsl(var(--foreground))' };
+const sectionBody = { display: 'flex', flexDirection: 'column', gap: 12 };
+const main = { minWidth: 0, overflow: 'auto', position: 'relative', background: 'linear-gradient(180deg, hsl(var(--secondary)), hsl(var(--background)))' };
+const input = {
+  width: '100%',
+  minWidth: 0,
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 8,
+  padding: '8px 10px',
+  font: '13px -apple-system, system-ui, sans-serif',
+  outline: 'none',
+  cursor: 'pointer',
+};
+const iconButton = {
+  width: 34,
+  height: 34,
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 8,
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  cursor: 'pointer',
+  flex: '0 0 auto',
+};
+const actionButton = {
+  ...iconButton,
+  width: 'auto',
+  gap: 7,
+  padding: '0 11px',
+  font: '13px -apple-system, system-ui, sans-serif',
+};
+const compactButton = { ...actionButton, height: 30, padding: '0 10px' };
+const primaryButton = {
+  ...actionButton,
+  width: '100%',
+  justifyContent: 'center',
+  background: 'hsl(var(--primary))',
+  color: 'hsl(var(--primary-foreground))',
+  borderColor: 'hsl(var(--primary))',
+};
+const exportSelectLabel = {
+  height: 34,
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 8,
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--foreground))',
+  paddingInlineStart: 10,
+};
+const exportSelect = {
+  background: 'transparent',
+  color: 'inherit',
+  border: 0,
+  height: 32,
+  font: '13px -apple-system, system-ui, sans-serif',
+  cursor: 'pointer',
+};
+const title = {
+  margin: 0,
+  maxWidth: 420,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap',
+  fontSize: 18,
+  lineHeight: 1.2,
+  fontWeight: 700,
+  color: 'hsl(var(--foreground))',
+};
+const eyebrow = { color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0 };
+const searchBox = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  margin: 12,
+  padding: '8px 10px',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: 8,
+  background: 'hsl(var(--secondary))',
+  color: 'hsl(var(--muted-foreground))',
+};
+const searchInput = { minWidth: 0, flex: 1, border: 0, outline: 0, background: 'transparent', color: 'hsl(var(--foreground))', font: '13px -apple-system, system-ui, sans-serif' };
+const reportList = { overflow: 'auto', padding: '0 8px 16px', minHeight: 0 };
+const categorySection = { marginTop: 10 };
+const categoryLabel = { padding: '7px 8px 5px', color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0 };
+const reportButton = {
+  width: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  minHeight: 34,
+  padding: '7px 9px',
+  border: '1px solid transparent',
+  borderRadius: 8,
+  background: 'transparent',
+  color: 'hsl(var(--foreground))',
+  textAlign: 'start',
+  cursor: 'pointer',
+  font: '13px -apple-system, system-ui, sans-serif',
+};
+const activeReportButton = {
+  ...reportButton,
+  background: 'hsl(var(--primary) / 0.12)',
+  borderColor: 'hsl(var(--primary) / 0.35)',
+  color: 'hsl(var(--foreground))',
+};
+const reportButtonText = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
+const emptyList = { color: 'hsl(var(--muted-foreground))', fontSize: 13, padding: 12 };
+const checkRow = { ...input, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' };
+const microcopy = { color: 'hsl(var(--muted-foreground))', fontSize: 12, lineHeight: 1.35 };
 const loadingStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--background))', fontFamily: '-apple-system, system-ui, sans-serif' };
-const helpText = { flexBasis: '100%', color: 'hsl(var(--muted-foreground))', fontSize: 12, lineHeight: 1.35 };
+const helpText = { color: 'hsl(var(--muted-foreground))', fontSize: 12, lineHeight: 1.4, margin: '0 0 10px' };
 const statusText = { position: 'sticky', top: 0, zIndex: 2, padding: '8px 20px', background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', borderBottom: '1px solid hsl(var(--border))', fontSize: 12 };
 const errorText = { padding: '8px 20px', background: 'hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))', fontSize: 12 };
 

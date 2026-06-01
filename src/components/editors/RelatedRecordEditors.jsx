@@ -12,6 +12,12 @@ import {
   readCertainty,
 } from '../../lib/sourceCertainty.js';
 import {
+  applySourceRelationLineageFields,
+  createLineageBatch,
+  getCitationLineage,
+  recordLineageEvent,
+} from '../../lib/sourceLineage.js';
+import {
   EVIDENCE_CONFIDENCE,
   EVIDENCE_CONFIDENCE_LABELS,
   evidenceSummary,
@@ -90,13 +96,14 @@ function Empty({ title, hint }) {
   );
 }
 
-function RelationRow({ rel, target, label, typeLabel, children, onRemove }) {
+function RelationRow({ rel, target, label, typeLabel, children, onRemove, onLineage }) {
   return (
     <div className="rounded-md bg-secondary/30 border border-border/60 p-2.5">
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground min-w-20">{typeLabel || target?.recordType || 'Record'}</span>
         <span className="text-sm flex-1 min-w-0 truncate"><BdiText>{label || recordDisplayLabel(target) || readRef(rel.fields?.target) || rel.recordName}</BdiText></span>
-        <button onClick={onRemove} className="text-xs text-destructive hover:underline">Remove now</button>
+        {onLineage && <button onClick={onLineage} className="text-xs text-muted-foreground hover:underline">View lineage</button>}
+        <button onClick={onRemove} className="text-xs text-destructive hover:underline" title="Detach this citation. The source record will not be deleted.">Detach</button>
       </div>
       {children}
     </div>
@@ -197,8 +204,9 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
   const [pool, setPool] = useState([]);
   const [selectedType, setSelectedType] = useState(ownerRole === 'source' ? 'Person' : 'Source');
   const [selectedId, setSelectedId] = useState('');
-  const [sortByCertainty, setSortByCertainty] = useState(false);
+  const [sortMode, setSortMode] = useState('title');
   const [drafts, setDrafts] = useState({});
+  const [lineage, setLineage] = useState(null);
 
   const poolTypes = useMemo(() => ownerRole === 'source' ? CITABLE_TARGET_TYPES : ['Source'], [ownerRole]);
   const queryField = ownerRole === 'source' ? 'source' : 'target';
@@ -249,8 +257,26 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
         targetType: { value: targetType, type: 'STRING' },
       },
     };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
+    const batch = await createLineageBatch({ kind: 'manualEdit', sourceName: 'Source citation edit', summary: 'Manual source citation attach' });
+    const created = await recordLineageEvent({
+      eventType: 'created',
+      operation: 'manualEdit',
+      sourceRelation: rec,
+      source: sourceId,
+      target: targetId,
+      targetType,
+      lineageBatch: batch.recordName,
+      details: 'Source citation attached manually.',
+    });
+    const next = applySourceRelationLineageFields(rec, {
+      lineageBatch: batch.recordName,
+      operation: 'manualEdit',
+      sourceRecord: sourceId,
+      targetRecord: targetId,
+      createdByEvent: created.recordName,
+    });
+    await db.saveRecord(next);
+    await logRecordCreated(next, { lineage: { lineageBatch: batch.recordName, operation: 'manualEdit', lineageEvent: created.recordName } });
     setSelectedId('');
     await reload();
     onChanged?.();
@@ -264,38 +290,68 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
       if (v && v !== CERTAINTY.DONT_KNOW) fields[key] = { value: v, type: 'STRING' };
       else delete fields[key];
     }
-    await saveWithChangeLog({ ...rel, fields });
+    const batchId = readRef(rel.fields?.lineageBatch) || (await createLineageBatch({ kind: 'manualEdit', sourceName: 'Source citation edit', summary: 'Manual source citation edit' })).recordName;
+    const event = await recordLineageEvent({
+      eventType: 'edited',
+      operation: 'manualEdit',
+      sourceRelation: rel,
+      lineageBatch: batchId,
+      details: 'Citation evidence edited manually.',
+    });
+    const next = applySourceRelationLineageFields({ ...rel, fields }, {
+      lineageBatch: batchId,
+      operation: 'manualEdit',
+      updatedByEvent: event.recordName,
+    });
+    await saveWithChangeLog(next, { lineage: { lineageBatch: batchId, operation: 'manualEdit', lineageEvent: event.recordName } });
     await reload();
     onChanged?.();
   }, [drafts, onChanged, reload]);
 
   const removeRelation = useCallback(async (rel) => {
     const db = getLocalDatabase();
+    const batchId = readRef(rel.fields?.lineageBatch) || (await createLineageBatch({ kind: 'manualEdit', sourceName: 'Source citation detach', summary: 'Manual source citation detach' })).recordName;
+    const event = await recordLineageEvent({
+      eventType: 'detached',
+      operation: 'manualEdit',
+      sourceRelation: rel,
+      lineageBatch: batchId,
+      details: 'Source citation detached. Source record was not deleted.',
+    });
     await db.deleteRecord(rel.recordName);
-    await logRecordDeleted(rel.recordName, 'SourceRelation');
+    await logRecordDeleted(rel.recordName, 'SourceRelation', { lineage: { lineageBatch: batchId, operation: 'manualEdit', lineageEvent: event.recordName } });
     await reload();
     onChanged?.();
   }, [onChanged, reload]);
 
   const orderedRelations = useMemo(() => {
-    if (!sortByCertainty) return relations;
-    return [...relations].sort((a, b) => certaintySortKey(b.rel) - certaintySortKey(a.rel));
-  }, [relations, sortByCertainty]);
+    const rows = [...relations];
+    if (sortMode === 'certainty') return rows.sort((a, b) => certaintySortKey(b.rel) - certaintySortKey(a.rel));
+    if (sortMode === 'date') return rows.sort((a, b) => String(b.target?.fields?.cached_date?.value || b.target?.fields?.date?.value || '').localeCompare(String(a.target?.fields?.cached_date?.value || a.target?.fields?.date?.value || '')));
+    if (sortMode === 'page') return rows.sort((a, b) => String(a.rel.fields?.page?.value || '').localeCompare(String(b.rel.fields?.page?.value || ''), undefined, { numeric: true }));
+    return rows.sort((a, b) => recordDisplayLabel(a.target).localeCompare(recordDisplayLabel(b.target)));
+  }, [relations, sortMode]);
+
+  const showLineage = useCallback(async (rel) => {
+    setLineage({ loading: true, relation: rel });
+    setLineage(await getCitationLineage(rel.recordName));
+  }, []);
 
   return (
     <div>
       {relations.length === 0 ? (
-        <Empty title="No source citations" hint={ownerRole === 'source' ? 'Attach this source to people, families, places, events, or media.' : 'Attach sources that document this entry.'} />
+        <Empty title={ownerRole === 'source' ? 'No referenced entries present' : 'No source citations'} hint={ownerRole === 'source' ? 'Add entries assigned to this source.' : 'Attach sources that document this entry.'} />
       ) : (
         <>
           {relations.length > 1 ? (
             <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <input
-                type="checkbox"
-                checked={sortByCertainty}
-                onChange={(e) => setSortByCertainty(e.target.checked)}
-              />
-              Sort by certainty
+              Sort
+              <select value={sortMode} onChange={(e) => setSortMode(e.target.value)} className={inputClass}>
+                <option value="title">{ownerRole === 'source' ? 'By Type/Title' : 'By Source Title'}</option>
+                <option value="certainty">By Certainty</option>
+                <option value="date">By Source Date</option>
+                <option value="page">By Page Number</option>
+              </select>
             </label>
           ) : null}
           <div className="space-y-2 mb-3">
@@ -309,6 +365,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                   typeLabel={target?.recordType || rel.fields?.targetType?.value || 'Record'}
                   label={recordDisplayLabel(target) || readRef(rel.fields?.[relatedField])}
                   onRemove={() => removeRelation(rel)}
+                  onLineage={() => showLineage(rel)}
                 >
                   {evidenceSummary(rel) && (
                     <div className="mt-1 text-[11px] text-muted-foreground">{evidenceSummary(rel)}</div>
@@ -359,7 +416,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                     </div>
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 mt-2" role="group" aria-label="Citation certainty">
-                    {CERTAINTY_AXES.map(({ key, label }) => (
+                    {CERTAINTY_AXES.map(({ key, label, values }) => (
                       <label key={key} className="text-[11px] text-muted-foreground">
                         <span className="block mb-0.5">{label} quality</span>
                         <select
@@ -367,9 +424,12 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                           onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, [key]: e.target.value } }))}
                           className={inputClass}
                         >
-                          {Object.entries(CERTAINTY_LABELS).map(([value, text]) => (
-                            <option key={value} value={value}>{text}</option>
+                          {values.map((value) => (
+                            <option key={value} value={value}>{CERTAINTY_LABELS[value]}</option>
                           ))}
+                          {!values.includes(draft[key]) && draft[key] ? (
+                            <option value={draft[key]}>{CERTAINTY_LABELS[draft[key]] || draft[key]}</option>
+                          ) : null}
                         </select>
                       </label>
                     ))}
@@ -393,6 +453,57 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
           ))}
         </select>
         <button onClick={addRelation} disabled={!selectedId || attachedIds.has(selectedId)} className={primaryButtonClass}>Attach now</button>
+      </div>
+      {lineage && (
+        <LineageDrawer lineage={lineage} onClose={() => setLineage(null)} />
+      )}
+    </div>
+  );
+}
+
+function LineageDrawer({ lineage, onClose }) {
+  const relation = lineage?.relation;
+  const events = lineage?.events || [];
+  const batch = lineage?.batch;
+  const citation = relation ? readCitationEvidence(relation) : {};
+  return (
+    <div className="fixed inset-0 z-50 bg-black/30 flex justify-end" role="dialog" aria-modal="true">
+      <div className="h-full w-full max-w-lg overflow-auto border-l border-border bg-background p-5 shadow-xl">
+        <div className="flex items-center gap-3 mb-4">
+          <h3 className="text-base font-semibold flex-1">Citation lineage</h3>
+          <button onClick={onClose} className={buttonClass}>Close</button>
+        </div>
+        {lineage.loading ? (
+          <div className="text-sm text-muted-foreground">Loading lineage…</div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-md border border-border bg-card p-3">
+              <div className="text-xs text-muted-foreground mb-1">Citation</div>
+              <div className="text-sm">Source: <BdiText>{recordDisplayLabel(lineage.source) || readRef(relation?.fields?.source) || 'Unknown'}</BdiText></div>
+              <div className="text-sm">Target: <BdiText>{recordDisplayLabel(lineage.target) || readRef(relation?.fields?.target) || 'Unknown'}</BdiText></div>
+              {citation.page && <div className="text-sm">Page: {citation.page}</div>}
+              {citation.citation && <div className="text-sm">Citation: {citation.citation}</div>}
+              {citation.transcription && <div className="text-sm">Transcription present</div>}
+            </div>
+            <div className="rounded-md border border-border bg-card p-3">
+              <div className="text-xs text-muted-foreground mb-1">Batch</div>
+              <div className="text-sm">{batch?.fields?.summary?.value || batch?.fields?.kind?.value || relation?.fields?.lineageOperation?.value || 'Legacy / unknown origin'}</div>
+              {batch?.fields?.sourceName?.value && <div className="text-xs text-muted-foreground mt-1">{batch.fields.sourceName.value}</div>}
+            </div>
+            <div>
+              <div className="text-xs font-medium text-muted-foreground mb-2">Timeline</div>
+              {events.length === 0 ? (
+                <div className="text-sm text-muted-foreground">Legacy / unknown origin</div>
+              ) : events.map((event) => (
+                <div key={event.recordName} className="rounded-md border border-border bg-card p-3 mb-2">
+                  <div className="text-sm font-medium">{event.fields?.eventType?.value || 'event'} · {event.fields?.operation?.value || 'unknown'}</div>
+                  <div className="text-xs text-muted-foreground">{event.fields?.timestamp?.value || ''}</div>
+                  {event.fields?.details?.value && <div className="text-sm mt-1">{event.fields.details.value}</div>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

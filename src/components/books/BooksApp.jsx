@@ -3,6 +3,7 @@
  * and export using the same report exporters.
  */
 import React, { useEffect, useState, useCallback } from 'react';
+import { AlertTriangle, BookOpen, FileDown, FileText, Printer, Save } from 'lucide-react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import {
   SECTION_KINDS,
@@ -22,6 +23,8 @@ import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
 import { updatePageStyle } from '../../lib/presentationSettings.js';
 import { compareStrings, formatInteger } from '../../lib/i18n.js';
 import { sourceSummary } from '../../models/index.js';
+import { listSavedReports } from '../../lib/reports/savedReports.js';
+import { listChartDocuments } from '../../lib/chartDocuments.js';
 import { SectionEditor } from './SectionEditor.jsx';
 import { PresentationSettingsControls } from '../presentation/PresentationSettingsControls.jsx';
 import { ReportPreview } from '../reports/ReportPreview.jsx';
@@ -39,6 +42,14 @@ function blankBook() {
     ],
   };
 }
+
+const SECTION_GROUPS = [
+  { label: 'Chapters', ids: ['cover', 'title', 'toc'] },
+  { label: 'Person / Family based', ids: ['person-summary', 'family-group-sheet', 'person-group', 'source-insert'] },
+  { label: 'Reports for Persons', ids: ['ancestor-narrative', 'descendant-narrative', 'narrative-report', 'ahnentafel-report', 'register-report', 'descendancy-report'] },
+  { label: 'Other', ids: ['persons-list', 'places-list', 'sources-list', 'bibliography', 'footnotes', 'media-gallery'] },
+  { label: 'Saved Reports and Charts', ids: ['saved-report', 'saved-chart'] },
+];
 
 export function BooksApp() {
   const modal = useModal();
@@ -58,12 +69,22 @@ export function BooksApp() {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const controllerRef = React.useRef(null);
   const previewRef = React.useRef(null);
+  const sectionRefs = React.useRef([]);
+  const [savedReports, setSavedReports] = useState([]);
+  const [savedCharts, setSavedCharts] = useState([]);
 
   useEffect(() => {
     (async () => {
       const db = getLocalDatabase();
-      const [list, startPerson] = await Promise.all([listAllPersons(), findStartPerson()]);
+      const [list, startPerson, reports, charts] = await Promise.all([
+        listAllPersons(),
+        findStartPerson(),
+        listSavedReports(),
+        listChartDocuments(),
+      ]);
       setPersons(list);
+      setSavedReports(reports);
+      setSavedCharts(charts);
       const initialPersonId = list.some((person) => person.recordName === activePersonId)
         ? activePersonId
         : startPerson?.recordName || list[0]?.recordName || null;
@@ -102,25 +123,30 @@ export function BooksApp() {
     };
   }, [book]);
 
+  const jumpToSection = useCallback((index) => {
+    const target = sectionRefs.current[index];
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, []);
+
   const guardedExport = useCallback(async (next, label = 'Export') => {
     if (validation.errors.length > 0) {
-      const proceed = await modal.confirm(
-        `${label} is blocked by ${validation.errors.length} error(s):\n\n` +
+      await modal.alert(
+        `${label} needs these section errors fixed first:\n\n` +
         validation.errors.slice(0, 6).map((e) => `• ${e.message}`).join('\n') +
-        (validation.errors.length > 6 ? '\n…' : '') +
-        '\n\nProceed anyway?',
-        { title: label, okLabel: 'Proceed' }
+        (validation.errors.length > 6 ? '\n…' : ''),
+        { title: label, okLabel: 'Review sections' }
       );
-      if (!proceed) return;
+      jumpToSection(validation.errors[0]?.sectionIndex ?? 0);
+      return;
     }
     await next();
-  }, [validation.errors, modal]);
+  }, [jumpToSection, validation.errors, modal]);
 
   const updateSection = useCallback((i, next) => {
     setBook((b) => ({ ...b, sections: b.sections.map((s, j) => (j === i ? next : s)) }));
   }, []);
 
-  const addSection = useCallback((kind) => {
+  const buildDefaultSection = useCallback((kind) => {
     const def = SECTION_KINDS.find((k) => k.id === kind);
     const section = { kind };
     if (def?.needsPerson) {
@@ -131,10 +157,27 @@ export function BooksApp() {
     if (def?.needsGenerations) section.generations = 5;
     if (def?.needsGroup) section.groupRecordName = groups[0]?.recordName || '';
     if (def?.needsSource) section.sourceRecordName = sources[0]?.recordName || '';
+    if (def?.needsSavedReport) section.savedReportId = savedReports[0]?.id || '';
+    if (def?.needsSavedChart) section.savedChartId = savedCharts[0]?.id || '';
     if (kind === 'title' || kind === 'cover') section.text = kind === 'cover' ? book.title : 'New Section';
     if (kind === 'toc') section.tocStyle = 'numbered';
+    return section;
+  }, [activePersonId, book.title, groups, persons, savedCharts, savedReports, sources]);
+
+  const addSection = useCallback((kind) => {
+    const section = buildDefaultSection(kind);
     setBook((b) => ({ ...b, sections: [...b.sections, section] }));
-  }, [activePersonId, book.title, groups, persons, sources]);
+  }, [buildDefaultSection]);
+
+  const changeSectionKind = useCallback((i, kind) => {
+    setBook((b) => {
+      const previous = b.sections[i] || {};
+      const next = { ...buildDefaultSection(kind) };
+      if ((kind === 'title' || kind === 'cover') && previous.text) next.text = previous.text;
+      if ((kind === 'title' || kind === 'cover') && previous.subtitle) next.subtitle = previous.subtitle;
+      return { ...b, sections: b.sections.map((section, index) => (index === i ? next : section)) };
+    });
+  }, [buildDefaultSection]);
 
   const removeSection = useCallback((i) => {
     setBook((b) => ({ ...b, sections: b.sections.filter((_, j) => j !== i) }));
@@ -215,8 +258,10 @@ export function BooksApp() {
     setStatus('Building publish bundle...');
     setProgress(null);
     if (validation.errors.length > 0) {
-      const proceed = await modal.confirm(`Bundle is blocked by ${validation.errors.length} error(s). Proceed anyway?`, { title: 'Bundle book', okLabel: 'Proceed' });
-      if (!proceed) { setBusy(false); return; }
+      await modal.alert(`Bundle needs ${validation.errors.length} section error(s) fixed first.`, { title: 'Bundle book', okLabel: 'Review sections' });
+      jumpToSection(validation.errors[0]?.sectionIndex ?? 0);
+      setBusy(false);
+      return;
     }
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -236,7 +281,7 @@ export function BooksApp() {
       controllerRef.current = null;
       setBusy(false);
     }
-  }, [book, validation.errors.length, modal]);
+  }, [book, validation.errors, modal, jumpToSection]);
 
   if (loading) return <div style={loadingStyle}>Loading…</div>;
   if (empty) {
@@ -262,7 +307,7 @@ export function BooksApp() {
           className="sm:hidden"
           aria-expanded={optionsOpen}
         >
-          {optionsOpen ? 'Close' : 'Options'}
+          {optionsOpen ? 'Close' : 'Book Settings'}
         </button>
         <button
           type="button"
@@ -273,14 +318,14 @@ export function BooksApp() {
           Preview
         </button>
         <div className={`${optionsOpen ? 'contents' : 'hidden'} sm:contents`}>
-        <button onClick={onSave} style={input}>Save</button>
+        <button onClick={onSave} style={input}><Save size={14} /> Save</button>
         <select value="" onChange={(e) => e.target.value && onLoad(e.target.value)} style={{ ...input, minWidth: 140 }}>
           <option value="">Load saved…</option>
           {savedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
         </select>
         {savedBooks.length > 0 && (
           <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} style={{ ...input, width: 70 }}>
-            <option value="">Del…</option>
+            <option value="">Delete…</option>
             {savedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
           </select>
         )}
@@ -292,55 +337,71 @@ export function BooksApp() {
           Export:
         </span>
         {EXPORT_FORMATS.map((f) => (
-          <button key={f.id} onClick={() => onExport(f.id)} style={input}>{f.label}</button>
+          <button key={f.id} onClick={() => onExport(f.id)} style={input}><FileText size={14} /> {f.label}</button>
         ))}
         <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, marginInlineStart: 8 }}>
           Publish:
         </span>
-        <button onClick={onWebHTML} disabled={busy} style={input}>Web HTML</button>
-        <button onClick={onPDF} disabled={busy} style={input}>PDF Preview</button>
-        <button onClick={onBundle} disabled={busy} style={input}>Website/book bundle</button>
+        <button onClick={onWebHTML} disabled={busy} style={input}><FileDown size={14} /> Web HTML</button>
+        <button onClick={onPDF} disabled={busy} style={input}><Printer size={14} /> Save as PDF…</button>
+        <button onClick={onBundle} disabled={busy} style={input}><BookOpen size={14} /> Website/book bundle</button>
         {busy && controllerRef.current && <button onClick={() => controllerRef.current?.abort()} style={input}>Cancel</button>}
         </div>
       </header>
 
       {(validation.errors.length > 0 || validation.warnings.length > 0) && (
-        <div style={{
+        <button type="button" onClick={() => jumpToSection((validation.errors[0] || validation.warnings[0])?.sectionIndex ?? 0)} style={{
           padding: '8px 16px',
           borderBottom: '1px solid hsl(var(--border))',
+          borderInline: 0,
+          borderTop: 0,
+          width: '100%',
+          textAlign: 'start',
           background: validation.errors.length > 0 ? 'hsl(var(--destructive) / 0.08)' : 'hsl(var(--secondary))',
           fontSize: 12,
           color: validation.errors.length > 0 ? 'hsl(var(--destructive))' : 'hsl(var(--muted-foreground))',
+          cursor: 'pointer',
         }}>
+          <AlertTriangle size={14} style={{ display: 'inline', marginInlineEnd: 6, verticalAlign: -2 }} />
           <strong>
             {validation.errors.length > 0
-              ? `${validation.errors.length} error${validation.errors.length === 1 ? '' : 's'}`
+              ? `Please verify ${validation.errors.length} section${validation.errors.length === 1 ? '' : 's'}`
               : `${validation.warnings.length} warning${validation.warnings.length === 1 ? '' : 's'}`}
           </strong>
           {': '}
           {(validation.errors.length > 0 ? validation.errors : validation.warnings).slice(0, 3).map((v) => v.message).join(' · ')}
           {(validation.errors.length + validation.warnings.length) > 3 && ' …'}
-        </div>
+        </button>
       )}
 
       <div style={body} className="flex-col overflow-auto sm:flex-row sm:overflow-hidden">
         <aside style={leftPane} className="w-full sm:w-[360px]">
-          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 600, padding: '12px 14px 8px', letterSpacing: 0.4 }}>SECTIONS</div>
+          <div style={paneHead}>
+            <div>
+              <div style={paneEyebrow}>YOUR BOOKS</div>
+              <div style={paneTitle}>Chapters and Sections</div>
+            </div>
+            <span style={sectionCount}>{formatInteger(book.sections.length)}</span>
+          </div>
           <div style={{ flex: 1, padding: '0 14px' }} className="overflow-visible sm:overflow-auto">
             {book.sections.map((s, i) => (
-              <SectionEditor
-                key={i}
-                section={s}
-                index={i}
-                total={book.sections.length}
-                persons={persons}
-                groups={groups}
-                sources={sources}
-                onChange={(next) => updateSection(i, next)}
-                onRemove={() => removeSection(i)}
-                onMoveUp={() => moveSection(i, -1)}
-                onMoveDown={() => moveSection(i, 1)}
-              />
+              <div key={i} ref={(node) => { sectionRefs.current[i] = node; }}>
+                <SectionEditor
+                  section={s}
+                  index={i}
+                  total={book.sections.length}
+                  persons={persons}
+                  groups={groups}
+                  sources={sources}
+                  savedReports={savedReports}
+                  savedCharts={savedCharts}
+                  onChange={(next) => updateSection(i, next)}
+                  onKindChange={(kind) => changeSectionKind(i, kind)}
+                  onRemove={() => removeSection(i)}
+                  onMoveUp={() => moveSection(i, -1)}
+                  onMoveDown={() => moveSection(i, 1)}
+                />
+              </div>
             ))}
           </div>
           <div style={{ padding: 14, borderTop: '1px solid hsl(var(--border))' }}>
@@ -349,8 +410,15 @@ export function BooksApp() {
               onChange={(e) => { if (e.target.value) { addSection(e.target.value); e.target.value = ''; } }}
               style={{ ...input, width: '100%' }}
             >
-              <option value="">+ Add section…</option>
-              {SECTION_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
+              <option value="">Add Book Elements…</option>
+              {SECTION_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.ids.map((id) => {
+                    const kind = SECTION_KINDS.find((entry) => entry.id === id);
+                    return kind ? <option key={kind.id} value={kind.id}>{kind.label}</option> : null;
+                  })}
+                </optgroup>
+              ))}
             </select>
           </div>
         </aside>
@@ -373,7 +441,11 @@ const header = { display: 'flex', gap: 6, alignItems: 'center', padding: '12px 1
 const body = { flex: 1, display: 'flex', minHeight: 0 };
 const leftPane = { display: 'flex', flexDirection: 'column', borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
 const main = { flex: 1, minHeight: 0 };
-const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer' };
+const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 };
+const paneHead = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '14px 14px 10px' };
+const paneEyebrow = { color: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700, letterSpacing: 0.4 };
+const paneTitle = { color: 'hsl(var(--foreground))', fontSize: 15, fontWeight: 700, marginTop: 2 };
+const sectionCount = { minWidth: 28, height: 24, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))', fontSize: 12, fontWeight: 700 };
 const statusBar = { display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 14px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))', fontSize: 12 };
 const loadingStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--background))' };
 

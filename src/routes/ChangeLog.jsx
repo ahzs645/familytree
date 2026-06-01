@@ -45,6 +45,9 @@ export default function ChangeLog() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
+  const [lineageBatch, setLineageBatch] = useState('');
+  const [sourceRecord, setSourceRecord] = useState('');
+  const [targetRecord, setTargetRecord] = useState('');
   const [expanded, setExpanded] = useState(new Set());
   const [subs, setSubs] = useState({});
   const [purgeStatus, setPurgeStatus] = useState('');
@@ -54,14 +57,19 @@ export default function ChangeLog() {
     let cancel = false;
     (async () => {
       setLoading(true);
-      const list = await listChangeLogEntries({ entityType: filter || undefined });
+      const list = await listChangeLogEntries({
+        entityType: filter || undefined,
+        lineageBatch: lineageBatch || undefined,
+        sourceRecord: sourceRecord || undefined,
+        targetRecord: targetRecord || undefined,
+      });
       if (!cancel) {
         setEntries(list);
         setLoading(false);
       }
     })();
     return () => { cancel = true; };
-  }, [filter, reloadTick]);
+  }, [filter, lineageBatch, sourceRecord, targetRecord, reloadTick]);
 
   const runPurge = useCallback(async (window) => {
     if (!(await modal.confirm(`${window.label}?\n\nThis cannot be undone.`, { title: 'Purge change log', okLabel: 'Purge', destructive: true }))) return;
@@ -134,6 +142,12 @@ export default function ChangeLog() {
           {loading ? 'Loading…' : `${entries.length} entries`}
         </span>
       </header>
+
+      <div className="px-5 py-2 border-b border-border bg-background grid grid-cols-1 gap-2 text-xs md:grid-cols-3">
+        <input value={lineageBatch} onChange={(e) => setLineageBatch(e.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 outline-none" placeholder="Lineage batch id" />
+        <input value={sourceRecord} onChange={(e) => setSourceRecord(e.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 outline-none" placeholder="Source record id" />
+        <input value={targetRecord} onChange={(e) => setTargetRecord(e.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 outline-none" placeholder="Target record id" />
+      </div>
 
       <div className="px-5 py-2 border-b border-border bg-background flex flex-wrap items-center gap-2 text-xs">
         <span className="text-muted-foreground me-1">Purge:</span>

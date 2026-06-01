@@ -49,6 +49,7 @@ export async function loadSnapshot() {
   ]);
 
   const mediaRecords = mediaRows.flatMap((row) => row.records);
+  const publicSourceRelations = rawSourceRelations.records.map(stripPrivateLineageFields);
   const records = [
     ...rawPersons.records,
     ...rawFamilies.records,
@@ -57,7 +58,7 @@ export async function loadSnapshot() {
     ...rawFamilyEvents.records,
     ...rawPlaces.records,
     ...rawSources.records,
-    ...rawSourceRelations.records,
+    ...publicSourceRelations,
     ...rawMediaRelations.records,
     ...rawStoryRelations.records,
     ...rawStories.records,
@@ -74,7 +75,7 @@ export async function loadSnapshot() {
     familyEvents: rawFamilyEvents.records,
     places: rawPlaces.records,
     sources: rawSources.records,
-    sourceRelations: rawSourceRelations.records,
+    sourceRelations: publicSourceRelations,
     mediaRelations: rawMediaRelations.records,
     storyRelations: rawStoryRelations.records,
     stories: rawStories.records,
@@ -83,6 +84,14 @@ export async function loadSnapshot() {
     assets: rawAssets,
     allRecordsById,
   };
+}
+
+function stripPrivateLineageFields(record) {
+  const fields = { ...(record.fields || {}) };
+  for (const key of Object.keys(fields)) {
+    if (key.startsWith('lineage')) delete fields[key];
+  }
+  return { ...record, fields };
 }
 
 function referenceFields(record) {

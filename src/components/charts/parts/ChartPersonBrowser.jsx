@@ -8,6 +8,7 @@
 import React from 'react';
 import { chartPersonBrowserStyle, optionSelect } from './styles.js';
 import { BdiText, LtrText } from '../../BdiText.jsx';
+import { Select } from '../../ui/Select.jsx';
 
 export function ChartPersonBrowser({ persons, rootId, query, onQueryChange, group, onGroupChange, onPick, onAllPersons, onSmartFilters }) {
   return (
@@ -22,11 +23,16 @@ export function ChartPersonBrowser({ persons, rootId, query, onQueryChange, grou
       </label>
       <label style={{ display: 'block', marginBottom: 10 }}>
         <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Group by</div>
-        <select value={group} onChange={(event) => onGroupChange(event.target.value)} style={optionSelect}>
-          <option value="lastName">Last Name</option>
-          <option value="firstName">First Name</option>
-          <option value="birth">Birth Year</option>
-        </select>
+        <Select
+          value={group}
+          onChange={onGroupChange}
+          options={[
+            { value: 'lastName', label: 'Last Name' },
+            { value: 'firstName', label: 'First Name' },
+            { value: 'birth', label: 'Birth Year' },
+          ]}
+          triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+        />
       </label>
       <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 6 }}>{persons.length.toLocaleString()} persons</div>
       <div style={{ overflow: 'auto', minHeight: 0 }}>

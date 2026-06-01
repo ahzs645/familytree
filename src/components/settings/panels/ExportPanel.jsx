@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSettings } from '../SettingsContext.jsx';
-import { Field, Grid, Panel, Switch, inputClass, secondaryButton } from '../sharedUI.jsx';
+import { Field, Grid, Panel, SettingsSelect, Switch, inputClass, secondaryButton } from '../sharedUI.jsx';
 import { GEDCOM_ENCODINGS } from '../../../lib/genealogyFileFormats.js';
 
 export default function ExportPanel() {
@@ -9,56 +9,71 @@ export default function ExportPanel() {
     <Panel title={t('settingsPage.export.panel')}>
       <Grid>
         <Field label={t('settingsPage.export.pdfPageSize')}>
-          <select value={prefs.pdf.pageSize} onChange={(event) => update('pdf', 'pageSize', event.target.value)} className={inputClass}>
-            <option value="letter">{t('settingsPage.pdf.paperLetter')}</option>
-            <option value="a4">{t('settingsPage.pdf.paperA4')}</option>
-            <option value="legal">{t('settingsPage.pdf.paperLegal')}</option>
-          </select>
+          <SettingsSelect
+            value={prefs.pdf.pageSize}
+            onChange={(value) => update('pdf', 'pageSize', value)}
+            options={[
+              { value: 'letter', label: t('settingsPage.pdf.paperLetter') },
+              { value: 'a4', label: t('settingsPage.pdf.paperA4') },
+              { value: 'legal', label: t('settingsPage.pdf.paperLegal') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.export.pdfOrientation')}>
-          <select value={prefs.pdf.orientation} onChange={(event) => update('pdf', 'orientation', event.target.value)} className={inputClass}>
-            <option value="portrait">{t('settingsPage.pdf.portrait')}</option>
-            <option value="landscape">{t('settingsPage.pdf.landscape')}</option>
-          </select>
+          <SettingsSelect
+            value={prefs.pdf.orientation}
+            onChange={(value) => update('pdf', 'orientation', value)}
+            options={[
+              { value: 'portrait', label: t('settingsPage.pdf.portrait') },
+              { value: 'landscape', label: t('settingsPage.pdf.landscape') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.export.pdfMargin')}>
           <input type="number" min="12" max="144" value={prefs.pdf.margin} onChange={(event) => update('pdf', 'margin', Number(event.target.value))} className={inputClass} />
         </Field>
         <Field label={t('settingsPage.export.gedcomEncodingExport')}>
-          <select value={prefs.exportDefaults.gedcomEncoding} onChange={(event) => update('exportDefaults', 'gedcomEncoding', event.target.value)} className={inputClass}>
-            <option value="utf-8">UTF-8</option>
-            <option value="utf-16">UTF-16</option>
-            <option value="ansi">ANSI</option>
-          </select>
+          <SettingsSelect
+            value={prefs.exportDefaults.gedcomEncoding}
+            onChange={(value) => update('exportDefaults', 'gedcomEncoding', value)}
+            options={[
+              { value: 'utf-8', label: 'UTF-8' },
+              { value: 'utf-16', label: 'UTF-16' },
+              { value: 'ansi', label: 'ANSI' },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.export.gedcomEncodingImport')}>
-          <select
+          <SettingsSelect
             value={prefs.importDefaults?.gedcomEncoding || 'auto'}
-            onChange={(event) => update('importDefaults', 'gedcomEncoding', event.target.value)}
-            className={inputClass}
-          >
-            {GEDCOM_ENCODINGS.map((option) => (
-              <option key={option.id} value={option.id}>{t(`constants.gedcomEncoding.${option.id}`)}</option>
-            ))}
-          </select>
+            onChange={(value) => update('importDefaults', 'gedcomEncoding', value)}
+            options={GEDCOM_ENCODINGS.map((option) => ({
+              value: option.id,
+              label: t(`constants.gedcomEncoding.${option.id}`),
+            }))}
+          />
         </Field>
         <Field label={t('settingsPage.export.gedcomImportMode')}>
-          <select
+          <SettingsSelect
             value={prefs.importDefaults?.gedcomMode || 'review'}
-            onChange={(event) => update('importDefaults', 'gedcomMode', event.target.value)}
-            className={inputClass}
-          >
-            <option value="review">{t('settingsPage.export.modeReview')}</option>
-            <option value="strict">{t('settingsPage.export.modeStrict')}</option>
-            <option value="lenient">{t('settingsPage.export.modeLenient')}</option>
-          </select>
+            onChange={(value) => update('importDefaults', 'gedcomMode', value)}
+            options={[
+              { value: 'review', label: t('settingsPage.export.modeReview') },
+              { value: 'strict', label: t('settingsPage.export.modeStrict') },
+              { value: 'lenient', label: t('settingsPage.export.modeLenient') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.export.websiteTheme')}>
-          <select value={prefs.exportDefaults.websiteTheme} onChange={(event) => update('exportDefaults', 'websiteTheme', event.target.value)} className={inputClass}>
-            <option value="classic">{t('settingsPage.export.themeClassic')}</option>
-            <option value="compact">{t('settingsPage.export.themeCompact')}</option>
-            <option value="archive">{t('settingsPage.export.themeArchive')}</option>
-          </select>
+          <SettingsSelect
+            value={prefs.exportDefaults.websiteTheme}
+            onChange={(value) => update('exportDefaults', 'websiteTheme', value)}
+            options={[
+              { value: 'classic', label: t('settingsPage.export.themeClassic') },
+              { value: 'compact', label: t('settingsPage.export.themeCompact') },
+              { value: 'archive', label: t('settingsPage.export.themeArchive') },
+            ]}
+          />
         </Field>
         <Switch label={t('settingsPage.export.includePrivate')} checked={prefs.exportDefaults.includePrivate} onChange={(value) => update('exportDefaults', 'includePrivate', value)} />
         <Switch label={t('settingsPage.export.includeMedia')} checked={prefs.exportDefaults.includeMedia} onChange={(value) => update('exportDefaults', 'includeMedia', value)} />

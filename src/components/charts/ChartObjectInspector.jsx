@@ -9,6 +9,7 @@
  *   - uniform multi-selection (shared editable fields only)
  */
 import React from 'react';
+import { Select } from '../ui/Select.jsx';
 
 const row = { display: 'block', marginBottom: 8 };
 const label = { color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 };
@@ -88,9 +89,12 @@ function SelectField({ value, onChange, label: labelText, options }) {
   return (
     <label style={row}>
       <div style={label}>{labelText}</div>
-      <select value={value ?? ''} onChange={(event) => onChange(event.target.value)} style={input}>
-        {options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-      </select>
+      <Select
+        value={value ?? ''}
+        onChange={onChange}
+        options={options}
+        triggerStyle={{ ...input, paddingInlineEnd: 32 }}
+      />
     </label>
   );
 }

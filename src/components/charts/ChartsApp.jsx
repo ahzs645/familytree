@@ -18,6 +18,7 @@ import { buildShareUrl } from '../../lib/chartShareLink.js';
 import { matchesSearchText } from '../../lib/i18n.js';
 import { ChartBackgroundSheet } from './ChartBackgroundSheet.jsx';
 import { PageSetupSheet } from '../PageSetupSheet.jsx';
+import { Select } from '../ui/Select.jsx';
 import { buildTimelineData } from '../../lib/chartData/timelineBuilder.js';
 import { buildGenogramData } from '../../lib/chartData/genogramBuilder.js';
 import { buildDistributionData } from '../../lib/chartData/distributionBuilder.js';
@@ -1001,11 +1002,13 @@ export function ChartsApp() {
         )}
 
         <Field label="Type">
-          <select value={chartType} onChange={(e) => setChartType(e.target.value)} style={selectStyle}>
-            {CHART_TYPES.map((t) => (
-              <option key={t.id} value={t.id}>{t.label}</option>
-            ))}
-          </select>
+          <Select
+            value={chartType}
+            onChange={setChartType}
+            options={CHART_TYPES.map((type) => ({ value: type.id, label: type.label }))}
+            triggerStyle={{ ...selectStyle, paddingInlineEnd: 32 }}
+            align="start"
+          />
         </Field>
 
         <Field label="Gen" hideOnNarrow>
@@ -1052,18 +1055,20 @@ export function ChartsApp() {
               </div>
               {morePopoverTab === 'view' && (<>
               <Section label="Theme">
-                <select value={themeId} onChange={(e) => setThemeId(e.target.value)} style={optionSelect}>
-                  {THEMES.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
-                  ))}
-                </select>
+                <Select
+                  value={themeId}
+                  onChange={setThemeId}
+                  options={THEMES.map((themeOption) => ({ value: themeOption.id, label: themeOption.name }))}
+                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                />
               </Section>
               <Section label="Research overlay">
-                <select value={completenessColorMode} onChange={(e) => setCompletenessColorMode(e.target.value)} style={optionSelect}>
-                  {COMPLETENESS_COLOR_MODES.map((mode) => (
-                    <option key={mode.id} value={mode.id}>{mode.label}</option>
-                  ))}
-                </select>
+                <Select
+                  value={completenessColorMode}
+                  onChange={setCompletenessColorMode}
+                  options={COMPLETENESS_COLOR_MODES.map((mode) => ({ value: mode.id, label: mode.label }))}
+                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                />
                 {COMPLETENESS_LEGEND[completenessColorMode] && (
                   <div style={{ display: 'grid', gap: 5, marginTop: 8 }}>
                     {COMPLETENESS_LEGEND[completenessColorMode].map(([color, label]) => (
@@ -1077,10 +1082,15 @@ export function ChartsApp() {
               </Section>
 
               <Section label="Chart interaction">
-                <select value={chartClickAction} onChange={(e) => setChartClickAction(e.target.value)} style={optionSelect}>
-                  <option value="reroot">Click person to re-root</option>
-                  <option value="panel">Click person to inspect</option>
-                </select>
+                <Select
+                  value={chartClickAction}
+                  onChange={setChartClickAction}
+                  options={[
+                    { value: 'reroot', label: 'Click person to re-root' },
+                    { value: 'panel', label: 'Click person to inspect' },
+                  ]}
+                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                />
               </Section>
               </>)}
 
@@ -1169,13 +1179,18 @@ export function ChartsApp() {
 
               {(chartType === 'ancestor' || chartType === 'fan' || chartType === 'circular' || chartType === 'fractal-tree' || chartType === 'fractal-h-tree' || chartType === 'square-tree') && (
                 <Section label="Ancestor branches">
-                  <select value={ancestorBranch} onChange={(e) => setAncestorBranch(e.target.value)} style={optionSelect}>
-                    <option value="both">Maternal and paternal</option>
-                    <option value="paternal">Only paternal</option>
-                    <option value="maternal">Only maternal</option>
-                    <option value="paternal-from-start">Paternal from start person</option>
-                    <option value="maternal-from-start">Maternal from start person</option>
-                  </select>
+                  <Select
+                    value={ancestorBranch}
+                    onChange={setAncestorBranch}
+                    options={[
+                      { value: 'both', label: 'Maternal and paternal' },
+                      { value: 'paternal', label: 'Only paternal' },
+                      { value: 'maternal', label: 'Only maternal' },
+                      { value: 'paternal-from-start', label: 'Paternal from start person' },
+                      { value: 'maternal-from-start', label: 'Maternal from start person' },
+                    ]}
+                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  />
                 </Section>
               )}
 
@@ -1206,15 +1221,25 @@ export function ChartsApp() {
 
               <Section label="Page">
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                  <select value={pageSize} onChange={(e) => setPageSize(e.target.value)} style={optionSelect}>
-                    <option value="letter">Letter</option>
-                    <option value="a4">A4</option>
-                    <option value="legal">Legal</option>
-                  </select>
-                  <select value={pageOrientation} onChange={(e) => setPageOrientation(e.target.value)} style={optionSelect}>
-                    <option value="landscape">Landscape</option>
-                    <option value="portrait">Portrait</option>
-                  </select>
+                  <Select
+                    value={pageSize}
+                    onChange={setPageSize}
+                    options={[
+                      { value: 'letter', label: 'Letter' },
+                      { value: 'a4', label: 'A4' },
+                      { value: 'legal', label: 'Legal' },
+                    ]}
+                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  />
+                  <Select
+                    value={pageOrientation}
+                    onChange={setPageOrientation}
+                    options={[
+                      { value: 'landscape', label: 'Landscape' },
+                      { value: 'portrait', label: 'Portrait' },
+                    ]}
+                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  />
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                   <input value={chartBackground} onChange={(e) => setChartBackground(e.target.value)} placeholder="CSS value or click Edit…" style={{ ...optionSelect, flex: 1 }} title="CSS background color" />
@@ -1239,39 +1264,45 @@ export function ChartsApp() {
               {morePopoverTab === 'library' && (<>
               <Section label="Templates">
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <select
+                  <Select
                     value=""
-                    onChange={(e) => e.target.value && onApplyTemplate(e.target.value)}
-                    style={{ ...optionSelect, flex: 1 }}
-                  >
-                    <option value="">Load saved…</option>
-                    {templates.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
+                    onChange={(value) => value && onApplyTemplate(value)}
+                    options={[
+                      { value: '', label: 'Load saved…' },
+                      ...templates.map((template) => ({ value: template.id, label: template.name })),
+                    ]}
+                    style={{ flex: 1 }}
+                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  />
                   <button onClick={onSaveTemplate} style={optionSelect}>Save</button>
                 </div>
                 {templates.length > 0 && (
-                  <select
+                  <Select
                     value=""
-                    onChange={(e) => e.target.value && onDeleteTemplate(e.target.value)}
-                    style={{ ...optionSelect, marginTop: 6 }}
-                    title="Delete a saved template"
-                  >
-                    <option value="">Delete…</option>
-                    {templates.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </select>
+                    onChange={(value) => value && onDeleteTemplate(value)}
+                    options={[
+                      { value: '', label: 'Delete…' },
+                      ...templates.map((template) => ({ value: template.id, label: template.name })),
+                    ]}
+                    style={{ marginTop: 6 }}
+                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                    ariaLabel="Delete a saved template"
+                  />
                 )}
               </Section>
 
               <Section label={`Documents${currentDocumentName ? ` — ${currentDocumentName}${isDirty ? ' •' : ''}${isReadOnly ? ' (read-only)' : ''}` : ''}`}>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <select value="" onChange={(e) => e.target.value && onApplyDocument(e.target.value)} style={{ ...optionSelect, flex: 1 }}>
-                    <option value="">Open…</option>
-                    {documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
-                  </select>
+                  <Select
+                    value=""
+                    onChange={(value) => value && onApplyDocument(value)}
+                    options={[
+                      { value: '', label: 'Open…' },
+                      ...documents.map((doc) => ({ value: doc.id, label: doc.name })),
+                    ]}
+                    style={{ flex: 1 }}
+                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  />
                   <button onClick={onSaveDocument} style={optionSelect} disabled={isReadOnly} title={isReadOnly ? 'Read-only — use Save as new' : currentDocumentId ? 'Overwrite existing document' : 'Save new document'}>
                     {currentDocumentId ? 'Save' : 'Save…'}
                   </button>
@@ -1316,10 +1347,16 @@ export function ChartsApp() {
                   </button>
                 </div>
                 {documents.length > 0 && (
-                  <select value="" onChange={(e) => e.target.value && onDeleteDocument(e.target.value)} style={{ ...optionSelect, marginTop: 6 }}>
-                    <option value="">Delete…</option>
-                    {documents.map((doc) => <option key={doc.id} value={doc.id}>{doc.name}</option>)}
-                  </select>
+                  <Select
+                    value=""
+                    onChange={(value) => value && onDeleteDocument(value)}
+                    options={[
+                      { value: '', label: 'Delete…' },
+                      ...documents.map((doc) => ({ value: doc.id, label: doc.name })),
+                    ]}
+                    style={{ marginTop: 6 }}
+                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  />
                 )}
               </Section>
               </>)}
@@ -1381,10 +1418,15 @@ export function ChartsApp() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
                   <label style={{ display: 'block' }}>
                     <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Format</div>
-                    <select value={exportFormat} onChange={(e) => setExportFormat(e.target.value)} style={optionSelect}>
-                      <option value="png">PNG</option>
-                      <option value="jpeg">JPEG</option>
-                    </select>
+                    <Select
+                      value={exportFormat}
+                      onChange={setExportFormat}
+                      options={[
+                        { value: 'png', label: 'PNG' },
+                        { value: 'jpeg', label: 'JPEG' },
+                      ]}
+                      triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                    />
                   </label>
                   <label style={{ display: 'block' }}>
                     <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Scale ({exportScale.toFixed(2)}×)</div>
@@ -1717,24 +1759,35 @@ export function ChartsApp() {
               <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 8, letterSpacing: 0.4 }}>VIRTUAL TREE OPTIONS</div>
               <label style={{ display: 'block', marginBottom: 10 }}>
                 <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Renderer</div>
-                <select value={virtualViewMode} onChange={(e) => setVirtualViewMode(e.target.value)} style={optionSelect}>
-                  <option value="2d">2D (SVG)</option>
-                  <option value="3d">3D (Three.js)</option>
-                </select>
+                <Select
+                  value={virtualViewMode}
+                  onChange={setVirtualViewMode}
+                  options={[
+                    { value: '2d', label: '2D (SVG)' },
+                    { value: '3d', label: '3D (Three.js)' },
+                  ]}
+                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                />
               </label>
               {virtualViewMode === '3d' && (
                 <>
                   <label style={{ display: 'block', marginBottom: 10 }}>
                     <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Symbol mode</div>
-                    <select value={virtualSymbolMode} onChange={(e) => setVirtualSymbolMode(e.target.value)} style={optionSelect}>
-                      {SYMBOL_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
-                    </select>
+                    <Select
+                      value={virtualSymbolMode}
+                      onChange={setVirtualSymbolMode}
+                      options={SYMBOL_MODES.map((mode) => ({ value: mode, label: mode }))}
+                      triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                    />
                   </label>
                   <label style={{ display: 'block', marginBottom: 10 }}>
                     <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Color mode</div>
-                    <select value={virtualColorMode} onChange={(e) => setVirtualColorMode(e.target.value)} style={optionSelect}>
-                      {COLOR_MODES.map((mode) => <option key={mode} value={mode}>{mode}</option>)}
-                    </select>
+                    <Select
+                      value={virtualColorMode}
+                      onChange={setVirtualColorMode}
+                      options={COLOR_MODES.map((mode) => ({ value: mode, label: mode }))}
+                      triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                    />
                   </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12 }}>
                     <input
@@ -1796,18 +1849,28 @@ export function ChartsApp() {
               )}
               <label style={{ display: 'block', marginBottom: 10 }}>
                 <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Source</div>
-                <select value={virtualSource} onChange={(e) => setVirtualSource(e.target.value)} style={optionSelect}>
-                  <option value="descendant">Descendants</option>
-                  <option value="ancestor">Ancestors</option>
-                  <option value="hourglass">Hourglass</option>
-                </select>
+                <Select
+                  value={virtualSource}
+                  onChange={setVirtualSource}
+                  options={[
+                    { value: 'descendant', label: 'Descendants' },
+                    { value: 'ancestor', label: 'Ancestors' },
+                    { value: 'hourglass', label: 'Hourglass' },
+                  ]}
+                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                />
               </label>
               <label style={{ display: 'block', marginBottom: 10 }}>
                 <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Orientation</div>
-                <select value={virtualOrientation} onChange={(e) => setVirtualOrientation(e.target.value)} style={optionSelect}>
-                  <option value="vertical">Vertical</option>
-                  <option value="horizontal">Horizontal</option>
-                </select>
+                <Select
+                  value={virtualOrientation}
+                  onChange={setVirtualOrientation}
+                  options={[
+                    { value: 'vertical', label: 'Vertical' },
+                    { value: 'horizontal', label: 'Horizontal' },
+                  ]}
+                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                />
               </label>
               <label style={{ display: 'block', marginBottom: 10 }}>
                 <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Sibling spacing ({virtualHSpacing}px)</div>

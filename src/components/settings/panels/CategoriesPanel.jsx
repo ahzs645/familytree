@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSettings } from '../SettingsContext.jsx';
-import { Field, Grid, Panel, inputClass } from '../sharedUI.jsx';
+import { Field, Grid, Panel, SettingsSelect, inputClass } from '../sharedUI.jsx';
 
 export default function CategoriesPanel() {
   const { prefs, update, t } = useSettings();
@@ -8,17 +8,25 @@ export default function CategoriesPanel() {
     <Panel title={t('settingsPage.categories.panel')}>
       <Grid>
         <Field label={t('settingsPage.categories.labelOrder')}>
-          <select value={prefs.categoryConfigurations?.labelOrder || 'alphabetical'} onChange={(event) => update('categoryConfigurations', 'labelOrder', event.target.value)} className={inputClass}>
-            <option value="alphabetical">{t('settingsPage.categories.labelAlphabetical')}</option>
-            <option value="custom">{t('settingsPage.categories.labelCustom')}</option>
-            <option value="usage">{t('settingsPage.categories.labelByUsage')}</option>
-          </select>
+          <SettingsSelect
+            value={prefs.categoryConfigurations?.labelOrder || 'alphabetical'}
+            onChange={(value) => update('categoryConfigurations', 'labelOrder', value)}
+            options={[
+              { value: 'alphabetical', label: t('settingsPage.categories.labelAlphabetical') },
+              { value: 'custom', label: t('settingsPage.categories.labelCustom') },
+              { value: 'usage', label: t('settingsPage.categories.labelByUsage') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.categories.groupOrder')}>
-          <select value={prefs.categoryConfigurations?.groupOrder || 'custom'} onChange={(event) => update('categoryConfigurations', 'groupOrder', event.target.value)} className={inputClass}>
-            <option value="custom">{t('settingsPage.categories.groupCustom')}</option>
-            <option value="alphabetical">{t('settingsPage.categories.groupAlphabetical')}</option>
-          </select>
+          <SettingsSelect
+            value={prefs.categoryConfigurations?.groupOrder || 'custom'}
+            onChange={(value) => update('categoryConfigurations', 'groupOrder', value)}
+            options={[
+              { value: 'custom', label: t('settingsPage.categories.groupCustom') },
+              { value: 'alphabetical', label: t('settingsPage.categories.groupAlphabetical') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.categories.hidden')}>
           <input

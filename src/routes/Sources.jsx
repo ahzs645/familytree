@@ -14,6 +14,7 @@ import {
   REFERENCE_NUMBER_FIELDS,
   formatTimestamp,
 } from '../lib/catalogs.js';
+import { resolveLabelDefinitions } from '../lib/labels.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
@@ -90,6 +91,7 @@ export default function Sources() {
   const [templateFields, setTemplateFields] = useState([]);
   const [templateValues, setTemplateValues] = useState({});
   const [labels, setLabels] = useState({});
+  const [labelDefs, setLabelDefs] = useState(LABELS);
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
@@ -160,10 +162,12 @@ export default function Sources() {
     (async () => {
       const db = getLocalDatabase();
       // Find SourceRelation rows pointing at this source, plus events that reference it directly.
-      const [srcRels, lbl] = await Promise.all([
+      const [srcRels, lbl, labelRows] = await Promise.all([
         db.query('SourceRelation', { referenceField: 'source', referenceValue: activeId, limit: 500 }),
         db.query('LabelRelation', { referenceField: 'targetSource', referenceValue: activeId, limit: 500 }),
+        db.query('Label', { limit: 100000 }),
       ]);
+      setLabelDefs(resolveLabelDefinitions(labelRows.records));
       const refList = [];
       for (const rel of srcRels.records) {
         const targetType = rel.fields?.targetType?.value || '';
@@ -433,7 +437,7 @@ export default function Sources() {
         <div>
           <Section title="Labels" accent={ACCENTS.labels}>
             <div className="space-y-1">
-              {LABELS.map((def) => (
+              {labelDefs.map((def) => (
                 <EditSwitch key={def.id} label={def.label} color={def.color}
                   checked={!!labels[def.id]} onChange={(v) => setLabels((s) => ({ ...s, [def.id]: v }))} />
               ))}

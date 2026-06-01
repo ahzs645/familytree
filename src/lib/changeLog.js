@@ -36,7 +36,7 @@ function nowIso() {
  * Returns the saved record. If no changes, the record is still saved (touch)
  * but no log entries are written.
  */
-export async function saveWithChangeLog(updatedRecord, { author = 'You', changeKind = 'Change' } = {}) {
+export async function saveWithChangeLog(updatedRecord, { author = 'You', changeKind = 'Change', lineage = null } = {}) {
   const db = getLocalDatabase();
   const prev = await db.getRecord(updatedRecord.recordName);
   const changes = diffFields(prev?.fields, updatedRecord.fields);
@@ -73,6 +73,7 @@ export async function saveWithChangeLog(updatedRecord, { author = 'You', changeK
       changeType: { value: changeKind },
       changeCount: { value: changes.length },
       summary: { value: summarize(changes) },
+      ...lineageFields(lineage),
     },
   };
 
@@ -99,7 +100,7 @@ function summarize(changes) {
 /**
  * Append a creation or deletion entry without diffing fields.
  */
-export async function logRecordCreated(record, { author = 'You' } = {}) {
+export async function logRecordCreated(record, { author = 'You', lineage = null } = {}) {
   const db = getLocalDatabase();
   const entry = {
     recordName: uuid('cle'),
@@ -112,12 +113,14 @@ export async function logRecordCreated(record, { author = 'You' } = {}) {
       changeType: { value: 'Add' },
       changeCount: { value: Object.keys(record.fields || {}).length },
       summary: { value: 'Created' },
+      ...lineageFields(lineage),
     },
   };
   await db.saveRecord(entry);
+  return entry;
 }
 
-export async function logRecordDeleted(recordName, recordType, { author = 'You' } = {}) {
+export async function logRecordDeleted(recordName, recordType, { author = 'You', lineage = null } = {}) {
   const db = getLocalDatabase();
   const entry = {
     recordName: uuid('cle'),
@@ -130,9 +133,24 @@ export async function logRecordDeleted(recordName, recordType, { author = 'You' 
       changeType: { value: 'Delete' },
       changeCount: { value: 0 },
       summary: { value: 'Deleted' },
+      ...lineageFields(lineage),
     },
   };
   await db.saveRecord(entry);
+  return entry;
+}
+
+function lineageFields(lineage) {
+  if (!lineage) return {};
+  const out = {};
+  if (lineage.lineageBatch) out.lineageBatch = { value: refValue(lineage.lineageBatch, 'LineageBatch'), type: 'REFERENCE' };
+  if (lineage.operation) out.operation = { value: lineage.operation };
+  if (lineage.sourceRecord) out.sourceRecord = { value: lineage.sourceRecord };
+  if (lineage.mergeSurvivor) out.mergeSurvivor = { value: lineage.mergeSurvivor };
+  if (lineage.mergeDiscarded) out.mergeDiscarded = { value: lineage.mergeDiscarded };
+  if (lineage.renamedFrom) out.renamedFrom = { value: lineage.renamedFrom };
+  if (lineage.lineageEvent) out.lineageEvent = { value: refValue(lineage.lineageEvent, 'LineageEvent'), type: 'REFERENCE' };
+  return out;
 }
 
 /**

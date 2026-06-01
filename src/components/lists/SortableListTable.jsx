@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { compareStrings, formatInteger, getCurrentLocalization, matchesSearchText } from '../../lib/i18n.js';
 import { ListReportPreview } from './ListReportWorkbench.jsx';
+import { listToolbarCountClass, listToolbarInputClass } from './listToolbarClasses.js';
 
 function defaultValue(row, column) {
   if (column.sortValue) return column.sortValue(row);
@@ -101,9 +102,9 @@ export function SortableListTable({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={searchPlaceholder}
-          className="w-64 max-w-full bg-background text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+          className={listToolbarInputClass}
         />
-        <span className="text-xs text-muted-foreground">
+        <span className={listToolbarCountClass}>
           {formatInteger(visibleRows.length, localization)} of {formatInteger(rows.length, localization)}
         </span>
         {toolbar}

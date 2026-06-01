@@ -4,6 +4,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { BdiText, LtrText } from '../BdiText.jsx';
+import { cn } from '../../lib/utils.js';
 import { getCurrentLocalization } from '../../lib/i18n.js';
 import { comparePersonSearchResults, matchesPersonLineageSearch } from '../../lib/personLineage.js';
 import { personDisplayName } from '../../lib/personDisplayName.js';
@@ -63,12 +64,26 @@ export function PersonPicker({ persons, value, onChange }) {
   const selected = persons.find((p) => p.recordName === value);
 
   return (
-    <div style={{ position: 'relative', width: '100%', minWidth: 0, maxWidth: 260 }}>
-      <button ref={triggerRef} onClick={() => setOpen((v) => !v)} style={triggerStyle}>
-        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+    <div className="relative w-full min-w-0 max-w-[260px]">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm ps-3 pe-8 text-start outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 hover:bg-accent inline-flex items-center relative"
+      >
+        <span className={cn('truncate flex-1', !selected && 'text-muted-foreground')}>
           {selected ? <BdiText>{personDisplayName(selected)}</BdiText> : t('persons.choosePerson')}
         </span>
-        <span style={{ color: 'hsl(var(--muted-foreground))', marginInlineStart: 8 }}>▾</span>
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+          className={cn('absolute end-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-transform', open && 'rotate-180')}
+        >
+          <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.25 4.39a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+        </svg>
       </button>
       {open && rect && createPortal(
         <div ref={popoverRef} style={popoverStyle(rect)}>
@@ -124,20 +139,6 @@ export function PersonPicker({ persons, value, onChange }) {
   );
 }
 
-const triggerStyle = {
-  width: '100%',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
-  padding: '8px 12px',
-  font: '13px -apple-system, system-ui, sans-serif',
-  cursor: 'pointer',
-};
-
 // Fixed-position popover anchored to the trigger's viewport rect. Rendered in
 // a body portal, so it overlays the whole page rather than living inside (and
 // being clipped by) the trigger's section.
@@ -148,7 +149,7 @@ const popoverStyle = (rect) => ({
   width: rect.width,
   background: 'hsl(var(--muted))',
   border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
+  borderRadius: 6,
   zIndex: 1000,
   boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
 });

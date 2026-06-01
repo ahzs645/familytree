@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
 import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
 import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { listToolbarInputBaseClass, listToolbarSelectTriggerClass } from '../components/lists/listToolbarClasses.js';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadAnniversaryRows } from '../lib/listData.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
@@ -74,7 +75,7 @@ export default function AnniversaryList() {
   const filters = (
     <>
       <label className="text-xs text-muted-foreground ms-auto">{t('anniversaryList.filterType')}</label>
-      <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
+      <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className={listToolbarSelectTriggerClass}>
         <option value="">{t('anniversaryList.birthAndDeath')}</option>
         <option value="Birth">{t('anniversaryList.birth')}</option>
         <option value="Death">{t('anniversaryList.death')}</option>
@@ -88,7 +89,7 @@ export default function AnniversaryList() {
         label={t('anniversaryList.personScope')}
       />
       <label className="text-xs text-muted-foreground">{t('anniversaryList.month')}</label>
-      <select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
+      <select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className={listToolbarSelectTriggerClass}>
         <option value="">{t('anniversaryList.allMonths')}</option>
         {MONTH_VALUES.map((value) => <option key={value} value={value}>{t(`anniversaryList.months.${value}`)}</option>)}
       </select>
@@ -99,7 +100,7 @@ export default function AnniversaryList() {
         max="31"
         value={dayFilter}
         onChange={(event) => setDayFilter(event.target.value)}
-        className="w-20 bg-background text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+        className={`${listToolbarInputBaseClass} w-20`}
       />
     </>
   );

@@ -53,13 +53,16 @@ export function authorOf(entry) {
   return entry.fields?.author?.value || entry.fields?.userName?.value || '';
 }
 
-export async function listChangeLogEntries({ entityType, limit = 500 } = {}) {
+export async function listChangeLogEntries({ entityType, lineageBatch, sourceRecord, targetRecord, limit = 500 } = {}) {
   const db = getLocalDatabase();
   const { records } = await db.query('ChangeLogEntry', { limit: 100000 });
   let filtered = records;
   if (entityType) {
     filtered = filtered.filter((r) => entityTypeOf(r) === entityType);
   }
+  if (lineageBatch) filtered = filtered.filter((r) => refToRecordName(r.fields?.lineageBatch?.value) === lineageBatch);
+  if (sourceRecord) filtered = filtered.filter((r) => r.fields?.sourceRecord?.value === sourceRecord || refToRecordName(r.fields?.target?.value) === sourceRecord);
+  if (targetRecord) filtered = filtered.filter((r) => refToRecordName(r.fields?.target?.value) === targetRecord || r.fields?.mergeSurvivor?.value === targetRecord || r.fields?.mergeDiscarded?.value === targetRecord);
   filtered.sort((a, b) => {
     const ta = numericTimestamp(timestampOf(a));
     const tb = numericTimestamp(timestampOf(b));

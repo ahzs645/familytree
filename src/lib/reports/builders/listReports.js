@@ -65,6 +65,35 @@ export async function buildSourcesList() {
   return report;
 }
 
+export async function buildSourceCitationAuditReport() {
+  const db = getLocalDatabase();
+  const { records } = await db.query('SourceRelation', { limit: 100000 });
+  const rows = [];
+  for (const rel of records) {
+    const sourceId = readRef(rel.fields?.source);
+    const targetId = readRef(rel.fields?.target);
+    const [source, target] = await Promise.all([
+      sourceId ? db.getRecord(sourceId) : null,
+      targetId ? db.getRecord(targetId) : null,
+    ]);
+    rows.push([
+      sourceSummary(source)?.title || sourceId || '',
+      target?.fields?.cached_fullName?.value || target?.fields?.cached_familyName?.value || readField(target, ['title', 'name', 'description']) || targetId || '',
+      rel.fields?.targetType?.value || target?.recordType || '',
+      readField(rel, ['page'], ''),
+      readField(rel, ['citation', 'text'], ''),
+      readField(rel, ['lineageOperation'], 'Legacy / unknown origin'),
+      readRef(rel.fields?.lineageBatch) || '',
+    ]);
+  }
+  rows.sort((a, b) => compareStrings(a[0], b[0]) || compareStrings(a[1], b[1]));
+  const report = emptyReport('Source Citation Audit');
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.paragraph(`${formatInteger(rows.length)} source citations`));
+  report.blocks.push(block.table(['Source', 'Referenced Entry', 'Type', 'Page', 'Citation', 'Lineage', 'Batch'], rows));
+  return report;
+}
+
 export async function buildEventsList() {
   const db = getLocalDatabase();
   const [personEvents, familyEvents] = await Promise.all([

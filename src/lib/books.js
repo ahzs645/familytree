@@ -101,6 +101,8 @@ export function normalizeBookPresentationSettings(settings = {}) {
 export async function validateBook(book) {
   const errors = [];
   const warnings = [];
+  let savedReports = null;
+  let savedCharts = null;
   if (!book || !Array.isArray(book.sections) || book.sections.length === 0) {
     errors.push({ sectionIndex: -1, message: 'Book has no sections.' });
     return { errors, warnings };
@@ -147,9 +149,19 @@ export async function validateBook(book) {
     }
     if (kind === 'saved-report' && !section.savedReportId) {
       errors.push({ sectionIndex: i, message: 'Saved Report Embed: no saved report selected.' });
+    } else if (kind === 'saved-report') {
+      savedReports ??= await listSavedReports();
+      if (!savedReports.some((report) => report.id === section.savedReportId)) {
+        errors.push({ sectionIndex: i, message: 'Saved Report Embed: saved report no longer exists.' });
+      }
     }
     if (kind === 'saved-chart' && !section.savedChartId) {
       errors.push({ sectionIndex: i, message: 'Saved Chart Embed: no saved chart selected.' });
+    } else if (kind === 'saved-chart') {
+      savedCharts ??= await listChartDocuments();
+      if (!savedCharts.some((chart) => chart.id === section.savedChartId)) {
+        errors.push({ sectionIndex: i, message: 'Saved Chart Embed: saved chart no longer exists.' });
+      }
     }
     if (kind === 'cover' || kind === 'title') {
       if (!(section.text || '').trim()) warnings.push({ sectionIndex: i, message: `${def.label}: empty title.` });

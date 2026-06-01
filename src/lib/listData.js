@@ -6,6 +6,8 @@ import { parseEventDate, formatEventDate } from '../utils/formatDate.js';
 import { compareStrings, getCurrentLocalization, localeWithExtensions } from './i18n.js';
 import { loadResearchCompleteness } from './researchCompleteness.js';
 import { buildPersonLineage } from './personLineage.js';
+import { labelForCatalogType, normalizeConclusionTypeId, PERSON_FACT_TYPES } from './catalogs.js';
+import { humanizeType } from '../utils/humanizeType.js';
 
 export const MEDIA_RECORD_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 
@@ -135,7 +137,13 @@ export async function loadFactRows() {
     .map((fact) => {
       const personId = readRef(fact.fields?.person);
       const person = personId ? personById.get(personId) : null;
-      const factType = readConclusionType(fact, factTypes) || readField(fact, ['factType', 'type'], 'Fact');
+      const rawFactType = readRef(fact.fields?.conclusionType) || readField(fact, ['factType', 'type'], '');
+      const factType = rawFactType || readConclusionType(fact, factTypes) || 'Fact';
+      const normalizedFactType = normalizeConclusionTypeId(factType);
+      const catalogLabel = labelForCatalogType(PERSON_FACT_TYPES, factType);
+      const factTypeLabel = catalogLabel && catalogLabel !== normalizedFactType
+        ? catalogLabel
+        : humanizeType(normalizedFactType || factType);
       const date = readField(fact, ['date'], '');
       return {
         id: fact.recordName,
@@ -143,12 +151,13 @@ export async function loadFactRows() {
         personId,
         personName: personSummary(person)?.fullName || personId || '',
         factType,
+        factTypeLabel,
         value: readField(fact, ['value', 'description', 'text'], ''),
         date,
         formattedDate: formatEventDate(date),
       };
     })
-    .sort((a, b) => compareStrings(a.personName, b.personName) || compareStrings(a.factType, b.factType));
+    .sort((a, b) => compareStrings(a.personName, b.personName) || compareStrings(a.factTypeLabel, b.factTypeLabel));
 }
 
 export async function loadAnniversaryRows() {

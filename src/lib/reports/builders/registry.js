@@ -27,6 +27,7 @@ import {
   buildPersonsList,
   buildPlacesList,
   buildSourcesList,
+  buildSourceCitationAuditReport,
   buildToDoListReport,
 } from './listReports.js';
 import {
@@ -56,6 +57,7 @@ export const REPORT_BUILDERS = Object.freeze({
   'persons-list': buildPersonsList,
   'places-list': buildPlacesList,
   'sources-list': buildSourcesList,
+  'source-citation-audit': buildSourceCitationAuditReport,
   'events-list': buildEventsList,
   'anniversary-list': buildAnniversaryList,
   'todo-list': buildToDoListReport,

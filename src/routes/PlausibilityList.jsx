@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
 import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
+import { listToolbarButtonClass } from '../components/lists/listToolbarClasses.js';
 import { SORT_PROFILES, useSortProfile } from '../components/lists/useSortProfile.js';
 import { runPlausibilityChecks } from '../lib/plausibility.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
@@ -93,7 +94,7 @@ export default function PlausibilityList() {
           key={id}
           type="button"
           onClick={() => setSeverity(id)}
-          className={`text-xs px-3 py-1.5 rounded-md border ${severity === id ? 'bg-primary text-primary-foreground border-primary' : 'border-border bg-secondary text-foreground'}`}
+          className={`${listToolbarButtonClass} ${severity === id ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
         >
           {label}
         </button>

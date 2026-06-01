@@ -1,5 +1,6 @@
 import React from 'react';
 import { VISUAL_OPTION_SECTIONS, updateVisualViewOption } from '../../lib/visualViewOptions.js';
+import { Select } from '../ui/Select.jsx';
 
 export function VisualOptionsDrawer({
   kind = 'mapStory',
@@ -71,15 +72,12 @@ function VisualOptionControl({ control, value, onChange }) {
     return (
       <label className="grid gap-1 text-xs text-muted-foreground">
         <span>{control.label}</span>
-        <select
+        <Select
           value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="h-9 rounded-md border border-border bg-secondary px-2 text-xs text-foreground"
-        >
-          {control.options.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
+          onChange={onChange}
+          options={control.options}
+          triggerClassName="h-9 text-xs px-2"
+        />
       </label>
     );
   }

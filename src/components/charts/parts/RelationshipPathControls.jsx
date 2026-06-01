@@ -4,6 +4,7 @@
  * found between the two selected people.
  */
 import React from 'react';
+import { Select } from '../../ui/Select.jsx';
 import { relationshipControlsStyle, relationshipToggleStyle, selectStyle } from './styles.js';
 
 export function RelationshipPathControls({
@@ -65,20 +66,21 @@ export function RelationshipPathControls({
           style={{ ...selectStyle, width: 60 }}
         />
       </label>
-      <select
+      <Select
         value={selectedPathId || ''}
-        onChange={(event) => onSelectedPathChange(event.target.value || null)}
+        onChange={(value) => onSelectedPathChange(value || null)}
         disabled={disabled || paths.length === 0}
-        style={{ ...selectStyle, minWidth: 180 }}
-        title="Relationship path"
-      >
-        <option value="">{disabled ? 'Pick compare person' : paths.length ? 'Select path...' : 'No path found'}</option>
-        {paths.map((path, index) => (
-          <option key={path.id} value={path.id}>
-            {index + 1}. {path.label} ({path.steps.length - 1} step{path.steps.length === 2 ? '' : 's'})
-          </option>
-        ))}
-      </select>
+        options={[
+          { value: '', label: disabled ? 'Pick compare person' : paths.length ? 'Select path...' : 'No path found' },
+          ...paths.map((path, index) => ({
+            value: path.id,
+            label: `${index + 1}. ${path.label} (${path.steps.length - 1} step${path.steps.length === 2 ? '' : 's'})`,
+          })),
+        ]}
+        style={{ minWidth: 180 }}
+        triggerStyle={{ ...selectStyle, paddingInlineEnd: 32 }}
+        ariaLabel="Relationship path"
+      />
       <button type="button" onClick={onReset} disabled={disabled} style={selectStyle}>
         Reset
       </button>

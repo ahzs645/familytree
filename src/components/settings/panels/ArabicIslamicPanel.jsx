@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSettings } from '../SettingsContext.jsx';
-import { Field, Grid, Panel, Switch, inputClass, vitalPreview } from '../sharedUI.jsx';
+import { Field, Grid, Panel, SettingsSelect, Switch, vitalPreview } from '../sharedUI.jsx';
 import { VITAL_MARKER_STYLE_OPTIONS } from '../../../lib/vitalFormat.js';
 
 export default function ArabicIslamicPanel() {
@@ -9,15 +9,14 @@ export default function ArabicIslamicPanel() {
     <Panel title={t('settingsPage.arabicIslamic.panel')}>
       <Grid>
         <Field label={t('settingsPage.arabicIslamic.vitalMarkerStyle')} hint={t('settingsPage.arabicIslamic.vitalMarkerHint')}>
-          <select
+          <SettingsSelect
             value={prefs.formats.vitalDisplay?.markerStyle || 'range'}
-            onChange={(event) => update('formats', 'vitalDisplay', { ...(prefs.formats.vitalDisplay || {}), markerStyle: event.target.value })}
-            className={inputClass}
-          >
-            {VITAL_MARKER_STYLE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{t(`constants.vitalMarker.${option.value}`)}</option>
-            ))}
-          </select>
+            onChange={(value) => update('formats', 'vitalDisplay', { ...(prefs.formats.vitalDisplay || {}), markerStyle: value })}
+            options={VITAL_MARKER_STYLE_OPTIONS.map((option) => ({
+              value: option.value,
+              label: t(`constants.vitalMarker.${option.value}`),
+            }))}
+          />
           <div className="mt-1 text-[11px] text-muted-foreground">
             {t('settingsPage.preview')}: <span className="font-mono text-foreground">{vitalPreview(prefs.formats.vitalDisplay?.markerStyle)}</span>
           </div>

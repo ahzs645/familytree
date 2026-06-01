@@ -15,6 +15,11 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refValue } from './recordRef.js';
 import { DATASET_SCHEMA_VERSION } from './datasetSchemaVersion.js';
+import {
+  applySourceRelationLineageFields,
+  createLineageBatchRecord,
+  createLineageEventRecord,
+} from './sourceLineage.js';
 import { Gender } from '../models/index.js';
 import {
   child,
@@ -33,6 +38,11 @@ import {
   REPOSITORY_HANDLED_TAGS,
   SOURCE_HANDLED_TAGS,
 } from './gedcom/constants.js';
+import {
+  analyzeGedcomText,
+  canImportGedcomAnalysis,
+  gedcomImportModeLabel,
+} from './gedcom/analyze.js';
 
 export { tokenizeGedcomText } from './gedcom/tokenize.js';
 export {
@@ -361,6 +371,9 @@ function addSourceRelations(records, sourceNodes, targetId, targetType, { source
     if (page) fields.page = { value: page, type: 'STRING' };
     if (text) fields.text = { value: text, type: 'STRING' };
     if (note) fields.note = { value: note, type: 'STRING' };
+    if (node.value) fields.lineageSourceRecord = { value: node.value, type: 'STRING' };
+    fields.lineageTargetRecord = { value: targetId, type: 'STRING' };
+    fields.lineageOperation = { value: 'gedcomImport', type: 'STRING' };
     records.push({ recordName: uuid('sr-imp'), recordType: 'SourceRelation', fields });
   }
 }
@@ -655,6 +668,12 @@ function bytesToBase64(bytes) {
 
 export function buildGedcomDataset(text, { sourceName = 'GEDCOM import', mediaFiles = [], resourceFiles = [] } = {}) {
   const { records, assets } = parseGedcomParts(text, { mediaFiles, resourceFiles });
+  stampImportedSourceRelationLineage(records, {
+    kind: 'gedcomImport',
+    sourceName,
+    summary: `GEDCOM import from ${sourceName}`,
+    importMeta: { sourceName },
+  });
   const recordMap = Object.fromEntries(records.map((record) => [record.recordName, record]));
   const counts = records.reduce((acc, record) => {
     acc[record.recordType] = (acc[record.recordType] || 0) + 1;
@@ -745,7 +764,37 @@ export async function importGedcomText(text, { replace = false, sourceName = 'GE
     return db.importDataset(dataset);
   }
   const { records, assets } = parseGedcomParts(text, { mediaFiles, resourceFiles });
+  stampImportedSourceRelationLineage(records, {
+    kind: 'gedcomImport',
+    sourceName,
+    summary: `GEDCOM import from ${sourceName}`,
+    importMeta: { sourceName },
+  });
   await db.applyRecordTransaction({ saveRecords: records, saveAssets: assets });
   return records.length;
 }
 
+function stampImportedSourceRelationLineage(records, batchDraft) {
+  const sourceRelations = records.filter((record) => record.recordType === 'SourceRelation');
+  if (!sourceRelations.length) return;
+  const batch = createLineageBatchRecord(batchDraft);
+  records.push(batch);
+  for (const relation of sourceRelations) {
+    const event = createLineageEventRecord({
+      eventType: 'imported',
+      operation: batchDraft.kind,
+      sourceRelation: relation,
+      lineageBatch: batch.recordName,
+      details: batchDraft.summary,
+    });
+    const stamped = applySourceRelationLineageFields(relation, {
+      lineageBatch: batch.recordName,
+      operation: batchDraft.kind,
+      createdByEvent: event.recordName,
+      sourceRecord: relation.fields?.lineageSourceRecord?.value,
+      targetRecord: relation.fields?.lineageTargetRecord?.value,
+    });
+    relation.fields = stamped.fields;
+    records.push(event);
+  }
+}

@@ -3,11 +3,12 @@
  * Click a marker to jump to its record in the Places editor.
  */
 import React, { useEffect, useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { refToRecordName } from '../lib/recordRef.js';
 import { placeSummary } from '../models/index.js';
 import { Map as BaseMap } from '../components/ui/Map.jsx';
+import { MapModeSwitch } from '../components/ui/MapModeSwitch.jsx';
 
 function parseCoord(v) {
   if (v == null || v === '') return null;
@@ -17,6 +18,7 @@ function parseCoord(v) {
 
 export default function MapView() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [places, setPlaces] = useState([]);
   const [coordinates, setCoordinates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -82,8 +84,11 @@ export default function MapView() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
+      <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <strong className="text-sm">Virtual Map</strong>
+        <MapModeSwitch activeMode="map" onModeChange={(mode) => {
+          if (mode === 'globe') navigate(location.pathname.startsWith('/views/') ? '/views/virtual-globe' : '/globe');
+        }} />
         <span className="text-xs text-muted-foreground">
           {loading
             ? 'Loading places…'

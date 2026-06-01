@@ -11,6 +11,7 @@
  */
 import React from 'react';
 import { formatName } from '../../lib/nameFormat.js';
+import { Select } from '../ui/Select.jsx';
 
 export function Panel({ title, children }) {
   return (
@@ -53,6 +54,16 @@ export function CheckButton({ active, onClick, children }) {
     >
       {children}
     </button>
+  );
+}
+
+export function SettingsSelect({ className, triggerClassName, ...props }) {
+  return (
+    <Select
+      {...props}
+      className={className || 'w-full'}
+      triggerClassName={`bg-background ${triggerClassName || ''}`}
+    />
   );
 }
 

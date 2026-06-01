@@ -14,7 +14,7 @@ const RELATION_TYPES = new Set([
 const KEY_FIELDS = {
   ChildRelation: ['family', 'child'],
   LabelRelation: ['label', 'target', 'targetPerson', 'targetFamily', 'targetPlace', 'targetSource', 'baseObject'],
-  SourceRelation: ['source', 'target'],
+  SourceRelation: ['source', 'target', 'page', 'citation', 'text', 'transcription', 'excerpt'],
   MediaRelation: ['media', 'target'],
   ToDoRelation: ['todo', 'target'],
   PersonGroupRelation: ['personGroup', 'person'],
@@ -73,6 +73,8 @@ export function planReferenceRewrite(records, fromRecordName, toRecordName, toRe
   const deleteSet = new Set();
   let rewrittenReferenceCount = 0;
   let preservedRecordCount = 0;
+  const rewriteEvents = [];
+  const dedupeEvents = [];
 
   for (const record of records) {
     if (!record || record.recordName === fromRecordName) continue;
@@ -82,6 +84,7 @@ export function planReferenceRewrite(records, fromRecordName, toRecordName, toRe
       if (!next) next = cloneRecord(record);
       next.fields[fieldName] = replaceRefValue(field, fromRecordName, toRecordName, toRecordType || refType(field));
       rewrittenReferenceCount += 1;
+      rewriteEvents.push({ recordName: record.recordName, recordType: record.recordType, fieldName, from: fromRecordName, to: toRecordName });
     }
     if (next) {
       preservedRecordCount += 1;
@@ -110,6 +113,7 @@ export function planReferenceRewrite(records, fromRecordName, toRecordName, toRe
     deleteSet.add(drop.recordName);
     byKey.set(key, merged);
     dedupedRelationCount += 1;
+    dedupeEvents.push({ kept: keep.recordName, dropped: drop.recordName, recordType: record.recordType });
   }
 
   return {
@@ -118,6 +122,8 @@ export function planReferenceRewrite(records, fromRecordName, toRecordName, toRe
     rewrittenReferenceCount,
     preservedRecordCount,
     dedupedRelationCount,
+    rewriteEvents,
+    dedupeEvents,
   };
 }
 

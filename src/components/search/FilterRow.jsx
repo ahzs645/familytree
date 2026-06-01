@@ -4,6 +4,7 @@
 import React from 'react';
 import { SEARCH_FIELDS, FILTER_OPS } from '../../lib/search.js';
 import { DatePicker } from '../ui/DatePicker.jsx';
+import { Select } from '../ui/Select.jsx';
 
 export function FilterRow({ entityType, filter, onChange, onRemove }) {
   const fields = SEARCH_FIELDS[entityType] || [];
@@ -24,23 +25,28 @@ export function FilterRow({ entityType, filter, onChange, onRemove }) {
 
   return (
     <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6, flexWrap: 'wrap' }}>
-      <select value={filter.field} onChange={(e) => update({ field: e.target.value })} style={inputStyle}>
-        {fields.map((f) => (
-          <option key={f.id} value={f.id}>{f.label}</option>
-        ))}
-      </select>
-      <select value={filter.op} onChange={(e) => update({ op: e.target.value })} style={inputStyle}>
-        {ops.map((op) => (
-          <option key={op} value={op}>{op}</option>
-        ))}
-      </select>
+      <Select
+        value={filter.field}
+        onChange={(field) => update({ field })}
+        options={fields.map((f) => ({ value: f.id, label: f.label }))}
+        triggerClassName="h-auto"
+        triggerStyle={inputStyle}
+      />
+      <Select
+        value={filter.op}
+        onChange={(op) => update({ op })}
+        options={ops.map((op) => ({ value: op, label: op }))}
+        triggerClassName="h-auto"
+        triggerStyle={inputStyle}
+      />
       {fieldDef.type === 'enum' && filter.op === 'equals' && (
-        <select value={String(filter.value ?? '')} onChange={(e) => update({ value: parseValueForType(fieldDef, e.target.value) })} style={inputStyle}>
-          <option value="">—</option>
-          {fieldDef.options.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        <Select
+          value={String(filter.value ?? '')}
+          onChange={(value) => update({ value: parseValueForType(fieldDef, value) })}
+          options={[{ value: '', label: '—' }, ...fieldDef.options.map((o) => ({ value: String(o.value), label: o.label }))]}
+          triggerClassName="h-auto"
+          triggerStyle={inputStyle}
+        />
       )}
       {fieldDef.type === 'date' && (
         <div style={{ width: 180 }}>

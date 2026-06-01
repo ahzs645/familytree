@@ -5,6 +5,7 @@
  * - Section: titled group with a small label
  */
 import React from 'react';
+import { Select } from '../../ui/Select.jsx';
 import { optionSelect } from './styles.js';
 
 export function Field({ label, children, hideOnNarrow }) {
@@ -44,11 +45,12 @@ export function SelectOption({ label, value, onChange, options }) {
   return (
     <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
       <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} style={optionSelect}>
-        {options.map(([optionValue, optionLabel]) => (
-          <option key={optionValue} value={optionValue}>{optionLabel}</option>
-        ))}
-      </select>
+      <Select
+        value={value}
+        onChange={onChange}
+        options={options.map(([optionValue, optionLabel]) => ({ value: optionValue, label: optionLabel }))}
+        triggerStyle={{ ...optionSelect, paddingInlineEnd: 30 }}
+      />
     </label>
   );
 }

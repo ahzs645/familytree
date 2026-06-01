@@ -18,6 +18,7 @@ import {
   dmsLat,
   dmsLon,
 } from '../lib/catalogs.js';
+import { resolveLabelDefinitions } from '../lib/labels.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
@@ -96,6 +97,7 @@ export default function Places() {
   const [components, setComponents] = useState({});
   const [details, setDetails] = useState([]);
   const [labels, setLabels] = useState({});
+  const [labelDefs, setLabelDefs] = useState(LABELS);
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
@@ -218,7 +220,11 @@ export default function Places() {
         recordName: r.recordName,
         name: r.fields?.name?.value || '',
       })));
-      const lbl = await db.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: activeId, limit: 500 });
+      const [lbl, labelRows] = await Promise.all([
+        db.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: activeId, limit: 500 }),
+        db.query('Label', { limit: 100000 }),
+      ]);
+      setLabelDefs(resolveLabelDefinitions(labelRows.records));
       const map = new Map(lbl.records.map((r) => [refToRecordName(r.fields?.label?.value), r.recordName]));
       const s = {};
       for (const def of LABELS) s[def.id] = map.has(def.id);
@@ -619,7 +625,7 @@ export default function Places() {
         <div>
           <Section title="Labels" accent={ACCENTS.labels}>
             <div className="space-y-1">
-              {LABELS.map((def) => (
+              {labelDefs.map((def) => (
                 <EditSwitch key={def.id} label={def.label} color={def.color}
                   checked={!!labels[def.id]} onChange={(v) => setLabels((s) => ({ ...s, [def.id]: v }))} />
               ))}

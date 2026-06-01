@@ -2,18 +2,19 @@
  * Views — desktop-style entry point for non-native visual modes.
  */
 import React from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { cn } from '../lib/utils.js';
 
 const TABS = [
-  { to: '/views/virtual-map', label: 'Virtual Map', aliases: ['/map'] },
-  { to: '/views/virtual-globe', label: 'Virtual Globe', aliases: ['/globe'] },
+  { to: '/views/virtual-map', label: 'Map', aliases: ['/map', '/globe', '/views/virtual-globe'] },
   { to: '/views/statistic-maps', label: 'Statistic Maps', aliases: ['/maps-diagram', '/statistic-maps'] },
   { to: '/views/media-gallery', label: 'Media Gallery', aliases: ['/media'] },
   { to: '/views/family-quiz', label: 'Family Quiz', aliases: ['/quiz'] },
 ];
 
 export default function Views() {
+  const location = useLocation();
+
   return (
     <div className="flex h-full flex-col bg-background">
       <header className="border-b border-border bg-card px-5 pt-3">
@@ -31,7 +32,7 @@ export default function Views() {
               className={({ isActive }) =>
                 cn(
                   'whitespace-nowrap border-b-2 px-3 py-2 text-xs font-semibold transition-colors',
-                  isActive
+                  isActive || tab.aliases?.includes(location.pathname)
                     ? 'border-primary text-foreground'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
                 )
@@ -48,4 +49,3 @@ export default function Views() {
     </div>
   );
 }
-

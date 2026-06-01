@@ -4,6 +4,8 @@ import { SortableListTable } from './SortableListTable.jsx';
 import { useColumnVisibility } from './useColumnVisibility.js';
 import { ListReportToolbar, useListReportOptions } from './ListReportWorkbench.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { Select } from '../ui/Select.jsx';
+import { listToolbarSelectTriggerClass } from './listToolbarClasses.js';
 
 export function ConfigurableListTable({
   listId,
@@ -31,15 +33,16 @@ export function ConfigurableListTable({
       {sortProfile?.sortOptions?.length ? (
         <div className="inline-flex items-center gap-2">
           <label className="text-xs text-muted-foreground whitespace-nowrap">{sortProfile.label || t('sortProfiles.label')}</label>
-          <select
+          <Select
             value={sortProfile.sortKey}
-            onChange={(event) => sortProfile.setSortKey(event.target.value)}
-            className="min-w-0 bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm"
-          >
-            {sortProfile.sortOptions.map((option) => (
-              <option key={option.key} value={option.key}>{t(`sortProfiles.${option.key}`, { defaultValue: option.label })}</option>
-            ))}
-          </select>
+            onChange={sortProfile.setSortKey}
+            options={sortProfile.sortOptions.map((option) => ({
+              value: option.key,
+              label: t(`sortProfiles.${option.key}`, { defaultValue: option.label }),
+            }))}
+            className="min-w-0"
+            triggerClassName={listToolbarSelectTriggerClass}
+          />
         </div>
       ) : null}
       <ColumnChooser

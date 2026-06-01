@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
 import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
 import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { listToolbarInputBaseClass, listToolbarSelectTriggerClass } from '../components/lists/listToolbarClasses.js';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadFactRows } from '../lib/listData.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
@@ -28,7 +29,16 @@ export default function FactsList() {
     };
   }, []);
 
-  const typeOptions = useMemo(() => [...new Set(rows.map((row) => row.factType).filter(Boolean))].sort(), [rows]);
+  const typeOptions = useMemo(() => {
+    const byType = new Map();
+    for (const row of rows) {
+      if (!row.factType) continue;
+      byType.set(row.factType, row.factTypeLabel || row.factType);
+    }
+    return [...byType.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [rows]);
   const filteredRows = useMemo(() => rows.filter((row) => {
     if (typeFilter && row.factType !== typeFilter) return false;
     if (dateFilter.trim() && !String(row.date || '').toLowerCase().includes(dateFilter.trim().toLowerCase())) return false;
@@ -47,7 +57,7 @@ export default function FactsList() {
         ? <Link to={`/person/${row.personId}`} className="text-primary hover:underline">{row.personName || row.personId}</Link>
         : <span className="text-muted-foreground">{t('factsList.noLinkedPerson')}</span>,
     },
-    { key: 'factType', label: t('factsList.fact') },
+    { key: 'factTypeLabel', label: t('factsList.fact') },
     {
       key: 'value',
       label: t('factsList.value'),
@@ -74,9 +84,9 @@ export default function FactsList() {
   const filters = (
     <>
       <label className="text-xs text-muted-foreground ms-auto">{t('factsList.factType')}</label>
-      <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm">
+      <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className={listToolbarSelectTriggerClass}>
         <option value="">{t('factsList.allTypes')}</option>
-        {typeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+        {typeOptions.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
       </select>
       <ScopeFilterSelect
         value={scoped.scopeId}
@@ -91,7 +101,7 @@ export default function FactsList() {
         value={dateFilter}
         onChange={(event) => setDateFilter(event.target.value)}
         placeholder={t('factsList.datePlaceholder')}
-        className="w-32 bg-background text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm outline-none focus:border-primary"
+        className={`${listToolbarInputBaseClass} w-32`}
       />
     </>
   );

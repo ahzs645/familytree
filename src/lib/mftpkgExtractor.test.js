@@ -33,6 +33,12 @@ describe.skipIf(!existsSync(SAMPLE_DB))('MacFamilyTree package extraction', () =
       expect(decodedScope.summary.filters.some((filter) => filter.selectionDictionary?.A1 === '01.01.1950')).toBe(true);
       const importedLabel = Object.values(dataset.records).find((record) => record.recordType === 'Label');
       expect(readLabel(importedLabel).name).toBeTruthy();
+      const sourceRelation = Object.values(dataset.records).find((record) => record.recordType === 'SourceRelation');
+      const lineageBatch = Object.values(dataset.records).find((record) => record.recordType === 'LineageBatch');
+      const lineageEvent = Object.values(dataset.records).find((record) => record.recordType === 'LineageEvent');
+      expect(sourceRelation?.fields.lineageOperation.value).toBe('mftpkgImport');
+      expect(sourceRelation?.fields.lineageBatch.value).toBe(`${lineageBatch.recordName}---LineageBatch`);
+      expect(sourceRelation?.fields.lineageCreatedByEvent.value).toBe(`${lineageEvent.recordName}---LineageEvent`);
       expect(Object.keys(dataset.records).length).toBeGreaterThan(6500);
     } finally {
       db.close();

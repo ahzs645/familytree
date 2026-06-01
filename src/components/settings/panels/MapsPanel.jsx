@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSettings } from '../SettingsContext.jsx';
-import { Field, Grid, Panel, Switch, inputClass } from '../sharedUI.jsx';
+import { Field, Grid, Panel, SettingsSelect, Switch, inputClass } from '../sharedUI.jsx';
 
 export default function MapsPanel() {
   const { mapPrefs, updateMap, t } = useSettings();
@@ -9,12 +9,16 @@ export default function MapsPanel() {
     <Panel title={t('settingsPage.maps.panel')}>
       <Grid>
         <Field label={t('settingsPage.maps.basemap')}>
-          <select value={mapPrefs.basemap} onChange={(event) => updateMap('basemap', event.target.value)} className={inputClass}>
-            <option value="auto">{t('settingsPage.maps.basemapAuto')}</option>
-            <option value="positron">{t('settingsPage.maps.basemapLight')}</option>
-            <option value="voyager">{t('settingsPage.maps.basemapVoyager')}</option>
-            <option value="dark">{t('settingsPage.maps.basemapDark')}</option>
-          </select>
+          <SettingsSelect
+            value={mapPrefs.basemap}
+            onChange={(value) => updateMap('basemap', value)}
+            options={[
+              { value: 'auto', label: t('settingsPage.maps.basemapAuto') },
+              { value: 'positron', label: t('settingsPage.maps.basemapLight') },
+              { value: 'voyager', label: t('settingsPage.maps.basemapVoyager') },
+              { value: 'dark', label: t('settingsPage.maps.basemapDark') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.maps.defaultZoom')}>
           <input type="number" min="1" max="18" value={mapPrefs.defaultZoom} onChange={(event) => updateMap('defaultZoom', Number(event.target.value))} className={inputClass} />

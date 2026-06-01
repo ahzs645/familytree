@@ -16,8 +16,9 @@
  *   - lighting.js       ambient + key + fill + shadows
  *   - relationshipPath.js highlight a path through the graph
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LocateFixed, RotateCcw } from 'lucide-react';
+import { Select } from '../ui/Select.jsx';
 import { VirtualTree3DScene } from './virtualTree3D/Scene.js';
 import { SYMBOL_MODES } from './virtualTree3D/symbolModes.js';
 import { COLOR_MODES } from './virtualTree3D/colorModes.js';
@@ -38,6 +39,7 @@ export function VirtualTree3D({
 }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
+  const [cameraMode, setCameraMode] = useState('iso');
 
   useEffect(() => {
     const container = containerRef.current;
@@ -94,21 +96,33 @@ export function VirtualTree3D({
           <LocateFixed size={16} aria-hidden="true" />
           <span>Size to Fit</span>
         </button>
-        <button type="button" onClick={() => sceneRef.current?.setCameraMode('iso')} style={iconButtonStyle} title="Reset view">
+        <button
+          type="button"
+          onClick={() => {
+            setCameraMode('iso');
+            sceneRef.current?.setCameraMode('iso');
+          }}
+          style={iconButtonStyle}
+          title="Reset view"
+        >
           <RotateCcw size={16} aria-hidden="true" />
         </button>
-        <select
-          defaultValue="iso"
-          onChange={(event) => sceneRef.current?.setCameraMode(event.target.value)}
-          style={selectStyle}
-          aria-label="3D camera view"
-        >
-          <option value="iso">Isometric</option>
-          <option value="top">Top</option>
-          <option value="front">Front</option>
-          <option value="left">Left</option>
-          <option value="right">Right</option>
-        </select>
+        <Select
+          value={cameraMode}
+          onChange={(value) => {
+            setCameraMode(value);
+            sceneRef.current?.setCameraMode(value);
+          }}
+          options={[
+            { value: 'iso', label: 'Isometric' },
+            { value: 'top', label: 'Top' },
+            { value: 'front', label: 'Front' },
+            { value: 'left', label: 'Left' },
+            { value: 'right', label: 'Right' },
+          ]}
+          triggerStyle={{ ...selectStyle, paddingInlineEnd: 32 }}
+          ariaLabel="3D camera view"
+        />
       </div>
     </div>
   );

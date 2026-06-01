@@ -19,4 +19,20 @@ describe('reference graph merge planning', () => {
     expect(plan.dedupedRelationCount).toBe(1);
     expect(plan.deleteRecordNames).toContain('labelrelation-2');
   });
+
+  it('preserves distinct source citations when page or citation text differs', () => {
+    const records = [
+      { recordName: 'source-a', recordType: 'Source', fields: { title: { value: 'A' } } },
+      { recordName: 'source-b', recordType: 'Source', fields: { title: { value: 'B' } } },
+      { recordName: 'person-1', recordType: 'Person', fields: { firstName: { value: 'Jane' } } },
+      { recordName: 'sr-1', recordType: 'SourceRelation', fields: { source: { value: 'source-a---Source', type: 'REFERENCE' }, target: { value: 'person-1---Person', type: 'REFERENCE' }, page: { value: '1' }, citation: { value: 'front' } } },
+      { recordName: 'sr-2', recordType: 'SourceRelation', fields: { source: { value: 'source-b---Source', type: 'REFERENCE' }, target: { value: 'person-1---Person', type: 'REFERENCE' }, page: { value: '2' }, citation: { value: 'back' } } },
+    ];
+
+    const plan = planReferenceRewrite(records, 'source-b', 'source-a', 'Source');
+    const rewritten = plan.saveRecords.find((record) => record.recordName === 'sr-2');
+    expect(readRef(rewritten.fields.source)).toBe('source-a');
+    expect(plan.dedupedRelationCount).toBe(0);
+    expect(plan.deleteRecordNames).not.toContain('sr-2');
+  });
 });

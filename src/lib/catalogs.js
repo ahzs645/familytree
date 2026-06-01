@@ -298,6 +298,9 @@ export function normalizeConclusionTypeId(raw) {
   const conclusionMatch = head.match(/^Conclusion(?:Person|Family)?(?:Event|Fact|AdditionalName)?Type_?(.+)$/);
   if (conclusionMatch) return conclusionMatch[1];
 
+  const macLocalizationMatch = head.match(/^_(?:PersonEvent|FamilyEvent|PersonFact|AdditionalName)_(.+)$/);
+  if (macLocalizationMatch) return macLocalizationMatch[1];
+
   return head;
 }
 

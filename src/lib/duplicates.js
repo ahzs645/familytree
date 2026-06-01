@@ -12,6 +12,11 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refToRecordName } from './recordRef.js';
 import { planReferenceRewrite, countReferencesTo } from './referenceGraph.js';
+import {
+  applySourceRelationLineageFields,
+  createLineageBatchRecord,
+  createLineageEventRecord,
+} from './sourceLineage.js';
 
 const PERSON_THRESHOLD = 0.85;
 const SOURCE_THRESHOLD = 0.85;
@@ -471,14 +476,66 @@ export async function mergeRecordsSafely(targetName, sourceName, options = {}) {
     fields: options.mergedFields ? { ...options.mergedFields } : { ...source.fields, ...target.fields },
   };
   const rewrite = planReferenceRewrite(all, sourceName, targetName, target.recordType);
+  const lineageRecords = [];
+  let lineageBatch = null;
+  if (target.recordType === 'Source') {
+    lineageBatch = createLineageBatchRecord({
+      kind: 'duplicateMerge',
+      sourceName: `${sourceName} into ${targetName}`,
+      summary: `Duplicate source merge: ${sourceName} into ${targetName}`,
+      importMeta: { mergeSurvivor: targetName, mergeDiscarded: sourceName },
+    });
+    lineageRecords.push(lineageBatch);
+  }
   const sourceAssets = await db.listAssetsForRecord(sourceName);
   const movedAssets = sourceAssets.map((asset) => ({ ...asset, ownerRecordName: targetName }));
   const saveByName = new Map(rewrite.saveRecords.map((r) => [r.recordName, r]));
+  if (lineageBatch) {
+    for (const eventDraft of rewrite.rewriteEvents.filter((event) => event.recordType === 'SourceRelation')) {
+      const relation = saveByName.get(eventDraft.recordName) || all.find((record) => record.recordName === eventDraft.recordName);
+      if (!relation) continue;
+      const lineageEvent = createLineageEventRecord({
+        eventType: 'rewritten',
+        operation: 'duplicateMerge',
+        sourceRelation: relation,
+        lineageBatch: lineageBatch.recordName,
+        details: `Citation reference rewired from ${sourceName} to ${targetName}.`,
+        metadata: eventDraft,
+      });
+      lineageRecords.push(lineageEvent);
+      saveByName.set(relation.recordName, applySourceRelationLineageFields(relation, {
+        lineageBatch: lineageBatch.recordName,
+        operation: 'duplicateMerge',
+        updatedByEvent: lineageEvent.recordName,
+      }));
+    }
+    for (const eventDraft of rewrite.dedupeEvents.filter((event) => event.recordType === 'SourceRelation')) {
+      const relation = saveByName.get(eventDraft.kept) || all.find((record) => record.recordName === eventDraft.kept);
+      if (!relation) continue;
+      const lineageEvent = createLineageEventRecord({
+        eventType: 'deduped',
+        operation: 'duplicateMerge',
+        sourceRelation: relation,
+        previousSourceRelation: eventDraft.dropped,
+        lineageBatch: lineageBatch.recordName,
+        supersedes: [eventDraft.dropped],
+        details: `Duplicate citation ${eventDraft.dropped} merged into ${eventDraft.kept}.`,
+        metadata: eventDraft,
+      });
+      lineageRecords.push(lineageEvent);
+      saveByName.set(relation.recordName, applySourceRelationLineageFields(relation, {
+        lineageBatch: lineageBatch.recordName,
+        operation: 'duplicateMerge',
+        updatedByEvent: lineageEvent.recordName,
+        supersedes: [eventDraft.dropped],
+      }));
+    }
+  }
   saveByName.set(mergedRecord.recordName, mergedRecord);
   const deleteRecordNames = [sourceName, ...rewrite.deleteRecordNames.filter((name) => name !== targetName)];
 
   await db.applyRecordTransaction({
-    saveRecords: [...saveByName.values()],
+    saveRecords: [...saveByName.values(), ...lineageRecords],
     deleteRecordNames,
     saveAssets: movedAssets,
   });

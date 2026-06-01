@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSettings } from '../SettingsContext.jsx';
-import { Field, Grid, Panel, Switch, inputClass } from '../sharedUI.jsx';
+import { Field, Grid, Panel, SettingsSelect, Switch, inputClass } from '../sharedUI.jsx';
 
 export default function MediaSlideshowPanel() {
   const { prefs, update, t } = useSettings();
@@ -18,40 +18,40 @@ export default function MediaSlideshowPanel() {
           />
         </Field>
         <Field label={t('settingsPage.media.filterType')}>
-          <select
+          <SettingsSelect
             value={prefs.media?.slideshow?.filter || 'all'}
-            onChange={(event) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), filter: event.target.value })}
-            className={inputClass}
-          >
-            <option value="all">{t('settingsPage.media.filterAll')}</option>
-            <option value="MediaPicture">{t('settingsPage.media.filterPictures')}</option>
-            <option value="MediaPDF">{t('settingsPage.media.filterPdf')}</option>
-            <option value="MediaURL">{t('settingsPage.media.filterUrl')}</option>
-            <option value="MediaAudio">{t('settingsPage.media.filterAudio')}</option>
-            <option value="MediaVideo">{t('settingsPage.media.filterVideo')}</option>
-          </select>
+            onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), filter: value })}
+            options={[
+              { value: 'all', label: t('settingsPage.media.filterAll') },
+              { value: 'MediaPicture', label: t('settingsPage.media.filterPictures') },
+              { value: 'MediaPDF', label: t('settingsPage.media.filterPdf') },
+              { value: 'MediaURL', label: t('settingsPage.media.filterUrl') },
+              { value: 'MediaAudio', label: t('settingsPage.media.filterAudio') },
+              { value: 'MediaVideo', label: t('settingsPage.media.filterVideo') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.media.imageFit')}>
-          <select
+          <SettingsSelect
             value={prefs.media?.slideshow?.fit || 'contain'}
-            onChange={(event) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), fit: event.target.value })}
-            className={inputClass}
-          >
-            <option value="contain">{t('settingsPage.media.fitContain')}</option>
-            <option value="cover">{t('settingsPage.media.fitCover')}</option>
-            <option value="actual">{t('settingsPage.media.fitActual')}</option>
-          </select>
+            onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), fit: value })}
+            options={[
+              { value: 'contain', label: t('settingsPage.media.fitContain') },
+              { value: 'cover', label: t('settingsPage.media.fitCover') },
+              { value: 'actual', label: t('settingsPage.media.fitActual') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.media.backdrop')}>
-          <select
+          <SettingsSelect
             value={prefs.media?.slideshow?.background || 'dark'}
-            onChange={(event) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), background: event.target.value })}
-            className={inputClass}
-          >
-            <option value="dark">{t('settingsPage.media.backdropDark')}</option>
-            <option value="light">{t('settingsPage.media.backdropLight')}</option>
-            <option value="soft">{t('settingsPage.media.backdropSoft')}</option>
-          </select>
+            onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), background: value })}
+            options={[
+              { value: 'dark', label: t('settingsPage.media.backdropDark') },
+              { value: 'light', label: t('settingsPage.media.backdropLight') },
+              { value: 'soft', label: t('settingsPage.media.backdropSoft') },
+            ]}
+          />
         </Field>
         <Switch label={t('settingsPage.media.captions')} checked={prefs.media?.slideshow?.showCaption !== false} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), showCaption: value })} />
         <Switch label={t('settingsPage.media.metadata')} checked={!!prefs.media?.slideshow?.showMetadata} onChange={(value) => update('media', 'slideshow', { ...(prefs.media?.slideshow || {}), showMetadata: value })} />

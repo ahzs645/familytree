@@ -4,6 +4,7 @@ import {
   applyReportContentOptions,
   createSavedReportPayload,
   defaultOptionsForBuilder,
+  getReportBuilderCategories,
   stateFromSavedReport,
 } from './ReportsApp.jsx';
 
@@ -94,5 +95,14 @@ describe('ReportsApp report configuration', () => {
 
     expect(applyReportContentOptions(report, { includeHeader: false }).blocks).toEqual([{ kind: 'paragraph', text: 'Body' }]);
     expect(applyReportContentOptions(report, { includeHeader: true }).blocks).toHaveLength(2);
+  });
+
+  it('groups report builders for the report library', () => {
+    const groups = getReportBuilderCategories(REPORT_BUILDERS);
+    const names = groups.map((group) => group.name);
+
+    expect(names).toContain('Person Reports');
+    expect(names).toContain('Lineage Reports');
+    expect(groups.find((group) => group.name === 'Analysis')?.builders.map((builder) => builder.id)).toContain('status-report');
   });
 });

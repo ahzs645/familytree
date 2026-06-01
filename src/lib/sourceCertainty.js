@@ -14,24 +14,39 @@ export const CERTAINTY = Object.freeze({
   DONT_KNOW: 'DontKnow',
   DERIVATIVE: 'Derivative',
   ORIGINAL: 'Original',
+  SECONDARY: 'Secondary',
+  PRIMARY: 'Primary',
+  NEGATIVE: 'Negative',
+  INDIRECT: 'Indirect',
+  DIRECT: 'Direct',
 });
 
 export const CERTAINTY_ORDER = Object.freeze({
   [CERTAINTY.DONT_KNOW]: 0,
   [CERTAINTY.DERIVATIVE]: 1,
   [CERTAINTY.ORIGINAL]: 2,
+  [CERTAINTY.SECONDARY]: 1,
+  [CERTAINTY.PRIMARY]: 2,
+  [CERTAINTY.NEGATIVE]: 1,
+  [CERTAINTY.INDIRECT]: 2,
+  [CERTAINTY.DIRECT]: 3,
 });
 
 export const CERTAINTY_LABELS = Object.freeze({
   [CERTAINTY.DONT_KNOW]: '—',
   [CERTAINTY.DERIVATIVE]: 'Derivative',
   [CERTAINTY.ORIGINAL]: 'Original',
+  [CERTAINTY.SECONDARY]: 'Secondary',
+  [CERTAINTY.PRIMARY]: 'Primary',
+  [CERTAINTY.NEGATIVE]: 'Negative',
+  [CERTAINTY.INDIRECT]: 'Indirect',
+  [CERTAINTY.DIRECT]: 'Direct',
 });
 
 export const CERTAINTY_AXES = Object.freeze([
-  { key: 'sourceQuality', label: 'Source' },
-  { key: 'informationQuality', label: 'Information' },
-  { key: 'evidenceQuality', label: 'Evidence' },
+  { key: 'sourceQuality', label: 'Source', values: [CERTAINTY.DONT_KNOW, CERTAINTY.DERIVATIVE, CERTAINTY.ORIGINAL] },
+  { key: 'informationQuality', label: 'Information', values: [CERTAINTY.DONT_KNOW, CERTAINTY.SECONDARY, CERTAINTY.PRIMARY] },
+  { key: 'evidenceQuality', label: 'Evidence', values: [CERTAINTY.DONT_KNOW, CERTAINTY.NEGATIVE, CERTAINTY.INDIRECT, CERTAINTY.DIRECT] },
 ]);
 
 export function readCertainty(rel, key) {

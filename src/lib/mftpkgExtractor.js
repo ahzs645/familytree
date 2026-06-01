@@ -1,6 +1,11 @@
 import { normalizeColor } from './schema.js';
 import { decodeNSKeyedArchive } from './nsKeyedArchive.js';
 import { DATASET_SCHEMA_VERSION } from './datasetSchemaVersion.js';
+import {
+  applySourceRelationLineageFields,
+  createLineageBatchRecord,
+  createLineageEventRecord,
+} from './sourceLineage.js';
 
 const RECORD_TYPE_MAP = {
   additionalname: 'AdditionalName',
@@ -930,6 +935,8 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
     }
   }
 
+  stampMftSourceRelationLineage(records, sourceName);
+
   const treeInfoRecords = Object.values(records).filter((r) => r.recordType === 'FamilyTreeInformation');
   const treeName = treeInfoRecords[0]?.fields?.name?.value || sourceName?.replace(/\.mftpkg$/i, '') || 'Family Tree';
   const decodedSavedViews = Object.values(records).filter((r) => r.recordType.startsWith('Saved') && Object.keys(r.fields || {}).some((k) => k.endsWith('Decoded'))).length;
@@ -962,6 +969,33 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
     skippedResources,
     warnings,
   };
+}
+
+function stampMftSourceRelationLineage(records, sourceName) {
+  const sourceRelations = Object.values(records).filter((record) => record.recordType === 'SourceRelation');
+  if (!sourceRelations.length) return;
+  const batch = createLineageBatchRecord({
+    kind: 'mftpkgImport',
+    sourceName,
+    summary: `MacFamilyTree import from ${sourceName || 'package'}`,
+    importMeta: { sourceName },
+  });
+  records[batch.recordName] = batch;
+  for (const relation of sourceRelations) {
+    const event = createLineageEventRecord({
+      eventType: 'imported',
+      operation: 'mftpkgImport',
+      sourceRelation: relation,
+      lineageBatch: batch.recordName,
+      details: 'Imported SourceRelation from MacFamilyTree package.',
+    });
+    records[event.recordName] = event;
+    records[relation.recordName] = applySourceRelationLineageFields(relation, {
+      lineageBatch: batch.recordName,
+      operation: 'mftpkgImport',
+      createdByEvent: event.recordName,
+    });
+  }
 }
 
 export default extractMFTPKGDataset;

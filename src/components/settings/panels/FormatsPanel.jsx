@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSettings } from '../SettingsContext.jsx';
-import { Field, Grid, NameFormatPreview, Panel, Switch, inputClass } from '../sharedUI.jsx';
+import { Field, Grid, NameFormatPreview, Panel, SettingsSelect, Switch, inputClass } from '../sharedUI.jsx';
 import {
   CALENDAR_OPTIONS,
   DIRECTION_OPTIONS,
@@ -15,42 +15,60 @@ export default function FormatsPanel() {
     <Panel title={t('settingsPage.formats.panel')}>
       <Grid>
         <Field label={t('settingsPage.formats.nameOrder')}>
-          <select value={prefs.formats.nameOrder} onChange={(event) => update('formats', 'nameOrder', event.target.value)} className={inputClass}>
-            <option value="given-family">{t('settingsPage.formats.nameOrderGivenFamily')}</option>
-            <option value="family-given">{t('settingsPage.formats.nameOrderFamilyGiven')}</option>
-            <option value="display">{t('settingsPage.formats.nameOrderDisplay')}</option>
-          </select>
+          <SettingsSelect
+            value={prefs.formats.nameOrder}
+            onChange={(value) => update('formats', 'nameOrder', value)}
+            options={[
+              { value: 'given-family', label: t('settingsPage.formats.nameOrderGivenFamily') },
+              { value: 'family-given', label: t('settingsPage.formats.nameOrderFamilyGiven') },
+              { value: 'display', label: t('settingsPage.formats.nameOrderDisplay') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.formats.nameDisplayFormat')}>
-          <select value={prefs.formats.nameDisplayFormat} onChange={(event) => update('formats', 'nameDisplayFormat', event.target.value)} className={inputClass}>
-            {NAME_FORMAT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{t(`constants.nameFormat.${option.value}`)}</option>
-            ))}
-          </select>
+          <SettingsSelect
+            value={prefs.formats.nameDisplayFormat}
+            onChange={(value) => update('formats', 'nameDisplayFormat', value)}
+            options={NAME_FORMAT_OPTIONS.map((option) => ({
+              value: option.value,
+              label: t(`constants.nameFormat.${option.value}`),
+            }))}
+          />
           <NameFormatPreview preset={prefs.formats.nameDisplayFormat} t={t} />
         </Field>
         <Field label={t('settingsPage.formats.nameSortFormat')}>
-          <select value={prefs.formats.nameSortFormat} onChange={(event) => update('formats', 'nameSortFormat', event.target.value)} className={inputClass}>
-            {NAME_FORMAT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{t(`constants.nameFormat.${option.value}`)}</option>
-            ))}
-          </select>
+          <SettingsSelect
+            value={prefs.formats.nameSortFormat}
+            onChange={(value) => update('formats', 'nameSortFormat', value)}
+            options={NAME_FORMAT_OPTIONS.map((option) => ({
+              value: option.value,
+              label: t(`constants.nameFormat.${option.value}`),
+            }))}
+          />
           <NameFormatPreview preset={prefs.formats.nameSortFormat} t={t} />
         </Field>
         <Field label={t('settingsPage.formats.surnameCase')}>
-          <select value={prefs.formats.surnameCase} onChange={(event) => update('formats', 'surnameCase', event.target.value)} className={inputClass}>
-            <option value="as-entered">{t('settingsPage.formats.surnameAsEntered')}</option>
-            <option value="upper">{t('settingsPage.formats.surnameUpper')}</option>
-            <option value="title">{t('settingsPage.formats.surnameTitle')}</option>
-          </select>
+          <SettingsSelect
+            value={prefs.formats.surnameCase}
+            onChange={(value) => update('formats', 'surnameCase', value)}
+            options={[
+              { value: 'as-entered', label: t('settingsPage.formats.surnameAsEntered') },
+              { value: 'upper', label: t('settingsPage.formats.surnameUpper') },
+              { value: 'title', label: t('settingsPage.formats.surnameTitle') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.formats.dateDisplayFormat')}>
-          <select value={prefs.formats.dateDisplayFormat} onChange={(event) => update('formats', 'dateDisplayFormat', event.target.value)} className={inputClass}>
-            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-            <option value="DD MM YYYY">DD MM YYYY</option>
-            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-            <option value="D MMM YYYY">D MMM YYYY</option>
-          </select>
+          <SettingsSelect
+            value={prefs.formats.dateDisplayFormat}
+            onChange={(value) => update('formats', 'dateDisplayFormat', value)}
+            options={[
+              { value: 'YYYY-MM-DD', label: 'YYYY-MM-DD' },
+              { value: 'DD MM YYYY', label: 'DD MM YYYY' },
+              { value: 'MM/DD/YYYY', label: 'MM/DD/YYYY' },
+              { value: 'D MMM YYYY', label: 'D MMM YYYY' },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.formats.readableDateFormats')}>
           <textarea value={prefs.formats.readableDateFormats} onChange={(event) => update('formats', 'readableDateFormats', event.target.value)} rows={5} className={inputClass} />
@@ -71,26 +89,44 @@ export default function FormatsPanel() {
           onChange={(value) => update('formats', 'partialDateEntry', { ...(prefs.formats.partialDateEntry || {}), allowCalendarPrefixes: value })}
         />
         <Field label={t('settingsPage.formats.language')}>
-          <select value={prefs.localization?.locale || 'en'} onChange={(event) => update('localization', 'locale', event.target.value)} className={inputClass}>
-            {SUPPORTED_LOCALES.map((locale) => (
-              <option key={locale.value} value={locale.value}>{locale.label} - {locale.nativeLabel}</option>
-            ))}
-          </select>
+          <SettingsSelect
+            value={prefs.localization?.locale || 'en'}
+            onChange={(value) => update('localization', 'locale', value)}
+            options={SUPPORTED_LOCALES.map((locale) => ({
+              value: locale.value,
+              label: `${locale.label} - ${locale.nativeLabel}`,
+            }))}
+          />
         </Field>
         <Field label={t('settingsPage.formats.direction')}>
-          <select value={prefs.localization?.direction || 'auto'} onChange={(event) => update('localization', 'direction', event.target.value)} className={inputClass}>
-            {DIRECTION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{t(`constants.direction.${option.value}`)}</option>)}
-          </select>
+          <SettingsSelect
+            value={prefs.localization?.direction || 'auto'}
+            onChange={(value) => update('localization', 'direction', value)}
+            options={DIRECTION_OPTIONS.map((option) => ({
+              value: option.value,
+              label: t(`constants.direction.${option.value}`),
+            }))}
+          />
         </Field>
         <Field label={t('settingsPage.formats.numberingSystem')}>
-          <select value={prefs.localization?.numberingSystem || 'auto'} onChange={(event) => update('localization', 'numberingSystem', event.target.value)} className={inputClass}>
-            {NUMBERING_SYSTEM_OPTIONS.map((option) => <option key={option.value} value={option.value}>{t(`constants.numberingSystem.${option.value}`)}</option>)}
-          </select>
+          <SettingsSelect
+            value={prefs.localization?.numberingSystem || 'auto'}
+            onChange={(value) => update('localization', 'numberingSystem', value)}
+            options={NUMBERING_SYSTEM_OPTIONS.map((option) => ({
+              value: option.value,
+              label: t(`constants.numberingSystem.${option.value}`),
+            }))}
+          />
         </Field>
         <Field label={t('settingsPage.formats.calendar')}>
-          <select value={prefs.localization?.calendar || 'gregory'} onChange={(event) => update('localization', 'calendar', event.target.value)} className={inputClass}>
-            {CALENDAR_OPTIONS.map((option) => <option key={option.value} value={option.value}>{t(`constants.calendar.${option.value}`)}</option>)}
-          </select>
+          <SettingsSelect
+            value={prefs.localization?.calendar || 'gregory'}
+            onChange={(value) => update('localization', 'calendar', value)}
+            options={CALENDAR_OPTIONS.map((option) => ({
+              value: option.value,
+              label: t(`constants.calendar.${option.value}`),
+            }))}
+          />
         </Field>
       </Grid>
     </Panel>

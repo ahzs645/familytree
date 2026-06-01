@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { listToolbarSelectTriggerClass } from './listToolbarClasses.js';
 
 export function ScopeFilterSelect({
   value,
@@ -20,7 +21,7 @@ export function ScopeFilterSelect({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={loading}
-        className="min-w-0 bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm disabled:opacity-60"
+        className={`${listToolbarSelectTriggerClass} min-w-0`}
       >
         <option value="">{loading ? t('smartScopes.loading') : t('smartScopes.allRecords')}</option>
         {(scopes || []).map((scope) => {

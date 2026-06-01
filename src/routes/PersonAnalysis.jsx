@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
 import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
 import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { listToolbarButtonClass } from '../components/lists/listToolbarClasses.js';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { SORT_PROFILES, useSortProfile } from '../components/lists/useSortProfile.js';
 import { loadPersonAnalysisRows } from '../lib/listData.js';
@@ -150,7 +151,7 @@ export default function PersonAnalysis() {
           key={id}
           type="button"
           onClick={() => setFilter(id)}
-          className={`text-xs px-3 py-1.5 rounded-md border ${filter === id ? 'bg-primary text-primary-foreground border-primary' : 'border-border bg-secondary text-foreground'}`}
+          className={`${listToolbarButtonClass} ${filter === id ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
         >
           {t(`personAnalysis.filters.${id}`)}
         </button>

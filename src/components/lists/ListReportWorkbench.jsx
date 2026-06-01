@@ -2,6 +2,8 @@ import React, { useMemo, useRef, useState } from 'react';
 import { FileDown, FileText, Rows3, Send, Settings2 } from 'lucide-react';
 import { formatInteger, getCurrentLocalization } from '../../lib/i18n.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { Select } from '../ui/Select.jsx';
+import { listToolbarButtonClass, listToolbarIconButtonClass } from './listToolbarClasses.js';
 
 const INFO_COLUMN_DEFS = [
   { value: '', labelKey: 'lists.infoDoNotShow' },
@@ -81,7 +83,7 @@ export function ListReportToolbar({
       <button
         type="button"
         onClick={() => onPreviewChange?.(!previewMode)}
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 text-xs hover:bg-accent"
+        className={listToolbarButtonClass}
         aria-pressed={previewMode}
       >
         {previewMode ? <Rows3 size={14} /> : <FileText size={14} />}
@@ -94,7 +96,7 @@ export function ListReportToolbar({
             type="button"
             key={action.id}
             onClick={action.onClick}
-            className="inline-flex min-h-8 items-center justify-center rounded-md border border-border bg-secondary p-1.5 text-xs hover:bg-accent"
+            className={listToolbarIconButtonClass}
             title={action.label}
             aria-label={action.label}
           >
@@ -105,7 +107,7 @@ export function ListReportToolbar({
       <button
         type="button"
         onClick={openCustomize}
-        className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 text-xs hover:bg-accent"
+        className={listToolbarButtonClass}
         title={t('lists.customize')}
         aria-haspopup="dialog"
         aria-expanded={Boolean(panel)}
@@ -341,9 +343,12 @@ function SelectField({ label, value, onChange, options }) {
   return (
     <label className="grid gap-1 text-xs text-muted-foreground">
       <span>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="h-9 rounded-md border border-border bg-secondary px-2 text-xs text-foreground">
-        {options.map(([optionValue, optionLabel]) => <option key={optionValue} value={optionValue}>{optionLabel}</option>)}
-      </select>
+      <Select
+        value={value}
+        onChange={onChange}
+        options={options.map(([optionValue, optionLabel]) => ({ value: optionValue, label: optionLabel }))}
+        triggerClassName="h-9 px-2 text-xs"
+      />
     </label>
   );
 }

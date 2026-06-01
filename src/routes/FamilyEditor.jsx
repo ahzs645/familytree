@@ -28,6 +28,7 @@ import {
   formatTimestamp,
   labelForCatalogType,
 } from '../lib/catalogs.js';
+import { resolveLabelDefinitions } from '../lib/labels.js';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { confirmUnsavedChanges, useDirtyBaseline } from '../lib/editorState.js';
 import { useSaveShortcut } from '../lib/useSaveShortcut.js';
@@ -81,6 +82,7 @@ export default function FamilyEditor() {
   const [events, setEvents] = useState([]);
   const [notes, setNotes] = useState([]);
   const [labels, setLabels] = useState({});
+  const [labelDefs, setLabelDefs] = useState(LABELS);
   const [related, setRelated] = useState({ media: [], sources: [], todos: [], stories: [] });
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
@@ -106,12 +108,14 @@ export default function FamilyEditor() {
     for (const fd of REFERENCE_NUMBER_FIELDS) refs[fd.id] = f.fields?.[fd.id]?.value ?? '';
     setRefNumbers(refs);
 
-    const [cr, ev, note, lbl] = await Promise.all([
+    const [cr, ev, note, lbl, labelRows] = await Promise.all([
       db.query('ChildRelation', { referenceField: 'family', referenceValue: id, limit: 500 }),
       db.query('FamilyEvent', { referenceField: 'family', referenceValue: id, limit: 500 }),
       db.query('Note', { referenceField: 'family', referenceValue: id, limit: 500 }),
       db.query('LabelRelation', { referenceField: 'targetFamily', referenceValue: id, limit: 500 }),
+      db.query('Label', { limit: 100000 }),
     ]);
+    setLabelDefs(resolveLabelDefinitions(labelRows.records));
 
     const hydrated = [];
     for (const rel of cr.records) {
@@ -521,7 +525,7 @@ export default function FamilyEditor() {
             <div>
               <Section title="Labels" accent={ACCENTS.labels}>
                 <div className="space-y-1">
-                  {LABELS.map((def) => (
+                  {labelDefs.map((def) => (
                     <EditSwitch key={def.id} label={def.label} color={def.color}
                       checked={!!labels[def.id]}
                       onChange={(v) => setLabels((s) => ({ ...s, [def.id]: v }))} />

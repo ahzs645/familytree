@@ -14,6 +14,7 @@ import { useListSelection } from '../components/lists/useListSelection.js';
 import { useColumnVisibility } from '../components/lists/useColumnVisibility.js';
 import { BulkActionBar } from '../components/lists/BulkActionBar.jsx';
 import { ColumnChooser } from '../components/lists/ColumnChooser.jsx';
+import { listToolbarButtonClass } from '../components/lists/listToolbarClasses.js';
 import { ListReportPreview, ListReportToolbar, useListReportOptions } from '../components/lists/ListReportWorkbench.jsx';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { logRecordDeleted } from '../lib/changeLog.js';
@@ -213,8 +214,6 @@ export default function Persons() {
 
   if (loading) return <div className="p-10 text-muted-foreground">{t('persons.loading')}</div>;
 
-  const controlClass = 'h-10 rounded-md border border-border bg-secondary text-foreground text-sm px-3 outline-none focus:border-primary';
-
   const filterOptions = [
     { value: 'all', label: t('persons.all') },
     { value: 'bookmarked', label: t('persons.bookmarked') },
@@ -250,7 +249,6 @@ export default function Persons() {
       <ExportMenu
         onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)}
         onJson={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)}
-        controlClass={controlClass}
         t={t}
       />
     </>
@@ -535,7 +533,7 @@ function InfoCell({ label, value }) {
   );
 }
 
-function ExportMenu({ onCsv, onJson, controlClass, t }) {
+function ExportMenu({ onCsv, onJson, t }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -558,12 +556,12 @@ function ExportMenu({ onCsv, onJson, controlClass, t }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`${controlClass} inline-flex items-center gap-1.5 px-3`}
+        className={listToolbarButtonClass}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         {t('persons.exportLabel')}
-        <span aria-hidden="true" className="text-xs">▾</span>
+        <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden="true"><path fill="currentColor" d="M2 4l4 4 4-4z" /></svg>
       </button>
       {open ? (
         <div

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSettings } from '../SettingsContext.jsx';
-import { Field, Grid, Panel, Switch, inputClass } from '../sharedUI.jsx';
+import { Field, Grid, Panel, SettingsSelect, Switch, inputClass } from '../sharedUI.jsx';
 
 export default function PdfPanel() {
   const { prefs, update, t } = useSettings();
@@ -8,17 +8,25 @@ export default function PdfPanel() {
     <Panel title={t('settingsPage.pdf.panel')}>
       <Grid>
         <Field label={t('settingsPage.pdf.pageSize')}>
-          <select value={prefs.pdf.pageSize} onChange={(event) => update('pdf', 'pageSize', event.target.value)} className={inputClass}>
-            <option value="letter">{t('settingsPage.pdf.paperLetter')}</option>
-            <option value="a4">{t('settingsPage.pdf.paperA4')}</option>
-            <option value="legal">{t('settingsPage.pdf.paperLegal')}</option>
-          </select>
+          <SettingsSelect
+            value={prefs.pdf.pageSize}
+            onChange={(value) => update('pdf', 'pageSize', value)}
+            options={[
+              { value: 'letter', label: t('settingsPage.pdf.paperLetter') },
+              { value: 'a4', label: t('settingsPage.pdf.paperA4') },
+              { value: 'legal', label: t('settingsPage.pdf.paperLegal') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.pdf.orientation')}>
-          <select value={prefs.pdf.orientation} onChange={(event) => update('pdf', 'orientation', event.target.value)} className={inputClass}>
-            <option value="portrait">{t('settingsPage.pdf.portrait')}</option>
-            <option value="landscape">{t('settingsPage.pdf.landscape')}</option>
-          </select>
+          <SettingsSelect
+            value={prefs.pdf.orientation}
+            onChange={(value) => update('pdf', 'orientation', value)}
+            options={[
+              { value: 'portrait', label: t('settingsPage.pdf.portrait') },
+              { value: 'landscape', label: t('settingsPage.pdf.landscape') },
+            ]}
+          />
         </Field>
         <Field label={t('settingsPage.pdf.margin')}>
           <input type="number" min={12} max={144} value={prefs.pdf.margin} onChange={(event) => update('pdf', 'margin', Number(event.target.value))} className={inputClass} />

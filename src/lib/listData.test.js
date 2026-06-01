@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   loadDistinctivePersonRows,
+  loadFactRows,
   loadLdsOrdinanceRows,
   loadPersonAnalysisRows,
 } from './listData.js';
@@ -48,6 +49,52 @@ describe('list data helpers', () => {
     expect(sam.missingDates).toContain('Death');
     expect(sam.orphanedRelationships).toBeGreaterThan(0);
     expect(alex.relationshipIssues).toContain('Child relation cr1 references a missing family');
+  });
+
+  it('labels Mac-style person fact identifiers for display', async () => {
+    mockState.db = createMockDb([
+      person('p1', 'Jane Doe'),
+      {
+        recordName: 'fact1',
+        recordType: 'PersonFact',
+        fields: {
+          person: ref('p1', 'Person'),
+          conclusionType: ref('_PersonFact_EyeColor', 'ConclusionPersonFactType'),
+          description: field('Brown'),
+        },
+      },
+    ]);
+
+    const rows = await loadFactRows();
+
+    expect(rows).toContainEqual(expect.objectContaining({
+      personName: 'Jane Doe',
+      factType: '_PersonFact_EyeColor',
+      factTypeLabel: 'Eye Color',
+      value: 'Brown',
+    }));
+  });
+
+  it('uses custom person fact type names when no catalog label exists', async () => {
+    mockState.db = createMockDb([
+      person('p1', 'Jane Doe'),
+      {
+        recordName: 'fact1',
+        recordType: 'PersonFact',
+        fields: {
+          person: ref('p1', 'Person'),
+          conclusionType: ref('UniqueID_PersonFact_FavoriteFood', 'ConclusionPersonFactType'),
+          description: field('Dolma'),
+        },
+      },
+    ]);
+
+    const rows = await loadFactRows();
+
+    expect(rows[0]).toEqual(expect.objectContaining({
+      factType: 'UniqueID_PersonFact_FavoriteFood',
+      factTypeLabel: 'Favorite Food',
+    }));
   });
 
   it('gates LDS ordinances when no LDS-like schema exists', async () => {
