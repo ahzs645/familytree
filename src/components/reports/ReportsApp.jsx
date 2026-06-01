@@ -45,6 +45,7 @@ import { PresentationSettingsControls } from '../presentation/PresentationSettin
 import { ReportPreview } from './ReportPreview.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { localizeReportAst } from '../../lib/reports/localizeReport.js';
 
 export { normalizePageStyle };
@@ -144,6 +145,7 @@ export function applyReportContentOptions(report, options = {}) {
 
 export function ReportsApp() {
   const { t } = useTranslation();
+  const { recordName: activePersonId, setActivePerson } = useActivePerson();
   const modal = useModal();
   const [persons, setPersons] = useState([]);
   const [stories, setStories] = useState([]);
@@ -206,8 +208,11 @@ export function ReportsApp() {
         setSavedList(savedReports);
         setEmpty(personList.length === 0 && storyList.length === 0);
 
-        const firstTarget = start?.recordName || personList[0]?.recordName || storyList[0]?.recordName || null;
+        const firstTarget = personList.some((person) => person.recordName === activePersonId)
+          ? activePersonId
+          : start?.recordName || personList[0]?.recordName || storyList[0]?.recordName || null;
         setTargetId(firstTarget);
+        if (firstTarget && personList.some((person) => person.recordName === firstTarget)) setActivePerson(firstTarget);
         setSecondTargetId(personList.find((person) => person.recordName !== firstTarget)?.recordName || personList[0]?.recordName || null);
       } catch (error) {
         if (!cancelled) setGenerationError(error?.message || 'Unable to load report subjects.');
@@ -218,6 +223,8 @@ export function ReportsApp() {
     return () => {
       cancelled = true;
     };
+    // Initial report defaults only; changing report subjects should not reload saved lists.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -228,8 +235,9 @@ export function ReportsApp() {
     }
     if (!subjectItems.some((item) => item.recordName === targetId)) {
       setTargetId(subjectItems[0].recordName);
+      if (builder.subjectType !== 'Story') setActivePerson(subjectItems[0].recordName);
     }
-  }, [loading, needsSubject, subjectItems, targetId]);
+  }, [builder.subjectType, loading, needsSubject, setActivePerson, subjectItems, targetId]);
 
   useEffect(() => {
     if (loading || !needsSecondSubject) return;
@@ -388,7 +396,7 @@ export function ReportsApp() {
             {builder.subjectType === 'Story' ? (
               <RecordSelect items={stories} value={targetId} onChange={setTargetId} placeholder={t('reports.selectStory')} />
             ) : (
-              <PersonPicker persons={persons} value={targetId} onChange={setTargetId} />
+              <PersonPicker persons={persons} value={targetId} onChange={(id) => { setTargetId(id); setActivePerson(id); }} />
             )}
           </Field>
         )}

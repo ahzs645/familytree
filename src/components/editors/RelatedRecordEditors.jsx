@@ -18,6 +18,7 @@ import {
   readCitationEvidence,
   writeCitationEvidenceFields,
 } from '../../lib/citationEvidence.js';
+import { BdiText } from '../BdiText.jsx';
 
 const MEDIA_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 const CITABLE_TARGET_TYPES = ['Person', 'Family', 'Place', 'PersonEvent', 'FamilyEvent', 'PersonFact', 'TribalAffiliation', 'TribalAffiliationRelation', ...MEDIA_TYPES];
@@ -94,7 +95,7 @@ function RelationRow({ rel, target, label, typeLabel, children, onRemove }) {
     <div className="rounded-md bg-secondary/30 border border-border/60 p-2.5">
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground min-w-20">{typeLabel || target?.recordType || 'Record'}</span>
-        <span className="text-sm flex-1 min-w-0 truncate">{label || recordDisplayLabel(target) || readRef(rel.fields?.target) || rel.recordName}</span>
+        <span className="text-sm flex-1 min-w-0 truncate"><BdiText>{label || recordDisplayLabel(target) || readRef(rel.fields?.target) || rel.recordName}</BdiText></span>
         <button onClick={onRemove} className="text-xs text-destructive hover:underline">Remove now</button>
       </div>
       {children}
@@ -177,7 +178,7 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
         <select value={mediaType} onChange={(e) => { setMediaType(e.target.value); setMediaId(''); }} className={inputClass} aria-label="Media type">
           {MEDIA_TYPES.map((type) => <option key={type} value={type}>{type.replace('Media', '')}</option>)}
         </select>
-        <select value={mediaId} onChange={(e) => setMediaId(e.target.value)} className={inputClass} aria-label="Media record">
+        <select value={mediaId} onChange={(e) => setMediaId(e.target.value)} className={inputClass} aria-label="Media record" dir="auto">
           <option value="">Select media...</option>
           {filteredMedia.map((record) => (
             <option key={record.recordName} value={record.recordName} disabled={attachedIds.has(record.recordName)}>
@@ -383,7 +384,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
         <select value={selectedType} onChange={(e) => { setSelectedType(e.target.value); setSelectedId(''); }} className={inputClass} aria-label={ownerRole === 'source' ? 'Citation target type' : 'Citation source type'}>
           {poolTypes.map((type) => <option key={type} value={type}>{type.replace('Media', '')}</option>)}
         </select>
-        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className={inputClass} aria-label={ownerRole === 'source' ? 'Citation target record' : 'Citation source record'}>
+        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className={inputClass} aria-label={ownerRole === 'source' ? 'Citation target record' : 'Citation source record'} dir="auto">
           <option value="">Select {ownerRole === 'source' ? 'target' : 'source'}...</option>
           {filteredPool.map((record) => (
             <option key={record.recordName} value={record.recordName} disabled={attachedIds.has(record.recordName)}>
@@ -510,6 +511,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
                     onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, targetPerson: e.target.value } }))}
                     className={inputClass}
                     aria-label="Associate person"
+                    dir="auto"
                   >
                     <option value="">Select person...</option>
                     {persons.map((person) => <option key={person.recordName} value={person.recordName}>{recordDisplayLabel(person)}</option>)}
@@ -525,7 +527,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
         <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className={inputClass} aria-label="New associate relation type">
           {relationTypes.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
         </select>
-        <select value={personId} onChange={(e) => setPersonId(e.target.value)} className={inputClass} aria-label="New associate person">
+        <select value={personId} onChange={(e) => setPersonId(e.target.value)} className={inputClass} aria-label="New associate person" dir="auto">
           <option value="">Select person...</option>
           {persons.map((person) => <option key={person.recordName} value={person.recordName}>{recordDisplayLabel(person)}</option>)}
         </select>

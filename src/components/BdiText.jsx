@@ -8,4 +8,12 @@ export function BdiText({ as: Component = 'bdi', dir = 'auto', children, ...prop
   );
 }
 
+export function LtrText({ as: Component = 'bdi', children, ...props }) {
+  return (
+    <Component dir="ltr" {...props}>
+      {children}
+    </Component>
+  );
+}
+
 export default BdiText;

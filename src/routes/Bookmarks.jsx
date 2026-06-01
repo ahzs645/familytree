@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { personSummary, familySummary, placeSummary, sourceSummary } from '../models/index.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { BdiText, LtrText } from '../components/BdiText.jsx';
 
 const TYPE_DEFS = [
   { id: 'Person', labelKey: 'bookmarks.people', route: 'person', summarize: personSummary },
@@ -119,8 +120,8 @@ export default function Bookmarks() {
                       ) : null}
                       <button onClick={() => !editMode && navigate(href)}
                         className="flex-1 text-start min-w-0">
-                        <div className="text-sm font-medium truncate">★ {label}</div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{r.recordName}</div>
+                        <div className="text-sm font-medium truncate">★ <BdiText>{label}</BdiText></div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5 truncate"><LtrText>{r.recordName}</LtrText></div>
                       </button>
                     </div>
                   );

@@ -4,6 +4,7 @@ import { getAppPreferences, saveAppPreferences } from '../lib/appPreferences.js'
 import { APP_FUNCTIONS, functionByRoute } from '../lib/functionCatalog.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { familySummary, personSummary, placeSummary, sourceSummary } from '../models/index.js';
+import { BdiText } from '../components/BdiText.jsx';
 
 const BOOKMARK_TYPES = [
   { id: 'Person', label: 'People', route: 'person', summarize: personSummary },
@@ -132,7 +133,7 @@ export default function Favorites() {
                         const href = type.route === 'person' || type.route === 'family' ? `/${type.route}/${record.recordName}` : `/${type.route}`;
                         return (
                           <button key={record.recordName} onClick={() => navigate(href)} className="text-start rounded-md border border-border bg-background p-3 hover:bg-secondary">
-                            <div className="text-sm font-medium truncate">{label}</div>
+                            <div className="text-sm font-medium truncate"><BdiText>{label}</BdiText></div>
                             <div className="text-[11px] text-muted-foreground mt-1">{record.recordType}</div>
                           </button>
                         );

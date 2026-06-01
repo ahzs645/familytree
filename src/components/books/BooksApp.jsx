@@ -3,7 +3,7 @@
  * and export using the same report exporters.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { listAllPersons } from '../../lib/treeQuery.js';
+import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import {
   SECTION_KINDS,
   listBooks,
@@ -26,6 +26,7 @@ import { SectionEditor } from './SectionEditor.jsx';
 import { PresentationSettingsControls } from '../presentation/PresentationSettingsControls.jsx';
 import { ReportPreview } from '../reports/ReportPreview.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
+import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 
 function blankBook() {
   return {
@@ -41,6 +42,7 @@ function blankBook() {
 
 export function BooksApp() {
   const modal = useModal();
+  const { recordName: activePersonId, setActivePerson } = useActivePerson();
   const [persons, setPersons] = useState([]);
   const [groups, setGroups] = useState([]);
   const [sources, setSources] = useState([]);
@@ -60,8 +62,12 @@ export function BooksApp() {
   useEffect(() => {
     (async () => {
       const db = getLocalDatabase();
-      const list = await listAllPersons();
+      const [list, startPerson] = await Promise.all([listAllPersons(), findStartPerson()]);
       setPersons(list);
+      const initialPersonId = list.some((person) => person.recordName === activePersonId)
+        ? activePersonId
+        : startPerson?.recordName || list[0]?.recordName || null;
+      if (initialPersonId) setActivePerson(initialPersonId);
       setSavedBooks(await listBooks());
       const [groupRows, sourceRows] = await Promise.all([
         db.query('PersonGroup', { limit: 100000 }),
@@ -78,6 +84,8 @@ export function BooksApp() {
       setLoading(false);
       if (list.length === 0) setEmpty(true);
     })();
+    // Initial defaults only; book edits own later target changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -115,14 +123,18 @@ export function BooksApp() {
   const addSection = useCallback((kind) => {
     const def = SECTION_KINDS.find((k) => k.id === kind);
     const section = { kind };
-    if (def?.needsPerson) section.targetRecordName = persons[0]?.recordName;
+    if (def?.needsPerson) {
+      section.targetRecordName = persons.some((person) => person.recordName === activePersonId)
+        ? activePersonId
+        : persons.find((person) => person.isStartPerson)?.recordName || persons[0]?.recordName;
+    }
     if (def?.needsGenerations) section.generations = 5;
     if (def?.needsGroup) section.groupRecordName = groups[0]?.recordName || '';
     if (def?.needsSource) section.sourceRecordName = sources[0]?.recordName || '';
     if (kind === 'title' || kind === 'cover') section.text = kind === 'cover' ? book.title : 'New Section';
     if (kind === 'toc') section.tocStyle = 'numbered';
     setBook((b) => ({ ...b, sections: [...b.sections, section] }));
-  }, [book.title, groups, persons, sources]);
+  }, [activePersonId, book.title, groups, persons, sources]);
 
   const removeSection = useCallback((i) => {
     setBook((b) => ({ ...b, sections: b.sections.filter((_, j) => j !== i) }));

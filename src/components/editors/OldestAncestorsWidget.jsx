@@ -6,6 +6,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { findOldestAncestors } from '../../lib/oldestAncestors.js';
 import { formatVitalDateParts } from '../../lib/vitalFormat.js';
+import { BdiText, LtrText } from '../BdiText.jsx';
 
 export function OldestAncestorsWidget({ recordName }) {
   const [items, setItems] = useState(null);
@@ -36,14 +37,14 @@ export function OldestAncestorsWidget({ recordName }) {
             className="text-start w-full rounded-md border border-border bg-secondary px-2 py-1.5 hover:border-muted-foreground/50"
           >
             <div className="flex items-baseline justify-between gap-2">
-              <span className="font-medium text-foreground truncate">{ancestor.fullName}</span>
-              <span className="text-xs text-muted-foreground tabular-nums">
+              <span className="font-medium text-foreground truncate"><BdiText>{ancestor.fullName}</BdiText></span>
+              <LtrText as="span" className="text-xs text-muted-foreground tabular-nums">
                 {ancestor.birthYear != null ? ancestor.birthYear : '—'}
-              </span>
+              </LtrText>
             </div>
             <div className="text-[11px] text-muted-foreground flex gap-2">
               <span>{ancestor.generations} gen{ancestor.generations === 1 ? '' : 's'} up</span>
-              {ancestor.deathDate && <span>· {formatVitalDateParts({ deathDate: ancestor.deathDate })[0]}</span>}
+              {ancestor.deathDate && <span>· <LtrText>{formatVitalDateParts({ deathDate: ancestor.deathDate })[0]}</LtrText></span>}
             </div>
           </button>
         </li>

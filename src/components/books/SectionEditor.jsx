@@ -4,6 +4,7 @@
 import React from 'react';
 import { SECTION_KINDS } from '../../lib/books.js';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
+import { DatePicker } from '../ui/DatePicker.jsx';
 
 export function SectionEditor({ section, persons, groups = [], sources = [], onChange, onRemove, onMoveUp, onMoveDown, index, total }) {
   const def = SECTION_KINDS.find((k) => k.id === section.kind);
@@ -43,12 +44,13 @@ export function SectionEditor({ section, persons, groups = [], sources = [], onC
                   placeholder="Author"
                   style={{ ...input, flex: 1 }}
                 />
-                <input
-                  value={section.date || ''}
-                  onChange={(e) => onChange({ ...section, date: e.target.value })}
-                  placeholder="Date"
-                  style={{ ...input, width: 110 }}
-                />
+                <div style={{ width: 180 }}>
+                  <DatePicker
+                    value={section.date || ''}
+                    onChange={(value) => onChange({ ...section, date: value })}
+                    placeholder="Date"
+                  />
+                </div>
                 <input
                   value={section.publisher || ''}
                   onChange={(e) => onChange({ ...section, publisher: e.target.value })}

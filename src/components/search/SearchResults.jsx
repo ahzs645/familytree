@@ -3,6 +3,7 @@
  */
 import React from 'react';
 import { SEARCH_FIELDS } from '../../lib/search.js';
+import { BdiText, LtrText } from '../BdiText.jsx';
 
 export function SearchResults({ entityType, result }) {
   if (!result) return <div style={{ padding: 24, color: 'hsl(var(--muted-foreground))' }}>Run a search to see results.</div>;
@@ -45,8 +46,9 @@ function formatVal(v, col) {
     const opt = col.options.find((o) => o.value === v);
     return opt ? opt.label : String(v);
   }
-  if (typeof v === 'object') return JSON.stringify(v).slice(0, 40);
-  return String(v);
+  if (typeof v === 'object') return <BdiText>{JSON.stringify(v).slice(0, 40)}</BdiText>;
+  if (/date|year/i.test(col.id || '')) return <LtrText>{String(v)}</LtrText>;
+  return <BdiText>{String(v)}</BdiText>;
 }
 
 const th = { textAlign: 'left', padding: '10px 14px', color: 'hsl(var(--muted-foreground))', fontWeight: 600, borderBottom: '1px solid hsl(var(--border))' };

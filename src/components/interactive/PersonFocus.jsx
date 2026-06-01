@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
 import { normalizeConclusionTypeId, PERSON_EVENT_TYPES } from '../../lib/catalogs.js';
 import { MiniTimeline } from '../MiniTimeline.jsx';
+import { BdiText, LtrText } from '../BdiText.jsx';
 
 function humanizeConclusionLabel(raw) {
   if (!raw) return 'Event';
@@ -45,8 +46,8 @@ function Chip({ person, onPick }) {
       onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.15)')}
       onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
     >
-      <div style={{ fontSize: 13, color: 'hsl(var(--foreground))', fontWeight: 600 }}>{person.fullName}</div>
-      <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{lifeSpanLabel(person)}</div>
+      <div style={{ fontSize: 13, color: 'hsl(var(--foreground))', fontWeight: 600 }}><BdiText>{person.fullName}</BdiText></div>
+      <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}><LtrText>{lifeSpanLabel(person)}</LtrText></div>
     </div>
   );
 }
@@ -75,9 +76,9 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
   return (
     <div style={scroll}>
       <div style={headerBlock}>
-        <div style={{ fontSize: 22, color: 'hsl(var(--foreground))', fontWeight: 700 }}>{self.fullName}</div>
+        <div style={{ fontSize: 22, color: 'hsl(var(--foreground))', fontWeight: 700 }}><BdiText>{self.fullName}</BdiText></div>
         <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
-          {lifeSpanLabel(self) || 'No life dates'} · {genderLabel(self.gender)}
+          <LtrText>{lifeSpanLabel(self) || 'No life dates'}</LtrText> · {genderLabel(self.gender)}
         </div>
         <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
           <button style={primaryBtn} onClick={() => navigate(`/person/${self.recordName}`)}>Edit person</button>
@@ -108,7 +109,7 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
                 onClick={() => navigate(`/family/${fam.family.recordName}`)}
                 style={editPill}
               >
-                Edit family with {fam.partner?.fullName || '?'}
+                Edit family with {fam.partner?.fullName ? <BdiText>{fam.partner.fullName}</BdiText> : '?'}
               </button>
             ))}
           </div>

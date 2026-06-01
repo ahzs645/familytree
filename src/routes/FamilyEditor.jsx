@@ -34,6 +34,8 @@ import { useSaveShortcut } from '../lib/useSaveShortcut.js';
 import { EditorSectionNavProvider, EditorSectionNavBar } from '../components/editors/EditorSectionNav.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { DatePicker } from '../components/ui/DatePicker.jsx';
+import { BdiText, LtrText } from '../components/BdiText.jsx';
 
 function uuid(p) {
   return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -342,9 +344,17 @@ export default function FamilyEditor() {
             {/* Prefer the couple's names; familyName() returns a generic
                 "Family" placeholder when no custom name is set, so don't let
                 that win over the actual partners. */}
-            {[man?.fullName, woman?.fullName].filter(Boolean).join(' & ')
-              || (summary?.familyName && summary.familyName !== 'Family' ? summary.familyName : '')
-              || `Family · ${family.recordName}`}
+            {man?.fullName || woman?.fullName ? (
+              <>
+                {man?.fullName && <BdiText>{man.fullName}</BdiText>}
+                {man?.fullName && woman?.fullName && <span> & </span>}
+                {woman?.fullName && <BdiText>{woman.fullName}</BdiText>}
+              </>
+            ) : (summary?.familyName && summary.familyName !== 'Family' ? (
+              <BdiText>{summary.familyName}</BdiText>
+            ) : (
+              <>Family · <LtrText>{family.recordName}</LtrText></>
+            ))}
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto sm:ms-auto">
@@ -373,7 +383,7 @@ export default function FamilyEditor() {
               <Field label="Partner">
                 <PersonPicker persons={persons} value={manId} onChange={setManId} />
               </Field>
-              {man && <div className="mt-2 text-xs text-muted-foreground">{man.fullName} {lifeSpanLabel(man) && `· ${lifeSpanLabel(man)}`}</div>}
+              {man && <div className="mt-2 text-xs text-muted-foreground flex min-w-0 flex-wrap items-baseline gap-1.5"><BdiText>{man.fullName}</BdiText>{lifeSpanLabel(man) && <><span aria-hidden="true">·</span><LtrText>{lifeSpanLabel(man)}</LtrText></>}</div>}
               <button onClick={() => manId && guardedNavigate(`/person/${manId}`)} disabled={!manId}
                 className="mt-3 text-xs text-primary hover:underline disabled:opacity-50">
                 Open person editor →
@@ -383,7 +393,7 @@ export default function FamilyEditor() {
               <Field label="Partner">
                 <PersonPicker persons={persons} value={womanId} onChange={setWomanId} />
               </Field>
-              {woman && <div className="mt-2 text-xs text-muted-foreground">{woman.fullName} {lifeSpanLabel(woman) && `· ${lifeSpanLabel(woman)}`}</div>}
+              {woman && <div className="mt-2 text-xs text-muted-foreground flex min-w-0 flex-wrap items-baseline gap-1.5"><BdiText>{woman.fullName}</BdiText>{lifeSpanLabel(woman) && <><span aria-hidden="true">·</span><LtrText>{lifeSpanLabel(woman)}</LtrText></>}</div>}
               <button onClick={() => womanId && guardedNavigate(`/person/${womanId}`)} disabled={!womanId}
                 className="mt-3 text-xs text-primary hover:underline disabled:opacity-50">
                 Open person editor →
@@ -408,13 +418,15 @@ export default function FamilyEditor() {
                 ) : (
                   <div className="space-y-1.5">
                     {children.map((c, i) => (
-                      <div key={c.childRecordName} className="flex flex-wrap items-center gap-2 p-2 bg-secondary/30 rounded-md">
+                      <div key={c.childRecordName} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 p-2 bg-secondary/30 rounded-md">
                         <span className="text-xs text-muted-foreground w-6">{i + 1}.</span>
-                        <span className="text-sm flex-1 min-w-0 truncate">
-                          {c.summary?.fullName || c.childRecordName}
-                          {lifeSpanLabel(c.summary) && <span className="text-muted-foreground ms-2 text-xs">{lifeSpanLabel(c.summary)}</span>}
+                        <span className="text-sm min-w-0 flex items-baseline gap-2">
+                          <span className="min-w-0 truncate">
+                            <BdiText>{c.summary?.fullName || c.childRecordName}</BdiText>
+                          </span>
+                          {lifeSpanLabel(c.summary) && <LtrText as="span" className="shrink-0 text-muted-foreground text-xs">{lifeSpanLabel(c.summary)}</LtrText>}
                         </span>
-                        <div className="flex w-full sm:w-auto justify-end gap-1">
+                        <div className="flex justify-end gap-1">
                           <button disabled={i === 0} onClick={() => moveChild(i, -1)} className="text-xs text-muted-foreground border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 hover:bg-accent disabled:opacity-30">↑</button>
                           <button disabled={i === children.length - 1} onClick={() => moveChild(i, 1)} className="text-xs text-muted-foreground border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 hover:bg-accent disabled:opacity-30">↓</button>
                           <button onClick={() => guardedNavigate(`/person/${c.childRecordName}`)} className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent">edit</button>
@@ -445,7 +457,12 @@ export default function FamilyEditor() {
                   }} />}
               >
                 <Field label="Marriage date">
-                  <input value={marriageDate} onChange={(e) => setMarriageDate(e.target.value)} disabled={isRecordLocked(family)} placeholder="YYYY or YYYY-MM-DD" className={inputClass} />
+                  <DatePicker
+                    value={marriageDate}
+                    onChange={setMarriageDate}
+                    disabled={isRecordLocked(family)}
+                    placeholder="YYYY, YYYY-MM, or YYYY-MM-DD"
+                  />
                 </Field>
                 {events.length === 0 ? (
                   <div className="mt-3">

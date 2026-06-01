@@ -22,6 +22,7 @@ import { useSaveShortcut } from '../lib/useSaveShortcut.js';
 import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { BdiText, LtrText } from '../components/BdiText.jsx';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -223,10 +224,10 @@ export default function Events({
       readRef(e.fields?.person) ||
       readRef(e.fields?.family) ||
       '';
-    let subjectLabel = '';
+    let subjectLabel = null;
     if (e.recordType === 'PersonEvent') {
       const p = personByName.get(subjectRef);
-      subjectLabel = p ? personDisplayName(p) : subjectRef;
+      subjectLabel = p ? <BdiText>{personDisplayName(p)}</BdiText> : <LtrText>{subjectRef}</LtrText>;
     } else {
       const f = familyByName.get(subjectRef);
       if (f) {
@@ -234,18 +235,24 @@ export default function Events({
         const womanRef = readRef(f.fields?.woman);
         const manName = manRef ? personDisplayName(personByName.get(manRef)) : null;
         const womanName = womanRef ? personDisplayName(personByName.get(womanRef)) : null;
-        subjectLabel = [manName, womanName].filter(Boolean).join(' & ') || subjectRef;
+        subjectLabel = manName || womanName ? (
+          <>
+            {manName && <BdiText>{manName}</BdiText>}
+            {manName && womanName && <span> & </span>}
+            {womanName && <BdiText>{womanName}</BdiText>}
+          </>
+        ) : <LtrText>{subjectRef}</LtrText>;
       } else {
-        subjectLabel = subjectRef;
+        subjectLabel = <LtrText>{subjectRef}</LtrText>;
       }
     }
     return (
       <div>
         <div style={{ color: 'hsl(var(--foreground))', fontSize: 13 }}>
-          {t}{d && <span style={{ color: 'hsl(var(--muted-foreground))' }}> · {d}</span>}
+          {t}{d && <span style={{ color: 'hsl(var(--muted-foreground))' }}> · <LtrText>{d}</LtrText></span>}
         </div>
         <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
-          {e.recordType === 'PersonEvent' ? 'Person' : 'Family'} {subjectLabel && `· ${subjectLabel}`}
+          {e.recordType === 'PersonEvent' ? 'Person' : 'Family'} {subjectLabel && <>· {subjectLabel}</>}
         </div>
       </div>
     );
@@ -318,6 +325,7 @@ export default function Events({
               value={values.personRef ?? ''}
               onChange={(e) => setValues({ ...values, personRef: e.target.value })}
               style={editorInput}
+              dir="auto"
             >
               <option value="">—</option>
               {persons.map((p) => (
@@ -331,6 +339,7 @@ export default function Events({
               value={values.familyRef ?? ''}
               onChange={(e) => setValues({ ...values, familyRef: e.target.value })}
               style={editorInput}
+              dir="auto"
             >
               <option value="">—</option>
               {families.map((f) => (

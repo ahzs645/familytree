@@ -66,6 +66,8 @@ import {
 } from '../components/personEditor/uiPrimitives.jsx';
 import { ParentsBlock } from '../components/personEditor/ParentsBlock.jsx';
 import { MilkKinshipEditor, emptyMilkKinship } from '../components/personEditor/MilkKinshipEditor.jsx';
+import { DatePicker } from '../components/ui/DatePicker.jsx';
+import { BdiText, LtrText } from '../components/BdiText.jsx';
 import {
   queryMilkKinshipsForPerson,
   reconcileMilkKinships,
@@ -401,8 +403,8 @@ export default function PersonEditor() {
           ← Back
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold truncate">{headerLabel}</h1>
-          {subtitle && <div className="text-xs text-muted-foreground">{subtitle}</div>}
+          <h1 className="text-base font-semibold truncate"><BdiText>{headerLabel}</BdiText></h1>
+          {subtitle && <div className="text-xs text-muted-foreground"><LtrText>{subtitle}</LtrText></div>}
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto sm:ms-auto">
           {status ? (
@@ -583,9 +585,11 @@ export default function PersonEditor() {
                         onChange={(e) => setFacts((a) => a.map((x, j) => j === i ? { ...x, value: e.target.value } : x))}
                         className={inputClass() + ' flex-1 min-w-[120px]'}
                       />
-                      <input value={it.date} placeholder="Date (optional)"
-                        onChange={(e) => setFacts((a) => a.map((x, j) => j === i ? { ...x, date: e.target.value } : x))}
-                        className={inputClass() + ' w-[120px] shrink-0'}
+                      <DatePicker
+                        value={it.date}
+                        onChange={(date) => setFacts((a) => a.map((x, j) => j === i ? { ...x, date } : x))}
+                        placeholder="Date"
+                        className="w-full sm:w-[180px] shrink-0"
                       />
                       <div className="flex items-center gap-2 ms-auto shrink-0">
                         <EvidenceBadge evidence={it.recordName ? evidence?.byRecord?.get(it.recordName) : null} onClick={scrollToSourceCitations} />
@@ -755,7 +759,7 @@ export default function PersonEditor() {
                     className="text-start p-3 rounded-md border border-border bg-secondary/30 hover:bg-secondary"
                   >
                     <div className="text-xs text-muted-foreground mb-1">Family</div>
-                    <div className="text-sm font-medium">{fam.partner?.fullName || 'Unknown partner'}</div>
+                    <div className="text-sm font-medium">{fam.partner?.fullName ? <BdiText>{fam.partner.fullName}</BdiText> : 'Unknown partner'}</div>
                     <div className="text-xs text-muted-foreground mt-1">{fam.children.length} child{fam.children.length === 1 ? '' : 'ren'}</div>
                   </button>
                 ))}

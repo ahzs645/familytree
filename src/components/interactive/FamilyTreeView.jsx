@@ -1,6 +1,7 @@
 import React from 'react';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
 import { useIsMobile } from '../../lib/useIsMobile.js';
+import { BdiText, LtrText } from '../BdiText.jsx';
 
 export function FamilyTreeView({ model, activeId, loading, onPick, onEditPerson, onOpenFamily }) {
   const isMobile = useIsMobile();
@@ -113,8 +114,8 @@ function PersonNode({ person, active = false, large = false, onPick, onEditPerso
     >
       <span style={avatar(person.gender)}>{initials(person.fullName)}</span>
       <span style={nodeText}>
-        <span style={nodeName}>{person.fullName}</span>
-        <span style={nodeLife}>{lifeSpanLabel(person) || 'No life dates'}</span>
+        <span style={nodeName}><BdiText>{person.fullName}</BdiText></span>
+        <span style={nodeLife}><LtrText>{lifeSpanLabel(person) || 'No life dates'}</LtrText></span>
         {person.relationToSubject ? <span style={nodeRelation}>{person.relationToSubject}</span> : null}
       </span>
     </button>

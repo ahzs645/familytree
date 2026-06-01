@@ -16,6 +16,7 @@ import {
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
+import { DatePicker } from '../components/ui/DatePicker.jsx';
 
 function optionLabel(record) {
   if (!record) return '';
@@ -251,13 +252,25 @@ export default function TribalAffiliations() {
                   {!member.virtual && <button onClick={() => removeMember(member)} className="text-xs text-destructive">Remove</button>}
                 </div>
                 {!member.virtual && (
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px_110px_110px_auto] gap-2 mt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px_120px_120px_auto] gap-2 mt-2">
                     <input value={draft.role || ''} onChange={(e) => setMemberDrafts((state) => ({ ...state, [member.relation.recordName]: { ...draft, role: e.target.value } }))} className="bg-background border border-border rounded-md px-2 py-1.5 text-xs" placeholder="Role / note" />
                     <select value={draft.confidence || 'unknown'} onChange={(e) => setMemberDrafts((state) => ({ ...state, [member.relation.recordName]: { ...draft, confidence: e.target.value } }))} className="bg-background border border-border rounded-md px-2 py-1.5 text-xs">
                       {TRIBAL_CONFIDENCE.map((confidence) => <option key={confidence.id} value={confidence.id}>{confidence.label}</option>)}
                     </select>
-                    <input value={draft.fromDate || ''} onChange={(e) => setMemberDrafts((state) => ({ ...state, [member.relation.recordName]: { ...draft, fromDate: e.target.value } }))} className="bg-background border border-border rounded-md px-2 py-1.5 text-xs" placeholder="From" />
-                    <input value={draft.toDate || ''} onChange={(e) => setMemberDrafts((state) => ({ ...state, [member.relation.recordName]: { ...draft, toDate: e.target.value } }))} className="bg-background border border-border rounded-md px-2 py-1.5 text-xs" placeholder="To" />
+                    <DatePicker
+                      value={draft.fromDate || ''}
+                      onChange={(value) => setMemberDrafts((state) => ({ ...state, [member.relation.recordName]: { ...draft, fromDate: value } }))}
+                      placeholder="From"
+                      ariaLabel="Membership from date"
+                      className="text-xs"
+                    />
+                    <DatePicker
+                      value={draft.toDate || ''}
+                      onChange={(value) => setMemberDrafts((state) => ({ ...state, [member.relation.recordName]: { ...draft, toDate: value } }))}
+                      placeholder="To"
+                      ariaLabel="Membership to date"
+                      className="text-xs"
+                    />
                     <button onClick={() => saveMember(member)} className="border border-border rounded-md px-2.5 py-1.5 text-xs hover:bg-accent">Save</button>
                   </div>
                 )}

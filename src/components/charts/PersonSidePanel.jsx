@@ -12,6 +12,7 @@ import { buildPersonContext } from '../../lib/personContext.js';
 import { lifeSpanLabel, Gender } from '../../models/index.js';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { useChartSelection } from './ChartSelectionContext.jsx';
+import { BdiText, LtrText } from '../BdiText.jsx';
 
 const GENDER_LABEL = {
   [Gender?.Male ?? 0]: 'Male',
@@ -74,9 +75,9 @@ export function PersonSidePanel({
           <div style={{ minWidth: 0, flex: 1 }}>
             <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', letterSpacing: 0.4 }}>PERSON</div>
             <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              <bdi>{self?.fullName || (loading ? 'Loading…' : 'No person')}</bdi>
+              <BdiText>{self?.fullName || (loading ? 'Loading…' : 'No person')}</BdiText>
             </div>
-            {span && <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}><bdi>{span}</bdi></div>}
+            {span && <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}><LtrText>{span}</LtrText></div>}
           </div>
           <button onClick={onClose} style={closeBtnStyle} aria-label="Close panel">✕</button>
         </header>
@@ -184,7 +185,7 @@ function Row({ label, value }) {
     <div style={{ display: 'flex', gap: 8, fontSize: 13, paddingBlock: 2, minWidth: 0 }}>
       <div style={{ color: 'hsl(var(--muted-foreground))', width: 80, flexShrink: 0 }}>{label}</div>
       <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        <bdi>{value}</bdi>
+        <BdiText>{value}</BdiText>
       </div>
     </div>
   );
@@ -219,10 +220,10 @@ function PersonLine({ person, bold, muted, onOpen }) {
       onMouseEnter={clickable ? (e) => { e.currentTarget.style.textDecoration = 'underline'; } : undefined}
       onMouseLeave={clickable ? (e) => { e.currentTarget.style.textDecoration = 'none'; } : undefined}
     >
-      <bdi>{person.fullName}</bdi>
+      <BdiText>{person.fullName}</BdiText>
       {span && (
         <span style={{ color: 'hsl(var(--muted-foreground))', marginInlineStart: 6 }}>
-          <bdi>{span}</bdi>
+          <LtrText>{span}</LtrText>
         </span>
       )}
     </Tag>

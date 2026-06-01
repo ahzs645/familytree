@@ -21,6 +21,7 @@ import { personSummary } from '../models/index.js';
 import { FamilySearchSourceFoldersSheet } from '../components/FamilySearchSourceFoldersSheet.jsx';
 import { FamilySearchBatchDownloadSheet } from '../components/FamilySearchBatchDownloadSheet.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { BdiText, LtrText } from '../components/BdiText.jsx';
 
 const TASK_META_KEY = 'familySearchTasks';
 
@@ -400,9 +401,9 @@ export default function FamilySearch() {
                     return (
                       <div key={entry.record.recordName} className="p-4 flex flex-col md:flex-row gap-3 md:items-center">
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium truncate">{entry.summary.fullName}</div>
+                          <div className="text-sm font-medium truncate"><BdiText>{entry.summary.fullName}</BdiText></div>
                           <div className="text-xs text-muted-foreground mt-1">
-                            {entry.familySearchID ? `FamilySearch ID ${entry.familySearchID}` : 'No FamilySearch ID'}{personTasks.length ? ` · ${personTasks.length} open task${personTasks.length === 1 ? '' : 's'}` : ''}
+                            {entry.familySearchID ? <>FamilySearch ID <LtrText>{entry.familySearchID}</LtrText></> : 'No FamilySearch ID'}{personTasks.length ? ` · ${personTasks.length} open task${personTasks.length === 1 ? '' : 's'}` : ''}
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2">

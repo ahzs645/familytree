@@ -27,6 +27,7 @@ import {
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { getAppPreferences } from '../lib/appPreferences.js';
+import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
 
 function Card({ title, description, children }) {
   return (
@@ -44,6 +45,7 @@ const btnSecondary = 'bg-secondary border border-border text-foreground rounded-
 export default function Export() {
   const { summary, refresh } = useDatabaseStatus();
   const modal = useModal();
+  const { recordName: activePersonId, setActivePerson } = useActivePerson();
   const [searchParams] = useSearchParams();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState(null);
@@ -71,13 +73,19 @@ export default function Export() {
       const list = await listAllPersons();
       setPersons(list);
       const start = await findStartPerson();
-      setSubtreeRoot(start?.recordName || list[0]?.recordName || null);
+      const initialRoot = list.some((person) => person.recordName === activePersonId)
+        ? activePersonId
+        : start?.recordName || list[0]?.recordName || null;
+      setSubtreeRoot(initialRoot);
+      if (initialRoot) setActivePerson(initialRoot);
       const snapshots = await listTreeSnapshots({ sortBy: snapshotSortBy });
       setTreeSnapshots(snapshots);
       setSelectedSnapshot((current) => current || snapshots[0]?.id || '');
       const prefs = await getAppPreferences();
       setGedcomImportMode(prefs.importDefaults?.gedcomMode || 'review');
     })();
+    // activePersonId is intentionally only used as the initial default.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshotSortBy]);
 
   React.useEffect(() => {
@@ -455,7 +463,7 @@ export default function Export() {
             <div className="flex flex-wrap items-end gap-2">
               <div>
                 <label className="block text-xs text-muted-foreground mb-1">Root person</label>
-                <PersonPicker persons={persons} value={subtreeRoot} onChange={setSubtreeRoot} />
+                <PersonPicker persons={persons} value={subtreeRoot} onChange={(id) => { setSubtreeRoot(id); setActivePerson(id); }} />
               </div>
               <button onClick={onSubtreeExport} disabled={busy || !subtreeRoot} className={btn}>Export subtree</button>
               <button onClick={onSubtreeRemove} disabled={busy || !subtreeRoot} className={btnSecondary}>Remove subtree</button>

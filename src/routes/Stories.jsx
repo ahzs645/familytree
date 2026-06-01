@@ -6,6 +6,7 @@ import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { useDirtyBaseline } from '../lib/editorState.js';
@@ -218,7 +219,13 @@ export default function Stories() {
         <FieldRow label={t('stories.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>
         <FieldRow label={t('stories.field.subtitle')}><input value={values.subtitle || ''} onChange={(e) => setValues({ ...values, subtitle: e.target.value })} style={editorInput} /></FieldRow>
         <FieldRow label={t('stories.field.author')}><input value={values.author || ''} onChange={(e) => setValues({ ...values, author: e.target.value })} style={editorInput} /></FieldRow>
-        <FieldRow label={t('stories.field.date')}><input value={values.date || ''} onChange={(e) => setValues({ ...values, date: e.target.value })} style={editorInput} /></FieldRow>
+        <FieldRow label={t('stories.field.date')}>
+          <DatePicker
+            value={values.date || ''}
+            onChange={(value) => setValues({ ...values, date: value })}
+            placeholder="YYYY, YYYY-MM, or YYYY-MM-DD"
+          />
+        </FieldRow>
       </div>
       <FieldRow label={t('stories.field.text')}><textarea rows={10} value={values.text || ''} onChange={(e) => setValues({ ...values, text: e.target.value })} style={editorTextarea} /></FieldRow>
 

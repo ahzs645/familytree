@@ -278,33 +278,31 @@ function hasMoreRelatives(node) {
   return (node?.more?.relatives || 0) > 0;
 }
 
+// Small "further relatives available" pin shown below a person who has more
+// family (ancestors/descendants) hidden off the direct chart — mirrors the
+// native viewer's subtle indicator instead of a prominent "+N" badge.
 function makeFurtherRelativesMarker(node, palette, featured) {
-  const count = Math.min(99, node.more?.relatives || 0);
-  const texture = makeCanvasTexture(180, 92, (ctx, w, h) => {
-    ctx.clearRect(0, 0, w, h);
-    ctx.shadowColor = 'rgba(0,0,0,0.18)';
-    ctx.shadowBlur = 14;
-    ctx.shadowOffsetY = 7;
-    roundedRect(ctx, 14, 12, w - 28, h - 24, 26);
-    ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-    ctx.lineWidth = 4;
-    ctx.strokeStyle = palette.descendantLine;
-    ctx.stroke();
-    ctx.fillStyle = palette.descendantLine;
-    ctx.font = '900 36px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`+${count}`, w / 2, h / 2 + 1);
-  });
-  const width = featured ? 82 : 66;
-  const height = featured ? 43 : 34;
-  const marker = makePlaneFromTexture(texture, width, height);
-  marker.position.set(featured ? ROOT_CARD.w * 0.34 : 58, featured ? -ROOT_CARD.h * 0.35 : -20, featured ? 46 : 36);
-  marker.renderOrder = 20;
-  marker.material.depthTest = false;
-  return marker;
+  const group = new THREE.Group();
+  const color = node?.person?.gender === 'female' || /female/i.test(node?.person?.gender || '')
+    ? '#c98a52'
+    : '#5c84c4';
+  const material = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.04 });
+  const stemHeight = featured ? 16 : 12;
+  const radius = featured ? 1.8 : 1.4;
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, stemHeight, 10), material);
+  stem.position.set(0, stemHeight / 2, 0);
+  group.add(stem);
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(featured ? 4.6 : 3.6, 18, 12), material);
+  group.add(bulb);
+  const highlight = new THREE.Mesh(
+    new THREE.SphereGeometry(featured ? 1.5 : 1.2, 8, 6),
+    new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false })
+  );
+  highlight.position.set(-1.1, 0.9, 2.4);
+  group.add(highlight);
+  group.position.set(0, featured ? -ROOT_CARD.h * 0.5 - 82 : -100, 12);
+  group.renderOrder = 19;
+  return group;
 }
 
 function hasStatusBadges(node) {

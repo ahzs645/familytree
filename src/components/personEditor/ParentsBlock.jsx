@@ -6,6 +6,7 @@
 import React from 'react';
 import { lifeSpanLabel } from '../../models/index.js';
 import { Empty } from './uiPrimitives.jsx';
+import { BdiText, LtrText } from '../BdiText.jsx';
 
 export function ParentsBlock({ context, onPick }) {
   if (!context.parents || context.parents.length === 0) {
@@ -21,8 +22,8 @@ export function ParentsBlock({ context, onPick }) {
             onClick={() => onPick(p.recordName)}
             className="text-start p-3 rounded-md border border-border bg-secondary/30 hover:bg-secondary"
           >
-            <div className="text-sm font-medium">{p.fullName}</div>
-            <div className="text-xs text-muted-foreground">{lifeSpanLabel(p) || '—'}</div>
+            <div className="text-sm font-medium"><BdiText>{p.fullName}</BdiText></div>
+            <div className="text-xs text-muted-foreground"><LtrText>{lifeSpanLabel(p) || '—'}</LtrText></div>
           </button>
         ))}
     </div>

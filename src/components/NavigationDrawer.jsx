@@ -12,9 +12,9 @@ import { ChevronLeft, ChevronRight, Sun, Moon, Search } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { cn } from '../lib/utils.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
-import { SUPPORTED_LOCALES } from '../lib/i18n.js';
 import { routeLabelKey } from '../lib/navigationLabels.js';
 import { NAV_PINNED, NAV_GROUPS, findGroupForPath, isLinkActive } from '../lib/navigationConfig.js';
+import { LanguageSelect } from './LanguageSelect.jsx';
 
 const OPEN_GROUPS_KEY = 'app.drawer.openGroups.v2';
 // On the home/empty route findGroupForPath() returns null, which used to leave
@@ -236,16 +236,13 @@ export function NavigationDrawer({
             >
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
-            <select
+            <LanguageSelect
               value={localization.locale}
-              onChange={(event) => setLocale(event.target.value)}
-              className="h-7 flex-1 min-w-0 rounded border border-border bg-secondary px-1 text-xs text-foreground outline-none"
-              aria-label={t('settings.language')}
-            >
-              {SUPPORTED_LOCALES.map((locale) => (
-                <option key={locale.value} value={locale.value}>{locale.nativeLabel}</option>
-              ))}
-            </select>
+              onChange={setLocale}
+              className="flex-1 min-w-0"
+              triggerClassName="h-7 rounded ps-1.5 pe-7 text-xs"
+              ariaLabel={t('settings.language')}
+            />
           </div>
         </div>
       )}

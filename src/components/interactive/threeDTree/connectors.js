@@ -133,18 +133,17 @@ export function makeConnector(link, nodes, palette, options = {}) {
   return group;
 }
 
-// "By Generation, Light" connector hues. The native viewer walks a soft
-// rainbow as generations climb away from the root: rose at the root, through
-// amber / gold / green / teal, up to blue and violet for distant ancestors.
-// Tuned a touch deeper than the band fills so hairlines stay legible on pink.
+// Native flat-viewer connector colour: a warm brick/crimson that lightens
+// slightly as generations climb away from the root. (Matches the source far
+// better than the earlier rainbow — MFT draws these connectors in red.)
 const CONNECTOR_GENERATION_COLORS = [
-  '#d98fb4', // 0 — root / descendants (muted rose, not hot magenta)
-  '#e0a25a', // 1 — parents / children (amber)
-  '#d8b24c', // 2 — grandparents (gold)
-  '#8fb061', // 3 — (green)
-  '#5ea69a', // 4 — (teal)
-  '#6f93c8', // 5 — (blue)
-  '#9080c2', // 6 — (violet)
+  '#a8423a', // 0 — root / descendants (deep brick red)
+  '#b14a40', // 1 — parents / children
+  '#b85549', // 2 — grandparents
+  '#bf6253', // 3
+  '#c5705f', // 4
+  '#ca7e6c', // 5
+  '#ce8c7a', // 6 — distant ancestors (lighter terracotta)
 ];
 
 function connectorGenerationColor(generation) {

@@ -6,6 +6,7 @@ import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary, sourceSummary, placeSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { ToDoWizardSheet } from '../components/ToDoWizardSheet.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { listCustomTypes, saveCustomType, mergeWithBuiltins } from '../lib/customTypes.js';
@@ -272,7 +273,13 @@ export default function ToDos() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldRow label={t('todosPage.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>
-        <FieldRow label={t('todosPage.field.dueDate')}><input value={values.dueDate || ''} onChange={(e) => setValues({ ...values, dueDate: e.target.value })} style={editorInput} /></FieldRow>
+        <FieldRow label={t('todosPage.field.dueDate')}>
+          <DatePicker
+            value={values.dueDate || ''}
+            onChange={(value) => setValues({ ...values, dueDate: value })}
+            placeholder="YYYY, YYYY-MM, or YYYY-MM-DD"
+          />
+        </FieldRow>
         <FieldRow label={t('todosPage.field.type')}>
           <div className="flex gap-2">
             <select value={values.type || 'Research'} onChange={(e) => setValues({ ...values, type: e.target.value })} style={editorInput}>

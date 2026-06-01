@@ -9,7 +9,7 @@ import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { APP_PREFERENCES_EVENT, getAppPreferences } from '../lib/appPreferences.js';
-import { applyDocumentLocalization, resolveLocalization, SUPPORTED_LOCALES } from '../lib/i18n.js';
+import { applyDocumentLocalization, resolveLocalization } from '../lib/i18n.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { routeLabelKey } from '../lib/navigationLabels.js';
 import { downloadBackup } from '../lib/backup.js';
@@ -19,6 +19,7 @@ import { NavigationDrawer } from './NavigationDrawer.jsx';
 import { CommandPalette } from './CommandPalette.jsx';
 import { useKeyboardShortcuts } from '../lib/useKeyboardShortcuts.js';
 import { NAV_GROUPS, NAV_PINNED, findGroupForPath, isLinkActive } from '../lib/navigationConfig.js';
+import { LanguageSelect } from './LanguageSelect.jsx';
 
 const DRAWER_COLLAPSED_KEY = 'app.drawer.collapsed';
 const NAV_VISIBILITY_EVENT = 'cloudtreeweb:navigation-visibility';
@@ -193,16 +194,13 @@ function MobileMenu({ hiddenRoutes, theme, onToggleTheme, localization, onChange
               >
                 {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
               </button>
-              <select
+              <LanguageSelect
                 value={localization.locale}
-                onChange={(event) => onChangeLocale(event.target.value)}
-                className="h-11 rounded-md border border-border bg-secondary px-2 text-xs text-foreground"
-                aria-label={t('settings.language')}
-              >
-                {SUPPORTED_LOCALES.map((locale) => (
-                  <option key={locale.value} value={locale.value}>{locale.nativeLabel}</option>
-                ))}
-              </select>
+                onChange={onChangeLocale}
+                className="w-32"
+                triggerClassName="h-11 ps-2 pe-8 text-xs"
+                ariaLabel={t('settings.language')}
+              />
             </div>
           </div>
         </>

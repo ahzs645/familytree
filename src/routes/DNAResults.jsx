@@ -6,6 +6,7 @@ import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { useDirtyBaseline } from '../lib/editorState.js';
@@ -193,7 +194,13 @@ export default function DNAResults() {
             </select>
           </FieldRow>
           <FieldRow label="Lab / provider"><input value={values.lab || ''} onChange={(e) => setValues({ ...values, lab: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="Test date"><input value={values.date || ''} onChange={(e) => setValues({ ...values, date: e.target.value })} style={editorInput} /></FieldRow>
+          <FieldRow label="Test date">
+            <DatePicker
+              value={values.date || ''}
+              onChange={(value) => setValues({ ...values, date: value })}
+              placeholder="YYYY, YYYY-MM, or YYYY-MM-DD"
+            />
+          </FieldRow>
           <FieldRow label="Kit / reference number"><input value={values.kitNumber || ''} onChange={(e) => setValues({ ...values, kitNumber: e.target.value })} style={editorInput} /></FieldRow>
           <FieldRow label="Haplogroup"><input value={values.haplogroup || ''} onChange={(e) => setValues({ ...values, haplogroup: e.target.value })} style={editorInput} /></FieldRow>
         </div>

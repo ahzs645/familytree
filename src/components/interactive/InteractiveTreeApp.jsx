@@ -25,6 +25,7 @@ import { useIsMobile } from '../../lib/useIsMobile.js';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
 import { resolveInitialTreePersonId } from './initialTreePerson.js';
 import { persistTreeViewMode, readInitialTreeViewMode } from './treeViewMode.js';
+import { BdiText, LtrText } from '../BdiText.jsx';
 
 export function InteractiveTreeApp() {
   const [persons, setPersons] = useState([]);
@@ -203,7 +204,7 @@ export function InteractiveTreeApp() {
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={eyebrow}>Interactive Tree</div>
               <div style={title} title={context?.selfSummary?.fullName || ''}>
-                {context?.selfSummary?.fullName || 'No person selected'}
+                <BdiText>{context?.selfSummary?.fullName || 'No person selected'}</BdiText>
               </div>
             </div>
             {/* Six tree view modes — the segmented control fits on desktop but
@@ -346,8 +347,8 @@ function TreeInspector({
       <div style={inspectorHero}>
         <div style={avatar(self.gender)} aria-hidden="true">{initials(self.fullName)}</div>
         <div style={{ minWidth: 0 }}>
-          <div style={inspectorName} title={self.fullName}>{self.fullName}</div>
-          <div style={inspectorSub}>{lifeSpanLabel(self) || 'No life dates'}</div>
+          <div style={inspectorName} title={self.fullName}><BdiText>{self.fullName}</BdiText></div>
+          <div style={inspectorSub}><LtrText>{lifeSpanLabel(self) || 'No life dates'}</LtrText></div>
         </div>
       </div>
 
@@ -417,8 +418,8 @@ function RelationGroup({ title, people, onPick }) {
         <div style={relationList}>
           {people.slice(0, 5).map((person) => (
             <button key={person.recordName} type="button" style={relationButton} onClick={() => onPick(person.recordName)}>
-              <span style={relationName}>{person.fullName}</span>
-              <span style={relationLife}>{lifeSpanLabel(person)}</span>
+              <span style={relationName}><BdiText>{person.fullName}</BdiText></span>
+              <span style={relationLife}><LtrText>{lifeSpanLabel(person)}</LtrText></span>
             </button>
           ))}
         </div>

@@ -3,7 +3,7 @@
  */
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { BdiText } from '../BdiText.jsx';
+import { BdiText, LtrText } from '../BdiText.jsx';
 import { getCurrentLocalization } from '../../lib/i18n.js';
 import { comparePersonSearchResults, matchesPersonLineageSearch } from '../../lib/personLineage.js';
 import { personDisplayName } from '../../lib/personDisplayName.js';
@@ -106,7 +106,7 @@ export function PersonPicker({ persons, value, onChange }) {
                 <div style={{ color: 'hsl(var(--foreground))', fontSize: 14 }}><BdiText>{personDisplayName(p)}</BdiText></div>
                 {(p.birthDate || p.deathDate) && (
                   <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
-                    {lifeSpanLabel(p)}
+                    <LtrText>{lifeSpanLabel(p)}</LtrText>
                   </div>
                 )}
                 {query.trim() && p.lineageSearchText ? (

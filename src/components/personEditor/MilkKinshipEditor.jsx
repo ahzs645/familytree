@@ -6,6 +6,7 @@
  */
 import React from 'react';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
+import { DatePicker } from '../ui/DatePicker.jsx';
 import { Field, RemoveBtn, inputClass } from './uiPrimitives.jsx';
 
 export function emptyMilkKinship(currentPersonId) {
@@ -67,10 +68,20 @@ export function MilkKinshipEditor({ item, persons, currentPersonId, onChange, on
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_120px] gap-2 mt-3">
         <Field label="Start date">
-          <input value={item.startDate || ''} onChange={(event) => onChange({ ...item, startDate: event.target.value })} className={inputClass()} />
+          <DatePicker
+            value={item.startDate || ''}
+            onChange={(value) => onChange({ ...item, startDate: value })}
+            placeholder="Start date"
+            ariaLabel="Milk kinship start date"
+          />
         </Field>
         <Field label="End date">
-          <input value={item.endDate || ''} onChange={(event) => onChange({ ...item, endDate: event.target.value })} className={inputClass()} />
+          <DatePicker
+            value={item.endDate || ''}
+            onChange={(value) => onChange({ ...item, endDate: value })}
+            placeholder="End date"
+            ariaLabel="Milk kinship end date"
+          />
         </Field>
         <Field label="Active">
           <select value={item.isActive === false ? 'no' : 'yes'} onChange={(event) => onChange({ ...item, isActive: event.target.value === 'yes' })} className={inputClass()}>

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SlidersHorizontal } from 'lucide-react';
-import { BdiText } from '../components/BdiText.jsx';
+import { BdiText, LtrText } from '../components/BdiText.jsx';
 import { PersonList } from '../components/interactive/PersonList.jsx';
 import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
 import { compareStrings, formatInteger, getCurrentLocalization } from '../lib/i18n.js';
@@ -66,7 +66,8 @@ export default function Persons() {
   });
   const [kinshipById, setKinshipById] = useState(new Map());
   const isMobile = useIsMobile();
-  const { setActivePerson } = useActivePerson();
+  const { recordName: sharedActivePersonId, setActivePerson } = useActivePerson();
+  const initialSharedActivePersonId = useRef(sharedActivePersonId);
   const navigate = useNavigate();
   const modal = useModal();
   const localization = getCurrentLocalization();
@@ -74,6 +75,7 @@ export default function Persons() {
 
   const pick = (id) => {
     setActiveId(id);
+    setActivePerson(id);
     if (isMobile) setMobilePane('detail');
   };
 
@@ -83,12 +85,19 @@ export default function Persons() {
       const rows = await loadPersonRows();
       if (cancelled) return;
       setPersons(rows);
-      setActiveId(rows[0]?.id || null);
+      const initialSharedId = initialSharedActivePersonId.current;
+      const initialId = rows.some((person) => person.id === initialSharedId)
+        ? initialSharedId
+        : rows.find((person) => person.startPerson)?.id || rows[0]?.id || null;
+      setActiveId(initialId);
+      if (initialId) setActivePerson(initialId);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
+    // Initial route load only; subsequent picks are handled by pick().
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const allVisibleIds = useMemo(() => persons.map((p) => p.id), [persons]);
@@ -142,8 +151,9 @@ export default function Persons() {
     }
     if (!activeId || !visiblePersons.some((person) => person.id === activeId)) {
       setActiveId(visiblePersons[0].id);
+      setActivePerson(visiblePersons[0].id);
     }
-  }, [activeId, visiblePersons]);
+  }, [activeId, setActivePerson, visiblePersons]);
 
   useEffect(() => {
     if (!activeId) {
@@ -379,8 +389,12 @@ export default function Persons() {
               <div className="flex flex-wrap items-start gap-3 mb-5">
                 <div className="me-auto min-w-0">
                   <h2 className="text-2xl font-semibold truncate"><BdiText>{active.fullName}</BdiText></h2>
-                  <div className="text-sm text-muted-foreground mt-1">
-                    {active.genderLabel} · {active.birthDate || t('persons.birthUnknown')} - {active.deathDate || t('persons.deathUnknown')}
+                  <div className="text-sm text-muted-foreground mt-1 flex flex-wrap items-baseline gap-1.5">
+                    <span>{active.genderLabel}</span>
+                    <span aria-hidden="true">·</span>
+                    <LtrText>{active.birthDate || t('persons.birthUnknown')}</LtrText>
+                    <span aria-hidden="true">-</span>
+                    <LtrText>{active.deathDate || t('persons.deathUnknown')}</LtrText>
                   </div>
                   {kinshipById.get(active.id) ? (
                     <div className="mt-2 inline-flex rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
@@ -438,8 +452,8 @@ export default function Persons() {
                         </div>
                         {(milk.startDate || milk.endDate || milk.notes) ? (
                           <div className="mt-2 text-xs text-muted-foreground">
-                            {[milk.startDate, milk.endDate].filter(Boolean).join(' - ')}
-                            {milk.notes ? ` · ${milk.notes}` : ''}
+                            {[milk.startDate, milk.endDate].filter(Boolean).length ? <LtrText>{[milk.startDate, milk.endDate].filter(Boolean).join(' - ')}</LtrText> : null}
+                            {milk.notes ? <> · <BdiText>{milk.notes}</BdiText></> : ''}
                           </div>
                         ) : null}
                       </div>

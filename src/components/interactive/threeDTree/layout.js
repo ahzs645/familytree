@@ -315,19 +315,9 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
   const nodeById = new Map(uniquePlaced.map((node) => [node.id, node]));
 
   const addSegment = (familyId, type, emphasis, a, b, nodeIds = []) => {
-    if (type === 'family' && Math.abs(a.y - b.y) < 0.1 && Math.abs(a.x - b.x) > MAX_FAMILY_HORIZONTAL_SPAN) {
-      const left = a.x < b.x ? a : b;
-      const right = a.x < b.x ? b : a;
-      addPolyline(familyId, type, emphasis, [
-        left,
-        { x: left.x + MAX_FAMILY_HORIZONTAL_SPAN * 0.18, y: left.y },
-      ], nodeIds);
-      addPolyline(familyId, type, emphasis, [
-        { x: right.x - MAX_FAMILY_HORIZONTAL_SPAN * 0.18, y: right.y },
-        right,
-      ], nodeIds);
-      return;
-    }
+    // Always draw the full segment. (A previous build split long horizontal
+    // sibling buses into two end-stubs with a gap, which read as "broken"
+    // connectors on a dense full tree.)
     addPolyline(familyId, type, emphasis, [a, b], nodeIds);
   };
   // Generation of the family currently being routed. Connectors inherit it so
@@ -365,8 +355,6 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     const emphasis = family.id === rootFamily?.id || family.parents.some((id) => id === familyGraph.rootId);
 
     const childClusters = clusterFamilyChildren(children, FAMILY_ROUTE_SPLIT_GAP);
-    const familyCenterX = average(parentAttachPoints.map((point) => point.x));
-    const primaryCluster = nearestChildCluster(childClusters, familyCenterX);
     for (const cluster of childClusters) {
       const minChildX = Math.min(...cluster.map((child) => child.x));
       const maxChildX = Math.max(...cluster.map((child) => child.x));
@@ -393,8 +381,6 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
         : Math.min(childBusY - PARENT_BRIDGE_GAP, localPreferredBridgeY);
       const clusterAnchorX = clamp(coupleX, childLeft, childRight);
       const clusterNodeIds = [...localParentAttachPoints.map((point) => point.node), ...cluster].map((node) => node.id);
-      const isPrimaryCluster = cluster === primaryCluster;
-      if (!isPrimaryCluster) continue;
 
       for (const point of localParentAttachPoints) {
         addSegment(family.id, 'family', emphasis, point, { x: point.x, y: parentBridgeY }, [point.node.id]);
@@ -481,7 +467,7 @@ function buildBands(nodes, rootX = 0) {
   }
 
   return [...grouped.entries()].map(([generation, group]) => {
-    const segments = buildBandSegments(group, generation);
+    const segments = buildBandSegments(group, generation, rootX);
     const minX = Math.min(...segments.map((segment) => segment.x - segment.width / 2));
     const maxX = Math.max(...segments.map((segment) => segment.x + segment.width / 2));
     const centerY = group.reduce((sum, node) => sum + node.y, 0) / group.length;
@@ -507,9 +493,7 @@ function buildBands(nodes, rootX = 0) {
   });
 }
 
-function buildBandSegments(group, generation) {
-  const sorted = [...group].sort((a, b) => a.x - b.x);
-  const splitGap = bandSplitGap(generation);
+function clusterByGap(sorted, splitGap) {
   const clusters = [];
   let current = [];
   for (const node of sorted) {
@@ -521,19 +505,53 @@ function buildBandSegments(group, generation) {
     current.push(node);
   }
   if (current.length) clusters.push(current);
+  return clusters;
+}
 
-  return clusters.map((cluster, index) => {
-    const minX = Math.min(...cluster.map((node) => node.x));
-    const maxX = Math.max(...cluster.map((node) => node.x));
-    const leftGutter = index === 0 ? BAND_LABEL_GUTTER : 0;
-    const padding = generation === 0 ? 340 : 250;
-    const left = minX - padding / 2 - leftGutter;
-    const right = maxX + padding / 2;
-    return {
-      x: (left + right) / 2,
-      width: Math.max(generation === 0 ? 460 : 360, right - left),
-    };
-  });
+const PEDIGREE_BAND_GAP = 220;
+
+function buildBandSegments(group, generation, rootX = 0) {
+  const sorted = [...group].sort((a, b) => a.x - b.x);
+  const splitGap = bandSplitGap(generation);
+  const minWidth = generation === 0 ? 460 : 360;
+  const padding = generation === 0 ? 340 : 250;
+  // Ancestor bands are segmented by pedigree — paternal (left of the root's
+  // lineage) and maternal (right) — so the band visibly splits down the middle
+  // like the native viewer. Root + descendant generations stay continuous.
+  const paternal = sorted.filter((node) => node.x < rootX);
+  const maternal = sorted.filter((node) => node.x >= rootX);
+  const sides = generation < 0 && paternal.length && maternal.length
+    ? [{ side: 'paternal', nodes: paternal }, { side: 'maternal', nodes: maternal }]
+    : [{ side: 'all', nodes: sorted }];
+  const split = sides.length === 2;
+
+  const segments = [];
+  let isFirst = true;
+  for (const { side, nodes } of sides) {
+    const clusters = clusterByGap(nodes, splitGap);
+    clusters.forEach((cluster, index) => {
+      const minX = Math.min(...cluster.map((node) => node.x));
+      const maxX = Math.max(...cluster.map((node) => node.x));
+      const leftGutter = isFirst ? BAND_LABEL_GUTTER : 0;
+      let left = minX - padding / 2 - leftGutter;
+      let right = maxX + padding / 2;
+      // Hold a clean gutter at the pedigree midline on the innermost cluster.
+      if (split && side === 'paternal' && index === clusters.length - 1) {
+        right = Math.min(right, rootX - PEDIGREE_BAND_GAP / 2);
+        if (right - left < minWidth) left = right - minWidth; // grow outward only
+      } else if (split && side === 'maternal' && index === 0) {
+        left = Math.max(left, rootX + PEDIGREE_BAND_GAP / 2);
+        if (right - left < minWidth) right = left + minWidth;
+      } else if (right - left < minWidth) {
+        const center = (left + right) / 2;
+        left = center - minWidth / 2;
+        right = center + minWidth / 2;
+      }
+      segments.push({ x: (left + right) / 2, width: right - left });
+      isFirst = false;
+    });
+  }
+  return segments;
 }
 
 export function bandSplitGap(generation) {

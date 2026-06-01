@@ -3,6 +3,7 @@
  */
 import React from 'react';
 import { SEARCH_FIELDS, FILTER_OPS } from '../../lib/search.js';
+import { DatePicker } from '../ui/DatePicker.jsx';
 
 export function FilterRow({ entityType, filter, onChange, onRemove }) {
   const fields = SEARCH_FIELDS[entityType] || [];
@@ -41,19 +42,37 @@ export function FilterRow({ entityType, filter, onChange, onRemove }) {
           ))}
         </select>
       )}
-      {fieldDef.type !== 'enum' && fieldDef.type !== 'presence' && (
+      {fieldDef.type === 'date' && (
+        <div style={{ width: 180 }}>
+          <DatePicker
+            value={filter.value ?? ''}
+            onChange={(value) => update({ value })}
+            placeholder="YYYY, YYYY-MM, or YYYY-MM-DD"
+          />
+        </div>
+      )}
+      {fieldDef.type !== 'enum' && fieldDef.type !== 'presence' && fieldDef.type !== 'date' && (
         <input
           value={filter.value ?? ''}
           onChange={(e) => update({ value: e.target.value })}
-          placeholder={fieldDef.type === 'date' ? 'YYYY' : 'value'}
+          placeholder="value"
           style={inputStyle}
         />
       )}
-      {filter.op === 'between' && (
+      {filter.op === 'between' && fieldDef.type === 'date' && (
+        <div style={{ width: 180 }}>
+          <DatePicker
+            value={filter.value2 ?? ''}
+            onChange={(value2) => update({ value2 })}
+            placeholder="YYYY, YYYY-MM, or YYYY-MM-DD"
+          />
+        </div>
+      )}
+      {filter.op === 'between' && fieldDef.type !== 'date' && (
         <input
           value={filter.value2 ?? ''}
           onChange={(e) => update({ value2: e.target.value })}
-          placeholder="YYYY"
+          placeholder="value"
           style={inputStyle}
         />
       )}

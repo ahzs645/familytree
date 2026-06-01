@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { listAllPersons } from '../lib/treeQuery.js';
+import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
+import { listAllPersons, findStartPerson } from '../lib/treeQuery.js';
 import { NUMBERING_SYSTEMS, calculateReferenceNumbers } from '../lib/referenceNumbering.js';
 
 export default function ReferenceNumbering() {
+  const { recordName: activePersonId, setActivePerson } = useActivePerson();
   const [persons, setPersons] = useState([]);
   const [rootId, setRootId] = useState('');
   const [system, setSystem] = useState('ahnentafel');
@@ -11,10 +13,16 @@ export default function ReferenceNumbering() {
 
   useEffect(() => {
     (async () => {
-      const list = await listAllPersons();
+      const [list, startPerson] = await Promise.all([listAllPersons(), findStartPerson()]);
       setPersons(list);
-      setRootId(list[0]?.recordName || '');
+      const initialId = list.some((person) => person.recordName === activePersonId)
+        ? activePersonId
+        : startPerson?.recordName || list[0]?.recordName || '';
+      setRootId(initialId);
+      if (initialId) setActivePerson(initialId);
     })();
+    // Initial default only; the select owns later root changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const run = async () => {
@@ -41,7 +49,7 @@ export default function ReferenceNumbering() {
           <div className="grid grid-cols-1 md:grid-cols-[1fr_220px_auto] gap-3">
             <label className="text-xs font-semibold uppercase text-muted-foreground">
               Root person
-              <select value={rootId} onChange={(e) => setRootId(e.target.value)} className="mt-1 w-full rounded-md border border-border bg-background px-2 py-2 text-sm normal-case font-normal">
+              <select value={rootId} onChange={(e) => { setRootId(e.target.value); setActivePerson(e.target.value); }} className="mt-1 w-full rounded-md border border-border bg-background px-2 py-2 text-sm normal-case font-normal">
                 {persons.map((person) => <option key={person.recordName} value={person.recordName}>{person.fullName}</option>)}
               </select>
             </label>

@@ -14,6 +14,7 @@ export function Select({
   options = [],
   placeholder = 'Select…',
   className,
+  triggerClassName,
   ariaLabel,
   id,
   disabled = false,
@@ -102,7 +103,8 @@ export function Select({
           'w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm ps-3 pe-8 text-start',
           'outline-none focus:border-primary focus:ring-2 focus:ring-primary/20',
           'hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed',
-          'inline-flex items-center relative'
+          'inline-flex items-center relative',
+          triggerClassName
         )}
       >
         <span className={cn('truncate flex-1', !selected && 'text-muted-foreground')}>

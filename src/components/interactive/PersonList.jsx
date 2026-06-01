@@ -2,13 +2,14 @@
  * Left-pane sectioned person list for the Interactive Tree.
  * Groups persons alphabetically by last-name initial. Supports search filtering.
  */
-import React, { useMemo, useState } from 'react';
-import { BdiText } from '../BdiText.jsx';
-import { compareStrings, getCurrentLocalization, graphemes, normalizeSearchText } from '../../lib/i18n.js';
-import { comparePersonSearchResults, matchesPersonLineageSearch } from '../../lib/personLineage.js';
+import React, { useDeferredValue, useMemo, useState } from 'react';
+import { BdiText, LtrText } from '../BdiText.jsx';
+import { compareStrings, getCurrentLocalization, graphemes, normalizeSearchText, searchTextForms, searchTokenVariants } from '../../lib/i18n.js';
+import { personSearchHaystack } from '../../lib/personLineage.js';
 import { hasRealName, shortPersonId } from '../../lib/personDisplayName.js';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { lifeSpanLabel } from '../../models/index.js';
+import { Gender } from '../../models/constants.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null, renderBadge = null }) {
@@ -16,14 +17,49 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
   const isMobile = useIsMobile();
   const showColumn = (key) => !visibleColumns || visibleColumns.has(key);
   const [query, setQuery] = useState('');
+  const deferredQuery = useDeferredValue(query);
   const localization = getCurrentLocalization();
   const localizationKey = `${localization.locale}|${localization.direction}|${localization.numberingSystem}|${localization.calendar}`;
+  const queryText = deferredQuery.trim();
+
+  const indexedPersons = useMemo(() => persons.map((person, index) => {
+    const normalizedFields = {
+      fullName: normalizeSearchText(person?.fullName || '', localization),
+      firstName: normalizeSearchText(person?.firstName || '', localization),
+      lastName: normalizeSearchText(person?.lastName || '', localization),
+      lineageSearchText: normalizeSearchText(person?.lineageSearchText || '', localization),
+      haystack: normalizeSearchText(personSearchHaystack(person), localization),
+      haystackForms: searchTextForms(personSearchHaystack(person), localization),
+    };
+    return { person, index, normalizedFields };
+  }), [persons, localizationKey]);
+
+  const normalizedQuery = useMemo(() => normalizeSearchText(queryText, localization), [queryText, localizationKey]);
+  const queryWords = useMemo(
+    () => normalizedQuery.split(/[^\p{L}\p{N}@_-]+/u).filter(Boolean),
+    [normalizedQuery]
+  );
+  const queryVariantGroups = useMemo(
+    () => queryWords.map((word) => searchTokenVariants(word, localization)),
+    [queryWords, localizationKey]
+  );
 
   const sections = useMemo(() => {
-    const filtered = query.trim()
-      ? persons
-        .filter((p) => matchesPersonLineageSearch(p, query, localization))
-        .sort((a, b) => comparePersonSearchResults(a, b, query, localization))
+    const filtered = queryWords.length
+      ? indexedPersons
+        .filter(({ normalizedFields }) => indexedPersonMatches(normalizedFields, normalizedQuery, queryVariantGroups))
+        .map(({ person, index, normalizedFields }) => ({
+          person,
+          index,
+          score: scoreIndexedPersonSearch(normalizedFields, queryWords),
+        }))
+        .sort((a, b) => {
+          const scoreDiff = b.score - a.score;
+          if (scoreDiff) return scoreDiff;
+          const genderDiff = (a.person.gender === Gender.Male ? 0 : 1) - (b.person.gender === Gender.Male ? 0 : 1);
+          return genderDiff || compareStrings(a.person.fullName, b.person.fullName, localization) || a.index - b.index;
+        })
+        .map(({ person }) => person)
       : persons;
     const groups = new Map();
     for (const p of filtered) {
@@ -34,9 +70,9 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
       groups.get(initial).push(p);
     }
     return [...groups.entries()]
-      .map(([letter, group]) => [letter, query.trim() ? group : group.sort((a, b) => compareStrings(a.fullName, b.fullName, localization))])
+      .map(([letter, group]) => [letter, queryWords.length ? group : group.sort((a, b) => compareStrings(a.fullName, b.fullName, localization))])
       .sort(([a], [b]) => compareStrings(a, b, localization));
-  }, [persons, query, localizationKey]);
+  }, [persons, indexedPersons, normalizedQuery, queryWords, queryVariantGroups, localizationKey]);
 
   return (
     <div style={shell}>
@@ -100,7 +136,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                     ) : null}
                     {showColumn('lifespan') && (p.birthDate || p.deathDate) ? (
                       <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
-                        {lifeSpanLabel(p)}
+                        <LtrText>{lifeSpanLabel(p)}</LtrText>
                       </div>
                     ) : null}
                     {/* Disambiguate otherwise-identical nameless rows: when there is
@@ -125,7 +161,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                     {showColumn('startPerson') && p.startPerson ? (
                       <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>✓ {t('persons.startPerson')}</div>
                     ) : null}
-                    {query.trim() && !p.nameIsPatrilineal && (p.arabicPatrilinealTail || p.arabicPatrilinealName) ? (
+                    {queryText && !p.nameIsPatrilineal && (p.arabicPatrilinealTail || p.arabicPatrilinealName) ? (
                       <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, marginTop: 2, direction: 'rtl', textAlign: 'start' }}>
                         <BdiText>{p.arabicPatrilinealTail || p.arabicPatrilinealName}</BdiText>
                       </div>
@@ -172,3 +208,37 @@ const sectionHeader = {
 const row = { padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid hsl(var(--border))' };
 
 export default PersonList;
+
+function scoreIndexedPersonSearch(fields, words) {
+  let score = 0;
+  const weightedFields = [
+    { value: fields.fullName, weight: 450 },
+    { value: fields.firstName, weight: 500 },
+    { value: fields.lineageSearchText, weight: 220 },
+    { value: fields.lastName, weight: 120 },
+  ];
+
+  for (const word of words) {
+    let best = 0;
+    for (const field of weightedFields) {
+      if (!field.value) continue;
+      if (field.value === word) best = Math.max(best, field.weight + 120);
+      else if (field.value.startsWith(word)) best = Math.max(best, field.weight + 60);
+      else if (field.value.includes(word)) best = Math.max(best, field.weight);
+    }
+    score += best;
+  }
+
+  const queryNorm = words.join(' ');
+  if (fields.lineageSearchText.startsWith(queryNorm)) score += 800;
+  else if (fields.lineageSearchText.includes(queryNorm)) score += 500;
+  return score;
+}
+
+function indexedPersonMatches(fields, normalizedQuery, queryVariantGroups) {
+  if (!normalizedQuery) return true;
+  if (fields.haystackForms.some((form) => form.includes(normalizedQuery))) return true;
+  return queryVariantGroups.every((variants) => (
+    variants.some((variant) => fields.haystackForms.some((form) => form.includes(variant)))
+  ));
+}

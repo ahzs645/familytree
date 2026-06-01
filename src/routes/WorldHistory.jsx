@@ -10,6 +10,7 @@ import { buildPersonContext } from '../lib/personContext.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { lifeSpanLabel } from '../models/index.js';
 import { WORLD_EVENTS } from '../lib/worldHistory.js';
+import { BdiText, LtrText } from '../components/BdiText.jsx';
 
 const CATEGORY_STORAGE_KEY = 'worldHistory.enabledCategories';
 
@@ -107,8 +108,10 @@ export default function WorldHistory() {
           <PersonPicker persons={persons} value={recordName} onChange={(id) => setActivePerson(id)} />
         </div>
         {focusName && (
-          <span className="text-xs text-muted-foreground">
-            Showing alongside {focusName}{lifeSpanLabel(context?.selfSummary) && ` · ${lifeSpanLabel(context?.selfSummary)}`}
+          <span className="text-xs text-muted-foreground inline-flex flex-wrap items-baseline gap-1.5">
+            <span>Showing alongside</span>
+            <BdiText>{focusName}</BdiText>
+            {lifeSpanLabel(context?.selfSummary) && <><span aria-hidden="true">·</span><LtrText>{lifeSpanLabel(context.selfSummary)}</LtrText></>}
           </span>
         )}
         <div className="ms-auto relative">

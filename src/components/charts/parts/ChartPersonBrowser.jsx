@@ -7,6 +7,7 @@
  */
 import React from 'react';
 import { chartPersonBrowserStyle, optionSelect } from './styles.js';
+import { BdiText, LtrText } from '../../BdiText.jsx';
 
 export function ChartPersonBrowser({ persons, rootId, query, onQueryChange, group, onGroupChange, onPick, onAllPersons, onSmartFilters }) {
   return (
@@ -48,8 +49,8 @@ export function ChartPersonBrowser({ persons, rootId, query, onQueryChange, grou
                 cursor: 'pointer',
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.fullName || person.recordName}</div>
-              <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{person.birthDate || 'Birth unknown'}</div>
+              <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><BdiText>{person.fullName || person.recordName}</BdiText></div>
+              <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}><LtrText>{person.birthDate || 'Birth unknown'}</LtrText></div>
             </button>
           );
         })}
