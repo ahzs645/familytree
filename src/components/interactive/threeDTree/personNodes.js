@@ -167,8 +167,19 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false, vi
 
   if (shouldDrawAvatar(viewerOptions)) {
     const model = makeMacPersonModel(node, palette, true, personStyle, viewerOptions);
-    model.position.set(0, 60, 28);
+    model.position.set(0, 24, 28);
     group.add(model);
+  }
+
+  if (viewerOptions?.displayLabels !== false) {
+    const label = makePlaneFromTexture(
+      makePersonLabelTexture(node.person, palette, viewerOptions, node),
+      MAC_FAMILY_GRAPH_LAYOUT.regularLabelWidth * 1.5,
+      MAC_FAMILY_GRAPH_LAYOUT.regularLabelHeight * 1.5
+    );
+    label.position.set(0, -ROOT_CARD.h * 0.5 - 24, 18);
+    label.renderOrder = 22;
+    group.add(label);
   }
 
   if (hasMoreRelatives(node)) group.add(makeFurtherRelativesMarker(node, palette, true));
@@ -480,7 +491,7 @@ function makePersonLabelTexture(person, palette, viewerOptions = {}, node = null
       ctx.font = '700 22px -apple-system-emoji, "Apple Color Emoji", sans-serif';
       ctx.fillText(icons, w / 2, cursorY + 6);
     }
-  });
+  }, { scale: 3 });
 }
 
 function makeFeaturedTexture(person, palette, viewerOptions = {}, node = null) {
@@ -522,50 +533,9 @@ function makeFeaturedTexture(person, palette, viewerOptions = {}, node = null) {
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(78, 166, 214, 0.34)';
     ctx.stroke();
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const name = person?.fullName || 'Unknown';
-    const rtl = isRtlText(name);
-    ctx.direction = rtl ? 'rtl' : 'ltr';
-    ctx.fillStyle = '#17191d';
-    ctx.font = `${rtl ? 850 : 800} ${rtl ? 34 : 31}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
-    const nameLines = wrapMeasuredText(ctx, name, 370, 2);
-    const firstNameY = nameLines.length === 1 ? 344 : 326;
-    nameLines.forEach((line, index) => ctx.fillText(line, cx, firstNameY + index * 35));
-
-    const life = buildLifeLabel(person, viewerOptions);
-    let bottomY = 428;
-    if (life) {
-      ctx.direction = 'ltr';
-      ctx.fillStyle = '#747b86';
-      ctx.font = '700 25px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-      ctx.fillText(life, cx, bottomY);
-      bottomY += 28;
-    }
-    const kinship = viewerOptions.displayKinships ? kinshipLabelForNode(node) : '';
-    if (kinship) {
-      ctx.direction = 'ltr';
-      ctx.fillStyle = '#5c6580';
-      ctx.font = '650 20px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-      ctx.fillText(kinship, cx, bottomY);
-      bottomY += 26;
-    }
-    const group = personGroupLabel(person, viewerOptions);
-    if (group) {
-      ctx.direction = 'ltr';
-      ctx.fillStyle = '#8a5cab';
-      ctx.font = '700 18px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-      ctx.fillText(`• ${group} •`, cx, bottomY);
-      bottomY += 24;
-    }
-    const icons = buildIconRow(person, viewerOptions);
-    if (icons) {
-      ctx.direction = 'ltr';
-      ctx.font = '700 26px -apple-system-emoji, "Apple Color Emoji", sans-serif';
-      ctx.fillText(icons, cx, bottomY);
-    }
-  });
+    // Name + dates for the focused person render on a label below the node
+    // (see makeFeaturedNode), matching the placement of every other person.
+  }, { scale: 3 });
 }
 
 function isRtlText(value) {

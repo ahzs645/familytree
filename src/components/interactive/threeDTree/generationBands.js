@@ -155,7 +155,7 @@ function makeGenerationLabelTexture(band, primary, secondary, compact) {
     ctx.fillStyle = band.generation === 0 ? 'rgba(139, 78, 156, 0.54)' : 'rgba(89, 96, 108, 0.58)';
     ctx.font = `750 ${compact ? 19 : 24}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
     ctx.fillText(secondary, compact ? 19 : 26, compact ? 88 : 116);
-  });
+  }, { scale: 3 });
 }
 
 function tint(color, amount) {

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { cameraFitSignature, fitCamera, persistCameraState, restoreCameraState } from './camera.js';
+import { cameraFitSignature, computeFitState, fitCamera, persistCameraState, restoreCameraState } from './camera.js';
+import { animateCameraTo, createTweenManager, easeOutBack } from './animation.js';
 import {
   makeBottomPlane,
   makeFamilyConnectors,
@@ -33,6 +34,13 @@ export function useThreeTreeScene({
   const hoveredIdRef = useRef(null);
   const fitSignatureRef = useRef(null);
   const persistCameraTimerRef = useRef(0);
+  const tweensRef = useRef(null);
+  const cameraTweenRef = useRef(null);
+  const nodeTweensRef = useRef([]);
+  const firstFitRef = useRef(true);
+  const structureSignatureRef = useRef(null);
+  const animationsEnabled = viewerOptions?.animationDuration !== 0;
+  const animationScale = Number.isFinite(viewerOptions?.animationDuration) ? viewerOptions.animationDuration : 1;
   const [zoomPercent, setZoomPercent] = useState(100);
   const [modelRevision, setModelRevision] = useState(0);
   const [hoveredId, setHoveredId] = useState(null);
@@ -137,6 +145,13 @@ export function useThreeTreeScene({
     cameraRef.current = camera;
     controlsRef.current = controls;
 
+    // Fresh scene (created on camera-mode / palette / lighting change) → the
+    // next framing should snap, not fly. Subsequent focus changes animate.
+    tweensRef.current = createTweenManager();
+    cameraTweenRef.current = null;
+    nodeTweensRef.current = [];
+    firstFitRef.current = true;
+
     actionsRef.current = createCameraActions({
       activeId,
       camera,
@@ -145,6 +160,8 @@ export function useThreeTreeScene({
       getBounds: fitBoundsForOptions,
       setZoomPercent,
       viewerOptions,
+      tweens: tweensRef.current,
+      cameraTweenRef,
     });
 
     const resize = () => {
@@ -220,8 +237,13 @@ export function useThreeTreeScene({
     renderer.domElement.addEventListener('contextmenu', onContextMenu);
 
     let raf = 0;
+    let lastFrame = performance.now();
     const animate = () => {
       raf = requestAnimationFrame(animate);
+      const now = performance.now();
+      const dt = Math.min(0.05, Math.max(0, (now - lastFrame) / 1000));
+      lastFrame = now;
+      tweensRef.current?.update(dt);
       controls.update();
       renderer.render(scene, camera);
     };
@@ -253,6 +275,10 @@ export function useThreeTreeScene({
       setContextMenu(null);
       fitSignatureRef.current = null;
       clickablesRef.current = [];
+      tweensRef.current?.clear();
+      tweensRef.current = null;
+      cameraTweenRef.current = null;
+      nodeTweensRef.current = [];
     };
     // The scene is rebuilt only when the color system changes; layout changes update the stage below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -266,6 +292,12 @@ export function useThreeTreeScene({
     const container = containerRef.current;
     if (!scene || !stage || !camera || !controls || !container) return;
 
+    // Stop any in-flight node tweens before the objects they target are
+    // disposed by clearGroup (this effect also re-runs on hover).
+    const tweens = tweensRef.current;
+    if (tweens) tweens.cancelAll(nodeTweensRef.current);
+    nodeTweensRef.current = [];
+
     clearGroup(stage);
     clickablesRef.current = [];
 
@@ -277,23 +309,69 @@ export function useThreeTreeScene({
 
     stage.add(makeFamilyConnectors(layout.links, layout.nodes, palette, viewerOptions));
 
+    const nodeObjects = [];
     for (const node of layout.nodes) {
       const object = node.featured
         ? makeFeaturedNode(node, palette, viewerOptions.personStyle, hoveredId === node.id, viewerOptions)
         : makePersonNode(node, palette, viewerOptions.personStyle, hoveredId === node.id, viewerOptions);
       stage.add(object);
       clickablesRef.current.push(object);
+      nodeObjects.push(object);
     }
 
     const fitBounds = fitBoundsForOptions();
     const fitSignature = cameraFitSignature(layout, activeId, viewerOptions.cameraMode, fitBounds);
     if (fitSignatureRef.current !== fitSignature) {
       const shouldRestoreCamera = !(viewerOptions.appearanceMode === 'macLight' && viewerOptions.cameraMode === 'top');
-      const restored = shouldRestoreCamera && restoreCameraState(camera, controls, viewerOptions.cameraMode, activeId);
-      if (!restored) fitCamera(camera, controls, fitBounds, container, viewerOptions.cameraMode);
+      if (firstFitRef.current) {
+        // First framing of a freshly built scene → snap into place.
+        const restored = shouldRestoreCamera && restoreCameraState(camera, controls, viewerOptions.cameraMode, activeId);
+        if (!restored) fitCamera(camera, controls, fitBounds, container, viewerOptions.cameraMode);
+        firstFitRef.current = false;
+      } else if (tweens && animationsEnabled) {
+        // Focus changed (e.g. a new person was selected) → fly the camera.
+        if (cameraTweenRef.current) tweens.cancel(cameraTweenRef.current);
+        const target = computeFitState(fitBounds, container, viewerOptions.cameraMode);
+        cameraTweenRef.current = animateCameraTo(tweens, camera, controls, target, {
+          duration: 0.72 * (animationScale || 1),
+          onUpdate: () => setZoomPercent(Math.round(camera.zoom * 100)),
+          onComplete: () => persistCameraState(camera, controls, viewerOptions.cameraMode, activeId),
+        });
+      } else {
+        fitCamera(camera, controls, fitBounds, container, viewerOptions.cameraMode);
+      }
       fitSignatureRef.current = fitSignature;
       setZoomPercent(Math.round(camera.zoom * 100));
     }
+
+    // Node "build-in" pop on the first assembly of the tree. Focus changes are
+    // handled by the camera fly-to above, so we don't re-pop every node on each
+    // click (that would be too busy alongside the camera move).
+    const structureSignature = `${activeId || ''}|${layout.nodes.map((node) => node.id).join(',')}`;
+    const isFirstAssembly = structureSignatureRef.current === null;
+    if (tweens && animationsEnabled && isFirstAssembly) {
+      nodeObjects.forEach((object, index) => {
+        const finalZ = object.position.z;
+        object.position.z = finalZ - 28;
+        object.scale.setScalar(0.62);
+        const tween = tweens.add({
+          duration: 0.42 * (animationScale || 1),
+          delay: Math.min(0.45, index * 0.012) * (animationScale || 1),
+          ease: easeOutBack,
+          onUpdate: (t) => {
+            object.position.z = finalZ - 28 + 28 * t;
+            object.scale.setScalar(0.62 + 0.38 * t);
+          },
+          onComplete: () => {
+            object.position.z = finalZ;
+            object.scale.setScalar(1);
+          },
+        });
+        nodeTweensRef.current.push(tween);
+      });
+    }
+    structureSignatureRef.current = structureSignature;
+
     actionsRef.current = {
       ...actionsRef.current,
       ...createCameraActions({
@@ -304,6 +382,8 @@ export function useThreeTreeScene({
         getBounds: fitBoundsForOptions,
         setZoomPercent,
         viewerOptions,
+        tweens: tweensRef.current,
+        cameraTweenRef,
       }),
     };
   }, [layout, palette, modelRevision, viewerOptions, hoveredId, activeId]);

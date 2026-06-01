@@ -60,7 +60,25 @@ async function main() {
     const fit = [...document.querySelectorAll('button')].find((b) => /Size to Fit/.test(b.textContent || ''));
     if (fit) fit.click();
   });
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(900);
+  // Optional zoom-in (ZOOM = number of wheel ticks) to inspect connectors/text up close.
+  const zoomTicks = Number(process.env.ZOOM || 0);
+  if (zoomTicks > 0) {
+    const focusY = process.env.FOCUSY || '0.62';
+    await page.evaluate((fy) => { window.__zoomFocusY = fy; }, focusY);
+    const box = await page.evaluate(() => {
+      const c = document.querySelector('canvas');
+      const r = c.getBoundingClientRect();
+      const fy = Number(window.__zoomFocusY || 0.62);
+      return { x: r.left + r.width / 2, y: r.top + r.height * fy };
+    });
+    await page.mouse.move(box.x, box.y);
+    for (let i = 0; i < zoomTicks; i += 1) {
+      await page.mouse.wheel(0, -120);
+      await page.waitForTimeout(90);
+    }
+    await page.waitForTimeout(700);
+  }
   await page.evaluate(() => {
     const canvas = document.querySelector('canvas');
     if (!canvas) return;

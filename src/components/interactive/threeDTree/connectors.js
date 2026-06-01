@@ -98,19 +98,13 @@ function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescend
 
   const addSegment = (a, b) => {
     const points = [new THREE.Vector3(a.x, a.y, z), new THREE.Vector3(b.x, b.y, z)];
-    group.add(makeConnectorTube(points, palette.shadow, shadowRadius, 0.06, { x: 3, y: -3, z: -6 }, 3));
+    group.add(makeConnectorTube(points, palette.shadow, shadowRadius, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
     group.add(makeConnectorTube(points, color, radius, 0.95, { x: 0, y: 0, z: 0 }, 4));
   };
 
   addSegment({ x: anchor.x, y: anchorEdgeY }, { x: anchor.x, y: busY });
   if (Math.abs(maxX - minX) > 1) addSegment({ x: minX, y: busY }, { x: maxX, y: busY });
   for (const other of others) addSegment({ x: other.x, y: busY }, { x: other.x, y: otherEdgeY });
-
-  // Subtle caps at junctions — small enough not to look like beads.
-  const junctionXs = new Set([anchor.x, ...xs]);
-  for (const x of junctionXs) {
-    group.add(makeConnectionCap(new THREE.Vector3(x, busY, z + 0.5), color, 1.7 * thicknessScale));
-  }
   return group;
 }
 
@@ -134,13 +128,8 @@ export function makeConnector(link, nodes, palette, options = {}) {
 
   const baseRadius = link.emphasis ? 2.0 : type === 'partner' ? 1.3 : 1.5;
   const tubeRadius = baseRadius * thicknessScale;
-  group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.6, 0.06, { x: 3, y: -3, z: -6 }, 3));
+  group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.4, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
   group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: 0 }, 4));
-  if (type === 'family' || link.emphasis) {
-    for (const point of uniqueConnectorPoints(points)) {
-      group.add(makeConnectionCap(point, color, link.emphasis ? 2.6 : 1.9));
-    }
-  }
   return group;
 }
 
@@ -291,7 +280,7 @@ function roundedPolylinePoints(points) {
       routed.push(current.clone());
       continue;
     }
-    const cornerRadius = Math.min(34, beforeLength * 0.44, afterLength * 0.44);
+    const cornerRadius = Math.min(15, beforeLength * 0.4, afterLength * 0.4);
     const entry = current.clone().add(before.multiplyScalar(cornerRadius));
     const exit = current.clone().add(after.multiplyScalar(cornerRadius));
     routed.push(entry);

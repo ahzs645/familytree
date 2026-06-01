@@ -53,17 +53,23 @@ export function makePlaneFromTexture(texture, width, height) {
   return plane;
 }
 
-export function makeCanvasTexture(width, height, draw) {
+export function makeCanvasTexture(width, height, draw, options = {}) {
   const canvas = document.createElement('canvas');
-  const scale = 2;
-  canvas.width = width * scale;
-  canvas.height = height * scale;
+  // Text-heavy textures (person labels, featured card) supersample at a higher
+  // factor so they stay crisp when the camera zooms in close. Large fills
+  // (bands, ground) keep the cheaper 2× to bound texture memory.
+  const scale = options.scale || 2;
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
   const ctx = canvas.getContext('2d');
   ctx.scale(scale, scale);
   draw(ctx, width, height);
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
+  texture.anisotropy = options.anisotropy || 16;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = true;
   texture.needsUpdate = true;
   return texture;
 }

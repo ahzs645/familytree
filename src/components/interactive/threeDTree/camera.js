@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CAMERA_STATE_STORAGE_KEY, CAMERA_STATE_VERSION } from './constants.js';
 
-export function fitCamera(camera, controls, bounds, container, cameraMode = 'tilted') {
+export function computeFitState(bounds, container, cameraMode = 'tilted') {
   const width = Math.max(1, bounds.maxX - bounds.minX);
   const height = Math.max(1, bounds.maxY - bounds.minY);
   const centerX = (bounds.minX + bounds.maxX) / 2;
@@ -12,15 +12,25 @@ export function fitCamera(camera, controls, bounds, container, cameraMode = 'til
   const zoomForWidth = viewportWidth / width;
   const zoomForHeight = viewportHeight / height;
   const fitPadding = (cameraMode === 'top' || cameraMode === 'topDown') ? 0.9 : 0.82;
-  const nextZoom = THREE.MathUtils.clamp(Math.min(zoomForWidth, zoomForHeight) * fitPadding, 0.1, 1.45);
+  const zoom = THREE.MathUtils.clamp(Math.min(zoomForWidth, zoomForHeight) * fitPadding, 0.1, 1.45);
+  return {
+    position: cameraPositionForMode(cameraMode, centerX, centerY),
+    target: new THREE.Vector3(centerX, centerY, 0),
+    zoom,
+  };
+}
 
-  const position = cameraPositionForMode(cameraMode, centerX, centerY);
-  camera.zoom = nextZoom;
-  camera.position.copy(position);
-  controls.target.set(centerX, centerY, 0);
-  camera.lookAt(centerX, centerY, 0);
+export function applyCameraState(camera, controls, state) {
+  camera.zoom = state.zoom;
+  camera.position.copy(state.position);
+  controls.target.copy(state.target);
+  camera.lookAt(state.target);
   camera.updateProjectionMatrix();
   controls.update();
+}
+
+export function fitCamera(camera, controls, bounds, container, cameraMode = 'tilted') {
+  applyCameraState(camera, controls, computeFitState(bounds, container, cameraMode));
 }
 
 export function cameraFitSignature(layout, activeId, cameraMode, bounds = layout.viewBounds || layout.bounds) {
