@@ -10,11 +10,11 @@ export const SKIN_SHADOW = '#dcae7a';
 export const BAND_LABEL_GUTTER = 310;
 export const REFERENCE_MODEL_BASE = `${import.meta.env.BASE_URL}mft-models/`;
 export const VIEWER_OPTIONS_STORAGE_KEY = 'cloudtreeweb:interactive-tree-viewer-options';
-export const VIEWER_OPTIONS_VERSION = 4;
+export const VIEWER_OPTIONS_VERSION = 5;
 export const CAMERA_STATE_STORAGE_KEY = 'cloudtreeweb:interactive-tree-camera-state';
-export const CAMERA_STATE_VERSION = 9;
+export const CAMERA_STATE_VERSION = 10;
 export const OPTIONS_PANEL_STATE_STORAGE_KEY = 'cloudtreeweb:interactive-tree-options-panel';
-export const REFERENCE_MODEL_GROUND_ROTATION_X = Math.PI / 2;
+export const REFERENCE_MODEL_GROUND_ROTATION_X = 0;
 
 // Person rendering style (matches Mac InteractiveTreeView3DViewer_PersonStyle_*)
 export const PERSON_STYLES = [

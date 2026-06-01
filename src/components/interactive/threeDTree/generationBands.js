@@ -243,16 +243,16 @@ function bandFillForMode(band, mode) {
       ? ancestorBandColor(Math.abs(band.generation))
       : descendantBandColor(band.generation);
   if (mode === 'macPink') {
-    // Mac Flat viewer pink: strongest at the root/recent rows, fading toward
-    // near-white for distant ancestors (and far descendants). The earlier
-    // build had this inverted, which made the oldest band the most saturated.
-    if (band.generation === 0) return 'rgba(240, 190, 220, 0.80)';
+    // Pink slabs with a real RGB gradient (slabs are solid, so alpha no longer
+    // carries the gradient): saturated magenta-pink at the root/recent rows
+    // fading to light pink for distant generations — matching the source.
+    if (band.generation === 0) return 'rgb(231, 150, 198)';
     const tiers = [
-      'rgba(242, 196, 224, 0.74)', // gen ±1 — pink, close to the root
-      'rgba(245, 206, 229, 0.66)',
-      'rgba(248, 216, 234, 0.58)',
-      'rgba(250, 226, 240, 0.52)',
-      'rgba(252, 236, 245, 0.46)', // distant generations — almost white
+      'rgb(235, 165, 206)', // gen ±1 — saturated pink near the root
+      'rgb(240, 184, 216)',
+      'rgb(244, 201, 225)',
+      'rgb(248, 217, 234)',
+      'rgb(251, 232, 242)', // distant generations — light pink
     ];
     return tiers[Math.min(Math.abs(band.generation) - 1, tiers.length - 1)];
   }

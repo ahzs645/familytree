@@ -126,7 +126,7 @@ export function makeConnector(link, nodes, palette, options = {}) {
       : orthogonalPoints(from, to, z);
   }
 
-  const baseRadius = link.emphasis ? 3.0 : type === 'partner' ? 1.9 : 2.4;
+  const baseRadius = link.emphasis ? 2.5 : type === 'partner' ? 1.6 : 1.9;
   const tubeRadius = baseRadius * thicknessScale;
   group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.4, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
   group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: 0 }, 4));
@@ -137,13 +137,13 @@ export function makeConnector(link, nodes, palette, options = {}) {
 // slightly as generations climb away from the root. (Matches the source far
 // better than the earlier rainbow — MFT draws these connectors in red.)
 const CONNECTOR_GENERATION_COLORS = [
-  '#a8423a', // 0 — root / descendants (deep brick red)
-  '#b14a40', // 1 — parents / children
-  '#b85549', // 2 — grandparents
-  '#bf6253', // 3
-  '#c5705f', // 4
-  '#ca7e6c', // 5
-  '#ce8c7a', // 6 — distant ancestors (lighter terracotta)
+  '#9a3528', // 0 — root / descendants (deep brick/maroon, matching the source)
+  '#a13b2e', // 1 — parents / children
+  '#a84334', // 2 — grandparents
+  '#af4b3b', // 3
+  '#b55443', // 4
+  '#ba5d4c', // 5
+  '#bf6856', // 6 — distant ancestors
 ];
 
 function connectorGenerationColor(generation) {

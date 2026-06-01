@@ -1,6 +1,6 @@
 export const MAC_FAMILY_GRAPH_LAYOUT = {
   generationStep: 274,
-  childGap: 176,
+  childGap: 146,
   rootCardWidth: 640,
   familyPadding: 120,
   blockGap: 90,
@@ -10,8 +10,8 @@ export const MAC_FAMILY_GRAPH_LAYOUT = {
   visibleXRadius: 1560,
   maxFocusWidth: 3020,
   maxFocusHeight: 1520,
-  regularModelSize: 76,
-  featuredModelSize: 108,
+  regularModelSize: 58,
+  featuredModelSize: 88,
   regularLabelWidth: 164,
   regularLabelHeight: 60,
   regularShadowWidth: 194,
@@ -20,8 +20,8 @@ export const MAC_FAMILY_GRAPH_LAYOUT = {
   // Distance from node center where connector lines anchor. Kept inside the
   // figure silhouette (regularModelSize 76) and well below the band half-height
   // (~92) so drops reach the person instead of re-emerging at the band edge.
-  regularConnectorRadius: 64,
-  featuredConnectorRadius: 92,
+  regularConnectorRadius: 30,
+  featuredConnectorRadius: 46,
   // Horizontal radii are much smaller — partner lines span the gap between
   // adjacent figures and need to start near the figure's silhouette edge.
   regularHorizontalConnectorRadius: 60,

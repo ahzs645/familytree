@@ -101,8 +101,9 @@ export function useThreeTreeScene({
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.screenSpacePanning = true;
+    controls.zoomToCursor = true; // zoom toward the pointer, like the native viewer
     controls.minZoom = 0.1;
-    controls.maxZoom = 2.6;
+    controls.maxZoom = 4.5; // allow close inspection of the small busts
     controls.maxPolarAngle = Math.PI * 0.68;
     controls.mouseButtons = {
       LEFT: THREE.MOUSE.PAN,

@@ -198,13 +198,13 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
   };
 
   // Horizontal couple gap, sibling pitch, and the minimum same-generation gap.
-  const PARTNER_GAP = 188;
+  const PARTNER_GAP = 150;
   const SIBLING_GAP = CHILD_GAP;
-  const MIN_GEN_GAP = 168;
+  const MIN_GEN_GAP = 124;
   // Each generation up, a lineage drifts outward by this much (paternal left,
   // maternal right) — the native viewer's ancestor "bow". Large enough that the
   // paternal and maternal couples clear each other above the parents row.
-  const FAN_BIAS = 230;
+  const FAN_BIAS = 190;
 
   const addNode = (personId, generation, x, familyBlockId, priority = 0) => {
     const source = sourceNodes.get(personId);

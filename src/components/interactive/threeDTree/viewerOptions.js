@@ -54,9 +54,10 @@ export function defaultViewerOptions() {
     generationBandOpacity: 0.62,
     generationBandsFullWidth: true,
 
-    // Camera — a gentle tilt reveals the 3D pedestal slab depth, matching the
-    // native viewer (straight top-down flattens the slabs).
-    cameraMode: 'topDownTilted',
+    // Camera — flat top-down, matching the source's framing. Figures still read
+    // as fronts because the models lie facing the camera; the 3D slab bevel
+    // gives subtle depth without an over-tilted perspective.
+    cameraMode: 'topDown',
 
     // Lighting
     lightingMode: 'normal',
@@ -95,6 +96,12 @@ function migrateAndValidate(parsed, fallback) {
   // Migrate legacy camera mode ids.
   const migratedCameraMode = LEGACY_CAMERA_MODE_MAP[parsed.cameraMode] || parsed.cameraMode;
 
+  // One-time reset (pre-v5 stores) of the look-defining options to the
+  // source-matching defaults, so users who had explored e.g. the multi-colour
+  // "By Generation" bands or a different camera land on the MacFamilyTree pink
+  // top-down look without having to hunt through Options.
+  const resetLook = (Number(parsed.version) || 0) < 5;
+
   return {
     version: VIEWER_OPTIONS_VERSION,
     appearanceMode: pickFrom(APPEARANCE_MODES, parsed.appearanceMode, fallback.appearanceMode),
@@ -119,12 +126,12 @@ function migrateAndValidate(parsed, fallback) {
     connectionColorMode: pickFrom(CONNECTION_COLOR_MODES, parsed.connectionColorMode, fallback.connectionColorMode),
     connectionCustomColor: pickHex(parsed.connectionCustomColor, fallback.connectionCustomColor),
 
-    generationBandStyle: pickFrom(GENERATION_BAND_STYLES, parsed.generationBandStyle, fallback.generationBandStyle),
-    generationBandColorMode: pickFrom(GENERATION_BAND_COLOR_MODES, parsed.generationBandColorMode, fallback.generationBandColorMode),
+    generationBandStyle: resetLook ? fallback.generationBandStyle : pickFrom(GENERATION_BAND_STYLES, parsed.generationBandStyle, fallback.generationBandStyle),
+    generationBandColorMode: resetLook ? fallback.generationBandColorMode : pickFrom(GENERATION_BAND_COLOR_MODES, parsed.generationBandColorMode, fallback.generationBandColorMode),
     generationBandOpacity: clampNumber(parsed.generationBandOpacity, 0, 1, fallback.generationBandOpacity),
     generationBandsFullWidth: pickBool(parsed.generationBandsFullWidth, fallback.generationBandsFullWidth),
 
-    cameraMode: pickFrom(CAMERA_MODES, migratedCameraMode, fallback.cameraMode),
+    cameraMode: resetLook ? fallback.cameraMode : pickFrom(CAMERA_MODES, migratedCameraMode, fallback.cameraMode),
 
     lightingMode: pickFrom(LIGHTING_MODES, parsed.lightingMode, fallback.lightingMode),
     illuminationStrength: clampNumber(parsed.illuminationStrength, 0.2, 2.0, fallback.illuminationStrength),

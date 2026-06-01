@@ -136,7 +136,9 @@ describe('buildInteractiveLayout', () => {
     const rootLink = familyLinks.find((link) => (link.nodeIds || []).includes('root'));
     expect(rootLink).toBeTruthy();
     const highestPointY = Math.max(...rootLink.points.map((point) => point.y));
-    expect(highestPointY).toBeGreaterThan(nodes.get('root').y + ROOT_CARD.h * 0.44);
+    // The connector rises from the sibling bus above the root node toward the
+    // parents (threshold kept node-size-agnostic).
+    expect(highestPointY).toBeGreaterThan(nodes.get('root').y + 48);
     expect(layout.bands.find((band) => band.generation === 0)).toMatchObject({
       count: 2,
       title: 'Root Generation',
