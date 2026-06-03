@@ -21,7 +21,10 @@ export const MAC_FAMILY_GRAPH_LAYOUT = {
   // figure silhouette (regularModelSize 76) and well below the band half-height
   // (~92) so drops reach the person instead of re-emerging at the band edge.
   regularConnectorRadius: 30,
-  featuredConnectorRadius: 46,
+  // Featured node carries a large root ring (outer torus at ROOT_CARD.w*0.38 ≈
+  // 92). Attach the incoming connector at the ring's top edge so the line meets
+  // the ring cleanly instead of diving deep inside the focal circle.
+  featuredConnectorRadius: 96,
   // Horizontal radii are much smaller — partner lines span the gap between
   // adjacent figures and need to start near the figure's silhouette edge.
   regularHorizontalConnectorRadius: 60,

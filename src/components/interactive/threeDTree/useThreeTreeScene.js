@@ -31,9 +31,11 @@ export function useThreeTreeScene({
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
   const clickablesRef = useRef([]);
+  const connectorsRef = useRef(null);
   const actionsRef = useRef({ fit: () => {}, zoom: () => {}, zoomTo: () => {} });
   const downRef = useRef(null);
   const hoveredIdRef = useRef(null);
+  const hoveredConnectionRef = useRef(null);
   const fitSignatureRef = useRef(null);
   const persistCameraTimerRef = useRef(0);
   const tweensRef = useRef(null);
@@ -60,6 +62,7 @@ export function useThreeTreeScene({
   const [zoomPercent, setZoomPercent] = useState(100);
   const [modelRevision, setModelRevision] = useState(0);
   const [hoveredId, setHoveredId] = useState(null);
+  const [hoveredConnectionKey, setHoveredConnectionKey] = useState(null);
   const [hoverCard, setHoverCard] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -221,6 +224,26 @@ export function useThreeTreeScene({
       return node;
     };
 
+    // Raycast the connector group and return the family id of the connection
+    // under the cursor (or null) so it can be hover-highlighted.
+    const intersectConnection = (event) => {
+      const connectors = connectorsRef.current;
+      if (!connectors) return null;
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects([connectors], true);
+      for (const hit of hits) {
+        let object = hit.object;
+        while (object) {
+          if (object.userData.connectionKey) return object.userData.connectionKey;
+          object = object.parent;
+        }
+      }
+      return null;
+    };
+
     const onPointerDown = (event) => {
       setContextMenu(null);
       downRef.current = { x: event.clientX, y: event.clientY };
@@ -250,11 +273,18 @@ export function useThreeTreeScene({
     const onPointerMove = (event) => {
       const person = intersectPerson(event);
       const nextHoveredId = person?.person?.recordName || null;
-      renderer.domElement.style.cursor = person ? 'pointer' : 'grab';
+      // A person under the cursor wins; otherwise test the connection lines so a
+      // hovered relationship highlights (thicker + brighter), like the source.
+      const nextConnection = person ? null : intersectConnection(event);
+      renderer.domElement.style.cursor = person || nextConnection ? 'pointer' : 'grab';
       setHoverCard(person ? { person: person.person, x: event.clientX, y: event.clientY } : null);
       if (hoveredIdRef.current !== nextHoveredId) {
         hoveredIdRef.current = nextHoveredId;
         setHoveredId(nextHoveredId);
+      }
+      if (hoveredConnectionRef.current !== nextConnection) {
+        hoveredConnectionRef.current = nextConnection;
+        setHoveredConnectionKey(nextConnection);
       }
     };
     const onPointerLeave = () => {
@@ -263,6 +293,10 @@ export function useThreeTreeScene({
       if (hoveredIdRef.current !== null) {
         hoveredIdRef.current = null;
         setHoveredId(null);
+      }
+      if (hoveredConnectionRef.current !== null) {
+        hoveredConnectionRef.current = null;
+        setHoveredConnectionKey(null);
       }
     };
     const onContextMenu = (event) => {
@@ -409,7 +443,9 @@ export function useThreeTreeScene({
     }
     genLabelsRef.current = genLabels;
 
-    stage.add(makeFamilyConnectors(layout.links, layout.nodes, palette, viewerOptions));
+    const connectors = makeFamilyConnectors(layout.links, layout.nodes, palette, { ...viewerOptions, hoveredConnectionKey });
+    stage.add(connectors);
+    connectorsRef.current = connectors;
 
     const nodeObjects = [];
     for (const node of layout.nodes) {
@@ -501,7 +537,7 @@ export function useThreeTreeScene({
         cameraTweenRef,
       }),
     };
-  }, [layout, palette, modelRevision, viewerOptions, hoveredId, activeId, selectedId]);
+  }, [layout, palette, modelRevision, viewerOptions, hoveredId, hoveredConnectionKey, activeId, selectedId]);
 
   // A focus change (re-root) clears the click-selection.
   useEffect(() => {

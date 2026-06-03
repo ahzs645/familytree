@@ -110,10 +110,17 @@ function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescend
 
 export function makeConnector(link, nodes, palette, options = {}) {
   const group = new THREE.Group();
+  // Tag the whole connection with its family id so a pointer raycast can identify
+  // which relationship is under the cursor (drives hover highlighting).
+  if (link.familyId) group.userData.connectionKey = link.familyId;
   const type = link.type;
   const thicknessScale = Number.isFinite(options.connectionThickness) ? options.connectionThickness : 1;
   const colorMode = options.connectionColorMode || 'byGenerationLight';
-  const color = colorForConnector(link, type, palette, colorMode, options.connectionCustomColor);
+  const highlighted = Boolean(link.familyId) && options.hoveredConnectionKey === link.familyId;
+  const baseColor = colorForConnector(link, type, palette, colorMode, options.connectionCustomColor);
+  // On hover the native viewer thickens the connection and shifts it to a
+  // brighter highlight tone — keep the lineage hue but lift it toward white.
+  const color = highlighted ? lightenHex(baseColor, 0.5) : baseColor;
   const z = link.emphasis ? 5 : 2;
   let points = (link.points || []).map((point) => new THREE.Vector3(point.x, point.y, point.z ?? z));
   if (points.length === 0 && link.from && link.to) {
@@ -127,19 +134,35 @@ export function makeConnector(link, nodes, palette, options = {}) {
   }
 
   const baseRadius = link.emphasis ? 2.7 : type === 'partner' ? 1.7 : 2.3;
-  const tubeRadius = baseRadius * thicknessScale;
+  const tubeRadius = baseRadius * thicknessScale * (highlighted ? 1.95 : 1);
   group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.4, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
-  group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: 0 }, 4));
-  if (link.coupleMark) group.add(makeUnionMarker(link.coupleMark, color, link.emphasis));
+  group.add(makeConnectorTube(points, color, tubeRadius, highlighted ? 1 : link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: highlighted ? 4 : 0 }, highlighted ? 8 : 4));
+  // Transparent fat tube purely for forgiving hit-testing of the thin line.
+  if (link.familyId) {
+    const hit = makeConnectorTube(points, '#000000', 11, 0, { x: 0, y: 0, z: 0 }, 1);
+    group.add(hit);
+  }
+  if (link.coupleMark) group.add(makeUnionMarker(link.coupleMark, link.emphasis));
   return group;
 }
 
+function lightenHex(hex, amount) {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return hex;
+  const next = [0, 2, 4].map((index) => {
+    const value = parseInt(normalized.slice(index, index + 2), 16);
+    return Math.round(value + (255 - value) * amount).toString(16).padStart(2, '0');
+  });
+  return `#${next.join('')}`;
+}
+
 // The native viewer stamps a small ⊘ "union" glyph on the middle of each couple
-// bar — a thin ring crossed by a diagonal slash, tinted to the bar's colour.
-function makeUnionMarker(point, color, emphasis) {
+// bar — a thin NEUTRAL-grey ring crossed by a diagonal slash (not tinted to the
+// bar colour), sitting on a white disc so it reads over the line.
+function makeUnionMarker(point, emphasis) {
   const group = new THREE.Group();
   const radius = emphasis ? 13 : 10;
-  const ringMaterial = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.92 });
+  const ringMaterial = new THREE.MeshBasicMaterial({ color: '#8c919b', transparent: true, opacity: 0.95 });
   const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, emphasis ? 2.1 : 1.7, 10, 28), ringMaterial);
   group.add(ring);
   // A white disc behind the glyph so the ring reads cleanly over the bar.

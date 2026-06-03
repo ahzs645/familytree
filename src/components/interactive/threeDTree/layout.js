@@ -470,6 +470,7 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   const addPolyline = (familyId, type, emphasis, points, nodeIds = []) => {
     routedLinks.push({
       key: `${familyId}:${type}:${routedLinks.length}`,
+      familyId,
       type,
       emphasis,
       points,
