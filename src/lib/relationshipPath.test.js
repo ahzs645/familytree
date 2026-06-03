@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { findRelationshipPath, findRelationshipPaths, relationshipLabel } from './relationshipPath.js';
+import { buildRelationshipMatrix, findRelationshipPath, findRelationshipPaths, relationshipLabel } from './relationshipPath.js';
 
 const mockState = vi.hoisted(() => ({ db: null }));
 
@@ -150,6 +150,24 @@ describe('relationship path discovery', () => {
 
     expect(tooShallow.paths).toEqual([]);
     expect(enoughDepth.paths[0].steps.map((step) => step.recordName)).toEqual(['child', 'parent', 'grandparent']);
+  });
+
+  it('builds a pairwise relationship matrix for selected people', async () => {
+    mockState.db = createMockDb([
+      person('father', 'Frank Doe'),
+      person('mother', 'Mary Doe'),
+      person('a', 'Alex Doe'),
+      person('b', 'Bailey Doe'),
+      family('fam1', 'father', 'mother'),
+      childRelation('cr1', 'fam1', 'a'),
+      childRelation('cr2', 'fam1', 'b'),
+    ]);
+
+    const matrix = await buildRelationshipMatrix(['a', 'b'], { bloodlineOnly: true, maxPeople: 4 });
+
+    expect(matrix.people.map((entry) => entry.id)).toEqual(['a', 'b']);
+    expect(matrix.rows[0].cells.map((cell) => cell.label)).toEqual(['Self', 'Sibling']);
+    expect(matrix.rows[1].cells.map((cell) => cell.label)).toEqual(['Sibling', 'Self']);
   });
 });
 

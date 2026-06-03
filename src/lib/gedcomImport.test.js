@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { analyzeGedcomText, buildGedcomDataset, canImportGedcomAnalysis, parseGedcom, tokenizeGedcomText } from './gedcomImport.js';
+import { decodeGedcomBytes } from './genealogyFileFormats.js';
 
 describe('analyzeGedcomText', () => {
   it('reports duplicate XREFs as blocking shared validation issues', () => {
@@ -93,6 +94,28 @@ describe('analyzeGedcomText', () => {
       expect.objectContaining({ code: 'custom-tags', severity: 'warning', refs: ['_UID'] }),
     ]));
   });
+
+  it('summarizes unsupported GeneWeb/GEDCOM tags for review', () => {
+    const result = analyzeGedcomText([
+      '0 HEAD',
+      '1 CHAR ASCII',
+      '0 @I1@ INDI',
+      '1 NAME Jane /Doe/',
+      '1 _UID abc123',
+      '1 _MILT Militia roll',
+      '0 @X1@ _FOO',
+      '1 NAME /Unsupported/',
+      '0 TRLR',
+    ].join('\n'));
+
+    expect(result.canImport).toBe(true);
+    expect(result.counts.unsupportedTags).toBeGreaterThanOrEqual(2);
+    expect(result.issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'unsupported-top-level-record', refs: ['_FOO'] }),
+      expect.objectContaining({ code: 'unsupported-event-tag', refs: ['_MILT'] }),
+      expect.objectContaining({ code: 'unsupported-tags-summary', refs: expect.arrayContaining(['_FOO', '_MILT']) }),
+    ]));
+  });
 });
 
 describe('tokenizeGedcomText', () => {
@@ -156,6 +179,66 @@ describe('canImportGedcomAnalysis', () => {
 });
 
 describe('parseGedcom', () => {
+  it('imports the simple GeneWeb GEDCOM fixture shape', () => {
+    const records = parseGedcom([
+      '0 HEAD',
+      '1 CHAR ASCII',
+      '1 SOUR ID_OF_CREATING_FILE',
+      '1 GEDC',
+      '2 VERS 5.5',
+      '2 FORM Lineage-Linked',
+      '1 SUBM @SUBMITTER@',
+      '0 @SUBMITTER@ SUBM',
+      '1 NAME /Submitter/',
+      '1 ADDR Submitters address',
+      '2 CONT address continued here',
+      '0 @FATHER@ INDI',
+      '1 NAME /Father/',
+      '1 SEX M',
+      '1 BIRT',
+      '2 PLAC birth place',
+      '2 DATE 1 JAN 1899',
+      '1 DEAT',
+      '2 PLAC death place',
+      '2 DATE 31 DEC 1990',
+      '1 FAMS @FAMILY@',
+      '0 @MOTHER@ INDI',
+      '1 NAME /Mother/',
+      '1 SEX F',
+      '1 BIRT',
+      '2 PLAC birth place',
+      '2 DATE 1 JAN 1899',
+      '1 DEAT',
+      '2 PLAC death place',
+      '2 DATE 31 DEC 1990',
+      '1 FAMS @FAMILY@',
+      '0 @CHILD@ INDI',
+      '1 NAME /Child/',
+      '1 BIRT',
+      '2 PLAC birth place',
+      '2 DATE 31 JUL 1950',
+      '1 DEAT',
+      '2 PLAC death place',
+      '2 DATE 29 FEB 2000',
+      '1 FAMC @FAMILY@',
+      '0 @FAMILY@ FAM',
+      '1 MARR',
+      '2 PLAC marriage place',
+      '2 DATE 1 APR 1950',
+      '1 HUSB @FATHER@',
+      '1 WIFE @MOTHER@',
+      '1 CHIL @CHILD@',
+      '0 TRLR',
+    ].join('\r\n'));
+
+    expect(records.filter((record) => record.recordType === 'Person')).toHaveLength(3);
+    expect(records.filter((record) => record.recordType === 'Family')).toHaveLength(1);
+    expect(records.filter((record) => record.recordType === 'ChildRelation')).toHaveLength(1);
+    expect(records.filter((record) => record.recordType === 'PersonEvent')).toHaveLength(6);
+    expect(records.filter((record) => record.recordType === 'FamilyEvent')).toHaveLength(1);
+    expect(records.find((record) => record.recordType === 'Family')?.fields?.man?.value).toMatch(/^person-imp-/);
+  });
+
   it('round-trips CONT and CONC note text into imported note records', () => {
     const records = parseGedcom([
       '0 HEAD',
@@ -399,5 +482,17 @@ describe('parseGedcom', () => {
       date: { value: '1980' },
       placeName: { value: 'Cuyahoga, Ohio, USA' },
     });
+  });
+});
+
+describe('decodeGedcomBytes', () => {
+  it('uses the CHAR tag to decode Windows-1252 GEDCOM text', () => {
+    const bytes = new Uint8Array([
+      ...new TextEncoder().encode('0 HEAD\n1 CHAR ANSI\n0 @I1@ INDI\n1 NAME Andr'),
+      0xe9,
+      ...new TextEncoder().encode(' /Doe/\n0 TRLR\n'),
+    ]);
+
+    expect(decodeGedcomBytes(bytes, 'legacy.ged')).toContain('André /Doe/');
   });
 });

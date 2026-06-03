@@ -12,6 +12,7 @@ import { getLocalDatabase } from './LocalDatabase.js';
 import { Gender } from '../models/index.js';
 import { FIELD_ALIASES, readConclusionType, readField } from './schema.js';
 import { equalsSearchText, matchesSearchText, normalizeSearchText, searchTokenVariants, startsWithSearchText } from './i18n.js';
+import { refToRecordName } from './recordRef.js';
 
 const searchIndexCache = new Map();
 
@@ -290,4 +291,165 @@ export async function runSearch(query) {
   const limit = query.limit || 500;
   const total = matched.length;
   return { records: matched.slice(0, limit), total, hasMore: total > limit };
+}
+
+export async function runGenealogyAdvancedSearch(criteria = {}) {
+  const db = getLocalDatabase();
+  const all = typeof db.getAllRecords === 'function'
+    ? await db.getAllRecords()
+    : await loadSearchUniverse(db);
+  const people = all.filter((record) => record.recordType === 'Person');
+  const context = buildGenealogySearchContext(all);
+  const matchMode = criteria.matchMode === 'any' ? 'any' : 'all';
+  const checks = buildGenealogySearchChecks(criteria, context);
+  const limit = criteria.limit || 500;
+  const matched = checks.length
+    ? people.filter((person) => {
+      const results = checks.map((check) => check(person));
+      return matchMode === 'any' ? results.some(Boolean) : results.every(Boolean);
+    })
+    : people;
+  return { records: matched.slice(0, limit), total: matched.length, hasMore: matched.length > limit };
+}
+
+async function loadSearchUniverse(db) {
+  const types = ['Person', 'Family', 'PersonEvent', 'FamilyEvent', 'PersonFact', 'Place', 'AdditionalName', 'ChildRelation'];
+  const batches = await Promise.all(types.map(async (type) => {
+    try {
+      return (await db.query(type, { limit: 100000 })).records || [];
+    } catch {
+      return [];
+    }
+  }));
+  return batches.flat();
+}
+
+function buildGenealogySearchContext(records = []) {
+  const places = new Map(records.filter((record) => record.recordType === 'Place').map((record) => [record.recordName, record]));
+  const personEvents = new Map();
+  const familyEvents = new Map();
+  const facts = new Map();
+  const aliases = new Map();
+  const familiesByPerson = new Map();
+  const push = (map, key, value) => {
+    if (!key) return;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(value);
+  };
+  for (const event of records.filter((record) => record.recordType === 'PersonEvent')) {
+    push(personEvents, refToRecordName(event.fields?.person?.value), event);
+  }
+  for (const fact of records.filter((record) => record.recordType === 'PersonFact')) {
+    push(facts, refToRecordName(fact.fields?.person?.value), fact);
+  }
+  for (const name of records.filter((record) => record.recordType === 'AdditionalName')) {
+    push(aliases, refToRecordName(name.fields?.person?.value), name);
+  }
+  for (const family of records.filter((record) => record.recordType === 'Family')) {
+    const man = refToRecordName(family.fields?.man?.value);
+    const woman = refToRecordName(family.fields?.woman?.value);
+    push(familiesByPerson, man, family);
+    push(familiesByPerson, woman, family);
+  }
+  for (const event of records.filter((record) => record.recordType === 'FamilyEvent')) {
+    push(familyEvents, refToRecordName(event.fields?.family?.value), event);
+  }
+  return { places, personEvents, familyEvents, facts, aliases, familiesByPerson };
+}
+
+function buildGenealogySearchChecks(criteria, context) {
+  const checks = [];
+  addTextCheck(checks, criteria.firstName, (person) => [person.fields?.firstName?.value, person.fields?.cached_fullName?.value], Boolean(criteria.exactFirstName));
+  addTextCheck(checks, criteria.surname, (person) => [person.fields?.lastName?.value, person.fields?.cached_fullName?.value], Boolean(criteria.exactSurname));
+  addTextCheck(checks, criteria.alias, (person) => (context.aliases.get(person.recordName) || []).flatMap((record) => Object.values(record.fields || {}).map((field) => field?.value)), false);
+  if (criteria.gender !== '' && criteria.gender != null) {
+    checks.push((person) => String(person.fields?.gender?.value ?? '') === String(criteria.gender));
+  }
+  addTextCheck(checks, criteria.occupation, (person) => [
+    ...eventValues(context.personEvents.get(person.recordName) || [], ['Occupation', 'Employment', 'Education']),
+    ...factValues(context.facts.get(person.recordName) || []),
+  ], false);
+  for (const eventCriteria of [
+    ['birth', 'Birth', criteria.birthPlace, criteria.birthBefore, criteria.birthAfter],
+    ['death', 'Death', criteria.deathPlace, criteria.deathBefore, criteria.deathAfter],
+    ['baptism', 'Baptism', criteria.baptismPlace, criteria.baptismBefore, criteria.baptismAfter],
+    ['burial', 'Burial', criteria.burialPlace, criteria.burialBefore, criteria.burialAfter],
+  ]) {
+    const [, eventType, place, before, after] = eventCriteria;
+    if (hasValue(place) || hasValue(before) || hasValue(after)) {
+      checks.push((person) => eventMatches(context.personEvents.get(person.recordName) || [], eventType, { place, before, after }, context));
+    }
+  }
+  if (hasValue(criteria.marriagePlace) || hasValue(criteria.marriageBefore) || hasValue(criteria.marriageAfter)) {
+    checks.push((person) => {
+      const families = context.familiesByPerson.get(person.recordName) || [];
+      const events = families.flatMap((family) => context.familyEvents.get(family.recordName) || []);
+      return eventMatches(events, 'Marriage', {
+        place: criteria.marriagePlace,
+        before: criteria.marriageBefore,
+        after: criteria.marriageAfter,
+      }, context);
+    });
+  }
+  return checks;
+}
+
+function addTextCheck(checks, value, valuesForPerson, exact = false) {
+  if (!hasValue(value)) return;
+  checks.push((person) => valuesForPerson(person).some((candidate) => (
+    exact ? equalsSearchText(candidate, value) : matchesSearchText(candidate, value)
+  )));
+}
+
+function eventMatches(events, eventType, criteria, context) {
+  return events.some((event) => {
+    if (!eventTypeMatches(event, eventType)) return false;
+    if (hasValue(criteria.place) && !eventPlaceMatches(event, criteria.place, context)) return false;
+    if (hasValue(criteria.before) && !dateYearMatches(event.fields?.date?.value, criteria.before, 'before')) return false;
+    if (hasValue(criteria.after) && !dateYearMatches(event.fields?.date?.value, criteria.after, 'after')) return false;
+    return true;
+  });
+}
+
+function eventTypeMatches(event, eventType) {
+  const type = readConclusionType(event) || event.fields?.eventType?.value || event.fields?.type?.value;
+  return equalsSearchText(type, eventType) || matchesSearchText(type, eventType);
+}
+
+function eventPlaceMatches(event, placeText, context) {
+  const placeId = refToRecordName(event.fields?.place?.value);
+  const placeRecord = placeId ? context.places.get(placeId) : null;
+  const values = [
+    event.fields?.placeName?.value,
+    placeRecord?.fields?.placeName?.value,
+    placeRecord?.fields?.cached_standardizedLocationString?.value,
+    placeRecord?.fields?.cached_displayName?.value,
+  ];
+  return values.some((value) => matchesSearchText(value, placeText));
+}
+
+function eventValues(events, eventTypes) {
+  return events
+    .filter((event) => eventTypes.some((type) => eventTypeMatches(event, type)))
+    .flatMap((event) => [event.fields?.description?.value, event.fields?.placeName?.value, event.fields?.date?.value]);
+}
+
+function factValues(facts) {
+  return facts.flatMap((fact) => Object.values(fact.fields || {}).map((field) => field?.value));
+}
+
+function dateYearMatches(rawDate, rawTarget, op) {
+  const year = yearOf(rawDate);
+  const target = yearOf(rawTarget);
+  if (year == null || target == null) return false;
+  return op === 'before' ? year < target : year > target;
+}
+
+function yearOf(value) {
+  const match = String(value || '').match(/-?\d{3,4}/);
+  return match ? Number(match[0]) : null;
+}
+
+function hasValue(value) {
+  return value != null && String(value).trim() !== '';
 }

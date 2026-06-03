@@ -75,6 +75,52 @@ export async function findRelationshipPaths(startRecordName, endRecordName, opti
   return { paths, selectedPathId: paths[0]?.id || null };
 }
 
+export async function buildRelationshipMatrix(personIds = [], options = {}) {
+  const {
+    maxPeople = 10,
+    maxDepth = 8,
+    bloodlineOnly = false,
+    localization = getCurrentLocalization(),
+  } = options;
+  const ids = [...new Set((personIds || []).filter(Boolean))].slice(0, maxPeople);
+  const db = getLocalDatabase();
+  const people = new Map();
+  for (const id of ids) {
+    const record = await db.getRecord(id);
+    if (isPublicRecord(record)) people.set(id, personSummary(record));
+  }
+  const visibleIds = ids.filter((id) => people.has(id));
+  const rows = visibleIds.map((id) => ({ id, person: people.get(id), cells: [] }));
+  for (const row of rows) {
+    for (const columnId of visibleIds) {
+      if (row.id === columnId) {
+        row.cells.push({ from: row.id, to: columnId, label: 'Self', distance: 0, pathId: null, path: null });
+        continue;
+      }
+      const result = await findRelationshipPaths(row.id, columnId, {
+        maxPaths: 1,
+        maxDepth,
+        bloodlineOnly,
+        localization,
+      });
+      const path = result.paths[0] || null;
+      row.cells.push({
+        from: row.id,
+        to: columnId,
+        label: path?.label || 'No path',
+        distance: path ? Math.max(0, path.steps.length - 1) : null,
+        pathId: path?.id || null,
+        path,
+      });
+    }
+  }
+  return {
+    people: visibleIds.map((id) => ({ id, person: people.get(id) })),
+    rows,
+    truncated: (personIds || []).length > visibleIds.length,
+  };
+}
+
 async function getNeighbors(db, recordName, options = {}) {
   const { includeSpouses = true, excludeNonBiological = false } = options;
   const out = [];

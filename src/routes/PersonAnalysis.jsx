@@ -7,6 +7,7 @@ import { listToolbarButtonClass } from '../components/lists/listToolbarClasses.j
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { SORT_PROFILES, useSortProfile } from '../components/lists/useSortProfile.js';
 import { loadPersonAnalysisRows } from '../lib/listData.js';
+import { buildRelationshipMatrix } from '../lib/relationshipPath.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const RISK_CLASS = {
@@ -23,6 +24,8 @@ export default function PersonAnalysis() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('attention');
+  const [matrix, setMatrix] = useState(null);
+  const [matrixLoading, setMatrixLoading] = useState(false);
   const sortProfile = useSortProfile('person-analysis', SORT_PROFILES.PersonAnalysis, 'orphanedRelationships');
 
   useEffect(() => {
@@ -68,6 +71,16 @@ export default function PersonAnalysis() {
     if (state === 'Supported') return t('personAnalysis.stateSupported');
     if (state === 'Weak') return t('personAnalysis.stateWeak');
     return t('personAnalysis.stateUnsourced');
+  };
+
+  const onBuildMatrix = async () => {
+    setMatrixLoading(true);
+    try {
+      const ids = scoped.rows.slice(0, 8).map((row) => row.personId);
+      setMatrix(await buildRelationshipMatrix(ids, { maxPeople: 8, maxDepth: 8 }));
+    } finally {
+      setMatrixLoading(false);
+    }
   };
 
   const riskLabel = (risk) => t(`personAnalysis.risk${risk}`, { defaultValue: risk });
@@ -156,6 +169,14 @@ export default function PersonAnalysis() {
           {t(`personAnalysis.filters.${id}`)}
         </button>
       ))}
+      <button
+        type="button"
+        onClick={onBuildMatrix}
+        disabled={matrixLoading || scoped.rows.length < 2}
+        className={listToolbarButtonClass}
+      >
+        {matrixLoading ? 'Matrix...' : 'Relationship Matrix'}
+      </button>
     </div>
     <ScopeFilterSelect
       value={scoped.scopeId}
@@ -196,6 +217,42 @@ export default function PersonAnalysis() {
         emptyTitle={t('personAnalysis.emptyTitle')}
         emptyHint={t('personAnalysis.emptyHint')}
       />
+      {matrix && (
+        <div className="border-t border-border bg-background p-5">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold">Relationship Matrix</div>
+              <div className="text-xs text-muted-foreground">First {matrix.people.length} people in the current scoped result.</div>
+            </div>
+            <button type="button" className={listToolbarButtonClass} onClick={() => setMatrix(null)}>Close</button>
+          </div>
+          <div className="overflow-auto rounded-md border border-border">
+            <table className="min-w-full text-xs">
+              <thead className="bg-card">
+                <tr>
+                  <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-medium">Person</th>
+                  {matrix.people.map((person) => (
+                    <th key={person.id} className="px-3 py-2 text-left font-medium whitespace-nowrap">{person.person?.displayName || person.id}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {matrix.rows.map((row) => (
+                  <tr key={row.id} className="border-t border-border">
+                    <th className="sticky left-0 bg-background px-3 py-2 text-left font-medium whitespace-nowrap">{row.person?.displayName || row.id}</th>
+                    {row.cells.map((cell) => (
+                      <td key={`${cell.from}-${cell.to}`} className="px-3 py-2 align-top">
+                        <div>{cell.label}</div>
+                        {cell.distance != null && <div className="text-[10px] text-muted-foreground">{cell.distance} link{cell.distance === 1 ? '' : 's'}</div>}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

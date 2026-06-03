@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ENTITY_TYPES, SEARCH_FIELDS, FILTER_OPS, runSearch } from '../../lib/search.js';
+import { ENTITY_TYPES, SEARCH_FIELDS, FILTER_OPS, runGenealogyAdvancedSearch, runSearch } from '../../lib/search.js';
 import { listAllScopes, runScope } from '../../lib/smartScopes.js';
 import { applySearchReplace, previewSearchReplace, replaceableFields, undoLastSearchReplace } from '../../lib/searchReplace.js';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
@@ -15,6 +15,31 @@ import { useModal } from '../../contexts/ModalContext.jsx';
 import { Select } from '../ui/Select.jsx';
 
 const SAVED_SEARCHES_KEY = 'savedSearches';
+const EMPTY_GENEALOGY_SEARCH = Object.freeze({
+  matchMode: 'all',
+  firstName: '',
+  exactFirstName: false,
+  surname: '',
+  exactSurname: false,
+  alias: '',
+  gender: '',
+  occupation: '',
+  birthPlace: '',
+  birthBefore: '',
+  birthAfter: '',
+  deathPlace: '',
+  deathBefore: '',
+  deathAfter: '',
+  marriagePlace: '',
+  marriageBefore: '',
+  marriageAfter: '',
+  baptismPlace: '',
+  baptismBefore: '',
+  baptismAfter: '',
+  burialPlace: '',
+  burialBefore: '',
+  burialAfter: '',
+});
 
 function searchFiltersToScopeRules(filters, textQuery) {
   const rules = [];
@@ -60,6 +85,8 @@ export function SearchApp() {
   const [replacePreview, setReplacePreview] = useState(null);
   const [replaceStatus, setReplaceStatus] = useState('');
   const [savedSearches, setSavedSearches] = useState([]);
+  const [showGenealogySearch, setShowGenealogySearch] = useState(false);
+  const [genealogySearch, setGenealogySearch] = useState(EMPTY_GENEALOGY_SEARCH);
   const location = useLocation();
   const navigate = useNavigate();
   const isSearchReplaceRoute = location.pathname === '/search-and-replace';
@@ -140,6 +167,13 @@ export function SearchApp() {
     ...savedSearches.map((search) => ({ value: search.id, label: search.name })),
   ], [savedSearches]);
   const replaceFieldOptions = useMemo(() => replaceFields.map((field) => ({ value: field.id, label: field.label })), [replaceFields]);
+  const genealogyGenderOptions = useMemo(() => [
+    { value: '', label: 'Any gender' },
+    { value: '0', label: 'Male' },
+    { value: '1', label: 'Female' },
+    { value: '2', label: 'Unknown' },
+    { value: '3', label: 'Intersex' },
+  ], []);
 
   useEffect(() => {
     setReplaceField(replaceFields[0]?.id || '');
@@ -162,6 +196,24 @@ export function SearchApp() {
     setResult(r);
     setRunning(false);
   }, [entityType, textQuery, filters]);
+
+  const updateGenealogySearch = useCallback((field, value) => {
+    setGenealogySearch((current) => ({ ...current, [field]: value }));
+  }, []);
+
+  const onRunGenealogySearch = useCallback(async () => {
+    setRunning(true);
+    setEntityType('Person');
+    setReplaceStatus('');
+    try {
+      const r = await runGenealogyAdvancedSearch(genealogySearch);
+      setResult(r);
+    } catch (error) {
+      setReplaceStatus(error.message);
+    } finally {
+      setRunning(false);
+    }
+  }, [genealogySearch]);
 
   const onRunScope = useCallback(async (scopeId) => {
     if (!scopeId) return;
@@ -282,6 +334,13 @@ export function SearchApp() {
         </Field>
 
         <button onClick={onAddFilter} style={{ ...input, cursor: 'pointer', marginTop: 14 }}>+ Filter</button>
+        <button
+          onClick={() => setShowGenealogySearch((value) => !value)}
+          style={{ ...input, cursor: 'pointer', marginTop: 14 }}
+          title="Show genealogy-specific person criteria"
+        >
+          Genealogy
+        </button>
         <button onClick={onRun} disabled={running} style={{ ...primaryButton, cursor: 'pointer', marginTop: 14 }}>
           {running ? 'Running…' : 'Search'}
         </button>
@@ -326,6 +385,47 @@ export function SearchApp() {
           />
         ))}
       </div>
+
+      {showGenealogySearch && (
+        <section style={genealogyPanel}>
+          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Genealogy Advanced Search</div>
+          <div style={genealogyGrid}>
+            <Field label="Match">
+              <Select
+                value={genealogySearch.matchMode}
+                onChange={(value) => updateGenealogySearch('matchMode', value)}
+                options={[{ value: 'all', label: 'All criteria' }, { value: 'any', label: 'Any criteria' }]}
+                triggerClassName="h-auto"
+                triggerStyle={input}
+              />
+            </Field>
+            <TextField label="First name" value={genealogySearch.firstName} onChange={(value) => updateGenealogySearch('firstName', value)} />
+            <CheckField label="Exact first" checked={genealogySearch.exactFirstName} onChange={(value) => updateGenealogySearch('exactFirstName', value)} />
+            <TextField label="Surname" value={genealogySearch.surname} onChange={(value) => updateGenealogySearch('surname', value)} />
+            <CheckField label="Exact surname" checked={genealogySearch.exactSurname} onChange={(value) => updateGenealogySearch('exactSurname', value)} />
+            <TextField label="Alias/public name" value={genealogySearch.alias} onChange={(value) => updateGenealogySearch('alias', value)} />
+            <Field label="Gender">
+              <Select
+                value={genealogySearch.gender}
+                onChange={(value) => updateGenealogySearch('gender', value)}
+                options={genealogyGenderOptions}
+                triggerClassName="h-auto"
+                triggerStyle={input}
+              />
+            </Field>
+            <TextField label="Occupation/fact" value={genealogySearch.occupation} onChange={(value) => updateGenealogySearch('occupation', value)} />
+            <EventCriteria label="Birth" prefix="birth" values={genealogySearch} onChange={updateGenealogySearch} />
+            <EventCriteria label="Death" prefix="death" values={genealogySearch} onChange={updateGenealogySearch} />
+            <EventCriteria label="Marriage" prefix="marriage" values={genealogySearch} onChange={updateGenealogySearch} />
+            <EventCriteria label="Baptism" prefix="baptism" values={genealogySearch} onChange={updateGenealogySearch} />
+            <EventCriteria label="Burial" prefix="burial" values={genealogySearch} onChange={updateGenealogySearch} />
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+            <button onClick={onRunGenealogySearch} disabled={running} style={primaryButton}>{running ? 'Running…' : 'Run Genealogy Search'}</button>
+            <button onClick={() => setGenealogySearch(EMPTY_GENEALOGY_SEARCH)} disabled={running} style={input}>Reset</button>
+          </div>
+        </section>
+      )}
 
       {isSearchReplaceRoute && (
         <section style={replacePanel}>
@@ -394,6 +494,32 @@ function Field({ label, children }) {
   );
 }
 
+function TextField({ label, value, onChange }) {
+  return (
+    <Field label={label}>
+      <input value={value} onChange={(event) => onChange(event.target.value)} style={{ ...input, width: '100%', minWidth: 0 }} />
+    </Field>
+  );
+}
+
+function CheckField({ label, checked, onChange }) {
+  return (
+    <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6, minHeight: 36 }}>
+      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /> {label}
+    </label>
+  );
+}
+
+function EventCriteria({ label, prefix, values, onChange }) {
+  return (
+    <>
+      <TextField label={`${label} place`} value={values[`${prefix}Place`]} onChange={(value) => onChange(`${prefix}Place`, value)} />
+      <TextField label={`${label} before`} value={values[`${prefix}Before`]} onChange={(value) => onChange(`${prefix}Before`, value)} />
+      <TextField label={`${label} after`} value={values[`${prefix}After`]} onChange={(value) => onChange(`${prefix}After`, value)} />
+    </>
+  );
+}
+
 const shell = {
   display: 'flex',
   flexDirection: 'column',
@@ -410,6 +536,8 @@ const header = {
   flexWrap: 'wrap',
 };
 const filterPanel = { padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
+const genealogyPanel = { padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
+const genealogyGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, alignItems: 'end' };
 const replacePanel = { padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
 const main = { flex: 1, position: 'relative', overflow: 'hidden' };
 const input = {

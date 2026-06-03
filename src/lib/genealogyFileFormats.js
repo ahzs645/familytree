@@ -5,6 +5,7 @@ export const SUPPORTED_IMPORT_EXTENSIONS = [
   '.ged',
   '.uged',
   '.uged16',
+  '.gw',
   '.zip',
   '.json',
 ];
@@ -16,6 +17,7 @@ export const LEGACY_MFT_BINARY_MESSAGE =
   'Legacy .mft binary files are recognized, but this browser importer cannot safely parse that proprietary binary format yet. Export the file from MacFamilyTree as .mftpkg, .mftsql, GEDCOM, UTF GEDCOM, or GedZip and import that file here.';
 
 const GEDCOM_EXTENSIONS = new Set(['.ged', '.uged', '.uged16', '.gedcom']);
+const GENEWEB_EXTENSIONS = new Set(['.gw']);
 
 export function fileExtension(fileName = '') {
   const base = String(fileName).toLowerCase().split(/[\\/]/).pop() || '';
@@ -25,6 +27,10 @@ export function fileExtension(fileName = '') {
 
 export function isGedcomFileName(fileName = '') {
   return GEDCOM_EXTENSIONS.has(fileExtension(fileName));
+}
+
+export function isGeneWebFileName(fileName = '') {
+  return GENEWEB_EXTENSIONS.has(fileExtension(fileName));
 }
 
 export function isSQLiteBytes(bytes) {

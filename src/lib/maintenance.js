@@ -7,6 +7,7 @@ import { saveWithChangeLog, logRecordDeleted } from './changeLog.js';
 import { refToRecordName } from './recordRef.js';
 import { Gender } from '../models/index.js';
 import { makeValidationIssue, compareIssues } from './validationIssues.js';
+import { findTextHygieneIssues } from './textHygiene.js';
 
 function parseAnyDate(s) {
   if (!s) return null;
@@ -258,9 +259,14 @@ export function findMaintenanceIssues(records = []) {
     ...findEmptySourceAndCitationRecords(records),
     ...findEventOrderIssues(records),
     ...findInvalidVitalEventLinks(records),
+    ...findVitalCacheSyncIssues(records),
+    ...findMissingChildFamilyLinks(records),
+    ...findTextHygieneIssues(records),
   ];
   return issues.sort(compareIssues);
 }
+
+export { findTextHygieneIssues };
 
 export function findBrokenParentRelationships(records = []) {
   const byId = new Map(records.map((record) => [record.recordName, record]));
@@ -354,6 +360,67 @@ export function findInvalidVitalEventLinks(records = []) {
   return out;
 }
 
+export function findVitalCacheSyncIssues(records = []) {
+  const out = [];
+  const eventsByPerson = new Map();
+  for (const event of records.filter((record) => record.recordType === 'PersonEvent')) {
+    const personId = refToRecordName(event.fields?.person?.value);
+    if (!personId) continue;
+    if (!eventsByPerson.has(personId)) eventsByPerson.set(personId, []);
+    eventsByPerson.get(personId).push(event);
+  }
+  for (const person of records.filter((record) => record.recordType === 'Person')) {
+    const events = eventsByPerson.get(person.recordName) || [];
+    const birth = firstEventByType(events, ['Birth', 'Stillbirth']);
+    const death = firstEventByType(events, ['Death']);
+    const birthDate = birth?.fields?.date?.value || '';
+    const deathDate = death?.fields?.date?.value || '';
+    const cachedBirth = person.fields?.cached_birthDate?.value || '';
+    const cachedDeath = person.fields?.cached_deathDate?.value || '';
+    if (birthDate && cachedBirth && normalizeDateText(birthDate) !== normalizeDateText(cachedBirth)) {
+      out.push(maintenanceIssue('vital-cache-birth-mismatch', 'warning', person, `${person.recordName} cached birth date differs from its birth event.`, [birth.recordName]));
+    }
+    if (deathDate && cachedDeath && normalizeDateText(deathDate) !== normalizeDateText(cachedDeath)) {
+      out.push(maintenanceIssue('vital-cache-death-mismatch', 'warning', person, `${person.recordName} cached death date differs from its death event.`, [death.recordName]));
+    }
+    if (birthDate && !cachedBirth) {
+      out.push(maintenanceIssue('vital-cache-missing-birth', 'info', person, `${person.recordName} has a birth event date but no cached birth date.`, [birth.recordName]));
+    }
+    if (deathDate && !cachedDeath) {
+      out.push(maintenanceIssue('vital-cache-missing-death', 'info', person, `${person.recordName} has a death event date but no cached death date.`, [death.recordName]));
+    }
+  }
+  return out;
+}
+
+export function findMissingChildFamilyLinks(records = []) {
+  const byId = new Map(records.map((record) => [record.recordName, record]));
+  const childRelationKeys = new Set();
+  const childRelationFamilies = new Set();
+  const out = [];
+  for (const relation of records.filter((record) => record.recordType === 'ChildRelation')) {
+    const familyId = refToRecordName(relation.fields?.family?.value);
+    const childId = refToRecordName(relation.fields?.child?.value);
+    if (familyId && childId) childRelationKeys.add(`${familyId}|${childId}`);
+    if (familyId) childRelationFamilies.add(familyId);
+  }
+  for (const family of records.filter((record) => record.recordType === 'Family')) {
+    const children = collectFamilyChildRefs(family);
+    for (const childId of children) {
+      const child = byId.get(childId);
+      if (!child || child.recordType !== 'Person') {
+        out.push(maintenanceIssue('family-missing-child-person', 'error', family, `${family.recordName} references a missing child.`, [childId]));
+      } else if (!childRelationKeys.has(`${family.recordName}|${childId}`)) {
+        out.push(maintenanceIssue('missing-child-relation', 'warning', family, `${family.recordName} references child ${childId} without a ChildRelation record.`, [childId]));
+      }
+    }
+    if (!children.length && !childRelationFamilies.has(family.recordName) && !refToRecordName(family.fields?.man?.value) && !refToRecordName(family.fields?.woman?.value)) {
+      out.push(maintenanceIssue('empty-family-linkage', 'warning', family, `${family.recordName} has no spouses or children.`));
+    }
+  }
+  return out;
+}
+
 export async function auditAncestryLoops() {
   const db = getLocalDatabase();
   return findAncestryLoops(await db.getAllRecords());
@@ -373,6 +440,22 @@ function eventDateSortKey(record) {
   const parsed = parseAnyDate(record?.fields?.date?.value || record?.fields?.cached_birthDate?.value || '');
   if (!parsed) return Number.POSITIVE_INFINITY;
   return (parsed.y * 10000) + ((parsed.m || 0) * 100) + (parsed.d || 0);
+}
+
+function firstEventByType(events, types) {
+  return sortEventRecords(events.filter((event) => types.includes(event.fields?.conclusionType?.value)))[0] || null;
+}
+
+function normalizeDateText(value) {
+  const parsed = parseAnyDate(value);
+  if (parsed) return `${parsed.y}-${parsed.m || 0}-${parsed.d || 0}`;
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function collectFamilyChildRefs(family) {
+  const raw = family?.fields?.children?.value || family?.fields?.childRefs?.value || family?.fields?.childReferences?.value || [];
+  const values = Array.isArray(raw) ? raw : [raw];
+  return values.map((value) => refToRecordName(value)).filter(Boolean);
 }
 
 function maintenanceIssue(code, severity, record, message, refs = []) {

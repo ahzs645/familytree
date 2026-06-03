@@ -13,11 +13,12 @@ import { EVENT_TAG_TO_NAME, TOP_LEVEL_TAGS } from './constants.js';
 
 export function analyzeGedcomText(text) {
   const { tokens, issues } = tokenizeGedcomText(text);
-  const counts = { INDI: 0, FAM: 0, SOUR: 0, NOTE: 0, OBJE: 0, unsupportedEvents: 0, customTags: 0, continuations: 0 };
+  const counts = { INDI: 0, FAM: 0, SOUR: 0, NOTE: 0, OBJE: 0, unsupportedEvents: 0, unsupportedTags: 0, customTags: 0, continuations: 0 };
   const declaredXrefs = new Map();
   const pointerRefs = [];
   const seenTags = new Set();
   const customTags = new Set();
+  const unsupportedTags = new Set();
   let hasHead = false;
   let hasTrailer = false;
   for (const token of tokens) {
@@ -32,6 +33,8 @@ export function analyzeGedcomText(text) {
       counts.customTags += 1;
     }
     if (token.level === 0 && !TOP_LEVEL_TAGS.has(token.tag)) {
+      unsupportedTags.add(token.tag);
+      counts.unsupportedTags += 1;
       issues.push(issue('warning', token.line, 'unsupported-top-level-record', `Top-level ${token.tag} record is not mapped by the importer.`, { refs: [token.tag] }));
     }
     if (token.xref) {
@@ -45,6 +48,8 @@ export function analyzeGedcomText(text) {
       pointerRefs.push({ line: token.line, tag: token.tag, value: token.value });
     }
     if (token.level > 0 && /^[A-Z0-9_]+$/.test(token.tag) && token.tag.length >= 3 && !EVENT_TAG_TO_NAME[token.tag] && eventLikeTag(token.tag)) {
+      unsupportedTags.add(token.tag);
+      counts.unsupportedTags += 1;
       counts.unsupportedEvents += 1;
       issues.push(issue('warning', token.line, 'unsupported-event-tag', `Event-like tag ${token.tag} is not mapped by the importer.`, { refs: [token.tag] }));
     }
@@ -60,6 +65,11 @@ export function analyzeGedcomText(text) {
   if (customTags.size > 0) {
     issues.push(issue('warning', 0, 'custom-tags', `${customTags.size} custom GEDCOM tag type(s) found: ${Array.from(customTags).sort().slice(0, 8).join(', ')}${customTags.size > 8 ? ', …' : ''}.`, {
       refs: Array.from(customTags).sort(),
+    }));
+  }
+  if (unsupportedTags.size > 0) {
+    issues.push(issue('warning', 0, 'unsupported-tags-summary', `${unsupportedTags.size} unsupported GEDCOM tag type(s) need review: ${Array.from(unsupportedTags).sort().slice(0, 8).join(', ')}${unsupportedTags.size > 8 ? ', …' : ''}.`, {
+      refs: Array.from(unsupportedTags).sort(),
     }));
   }
   return {
