@@ -6,6 +6,7 @@
  */
 import React, { useState } from 'react';
 import { getFamilySearchConfig, readFamilySearchPerson } from '../lib/familySearchApi.js';
+import { Panel } from './ui/Panel.jsx';
 
 export function FamilySearchBatchDownloadSheet({ open, onClose }) {
   const [rootId, setRootId] = useState('');
@@ -56,12 +57,7 @@ export function FamilySearchBatchDownloadSheet({ open, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-6">
-      <div className="bg-card border border-border rounded-xl w-full max-w-lg max-h-[85vh] flex flex-col shadow-lg">
-        <header className="px-5 py-3 border-b border-border flex items-center gap-3">
-          <h2 className="text-base font-semibold">Auto-Download Relatives</h2>
-          <button onClick={onClose} className="ms-auto text-sm text-muted-foreground hover:text-foreground">Close</button>
-        </header>
+    <Panel title="Auto-Download Relatives" onClose={onClose} maxWidth="max-w-lg" maxHeight="max-h-[85vh]">
         <main className="p-5 space-y-3 text-sm">
           <label className="block">
             <span className="text-xs text-muted-foreground">FamilySearch Person ID</span>
@@ -99,8 +95,7 @@ export function FamilySearchBatchDownloadSheet({ open, onClose }) {
             {busy ? 'Running…' : 'Start'}
           </button>
         </footer>
-      </div>
-    </div>
+    </Panel>
   );
 }
 

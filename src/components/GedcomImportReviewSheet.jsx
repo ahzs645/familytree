@@ -4,6 +4,7 @@
  * tags and unreadable dates collected during `analyzeGedcomText`.
  */
 import React, { useMemo, useState } from 'react';
+import { Panel } from './ui/Panel.jsx';
 
 const TABS = [
   { id: 'summary', label: 'Summary' },
@@ -25,15 +26,13 @@ export function GedcomImportReviewSheet({ result, onClose }) {
   const counts = result.counts || {};
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-6">
-      <div className="bg-card border border-border rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-lg">
-        <header className="px-5 py-3 border-b border-border flex items-center gap-3">
-          <h2 className="text-base font-semibold">GEDCOM Import Issues</h2>
-          <span className="text-xs text-muted-foreground">
-            {result.total ? `${result.total.toLocaleString()} records imported` : 'Import complete'}
-          </span>
-          <button onClick={onClose} className="ms-auto text-sm text-muted-foreground hover:text-foreground">Close</button>
-        </header>
+    <Panel
+      title="GEDCOM Import Issues"
+      meta={result.total ? `${result.total.toLocaleString()} records imported` : 'Import complete'}
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      maxHeight="max-h-[80vh]"
+    >
         <nav className="px-5 pt-3 border-b border-border flex gap-1">
           {TABS.map((t) => {
             const count = t.id === 'summary' ? null : groups[t.id].length;
@@ -79,8 +78,7 @@ export function GedcomImportReviewSheet({ result, onClose }) {
         <footer className="px-5 py-3 border-t border-border text-xs text-muted-foreground">
           Source: {result.format || result.source || 'gedcom'}
         </footer>
-      </div>
-    </div>
+    </Panel>
   );
 }
 

@@ -8,6 +8,7 @@ import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { logRecordCreated } from '../lib/changeLog.js';
 import { matchesSearchText } from '../lib/i18n.js';
 import { writeRef } from '../lib/schema.js';
+import { Panel } from './ui/Panel.jsx';
 
 function uuid(prefix) {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -122,13 +123,13 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-6">
-      <div className="bg-card border border-border rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-lg">
-        <header className="px-5 py-3 border-b border-border flex items-center gap-3">
-          <h2 className="text-base font-semibold">ToDo Wizard</h2>
-          <span className="text-xs text-muted-foreground">{selected.size} selected of {rows.length}</span>
-          <button onClick={onClose} className="ms-auto text-sm text-muted-foreground hover:text-foreground">Close</button>
-        </header>
+    <Panel
+      title="ToDo Wizard"
+      meta={`${selected.size} selected of ${rows.length}`}
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      maxHeight="max-h-[85vh]"
+    >
         <div className="px-5 py-2 border-b border-border flex gap-2">
           <input
             value={filter}
@@ -166,8 +167,7 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
             {busy ? 'Creating…' : `Create ${selected.size} ToDo${selected.size === 1 ? '' : 's'}`}
           </button>
         </footer>
-      </div>
-    </div>
+    </Panel>
   );
 }
 

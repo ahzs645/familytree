@@ -5,6 +5,7 @@
  * string the chart renderer can drop straight into `background:`.
  */
 import React, { useEffect, useMemo, useState } from 'react';
+import { Panel } from '../ui/Panel.jsx';
 
 const BG_TYPES = [
   { id: 'none', label: 'None' },
@@ -67,12 +68,7 @@ export function ChartBackgroundSheet({ open, value, onApply, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-6">
-      <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-lg">
-        <header className="px-5 py-3 border-b border-border flex items-center gap-3">
-          <h2 className="text-base font-semibold">Edit Background</h2>
-          <button onClick={onClose} className="ms-auto text-sm text-muted-foreground hover:text-foreground">Cancel</button>
-        </header>
+    <Panel title="Edit Background" onClose={onClose} closeLabel="Cancel" maxWidth="max-w-md">
         <main className="p-5 space-y-4 text-sm">
           <div className="flex gap-1">
             {BG_TYPES.map((t) => (
@@ -152,8 +148,7 @@ export function ChartBackgroundSheet({ open, value, onApply, onClose }) {
             Apply
           </button>
         </footer>
-      </div>
-    </div>
+    </Panel>
   );
 }
 
