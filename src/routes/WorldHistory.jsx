@@ -10,6 +10,8 @@ import { buildPersonContext } from '../lib/personContext.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { lifeSpanLabel } from '../models/index.js';
 import { WORLD_EVENTS } from '../lib/worldHistory.js';
+import { eventTypeLabel } from '../lib/catalogs.js';
+import { formatEventDate } from '../utils/formatDate.js';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
 
 const CATEGORY_STORAGE_KEY = 'worldHistory.enabledCategories';
@@ -21,9 +23,11 @@ function yearOf(s) {
 }
 
 function formatRange(item) {
-  if (item.date && item.endDate && item.date !== item.endDate) return `${item.date} - ${item.endDate}`;
-  if (item.date) return item.date;
-  return item.end ? `${item.year} - ${item.end}` : String(item.year);
+  const start = item.date ? formatEventDate(item.date) : '';
+  const end = item.endDate ? formatEventDate(item.endDate) : '';
+  if (start && end && start !== end) return `${start} - ${end}`;
+  if (start) return start;
+  return item.end && item.end !== item.year ? `${item.year} - ${item.end}` : String(item.year);
 }
 
 function sourceUrl(source) {
@@ -77,14 +81,17 @@ export default function WorldHistory() {
   }, [recordName]);
 
   const focusName = context?.selfSummary?.fullName;
-  const personEvents = useMemo(() => (context?.events || []).map((e) => ({
-    sourceKind: 'person',
-    year: yearOf(e.fields?.date?.value),
-    title: e.fields?.conclusionType?.value || e.fields?.eventType?.value || 'Event',
-    detail: e.fields?.place?.value || e.fields?.date?.value || '',
-    date: e.fields?.date?.value || '',
-    category: 'Family events',
-  })).filter((e) => e.year), [context]);
+  const personEvents = useMemo(() => (context?.events || []).map((e) => {
+    const rawDate = e.fields?.date?.value || '';
+    return {
+      sourceKind: 'person',
+      year: yearOf(rawDate),
+      title: eventTypeLabel(e.fields?.conclusionType?.value || e.fields?.eventType?.value),
+      detail: e.fields?.place?.value || formatEventDate(rawDate) || '',
+      date: rawDate,
+      category: 'Family events',
+    };
+  }).filter((e) => e.year), [context]);
 
   const personRange = useMemo(() => {
     const years = personEvents.map((e) => e.year);
@@ -261,7 +268,7 @@ export default function WorldHistory() {
                           <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
                             <span>{isPerson ? focusName || 'Selected person' : it.detail}</span>
                             <span aria-hidden="true">.</span>
-                            <span>{isPerson ? it.date : it.category}</span>
+                            <span>{isPerson ? formatEventDate(it.date) : it.category}</span>
                           </div>
                         </div>
                       </div>

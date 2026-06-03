@@ -103,7 +103,7 @@ export function useThreeTreeScene({
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.domElement.style.display = 'block';
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
@@ -138,12 +138,14 @@ export function useThreeTreeScene({
     const illumination = Number.isFinite(viewerOptions.illuminationStrength) ? viewerOptions.illuminationStrength : 1;
     const shadowStrength = Number.isFinite(viewerOptions.shadowStrength) ? viewerOptions.shadowStrength : 1;
     scene.add(new THREE.AmbientLight(palette.ambient, 1.45 * illumination));
+    const shadowRadius = Number.isFinite(viewerOptions.shadowRadius) ? viewerOptions.shadowRadius : 1;
     const key = new THREE.DirectionalLight(palette.keyLight, 1.85 * illumination);
     key.position.set(240, -380, 700);
     key.castShadow = shadowStrength > 0;
     key.shadow.mapSize.width = 2048;
     key.shadow.mapSize.height = 2048;
     key.shadow.bias = -0.0005;
+    key.shadow.radius = Math.max(0, 2 * shadowRadius);
     scene.add(key);
     const fill = new THREE.DirectionalLight(palette.fillLight, 1.35 * illumination);
     fill.position.set(-500, 460, 420);
@@ -348,7 +350,7 @@ export function useThreeTreeScene({
     };
     // The scene is rebuilt only when the color system changes; layout changes update the stage below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dark, palette, viewerOptions.cameraMode, viewerOptions.illuminationStrength, viewerOptions.shadowStrength]);
+  }, [dark, palette, viewerOptions.cameraMode, viewerOptions.illuminationStrength, viewerOptions.shadowStrength, viewerOptions.shadowRadius]);
 
   useEffect(() => {
     const scene = sceneRef.current;
@@ -367,10 +369,10 @@ export function useThreeTreeScene({
     clearGroup(stage);
     clickablesRef.current = [];
 
-    stage.add(makeBottomPlane(palette, layout.bounds, viewerOptions.bottomPlaneMode));
+    stage.add(makeBottomPlane(palette, layout.bounds, viewerOptions.bottomPlaneMode, viewerOptions));
     for (const band of layout.bands) {
       stage.add(makeGenerationBand(band, palette, viewerOptions.generationBandStyle, viewerOptions));
-      if (viewerOptions.generationBandStyle !== 'none') stage.add(makeGenerationLabel(band));
+      if (viewerOptions.generationBandStyle !== 'none') stage.add(makeGenerationLabel(band, viewerOptions));
     }
 
     stage.add(makeFamilyConnectors(layout.links, layout.nodes, palette, viewerOptions));

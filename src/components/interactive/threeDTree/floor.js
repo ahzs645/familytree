@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GROUND_COLOR_VALUES } from './constants.js';
 import { makeCanvasTexture, makePlaneFromTexture } from './threeUtils.js';
 
 const GRID_LIKE_MODES = new Set(['grid', 'smallGrid', 'largeGrid']);
@@ -9,7 +10,20 @@ const GRID_SPACING = {
   largeGrid: 48,
 };
 
-export function makeBottomPlane(palette, bounds, mode = 'grid') {
+// Resolve the ground base colour from the colour mode/custom colour, falling
+// back to the palette background ("auto") for the native paper look.
+function resolveGroundColor(palette, options = {}) {
+  const mode = options.groundColorMode || 'auto';
+  if (mode === 'auto') return palette.background;
+  if (mode === 'customColor') {
+    const custom = options.groundCustomColor;
+    return /^#[0-9a-fA-F]{6}$/.test(String(custom || '')) ? custom : palette.background;
+  }
+  return GROUND_COLOR_VALUES[mode] || palette.background;
+}
+
+export function makeBottomPlane(palette, bounds, mode = 'grid', options = {}) {
+  const groundColor = resolveGroundColor(palette, options);
   const group = new THREE.Group();
   const sizeX = Math.max(5200, bounds.maxX - bounds.minX + 1800);
   const sizeY = Math.max(3400, bounds.maxY - bounds.minY + 1800);
@@ -20,7 +34,7 @@ export function makeBottomPlane(palette, bounds, mode = 'grid') {
   const bottom = centerY - sizeY / 2;
   const top = centerY + sizeY / 2;
 
-  const baseTexture = makeBottomPlaneTexture(mode, palette);
+  const baseTexture = makeBottomPlaneTexture(mode, palette, groundColor);
   const base = makePlaneFromTexture(baseTexture, sizeX, sizeY);
   base.position.set(centerX, centerY, -86);
   base.renderOrder = 0;
@@ -52,10 +66,10 @@ export function makeBottomPlane(palette, bounds, mode = 'grid') {
   return group;
 }
 
-function makeBottomPlaneTexture(mode, palette) {
+function makeBottomPlaneTexture(mode, palette, groundColor = palette.background) {
   return makeCanvasTexture(512, 512, (ctx, w, h) => {
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = palette.background;
+    ctx.fillStyle = groundColor;
     ctx.fillRect(0, 0, w, h);
     const paper = ctx.createRadialGradient(w * 0.5, h * 0.42, 0, w * 0.5, h * 0.42, w * 0.78);
     paper.addColorStop(0, 'rgba(255,255,255,0.58)');

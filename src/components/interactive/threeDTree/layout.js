@@ -2,11 +2,17 @@ import { BAND_LABEL_GUTTER, GEN_STEP, NODE_SPACING, PARTNER_OFFSET, ROOT_CARD } 
 import { MAC_FAMILY_GRAPH_LAYOUT, macBandSplitGap } from './macTreeStyle.js';
 
 export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph = null, options = {}) {
-  if (familyGraph?.nodes?.length) return buildFamilyGraphLayout(familyGraph, activeId);
+  if (familyGraph?.nodes?.length) return finalizeLayout(buildFamilyGraphLayout(familyGraph, activeId, options), options);
 
   const maxAncestorGenerations = Number.isFinite(options.ancestorGenerations) ? Math.max(1, options.ancestorGenerations) : 4;
   const maxDescendantGenerations = Number.isFinite(options.descendantGenerations) ? Math.max(1, options.descendantGenerations) : 6;
   const childSortingMode = options.childSortingMode || 'byBirthAsc';
+  const pcFactor = Number.isFinite(options.parentsChildrenSpacing) ? options.parentsChildrenSpacing : 1;
+  const partnerFactor = Number.isFinite(options.partnerSpacing) ? options.partnerSpacing : 1;
+  const branchFactor = Number.isFinite(options.branchSpacing) ? options.branchSpacing : 1;
+  const genStep = GEN_STEP * pcFactor;
+  const nodeSpacing = NODE_SPACING * branchFactor;
+  const partnerOffset = PARTNER_OFFSET * partnerFactor;
 
   const sortChildren = (children) => {
     if (!children?.length) return children || [];
@@ -35,7 +41,7 @@ export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, f
       person,
       generation,
       x,
-      y: -generation * GEN_STEP,
+      y: -generation * genStep,
       z: featured ? 52 : 22 + Math.min(Math.abs(generation) * 3, 18),
       role,
       featured,
@@ -63,7 +69,7 @@ export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, f
     const visitAncestor = (node, generation, slot, childId) => {
       if (!node?.person) return;
       const total = 2 ** generation;
-      const spacing = NODE_SPACING + generation * 38;
+      const spacing = nodeSpacing + generation * 38;
       const x = generation === 0 ? 0 : (slot - (total - 1) / 2) * spacing;
       addNode(node.person, -generation, x, generation === 0 ? 'root' : 'ancestor');
       if (childId) addLink(node.person.recordName, childId, 'ancestor');
@@ -92,7 +98,7 @@ export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, f
       if (generation === 0) unions.forEach((union, index) => {
         if (union.partner?.recordName) {
           const side = index % 2 === 0 ? 1 : -1;
-          const baseOffset = generation === 0 ? ROOT_CARD.w / 2 + 172 : PARTNER_OFFSET;
+          const baseOffset = generation === 0 ? ROOT_CARD.w / 2 + 172 : partnerOffset;
           const offset = side * (baseOffset + Math.floor(index / 2) * 105);
           addNode(union.partner, generation, centerX + offset, 'partner');
           addLink(node.person.recordName, union.partner.recordName, 'partner');
@@ -102,12 +108,12 @@ export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, f
       const children = sortChildren(unions.flatMap((union) => union.children || []));
       if (children.length === 0) return;
       const totalWidth = children.reduce((sum, child) => sum + measure(child), 0);
-      let cursor = centerX - ((totalWidth - 1) * NODE_SPACING) / 2;
+      let cursor = centerX - ((totalWidth - 1) * nodeSpacing) / 2;
       for (const child of children) {
         const childWidth = measure(child);
-        const childCenter = cursor + ((childWidth - 1) * NODE_SPACING) / 2;
+        const childCenter = cursor + ((childWidth - 1) * nodeSpacing) / 2;
         placeDescendant(child, generation + 1, childCenter, node.person.recordName);
-        cursor += childWidth * NODE_SPACING;
+        cursor += childWidth * nodeSpacing;
       }
     };
 
@@ -124,14 +130,104 @@ export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, f
   ));
   const visibleIds = new Set(nodeList.map((node) => node.id));
   const visibleLinks = links.filter((link) => visibleIds.has(link.from) && visibleIds.has(link.to));
-  const bands = buildBands(nodeList, rootX);
+  const bands = buildBands(nodeList, rootX, options.generationBandsSegmentByPedigree !== false);
   const bounds = boundsFor(nodeList, bands, visibleLinks);
   const viewBounds = focusBoundsFor(nodeList, bands, bounds);
-  return { nodes: nodeList, links: visibleLinks, bands, bounds, viewBounds };
+  return finalizeLayout({ nodes: nodeList, links: visibleLinks, bands, bounds, viewBounds }, options);
 }
 
-function buildFamilyGraphLayout(familyGraph, activeId) {
+// Post-process a canonical (top-down) layout: shrink distant generations, then
+// reorient the whole diagram onto the requested screen axis. Both steps are
+// no-ops at their default settings, so the native look is untouched.
+function finalizeLayout(layout, options = {}) {
+  return applyOrientation(applyMinification(layout, options), options.generationDirection || 'topToBottom');
+}
+
+function applyMinification(layout, options) {
+  const aStart = Number.isFinite(options.ancestorScaleStartLevel) ? options.ancestorScaleStartLevel : 0;
+  const dStart = Number.isFinite(options.descendantScaleStartLevel) ? options.descendantScaleStartLevel : 0;
+  if (aStart <= 0 && dStart <= 0) return layout;
+  const nodes = layout.nodes.map((node) => {
+    const gen = Number(node.generation) || 0;
+    let scale = 1;
+    if (gen < 0 && aStart > 0 && Math.abs(gen) >= aStart) {
+      scale = Math.max(0.42, 1 - (Math.abs(gen) - aStart + 1) * 0.14);
+    } else if (gen > 0 && dStart > 0 && gen >= dStart) {
+      scale = Math.max(0.42, 1 - (gen - dStart + 1) * 0.14);
+    }
+    return scale === 1 ? node : { ...node, scale };
+  });
+  return { ...layout, nodes };
+}
+
+function orientationTransform(direction) {
+  switch (direction) {
+    case 'bottomToTop': return { fn: (x, y) => [x, -y], swap: false };
+    case 'leftToRight': return { fn: (x, y) => [-y, x], swap: true };
+    case 'rightToLeft': return { fn: (x, y) => [y, -x], swap: true };
+    default: return { fn: (x, y) => [x, y], swap: false };
+  }
+}
+
+function transformBoundsRect(bounds, fn) {
+  const corners = [
+    [bounds.minX, bounds.minY], [bounds.minX, bounds.maxY],
+    [bounds.maxX, bounds.minY], [bounds.maxX, bounds.maxY],
+  ].map(([x, y]) => fn(x, y));
+  const xs = corners.map((c) => c[0]);
+  const ys = corners.map((c) => c[1]);
+  return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+}
+
+function transformBand(band, fn, swap) {
+  const [bx, by] = fn(band.x, band.y);
+  const segments = (band.segments || []).map((segment) => {
+    const segX = segment.x;
+    const segY = Number.isFinite(segment.y) ? segment.y : band.y;
+    const [sx, sy] = fn(segX, segY);
+    const alongWidth = Number.isFinite(segment.width) ? segment.width : band.width;
+    const crossHeight = Number.isFinite(segment.height) ? segment.height : band.height;
+    return {
+      x: sx,
+      y: sy,
+      width: swap ? crossHeight : alongWidth,
+      height: swap ? alongWidth : crossHeight,
+    };
+  });
+  return {
+    ...band,
+    x: bx,
+    y: by,
+    width: swap ? band.height : band.width,
+    height: swap ? band.width : band.height,
+    segments,
+  };
+}
+
+function applyOrientation(layout, direction) {
+  if (!direction || direction === 'topToBottom') return layout;
+  const { fn, swap } = orientationTransform(direction);
+  const nodes = layout.nodes.map((node) => {
+    const [x, y] = fn(node.x, node.y);
+    return { ...node, x, y };
+  });
+  const links = layout.links.map((link) => (
+    link.points
+      ? { ...link, points: link.points.map((point) => { const [x, y] = fn(point.x, point.y); return { ...point, x, y }; }) }
+      : link
+  ));
+  const bands = layout.bands.map((band) => transformBand(band, fn, swap));
+  const bounds = transformBoundsRect(layout.bounds, fn);
+  const viewBounds = layout.viewBounds ? transformBoundsRect(layout.viewBounds, fn) : layout.viewBounds;
+  return { ...layout, nodes, links, bands, bounds, viewBounds };
+}
+
+function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   const rootId = activeId || familyGraph.rootId;
+  const pcFactor = Number.isFinite(options.parentsChildrenSpacing) ? options.parentsChildrenSpacing : 1;
+  const partnerFactor = Number.isFinite(options.partnerSpacing) ? options.partnerSpacing : 1;
+  const branchFactor = Number.isFinite(options.branchSpacing) ? options.branchSpacing : 1;
+  const siblingGenerations = Number.isFinite(options.siblingGenerations) ? options.siblingGenerations : 4;
   const sourceNodes = new Map();
   for (const node of familyGraph.nodes || []) {
     if (!node?.person?.recordName) continue;
@@ -179,6 +275,11 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
       const companion = ordered.find((node) => node.person.recordName !== preferredChildId);
       return [...required, companion].filter(Boolean);
     }
+    // Beyond the configured Brother/Sister Generations depth, drop collateral
+    // siblings and keep only the direct lineage person at this level.
+    if (preferredChildId && Math.abs(generation) > siblingGenerations) {
+      return ordered.filter((node) => node.person.recordName === preferredChildId);
+    }
     // Fewer collateral siblings the deeper we go (the MFT viewer minifies and
     // limits distant brothers/sisters so the tree stays compact).
     const maxByGeneration = new Map([
@@ -197,14 +298,18 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     return [...rest.slice(0, mid), ...required, ...rest.slice(mid)];
   };
 
+  // Vertical pitch between generation rows, scaled by the Parents/Children
+  // Spacing control (1.0 = native default).
+  const GENERATION_STEP_SCALED = GENERATION_STEP * pcFactor;
   // Horizontal couple gap, sibling pitch, and the minimum same-generation gap.
-  const PARTNER_GAP = 150;
-  const SIBLING_GAP = CHILD_GAP;
-  const MIN_GEN_GAP = 124;
+  // Partner Spacing widens couples; Branch Spacing widens siblings/lineages.
+  const PARTNER_GAP = 150 * partnerFactor;
+  const SIBLING_GAP = CHILD_GAP * branchFactor;
+  const MIN_GEN_GAP = 124 * branchFactor;
   // Each generation up, a lineage drifts outward by this much (paternal left,
   // maternal right) — the native viewer's ancestor "bow". Large enough that the
   // paternal and maternal couples clear each other above the parents row.
-  const FAN_BIAS = 190;
+  const FAN_BIAS = 190 * branchFactor;
 
   const addNode = (personId, generation, x, familyBlockId, priority = 0) => {
     const source = sourceNodes.get(personId);
@@ -215,7 +320,7 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
       id: personId,
       generation,
       x,
-      y: -generation * GENERATION_STEP,
+      y: -generation * GENERATION_STEP_SCALED,
       z: source.featured ? 52 : 22 + Math.min(Math.abs(generation) * 3, 18),
       familyBlockId,
       footprintWidth: source.featured ? 250 : 190,
@@ -351,7 +456,7 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
     if (parents.length === 0 || children.length === 0) continue;
     const generation = children[0].generation;
     routingGeneration = generation;
-    const childY = -generation * GENERATION_STEP;
+    const childY = -generation * GENERATION_STEP_SCALED;
     const parentY = parents[0].y;
     const direction = Math.sign(parentY - childY || 1);
     const parentAttachPoints = parents.map((parent) => ({
@@ -426,7 +531,7 @@ function buildFamilyGraphLayout(familyGraph, activeId) {
 
   // All routed links already reference only visible nodes (filtered above).
   const visibleLinks = routedLinks;
-  const visibleBands = buildBands(nodeList, rootX);
+  const visibleBands = buildBands(nodeList, rootX, options.generationBandsSegmentByPedigree !== false);
   const bounds = boundsFor(nodeList, visibleBands, visibleLinks);
   const viewBounds = focusBoundsFor(nodeList, visibleBands, bounds);
   return { nodes: nodeList, links: visibleLinks, bands: visibleBands, bounds, viewBounds };
@@ -459,7 +564,7 @@ function mergeRole(a, b) {
   return `${a} ${b}`;
 }
 
-function buildBands(nodes, rootX = 0) {
+function buildBands(nodes, rootX = 0, segmentByPedigree = true) {
   const grouped = new Map();
   for (const node of nodes) {
     if (!grouped.has(node.generation)) grouped.set(node.generation, []);
@@ -467,7 +572,7 @@ function buildBands(nodes, rootX = 0) {
   }
 
   return [...grouped.entries()].map(([generation, group]) => {
-    const segments = buildBandSegments(group, generation, rootX);
+    const segments = buildBandSegments(group, generation, rootX, segmentByPedigree);
     const minX = Math.min(...segments.map((segment) => segment.x - segment.width / 2));
     const maxX = Math.max(...segments.map((segment) => segment.x + segment.width / 2));
     const centerY = group.reduce((sum, node) => sum + node.y, 0) / group.length;
@@ -508,16 +613,17 @@ function clusterByGap(sorted, splitGap) {
   return clusters;
 }
 
-function buildBandSegments(group, generation, rootX = 0) {
+function buildBandSegments(group, generation, rootX = 0, segmentByPedigree = true) {
   const sorted = [...group].sort((a, b) => a.x - b.x);
   const minWidth = generation === 0 ? 460 : 280;
   const padding = generation === 0 ? 340 : 150;
   // Root (0) and the focused person's parents (-1) are ONE continuous band.
   // From the grandparents up (gen <= -2) each couple's children-group gets its
   // own holder box (keyed by familyBlockId) — the native viewer's nested
-  // per-pedigree-group holders, rather than one long band per generation.
+  // per-pedigree-group holders, rather than one long band per generation. The
+  // "Segment Bands by Pedigree" toggle collapses that back to one band per row.
   let groups;
-  if (generation <= -2) {
+  if (generation <= -2 && segmentByPedigree) {
     const byHolder = new Map();
     for (const node of sorted) {
       const key = node.familyBlockId || `solo:${node.id}`;

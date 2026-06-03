@@ -76,6 +76,24 @@ function shouldDrawAvatar(viewerOptions) {
   return (viewerOptions?.personImageStyle || 'round') !== 'none';
 }
 
+function personWidthScale(viewerOptions) {
+  return Number.isFinite(viewerOptions?.personWidth) ? viewerOptions.personWidth : 1;
+}
+
+function fontScaleFor(viewerOptions) {
+  return Number.isFinite(viewerOptions?.fontSize) ? viewerOptions.fontSize : 1;
+}
+
+// Soft-shadow offset derived from the configurable shadow angle + distance.
+// Defaults (distance 18, angle 315°) reproduce the prior hand-tuned down-right
+// offset; `scale` lets the featured node throw a slightly longer shadow.
+function shadowOffsetFor(viewerOptions, scale = 1) {
+  const distance = Number.isFinite(viewerOptions?.shadowDistance) ? viewerOptions.shadowDistance : 18;
+  const angleDeg = Number.isFinite(viewerOptions?.shadowAngle) ? viewerOptions.shadowAngle : 315;
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: Math.cos(rad) * distance * scale, y: Math.sin(rad) * distance * scale };
+}
+
 function makeLivingHalo(palette, featured) {
   const radius = featured ? ROOT_CARD.w * 0.5 : 76;
   const halo = new THREE.Mesh(
@@ -98,6 +116,8 @@ export function makePersonNode(node, palette, personStyle, hovered = false, view
   group.position.set(node.x, node.y, node.z + liftZ);
   group.userData.person = node.person;
   group.userData.node = node;
+  // Minification of distant generations (Scale Ancestors/Descendants control).
+  const minScale = Number.isFinite(node.scale) ? node.scale : 1;
 
   const shadow = makeSoftShadow(
     palette,
@@ -105,18 +125,23 @@ export function makePersonNode(node, palette, personStyle, hovered = false, view
     MAC_FAMILY_GRAPH_LAYOUT.regularShadowHeight,
     0.17
   );
-  shadow.position.set(13, -13, -20);
+  const shadowOffset = shadowOffsetFor(viewerOptions, 1);
+  shadow.position.set(shadowOffset.x, shadowOffset.y, -20);
   shadow.renderOrder = 2;
   group.add(shadow);
 
   if (shouldDrawAvatar(viewerOptions)) {
     const model = makeMacPersonModel(node, palette, false, personStyle, viewerOptions);
     model.position.set(0, 12, 6);
+    model.scale.multiplyScalar(minScale);
+    model.scale.x *= personWidthScale(viewerOptions);
     group.add(model);
   }
 
-  if (hasMoreRelatives(node)) group.add(makeFurtherRelativesMarker(node, palette, false));
-  if (hasStatusBadges(node)) group.add(makeStatusBadges(node, false));
+  if (viewerOptions?.displayFurtherPersonsIndicators !== false && hasMoreRelatives(node)) {
+    group.add(makeFurtherRelativesMarker(node, palette, false));
+  }
+  if (hasStatusBadges(node, viewerOptions)) group.add(makeStatusBadges(node, false, viewerOptions));
   if (viewerOptions?.highlightLivingPersons && isLivingPerson(node?.person)) {
     group.add(makeLivingHalo(palette, false));
   }
@@ -124,7 +149,8 @@ export function makePersonNode(node, palette, personStyle, hovered = false, view
   if (hovered) group.add(makeSelectionMark(false, palette, 'hover'));
 
   if (viewerOptions?.displayLabels !== false) {
-    const labelScale = hovered && viewerOptions?.enlargeNameBadgesOnMouseOver !== false ? 1.32 : 1;
+    const fontScale = fontScaleFor(viewerOptions);
+    const labelScale = (hovered && viewerOptions?.enlargeNameBadgesOnMouseOver !== false ? 1.32 : 1) * fontScale * minScale;
     const label = makePlaneFromTexture(
       makePersonLabelTexture(node.person, palette, viewerOptions, node),
       MAC_FAMILY_GRAPH_LAYOUT.regularLabelWidth * labelScale,
@@ -151,7 +177,8 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false, vi
     ROOT_CARD.h * 0.96,
     0.21
   );
-  shadow.position.set(17, -24, -20);
+  const shadowOffset = shadowOffsetFor(viewerOptions, 1.45);
+  shadow.position.set(shadowOffset.x, shadowOffset.y, -20);
   shadow.renderOrder = 2;
   group.add(shadow);
 
@@ -160,7 +187,7 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false, vi
   card.renderOrder = 3;
   group.add(card);
 
-  const rootColors = colorsForNode(node, palette, viewerOptions?.personColoringMode || 'byGender');
+  const rootColors = colorsForNode(node, palette, viewerOptions?.personColoringMode || 'byGender', viewerOptions);
   group.add(makeRootMark(palette, rootColors));
   if (viewerOptions?.highlightLivingPersons && isLivingPerson(node?.person)) {
     group.add(makeLivingHalo(palette, true));
@@ -170,22 +197,26 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false, vi
   if (shouldDrawAvatar(viewerOptions)) {
     const model = makeMacPersonModel(node, palette, true, personStyle, viewerOptions);
     model.position.set(0, 24, 28);
+    model.scale.x *= personWidthScale(viewerOptions);
     group.add(model);
   }
 
   if (viewerOptions?.displayLabels !== false) {
+    const labelScale = 1.5 * fontScaleFor(viewerOptions);
     const label = makePlaneFromTexture(
       makePersonLabelTexture(node.person, palette, viewerOptions, node),
-      MAC_FAMILY_GRAPH_LAYOUT.regularLabelWidth * 1.5,
-      MAC_FAMILY_GRAPH_LAYOUT.regularLabelHeight * 1.5
+      MAC_FAMILY_GRAPH_LAYOUT.regularLabelWidth * labelScale,
+      MAC_FAMILY_GRAPH_LAYOUT.regularLabelHeight * labelScale
     );
-    label.position.set(0, -ROOT_CARD.h * 0.5 - 24, 18);
+    label.position.set(0, -ROOT_CARD.h * 0.5 - 24 - (labelScale - 1.5) * 18, 18);
     label.renderOrder = 22;
     group.add(label);
   }
 
-  if (hasMoreRelatives(node)) group.add(makeFurtherRelativesMarker(node, palette, true));
-  if (hasStatusBadges(node)) group.add(makeStatusBadges(node, true));
+  if (viewerOptions?.displayFurtherPersonsIndicators !== false && hasMoreRelatives(node)) {
+    group.add(makeFurtherRelativesMarker(node, palette, true));
+  }
+  if (hasStatusBadges(node, viewerOptions)) group.add(makeStatusBadges(node, true, viewerOptions));
 
   return group;
 }
@@ -196,7 +227,7 @@ function makeMacPersonModel(node, palette, featured, personStyle, viewerOptions 
   if (referenceModel) return referenceModel;
 
   const group = new THREE.Group();
-  const colors = colorsForNode(node, palette, viewerOptions?.personColoringMode || 'byGender');
+  const colors = colorsForNode(node, palette, viewerOptions?.personColoringMode || 'byGender', viewerOptions);
   const scale = featured ? 1.02 : 0.78;
   group.scale.setScalar(scale);
 
@@ -340,13 +371,21 @@ function makeFurtherRelativesMarker(node, palette, featured) {
   return group;
 }
 
-function hasStatusBadges(node) {
-  return Boolean(node?.status?.familySearch || ['High', 'Medium'].includes(node?.status?.duplicateRisk));
+function hasStatusBadges(node, viewerOptions = {}) {
+  const fs = node?.status?.familySearch && viewerOptions.displayFamilySearchIcons !== false;
+  const influential = node?.status?.influential && viewerOptions.displayInfluentialIcon;
+  const duplicate = ['High', 'Medium'].includes(node?.status?.duplicateRisk);
+  return Boolean(fs || influential || duplicate);
 }
 
-function makeStatusBadges(node, featured) {
+function makeStatusBadges(node, featured, viewerOptions = {}) {
   const badges = [];
-  if (node.status?.familySearch) badges.push({ label: 'FS', fill: '#2563eb', stroke: '#174ea6' });
+  if (node.status?.familySearch && viewerOptions.displayFamilySearchIcons !== false) {
+    badges.push({ label: 'FS', fill: '#2563eb', stroke: '#174ea6' });
+  }
+  if (node.status?.influential && viewerOptions.displayInfluentialIcon) {
+    badges.push({ label: 'I', fill: '#7c3aed', stroke: '#5b239e' });
+  }
   if (node.status?.duplicateRisk === 'High') badges.push({ label: 'D', fill: '#b42318', stroke: '#7a1710' });
   if (node.status?.duplicateRisk === 'Medium') badges.push({ label: 'D', fill: '#b7791f', stroke: '#7c4d12' });
   const group = new THREE.Group();
@@ -511,6 +550,14 @@ function makePersonLabelTexture(person, palette, viewerOptions = {}, node = null
       ctx.fillStyle = '#5c6580';
       ctx.font = '650 17px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
       ctx.fillText(kinship, w / 2, cursorY + 4);
+      cursorY += 22;
+    }
+    const numbering = viewerOptions.displayNumberingSystem && node?.refNumber ? String(node.refNumber) : '';
+    if (numbering) {
+      ctx.direction = 'ltr';
+      ctx.fillStyle = '#3f7cc0';
+      ctx.font = '750 17px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillText(`# ${numbering}`, w / 2, cursorY + 4);
       cursorY += 22;
     }
     const group = personGroupLabel(person, viewerOptions);

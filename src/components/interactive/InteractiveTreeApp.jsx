@@ -13,7 +13,8 @@ import {
   findLargestDescendantRoot,
 } from '../../lib/treeQuery.js';
 import { buildFamilyTreeViewModel, buildPersonContext } from '../../lib/personContext.js';
-import { deletePerson } from '../../lib/subtree.js';
+import { eventTypeLabel } from '../../lib/catalogs.js';
+import { deletePerson, deleteFamily } from '../../lib/subtree.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { PersonList } from './PersonList.jsx';
 import { PersonFocus } from './PersonFocus.jsx';
@@ -216,6 +217,26 @@ export function InteractiveTreeApp() {
     if (partnerId) params.set('partner', partnerId);
     navigate(`/person/new?${params.toString()}`);
   }, [context, navigate]);
+  const onDeleteFamily = useCallback(async (familyRecordName) => {
+    if (!familyRecordName) return;
+    if (!(await modal.confirm('Delete this family?\n\nThe relationship and its family events are removed. The people in it (parents and children) are kept.', {
+      title: 'Delete family',
+      okLabel: 'Delete',
+      destructive: true,
+    }))) {
+      return;
+    }
+    await deleteFamily(familyRecordName);
+    setDataVersion((version) => version + 1);
+  }, [modal]);
+  // Influential (associate) relations live in the Person editor; route there.
+  const onEditInfluential = useCallback((recordName) => {
+    if (recordName) navigate(`/person/${encodeURIComponent(recordName)}?section=influential`);
+  }, [navigate]);
+  const onOpenFamilySearch = useCallback((recordName) => {
+    if (recordName) setActivePerson(recordName);
+    navigate('/familysearch');
+  }, [navigate, setActivePerson]);
 
   if (loading) return <EmptyMsg text="Loading…" />;
   if (empty) {
@@ -310,6 +331,9 @@ export function InteractiveTreeApp() {
                     onOpenDescendantChart={openDescendant}
                     onAddRelative={onAddRelative}
                     onDeletePerson={onDeletePerson}
+                    onDeleteFamily={onDeleteFamily}
+                    onEditInfluential={onEditInfluential}
+                    onOpenFamilySearch={onOpenFamilySearch}
                     onToggleExpand={onToggleExpand}
                     expandedIds={expandedIds}
                     context={context}
@@ -448,11 +472,7 @@ function TreeInspector({
 function eventLabel(event) {
   const description = event.fields?.description?.value;
   if (description) return description;
-  const raw = event.fields?.conclusionType?.value || event.fields?.eventType?.value || 'Event';
-  const stripped = String(raw).replace(/---.*$/, '');
-  const match = stripped.match(/UniqueID_(?:Person|Family)Event_(.+)$/) || stripped.match(/UniqueID_PersonFact_(.+)$/);
-  const label = match?.[1] || stripped.replace(/^UniqueID_/, '');
-  return label.replace(/([a-z])([A-Z])/g, '$1 $2');
+  return eventTypeLabel(event.fields?.conclusionType?.value || event.fields?.eventType?.value);
 }
 
 function InspectorSection({ title, children }) {

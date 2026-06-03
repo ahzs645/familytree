@@ -10,7 +10,7 @@ import { findRelationshipPath } from '../../relationshipPath.js';
 import { describeBirth, describeDeath, describeMarriage } from '../narrativeTemplates.js';
 import { formatVitalDateParts } from '../../vitalFormat.js';
 import { compareStrings, formatInteger } from '../../i18n.js';
-import { humanizeType } from '../../../utils/humanizeType.js';
+import { eventTypeLabel } from '../../catalogs.js';
 import { block, emptyReport } from '../ast.js';
 import {
   addFamilyContext,
@@ -75,7 +75,7 @@ export async function buildPersonSummary(recordName) {
       block.table(
         ['Type', 'Date', 'Description'],
         ctx.events.map((e) => [
-          humanizeType(e.fields?.conclusionType?.value || e.fields?.eventType?.value) || 'Event',
+          eventTypeLabel(e.fields?.conclusionType?.value || e.fields?.eventType?.value),
           e.fields?.date?.value || '',
           e.fields?.description?.value || '',
         ])

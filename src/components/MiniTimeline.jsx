@@ -4,6 +4,7 @@
  * earliest and latest events. Hover a tick to see its label.
  */
 import React, { useMemo } from 'react';
+import { eventTypeLabel } from '../lib/catalogs.js';
 
 function yearOf(s) {
   const m = String(s || '').match(/(\d{4})/);
@@ -20,7 +21,7 @@ const KIND_COLOR = {
 export function MiniTimeline({ events = [], height = 56 }) {
   const points = useMemo(() => events
     .map((e) => ({
-      label: e.label || e.fields?.conclusionType?.value || e.fields?.eventType?.value || 'Event',
+      label: e.label || eventTypeLabel(e.fields?.conclusionType?.value || e.fields?.eventType?.value),
       year: yearOf(e.year ?? e.fields?.date?.value ?? e.date),
       raw: e.year ?? e.fields?.date?.value ?? e.date,
     }))

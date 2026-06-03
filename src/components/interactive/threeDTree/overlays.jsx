@@ -95,9 +95,13 @@ export function PersonContextMenu({
   onOpenDescendantChart,
   onAddRelative,
   onDeletePerson,
+  onDeleteFamily,
+  onEditInfluential,
+  onOpenFamilySearch,
   context,
 }) {
   const familyId = selectableFamilyId(node);
+  const hasFamilySearch = Boolean(node?.status?.familySearch);
   const run = (handler) => {
     onClose?.();
     handler?.(person?.recordName);
@@ -105,6 +109,10 @@ export function PersonContextMenu({
   const runFamily = () => {
     onClose?.();
     if (familyId) onOpenFamily?.(familyId);
+  };
+  const runDeleteFamily = () => {
+    onClose?.();
+    if (familyId) onDeleteFamily?.(familyId);
   };
   const runAdd = (relation, options = {}) => {
     onClose?.();
@@ -163,6 +171,10 @@ export function PersonContextMenu({
                 </React.Fragment>
               ))}
               <div style={styles.contextDivider} />
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('father')}>Add Further Father</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('mother')}>Add Further Mother</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('partner')}>Add Further Partner</button>
+              <div style={styles.contextDivider} />
               <button type="button" style={styles.contextItem} onClick={() => runAdd('existingFather')}>Select Existing Person as Father</button>
               <button type="button" style={styles.contextItem} onClick={() => runAdd('existingMother')}>Select Existing Person as Mother</button>
               <button type="button" style={styles.contextItem} onClick={() => runAdd('existingPartner')}>Select Existing Person as Partner</button>
@@ -171,20 +183,46 @@ export function PersonContextMenu({
           )}
         </>
       )}
+      {(onEditInfluential || (onOpenFamilySearch && hasFamilySearch)) && (
+        <>
+          <div style={styles.contextDivider} />
+          {onEditInfluential && (
+            <button type="button" style={styles.contextItem} onClick={() => run(onEditInfluential)} role="menuitem">Add / Edit Influential Persons…</button>
+          )}
+          {onOpenFamilySearch && hasFamilySearch && (
+            <>
+              <button type="button" style={styles.contextItem} onClick={() => run(onOpenFamilySearch)} role="menuitem">Display FamilySearch Person</button>
+              <button type="button" style={styles.contextItem} onClick={() => run(onOpenFamilySearch)} role="menuitem">Matches on FamilySearch</button>
+            </>
+          )}
+        </>
+      )}
       <div style={styles.contextDivider} />
       <button type="button" style={styles.contextItem} onClick={() => run(onOpenAncestorChart)} role="menuitem">Ancestor Chart</button>
       <button type="button" style={styles.contextItem} onClick={() => run(onOpenDescendantChart)} role="menuitem">Descendant Chart</button>
-      {onDeletePerson && (
+      {(onDeletePerson || (onDeleteFamily && familyId)) && (
         <>
           <div style={styles.contextDivider} />
-          <button
-            type="button"
-            style={{ ...styles.contextItem, color: '#c1322b' }}
-            onClick={() => run(onDeletePerson)}
-            role="menuitem"
-          >
-            Delete Person…
-          </button>
+          {onDeletePerson && (
+            <button
+              type="button"
+              style={{ ...styles.contextItem, color: '#c1322b' }}
+              onClick={() => run(onDeletePerson)}
+              role="menuitem"
+            >
+              Delete Person…
+            </button>
+          )}
+          {onDeleteFamily && familyId && (
+            <button
+              type="button"
+              style={{ ...styles.contextItem, color: '#c1322b' }}
+              onClick={runDeleteFamily}
+              role="menuitem"
+            >
+              Delete Family…
+            </button>
+          )}
         </>
       )}
     </div>

@@ -466,15 +466,24 @@ export default function Persons() {
                 <h3 className="text-xs uppercase font-semibold tracking-wide text-muted-foreground mb-2">{t('persons.parents')}</h3>
                 {context?.parents?.length ? (
                   <div className="grid gap-2">
-                    {context.parents.map((family) => (
-                      <div key={family.family.recordName} className="border border-border rounded-md p-3 bg-card text-sm">
-                        {[family.man, family.woman].filter(Boolean).map((person) => (
-                          <Link key={person.recordName} to={`/person/${person.recordName}`} className="text-primary me-3">
-                            <BdiText>{person.fullName}</BdiText>
-                          </Link>
-                        ))}
-                      </div>
-                    ))}
+                    {context.parents.map((family) => {
+                      const roles = [
+                        { person: family.man, label: t('glossary.father') },
+                        { person: family.woman, label: t('glossary.mother') },
+                      ].filter((entry) => entry.person);
+                      return (
+                        <div key={family.family.recordName} className="border border-border rounded-md p-3 bg-card grid gap-3 sm:grid-cols-2">
+                          {roles.map(({ person, label }) => (
+                            <div key={person.recordName} className="flex flex-col gap-0.5">
+                              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+                              <Link to={`/person/${person.recordName}`} className="text-primary text-sm">
+                                <BdiText>{person.fullName}</BdiText>
+                              </Link>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-sm text-muted-foreground">{t('common.noData')}</div>

@@ -3,6 +3,7 @@ import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { CAMERA_MODES, VIEWER_OPTIONS_STORAGE_KEY } from './threeDTree/constants.js';
 import { buildInteractiveLayout } from './threeDTree/layout.js';
+import { calculateReferenceNumbers } from '../../lib/referenceNumbering.js';
 import { makePalette } from './threeDTree/palette.js';
 import { readInitialViewerOptions } from './threeDTree/viewerOptions.js';
 import { Metric, PersonContextMenu, PersonHoverCard, TreeNavigationControls, ViewerSelect, dockToggleStyle } from './threeDTree/overlays.jsx';
@@ -24,6 +25,9 @@ export function ThreeDTreeView({
   onOpenDescendantChart,
   onAddRelative,
   onDeletePerson,
+  onDeleteFamily,
+  onEditInfluential,
+  onOpenFamilySearch,
   onToggleExpand,
   expandedIds,
   context,
@@ -58,9 +62,53 @@ export function ThreeDTreeView({
       ancestorGenerations: viewerOptions.ancestorGenerations,
       descendantGenerations: viewerOptions.descendantGenerations,
       childSortingMode: viewerOptions.childSortingMode,
+      generationDirection: viewerOptions.generationDirection,
+      parentsChildrenSpacing: viewerOptions.parentsChildrenSpacing,
+      partnerSpacing: viewerOptions.partnerSpacing,
+      branchSpacing: viewerOptions.branchSpacing,
+      siblingGenerations: viewerOptions.siblingGenerations,
+      ancestorScaleStartLevel: viewerOptions.ancestorScaleStartLevel,
+      descendantScaleStartLevel: viewerOptions.descendantScaleStartLevel,
     }),
-    [ancestorTree, descendantTree, activeId, familyGraph, viewerOptions.ancestorGenerations, viewerOptions.descendantGenerations, viewerOptions.childSortingMode]
+    [
+      ancestorTree, descendantTree, activeId, familyGraph,
+      viewerOptions.ancestorGenerations, viewerOptions.descendantGenerations, viewerOptions.childSortingMode,
+      viewerOptions.generationDirection,
+      viewerOptions.parentsChildrenSpacing, viewerOptions.partnerSpacing, viewerOptions.branchSpacing,
+      viewerOptions.siblingGenerations, viewerOptions.ancestorScaleStartLevel, viewerOptions.descendantScaleStartLevel,
+    ]
   );
+  // Reference numbering (Ahnentafel/d'Aboville/Henry/Generation) is loaded
+  // lazily — only when the "Display Numbering System" option is on — then merged
+  // onto the layout nodes so the label can render each person's number.
+  const [numberingMap, setNumberingMap] = useState(null);
+  useEffect(() => {
+    if (!viewerOptions.displayNumberingSystem || !activeId) {
+      setNumberingMap(null);
+      return undefined;
+    }
+    let cancelled = false;
+    calculateReferenceNumbers(activeId, viewerOptions.numberingSystem)
+      .then((rows) => {
+        if (cancelled) return;
+        const map = new Map();
+        for (const row of rows || []) map.set(row.personId, row.number);
+        setNumberingMap(map);
+      })
+      .catch(() => { if (!cancelled) setNumberingMap(null); });
+    return () => { cancelled = true; };
+  }, [activeId, viewerOptions.displayNumberingSystem, viewerOptions.numberingSystem]);
+
+  const decoratedLayout = useMemo(() => {
+    if (!numberingMap || !viewerOptions.displayNumberingSystem) return layout;
+    return {
+      ...layout,
+      nodes: layout.nodes.map((node) => (
+        numberingMap.has(node.id) ? { ...node, refNumber: numberingMap.get(node.id) } : node
+      )),
+    };
+  }, [layout, numberingMap, viewerOptions.displayNumberingSystem]);
+
   const relationshipCounts = useMemo(() => ({
     parents: context?.parents?.flatMap((family) => [family.man, family.woman]).filter(Boolean).length || 0,
     partners: context?.families?.map((family) => family.partner).filter(Boolean).length || 0,
@@ -77,7 +125,7 @@ export function ThreeDTreeView({
   } = useThreeTreeScene({
     activeId,
     dark,
-    layout,
+    layout: decoratedLayout,
     onPick,
     onToggleExpand,
     expandedIds,
@@ -270,6 +318,9 @@ export function ThreeDTreeView({
           onOpenDescendantChart={onOpenDescendantChart}
           onAddRelative={onAddRelative}
           onDeletePerson={onDeletePerson}
+          onDeleteFamily={onDeleteFamily}
+          onEditInfluential={onEditInfluential}
+          onOpenFamilySearch={onOpenFamilySearch}
           context={context}
         />
       )}

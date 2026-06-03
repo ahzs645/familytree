@@ -196,3 +196,42 @@ export async function deletePerson(personRecordName) {
   });
   return deleteNames.size;
 }
+
+/**
+ * Delete a FAMILY (the marriage/relationship unit) without deleting any people.
+ * Removes the family record, its own family events, the child relations linking
+ * children to it (children persons are kept), and relations targeting the
+ * family. Returns the count of deleted records.
+ */
+export async function deleteFamily(familyRecordName) {
+  const db = getLocalDatabase();
+  const family = await db.getRecord(familyRecordName);
+  if (!family) return 0;
+
+  const deleteNames = new Set([familyRecordName]);
+
+  // The family's own events and the child links (the children persons survive).
+  for (const type of ['FamilyEvent', 'FamilyFact']) {
+    const { records } = await db.query(type, { referenceField: 'family', referenceValue: familyRecordName, limit: 100000 }).catch(() => ({ records: [] }));
+    for (const record of records) deleteNames.add(record.recordName);
+  }
+  const childRels = await db.query('ChildRelation', { referenceField: 'family', referenceValue: familyRecordName, limit: 100000 });
+  for (const rel of childRels.records) deleteNames.add(rel.recordName);
+
+  // Relations elsewhere that target this family.
+  for (const type of ['SourceRelation', 'MediaRelation', 'ToDoRelation', 'LabelRelation', 'Note']) {
+    const { records } = await db.query(type, { limit: 100000 }).catch(() => ({ records: [] }));
+    for (const record of records) {
+      const target = refToRecordName(record.fields?.target?.value)
+        || refToRecordName(record.fields?.baseObject?.value)
+        || refToRecordName(record.fields?.family?.value);
+      if (target === familyRecordName) deleteNames.add(record.recordName);
+    }
+  }
+
+  await db.applyRecordTransaction({
+    saveRecords: [],
+    deleteRecordNames: [...deleteNames],
+  });
+  return deleteNames.size;
+}

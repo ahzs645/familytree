@@ -58,7 +58,7 @@ export function makeReferencePersonModel(node, palette, featured, personStyle = 
   const clone = template.clone(true);
   // Honour the active person-colouring mode (byGender/byGeneration/byPedigree)
   // on the real .dae models too — previously they always reverted to gender.
-  const colors = colorsForNode(node, palette, viewerOptions?.personColoringMode || 'byGender');
+  const colors = colorsForNode(node, palette, viewerOptions?.personColoringMode || 'byGender', viewerOptions);
   clone.traverse((child) => {
     if (!child.isMesh) return;
     child.castShadow = true;

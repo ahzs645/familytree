@@ -59,14 +59,20 @@ export function makeGenerationBand(band, palette, style = 'raised', options = {}
   const prominent = isProminentBlood(style);
   const zOffset = bandHeightOffset(style, band.generation);
   const effectiveColorMode = prominent && colorMode === 'byGeneration' ? 'highSaturation' : colorMode;
-  const color = rgbaToColor(bandFillForMode(band, effectiveColorMode));
+  const color = rgbaToColor(bandFillForMode(band, effectiveColorMode, options));
   // Real extruded slab so the band reads as a 3D pedestal (visible depth/side
   // when the camera tilts) like the native viewer, not a flat sticker.
   const depth = renderStyle === 'pedestal' ? 70 : renderStyle === 'flat' ? 10 : 44;
   const group = new THREE.Group();
   const segments = band.segments?.length ? band.segments : [band];
   for (const segment of segments) {
-    const shape = roundedRectShape(segment.width, band.height, 34);
+    // Segments carry explicit width/height/x/y so reoriented (Left↔Right) bands
+    // render as vertical bars; vertical bands fall back to the band thickness.
+    const segW = Number.isFinite(segment.width) ? segment.width : band.width;
+    const segH = Number.isFinite(segment.height) ? segment.height : band.height;
+    const segX = segment.x;
+    const segY = Number.isFinite(segment.y) ? segment.y : band.y;
+    const shape = roundedRectShape(segW, segH, Math.min(34, segH / 2, segW / 2));
     const geometry = new THREE.ExtrudeGeometry(shape, {
       depth,
       bevelEnabled: true,
@@ -85,15 +91,15 @@ export function makeGenerationBand(band, palette, style = 'raised', options = {}
     });
     const mesh = new THREE.Mesh(geometry, material);
     // Top face sits just behind the figures; the slab extrudes away from camera.
-    mesh.position.set(segment.x, band.y, -8 + zOffset);
+    mesh.position.set(segX, segY, -8 + zOffset);
     mesh.castShadow = false;
     mesh.receiveShadow = true;
     mesh.renderOrder = 1;
     group.add(mesh);
 
     const shadowTexture = makeBandShadowTexture();
-    const shadow = makePlaneFromTexture(shadowTexture, segment.width * 1.04, band.height * 1.12);
-    shadow.position.set(segment.x + 12, band.y - 18, -8 - depth - 10 + zOffset);
+    const shadow = makePlaneFromTexture(shadowTexture, segW * 1.04, segH * 1.12);
+    shadow.position.set(segX + 12, segY - 18, -8 - depth - 10 + zOffset);
     shadow.renderOrder = 0.5;
     group.add(shadow);
   }
@@ -151,11 +157,15 @@ function makeBandShadowTexture() {
   });
 }
 
-export function makeGenerationLabel(band) {
+export function makeGenerationLabel(band, options = {}) {
   if (band.showLabel === false) return new THREE.Group();
+  const showGen = options.generationBandsShowGenerations !== false;
+  const showYears = options.generationBandsShowBirthDates !== false && Boolean(band.subtitle);
+  if (!showGen && !showYears) return new THREE.Group();
   const label = generationLabel(band.generation);
-  const primary = band.subtitle || label;
-  const secondary = band.subtitle ? label : `${band.count} ${band.count === 1 ? 'person' : 'people'}`;
+  const peopleLine = `${band.count} ${band.count === 1 ? 'person' : 'people'}`;
+  const primary = showYears ? band.subtitle : label;
+  const secondary = showYears ? (showGen ? label : peopleLine) : peopleLine;
   const texture = makeGenerationLabelTexture(band, primary, secondary, false);
   const compactTexture = makeGenerationLabelTexture(band, primary, secondary, true);
   const labelWidth = Math.min(BAND_LABEL_GUTTER - 22, 276);
@@ -236,7 +246,18 @@ function generationLabel(generation) {
   return `Descendant ${generation}`;
 }
 
-function bandFillForMode(band, mode) {
+function hexToRgbString(hex, fallback = 'rgb(239, 155, 201)') {
+  const normalized = String(hex || '').replace('#', '');
+  if (normalized.length !== 6) return fallback;
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  if ([r, g, b].some((value) => Number.isNaN(value))) return fallback;
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function bandFillForMode(band, mode, options = {}) {
+  if (mode === 'customColor') return hexToRgbString(options.generationBandCustomColor);
   const baseGenerationFill = band.generation === 0
     ? 'rgba(246, 177, 230, 0.62)'
     : band.generation < 0

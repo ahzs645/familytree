@@ -131,13 +131,23 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
     { records: personRecords },
     { records: personGroupRelations },
     { records: personGroups },
+    associateRelations,
   ] = await Promise.all([
     db.query('Family', { limit: 100000 }),
     db.query('ChildRelation', { limit: 100000 }),
     db.query('Person', { limit: 100000 }),
     db.query('PersonGroupRelation', { limit: 100000 }),
     db.query('PersonGroup', { limit: 100000 }),
+    db.query('AssociateRelation', { limit: 100000 }).catch(() => ({ records: [] })),
   ]);
+
+  // Persons who own at least one influential (associate) relation — used to
+  // flag the "Display Influential Relations Icon" marker on tree nodes.
+  const influentialPersonIds = new Set();
+  for (const relation of associateRelations.records || []) {
+    const ownerId = refToRecordName(relation.fields?.person?.value);
+    if (ownerId) influentialPersonIds.add(ownerId);
+  }
 
   const familyById = new Map(familyRecords.filter(isPublicRecord).map((family) => [family.recordName, family]));
   const personById = new Map(personRecords.filter(isPublicRecord).map((person) => [person.recordName, person]));
@@ -293,6 +303,7 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
       },
       status: {
         familySearch: Boolean(readField(person, ['familySearchID', 'familySearchId'])),
+        influential: influentialPersonIds.has(person.recordName),
         duplicateRisk: duplicateSets.high.has(person.recordName)
           ? 'High'
           : duplicateSets.medium.has(person.recordName)

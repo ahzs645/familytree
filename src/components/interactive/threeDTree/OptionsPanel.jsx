@@ -5,12 +5,20 @@ import {
   CAMERA_MODES,
   CHILD_SORTING_MODES,
   CONNECTION_COLOR_MODES,
+  DEFAULT_GENERATION_BAND_CUSTOM_COLOR,
+  DEFAULT_GROUND_CUSTOM_COLOR,
+  DEFAULT_PERSON_CUSTOM_COLOR,
   GENERATION_BAND_COLOR_MODES,
   GENERATION_BAND_STYLES,
+  GENERATION_DIRECTIONS,
+  GROUND_COLOR_MODES,
   LIGHTING_MODES,
   MAX_ANCESTOR_GENERATIONS,
   MAX_DESCENDANT_GENERATIONS,
+  MAX_MINIFICATION_START,
+  MAX_SIBLING_GENERATIONS,
   MIN_GENERATIONS,
+  NUMBERING_SYSTEMS,
   OPTIONS_PANEL_STATE_STORAGE_KEY,
   OPTION_GROUPS,
   PERSON_COLORING_MODES,
@@ -22,6 +30,7 @@ import { panelStyles } from './optionsPanelStyles.js';
 const DEFAULT_OPEN_GROUPS = {
   general: true,
   generations: true,
+  layout: false,
   personStyle: false,
   personInformation: false,
   connections: false,
@@ -122,12 +131,94 @@ function renderGroup(groupId, options, set) {
           />
         </>
       );
+    case 'layout':
+      return (
+        <>
+          <SelectRow label="Generation Direction" value={options.generationDirection} options={GENERATION_DIRECTIONS} onChange={(v) => set({ generationDirection: v })} />
+          <SliderRow
+            label="Brother/Sister Generations"
+            min={0}
+            max={MAX_SIBLING_GENERATIONS}
+            step={1}
+            value={options.siblingGenerations}
+            onChange={(v) => set({ siblingGenerations: v })}
+            valueFormatter={(v) => `${v}`}
+          />
+          <SliderRow
+            label="Scale Ancestors at Generation"
+            min={0}
+            max={MAX_MINIFICATION_START}
+            step={1}
+            value={options.ancestorScaleStartLevel}
+            onChange={(v) => set({ ancestorScaleStartLevel: v })}
+            valueFormatter={(v) => (v === 0 ? 'Off' : `${v}`)}
+          />
+          <SliderRow
+            label="Scale Descendants at Generation"
+            min={0}
+            max={MAX_MINIFICATION_START}
+            step={1}
+            value={options.descendantScaleStartLevel}
+            onChange={(v) => set({ descendantScaleStartLevel: v })}
+            valueFormatter={(v) => (v === 0 ? 'Off' : `${v}`)}
+          />
+          <SliderRow
+            label="Parents/Children Spacing"
+            min={0.6}
+            max={1.8}
+            step={0.05}
+            value={options.parentsChildrenSpacing}
+            onChange={(v) => set({ parentsChildrenSpacing: v })}
+            valueFormatter={(v) => `${v.toFixed(2)}×`}
+          />
+          <SliderRow
+            label="Partner Spacing"
+            min={0.6}
+            max={1.8}
+            step={0.05}
+            value={options.partnerSpacing}
+            onChange={(v) => set({ partnerSpacing: v })}
+            valueFormatter={(v) => `${v.toFixed(2)}×`}
+          />
+          <SliderRow
+            label="Branch Spacing"
+            min={0.6}
+            max={1.8}
+            step={0.05}
+            value={options.branchSpacing}
+            onChange={(v) => set({ branchSpacing: v })}
+            valueFormatter={(v) => `${v.toFixed(2)}×`}
+          />
+        </>
+      );
     case 'personStyle':
       return (
         <>
           <SelectRow label="Person Coloring" value={options.personColoringMode} options={PERSON_COLORING_MODES} onChange={(v) => set({ personColoringMode: v })} />
+          {options.personColoringMode === 'customColor' && (
+            <ColorRow label="Custom Color" value={options.personCustomColor || DEFAULT_PERSON_CUSTOM_COLOR} onChange={(v) => set({ personCustomColor: v })} />
+          )}
           <SelectRow label="Child Sorting" value={options.childSortingMode} options={CHILD_SORTING_MODES} onChange={(v) => set({ childSortingMode: v })} />
+          <SliderRow
+            label="Person Width"
+            min={0.6}
+            max={1.6}
+            step={0.05}
+            value={options.personWidth}
+            onChange={(v) => set({ personWidth: v })}
+            valueFormatter={(v) => `${v.toFixed(2)}×`}
+          />
+          <SliderRow
+            label="Background Saturation"
+            min={0}
+            max={1.5}
+            step={0.05}
+            value={options.personSaturation}
+            onChange={(v) => set({ personSaturation: v })}
+            valueFormatter={(v) => `${Math.round(v * 100)}%`}
+          />
           <ToggleRow label="Highlight Living Persons" value={options.highlightLivingPersons} onChange={(v) => set({ highlightLivingPersons: v })} />
+          <ToggleRow label="Desaturate Ancestors of Partner" value={options.desaturatePartnerAncestors} onChange={(v) => set({ desaturatePartnerAncestors: v })} />
         </>
       );
     case 'personInformation':
@@ -140,6 +231,22 @@ function renderGroup(groupId, options, set) {
           <ToggleRow label="Display Person Groups" value={options.displayPersonGroups} onChange={(v) => set({ displayPersonGroups: v })} />
           <ToggleRow label="Display Notes Icon" value={options.displayNotesIcon} onChange={(v) => set({ displayNotesIcon: v })} />
           <ToggleRow label="Display Media Icon" value={options.displayMediaIcon} onChange={(v) => set({ displayMediaIcon: v })} />
+          <ToggleRow label="Display Influential Relations Icon" value={options.displayInfluentialIcon} onChange={(v) => set({ displayInfluentialIcon: v })} />
+          <ToggleRow label="Display FamilySearch Icons" value={options.displayFamilySearchIcons} onChange={(v) => set({ displayFamilySearchIcons: v })} />
+          <ToggleRow label="Indicators for further persons" value={options.displayFurtherPersonsIndicators} onChange={(v) => set({ displayFurtherPersonsIndicators: v })} />
+          <ToggleRow label="Display Numbering System" value={options.displayNumberingSystem} onChange={(v) => set({ displayNumberingSystem: v })} />
+          {options.displayNumberingSystem && (
+            <SelectRow label="Numbering" value={options.numberingSystem} options={NUMBERING_SYSTEMS} onChange={(v) => set({ numberingSystem: v })} />
+          )}
+          <SliderRow
+            label="Font Size"
+            min={0.7}
+            max={1.5}
+            step={0.05}
+            value={options.fontSize}
+            onChange={(v) => set({ fontSize: v })}
+            valueFormatter={(v) => `${Math.round(v * 100)}%`}
+          />
         </>
       );
     case 'connections':
@@ -165,6 +272,9 @@ function renderGroup(groupId, options, set) {
         <>
           <SelectRow label="Style" value={options.generationBandStyle} options={GENERATION_BAND_STYLES} onChange={(v) => set({ generationBandStyle: v })} />
           <SelectRow label="Colors" value={options.generationBandColorMode} options={GENERATION_BAND_COLOR_MODES} onChange={(v) => set({ generationBandColorMode: v })} />
+          {options.generationBandColorMode === 'customColor' && (
+            <ColorRow label="Custom Color" value={options.generationBandCustomColor || DEFAULT_GENERATION_BAND_CUSTOM_COLOR} onChange={(v) => set({ generationBandCustomColor: v })} />
+          )}
           <SliderRow
             label="Opacity"
             min={0}
@@ -175,6 +285,9 @@ function renderGroup(groupId, options, set) {
             valueFormatter={(v) => `${Math.round(v * 100)}%`}
           />
           <ToggleRow label="Always use full width" value={options.generationBandsFullWidth} onChange={(v) => set({ generationBandsFullWidth: v })} />
+          <ToggleRow label="Show Range of Birth Dates" value={options.generationBandsShowBirthDates} onChange={(v) => set({ generationBandsShowBirthDates: v })} />
+          <ToggleRow label="Show Generations" value={options.generationBandsShowGenerations} onChange={(v) => set({ generationBandsShowGenerations: v })} />
+          <ToggleRow label="Segment Bands by Pedigree" value={options.generationBandsSegmentByPedigree} onChange={(v) => set({ generationBandsSegmentByPedigree: v })} />
         </>
       );
     case 'camera':
@@ -201,10 +314,45 @@ function renderGroup(groupId, options, set) {
             onChange={(v) => set({ shadowStrength: v })}
             valueFormatter={(v) => `${v.toFixed(2)}×`}
           />
+          <SliderRow
+            label="Shadow Radius"
+            min={0}
+            max={4.0}
+            step={0.05}
+            value={options.shadowRadius}
+            onChange={(v) => set({ shadowRadius: v })}
+            valueFormatter={(v) => `${v.toFixed(2)}×`}
+          />
+          <SliderRow
+            label="Shadow Distance"
+            min={0}
+            max={40}
+            step={1}
+            value={options.shadowDistance}
+            onChange={(v) => set({ shadowDistance: v })}
+            valueFormatter={(v) => `${Math.round(v)}`}
+          />
+          <SliderRow
+            label="Shadow Angle"
+            min={0}
+            max={360}
+            step={5}
+            value={options.shadowAngle}
+            onChange={(v) => set({ shadowAngle: v })}
+            valueFormatter={(v) => `${Math.round(v)}°`}
+          />
         </>
       );
     case 'ground':
-      return <SelectRow label="Ground Pattern" value={options.bottomPlaneMode} options={BOTTOM_PLANE_MODES} onChange={(v) => set({ bottomPlaneMode: v })} />;
+      return (
+        <>
+          <SelectRow label="Ground Pattern" value={options.bottomPlaneMode} options={BOTTOM_PLANE_MODES} onChange={(v) => set({ bottomPlaneMode: v })} />
+          <SelectRow label="Ground Color" value={options.groundColorMode} options={GROUND_COLOR_MODES} onChange={(v) => set({ groundColorMode: v })} />
+          {options.groundColorMode === 'customColor' && (
+            <ColorRow label="Custom Color" value={options.groundCustomColor || DEFAULT_GROUND_CUSTOM_COLOR} onChange={(v) => set({ groundCustomColor: v })} />
+          )}
+        </>
+      );
     case 'animations':
       return (
         <SliderRow

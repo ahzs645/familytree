@@ -7,6 +7,8 @@
  * optional `common: true` flag.
  */
 
+import { humanizeType } from '../utils/humanizeType.js';
+
 export const ADDITIONAL_NAME_TYPES = [
   { id: 'AdoptiveName', label: 'Adoptive Name' },
   { id: 'ArtistsName', label: 'Stage / Pen Name' },
@@ -316,6 +318,27 @@ export function labelForCatalogType(types, raw, fallback = '') {
     return ARABIC_CATALOG_LABELS[id];
   }
   return types.find((t) => t.id === id)?.label || fallback || id;
+}
+
+/**
+ * Canonical human label for any event/fact type identifier, regardless of
+ * whether it's a person or family event. Resolves, in order:
+ *   1. Arabic catalog label (when that preference is on)
+ *   2. PERSON_EVENT_TYPES / FAMILY_EVENT_TYPES catalog label
+ *   3. humanizeType() fallback (strips "UniqueID_…---ConclusionType", splits camelCase)
+ *
+ * Use this anywhere a raw conclusionType/eventType value would otherwise be
+ * shown to the user (timelines, focus panes, reports) so labels stay uniform.
+ */
+export function eventTypeLabel(raw, fallback = 'Event') {
+  const id = normalizeConclusionTypeId(raw);
+  if (catalogLabelPreferences.preferArabicCatalogLabels && ARABIC_CATALOG_LABELS[id]) {
+    return ARABIC_CATALOG_LABELS[id];
+  }
+  const catalogLabel = PERSON_EVENT_TYPES.find((t) => t.id === id)?.label
+    || FAMILY_EVENT_TYPES.find((t) => t.id === id)?.label;
+  if (catalogLabel) return catalogLabel;
+  return humanizeType(raw) || fallback;
 }
 
 /** Format an ISO date for the "Last Edited" display. */

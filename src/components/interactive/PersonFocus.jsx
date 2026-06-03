@@ -6,23 +6,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Gender, genderLabel, lifeSpanLabel } from '../../models/index.js';
-import { normalizeConclusionTypeId, PERSON_EVENT_TYPES } from '../../lib/catalogs.js';
+import { eventTypeLabel } from '../../lib/catalogs.js';
 import { MiniTimeline } from '../MiniTimeline.jsx';
 import { BdiText, LtrText } from '../BdiText.jsx';
 
-function humanizeConclusionLabel(raw) {
-  if (!raw) return 'Event';
-  const normalizedId = normalizeConclusionTypeId(raw);
-  const catalogLabel = PERSON_EVENT_TYPES.find((type) => type.id === normalizedId)?.label;
-  if (catalogLabel) return catalogLabel;
-
-  // "UniqueID_PersonEvent_Birth---ConclusionPersonEventType" → "Birth"
-  // "person-1234---Person" → ignored, use as-is
-  const stripped = String(raw).replace(/---.*$/, '');
-  const m = stripped.match(/UniqueID_(?:Person|Family)Event_(.+)$/) || stripped.match(/UniqueID_PersonFact_(.+)$/);
-  if (m) return m[1].replace(/([a-z])([A-Z])/g, '$1 $2');
-  return stripped.replace(/^UniqueID_/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
-}
+const humanizeConclusionLabel = (raw) => eventTypeLabel(raw);
 
 function Chip({ person, onPick }) {
   if (!person) return <div style={chipStyles(true)}>Unknown</div>;

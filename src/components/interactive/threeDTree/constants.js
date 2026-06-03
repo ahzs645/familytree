@@ -96,14 +96,48 @@ export const GENERATION_BAND_COLOR_MODES = [
   { id: 'greenGradient', label: 'Green Gradient' },
   { id: 'blueOrange', label: 'Blue / Orange Gradient' },
   { id: 'magentaOrange', label: 'Magenta / Orange Gradient' },
+  { id: 'customColor', label: 'Custom Color' },
 ];
+
+export const DEFAULT_GENERATION_BAND_CUSTOM_COLOR = '#ef9bc9';
 
 // Native: _PersonColoringMode_* (ByGender/Generation/Pedigree/Label/PersonGroup/Custom).
 export const PERSON_COLORING_MODES = [
   { id: 'byGender', label: 'By Gender' },
   { id: 'byGeneration', label: 'By Generation' },
   { id: 'byPedigree', label: 'By Pedigree' },
+  { id: 'byLabel', label: 'By Label' },
+  { id: 'byPersonGroup', label: 'By Person Group' },
+  { id: 'customColor', label: 'Custom Color' },
 ];
+
+export const DEFAULT_PERSON_CUSTOM_COLOR = '#7da9d8';
+
+// Native: _BottomPlaneColorMode_*. The ground pattern (BOTTOM_PLANE_MODES) is
+// separate from its tint; the native viewer lets you set both independently.
+export const GROUND_COLOR_MODES = [
+  { id: 'auto', label: 'Default (Paper)' },
+  { id: 'white', label: 'White' },
+  { id: 'lightGray', label: 'Light Gray' },
+  { id: 'gray', label: 'Gray' },
+  { id: 'blue', label: 'Blue' },
+  { id: 'green', label: 'Green' },
+  { id: 'sand', label: 'Sand' },
+  { id: 'dark', label: 'Dark' },
+  { id: 'customColor', label: 'Custom Color' },
+];
+
+export const GROUND_COLOR_VALUES = {
+  white: '#ffffff',
+  lightGray: '#eceef1',
+  gray: '#c9ccd1',
+  blue: '#d8e6f5',
+  green: '#dceede',
+  sand: '#efe6d2',
+  dark: '#2a2d33',
+};
+
+export const DEFAULT_GROUND_CUSTOM_COLOR = '#e8eaed';
 
 // Native: _FamilyConnectionColorMode_* (Gen Light/Dark/ByBlood/Gray/BlackOrWhite/Custom).
 export const CONNECTION_COLOR_MODES = [
@@ -148,6 +182,7 @@ export const REFERENCE_MODEL_GENDERS = {
 export const OPTION_GROUPS = [
   { id: 'general', label: 'General' },
   { id: 'generations', label: 'Generations' },
+  { id: 'layout', label: 'Layout & Spacing' },
   { id: 'personStyle', label: 'Person Style' },
   { id: 'personInformation', label: 'Person Information' },
   { id: 'connections', label: 'Connections' },
@@ -162,3 +197,30 @@ export const OPTION_GROUPS = [
 export const MIN_GENERATIONS = 1;
 export const MAX_ANCESTOR_GENERATIONS = 10;
 export const MAX_DESCENDANT_GENERATIONS = 8;
+
+// Native: _GeneralLayout_Generations_* — which screen axis generations flow
+// along. Default topToBottom keeps oldest generations at the top.
+export const GENERATION_DIRECTIONS = [
+  { id: 'topToBottom', label: 'Top to Bottom' },
+  { id: 'bottomToTop', label: 'Bottom to Top' },
+  { id: 'leftToRight', label: 'Left to Right' },
+  { id: 'rightToLeft', label: 'Right to Left' },
+];
+
+// Brother/Sister Generations: how many generations away from the focused person
+// still show collateral siblings. 4 ≈ the current native-style default.
+export const MAX_SIBLING_GENERATIONS = 6;
+export const DEFAULT_SIBLING_GENERATIONS = 4;
+
+// Scale Ancestors/Descendants at Generation: the generation at which person
+// figures begin shrinking (0 = never). Mirrors the native minification start.
+export const MAX_MINIFICATION_START = 8;
+
+// Native: _DisplayNumberingSystem — the kinship/reference numbering shown on
+// each person. Maps onto src/lib/referenceNumbering.js systems.
+export const NUMBERING_SYSTEMS = [
+  { id: 'ahnentafel', label: 'Ahnentafel' },
+  { id: 'daboville', label: "d'Aboville" },
+  { id: 'henry', label: 'Henry' },
+  { id: 'generation', label: 'Generation' },
+];
