@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import {
   APPEARANCE_MODES,
   BOTTOM_PLANE_MODES,
+  BOX_ALIGNMENTS,
   CAMERA_MODES,
   CHILD_SORTING_MODES,
   CONNECTION_COLOR_MODES,
+  ORDINANCES_MODES,
   DEFAULT_GENERATION_BAND_CUSTOM_COLOR,
   DEFAULT_GROUND_CUSTOM_COLOR,
   DEFAULT_PERSON_CUSTOM_COLOR,
@@ -135,6 +137,8 @@ function renderGroup(groupId, options, set) {
       return (
         <>
           <SelectRow label="Generation Direction" value={options.generationDirection} options={GENERATION_DIRECTIONS} onChange={(v) => set({ generationDirection: v })} />
+          <SelectRow label="Box Alignment" value={options.boxAlignment} options={BOX_ALIGNMENTS} onChange={(v) => set({ boxAlignment: v })} />
+          <ToggleRow label="Adjust Parent Positions" value={options.adjustParentPositions} onChange={(v) => set({ adjustParentPositions: v })} />
           <SliderRow
             label="Brother/Sister Generations"
             min={0}
@@ -161,6 +165,24 @@ function renderGroup(groupId, options, set) {
             value={options.descendantScaleStartLevel}
             onChange={(v) => set({ descendantScaleStartLevel: v })}
             valueFormatter={(v) => (v === 0 ? 'Off' : `${v}`)}
+          />
+          <SliderRow
+            label="Minify Focused Siblings"
+            min={0}
+            max={0.8}
+            step={0.05}
+            value={options.siblingMinification}
+            onChange={(v) => set({ siblingMinification: v })}
+            valueFormatter={(v) => (v === 0 ? 'Off' : `${Math.round(v * 100)}%`)}
+          />
+          <SliderRow
+            label="Minify Other Siblings"
+            min={0}
+            max={0.8}
+            step={0.05}
+            value={options.otherSiblingMinification}
+            onChange={(v) => set({ otherSiblingMinification: v })}
+            valueFormatter={(v) => (v === 0 ? 'Off' : `${Math.round(v * 100)}%`)}
           />
           <SliderRow
             label="Parents/Children Spacing"
@@ -238,6 +260,8 @@ function renderGroup(groupId, options, set) {
           {options.displayNumberingSystem && (
             <SelectRow label="Numbering" value={options.numberingSystem} options={NUMBERING_SYSTEMS} onChange={(v) => set({ numberingSystem: v })} />
           )}
+          <ToggleRow label="Display Event Description" value={options.displayEventDescription} onChange={(v) => set({ displayEventDescription: v })} />
+          <SelectRow label="Ordinances Display Mode" value={options.ordinancesMode} options={ORDINANCES_MODES} onChange={(v) => set({ ordinancesMode: v })} />
           <SliderRow
             label="Font Size"
             min={0.7}
@@ -288,6 +312,7 @@ function renderGroup(groupId, options, set) {
           <ToggleRow label="Show Range of Birth Dates" value={options.generationBandsShowBirthDates} onChange={(v) => set({ generationBandsShowBirthDates: v })} />
           <ToggleRow label="Show Generations" value={options.generationBandsShowGenerations} onChange={(v) => set({ generationBandsShowGenerations: v })} />
           <ToggleRow label="Segment Bands by Pedigree" value={options.generationBandsSegmentByPedigree} onChange={(v) => set({ generationBandsSegmentByPedigree: v })} />
+          <ToggleRow label="Keep Labels Visible While Scrolling" value={options.keepLabelsVisible} onChange={(v) => set({ keepLabelsVisible: v })} />
         </>
       );
     case 'camera':

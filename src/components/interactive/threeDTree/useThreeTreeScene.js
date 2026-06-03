@@ -41,6 +41,11 @@ export function useThreeTreeScene({
   const nodeTweensRef = useRef([]);
   const firstFitRef = useRef(true);
   const prevNodeIdsRef = useRef(null);
+  // Generation-label groups + a live viewerOptions ref so the persistent animate
+  // loop can keep band labels in view while the user scrolls.
+  const genLabelsRef = useRef([]);
+  const viewerOptionsRef = useRef(viewerOptions);
+  viewerOptionsRef.current = viewerOptions;
   // Live refs so the once-registered keydown handler always sees current data.
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
@@ -302,6 +307,28 @@ export function useThreeTreeScene({
     renderer.domElement.addEventListener('dblclick', onDblClick);
     window.addEventListener('keydown', onKeyDown);
 
+    // "Keep Labels Visible While Scrolling": slide each generation label right so
+    // it stays at the left viewport edge once its band has scrolled off, clamped
+    // so it never crosses the band's right edge. No-op (and resets) when off.
+    const updateStickyLabels = (cam, ctrls) => {
+      const labels = genLabelsRef.current;
+      if (!labels?.length) return;
+      if (!viewerOptionsRef.current?.keepLabelsVisible) {
+        for (const lg of labels) { if (lg.position.x !== 0) lg.position.x = 0; }
+        return;
+      }
+      const halfW = (cam.right - cam.left) / (2 * Math.max(0.0001, cam.zoom));
+      const viewLeft = ctrls.target.x - halfW;
+      const margin = 40;
+      for (const lg of labels) {
+        const natural = lg.userData.naturalX ?? 0;
+        const maxRight = lg.userData.bandMaxX ?? (natural + 600);
+        const maxShift = Math.max(0, maxRight - 220 - natural);
+        const desiredShift = (viewLeft + margin) - natural;
+        lg.position.x = Math.min(Math.max(0, desiredShift), maxShift);
+      }
+    };
+
     let raf = 0;
     let lastFrame = performance.now();
     const animate = () => {
@@ -311,6 +338,7 @@ export function useThreeTreeScene({
       lastFrame = now;
       tweensRef.current?.update(dt);
       controls.update();
+      updateStickyLabels(camera, controls);
       renderer.render(scene, camera);
     };
     animate();
@@ -370,10 +398,16 @@ export function useThreeTreeScene({
     clickablesRef.current = [];
 
     stage.add(makeBottomPlane(palette, layout.bounds, viewerOptions.bottomPlaneMode, viewerOptions));
+    const genLabels = [];
     for (const band of layout.bands) {
       stage.add(makeGenerationBand(band, palette, viewerOptions.generationBandStyle, viewerOptions));
-      if (viewerOptions.generationBandStyle !== 'none') stage.add(makeGenerationLabel(band, viewerOptions));
+      if (viewerOptions.generationBandStyle !== 'none') {
+        const labelGroup = makeGenerationLabel(band, viewerOptions);
+        stage.add(labelGroup);
+        if (labelGroup.userData?.isGenerationLabel) genLabels.push(labelGroup);
+      }
     }
+    genLabelsRef.current = genLabels;
 
     stage.add(makeFamilyConnectors(layout.links, layout.nodes, palette, viewerOptions));
 

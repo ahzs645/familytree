@@ -172,6 +172,8 @@ export function makeGenerationLabel(band, options = {}) {
   const labelHeight = 92;
   const group = new THREE.Group();
   const segments = band.segments?.length ? band.segments : [band];
+  let primaryLabelX = null;
+  let maxRight = -Infinity;
   for (const [index, segment] of segments.entries()) {
     const compact = index > 0;
     const width = compact ? 176 : labelWidth;
@@ -187,7 +189,15 @@ export function makeGenerationLabel(band, options = {}) {
     plane.material.depthTest = false;
     plane.renderOrder = 18;
     group.add(plane);
+    if (primaryLabelX === null) primaryLabelX = x;
+    maxRight = Math.max(maxRight, segment.x + segment.width / 2);
   }
+  // Metadata for the "keep labels visible while scrolling" per-frame slide.
+  group.userData = {
+    isGenerationLabel: group.children.length > 0,
+    naturalX: primaryLabelX ?? 0,
+    bandMaxX: Number.isFinite(maxRight) ? maxRight : 0,
+  };
   return group;
 }
 

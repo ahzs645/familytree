@@ -132,6 +132,7 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
     { records: personGroupRelations },
     { records: personGroups },
     associateRelations,
+    personEvents,
   ] = await Promise.all([
     db.query('Family', { limit: 100000 }),
     db.query('ChildRelation', { limit: 100000 }),
@@ -139,6 +140,7 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
     db.query('PersonGroupRelation', { limit: 100000 }),
     db.query('PersonGroup', { limit: 100000 }),
     db.query('AssociateRelation', { limit: 100000 }).catch(() => ({ records: [] })),
+    db.query('PersonEvent', { limit: 100000 }).catch(() => ({ records: [] })),
   ]);
 
   // Persons who own at least one influential (associate) relation — used to
@@ -147,6 +149,16 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
   for (const relation of associateRelations.records || []) {
     const ownerId = refToRecordName(relation.fields?.person?.value);
     if (ownerId) influentialPersonIds.add(ownerId);
+  }
+
+  // First user-entered event description per person, for the "Display Event
+  // Description" label line.
+  const eventDescriptionByPerson = new Map();
+  for (const event of personEvents.records || []) {
+    const ownerId = refToRecordName(event.fields?.person?.value);
+    if (!ownerId || eventDescriptionByPerson.has(ownerId)) continue;
+    const description = event.fields?.description?.value || event.fields?.userDescription?.value;
+    if (description && String(description).trim()) eventDescriptionByPerson.set(ownerId, String(description).trim());
   }
 
   const familyById = new Map(familyRecords.filter(isPublicRecord).map((family) => [family.recordName, family]));
@@ -312,6 +324,7 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
       },
       featured: person.recordName === rootRecordName,
       groups: groupsByPerson.get(person.recordName) || [],
+      eventDescription: eventDescriptionByPerson.get(person.recordName) || '',
     };
   });
 

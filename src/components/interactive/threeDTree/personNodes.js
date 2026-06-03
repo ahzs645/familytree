@@ -84,6 +84,21 @@ function fontScaleFor(viewerOptions) {
   return Number.isFinite(viewerOptions?.fontSize) ? viewerOptions.fontSize : 1;
 }
 
+// Box Alignment (BuilderGenerationsAlignmentHint): our boxes are uniform height,
+// so the visible difference is a modest vertical seat of the figure within its
+// band — leading edge sits higher, baseline a touch lower than centered.
+function boxAlignmentOffset(viewerOptions) {
+  switch (viewerOptions?.boxAlignment) {
+    case 'leading':
+    case 'leadingUniform':
+      return 22;
+    case 'baseline':
+      return -8;
+    default:
+      return 0;
+  }
+}
+
 // Soft-shadow offset derived from the configurable shadow angle + distance.
 // Defaults (distance 18, angle 315°) reproduce the prior hand-tuned down-right
 // offset; `scale` lets the featured node throw a slightly longer shadow.
@@ -92,6 +107,18 @@ function shadowOffsetFor(viewerOptions, scale = 1) {
   const angleDeg = Number.isFinite(viewerOptions?.shadowAngle) ? viewerOptions.shadowAngle : 315;
   const rad = (angleDeg * Math.PI) / 180;
   return { x: Math.cos(rad) * distance * scale, y: Math.sin(rad) * distance * scale };
+}
+
+// Gold ring for the "Ordinances: By Color" display mode.
+function makeOrdinanceRing(featured) {
+  const radius = featured ? ROOT_CARD.w * 0.44 : 70;
+  const ring = new THREE.Mesh(
+    new THREE.TorusGeometry(radius, featured ? 4 : 3, 10, 96),
+    new THREE.MeshBasicMaterial({ color: '#d6ad44', transparent: true, opacity: 0.85, depthWrite: false })
+  );
+  ring.position.set(0, featured ? 0 : 2, featured ? 34 : 24);
+  ring.renderOrder = 15;
+  return ring;
 }
 
 function makeLivingHalo(palette, featured) {
@@ -132,7 +159,7 @@ export function makePersonNode(node, palette, personStyle, hovered = false, view
 
   if (shouldDrawAvatar(viewerOptions)) {
     const model = makeMacPersonModel(node, palette, false, personStyle, viewerOptions);
-    model.position.set(0, 12, 6);
+    model.position.set(0, 12 + boxAlignmentOffset(viewerOptions), 6);
     model.scale.multiplyScalar(minScale);
     model.scale.x *= personWidthScale(viewerOptions);
     group.add(model);
@@ -145,6 +172,7 @@ export function makePersonNode(node, palette, personStyle, hovered = false, view
   if (viewerOptions?.highlightLivingPersons && isLivingPerson(node?.person)) {
     group.add(makeLivingHalo(palette, false));
   }
+  if (node?.ordinance && viewerOptions?.ordinancesMode === 'color') group.add(makeOrdinanceRing(false));
   if (selected && !hovered) group.add(makeSelectionMark(false, palette, 'selection'));
   if (hovered) group.add(makeSelectionMark(false, palette, 'hover'));
 
@@ -192,11 +220,12 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false, vi
   if (viewerOptions?.highlightLivingPersons && isLivingPerson(node?.person)) {
     group.add(makeLivingHalo(palette, true));
   }
+  if (node?.ordinance && viewerOptions?.ordinancesMode === 'color') group.add(makeOrdinanceRing(true));
   if (hovered) group.add(makeSelectionMark(true, palette, 'hover'));
 
   if (shouldDrawAvatar(viewerOptions)) {
     const model = makeMacPersonModel(node, palette, true, personStyle, viewerOptions);
-    model.position.set(0, 24, 28);
+    model.position.set(0, 24 + boxAlignmentOffset(viewerOptions), 28);
     model.scale.x *= personWidthScale(viewerOptions);
     group.add(model);
   }
@@ -374,8 +403,9 @@ function makeFurtherRelativesMarker(node, palette, featured) {
 function hasStatusBadges(node, viewerOptions = {}) {
   const fs = node?.status?.familySearch && viewerOptions.displayFamilySearchIcons !== false;
   const influential = node?.status?.influential && viewerOptions.displayInfluentialIcon;
+  const ordinance = node?.ordinance && viewerOptions.ordinancesMode === 'icon';
   const duplicate = ['High', 'Medium'].includes(node?.status?.duplicateRisk);
-  return Boolean(fs || influential || duplicate);
+  return Boolean(fs || influential || ordinance || duplicate);
 }
 
 function makeStatusBadges(node, featured, viewerOptions = {}) {
@@ -385,6 +415,9 @@ function makeStatusBadges(node, featured, viewerOptions = {}) {
   }
   if (node.status?.influential && viewerOptions.displayInfluentialIcon) {
     badges.push({ label: 'I', fill: '#7c3aed', stroke: '#5b239e' });
+  }
+  if (node.ordinance && viewerOptions.ordinancesMode === 'icon') {
+    badges.push({ label: 'T', fill: '#c79a3a', stroke: '#8a6a1f' });
   }
   if (node.status?.duplicateRisk === 'High') badges.push({ label: 'D', fill: '#b42318', stroke: '#7a1710' });
   if (node.status?.duplicateRisk === 'Medium') badges.push({ label: 'D', fill: '#b7791f', stroke: '#7c4d12' });
@@ -558,6 +591,14 @@ function makePersonLabelTexture(person, palette, viewerOptions = {}, node = null
       ctx.fillStyle = '#3f7cc0';
       ctx.font = '750 17px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
       ctx.fillText(`# ${numbering}`, w / 2, cursorY + 4);
+      cursorY += 22;
+    }
+    const eventDescription = viewerOptions.displayEventDescription && node?.eventDescription ? String(node.eventDescription) : '';
+    if (eventDescription) {
+      ctx.direction = isRtlText(eventDescription) ? 'rtl' : 'ltr';
+      ctx.fillStyle = '#6a6f78';
+      ctx.font = '600 16px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillText(fitText(ctx, eventDescription, 360), w / 2, cursorY + 4);
       cursorY += 22;
     }
     const group = personGroupLabel(person, viewerOptions);

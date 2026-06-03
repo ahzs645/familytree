@@ -1,9 +1,11 @@
 import {
   APPEARANCE_MODES,
   BOTTOM_PLANE_MODES,
+  BOX_ALIGNMENTS,
   CAMERA_MODES,
   CHILD_SORTING_MODES,
   CONNECTION_COLOR_MODES,
+  ORDINANCES_MODES,
   DEFAULT_GENERATION_BAND_CUSTOM_COLOR,
   DEFAULT_GROUND_CUSTOM_COLOR,
   DEFAULT_PERSON_CUSTOM_COLOR,
@@ -41,12 +43,16 @@ export function defaultViewerOptions() {
 
     // Layout & spacing (multipliers; 1.0 = native default look)
     generationDirection: 'topToBottom',
+    boxAlignment: 'centered',
+    adjustParentPositions: true,
     parentsChildrenSpacing: 1.0,
     partnerSpacing: 1.0,
     branchSpacing: 1.0,
     siblingGenerations: 4,
     ancestorScaleStartLevel: 0,
     descendantScaleStartLevel: 0,
+    siblingMinification: 0,
+    otherSiblingMinification: 0,
     personWidth: 1.0,
     personSaturation: 1.0,
 
@@ -63,6 +69,8 @@ export function defaultViewerOptions() {
     displayFamilySearchIcons: true,
     displayNumberingSystem: false,
     numberingSystem: 'ahnentafel',
+    displayEventDescription: false,
+    ordinancesMode: 'none',
     highlightLivingPersons: false,
     personColoringMode: 'byGender',
     personCustomColor: DEFAULT_PERSON_CUSTOM_COLOR,
@@ -84,6 +92,7 @@ export function defaultViewerOptions() {
     generationBandsShowBirthDates: true,
     generationBandsShowGenerations: true,
     generationBandsSegmentByPedigree: true,
+    keepLabelsVisible: false,
 
     // Camera — flat top-down, matching the source's framing. Figures still read
     // as fronts because the models lie facing the camera; the 3D slab bevel
@@ -148,12 +157,16 @@ function migrateAndValidate(parsed, fallback) {
     descendantGenerations: clampInt(parsed.descendantGenerations, MIN_GENERATIONS, MAX_DESCENDANT_GENERATIONS, fallback.descendantGenerations),
 
     generationDirection: pickFrom(GENERATION_DIRECTIONS, parsed.generationDirection, fallback.generationDirection),
+    boxAlignment: pickFrom(BOX_ALIGNMENTS, parsed.boxAlignment, fallback.boxAlignment),
+    adjustParentPositions: pickBool(parsed.adjustParentPositions, fallback.adjustParentPositions),
     parentsChildrenSpacing: clampNumber(parsed.parentsChildrenSpacing, 0.6, 1.8, fallback.parentsChildrenSpacing),
     partnerSpacing: clampNumber(parsed.partnerSpacing, 0.6, 1.8, fallback.partnerSpacing),
     branchSpacing: clampNumber(parsed.branchSpacing, 0.6, 1.8, fallback.branchSpacing),
     siblingGenerations: clampInt(parsed.siblingGenerations, 0, MAX_SIBLING_GENERATIONS, fallback.siblingGenerations),
     ancestorScaleStartLevel: clampInt(parsed.ancestorScaleStartLevel, 0, MAX_MINIFICATION_START, fallback.ancestorScaleStartLevel),
     descendantScaleStartLevel: clampInt(parsed.descendantScaleStartLevel, 0, MAX_MINIFICATION_START, fallback.descendantScaleStartLevel),
+    siblingMinification: clampNumber(parsed.siblingMinification, 0, 0.8, fallback.siblingMinification),
+    otherSiblingMinification: clampNumber(parsed.otherSiblingMinification, 0, 0.8, fallback.otherSiblingMinification),
     personWidth: clampNumber(parsed.personWidth, 0.6, 1.6, fallback.personWidth),
     personSaturation: clampNumber(parsed.personSaturation, 0, 1.5, fallback.personSaturation),
 
@@ -169,6 +182,8 @@ function migrateAndValidate(parsed, fallback) {
     displayFamilySearchIcons: pickBool(parsed.displayFamilySearchIcons, fallback.displayFamilySearchIcons),
     displayNumberingSystem: pickBool(parsed.displayNumberingSystem, fallback.displayNumberingSystem),
     numberingSystem: pickFrom(NUMBERING_SYSTEMS, parsed.numberingSystem, fallback.numberingSystem),
+    displayEventDescription: pickBool(parsed.displayEventDescription, fallback.displayEventDescription),
+    ordinancesMode: pickFrom(ORDINANCES_MODES, parsed.ordinancesMode, fallback.ordinancesMode),
     highlightLivingPersons: pickBool(parsed.highlightLivingPersons, fallback.highlightLivingPersons),
     personColoringMode: pickFrom(PERSON_COLORING_MODES, parsed.personColoringMode, fallback.personColoringMode),
     personCustomColor: pickHex(parsed.personCustomColor, fallback.personCustomColor),
@@ -188,6 +203,7 @@ function migrateAndValidate(parsed, fallback) {
     generationBandsShowBirthDates: pickBool(parsed.generationBandsShowBirthDates, fallback.generationBandsShowBirthDates),
     generationBandsShowGenerations: pickBool(parsed.generationBandsShowGenerations, fallback.generationBandsShowGenerations),
     generationBandsSegmentByPedigree: pickBool(parsed.generationBandsSegmentByPedigree, fallback.generationBandsSegmentByPedigree),
+    keepLabelsVisible: pickBool(parsed.keepLabelsVisible, fallback.keepLabelsVisible),
 
     cameraMode: resetLook ? fallback.cameraMode : pickFrom(CAMERA_MODES, migratedCameraMode, fallback.cameraMode),
 

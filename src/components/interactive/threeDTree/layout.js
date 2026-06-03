@@ -146,7 +146,9 @@ function finalizeLayout(layout, options = {}) {
 function applyMinification(layout, options) {
   const aStart = Number.isFinite(options.ancestorScaleStartLevel) ? options.ancestorScaleStartLevel : 0;
   const dStart = Number.isFinite(options.descendantScaleStartLevel) ? options.descendantScaleStartLevel : 0;
-  if (aStart <= 0 && dStart <= 0) return layout;
+  const sibMin = Number.isFinite(options.siblingMinification) ? options.siblingMinification : 0;
+  const otherSibMin = Number.isFinite(options.otherSiblingMinification) ? options.otherSiblingMinification : 0;
+  if (aStart <= 0 && dStart <= 0 && sibMin <= 0 && otherSibMin <= 0) return layout;
   const nodes = layout.nodes.map((node) => {
     const gen = Number(node.generation) || 0;
     let scale = 1;
@@ -154,6 +156,13 @@ function applyMinification(layout, options) {
       scale = Math.max(0.42, 1 - (Math.abs(gen) - aStart + 1) * 0.14);
     } else if (gen > 0 && dStart > 0 && gen >= dStart) {
       scale = Math.max(0.42, 1 - (gen - dStart + 1) * 0.14);
+    }
+    // Collateral siblings (not the direct lineage): focused person's own
+    // siblings (generation 0) vs. all other collateral relatives.
+    const role = String(node.role || (node.roles || []).join(' ')).toLowerCase();
+    if (!node.featured && role.includes('collateral')) {
+      const factor = gen === 0 ? sibMin : otherSibMin;
+      if (factor > 0) scale = Math.min(scale, Math.max(0.42, 1 - factor));
     }
     return scale === 1 ? node : { ...node, scale };
   });
@@ -414,9 +423,14 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       const minX = row[i - 1].x + MIN_GEN_GAP;
       if (row[i].x < minX) row[i].x = minX;
     }
-    const meanAfter = row.reduce((sum, node) => sum + node.x, 0) / row.length;
-    const shift = meanBefore - meanAfter;
-    for (const node of row) node.x += shift;
+    // "Adjust Parent Positions for better space usage": recentre each pushed-apart
+    // row on its natural midpoint so it doesn't drift sideways. When off, the row
+    // keeps the raw pedigree-fan positions (only overlap is resolved).
+    if (options.adjustParentPositions !== false) {
+      const meanAfter = row.reduce((sum, node) => sum + node.x, 0) / row.length;
+      const shift = meanBefore - meanAfter;
+      for (const node of row) node.x += shift;
+    }
   }
 
   const uniquePlaced = [...placedById.values()];

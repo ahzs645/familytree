@@ -99,15 +99,47 @@ export function ThreeDTreeView({
     return () => { cancelled = true; };
   }, [activeId, viewerOptions.displayNumberingSystem, viewerOptions.numberingSystem]);
 
+  // LDS ordinance owners are loaded lazily — only when an Ordinances Display Mode
+  // is active — and merged onto nodes so the figure can show an icon/colour.
+  const [ordinanceSet, setOrdinanceSet] = useState(null);
+  useEffect(() => {
+    if (viewerOptions.ordinancesMode === 'none') {
+      setOrdinanceSet(null);
+      return undefined;
+    }
+    let cancelled = false;
+    import('../../lib/listData.js')
+      .then((m) => m.loadLdsOrdinanceRows())
+      .then((result) => {
+        if (cancelled) return;
+        const set = new Set();
+        for (const row of result?.rows || []) {
+          if (row.ownerType === 'Person' && row.ownerId) set.add(row.ownerId);
+          else if (row.ownerId) set.add(row.ownerId);
+        }
+        setOrdinanceSet(set);
+      })
+      .catch(() => { if (!cancelled) setOrdinanceSet(null); });
+    return () => { cancelled = true; };
+  }, [viewerOptions.ordinancesMode]);
+
   const decoratedLayout = useMemo(() => {
-    if (!numberingMap || !viewerOptions.displayNumberingSystem) return layout;
+    const numberingOn = numberingMap && viewerOptions.displayNumberingSystem;
+    const ordinancesOn = ordinanceSet && viewerOptions.ordinancesMode !== 'none';
+    if (!numberingOn && !ordinancesOn) return layout;
     return {
       ...layout,
-      nodes: layout.nodes.map((node) => (
-        numberingMap.has(node.id) ? { ...node, refNumber: numberingMap.get(node.id) } : node
-      )),
+      nodes: layout.nodes.map((node) => {
+        const refNumber = numberingOn && numberingMap.has(node.id) ? numberingMap.get(node.id) : undefined;
+        const ordinance = ordinancesOn ? ordinanceSet.has(node.id) : undefined;
+        if (refNumber === undefined && ordinance === undefined) return node;
+        const next = { ...node };
+        if (refNumber !== undefined) next.refNumber = refNumber;
+        if (ordinance !== undefined) next.ordinance = ordinance;
+        return next;
+      }),
     };
-  }, [layout, numberingMap, viewerOptions.displayNumberingSystem]);
+  }, [layout, numberingMap, viewerOptions.displayNumberingSystem, ordinanceSet, viewerOptions.ordinancesMode]);
 
   const relationshipCounts = useMemo(() => ({
     parents: context?.parents?.flatMap((family) => [family.man, family.woman]).filter(Boolean).length || 0,

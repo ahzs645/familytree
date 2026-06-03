@@ -224,3 +224,20 @@ export const NUMBERING_SYSTEMS = [
   { id: 'henry', label: 'Henry' },
   { id: 'generation', label: 'Generation' },
 ];
+
+// Native: _OrdinancesMode_* — how LDS ordinance completion is surfaced.
+export const ORDINANCES_MODES = [
+  { id: 'none', label: 'None' },
+  { id: 'icon', label: 'By Icon' },
+  { id: 'color', label: 'By Color' },
+];
+
+// Native: _BuilderGenerationsAlignmentHint_* — how person boxes align within a
+// generation band. We model the visible variants as a vertical offset/anchor.
+export const BOX_ALIGNMENTS = [
+  { id: 'centered', label: 'Centered' },
+  { id: 'centeredUniform', label: 'Centered, Uniform Height' },
+  { id: 'baseline', label: 'Aligned to Baseline of Name' },
+  { id: 'leading', label: 'Leading Edge' },
+  { id: 'leadingUniform', label: 'Leading Edge, Uniform Height' },
+];
