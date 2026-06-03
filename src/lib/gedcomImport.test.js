@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { analyzeGedcomText, buildGedcomDataset, canImportGedcomAnalysis, parseGedcom, tokenizeGedcomText } from './gedcomImport.js';
 import { decodeGedcomBytes } from './genealogyFileFormats.js';
+
+const fixturesDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../fixtures/geneweb/ged2gwb-cram');
+const fixtureText = (name) => readFileSync(resolve(fixturesDir, name), 'utf8');
 
 describe('analyzeGedcomText', () => {
   it('reports duplicate XREFs as blocking shared validation issues', () => {
@@ -59,6 +65,17 @@ describe('analyzeGedcomText', () => {
 
     expect(result.counts).toMatchObject({ INDI: 1, FAM: 0, SOUR: 0, OBJE: 2 });
     expect(result.issues.some((issue) => issue.code === 'media-resource-matching')).toBe(true);
+  });
+
+  it('accepts the copied GeneWeb all-tags conformance fixture for review import', () => {
+    const result = analyzeGedcomText(fixtureText('ALLGED.GED'));
+
+    expect(result.canImport).toBe(true);
+    expect(result.counts.INDI).toBeGreaterThan(0);
+    expect(result.counts.FAM).toBeGreaterThan(0);
+    expect(result.counts.SOUR).toBeGreaterThan(0);
+    expect(result.counts.continuations).toBeGreaterThan(0);
+    expect(canImportGedcomAnalysis(result, 'review')).toBe(true);
   });
 
   it('reports structural token diagnostics before import mapping', () => {
@@ -144,6 +161,15 @@ describe('tokenizeGedcomText', () => {
     ]);
   });
 
+  it('tokenizes copied GeneWeb line-ending fixtures consistently', () => {
+    for (const fileName of ['LTERCR.GED', 'LTERLF.GED', 'LTERCRLF.GED', 'LTERLFCR.GED']) {
+      const result = tokenizeGedcomText(fixtureText(fileName));
+      expect(result.issues, fileName).toEqual([]);
+      expect(result.tokens.map((token) => token.tag).slice(0, 3), fileName).toEqual(['HEAD', 'CHAR', 'NOTE']);
+      expect(result.tokens.at(-1)?.tag, fileName).toBe('TRLR');
+    }
+  });
+
   it('normalizes escaped at-signs and ignores meaningless XREFs on continuations', () => {
     const result = tokenizeGedcomText([
       '0 @N1@ NOTE Email jane@@example.test',
@@ -179,6 +205,15 @@ describe('canImportGedcomAnalysis', () => {
 });
 
 describe('parseGedcom', () => {
+  it('imports the copied GeneWeb simple GEDCOM fixture', () => {
+    const records = parseGedcom(fixtureText('SIMPLE.GED'));
+
+    expect(records.filter((record) => record.recordType === 'Person')).toHaveLength(3);
+    expect(records.filter((record) => record.recordType === 'Family')).toHaveLength(1);
+    expect(records.filter((record) => record.recordType === 'ChildRelation')).toHaveLength(1);
+    expect(records.find((record) => record.recordType === 'Family')?.fields?.man?.value).toMatch(/^person-imp-/);
+  });
+
   it('imports the simple GeneWeb GEDCOM fixture shape', () => {
     const records = parseGedcom([
       '0 HEAD',

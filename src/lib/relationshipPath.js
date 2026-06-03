@@ -9,6 +9,7 @@ import { evidenceStateForRecord, loadResearchCompleteness } from './researchComp
 import { getCurrentLocalization, languageCode } from './i18n.js';
 import { Gender } from '../models/constants.js';
 import { isPrimaryChildRelation } from './childRelationshipTypes.js';
+import { refToRecordName } from './recordRef.js';
 
 export async function findRelationshipPath(startRecordName, endRecordName) {
   const result = await findRelationshipPaths(startRecordName, endRecordName, { maxPaths: 1 });
@@ -121,6 +122,70 @@ export async function buildRelationshipMatrix(personIds = [], options = {}) {
   };
 }
 
+export async function computeKinshipCoefficient(recordA, recordB, options = {}) {
+  const {
+    maxGenerations = 8,
+    includePrivate = false,
+  } = options;
+  if (!recordA || !recordB) return null;
+  const db = getLocalDatabase();
+  const [personA, personB, familiesResult, relationsResult, personsResult] = await Promise.all([
+    db.getRecord(recordA),
+    db.getRecord(recordB),
+    db.query('Family', { limit: 100000 }),
+    db.query('ChildRelation', { limit: 100000 }),
+    db.query('Person', { limit: 100000 }),
+  ]);
+  if (!includePrivate && (!isPublicRecord(personA) || !isPublicRecord(personB))) return null;
+  const personsById = new Map((personsResult.records || []).filter((person) => includePrivate || isPublicRecord(person)).map((person) => [person.recordName, person]));
+  const familiesById = new Map((familiesResult.records || []).filter((family) => includePrivate || isPublicRecord(family)).map((family) => [family.recordName, family]));
+  const parentFamiliesByChild = new Map();
+  for (const relation of relationsResult.records || []) {
+    const childId = refToRecordName(relation.fields?.child?.value);
+    const familyId = refToRecordName(relation.fields?.family?.value);
+    if (!childId || !familyId || !familiesById.has(familyId)) continue;
+    if (!parentFamiliesByChild.has(childId)) parentFamiliesByChild.set(childId, []);
+    parentFamiliesByChild.get(childId).push(familyId);
+  }
+  const ancestorsA = collectAncestorDistances(recordA, { personsById, familiesById, parentFamiliesByChild }, maxGenerations);
+  const ancestorsB = collectAncestorDistances(recordB, { personsById, familiesById, parentFamiliesByChild }, maxGenerations);
+  const contributions = [];
+  let relationshipCoefficient = 0;
+  let kinshipCoefficient = 0;
+  for (const [ancestorId, pathsA] of ancestorsA.entries()) {
+    const pathsB = ancestorsB.get(ancestorId);
+    if (!pathsB) continue;
+    for (const pathA of pathsA) {
+      for (const pathB of pathsB) {
+        const meioses = pathA.distance + pathB.distance;
+        const relationship = Math.pow(0.5, meioses);
+        const kinship = Math.pow(0.5, meioses + 1);
+        relationshipCoefficient += relationship;
+        kinshipCoefficient += kinship;
+        contributions.push({
+          ancestorId,
+          ancestor: personSummary(personsById.get(ancestorId)),
+          distanceA: pathA.distance,
+          distanceB: pathB.distance,
+          pathA: pathA.path,
+          pathB: pathB.path,
+          relationship,
+          kinship,
+        });
+      }
+    }
+  }
+  contributions.sort((a, b) => b.relationship - a.relationship || String(a.ancestorId).localeCompare(String(b.ancestorId)));
+  return {
+    personA: personSummary(personA),
+    personB: personSummary(personB),
+    relationshipCoefficient,
+    kinshipCoefficient,
+    contributions,
+    truncated: contributions.some((entry) => entry.distanceA >= maxGenerations || entry.distanceB >= maxGenerations),
+  };
+}
+
 async function getNeighbors(db, recordName, options = {}) {
   const { includeSpouses = true, excludeNonBiological = false } = options;
   const out = [];
@@ -158,6 +223,25 @@ async function getNeighbors(db, recordName, options = {}) {
 // type for simple biological cases, so absence ≈ biological.
 function isBiologicalChildLink(fam) {
   return isPrimaryChildRelation(fam?.childRelation || fam?.relation || fam);
+}
+
+function collectAncestorDistances(rootId, indexes, maxGenerations) {
+  const out = new Map();
+  const visit = (personId, distance, path, seen) => {
+    if (!personId || distance > maxGenerations || seen.has(personId)) return;
+    if (!out.has(personId)) out.set(personId, []);
+    out.get(personId).push({ distance, path });
+    const nextSeen = new Set([...seen, personId]);
+    for (const familyId of indexes.parentFamiliesByChild.get(personId) || []) {
+      const family = indexes.familiesById.get(familyId);
+      const fatherId = refToRecordName(family?.fields?.man?.value);
+      const motherId = refToRecordName(family?.fields?.woman?.value);
+      if (fatherId && indexes.personsById.has(fatherId)) visit(fatherId, distance + 1, `${path}F`, nextSeen);
+      if (motherId && indexes.personsById.has(motherId)) visit(motherId, distance + 1, `${path}M`, nextSeen);
+    }
+  };
+  visit(rootId, 0, '', new Set());
+  return out;
 }
 
 function hydratePath(steps, recordCache, analysis, localization = getCurrentLocalization()) {

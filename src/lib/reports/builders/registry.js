@@ -7,6 +7,7 @@
  */
 import {
   buildAhnentafelReport,
+  buildAncestorCompletenessReport,
   buildAncestorNarrative,
   buildDescendancyReport,
   buildDescendantNarrative,
@@ -38,6 +39,7 @@ import {
 import {
   buildMapReport,
   buildPlausibilityReport,
+  buildRichStatisticsReport,
   buildStatusReport,
   buildTodayReport,
 } from './analysisReports.js';
@@ -50,6 +52,7 @@ export const REPORT_BUILDERS = Object.freeze({
   'person-events': buildPersonEventsReport,
   'kinship': buildKinshipReport,
   'ahnentafel': buildAhnentafelReport,
+  'ancestor-completeness': buildAncestorCompletenessReport,
   'register': buildRegisterReport,
   'descendancy': buildDescendancyReport,
   'narrative': buildNarrativeReport,
@@ -68,6 +71,7 @@ export const REPORT_BUILDERS = Object.freeze({
   'media-gallery': buildMediaGalleryReport,
   'timeline': buildTimelineReport,
   'plausibility-list': buildPlausibilityReport,
+  'rich-statistics': buildRichStatisticsReport,
   'status': buildStatusReport,
   'today': buildTodayReport,
   'map': buildMapReport,

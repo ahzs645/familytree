@@ -55,8 +55,7 @@ export function buildPublishModel(snapshot, options) {
     ...(options.contentSections.media ? media : []),
     ...(options.contentSections.stories ? stories : []),
   ];
-  const pathById = new Map();
-  for (const record of pageRecords) pathById.set(record.recordName, pagePath(record));
+  const pathById = buildPathMap(pageRecords);
 
   const placeIds = new Set(places.map((record) => record.recordName));
   const sourceIds = new Set(sources.map((record) => record.recordName));
@@ -126,6 +125,7 @@ export function buildPublishModel(snapshot, options) {
   model.storyRelationsByStory = groupRecords(storyRelations, (record) => readRef(record.fields?.story));
   model.storySectionsByStory = groupRecords(storySections, (record) => readRef(record.fields?.story) || readRef(record.fields?.storySection));
   model.assetsByOwner = groupRecords(assets, (asset) => asset.ownerRecordName);
+  model.personSurnameGroups = buildPersonSurnameGroups(persons, options);
   return model;
 }
 
@@ -178,10 +178,42 @@ function groupRecords(records, keyFn) {
 }
 
 function compareBy(labelFn, localization) {
-  return (a, b) => compareStrings(labelFn(a), labelFn(b), localization);
+  return (a, b) => compareStrings(labelFn(a), labelFn(b), localization) || compareStrings(a?.recordName, b?.recordName, localization);
 }
 
-function pagePath(record) {
+function buildPathMap(records) {
+  const pathById = new Map();
+  const used = new Set();
+  for (const record of records) {
+    const path = uniquePagePath(record, used);
+    pathById.set(record.recordName, path);
+  }
+  return pathById;
+}
+
+function uniquePagePath(record, used) {
+  const folder = pageFolder(record);
+  const base = record.recordType === 'Person'
+    ? personSlug(record)
+    : encodeURIComponent(record.recordName);
+  let candidate = `${folder}/${base}.html`;
+  if (!used.has(candidate)) {
+    used.add(candidate);
+    return candidate;
+  }
+
+  const recordSlug = slugify(record.recordName, 'record');
+  candidate = `${folder}/${base}-${recordSlug}.html`;
+  let suffix = 2;
+  while (used.has(candidate)) {
+    candidate = `${folder}/${base}-${recordSlug}-${suffix}.html`;
+    suffix += 1;
+  }
+  used.add(candidate);
+  return candidate;
+}
+
+function pageFolder(record) {
   const folder = {
     Person: 'people',
     Family: 'families',
@@ -189,5 +221,55 @@ function pagePath(record) {
     Source: 'sources',
     Story: 'stories',
   }[record.recordType] || (record.recordType?.startsWith('Media') ? 'media' : 'records');
-  return `${folder}/${encodeURIComponent(record.recordName)}.html`;
+  return folder;
+}
+
+function personSlug(person) {
+  const summary = personSummary(person);
+  const parts = [
+    summary?.firstName,
+    summary?.lastName,
+  ].filter(Boolean);
+  const label = parts.length ? parts.join(' ') : summary?.fullName;
+  return slugify(label, slugify(person.recordName, 'person'));
+}
+
+function buildPersonSurnameGroups(persons, options) {
+  const groups = new Map();
+  for (const person of persons) {
+    const summary = personSummary(person);
+    const surname = String(summary?.lastName || '').trim() || 'Unknown surname';
+    if (!groups.has(surname)) groups.set(surname, []);
+    groups.get(surname).push(person);
+  }
+  const usedSlugs = new Set();
+  return [...groups.entries()]
+    .map(([surname, records]) => ({
+      surname,
+      slug: uniqueSlug(slugify(surname, 'unknown-surname'), usedSlugs),
+      records: records.sort(compareBy((record) => personSummary(record)?.fullName || record.recordName, options)),
+    }))
+    .sort((a, b) => compareStrings(a.surname, b.surname, options));
+}
+
+function uniqueSlug(base, used) {
+  let candidate = base;
+  let suffix = 2;
+  while (used.has(candidate)) {
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+  used.add(candidate);
+  return candidate;
+}
+
+export function slugify(value, fallback = 'item') {
+  const clean = String(value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return clean || fallback;
 }

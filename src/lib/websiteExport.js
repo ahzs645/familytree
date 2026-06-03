@@ -37,8 +37,13 @@ import {
   mediaPage,
   pageWrap,
   personPage,
+  personSurnameIndexPage,
+  personSurnamePage,
   placePage,
+  privacyPage,
+  robotsTxt,
   safeGetAuthorInfo,
+  sitemapXml,
   sourcePage,
   storyPage,
 } from './website/render.js';
@@ -65,61 +70,82 @@ export async function buildSite(options = {}) {
   const zip = new JSZip();
   const css = createCSS(normalized);
   zip.file('assets/site.css', css);
+  zip.file('robots.txt', robotsTxt(normalized));
 
   const enabledSections = SITE_SECTIONS.filter(([key]) => normalized.contentSections[key]);
-  const totalPages = 1 + enabledSections.reduce((total, [, , modelKey]) => total + 1 + model[modelKey].length, 0);
+  const surnamePageCount = normalized.contentSections.people ? 1 + model.personSurnameGroups.length : 0;
+  const totalPages = 2 + surnamePageCount + enabledSections.reduce((total, [, , modelKey]) => total + 1 + model[modelKey].length, 0);
   let completed = 0;
+  const pagePaths = [];
   const markPage = (message) => {
     completed += 1;
     progress(onProgress, { phase: 'pages', completed, total: totalPages, message });
   };
+  const writePage = (path, title, body, fromFolder = '') => {
+    zip.file(path, pageWrap(title, body, normalized, fromFolder, author, path));
+    pagePaths.push(path);
+  };
 
   progress(onProgress, { phase: 'pages', completed, total: totalPages, message: 'Writing index pages...' });
-  zip.file('index.html', pageWrap('Home', homePage(model, normalized), normalized, '', author));
+  writePage('index.html', 'Home', homePage(model, normalized), '');
   markPage('Wrote home page.');
+  writePage('privacy.html', 'Privacy', privacyPage(model, normalized), '');
+  markPage('Wrote privacy page.');
   for (const [folder, title, modelKey, renderer] of enabledSections) {
     checkCanceled(signal);
     const records = model[modelKey];
-    zip.file(`${folder}/index.html`, pageWrap(title, entityIndexPage(title, records, renderer, model, folder), normalized, folder, author));
+    writePage(`${folder}/index.html`, title, entityIndexPage(title, records, renderer, model, folder), folder);
     markPage(`Wrote ${title.toLowerCase()} index.`);
+  }
+  if (normalized.contentSections.people) {
+    writePage('people/surnames/index.html', 'People by surname', personSurnameIndexPage(model), 'people/surnames');
+    markPage('Wrote surname index.');
+    for (const group of model.personSurnameGroups) {
+      checkCanceled(signal);
+      writePage(`people/surnames/${group.slug}.html`, group.surname, personSurnamePage(group, model), 'people/surnames');
+      markPage(`Wrote ${group.surname} surname index.`);
+    }
   }
 
   for (const person of normalized.contentSections.people ? model.persons : []) {
     checkCanceled(signal);
     const title = personSummary(person)?.fullName || person.recordName;
-    zip.file(model.pathById.get(person.recordName), pageWrap(title, personPage(person, model), normalized, 'people', author));
+    writePage(model.pathById.get(person.recordName), title, personPage(person, model), 'people');
     markPage(`Wrote ${title}.`);
   }
   for (const family of normalized.contentSections.families ? model.families : []) {
     checkCanceled(signal);
     const title = familyLabel(family, model) || family.recordName;
-    zip.file(model.pathById.get(family.recordName), pageWrap(title, familyPage(family, model), normalized, 'families', author));
+    writePage(model.pathById.get(family.recordName), title, familyPage(family, model), 'families');
     markPage(`Wrote ${title}.`);
   }
   for (const place of normalized.contentSections.places ? model.places : []) {
     checkCanceled(signal);
     const title = placeLabel(place) || place.recordName;
-    zip.file(model.pathById.get(place.recordName), pageWrap(title, placePage(place, model), normalized, 'places', author));
+    writePage(model.pathById.get(place.recordName), title, placePage(place, model), 'places');
     markPage(`Wrote ${title}.`);
   }
   for (const source of normalized.contentSections.sources ? model.sources : []) {
     checkCanceled(signal);
     const title = sourceLabel(source) || source.recordName;
-    zip.file(model.pathById.get(source.recordName), pageWrap(title, sourcePage(source, model), normalized, 'sources', author));
+    writePage(model.pathById.get(source.recordName), title, sourcePage(source, model), 'sources');
     markPage(`Wrote ${title}.`);
   }
   for (const media of normalized.contentSections.media ? model.media : []) {
     checkCanceled(signal);
     const title = mediaLabel(media) || media.recordName;
-    zip.file(model.pathById.get(media.recordName), pageWrap(title, mediaPage(media, model), normalized, 'media', author));
+    writePage(model.pathById.get(media.recordName), title, mediaPage(media, model), 'media');
     markPage(`Wrote ${title}.`);
   }
   for (const story of normalized.contentSections.stories ? model.stories : []) {
     checkCanceled(signal);
     const title = storyLabel(story) || story.recordName;
-    zip.file(model.pathById.get(story.recordName), pageWrap(title, storyPage(story, model), normalized, 'stories', author));
+    writePage(model.pathById.get(story.recordName), title, storyPage(story, model), 'stories');
     markPage(`Wrote ${title}.`);
   }
+
+  const sitemap = sitemapXml(pagePaths, normalized);
+  if (sitemap) zip.file('sitemap.xml', sitemap);
 
   let assetCount = 0;
   if (normalized.includeAssets) {

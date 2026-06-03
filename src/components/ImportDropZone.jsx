@@ -15,10 +15,12 @@ export function ImportDropZone({ onImported }) {
   const [progress, setProgress] = useState(null);
   const [error, setError] = useState(false);
   const [reviewResult, setReviewResult] = useState(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   const captureReview = (result) => {
     if (result?.source === 'gedcom' && Array.isArray(result.issues) && result.issues.length > 0) {
       setReviewResult(result);
+      setReviewOpen(true);
     }
   };
 
@@ -171,18 +173,27 @@ export function ImportDropZone({ onImported }) {
   );
 
   const isDone = progress?.pct === 100 && !error;
+  const openFilePicker = () => fileInputRef.current?.click();
 
   return (
     <>
-    {reviewResult && (
-      <GedcomImportReviewSheet result={reviewResult} onClose={() => setReviewResult(null)} />
+    {reviewOpen && reviewResult && (
+      <GedcomImportReviewSheet result={reviewResult} onClose={() => setReviewOpen(false)} />
     )}
     <div
       className={cn(
         'rounded-xl border-2 border-dashed p-8 cursor-pointer transition-colors',
         dragOver ? 'border-primary bg-accent' : 'border-border bg-card hover:border-muted-foreground/40'
       )}
-      onClick={() => fileInputRef.current?.click()}
+      role="button"
+      tabIndex={0}
+      onClick={openFilePicker}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openFilePicker();
+        }
+      }}
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -222,7 +233,7 @@ export function ImportDropZone({ onImported }) {
           {reviewResult?.issues?.length > 0 && !error && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setReviewResult(reviewResult); }}
+              onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
               className="mt-2 text-xs text-primary hover:underline"
             >
               {t('import.reviewIssues', { count: reviewResult.issues.length })}

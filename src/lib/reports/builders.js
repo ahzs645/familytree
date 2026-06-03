@@ -8,6 +8,7 @@
  */
 export {
   buildAhnentafelReport,
+  buildAncestorCompletenessReport,
   buildAncestorNarrative,
   buildDescendancyReport,
   buildDescendantNarrative,
@@ -43,6 +44,7 @@ export {
 export {
   buildMapReport,
   buildPlausibilityReport,
+  buildRichStatisticsReport,
   buildStatusReport,
   buildTodayReport,
 } from './builders/analysisReports.js';

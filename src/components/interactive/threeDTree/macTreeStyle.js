@@ -1,5 +1,5 @@
 export const MAC_FAMILY_GRAPH_LAYOUT = {
-  generationStep: 274,
+  generationStep: 322,
   childGap: 146,
   rootCardWidth: 640,
   familyPadding: 120,

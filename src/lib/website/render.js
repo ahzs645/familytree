@@ -39,7 +39,7 @@ export const SITE_SECTIONS = [
 export function hrefTo(recordName, model, fromFolder = '') {
   const path = model.pathById.get(recordName);
   if (!path) return null;
-  return fromFolder ? `../${path}` : path;
+  return `${relativeRoot(fromFolder)}${path}`;
 }
 
 export function linkTo(recordName, label, model, fromFolder = '') {
@@ -48,26 +48,31 @@ export function linkTo(recordName, label, model, fromFolder = '') {
 }
 
 function homeHref(path, fromFolder = '') {
-  return fromFolder ? `../${path}` : path;
+  return `${relativeRoot(fromFolder)}${path}`;
 }
 
-export function pageWrap(title, body, options, fromFolder = '', author = null) {
+export function pageWrap(title, body, options, fromFolder = '', author = null, pagePath = '') {
   const cssHref = homeHref('assets/site.css', fromFolder);
   const includeAuthor = options.contentSections.author;
   const metaAuthor = includeAuthor && author?.authorName ? `<meta name="author" content="${attr(author.authorName)}">` : '';
   const metaCopyright = includeAuthor && author?.copyright ? `<meta name="copyright" content="${attr(author.copyright)}">` : '';
+  const robotsMeta = `<meta name="robots" content="${attr(options.allowSearchIndexing ? 'index, follow' : 'noindex, nofollow')}">`;
+  const canonical = canonicalUrl(options, pagePath) ? `<link rel="canonical" href="${attr(canonicalUrl(options, pagePath))}">` : '';
   const navLinks = SITE_SECTIONS
     .filter(([key]) => options.contentSections[key])
     .map(([folder, label]) => `<a href="${attr(homeHref(`${folder}/index.html`, fromFolder))}">${esc(label)}</a>`)
     .join('');
+  const privacyLink = `<a href="${attr(homeHref('privacy.html', fromFolder))}">Privacy</a>`;
   return `<!doctype html>
 <html lang="${attr(options.locale)}" dir="${attr(options.direction)}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${esc(title)} - ${esc(options.siteTitle)}</title>
+  ${robotsMeta}
   ${metaAuthor}
   ${metaCopyright}
+  ${canonical}
   <link rel="stylesheet" href="${attr(cssHref)}">
 </head>
 <body class="theme-${attr(options.theme)}">
@@ -78,12 +83,24 @@ export function pageWrap(title, body, options, fromFolder = '', author = null) {
     </div>
     <nav>
       ${navLinks}
+      ${privacyLink}
     </nav>
   </header>
   <main class="container">${body}</main>
   <footer>${includeAuthor ? authorFooterHTML(author) : ''}Exported from CloudTreeWeb</footer>
 </body>
 </html>`;
+}
+
+function relativeRoot(fromFolder = '') {
+  const depth = String(fromFolder || '').split('/').filter(Boolean).length;
+  return depth ? '../'.repeat(depth) : '';
+}
+
+function canonicalUrl(options, pagePath = '') {
+  if (!options.baseUrl) return '';
+  const path = String(pagePath || 'index.html').replace(/^\/+/, '');
+  return `${options.baseUrl}/${path}`;
 }
 
 function authorFooterHTML(author) {
@@ -208,9 +225,86 @@ function stat(label, value, options) {
 }
 
 export function entityIndexPage(title, records, renderItem, model, fromFolder) {
+  const deeperIndexes = title === 'People' && model.personSurnameGroups?.length
+    ? `<p class="muted"><a href="${attr(homeHref('people/surnames/index.html', fromFolder))}">Browse people by surname</a></p>`
+    : '';
   return `<h1>${esc(title)}</h1>
     <p class="muted">${formatInteger(records.length, model.options)} ${title.toLowerCase()}</p>
+    ${deeperIndexes}
     <div class="grid">${records.map((record) => renderItem(record, model, fromFolder)).join('')}</div>`;
+}
+
+export function personSurnameIndexPage(model, fromFolder = 'people/surnames') {
+  return `<h1>People by surname</h1>
+    <p class="muted">${formatInteger(model.personSurnameGroups.length, model.options)} surname groups</p>
+    <div class="grid">${model.personSurnameGroups.map((group) => (
+      `<a class="entity-link" href="${attr(`${group.slug}.html`)}">
+        <strong>${bdi(group.surname)}</strong>
+        <span class="muted">${formatInteger(group.records.length, model.options)} people</span>
+      </a>`
+    )).join('')}</div>
+    <p class="muted"><a href="${attr(homeHref('people/index.html', fromFolder))}">Back to all people</a></p>`;
+}
+
+export function personSurnamePage(group, model, fromFolder = 'people/surnames') {
+  return `<h1>${bdi(group.surname)}</h1>
+    <p class="muted">${formatInteger(group.records.length, model.options)} people</p>
+    <div class="grid">${group.records.map((person) => personIndexItem(person, model, fromFolder)).join('')}</div>
+    <p class="muted"><a href="${attr(homeHref('people/surnames/index.html', fromFolder))}">Back to surnames</a></p>`;
+}
+
+export function privacyPage(model, options) {
+  const privatePolicy = options.includePrivate
+    ? 'Records marked private may be included because this export was configured to include private records.'
+    : 'Records marked private are omitted from this export.';
+  const livingPolicy = options.hideLiving
+    ? (options.hideLivingDetailsOnly
+      ? 'Living people remain listed, but sensitive living-person details such as vital dates and contact fields are removed.'
+      : 'Living people are omitted from this export.')
+    : 'Living-person filtering is not enabled for this export.';
+  const searchPolicy = options.allowSearchIndexing
+    ? 'Search engines are allowed to index this site.'
+    : 'Search engines are asked not to index this site through page metadata and robots.txt.';
+  const assetsPolicy = options.includeAssets
+    ? 'Linked media assets may be bundled when they are attached to included media records.'
+    : 'Local media assets are not bundled in this export.';
+  return `<article>
+    <h1>Privacy</h1>
+    <p>This static family tree is generated from the records selected for publishing.</p>
+    <div class="card">
+      <p>${esc(privatePolicy)}</p>
+      <p>${esc(livingPolicy)}</p>
+      <p>${esc(searchPolicy)}</p>
+      <p>${esc(assetsPolicy)}</p>
+    </div>
+    <h2>Included content</h2>
+    <div class="stats">
+      ${options.contentSections.people ? stat('People', model.persons.length, options) : ''}
+      ${options.contentSections.families ? stat('Families', model.families.length, options) : ''}
+      ${options.contentSections.places ? stat('Places', model.places.length, options) : ''}
+      ${options.contentSections.sources ? stat('Sources', model.sources.length, options) : ''}
+      ${options.contentSections.media ? stat('Media', model.media.length, options) : ''}
+      ${options.contentSections.stories ? stat('Stories', model.stories.length, options) : ''}
+    </div>
+  </article>`;
+}
+
+export function robotsTxt(options) {
+  if (!options.allowSearchIndexing) return 'User-agent: *\nDisallow: /\n';
+  const sitemap = options.baseUrl ? `\nSitemap: ${options.baseUrl}/sitemap.xml\n` : '';
+  return `User-agent: *\nAllow: /\n${sitemap}`;
+}
+
+export function sitemapXml(paths, options) {
+  if (!options.baseUrl) return '';
+  const urls = paths.map((path) => (
+    `  <url><loc>${esc(`${options.baseUrl}/${String(path).replace(/^\/+/, '')}`)}</loc></url>`
+  )).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>
+`;
 }
 
 function personIndexItem(person, model, fromFolder) {

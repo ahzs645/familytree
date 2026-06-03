@@ -1,5 +1,6 @@
 import { BAND_LABEL_GUTTER, GEN_STEP, NODE_SPACING, PARTNER_OFFSET, ROOT_CARD } from './constants.js';
 import { MAC_FAMILY_GRAPH_LAYOUT, macBandSplitGap } from './macTreeStyle.js';
+import { Gender } from '../../../models/index.js';
 
 export function buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph = null, options = {}) {
   if (familyGraph?.nodes?.length) return finalizeLayout(buildFamilyGraphLayout(familyGraph, activeId, options), options);
@@ -272,6 +273,10 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   const placedById = new Map();
   const routedLinks = [];
   const blockCache = new Map();
+  // Per ancestor family, which child continues the displayed lineage up the tree.
+  // Its gender drives the native viewer's red (husband-line) / green (wife-line)
+  // ancestor connector colours.
+  const lineageChildId = new Map();
   const rootFamily = familyById.get(familyGraph.rootFamilyId) || familyByChild.get(rootId);
 
   const orderFamilyChildren = (family, preferredChildId, generation, compactRoot = false) => {
@@ -316,9 +321,11 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   const SIBLING_GAP = CHILD_GAP * branchFactor;
   const MIN_GEN_GAP = 124 * branchFactor;
   // Each generation up, a lineage drifts outward by this much (paternal left,
-  // maternal right) — the native viewer's ancestor "bow". Large enough that the
-  // paternal and maternal couples clear each other above the parents row.
-  const FAN_BIAS = 190 * branchFactor;
+  // maternal right) — the native viewer's ancestor "bow". Kept SMALL so each
+  // ancestor couple sits close ABOVE the child it descends to (its holder box
+  // hugs that child like the native nested holders); same-generation overlap is
+  // resolved afterward by MIN_GEN_GAP, which separates paternal/maternal cleanly.
+  const FAN_BIAS = 64 * branchFactor;
 
   const addNode = (personId, generation, x, familyBlockId, priority = 0) => {
     const source = sourceNodes.get(personId);
@@ -390,6 +397,8 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       // Tag the ancestor with the family that groups them with their siblings
       // (their own parents' family) so each couple's children share one holder.
       const holderId = parentFamily?.id || `solo:${parentId}`;
+      // parentId is the lineage child of its own parents' family (parentFamily).
+      if (parentFamily) lineageChildId.set(parentFamily.id, parentId);
       addNode(parentId, parentGen, px, holderId, 70 - Math.abs(parentGen));
       if (parentFamily) placeSiblings(parentFamily, parentId, px, parentGen, childSide);
       placeAncestors(parentId, px, parentGen, depth + 1, childSide);
@@ -398,6 +407,7 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
 
   if (rootFamily) {
     // Root + a companion sibling (compact root), then fan the ancestors up.
+    lineageChildId.set(rootFamily.id, rootId);
     const rootChildren = orderFamilyChildren(rootFamily, rootId, 0, true).map((node) => node.person.recordName);
     const companion = rootChildren.find((id) => id !== rootId);
     if (companion) addNode(companion, 0, -132, rootFamily.id, 80);
@@ -452,8 +462,11 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   };
   // Generation of the family currently being routed. Connectors inherit it so
   // the "By Generation, Light" colour mode can tint each link by the row it
-  // feeds into, matching the native multi-hue look.
+  // feeds into, matching the native multi-hue look. `routingColorClass` carries
+  // the native lineage hue (root=purple, descend=magenta, paternal=red husband
+  // line, maternal=green wife line) for the "By Lineage" colour mode.
   let routingGeneration = 0;
+  let routingColorClass = 'descend';
   const addPolyline = (familyId, type, emphasis, points, nodeIds = []) => {
     routedLinks.push({
       key: `${familyId}:${type}:${routedLinks.length}`,
@@ -462,6 +475,7 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       points,
       nodeIds,
       generation: routingGeneration,
+      colorClass: routingColorClass,
     });
   };
   for (const family of familyGraph.families || []) {
@@ -470,6 +484,15 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     if (parents.length === 0 || children.length === 0) continue;
     const generation = children[0].generation;
     routingGeneration = generation;
+    // Native lineage colouring: root's family (children at gen 0) draws purple;
+    // ancestor families two-or-more generations up (children at gen <= -2) draw
+    // red when the lineage child is male (husband line) and green when female
+    // (wife line); everything else (the magenta descendant flow) is "descend".
+    const lineageChild = lineageChildId.get(family.id);
+    const lineageGender = lineageChild ? sourceNodes.get(lineageChild)?.person?.gender : null;
+    if (generation === 0) routingColorClass = 'root';
+    else if (generation <= -2) routingColorClass = lineageGender === Gender.Female ? 'maternal' : 'paternal';
+    else routingColorClass = 'descend';
     const childY = -generation * GENERATION_STEP_SCALED;
     const parentY = parents[0].y;
     const direction = Math.sign(parentY - childY || 1);
@@ -505,11 +528,14 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     for (const point of parentAttachPoints) {
       addSegment(family.id, 'family', emphasis, point, { x: point.x, y: parentBridgeY }, [point.node.id]);
     }
-    // 2) couple bar joining the parents (only when both are present)
+    // 2) couple bar joining the parents (only when both are present). Tag its
+    //    midpoint so the renderer can stamp the native ⊘ union marker there.
     if (parentAttachPoints.length > 1) {
       const xs = parentAttachPoints.map((point) => point.x);
       addSegment(family.id, 'family', emphasis,
         { x: Math.min(...xs), y: parentBridgeY }, { x: Math.max(...xs), y: parentBridgeY }, parentIds);
+      const coupleBar = routedLinks[routedLinks.length - 1];
+      if (coupleBar) coupleBar.coupleMark = { x: average(xs), y: parentBridgeY };
     }
     // 3) single trunk: couple midpoint -> anchor over the children -> sibling bus
     addPolyline(family.id, 'family', emphasis, [
@@ -629,8 +655,8 @@ function clusterByGap(sorted, splitGap) {
 
 function buildBandSegments(group, generation, rootX = 0, segmentByPedigree = true) {
   const sorted = [...group].sort((a, b) => a.x - b.x);
-  const minWidth = generation === 0 ? 460 : 280;
-  const padding = generation === 0 ? 340 : 150;
+  const minWidth = generation === 0 ? 460 : 210;
+  const padding = generation === 0 ? 340 : 96;
   // Root (0) and the focused person's parents (-1) are ONE continuous band.
   // From the grandparents up (gen <= -2) each couple's children-group gets its
   // own holder box (keyed by familyBlockId) — the native viewer's nested

@@ -3,6 +3,7 @@
  * "today" anniversaries, status counters, and the geocoded-place map.
  */
 import { runPlausibilityChecks } from '../../plausibility.js';
+import { computeRichStatistics, loadGenealogyMetricRecords } from '../../genealogyMetrics.js';
 import { formatInteger } from '../../i18n.js';
 import { block, emptyReport } from '../ast.js';
 import {
@@ -48,6 +49,36 @@ export async function buildStatusReport() {
   return report;
 }
 
+export async function buildRichStatisticsReport() {
+  const records = await loadGenealogyMetricRecords();
+  const stats = computeRichStatistics(records);
+  const report = emptyReport('Rich Statistics');
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(
+    block.table(
+      ['Metric', 'Value'],
+      [
+        ['Persons', formatInteger(stats.totals.persons)],
+        ['Families', formatInteger(stats.totals.families)],
+        ['Places', formatInteger(stats.totals.places)],
+        ['Remarried persons', formatInteger(stats.totals.remarriagePersons)],
+        ['Average lifespan', stats.lifespan.averageYears == null ? '' : `${Math.round(stats.lifespan.averageYears)} years`],
+        ['Birth-date completeness', `${stats.completeness.birthDate}%`],
+        ['Death-date completeness', `${stats.completeness.deathDate}%`],
+        ['Parent-family completeness', `${stats.completeness.parentFamily}%`],
+      ]
+    )
+  );
+  addCountTable(report, 'Age at Marriage', ['Age Range', 'Count'], stats.ageAtMarriage, 'name');
+  addCountTable(report, 'Children Per Family', ['Children', 'Families'], stats.childrenPerFamily, 'children');
+  addCountTable(report, 'Parent-Child Age Gaps', ['Age Range', 'Count'], stats.parentChildAgeGaps, 'name');
+  addCountTable(report, 'Top Occupations', ['Occupation', 'Count'], stats.topOccupations, 'name');
+  addCountTable(report, 'Birth Places', ['Place', 'Count'], stats.birthPlaces, 'name');
+  addCountTable(report, 'Marriage Places', ['Place', 'Count'], stats.marriagePlaces, 'name');
+  addCountTable(report, 'Marriage Months', ['Month', 'Count'], stats.marriageMonths, 'month');
+  return report;
+}
+
 export async function buildTodayReport(date = new Date()) {
   const db = getLocalDatabase();
   const { records } = await db.query('Person', { limit: 100000 });
@@ -62,6 +93,12 @@ export async function buildTodayReport(date = new Date()) {
   report.blocks.push(block.title(report.title, 1));
   report.blocks.push(block.table(['Type', 'Person', 'Date'], rows));
   return report;
+}
+
+function addCountTable(report, title, columns, rows, key = 'name') {
+  if (!rows?.length) return;
+  report.blocks.push(block.title(title, 2));
+  report.blocks.push(block.table(columns, rows.map((row) => [String(row[key] ?? ''), formatInteger(row.count)])));
 }
 
 export async function buildMapReport() {

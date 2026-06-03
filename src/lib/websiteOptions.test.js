@@ -76,6 +76,18 @@ describe('website options', () => {
       author: true,
     });
   });
+
+  it('normalizes static publishing URL and search indexing options', () => {
+    const options = normalizeWebsiteOptions({
+      baseUrl: 'https://example.com/family/?draft=1#top',
+      allowSearchIndexing: true,
+    });
+
+    expect(options.baseUrl).toBe('https://example.com/family');
+    expect(options.allowSearchIndexing).toBe(true);
+    expect(normalizeWebsiteOptions({ baseUrl: 'javascript:alert(1)' }).baseUrl).toBe('');
+    expect(normalizeWebsiteOptions({ allowSearchIndexing: 'true' }).allowSearchIndexing).toBe(false);
+  });
 });
 
 describe('publish target labels', () => {

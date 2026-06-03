@@ -93,8 +93,8 @@ function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescend
   // Tube radius in scene units. The native flat viewer draws hairline
   // connectors, so keep these slim — ~1.5 units renders near 1px at the
   // default top-down framing. The faint shadow tube sits just behind.
-  const radius = 1.45 * thicknessScale;
-  const shadowRadius = radius + 0.8;
+  const radius = 2.4 * thicknessScale;
+  const shadowRadius = radius + 0.9;
 
   const addSegment = (a, b) => {
     const points = [new THREE.Vector3(a.x, a.y, z), new THREE.Vector3(b.x, b.y, z)];
@@ -126,10 +126,37 @@ export function makeConnector(link, nodes, palette, options = {}) {
       : orthogonalPoints(from, to, z);
   }
 
-  const baseRadius = link.emphasis ? 1.7 : type === 'partner' ? 1.05 : 1.35;
+  const baseRadius = link.emphasis ? 2.7 : type === 'partner' ? 1.7 : 2.3;
   const tubeRadius = baseRadius * thicknessScale;
   group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.4, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
   group.add(makeConnectorTube(points, color, tubeRadius, link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: 0 }, 4));
+  if (link.coupleMark) group.add(makeUnionMarker(link.coupleMark, color, link.emphasis));
+  return group;
+}
+
+// The native viewer stamps a small ⊘ "union" glyph on the middle of each couple
+// bar — a thin ring crossed by a diagonal slash, tinted to the bar's colour.
+function makeUnionMarker(point, color, emphasis) {
+  const group = new THREE.Group();
+  const radius = emphasis ? 13 : 10;
+  const ringMaterial = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.92 });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, emphasis ? 2.1 : 1.7, 10, 28), ringMaterial);
+  group.add(ring);
+  // A white disc behind the glyph so the ring reads cleanly over the bar.
+  const disc = new THREE.Mesh(
+    new THREE.CircleGeometry(radius - 0.6, 28),
+    new THREE.MeshBasicMaterial({ color: '#fbfbf7', transparent: true, opacity: 0.96 })
+  );
+  disc.position.z = -0.5;
+  group.add(disc);
+  const slash = new THREE.Mesh(
+    new THREE.BoxGeometry(radius * 2.0, emphasis ? 2.1 : 1.7, 1),
+    ringMaterial
+  );
+  slash.rotation.z = Math.PI / 4;
+  group.add(slash);
+  group.position.set(point.x, point.y, (point.z ?? 5) + 3);
+  group.renderOrder = 7;
   return group;
 }
 
@@ -151,6 +178,20 @@ function connectorGenerationColor(generation) {
   return CONNECTOR_GENERATION_COLORS[index];
 }
 
+// Native viewer lineage hues (sampled from the MacFamilyTree 11 reference):
+// the focus person's line is violet, the descendant flow magenta-pink, and the
+// two ancestor lineages split red (husband line) / green (wife line).
+const LINEAGE_CONNECTOR_COLORS = {
+  root: '#9b4dd1', // violet — couple bar + trunk feeding the focus person
+  descend: '#d42b94', // magenta-pink — grandparents → parents, descendant flow
+  paternal: '#c5392f', // red — ancestor link feeding a male (husband) ancestor
+  maternal: '#79a63a', // green — ancestor link feeding a female (wife) ancestor
+};
+
+function lineageConnectorColor(colorClass) {
+  return LINEAGE_CONNECTOR_COLORS[colorClass] || null;
+}
+
 function colorForConnector(link, type, palette, mode, customColor) {
   if (mode === 'gray') return '#9098a0';
   if (mode === 'blackOrWhite') return palette.background && isDarkBackground(palette.background) ? '#f4f5f7' : '#1c1f24';
@@ -164,9 +205,11 @@ function colorForConnector(link, type, palette, mode, customColor) {
     if (type === 'partner') return '#b2b8bf';
     return link.emphasis ? palette.descendantLine : (type === 'ancestor' ? palette.ancestorLine : palette.descendantLine);
   }
-  // byGenerationLight (default) — colour each connector by the generation it
-  // feeds into so siblings/branches read as a soft per-row gradient.
+  // byGenerationLight (default) — match the native viewer's lineage hues
+  // (violet focus line, magenta descendant flow, red/green ancestor lineages).
   if (type === 'partner') return palette.partnerLine;
+  const lineage = lineageConnectorColor(link.colorClass);
+  if (lineage) return lineage;
   if (Number.isFinite(link.generation)) return connectorGenerationColor(link.generation);
   if (link.emphasis) return palette.descendantLine;
   if (type === 'ancestor') return palette.ancestorLine;

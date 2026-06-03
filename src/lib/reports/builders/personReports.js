@@ -6,7 +6,9 @@
  */
 import { buildAncestorTree, buildDescendantTree } from '../../treeQuery.js';
 import { buildPersonContext } from '../../personContext.js';
-import { findRelationshipPath } from '../../relationshipPath.js';
+import { computeKinshipCoefficient, findRelationshipPath } from '../../relationshipPath.js';
+import { computeAncestorCompleteness, loadGenealogyMetricRecords } from '../../genealogyMetrics.js';
+import { sosaFather, sosaGeneration, sosaMother, sosaRelation } from '../../sosa.js';
 import { describeBirth, describeDeath, describeMarriage } from '../narrativeTemplates.js';
 import { formatVitalDateParts } from '../../vitalFormat.js';
 import { compareStrings, formatInteger } from '../../i18n.js';
@@ -244,6 +246,23 @@ export async function buildKinshipReport(recordA, recordB) {
       ])
     )
   );
+  const coefficient = await computeKinshipCoefficient(recordA, recordB);
+  if (coefficient) {
+    report.blocks.push(block.paragraph(`Relationship coefficient: ${formatCoefficient(coefficient.relationshipCoefficient)}; kinship coefficient: ${formatCoefficient(coefficient.kinshipCoefficient)}.`));
+    if (coefficient.contributions.length > 0) {
+      report.blocks.push(
+        block.table(
+          ['Common Ancestor', 'Distance A', 'Distance B', 'Contribution'],
+          coefficient.contributions.slice(0, 12).map((entry) => [
+            nameOf(entry.ancestor),
+            String(entry.distanceA),
+            String(entry.distanceB),
+            formatCoefficient(entry.relationship),
+          ])
+        )
+      );
+    }
+  }
   return report;
 }
 
@@ -281,14 +300,51 @@ export async function buildAhnentafelReport(recordName, generations = 6) {
   const rows = [];
   function visit(node, number, generation) {
     if (!node?.person || generation > generations) return;
-    rows.push([String(number), String(generation + 1), nameOf(node.person), node.person.birthDate || '', node.person.deathDate || '']);
-    visit(node.father, number * 2, generation + 1);
-    visit(node.mother, number * 2 + 1, generation + 1);
+    rows.push([String(number), String(sosaGeneration(number)), sosaRelation(number), nameOf(node.person), node.person.birthDate || '', node.person.deathDate || '']);
+    visit(node.father, sosaFather(number), generation + 1);
+    visit(node.mother, sosaMother(number), generation + 1);
   }
   visit(tree, 1, 0);
   const report = emptyReport(`Ahnentafel — ${nameOf(tree.person)}`);
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.table(['#', 'Generation', 'Name', 'Born', 'Died'], rows.sort((a, b) => Number(a[0]) - Number(b[0]))));
+  report.blocks.push(block.table(['#', 'Generation', 'Line', 'Name', 'Born', 'Died'], rows.sort((a, b) => Number(a[0]) - Number(b[0]))));
+  return report;
+}
+
+export async function buildAncestorCompletenessReport(recordName, generations = 8) {
+  const records = await loadGenealogyMetricRecords();
+  const root = records.personsById.get(recordName);
+  if (!root) return emptyReport('Person not found');
+  const metrics = computeAncestorCompleteness(recordName, records, { maxGenerations: generations });
+  const report = emptyReport(`Ancestor Completeness — ${nameOf(personSummary(root))}`);
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(
+    block.table(
+      ['Generation', 'Theoretical', 'Known Paths', 'Unique Ancestors', 'Missing', 'Coverage', 'Implex', 'Birth Years'],
+      metrics.generations.map((row) => [
+        String(row.generation),
+        String(row.theoretical),
+        String(row.known),
+        String(row.unique),
+        String(row.missing),
+        `${row.coverage}%`,
+        `${row.implex}%`,
+        row.minYear == null ? '' : `${row.minYear}-${row.maxYear}`,
+      ])
+    )
+  );
+  if (metrics.repeatedAncestors.length > 0) {
+    report.blocks.push(block.title('Repeated Ancestors', 2));
+    report.blocks.push(
+      block.table(
+        ['Ancestor', 'Paths'],
+        metrics.repeatedAncestors.slice(0, 25).map((entry) => [
+          nameOf(personSummary(records.personsById.get(entry.personId))),
+          entry.paths.map((path) => `${path.sosa}: ${path.relation}`).join('; '),
+        ])
+      )
+    );
+  }
   return report;
 }
 
@@ -358,4 +414,9 @@ export async function buildNarrativeReport(recordName, generations = 4) {
   const descendants = await buildDescendantNarrative(recordName, generations);
   report.blocks.push(...descendants.blocks.slice(1));
   return report;
+}
+
+function formatCoefficient(value) {
+  if (!Number.isFinite(value)) return '';
+  return `${(value * 100).toFixed(value < 0.01 ? 3 : 2)}%`;
 }

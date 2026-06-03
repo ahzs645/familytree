@@ -24,6 +24,7 @@ export function GedcomImportReviewSheet({ result, onClose }) {
   }, [result]);
   if (!result) return null;
   const counts = result.counts || {};
+  const sourceLabel = result.format || result.source || 'gedcom';
 
   return (
     <Panel
@@ -52,12 +53,13 @@ export function GedcomImportReviewSheet({ result, onClose }) {
         <main className="flex-1 overflow-auto p-5">
           {tab === 'summary' && (
             <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <SummaryStat label="Source" value={sourceLabel} />
+                <SummaryStat label="Import mode" value={modeLabel(result.mode)} />
+              </div>
               <div className="grid grid-cols-3 gap-2">
                 {['INDI', 'FAM', 'SOUR', 'NOTE', 'OBJE', 'unsupportedEvents', 'customTags', 'continuations'].map((k) => (
-                  <div key={k} className="bg-secondary border border-border rounded-md p-3">
-                    <div className="text-xs text-muted-foreground">{label(k)}</div>
-                    <div className="text-lg font-semibold">{Number(counts[k] || 0).toLocaleString()}</div>
-                  </div>
+                  <SummaryStat key={k} label={label(k)} value={Number(counts[k] || 0).toLocaleString()} />
                 ))}
               </div>
               {groups.errors.length === 0 && groups.warnings.length === 0 && (
@@ -76,9 +78,18 @@ export function GedcomImportReviewSheet({ result, onClose }) {
           {tab === 'errors' && <IssueList items={groups.errors} empty="No blocking errors — every line was parsed." />}
         </main>
         <footer className="px-5 py-3 border-t border-border text-xs text-muted-foreground">
-          Source: {result.format || result.source || 'gedcom'}
+          Source: {sourceLabel}
         </footer>
     </Panel>
+  );
+}
+
+function SummaryStat({ label, value }) {
+  return (
+    <div className="bg-secondary border border-border rounded-md p-3 min-w-0">
+      <div className="text-xs text-muted-foreground truncate">{label}</div>
+      <div className="text-lg font-semibold truncate">{value}</div>
+    </div>
   );
 }
 
@@ -89,7 +100,13 @@ function IssueList({ items, empty }) {
       {items.slice(0, 500).map((issue, index) => (
         <li key={index} className="flex gap-3 py-1 border-b border-border/60">
           <span className="tabular-nums text-muted-foreground w-16">{issue.line ? `line ${issue.line}` : '—'}</span>
-          <span className="flex-1">{issue.message}</span>
+          <span className="w-14 shrink-0 capitalize text-muted-foreground">{issue.severity || 'info'}</span>
+          <span className="flex-1 min-w-0">
+            <span>{issue.message}</span>
+            {Array.isArray(issue.refs) && issue.refs.length > 0 && (
+              <span className="block text-muted-foreground truncate">Refs: {issue.refs.slice(0, 12).join(', ')}</span>
+            )}
+          </span>
         </li>
       ))}
       {items.length > 500 && (
@@ -110,6 +127,15 @@ function label(key) {
     case 'customTags': return 'Custom tags';
     case 'continuations': return 'CONT/CONC';
     default: return key;
+  }
+}
+
+function modeLabel(mode) {
+  switch (mode) {
+    case 'strict': return 'Strict';
+    case 'lenient': return 'Lenient';
+    case 'review': return 'Review warnings';
+    default: return mode || 'Review warnings';
   }
 }
 

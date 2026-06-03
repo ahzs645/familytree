@@ -63,6 +63,8 @@ export const DEFAULT_CONTENT_SECTIONS = Object.freeze({
 export const DEFAULT_SITE_OPTIONS = Object.freeze({
   siteTitle: 'Family Tree',
   tagline: '',
+  baseUrl: '',
+  allowSearchIndexing: false,
   theme: 'classic',
   siteThemes: SITE_THEME_PRESETS,
   accentColor: '#2563eb',
@@ -106,6 +108,8 @@ export function normalizeWebsiteOptions(options = {}) {
     accentColor: normalizeColor(options.accentColor || DEFAULT_SITE_OPTIONS.accentColor, DEFAULT_SITE_OPTIONS.accentColor),
     siteTitle: String(options.siteTitle || DEFAULT_SITE_OPTIONS.siteTitle).trim() || DEFAULT_SITE_OPTIONS.siteTitle,
     tagline: String(options.tagline || '').trim(),
+    baseUrl: normalizeBaseUrl(options.baseUrl),
+    allowSearchIndexing: options.allowSearchIndexing === true,
     includePrivate: !!options.includePrivate,
     hideLiving: !!options.hideLiving,
     hideLivingDetailsOnly: !!options.hideLivingDetailsOnly,
@@ -217,4 +221,18 @@ function uniqueThemeId(label, themes = []) {
 function normalizeColor(value, fallback = '#2563eb') {
   const color = String(value || '').trim();
   return /^#[0-9a-f]{6}$/i.test(color) ? color : fallback;
+}
+
+function normalizeBaseUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    url.hash = '';
+    url.search = '';
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return '';
+  }
 }
