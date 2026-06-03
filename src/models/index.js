@@ -34,6 +34,7 @@ export { SourceRecord } from './SourceRecord.js';
 export { wrapRecord, personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, NO_NAME } from './wrap.js';
 export {
   Gender,
+  genderLabel,
   ChangeType,
   PlaceCitationMode,
   PlaceCitationTrailingMode,

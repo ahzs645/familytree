@@ -1,4 +1,5 @@
 import { getLocalDatabase } from './LocalDatabase.js';
+import { generateId } from './ids.js';
 
 const META_KEY = 'websitePublishTarget';
 const HISTORY_META_KEY = 'websitePublishHistory';
@@ -127,7 +128,7 @@ export async function recordPublishHistoryEntry(entry) {
   const db = getLocalDatabase();
   const current = await listPublishHistory();
   const stamped = {
-    id: `publish-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    id: generateId('publish', { randomLength: 4 }),
     timestamp: new Date().toISOString(),
     mode: entry?.mode || 'download',
     targetName: entry?.targetName || '',

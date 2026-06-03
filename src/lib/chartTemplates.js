@@ -3,6 +3,7 @@
  * A template captures: { id, name, chartType, themeId, generations, arcDegrees }.
  */
 import { getLocalDatabase } from './LocalDatabase.js';
+import { generateId } from './ids.js';
 
 const META_KEY = 'savedChartTemplates';
 
@@ -31,5 +32,5 @@ export async function deleteChartTemplate(id) {
 }
 
 export function newTemplateId() {
-  return 'tpl-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  return generateId('tpl');
 }

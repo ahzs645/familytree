@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { generateResearchSuggestions } from '../lib/researchSuggestions.js';
+import { generateId } from '../lib/ids.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { matchesSearchText } from '../lib/i18n.js';
 import { readRef, writeRef } from '../lib/schema.js';
@@ -15,7 +16,7 @@ const STATE_KEY = 'researchAssistantState';
 const JOURNAL_KEY = 'researchJournal';
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 export default function Research() {
@@ -63,7 +64,7 @@ export default function Research() {
     const text = journalDraft.trim();
     if (!text) return;
     const entry = {
-      id: `rj-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      id: generateId('rj', { randomLength: 4 }),
       createdAt: new Date().toISOString(),
       text,
     };

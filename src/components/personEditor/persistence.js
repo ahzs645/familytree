@@ -13,9 +13,10 @@
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../../lib/changeLog.js';
 import { refValue } from '../../lib/recordRef.js';
 import { MILK_KINSHIP_RECORD_TYPE } from '../../lib/milkKinship.js';
+import { generateId } from '../../lib/ids.js';
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 export function writeOptionalStringField(record, fieldName, value) {

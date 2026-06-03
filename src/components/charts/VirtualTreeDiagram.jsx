@@ -5,6 +5,7 @@
  */
 import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
+import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import {
@@ -30,7 +31,7 @@ export function VirtualTreeDiagram({ tree, source = 'descendant', virtualTreeDat
   const recordNodeCount = Array.isArray(virtualTreeData?.nodes) ? virtualTreeData.nodes.length : null;
   const recordConnectionCount = Array.isArray(virtualTreeData?.connections) ? virtualTreeData.connections.length : null;
 
-  if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+  if (!tree) return <ChartEmptyState theme={theme} />;
 
   return (
     <ChartCanvas

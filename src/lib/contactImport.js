@@ -1,4 +1,5 @@
 import { getLocalDatabase } from './LocalDatabase.js';
+import { generateId } from './ids.js';
 
 const CSV_NAME_KEYS = ['name', 'full name', 'fullname', 'display name', 'fn'];
 const CSV_FIRST_KEYS = ['first', 'first name', 'firstname', 'given', 'given name'];
@@ -79,7 +80,7 @@ function contactToPersonRecord(contact) {
   const fullName = clean(contact.fullName || [firstName, middleName, lastName].filter(Boolean).join(' '));
   if (!firstName && !lastName && !fullName) return null;
   const record = {
-    recordName: `person-contact-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    recordName: generateId('person-contact'),
     recordType: 'Person',
     fields: {
       cached_fullName: { value: fullName || [firstName, lastName].filter(Boolean).join(' '), type: 'STRING' },

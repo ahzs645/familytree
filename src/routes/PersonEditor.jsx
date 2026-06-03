@@ -19,6 +19,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { generateId } from '../lib/ids.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { readConclusionType, readRef } from '../lib/schema.js';
@@ -78,7 +79,7 @@ import {
 } from '../components/personEditor/persistence.js';
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 const NAME_FIELDS = [

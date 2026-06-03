@@ -660,6 +660,44 @@
     "newTitle": "New ToDo",
     "newButton": "+ New",
     "wizardButton": "ToDo Wizard…",
+    "wizard": {
+      "title": "ToDo Wizard",
+      "analyzing": "Analyzing your tree…",
+      "generatorsHeading": "Generator",
+      "personsHeading": "Persons",
+      "scopeAll": "Include all persons",
+      "scopePerson": "Selected person",
+      "selectPerson": "Select a person…",
+      "filterPlaceholder": "Filter persons…",
+      "toggleVisible": "Toggle visible",
+      "noCreator": "Select a generator to preview the ToDos it would create.",
+      "noMatches": "No persons need this ToDo.",
+      "emptyAll": "No open suggestions were found in this family tree.",
+      "pickOne": "Select at least one person to create ToDos for.",
+      "count": {
+        "zero": "Nothing to create",
+        "one": "{count} ToDo to create",
+        "other": "{count} ToDos to create"
+      },
+      "create": {
+        "one": "Create {count} ToDo",
+        "other": "Create {count} ToDos"
+      },
+      "creating": "Creating…",
+      "created": {
+        "one": "Created {count} ToDo.",
+        "other": "Created {count} ToDos."
+      },
+      "cancel": "Cancel",
+      "explanation": {
+        "findBirthRecord": "Adds a research ToDo for each person without a recorded birth date.",
+        "findDeathRecord": "Adds a research ToDo for older persons who have no recorded death.",
+        "identifyParents": "Adds a research ToDo for each person whose parents are unknown.",
+        "identifySpousesChildren": "Adds a research ToDo for each person with no recorded spouse or children.",
+        "addPortraitPhoto": "Adds a ToDo to attach a portrait photo for each person without one.",
+        "confirmFullName": "Adds a ToDo to confirm the full name for each person with an incomplete name."
+      }
+    },
     "deleteCompleted": "Delete completed",
     "noCompleted": "No completed ToDos to delete.",
     "deleteCompletedConfirm": {

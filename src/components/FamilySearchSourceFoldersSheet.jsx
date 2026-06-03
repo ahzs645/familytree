@@ -14,8 +14,9 @@ import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { sourceSummary } from '../models/index.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { Panel } from './ui/Panel.jsx';
+import { generateId } from '../lib/ids.js';
 
-function uuid() { return `fs-folder-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`; }
+function uuid() { return generateId('fs-folder'); }
 
 export function FamilySearchSourceFoldersSheet({ open, onClose }) {
   const modal = useModal();

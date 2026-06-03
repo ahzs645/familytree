@@ -11,11 +11,12 @@
 
 import { useCallback, useMemo, useReducer } from 'react';
 import { getContentRect, normalizePageDimensions, computePageTiles } from '../../lib/pageLayout.js';
+import { generateId } from '../../lib/ids.js';
 
 const MAX_HISTORY = 64;
 
 function uid() {
-  return `overlay-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId('overlay');
 }
 
 function clone(val) {

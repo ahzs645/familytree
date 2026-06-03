@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAppPreferences } from '../lib/appPreferences.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
+import { generateId } from '../lib/ids.js';
+import { formClasses } from '../components/ui/formClasses.js';
 import {
   DEFAULT_FAMILYSEARCH_CONFIG,
   FAMILYSEARCH_ENVIRONMENTS,
@@ -580,7 +582,7 @@ function taskLabel(type) {
 }
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 function lines(value) {
@@ -605,6 +607,6 @@ function Field({ label, children }) {
   );
 }
 
-const inputClass = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary min-w-[180px]';
+const inputClass = `${formClasses.input} min-w-[180px]`;
 const primaryButton = 'rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold disabled:opacity-60';
 const secondaryButton = 'rounded-md border border-border bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-60';

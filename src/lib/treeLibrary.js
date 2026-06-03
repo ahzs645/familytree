@@ -6,6 +6,7 @@ import {
   DATASET_SCHEMA_VERSION,
   DATASET_SCHEMA_VERSION_META_KEY,
 } from './datasetSchemaVersion.js';
+import { generateId } from './ids.js';
 
 const DB_NAME = 'cloudtreeweb-tree-library';
 const DB_VERSION = 1;
@@ -20,7 +21,7 @@ export const TREES_CHANGED_EVENT = 'cloudtreeweb:trees-changed';
 let libraryDb = null;
 
 function newTreeId() {
-  return `tree-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId('tree');
 }
 
 function emitTreesChanged() {
@@ -123,7 +124,7 @@ export async function saveCurrentTreeSnapshot(name = '') {
   const backup = await exportBackup();
   const now = new Date().toISOString();
   const snapshot = {
-    id: `tree-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    id: generateId('tree'),
     name: String(name || '').trim() || `Tree ${now.slice(0, 10)}`,
     createdAt: now,
     updatedAt: now,

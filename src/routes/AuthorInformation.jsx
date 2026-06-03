@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAuthorInfo, saveAuthorInfo } from '../lib/authorInfo.js';
+import { formClasses } from '../components/ui/formClasses.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { readField } from '../lib/schema.js';
 
@@ -144,5 +145,5 @@ function Field({ label, children }) {
   );
 }
 
-const inputClass = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary';
+const inputClass = formClasses.input;
 const primaryButton = 'rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold disabled:opacity-60';

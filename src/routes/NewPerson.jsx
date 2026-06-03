@@ -12,12 +12,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { generateId } from '../lib/ids.js';
 import { logRecordCreated } from '../lib/changeLog.js';
 import { linkExistingRelative } from '../lib/relativeLinks.js';
 import { Gender } from '../models/index.js';
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 function genderForRelation(relation) {

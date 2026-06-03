@@ -5,6 +5,7 @@
  */
 import { getAppDataClient } from './data/index.js';
 import { getStoredDatasetSchemaVersion } from './datasetMigration.js';
+import { generateId } from './ids.js';
 
 export async function exportBackup() {
   const client = getAppDataClient();
@@ -157,7 +158,7 @@ export async function takeBackupSnapshot({ reason = 'manual' } = {}) {
   const client = getAppDataClient();
   const data = await exportBackup();
   const entry = {
-    id: `bk-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    id: generateId('bk', { randomLength: 4 }),
     timestamp: Date.now(),
     reason,
     recordCount: Object.keys(data.records || {}).length,

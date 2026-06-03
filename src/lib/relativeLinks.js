@@ -2,9 +2,10 @@ import { getLocalDatabase } from './LocalDatabase.js';
 import { logRecordCreated, saveWithChangeLog } from './changeLog.js';
 import { refToRecordName, refValue } from './recordRef.js';
 import { Gender } from '../models/index.js';
+import { generateId } from './ids.js';
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 export async function linkExistingRelative(personId, relativeId, relationType) {

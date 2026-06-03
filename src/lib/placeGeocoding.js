@@ -1,6 +1,7 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { refValue } from './recordRef.js';
 import { readField, readRef } from './schema.js';
+import { generateId } from './ids.js';
 
 const MAP_PREFS_KEY = 'mapPreferences';
 export const MAP_PREFERENCES_EVENT = 'cloudtreeweb:map-preferences-changed';
@@ -131,7 +132,7 @@ export async function batchLookupMissingCoordinates({ limit = 10 } = {}) {
 
 export function buildCoordinateRecord(placeRecordName, candidate) {
   return {
-    recordName: `coord-lookup-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    recordName: generateId('coord-lookup'),
     recordType: 'Coordinate',
     fields: {
       place: { value: refValue(placeRecordName, 'Place'), type: 'REFERENCE' },

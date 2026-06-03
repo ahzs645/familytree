@@ -10,6 +10,16 @@ export const Gender = Object.freeze({
   Intersex: 3,
 });
 
+/** Canonical English label for a Gender value (anything unmapped → 'Unknown'). */
+export function genderLabel(gender) {
+  switch (gender) {
+    case Gender.Male: return 'Male';
+    case Gender.Female: return 'Female';
+    case Gender.Intersex: return 'Intersex';
+    default: return 'Unknown';
+  }
+}
+
 /** Change log entry types (was `nt`) */
 export const ChangeType = Object.freeze({
   Change: 0,

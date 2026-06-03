@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Edit3, Eye, GitMerge } from 'lucide-react';
 import { ChartCanvas } from './ChartCanvas.jsx';
+import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { lifeSpanLabel } from '../../models/index.js';
 import { textDirection, wrapGraphemes } from '../../lib/i18n.js';
@@ -39,7 +40,7 @@ export function FamilyChartView({
   }), [ancestorTree, descendantTree, rootId, theme, spacing, duplicatesCollapsed, showKinships]);
 
   if (!ancestorTree && !descendantTree) {
-    return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+    return <ChartEmptyState theme={theme} />;
   }
 
   return (

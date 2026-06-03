@@ -2,11 +2,12 @@ import { getLocalDatabase } from './LocalDatabase.js';
 import { readField, readRef } from './schema.js';
 import { refToRecordName } from './recordRef.js';
 import { personDisplayName, yearOf } from './familyGraph.js';
+import { generateId } from './ids.js';
 
 const META_KEY = 'customValidationSchemas';
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 export async function listCustomValidationSchemas() {

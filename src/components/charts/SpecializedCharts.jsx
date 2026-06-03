@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
+import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutDescendants } from './layouts/descendantLayout.js';
@@ -285,7 +286,7 @@ function buildRadialDescendantLayout(tree) {
 export function RadialDescendantTimelineChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const layout = useMemo(() => buildRadialDescendantLayout(tree), [tree]);
 
-  if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+  if (!tree) return <ChartEmptyState theme={theme} />;
 
   return (
     <ChartCanvas ref={chartCanvasRef} theme={theme} page={{ ...page, backgroundColor: '#ffffff' }} overlays={overlays} onOverlaysChange={onOverlaysChange} {...overlayProps}>
@@ -337,7 +338,7 @@ export function LifespanDescendantChart({ tree, onPersonClick, theme = DEFAULT_T
     return { rows, links, rowIndex, currentYear, minYear, maxYear };
   }, [tree]);
 
-  if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+  if (!tree) return <ChartEmptyState theme={theme} />;
 
   const x0 = 55;
   const width = 1400;
@@ -475,7 +476,7 @@ export function CircularAncestorChart({ tree, generations = 5, onPersonClick, th
     return { nodes: [...positioned.values()], links: positionedLinks, cx, cy };
   }, [tree, generations, theme]);
 
-  if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+  if (!tree) return <ChartEmptyState theme={theme} />;
   return (
     <ChartCanvas
       ref={chartCanvasRef}
@@ -758,7 +759,7 @@ export function GenogramChart({ tree, genogramData, onPersonClick, theme = DEFAU
     }
     return map;
   }, [genogramData]);
-  if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+  if (!tree) return <ChartEmptyState theme={theme} />;
   return (
     <ChartCanvas
       ref={chartCanvasRef}
@@ -817,7 +818,7 @@ export function FractalAncestorChart({ tree, generations = 5, onPersonClick, the
   const layout = useMemo(() => {
     return layoutFractalAncestors(tree, generations, theme, variant);
   }, [tree, generations, theme, variant]);
-  if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+  if (!tree) return <ChartEmptyState theme={theme} />;
   return (
     <ChartCanvas
       ref={chartCanvasRef}

@@ -8,7 +8,7 @@
  */
 import { getLocalDatabase } from '../../LocalDatabase.js';
 import { readConclusionType, readField, readRef, refType } from '../../schema.js';
-import { personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, Gender } from '../../../models/index.js';
+import { personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, genderLabel } from '../../../models/index.js';
 import { humanizeType } from '../../../utils/humanizeType.js';
 import { block } from '../ast.js';
 
@@ -25,14 +25,8 @@ export function spanAnnotated(summary) {
   return label ? `(${label})` : '';
 }
 
-export function genderLabel(g) {
-  switch (g) {
-    case Gender.Male: return 'Male';
-    case Gender.Female: return 'Female';
-    case Gender.Intersex: return 'Intersex';
-    default: return 'Unknown';
-  }
-}
+// Re-exported from models so the builder files that import it from here keep working.
+export { genderLabel };
 
 export function relationNameAt(gen, path) {
   const last = path.slice(-1);

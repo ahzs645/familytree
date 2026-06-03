@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { generateId } from '../lib/ids.js';
 import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../lib/changeLog.js';
 import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
@@ -24,7 +25,7 @@ const DNA_FIELDS = [
 ];
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 function dnaLabel(record) {

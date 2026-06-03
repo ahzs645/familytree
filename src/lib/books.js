@@ -37,6 +37,7 @@ import { normalizePresentationSettings } from './presentationSettings.js';
 import { buildSite } from './websiteExport.js';
 import { getAuthorInfo } from './authorInfo.js';
 import { listSavedReports } from './reports/savedReports.js';
+import { generateId } from './ids.js';
 import { listChartDocuments } from './chartDocuments.js';
 import { compareStrings, formatInteger } from './i18n.js';
 import { personSummary, sourceSummary } from '../models/index.js';
@@ -175,7 +176,7 @@ export async function validateBook(book) {
 }
 
 export function newBookId() {
-  return 'book-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  return generateId('book');
 }
 
 export async function listBooks() {

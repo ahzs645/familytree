@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Gender, lifeSpanLabel } from '../../models/index.js';
+import { Gender, genderLabel, lifeSpanLabel } from '../../models/index.js';
 import { normalizeConclusionTypeId, PERSON_EVENT_TYPES } from '../../lib/catalogs.js';
 import { MiniTimeline } from '../MiniTimeline.jsx';
 import { BdiText, LtrText } from '../BdiText.jsx';
@@ -22,19 +22,6 @@ function humanizeConclusionLabel(raw) {
   const m = stripped.match(/UniqueID_(?:Person|Family)Event_(.+)$/) || stripped.match(/UniqueID_PersonFact_(.+)$/);
   if (m) return m[1].replace(/([a-z])([A-Z])/g, '$1 $2');
   return stripped.replace(/^UniqueID_/, '').replace(/([a-z])([A-Z])/g, '$1 $2');
-}
-
-function genderLabel(g) {
-  switch (g) {
-    case Gender.Male:
-      return 'Male';
-    case Gender.Female:
-      return 'Female';
-    case Gender.Intersex:
-      return 'Intersex';
-    default:
-      return 'Unknown';
-  }
 }
 
 function Chip({ person, onPick }) {

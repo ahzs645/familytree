@@ -5,11 +5,13 @@
  */
 import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
+import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutAncestors } from './layouts/ancestorLayout.js';
 import { layoutAncestorsUpward } from './layouts/ancestorUpwardLayout.js';
 import { layoutDescendants } from './layouts/descendantLayout.js';
+import { translateSvgPath } from './layouts/pathUtils.js';
 
 const PADDING = 30;
 const HALF_GAP = 40;
@@ -83,16 +85,13 @@ function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPerso
       .filter((n) => n.id !== rootId)
       .map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
     const descLinks = descendants.links.map((l) => ({
-      d: l.d
-        .replace(/M ([\d.]+) ([\d.]+)/g, (_m, x, y) => `M ${parseFloat(x) + dx} ${parseFloat(y) + dy}`)
-        .replace(/H ([\d.]+)/g, (_m, x) => `H ${parseFloat(x) + dx}`)
-        .replace(/V ([\d.]+)/g, (_m, y) => `V ${parseFloat(y) + dy}`),
+      d: translateSvgPath(l.d, dx, dy),
     }));
 
     return { ancestor: mirrored, descNodes, descLinks };
   }, [ancestorTree, descendantTree, generations, theme]);
 
-  if (!ancestorTree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+  if (!ancestorTree) return <ChartEmptyState theme={theme} />;
 
   return (
     <ChartCanvas
@@ -160,10 +159,7 @@ function SymmetricalTree({ ancestorTree, descendantTree, generations, onPersonCl
       .filter((n) => n.id !== rootId)
       .map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
     const lowerLinks = descendants.links.map((l) => ({
-      d: l.d
-        .replace(/M ([\d.]+) ([\d.]+)/g, (_m, x, y) => `M ${parseFloat(x) + dx} ${parseFloat(y) + dy}`)
-        .replace(/H ([\d.]+)/g, (_m, x) => `H ${parseFloat(x) + dx}`)
-        .replace(/V ([\d.]+)/g, (_m, y) => `V ${parseFloat(y) + dy}`),
+      d: translateSvgPath(l.d, dx, dy),
     }));
 
     return {
@@ -172,7 +168,7 @@ function SymmetricalTree({ ancestorTree, descendantTree, generations, onPersonCl
     };
   }, [ancestorTree, descendantTree, generations, theme]);
 
-  if (!ancestorTree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+  if (!ancestorTree) return <ChartEmptyState theme={theme} />;
 
   return (
     <ChartCanvas

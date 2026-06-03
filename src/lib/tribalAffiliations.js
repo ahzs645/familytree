@@ -1,6 +1,7 @@
 import { normalizeConclusionTypeId } from './catalogs.js';
 import { readField, readRef, writeRef } from './schema.js';
 import { personSummary } from '../models/index.js';
+import { generateId } from './ids.js';
 
 export const TRIBAL_AFFILIATION_LEVELS = [
   { id: 'confederation', label: 'Confederation' },
@@ -62,7 +63,7 @@ export function createAffiliationRecord({ name, level = 'clan', parentId = '', c
   if (parentId) fields.parentAffiliation = writeRef(parentId, 'TribalAffiliation');
   if (notes) fields.notes = { value: notes, type: 'STRING' };
   return {
-    recordName: `tribe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    recordName: generateId('tribe'),
     recordType: 'TribalAffiliation',
     fields,
   };
@@ -80,7 +81,7 @@ export function createAffiliationRelation({ affiliationId, personId, personName 
   if (toDate) fields.toDate = { value: toDate, type: 'STRING' };
   if (notes) fields.notes = { value: notes, type: 'STRING' };
   return {
-    recordName: `tar-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+    recordName: generateId('tar'),
     recordType: 'TribalAffiliationRelation',
     fields,
   };

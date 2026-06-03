@@ -39,12 +39,18 @@ export function useEditorSection(title) {
   const ctx = useContext(SectionNavContext);
   const id = useId();
   const ref = useRef(null);
+  // Depend on the stable register/unregister callbacks, NOT the whole context
+  // value: `register` updates `sections`, which recreates the context value on
+  // every registration. Depending on `ctx` here would re-run this effect on
+  // that new identity → re-register → infinite "Maximum update depth" loop.
+  const register = ctx?.register;
+  const unregister = ctx?.unregister;
 
   useEffect(() => {
-    if (!ctx || !ref.current) return undefined;
-    ctx.register({ id, title, el: ref.current });
-    return () => ctx.unregister(id);
-  }, [ctx, id, title]);
+    if (!register || !ref.current) return undefined;
+    register({ id, title, el: ref.current });
+    return () => unregister(id);
+  }, [register, unregister, id, title]);
 
   return { id: ctx ? id : undefined, ref, enabled: !!ctx };
 }

@@ -26,6 +26,7 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { equalsSearchText, matchesSearchText } from './i18n.js';
 import { refToRecordName } from './recordRef.js';
+import { generateId } from './ids.js';
 
 const META_KEY = 'customSmartFilters';
 
@@ -46,7 +47,7 @@ export const FILTER_OPERATORS = [
 ];
 
 function newId() {
-  return `sf-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+  return generateId('sf', { randomLength: 4 });
 }
 
 function fieldValue(record, field) {

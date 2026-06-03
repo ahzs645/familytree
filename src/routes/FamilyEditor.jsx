@@ -38,9 +38,11 @@ import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { generateId } from '../lib/ids.js';
+import { formClasses } from '../components/ui/formClasses.js';
 
 function uuid(p) {
-  return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(p);
 }
 
 const ACCENTS = {
@@ -59,7 +61,7 @@ const ACCENTS = {
   edited: 'rgb(191 128 64)',
 };
 
-const inputClass = 'w-full bg-background text-foreground border border-border rounded-md px-2.5 py-2 text-sm outline-none focus:border-primary';
+const inputClass = formClasses.input;
 
 function Field({ label, children }) {
   return (

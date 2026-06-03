@@ -1,7 +1,7 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 import { runPlausibilityChecks } from './plausibility.js';
 import { readConclusionType, readField, readRef } from './schema.js';
-import { personSummary, familySummary, placeSummary, sourceSummary, Gender, NO_NAME } from '../models/index.js';
+import { personSummary, familySummary, placeSummary, sourceSummary, genderLabel, NO_NAME } from '../models/index.js';
 import { parseEventDate, formatEventDate } from '../utils/formatDate.js';
 import { compareStrings, getCurrentLocalization, localeWithExtensions } from './i18n.js';
 import { loadResearchCompleteness } from './researchCompleteness.js';
@@ -17,18 +17,8 @@ import { humanizeType } from '../utils/humanizeType.js';
 
 export const MEDIA_RECORD_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 
-export function genderLabel(gender) {
-  switch (gender) {
-    case Gender.Male:
-      return 'Male';
-    case Gender.Female:
-      return 'Female';
-    case Gender.Intersex:
-      return 'Intersex';
-    default:
-      return 'Unknown';
-  }
-}
+// Re-exported from models so existing `import { genderLabel } from '.../listData.js'` callers keep working.
+export { genderLabel };
 
 export function yearOf(raw) {
   const match = String(raw || '').match(/(\d{4})/);

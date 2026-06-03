@@ -25,16 +25,18 @@ import {
   writeCitationEvidenceFields,
 } from '../../lib/citationEvidence.js';
 import { BdiText } from '../BdiText.jsx';
+import { generateId } from '../../lib/ids.js';
+import { formClasses } from '../ui/formClasses.js';
 
 const MEDIA_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 const CITABLE_TARGET_TYPES = ['Person', 'Family', 'Place', 'PersonEvent', 'FamilyEvent', 'PersonFact', 'TribalAffiliation', 'TribalAffiliationRelation', ...MEDIA_TYPES];
 
-const inputClass = 'w-full bg-background text-foreground border border-border rounded-md px-2 py-1.5 text-xs outline-none focus:border-primary';
-const buttonClass = 'border border-border rounded-md px-2.5 py-1.5 text-xs hover:bg-accent disabled:opacity-50';
-const primaryButtonClass = 'bg-secondary border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50';
+const inputClass = formClasses.inputCompact;
+const buttonClass = formClasses.buttonSecondary;
+const primaryButtonClass = formClasses.buttonPrimary;
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 function fieldText(record, names) {

@@ -5,6 +5,7 @@
  */
 import { getLocalDatabase } from './LocalDatabase.js';
 import { normalizeChartDocument } from './chartDocumentSchema.js';
+import { generateId } from './ids.js';
 
 const META_KEY = 'savedChartDocuments';
 
@@ -39,5 +40,5 @@ export async function deleteChartDocument(id) {
 }
 
 export function newChartDocumentId() {
-  return 'chartdoc-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  return generateId('chartdoc');
 }

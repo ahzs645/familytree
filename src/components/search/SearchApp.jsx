@@ -8,6 +8,7 @@ import { ENTITY_TYPES, SEARCH_FIELDS, FILTER_OPS, runSearch } from '../../lib/se
 import { listAllScopes, runScope } from '../../lib/smartScopes.js';
 import { applySearchReplace, previewSearchReplace, replaceableFields, undoLastSearchReplace } from '../../lib/searchReplace.js';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
+import { generateId } from '../../lib/ids.js';
 import { FilterRow } from './FilterRow.jsx';
 import { SearchResults } from './SearchResults.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
@@ -75,7 +76,7 @@ export function SearchApp() {
     const db = getLocalDatabase();
     const list = Array.isArray(await db.getMeta(SAVED_SEARCHES_KEY)) ? await db.getMeta(SAVED_SEARCHES_KEY) : [];
     const entry = {
-      id: `ss-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      id: generateId('ss', { randomLength: 4 }),
       name,
       entityType,
       textQuery,

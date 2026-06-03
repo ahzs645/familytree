@@ -3,6 +3,7 @@
  */
 import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
+import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutFan } from './layouts/fanLayout.js';
 import { formatVitalDateParts } from '../../lib/vitalFormat.js';
@@ -43,7 +44,7 @@ export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT
     () => layoutFan(tree, generations, { arcDegrees }),
     [tree, generations, arcDegrees]
   );
-  if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+  if (!tree) return <ChartEmptyState theme={theme} />;
 
   const cx = size / 2;
   const cy = size / 2;

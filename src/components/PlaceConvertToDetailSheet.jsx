@@ -15,6 +15,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Sheet } from './ui/Sheet.jsx';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { generateId } from '../lib/ids.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { readField } from '../lib/schema.js';
 
@@ -205,7 +206,7 @@ async function convertPlaceToDetail({ placeRecordName, parentRecordName, detailN
   }
 
   const detail = {
-    recordName: `placedetail-convert-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    recordName: generateId('placedetail-convert', { randomLength: 4 }),
     recordType: 'PlaceDetail',
     fields: {
       place: { value: refValue(parentRecordName, 'Place'), type: 'REFERENCE' },

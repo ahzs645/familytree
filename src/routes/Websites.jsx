@@ -5,6 +5,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { buildSite, downloadSite, validateSiteExport } from '../lib/websiteExport.js';
+import { formClasses } from '../components/ui/formClasses.js';
 import {
   DEFAULT_SITE_OPTIONS,
   addSiteTheme,
@@ -30,7 +31,7 @@ import { useModal } from '../contexts/ModalContext.jsx';
 
 const buttonPrimary = 'rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold disabled:opacity-50';
 const buttonSecondary = 'rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50';
-const inputClass = 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary';
+const inputClass = formClasses.input;
 
 export default function Websites() {
   const modal = useModal();

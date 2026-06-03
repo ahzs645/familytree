@@ -17,12 +17,13 @@ import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { ImportDropZone } from '../components/ImportDropZone.jsx';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { generateId } from '../lib/ids.js';
 import { logRecordCreated } from '../lib/changeLog.js';
 import { saveActiveTree, startNewTree, upsertActiveTreeSnapshot } from '../lib/treeLibrary.js';
 import { Gender } from '../models/index.js';
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 const GENDER_OPTIONS = [

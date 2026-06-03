@@ -2,11 +2,12 @@ import { getLocalDatabase } from './LocalDatabase.js';
 import { comparePeopleByBirthThenName, loadFamilyGraph, personDisplayName } from './familyGraph.js';
 import { writeRef } from './schema.js';
 import { logRecordCreated } from './changeLog.js';
+import { generateId } from './ids.js';
 
 const META_KEY = 'lineageDefinitions';
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 export async function listLineageDefinitions() {

@@ -12,9 +12,10 @@
  */
 import React from 'react';
 import { readRef } from '../../lib/schema.js';
+import { formClasses } from '../ui/formClasses.js';
 
 export function inputClass() {
-  return 'w-full bg-background text-foreground border border-border rounded-md px-2.5 py-2 text-sm outline-none focus:border-primary';
+  return formClasses.input;
 }
 
 export function Field({ label, children, hint }) {

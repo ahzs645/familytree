@@ -667,6 +667,44 @@
     "newTitle": "مهمة جديدة",
     "newButton": "+ جديدة",
     "wizardButton": "معالج المهام…",
+    "wizard": {
+      "title": "معالج المهام",
+      "analyzing": "جارٍ تحليل شجرتك…",
+      "generatorsHeading": "المُولِّد",
+      "personsHeading": "الأشخاص",
+      "scopeAll": "تضمين جميع الأشخاص",
+      "scopePerson": "شخص محدد",
+      "selectPerson": "اختر شخصًا…",
+      "filterPlaceholder": "تصفية الأشخاص…",
+      "toggleVisible": "تبديل المرئي",
+      "noCreator": "اختر مُولِّدًا لمعاينة المهام التي سيُنشئها.",
+      "noMatches": "لا يحتاج أي شخص إلى هذه المهمة.",
+      "emptyAll": "لم يتم العثور على أي اقتراحات مفتوحة في شجرة العائلة هذه.",
+      "pickOne": "اختر شخصًا واحدًا على الأقل لإنشاء المهام له.",
+      "count": {
+        "zero": "لا شيء لإنشائه",
+        "one": "مهمة {count} للإنشاء",
+        "other": "{count} مهام للإنشاء"
+      },
+      "create": {
+        "one": "إنشاء مهمة {count}",
+        "other": "إنشاء {count} مهام"
+      },
+      "creating": "جارٍ الإنشاء…",
+      "created": {
+        "one": "تم إنشاء مهمة {count}.",
+        "other": "تم إنشاء {count} مهام."
+      },
+      "cancel": "إلغاء",
+      "explanation": {
+        "findBirthRecord": "يضيف مهمة بحث لكل شخص ليس له تاريخ ميلاد مسجل.",
+        "findDeathRecord": "يضيف مهمة بحث للأشخاص الأكبر سنًا الذين ليس لهم وفاة مسجلة.",
+        "identifyParents": "يضيف مهمة بحث لكل شخص والداه غير معروفين.",
+        "identifySpousesChildren": "يضيف مهمة بحث لكل شخص ليس له زوج أو أطفال مسجلون.",
+        "addPortraitPhoto": "يضيف مهمة لإرفاق صورة شخصية لكل شخص ليس له صورة.",
+        "confirmFullName": "يضيف مهمة لتأكيد الاسم الكامل لكل شخص باسم غير مكتمل."
+      }
+    },
     "deleteCompleted": "حذف المكتملة",
     "noCompleted": "لا توجد مهام مكتملة للحذف.",
     "deleteCompletedConfirm": {

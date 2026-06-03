@@ -4,6 +4,7 @@
  */
 import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
+import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutDescendants } from './layouts/descendantLayout.js';
@@ -12,7 +13,7 @@ const PADDING = 30;
 
 export function DescendantChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const { nodes, links } = useMemo(() => layoutDescendants(tree, theme), [tree, theme]);
-  if (!tree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+  if (!tree) return <ChartEmptyState theme={theme} />;
 
   return (
     <ChartCanvas

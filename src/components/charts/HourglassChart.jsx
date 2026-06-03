@@ -5,10 +5,12 @@
  */
 import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
+import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutDescendants } from './layouts/descendantLayout.js';
 import { layoutAncestorsUpward } from './layouts/ancestorUpwardLayout.js';
+import { translateSvgPath } from './layouts/pathUtils.js';
 
 const PADDING = 40;
 
@@ -28,10 +30,7 @@ export function HourglassChart({ ancestorTree, descendantTree, generations = 4, 
       .filter((n) => n.id !== rootId)
       .map((n) => ({ ...n, x: n.x + dx, y: n.y + dy }));
     const lowerLinks = descendants.links.map((l) => ({
-      d: l.d
-        .replace(/M ([\d.]+) ([\d.]+)/g, (_, x, y) => `M ${parseFloat(x) + dx} ${parseFloat(y) + dy}`)
-        .replace(/H ([\d.]+)/g, (_, x) => `H ${parseFloat(x) + dx}`)
-        .replace(/V ([\d.]+)/g, (_, y) => `V ${parseFloat(y) + dy}`),
+      d: translateSvgPath(l.d, dx, dy),
     }));
 
     const allNodes = [...upper.nodes, ...lowerNodes];
@@ -43,7 +42,7 @@ export function HourglassChart({ ancestorTree, descendantTree, generations = 4, 
     };
   }, [ancestorTree, descendantTree, generations, theme]);
 
-  if (!ancestorTree) return <div style={{ padding: 24, color: theme.textMuted }}>No person selected.</div>;
+  if (!ancestorTree) return <ChartEmptyState theme={theme} />;
 
   return (
     <ChartCanvas

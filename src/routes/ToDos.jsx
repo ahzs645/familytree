@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { generateId } from '../lib/ids.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary, sourceSummary, placeSummary } from '../models/index.js';
@@ -31,7 +32,7 @@ const TODO_PRIORITY_OPTIONS = ['Low', 'Normal', 'High'];
 const COMPLETED_STATUSES = new Set(['done', 'completed', 'complete', 'closed']);
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
 function todoTitle(record, fallback = 'ToDo') {

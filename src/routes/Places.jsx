@@ -6,6 +6,8 @@
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { generateId } from '../lib/ids.js';
+import { formClasses } from '../components/ui/formClasses.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { placeSummary } from '../models/index.js';
@@ -45,7 +47,7 @@ import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 
 function uuid(p) {
-  return `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(p);
 }
 
 const ACCENTS = {
@@ -63,7 +65,7 @@ const ACCENTS = {
   edited: 'rgb(191 128 64)',
 };
 
-const inputClass = 'w-full bg-background text-foreground border border-border rounded-md px-2.5 py-2 text-sm outline-none focus:border-primary';
+const inputClass = formClasses.input;
 
 function Field({ label, children }) {
   return (

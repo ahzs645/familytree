@@ -9,12 +9,14 @@ import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../../lib
 import { MasterDetailList } from './MasterDetailList.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { readRef, refValue } from '../../lib/schema.js';
+import { generateId } from '../../lib/ids.js';
+import { formClasses } from '../ui/formClasses.js';
 
 function uuid(prefix) {
-  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  return generateId(prefix);
 }
 
-const inputClass = 'w-full bg-background text-foreground border border-border rounded-md px-2.5 py-2 text-sm outline-none focus:border-primary';
+const inputClass = formClasses.input;
 
 export function SimpleCrudList({
   recordType,

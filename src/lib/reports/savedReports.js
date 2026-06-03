@@ -5,6 +5,7 @@
  * content is regenerated each time from live data so saved reports stay current.
  */
 import { getLocalDatabase } from '../LocalDatabase.js';
+import { generateId } from '../ids.js';
 
 const META_KEY = 'savedReports';
 
@@ -45,7 +46,7 @@ export async function renameSavedReport(id, name) {
 }
 
 export function newReportId() {
-  return 'rpt-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+  return generateId('rpt');
 }
 
 /** Apply page-style options (pagination, background) to a generated report AST. */
