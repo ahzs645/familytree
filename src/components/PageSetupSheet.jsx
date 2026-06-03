@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Sheet } from './ui/Sheet.jsx';
 
 /**
  * PageSetupSheet — modal that edits a pageSetup block
@@ -63,13 +64,18 @@ export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, t
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 pt-[10vh]" role="dialog" aria-modal="true">
-      <div className="w-full max-w-md rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden">
-        <header className="px-4 py-3 border-b border-border">
-          <h2 className="text-sm font-semibold">{title}</h2>
-        </header>
-        <div className="p-4 space-y-3 text-xs">
-          <div className="grid grid-cols-2 gap-2">
+    <Sheet
+      title={title}
+      maxWidth="max-w-md"
+      bodyClassName="p-4 space-y-3 text-xs"
+      footer={(
+        <>
+          <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
+          <button type="button" onClick={apply} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90">Apply</button>
+        </>
+      )}
+    >
+      <div className="grid grid-cols-2 gap-2">
             <label className="block">Paper size
               <select value={draft.paperSize} onChange={(e) => set('paperSize', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2">
                 <option value="letter">Letter (8.5 × 11)</option>
@@ -152,13 +158,7 @@ export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, t
             )}
             <label className="flex items-center gap-2 mt-2"><input type="checkbox" checked={draft.exportIncludeBackground} onChange={(e) => set('exportIncludeBackground', e.target.checked)} /> Include background in export</label>
           </fieldset>
-        </div>
-        <footer className="px-4 py-3 border-t border-border flex items-center justify-end gap-2">
-          <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
-          <button type="button" onClick={apply} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90">Apply</button>
-        </footer>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 

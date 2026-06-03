@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { planMerge, mergeBackupJSONWithResolutions, CONFLICT_RESOLUTION } from '../lib/mergeImport.js';
 import { MergeConflictSheet } from './MergeConflictSheet.jsx';
+import { Sheet } from './ui/Sheet.jsx';
 
 /**
  * MergeTreesWizardSheet — multi-step wizard for merging two family trees.
@@ -115,14 +116,26 @@ export function MergeTreesWizardSheet({ onClose, onComplete }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 pt-[10vh]" role="dialog" aria-modal="true">
-      <div className="w-full max-w-xl rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden">
-        <header className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Merge trees</h2>
-          <div className="text-xs text-muted-foreground">Step {STEPS.indexOf(step) + 1} of {STEPS.length}</div>
-        </header>
-        <div className="p-4 space-y-3 text-xs">
-          {error && <div className="text-destructive">{error}</div>}
+    <Sheet
+      title="Merge trees"
+      headerClassName="flex items-center justify-between"
+      headerExtra={<div className="text-xs text-muted-foreground">Step {STEPS.indexOf(step) + 1} of {STEPS.length}</div>}
+      maxWidth="max-w-xl"
+      bodyClassName="p-4 space-y-3 text-xs"
+      footerClassName="flex items-center justify-between"
+      footer={(
+        <>
+          <button type="button" onClick={onClose} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">
+            {step === 'done' ? 'Close' : 'Cancel'}
+          </button>
+          <div className="flex items-center gap-2">
+            {step === 'mode' && <button onClick={goToPlan} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">Analyze</button>}
+            {step === 'plan' && <button onClick={proceedFromPlan} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">Apply merge</button>}
+          </div>
+        </>
+      )}
+    >
+      {error && <div className="text-destructive">{error}</div>}
           {step === 'file' && (
             <div className="space-y-2">
               <p className="text-muted-foreground">Choose a CloudTreeWeb backup .json file to merge into the current tree.</p>
@@ -163,18 +176,7 @@ export function MergeTreesWizardSheet({ onClose, onComplete }) {
               <div>Assets saved: {result.savedAssets ?? result.assets?.length ?? 0}</div>
             </div>
           )}
-        </div>
-        <footer className="px-4 py-3 border-t border-border flex items-center justify-between">
-          <button type="button" onClick={onClose} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">
-            {step === 'done' ? 'Close' : 'Cancel'}
-          </button>
-          <div className="flex items-center gap-2">
-            {step === 'mode' && <button onClick={goToPlan} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">Analyze</button>}
-            {step === 'plan' && <button onClick={proceedFromPlan} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">Apply merge</button>}
-          </div>
-        </footer>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 

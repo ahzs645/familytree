@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Sheet } from './ui/Sheet.jsx';
 
 /**
  * ImageEditingSheet — modal canvas-based editor for a single image.
@@ -109,13 +110,21 @@ export function ImageEditingSheet({ src, onApply, onCancel, title = 'Edit image'
   const onCanvasPointerUp = () => setDrag(null);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-3xl rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden">
-        <header className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <h2 className="text-sm font-semibold">{title}</h2>
-        </header>
-        <div className="flex flex-col md:flex-row">
-          <div className="flex-1 p-4 bg-black/30 flex items-center justify-center min-h-[320px]">
+    <Sheet
+      title={title}
+      headerClassName="flex items-center justify-between"
+      backdrop="bg-black/60"
+      align="center"
+      maxWidth="max-w-3xl"
+      bodyClassName="flex flex-col md:flex-row"
+      footer={(
+        <>
+          <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
+          <button type="button" onClick={apply} disabled={!ready} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50">Apply</button>
+        </>
+      )}
+    >
+      <div className="flex-1 p-4 bg-black/30 flex items-center justify-center min-h-[320px]">
             {ready ? (
               <canvas
                 ref={canvasRef}
@@ -158,13 +167,7 @@ export function ImageEditingSheet({ src, onApply, onCancel, title = 'Edit image'
               Reset
             </button>
           </div>
-        </div>
-        <footer className="px-4 py-3 border-t border-border flex items-center justify-end gap-2">
-          <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
-          <button type="button" onClick={apply} disabled={!ready} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50">Apply</button>
-        </footer>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 

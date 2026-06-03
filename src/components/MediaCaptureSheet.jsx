@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Sheet } from './ui/Sheet.jsx';
 
 /**
  * MediaCaptureSheet — unified capture sheet for picture/audio/video/scan.
@@ -114,13 +115,19 @@ export function MediaCaptureSheet({ mode = 'picture', onApply, onCancel }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-xl rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden">
-        <header className="px-4 py-3 border-b border-border">
-          <h2 className="text-sm font-semibold">{labels[mode] || 'Capture'}</h2>
-        </header>
-        <div className="p-4 space-y-3">
-          {error ? (
+    <Sheet
+      title={labels[mode] || 'Capture'}
+      backdrop="bg-black/60"
+      align="center"
+      maxWidth="max-w-xl"
+      footer={(
+        <>
+          <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
+          <button type="button" onClick={apply} disabled={!preview} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50">Save</button>
+        </>
+      )}
+    >
+      {error ? (
             <div className="text-xs text-destructive">{error}</div>
           ) : mode === 'audio' ? (
             <div className="text-xs text-muted-foreground">Microphone active. Click Record to start.</div>
@@ -152,13 +159,7 @@ export function MediaCaptureSheet({ mode = 'picture', onApply, onCancel }) {
               <button onClick={() => setPreview(null)} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Retake</button>
             )}
           </div>
-        </div>
-        <footer className="px-4 py-3 border-t border-border flex items-center justify-end gap-2">
-          <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
-          <button type="button" onClick={apply} disabled={!preview} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50">Save</button>
-        </footer>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 

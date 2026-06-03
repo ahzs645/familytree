@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { CONFLICT_RESOLUTION } from '../lib/mergeImport.js';
+import { Sheet } from './ui/Sheet.jsx';
 
 const RESOLUTION_LABELS = {
   [CONFLICT_RESOLUTION.KEEP_EXISTING]: 'Keep current',
@@ -40,24 +41,40 @@ export function MergeConflictSheet({ plan, onApply, onCancel }) {
   }, [resolutions]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 pt-[8vh]" role="dialog" aria-modal="true" aria-label="Resolve merge conflicts">
-      <div className="w-full max-w-3xl rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-        <header className="px-4 py-3 border-b border-border">
-          <h2 className="text-sm font-semibold">Resolve merge conflicts</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {conflictCount} record{conflictCount === 1 ? '' : 's'} already exist with different values.
-            {plan?.newRecords?.length ? ` ${plan.newRecords.length} new record${plan.newRecords.length === 1 ? '' : 's'} will be added automatically.` : ''}
-          </p>
-          <div className="flex items-center gap-2 mt-2 text-xs">
-            <span className="text-muted-foreground">Bulk:</span>
-            <button type="button" onClick={() => setAll(CONFLICT_RESOLUTION.KEEP_EXISTING)} className="border border-border rounded-md px-2.5 py-1 hover:bg-accent">Keep current all</button>
-            <button type="button" onClick={() => setAll(CONFLICT_RESOLUTION.USE_INCOMING)} className="border border-border rounded-md px-2.5 py-1 hover:bg-accent">Use incoming all</button>
-            <button type="button" onClick={() => setAll(CONFLICT_RESOLUTION.RENAME_INCOMING)} className="border border-border rounded-md px-2.5 py-1 hover:bg-accent">Keep both all</button>
+    <Sheet
+      ariaLabel="Resolve merge conflicts"
+      offset="pt-[8vh]"
+      maxWidth="max-w-3xl"
+      scroll="card"
+      maxHeight="max-h-[80vh]"
+      bodyClassName="p-4 space-y-4"
+      title="Resolve merge conflicts"
+      subtitle={(
+        <>
+          {conflictCount} record{conflictCount === 1 ? '' : 's'} already exist with different values.
+          {plan?.newRecords?.length ? ` ${plan.newRecords.length} new record${plan.newRecords.length === 1 ? '' : 's'} will be added automatically.` : ''}
+        </>
+      )}
+      headerExtra={(
+        <div className="flex items-center gap-2 mt-2 text-xs">
+          <span className="text-muted-foreground">Bulk:</span>
+          <button type="button" onClick={() => setAll(CONFLICT_RESOLUTION.KEEP_EXISTING)} className="border border-border rounded-md px-2.5 py-1 hover:bg-accent">Keep current all</button>
+          <button type="button" onClick={() => setAll(CONFLICT_RESOLUTION.USE_INCOMING)} className="border border-border rounded-md px-2.5 py-1 hover:bg-accent">Use incoming all</button>
+          <button type="button" onClick={() => setAll(CONFLICT_RESOLUTION.RENAME_INCOMING)} className="border border-border rounded-md px-2.5 py-1 hover:bg-accent">Keep both all</button>
+        </div>
+      )}
+      footerClassName="flex items-center gap-2"
+      footer={(
+        <>
+          <div className="text-xs text-muted-foreground flex-1">
+            Kept current: {summary.existing} · Used incoming: {summary.incoming} · Kept both: {summary.rename}
           </div>
-        </header>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {(plan?.conflicts || []).map((entry) => (
+          <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
+          <button type="button" onClick={() => onApply(resolutions)} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90">Apply merge</button>
+        </>
+      )}
+    >
+      {(plan?.conflicts || []).map((entry) => (
             <article key={entry.recordName} className="border border-border rounded-md p-3">
               <header className="flex items-center justify-between mb-2">
                 <div className="text-xs font-semibold truncate">
@@ -109,17 +126,7 @@ export function MergeConflictSheet({ plan, onApply, onCancel }) {
               </div>
             </article>
           ) : null}
-        </div>
-
-        <footer className="px-4 py-3 border-t border-border flex items-center gap-2">
-          <div className="text-xs text-muted-foreground flex-1">
-            Kept current: {summary.existing} · Used incoming: {summary.incoming} · Kept both: {summary.rename}
-          </div>
-          <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
-          <button type="button" onClick={() => onApply(resolutions)} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90">Apply merge</button>
-        </footer>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 

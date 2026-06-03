@@ -7,6 +7,7 @@
  * status. Saves resolved coordinates through `buildCoordinateRecord`.
  */
 import React, { useEffect, useMemo, useState } from 'react';
+import { Sheet } from './ui/Sheet.jsx';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { refValue } from '../lib/recordRef.js';
 import { readRef } from '../lib/schema.js';
@@ -127,28 +128,42 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 pt-[6vh]" role="dialog" aria-modal="true" aria-label="Batch place lookup">
-      <div className="w-full max-w-3xl rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-        <header className="px-4 py-3 border-b border-border">
-          <h2 className="text-sm font-semibold">Batch Place Lookup</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Look up coordinates for places that don't have a Coordinate record yet. Uses Nominatim (OpenStreetMap); respects the shared request rate.
-          </p>
-          {rows && (
-            <div className="flex items-center gap-2 mt-2 text-xs flex-wrap">
-              <span className="text-muted-foreground">{summary.total} place{summary.total === 1 ? '' : 's'} missing coordinates · {summary.selected} selected</span>
-              {summary.matched > 0 && <span className="text-emerald-500">{summary.matched} matched</span>}
-              {summary.noMatch > 0 && <span className="text-muted-foreground">{summary.noMatch} no match</span>}
-              {summary.errors > 0 && <span className="text-destructive">{summary.errors} errors</span>}
-              <div className="ms-auto flex gap-1">
-                <button type="button" onClick={() => toggleAll(true)} disabled={running} className="border border-border rounded-md px-2 py-0.5 hover:bg-accent">Select all</button>
-                <button type="button" onClick={() => toggleAll(false)} disabled={running} className="border border-border rounded-md px-2 py-0.5 hover:bg-accent">Select none</button>
-              </div>
-            </div>
-          )}
-        </header>
-
-        <div className="flex-1 overflow-y-auto p-3">
+    <Sheet
+      ariaLabel="Batch place lookup"
+      offset="pt-[6vh]"
+      maxWidth="max-w-3xl"
+      scroll="card"
+      maxHeight="max-h-[85vh]"
+      bodyClassName="p-3"
+      title="Batch Place Lookup"
+      subtitle="Look up coordinates for places that don't have a Coordinate record yet. Uses Nominatim (OpenStreetMap); respects the shared request rate."
+      headerExtra={rows && (
+        <div className="flex items-center gap-2 mt-2 text-xs flex-wrap">
+          <span className="text-muted-foreground">{summary.total} place{summary.total === 1 ? '' : 's'} missing coordinates · {summary.selected} selected</span>
+          {summary.matched > 0 && <span className="text-emerald-500">{summary.matched} matched</span>}
+          {summary.noMatch > 0 && <span className="text-muted-foreground">{summary.noMatch} no match</span>}
+          {summary.errors > 0 && <span className="text-destructive">{summary.errors} errors</span>}
+          <div className="ms-auto flex gap-1">
+            <button type="button" onClick={() => toggleAll(true)} disabled={running} className="border border-border rounded-md px-2 py-0.5 hover:bg-accent">Select all</button>
+            <button type="button" onClick={() => toggleAll(false)} disabled={running} className="border border-border rounded-md px-2 py-0.5 hover:bg-accent">Select none</button>
+          </div>
+        </div>
+      )}
+      footerClassName="flex items-center gap-2"
+      footer={(
+        <>
+          <button type="button" onClick={onClose} disabled={running} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Close</button>
+          <button
+            type="button"
+            onClick={run}
+            disabled={running || !rows || summary.selected === 0}
+            className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
+          >
+            {running ? 'Running…' : `Look up ${summary.selected} place${summary.selected === 1 ? '' : 's'}`}
+          </button>
+        </>
+      )}
+    >
           {error && <div className="text-sm text-destructive mb-3">{error}</div>}
           {!rows ? (
             <div className="text-sm text-muted-foreground">Loading places…</div>
@@ -176,21 +191,7 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
               ))}
             </ul>
           )}
-        </div>
-
-        <footer className="px-4 py-3 border-t border-border flex items-center gap-2">
-          <button type="button" onClick={onClose} disabled={running} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Close</button>
-          <button
-            type="button"
-            onClick={run}
-            disabled={running || !rows || summary.selected === 0}
-            className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
-          >
-            {running ? 'Running…' : `Look up ${summary.selected} place${summary.selected === 1 ? '' : 's'}`}
-          </button>
-        </footer>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 

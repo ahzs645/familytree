@@ -13,6 +13,7 @@
  *        - deletes the collapsed Place record
  */
 import React, { useEffect, useMemo, useState } from 'react';
+import { Sheet } from './ui/Sheet.jsx';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { readField } from '../lib/schema.js';
@@ -99,16 +100,34 @@ export function PlaceConvertToDetailSheet({ placeRecordName, onClose, onConverte
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 pt-[8vh]" role="dialog" aria-modal="true" aria-label="Convert Place to Detail">
-      <div className="w-full max-w-xl rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-        <header className="px-4 py-3 border-b border-border">
-          <h2 className="text-sm font-semibold">Convert Place to Detail</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            Collapse <span className="text-foreground font-medium">{placeLabel || '(this place)'}</span> into a PlaceDetail of a parent place.
-            Every reference to this place will be rewired to the parent, and the original Place record will be deleted.
-          </p>
-        </header>
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+    <Sheet
+      ariaLabel="Convert Place to Detail"
+      offset="pt-[8vh]"
+      maxWidth="max-w-xl"
+      scroll="card"
+      maxHeight="max-h-[80vh]"
+      title="Convert Place to Detail"
+      subtitle={(
+        <>
+          Collapse <span className="text-foreground font-medium">{placeLabel || '(this place)'}</span> into a PlaceDetail of a parent place.
+          Every reference to this place will be rewired to the parent, and the original Place record will be deleted.
+        </>
+      )}
+      footerClassName="flex items-center gap-2"
+      footer={(
+        <>
+          <button type="button" onClick={onClose} disabled={running} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
+          <button
+            type="button"
+            onClick={run}
+            disabled={running || !parentId || !detailName.trim()}
+            className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
+          >
+            {running ? 'Converting…' : 'Convert'}
+          </button>
+        </>
+      )}
+    >
           {error && <div className="text-sm text-destructive">{error}</div>}
           <label className="block text-xs font-medium">
             Parent place
@@ -150,20 +169,7 @@ export function PlaceConvertToDetailSheet({ placeRecordName, onClose, onConverte
               </>
             )}
           </div>
-        </div>
-        <footer className="px-4 py-3 border-t border-border flex items-center gap-2">
-          <button type="button" onClick={onClose} disabled={running} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
-          <button
-            type="button"
-            onClick={run}
-            disabled={running || !parentId || !detailName.trim()}
-            className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
-          >
-            {running ? 'Converting…' : 'Convert'}
-          </button>
-        </footer>
-      </div>
-    </div>
+    </Sheet>
   );
 }
 

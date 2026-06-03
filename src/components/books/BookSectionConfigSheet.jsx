@@ -1,5 +1,6 @@
 import React from 'react';
 import { SectionEditor } from './SectionEditor.jsx';
+import { Sheet } from '../ui/Sheet.jsx';
 
 /**
  * BookSectionConfigSheet — modal wrapper around the inline SectionEditor so
@@ -26,30 +27,31 @@ export function BookSectionConfigSheet({
 }) {
   const headerTitle = title || `Configure section ${index + 1}`;
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 pt-[8vh]" role="dialog" aria-modal="true">
-      <div className="w-full max-w-2xl rounded-lg border border-border bg-popover text-popover-foreground shadow-2xl overflow-hidden">
-        <header className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <h2 className="text-sm font-semibold">{headerTitle}</h2>
-        </header>
-        <div className="p-4 max-h-[70vh] overflow-auto">
-          <SectionEditor
-            section={section}
-            persons={persons}
-            groups={groups}
-            sources={sources}
-            onChange={onChange}
-            onRemove={() => { onRemove?.(); onClose?.(); }}
-            onMoveUp={() => {}}
-            onMoveDown={() => {}}
-            index={index}
-            total={total}
-          />
-        </div>
-        <footer className="px-4 py-3 border-t border-border flex items-center justify-end gap-2">
-          <button type="button" onClick={onClose} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90">Done</button>
-        </footer>
-      </div>
-    </div>
+    <Sheet
+      title={headerTitle}
+      headerClassName="flex items-center justify-between"
+      maxWidth="max-w-2xl"
+      offset="pt-[8vh]"
+      bodyClassName="p-4"
+      scroll="body"
+      maxHeight="max-h-[70vh]"
+      footer={(
+        <button type="button" onClick={onClose} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90">Done</button>
+      )}
+    >
+      <SectionEditor
+        section={section}
+        persons={persons}
+        groups={groups}
+        sources={sources}
+        onChange={onChange}
+        onRemove={() => { onRemove?.(); onClose?.(); }}
+        onMoveUp={() => {}}
+        onMoveDown={() => {}}
+        index={index}
+        total={total}
+      />
+    </Sheet>
   );
 }
 
