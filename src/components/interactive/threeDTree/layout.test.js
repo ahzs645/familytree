@@ -132,13 +132,23 @@ describe('buildInteractiveLayout', () => {
       const ids = link.nodeIds || [];
       return ids.includes('father') && ids.includes('mother');
     })).toBe(true);
-    // The root's connector rises from the sibling bus above the root's top edge.
+    // The sibling bus runs at the small figures' head level: above the row
+    // baseline but BELOW the featured medallion's top (it passes behind it,
+    // like the native viewer), instead of riding along the band edge.
     const rootLink = familyLinks.find((link) => (link.nodeIds || []).includes('root'));
     expect(rootLink).toBeTruthy();
-    const highestPointY = Math.max(...rootLink.points.map((point) => point.y));
-    // The connector rises from the sibling bus above the root node toward the
-    // parents (threshold kept node-size-agnostic).
-    expect(highestPointY).toBeGreaterThan(nodes.get('root').y + 48);
+    const busY = Math.max(...rootLink.points.map((point) => point.y));
+    expect(busY).toBeGreaterThan(nodes.get('root').y + 20);
+    expect(busY).toBeLessThan(nodes.get('root').y + 96);
+    // The trunk (the segment owned by both parents) crosses the gutter from the
+    // couple bar down to the children's bus level.
+    const trunk = familyLinks.find((link) => {
+      const ids = link.nodeIds || [];
+      return ids.includes('father') && ids.includes('mother') && (link.points?.length || 0) >= 3;
+    });
+    expect(trunk).toBeTruthy();
+    expect(Math.max(...trunk.points.map((point) => point.y))).toBeGreaterThan(nodes.get('root').y + 150);
+    expect(Math.min(...trunk.points.map((point) => point.y))).toBeLessThan(nodes.get('root').y + 96);
     expect(layout.bands.find((band) => band.generation === 0)).toMatchObject({
       count: 2,
       title: 'Root Generation',

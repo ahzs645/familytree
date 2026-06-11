@@ -1,5 +1,7 @@
 export const MAC_FAMILY_GRAPH_LAYOUT = {
-  generationStep: 322,
+  // Tight rows like the native viewer — bands nearly abut (~30% band-height
+  // gutter) so inter-generation connectors stay short.
+  generationStep: 248,
   childGap: 146,
   rootCardWidth: 640,
   familyPadding: 120,
@@ -30,6 +32,8 @@ export const MAC_FAMILY_GRAPH_LAYOUT = {
   regularHorizontalConnectorRadius: 60,
   featuredHorizontalConnectorRadius: 90,
   childBusGap: 22,
+  // How far below the spouses' body centres the couple/union bar runs.
+  coupleBarDrop: 30,
   parentBridgeGap: 28,
   familyRouteSplitGap: 260,
   maxFamilyHorizontalSpan: 820,

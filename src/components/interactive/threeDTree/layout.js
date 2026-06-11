@@ -266,10 +266,7 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     maxDepth: MAX_DEPTH,
     visibleXRadius: VISIBLE_X_RADIUS,
     childBusGap: CHILD_BUS_GAP,
-    parentBridgeGap: PARENT_BRIDGE_GAP,
-    familyRouteSplitGap: FAMILY_ROUTE_SPLIT_GAP,
-    maxFamilyHorizontalSpan: MAX_FAMILY_HORIZONTAL_SPAN,
-    maxParentBridgeSpan: MAX_PARENT_BRIDGE_SPAN,
+    coupleBarDrop: COUPLE_BAR_DROP,
   } = MAC_FAMILY_GRAPH_LAYOUT;
   const placedById = new Map();
   const routedLinks = [];
@@ -423,10 +420,12 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       const parentBranch = buildBranch(parents[0], generation - 1, depth + 1, side || -1);
       mergeBranch(nodes, extents, parentBranch, 0);
     } else if (parents.length === 2) {
-      // Once on a side, stay on it; at the root the first split sends the
-      // father lineage left and the mother lineage right.
-      const fatherBranch = buildBranch(parents[0], generation - 1, depth + 1, side !== 0 ? side : -1);
-      const motherBranch = buildBranch(parents[1], generation - 1, depth + 1, side !== 0 ? side : 1);
+      // Spouses FACE each other like the native viewer: the father's siblings
+      // always fan left of him and the mother's right of her, so the couple
+      // stands adjacent in the middle and their union bar stays short (instead
+      // of slicing across a whole sibling holder).
+      const fatherBranch = buildBranch(parents[0], generation - 1, depth + 1, -1);
+      const motherBranch = buildBranch(parents[1], generation - 1, depth + 1, 1);
       const separation = Math.max(PARTNER_GAP, requiredSeparation(fatherBranch, motherBranch));
       mergeBranch(nodes, extents, fatherBranch, -separation / 2);
       mergeBranch(nodes, extents, motherBranch, separation / 2);
@@ -538,75 +537,74 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     const childY = -generation * GENERATION_STEP_SCALED;
     const parentY = parents[0].y;
     const direction = Math.sign(parentY - childY || 1);
-    const parentAttachPoints = parents.map((parent) => ({
-      node: parent,
-      x: parent.x,
-      y: parent.y - direction * nodeVerticalRadius(parent),
-    }));
-    const nearestParentAttachY = direction > 0
-      ? Math.min(...parentAttachPoints.map((point) => point.y))
-      : Math.max(...parentAttachPoints.map((point) => point.y));
-    const preferredBridgeY = nearestParentAttachY - direction * PARENT_BRIDGE_GAP;
     const emphasis = family.id === rootFamily?.id || family.parents.some((id) => id === familyGraph.rootId);
 
-    // ONE connector assembly per family (no per-cluster fragmentation, which
-    // produced forked/duplicate trunks). MFT's model: couple bar -> single
-    // trunk -> one U-shaped sibling bus -> a drop to each child's top edge.
+    // ONE connector assembly per family. Native model (confirmed against the
+    // reference close-ups): a SHORT couple bar at the spouses' lower-body
+    // height with the ⊘ union marker midway (drawn behind the figures), one
+    // trunk dropping from it, and a sibling bus running at the SMALL figures'
+    // head level inside the band — the enlarged lineage child's head rises to
+    // meet the bus directly, so only smaller children get a drop leg.
     const sortedChildren = [...children].sort((a, b) => a.x - b.x);
     const minChildX = Math.min(...sortedChildren.map((child) => child.x));
     const maxChildX = Math.max(...sortedChildren.map((child) => child.x));
-    const childAttachY = direction > 0
-      ? Math.max(...sortedChildren.map((child) => child.y + nodeVerticalRadius(child)))
-      : Math.min(...sortedChildren.map((child) => child.y - nodeVerticalRadius(child)));
-    const childBusY = childAttachY + direction * CHILD_BUS_GAP;
-    const coupleX = average(parentAttachPoints.map((point) => point.x));
+    const attachOf = (child) => child.y + direction * nodeVerticalRadius(child);
+    // Bus level keys off the LOWEST head in the row (the minified siblings) so
+    // the line stays inside the band instead of riding along its top edge.
+    const nearestAttach = direction > 0
+      ? Math.min(...sortedChildren.map(attachOf))
+      : Math.max(...sortedChildren.map(attachOf));
+    const childBusY = nearestAttach + direction * CHILD_BUS_GAP;
+    const coupleX = average(parents.map((parent) => parent.x));
     const anchorX = clamp(coupleX, minChildX, maxChildX);
-    const parentBridgeY = direction > 0
-      ? Math.max(childBusY + PARENT_BRIDGE_GAP, preferredBridgeY)
-      : Math.min(childBusY - PARENT_BRIDGE_GAP, preferredBridgeY);
-    const parentIds = parentAttachPoints.map((point) => point.node.id);
+    // Couple bar at lower-body height of the spouses (the native bar links the
+    // bodies themselves; no per-parent drop segments).
+    const coupleBarY = average(parents.map((parent) => parent.y)) - direction * COUPLE_BAR_DROP;
+    const parentIds = parents.map((parent) => parent.id);
 
-    // 1) each parent drops to the couple-bar line
-    for (const point of parentAttachPoints) {
-      addSegment(family.id, 'family', emphasis, point, { x: point.x, y: parentBridgeY }, [point.node.id]);
-    }
-    // 2) couple bar joining the parents (only when both are present). Tag its
-    //    midpoint so the renderer can stamp the native ⊘ union marker there.
-    if (parentAttachPoints.length > 1) {
-      const xs = parentAttachPoints.map((point) => point.x);
+    let trunkTop = { x: coupleX, y: coupleBarY };
+    if (parents.length > 1) {
+      // Couple bar joining the spouses, ⊘ union marker tagged at its midpoint.
+      const xs = parents.map((parent) => parent.x);
       addSegment(family.id, 'family', emphasis,
-        { x: Math.min(...xs), y: parentBridgeY }, { x: Math.max(...xs), y: parentBridgeY }, parentIds);
+        { x: Math.min(...xs), y: coupleBarY }, { x: Math.max(...xs), y: coupleBarY }, parentIds);
       const coupleBar = routedLinks[routedLinks.length - 1];
-      if (coupleBar) coupleBar.coupleMark = { x: average(xs), y: parentBridgeY };
+      if (coupleBar) coupleBar.coupleMark = { x: average(xs), y: coupleBarY };
+    } else {
+      // Single parent: the trunk starts under the figure itself.
+      trunkTop = { x: parents[0].x, y: parents[0].y - direction * nodeVerticalRadius(parents[0]) };
     }
-    // 3) single trunk: couple midpoint -> anchor over the children -> sibling bus
+    // Single trunk: couple bar (or lone parent) -> anchor over the children -> bus.
     addPolyline(family.id, 'family', emphasis, [
-      { x: coupleX, y: parentBridgeY },
-      { x: anchorX, y: parentBridgeY },
+      trunkTop,
+      { x: anchorX, y: trunkTop.y },
       { x: anchorX, y: childBusY },
     ], parentIds);
-    // 4) U-shaped sibling bus: a single rounded path rises from the first child,
-    //    runs across at the bus line, and drops to the last child — its two
-    //    corners round off (radius 28) for the native viewer's soft curves.
-    //    Middle children drop straight into the bus.
-    const childTopOf = (child) => child.y + direction * nodeVerticalRadius(child);
+    // U-shaped sibling bus with rounded corners; a child only gets a vertical
+    // leg when its head sits beyond the bus line (small siblings) — a head the
+    // bus already passes through (the enlarged lineage child) connects as-is.
+    const needsLeg = (child) => (childBusY - attachOf(child)) * direction > 0.5;
     if (sortedChildren.length === 1) {
       const only = sortedChildren[0];
-      addSegment(family.id, 'family', emphasis,
-        { x: only.x, y: childBusY }, { x: only.x, y: childTopOf(only) }, [only.id]);
+      if (needsLeg(only)) {
+        addSegment(family.id, 'family', emphasis,
+          { x: only.x, y: childBusY }, { x: only.x, y: attachOf(only) }, [only.id]);
+      }
     } else {
       const first = sortedChildren[0];
       const last = sortedChildren[sortedChildren.length - 1];
-      addPolyline(family.id, 'family', emphasis, [
-        { x: first.x, y: childTopOf(first) },
+      const busPath = [
+        ...(needsLeg(first) ? [{ x: first.x, y: attachOf(first) }] : []),
         { x: first.x, y: childBusY },
         { x: last.x, y: childBusY },
-        { x: last.x, y: childTopOf(last) },
-      ], sortedChildren.map((child) => child.id));
+        ...(needsLeg(last) ? [{ x: last.x, y: attachOf(last) }] : []),
+      ];
+      addPolyline(family.id, 'family', emphasis, busPath, sortedChildren.map((child) => child.id));
       for (let i = 1; i < sortedChildren.length - 1; i += 1) {
         const child = sortedChildren[i];
+        if (!needsLeg(child)) continue;
         addSegment(family.id, 'family', emphasis,
-          { x: child.x, y: childBusY }, { x: child.x, y: childTopOf(child) }, [child.id]);
+          { x: child.x, y: childBusY }, { x: child.x, y: attachOf(child) }, [child.id]);
       }
     }
   }
