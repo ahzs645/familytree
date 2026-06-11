@@ -138,8 +138,11 @@ export function makeConnector(link, nodes, palette, options = {}) {
   group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.4, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
   group.add(makeConnectorTube(points, color, tubeRadius, highlighted ? 1 : link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: highlighted ? 4 : 0 }, highlighted ? 8 : 4));
   // Transparent fat tube purely for forgiving hit-testing of the thin line.
+  // Coarse geometry + a direct tag let pointer raycasts test ONLY these tubes.
   if (link.familyId) {
-    const hit = makeConnectorTube(points, '#000000', 11, 0, { x: 0, y: 0, z: 0 }, 1);
+    const hit = makeConnectorTube(points, '#000000', 11, 0, { x: 0, y: 0, z: 0 }, 1, { radialSegments: 5, step: 72 });
+    hit.userData.connectorHit = true;
+    hit.userData.connectionKey = link.familyId;
     group.add(hit);
   }
   if (link.coupleMark) group.add(makeUnionMarker(link.coupleMark, link.emphasis));
@@ -297,7 +300,7 @@ function nodeVerticalRadius(node) {
     : MAC_FAMILY_GRAPH_LAYOUT.regularConnectorRadius;
 }
 
-function makeConnectorTube(points, color, radius, opacity, offset, renderOrder) {
+function makeConnectorTube(points, color, radius, opacity, offset, renderOrder, detail = {}) {
   const routed = roundedPolylinePoints(points);
   if (routed.length < 2) return new THREE.Group();
   const shifted = routed.map((point) => new THREE.Vector3(
@@ -314,8 +317,8 @@ function makeConnectorTube(points, color, radius, opacity, offset, renderOrder) 
   const curve = shifted.length === 2
     ? new THREE.LineCurve3(shifted[0], shifted[1])
     : new THREE.CatmullRomCurve3(shifted, false, 'centripetal', 0.08);
-  const segments = Math.max(6, Math.ceil(distance / 24));
-  const geometry = new THREE.TubeGeometry(curve, segments, radius, 12, false);
+  const segments = Math.max(6, Math.ceil(distance / (detail.step || 24)));
+  const geometry = new THREE.TubeGeometry(curve, segments, radius, detail.radialSegments || 12, false);
   const material = new THREE.MeshStandardMaterial({
     color,
     roughness: 0.52,

@@ -18,7 +18,14 @@ await p.evaluate(async (j) => { const m = await import('/src/lib/data/index.js')
 await p.goto('http://localhost:3000/tree', { waitUntil: 'networkidle' });
 await p.waitForFunction(() => !/Loading tree/.test(document.body.innerText || ''), { timeout: 30000 }).catch(() => {});
 await p.waitForTimeout(Number(process.env.SETTLE || 6000));
-await p.evaluate(() => { document.querySelectorAll('header, nav, aside, .toolbar, [class*=toolbar], [class*=panel]').forEach((e) => { e.style.opacity = '0.05'; }); });
+await p.evaluate(() => {
+  document.querySelectorAll('header, nav, aside, footer, .toolbar, [class*=toolbar], [class*=panel], [class*=dock], [class*=Dock], [class*=footer], [class*=overlay], [class*=hud]').forEach((e) => { e.style.opacity = '0.04'; });
+  // anything fixed/absolute over the canvas that still slipped through
+  document.querySelectorAll('div').forEach((e) => {
+    const s = getComputedStyle(e);
+    if ((s.position === 'fixed' || s.position === 'absolute') && e.querySelector('button') && !e.querySelector('canvas')) e.style.opacity = '0.04';
+  });
+});
 await p.screenshot({ path: OUT });
 console.log('saved', OUT);
 console.log('errors:', JSON.stringify(errs.slice(0, 5)));

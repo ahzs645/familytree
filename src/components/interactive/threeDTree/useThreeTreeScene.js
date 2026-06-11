@@ -66,6 +66,39 @@ export function useThreeTreeScene({
   const [hoverCard, setHoverCard] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
+  // Hover/selection swap individual node objects instead of rebuilding the
+  // whole stage (which clones models + re-renders every canvas texture and made
+  // pointer-move feel sluggish). The heavy build effect reads these refs; the
+  // light effects below patch the live scene.
+  const selectedIdRef = useRef(null);
+  const nodeObjectsRef = useRef(new Map());
+  const stageCtxRef = useRef(null);
+  const renderedHoverRef = useRef({ hoveredId: null, selectedId: null });
+  const renderedConnKeyRef = useRef(null);
+  // Cheap raycast target lists: invisible person hit-proxies / expand-pin pads
+  // and coarse connector hit-tubes. Raycasting the full stage (high-poly .dae
+  // clones + every rendered tube) cost ~370ms per pointer-move.
+  const hitTargetsRef = useRef([]);
+  const connectorHitsRef = useRef([]);
+  // Demand-rendering flag: the animate loop only draws when this is set (or
+  // tweens/controls are active). Set it after any scene mutation.
+  const needsRenderRef = useRef(true);
+  const refreshHitTargets = () => {
+    const targets = [];
+    for (const object of nodeObjectsRef.current.values()) {
+      object.traverse((child) => {
+        if (child.isMesh && (child.userData.hitProxy || child.userData.expandFor)) targets.push(child);
+      });
+    }
+    hitTargetsRef.current = targets;
+  };
+  const refreshConnectorHits = () => {
+    const hits = [];
+    connectorsRef.current?.traverse((child) => {
+      if (child.isMesh && child.userData.connectorHit) hits.push(child);
+    });
+    connectorHitsRef.current = hits;
+  };
   const fitBoundsForOptions = () => {
     if (viewerOptions.appearanceMode === 'macLight' && viewerOptions.cameraMode === 'top') {
       return layout.bounds;
@@ -138,6 +171,7 @@ export function useThreeTreeScene({
       }, 180);
     };
     const updateZoomReadout = () => {
+      needsRenderRef.current = true;
       setZoomPercent(Math.round(camera.zoom * 100));
       queueCameraPersistence();
     };
@@ -150,8 +184,8 @@ export function useThreeTreeScene({
     const key = new THREE.DirectionalLight(palette.keyLight, 1.85 * illumination);
     key.position.set(240, -380, 700);
     key.castShadow = shadowStrength > 0;
-    key.shadow.mapSize.width = 2048;
-    key.shadow.mapSize.height = 2048;
+    key.shadow.mapSize.width = 1024;
+    key.shadow.mapSize.height = 1024;
     key.shadow.bias = -0.0005;
     key.shadow.radius = Math.max(0, 2 * shadowRadius);
     scene.add(key);
@@ -162,6 +196,7 @@ export function useThreeTreeScene({
 
     const stage = new THREE.Group();
     scene.add(stage);
+    scene.userData.renderer = renderer;
 
     groupRef.current = stage;
     sceneRef.current = scene;
@@ -197,6 +232,7 @@ export function useThreeTreeScene({
       camera.top = h / 2;
       camera.bottom = -h / 2;
       camera.updateProjectionMatrix();
+      needsRenderRef.current = true;
     };
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(container);
@@ -209,7 +245,7 @@ export function useThreeTreeScene({
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObjects(clickablesRef.current, true)[0];
+      const hit = raycaster.intersectObjects(hitTargetsRef.current, false)[0];
       let object = hit?.object;
       // Walk up to the owning person, noting an expand-pin on the way (the pin is
       // a child of the person group, so we see it before the person itself).
@@ -233,15 +269,8 @@ export function useThreeTreeScene({
       pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
       raycaster.setFromCamera(pointer, camera);
-      const hits = raycaster.intersectObjects([connectors], true);
-      for (const hit of hits) {
-        let object = hit.object;
-        while (object) {
-          if (object.userData.connectionKey) return object.userData.connectionKey;
-          object = object.parent;
-        }
-      }
-      return null;
+      const hits = raycaster.intersectObjects(connectorHitsRef.current, false);
+      return hits[0]?.object?.userData?.connectionKey || null;
     };
 
     const onPointerDown = (event) => {
@@ -264,13 +293,22 @@ export function useThreeTreeScene({
       }
       // Native model: single-click SELECTS (highlight ring); double-click focuses
       // (re-roots, see onDblClick). Clicking empty space clears the selection.
-      setSelectedId(person?.person ? person.person.recordName : null);
+      selectedIdRef.current = person?.person ? person.person.recordName : null;
+      setSelectedId(selectedIdRef.current);
     };
     const onDblClick = (event) => {
       const person = intersectPerson(event);
       if (person?.person) onPickRef.current?.(person.person.recordName);
     };
-    const onPointerMove = (event) => {
+    // Process at most one hover hit-test per animation frame — pointer-move can
+    // fire far faster than the frame rate and each test does two raycasts.
+    let pendingMove = null;
+    let moveRaf = 0;
+    const processMove = () => {
+      moveRaf = 0;
+      const event = pendingMove;
+      pendingMove = null;
+      if (!event) return;
       const person = intersectPerson(event);
       const nextHoveredId = person?.person?.recordName || null;
       // A person under the cursor wins; otherwise test the connection lines so a
@@ -286,6 +324,10 @@ export function useThreeTreeScene({
         hoveredConnectionRef.current = nextConnection;
         setHoveredConnectionKey(nextConnection);
       }
+    };
+    const onPointerMove = (event) => {
+      pendingMove = { clientX: event.clientX, clientY: event.clientY };
+      if (!moveRaf) moveRaf = requestAnimationFrame(processMove);
     };
     const onPointerLeave = () => {
       renderer.domElement.style.cursor = 'grab';
@@ -363,6 +405,10 @@ export function useThreeTreeScene({
       }
     };
 
+    // Render on demand: with high-poly figure models and soft shadow mapping a
+    // continuous 60fps loop pegged the GPU even when nothing moved. A frame is
+    // drawn only when tweens run, the controls move the camera, or an effect
+    // explicitly requests one (scene mutation, resize).
     let raf = 0;
     let lastFrame = performance.now();
     const animate = () => {
@@ -370,8 +416,11 @@ export function useThreeTreeScene({
       const now = performance.now();
       const dt = Math.min(0.05, Math.max(0, (now - lastFrame) / 1000));
       lastFrame = now;
+      const tweensActive = (tweensRef.current?.active || 0) > 0;
       tweensRef.current?.update(dt);
-      controls.update();
+      const controlsMoved = controls.update() === true;
+      if (!tweensActive && !controlsMoved && !needsRenderRef.current) return;
+      needsRenderRef.current = false;
       updateStickyLabels(camera, controls);
       renderer.render(scene, camera);
     };
@@ -379,6 +428,7 @@ export function useThreeTreeScene({
 
     return () => {
       cancelAnimationFrame(raf);
+      if (moveRaf) cancelAnimationFrame(moveRaf);
       if (persistCameraTimerRef.current) {
         window.clearTimeout(persistCameraTimerRef.current);
         persistCameraTimerRef.current = 0;
@@ -423,11 +473,15 @@ export function useThreeTreeScene({
     if (!scene || !stage || !camera || !controls || !container) return;
 
     // Stop any in-flight node tweens before the objects they target are
-    // disposed by clearGroup (this effect also re-runs on hover).
+    // disposed by clearGroup.
     const tweens = tweensRef.current;
     if (tweens) tweens.cancelAll(nodeTweensRef.current);
     nodeTweensRef.current = [];
 
+    if (typeof window !== 'undefined') {
+      window.__treeStageBuilds = (window.__treeStageBuilds || 0) + 1;
+      window.__treeRenderInfo = () => sceneRef.current?.userData?.renderer?.info;
+    }
     clearGroup(stage);
     clickablesRef.current = [];
 
@@ -443,20 +497,28 @@ export function useThreeTreeScene({
     }
     genLabelsRef.current = genLabels;
 
-    const connectors = makeFamilyConnectors(layout.links, layout.nodes, palette, { ...viewerOptions, hoveredConnectionKey });
+    const connectors = makeFamilyConnectors(layout.links, layout.nodes, palette, { ...viewerOptions, hoveredConnectionKey: hoveredConnectionRef.current });
     stage.add(connectors);
     connectorsRef.current = connectors;
+    renderedConnKeyRef.current = hoveredConnectionRef.current;
 
     const nodeObjects = [];
+    nodeObjectsRef.current = new Map();
     for (const node of layout.nodes) {
-      const selected = selectedId === node.id && !node.featured;
+      const selected = selectedIdRef.current === node.id && !node.featured;
       const object = node.featured
-        ? makeFeaturedNode(node, palette, viewerOptions.personStyle, hoveredId === node.id, viewerOptions)
-        : makePersonNode(node, palette, viewerOptions.personStyle, hoveredId === node.id, viewerOptions, selected);
+        ? makeFeaturedNode(node, palette, viewerOptions.personStyle, hoveredIdRef.current === node.id, viewerOptions)
+        : makePersonNode(node, palette, viewerOptions.personStyle, hoveredIdRef.current === node.id, viewerOptions, selected);
       stage.add(object);
       clickablesRef.current.push(object);
       nodeObjects.push(object);
+      nodeObjectsRef.current.set(node.id, object);
     }
+    stageCtxRef.current = { palette, viewerOptions };
+    renderedHoverRef.current = { hoveredId: hoveredIdRef.current, selectedId: selectedIdRef.current };
+    refreshHitTargets();
+    refreshConnectorHits();
+    needsRenderRef.current = true;
 
     const fitBounds = fitBoundsForOptions();
     const fitSignature = cameraFitSignature(layout, activeId, viewerOptions.cameraMode, fitBounds);
@@ -537,10 +599,65 @@ export function useThreeTreeScene({
         cameraTweenRef,
       }),
     };
-  }, [layout, palette, modelRevision, viewerOptions, hoveredId, hoveredConnectionKey, activeId, selectedId]);
+  }, [layout, palette, modelRevision, viewerOptions, activeId]);
+
+  // Hover/selection: swap only the affected person objects — the full stage
+  // build above is far too heavy to run per pointer-move.
+  useEffect(() => {
+    const stage = groupRef.current;
+    const ctx = stageCtxRef.current;
+    const nodes = layoutRef.current?.nodes || [];
+    if (!stage || !ctx) return;
+    const previous = renderedHoverRef.current;
+    const affected = new Set(
+      [previous.hoveredId, previous.selectedId, hoveredId, selectedId].filter(Boolean)
+    );
+    for (const id of affected) {
+      const old = nodeObjectsRef.current.get(id);
+      const node = nodes.find((candidate) => candidate.id === id);
+      if (!old || !node) continue;
+      const selected = selectedId === id && !node.featured;
+      const next = node.featured
+        ? makeFeaturedNode(node, ctx.palette, ctx.viewerOptions.personStyle, hoveredId === id, ctx.viewerOptions)
+        : makePersonNode(node, ctx.palette, ctx.viewerOptions.personStyle, hoveredId === id, ctx.viewerOptions, selected);
+      stage.remove(old);
+      disposeObject(old);
+      stage.add(next);
+      nodeObjectsRef.current.set(id, next);
+      const clickableIndex = clickablesRef.current.indexOf(old);
+      if (clickableIndex >= 0) clickablesRef.current[clickableIndex] = next;
+    }
+    if (affected.size > 0) {
+      refreshHitTargets();
+      needsRenderRef.current = true;
+    }
+    renderedHoverRef.current = { hoveredId, selectedId };
+  }, [hoveredId, selectedId]);
+
+  // Connection hover: rebuild only the connector group (thicker + brighter
+  // highlight for the hovered family line).
+  useEffect(() => {
+    const stage = groupRef.current;
+    const ctx = stageCtxRef.current;
+    const currentLayout = layoutRef.current;
+    if (!stage || !ctx || !currentLayout) return;
+    if (renderedConnKeyRef.current === hoveredConnectionKey) return;
+    const old = connectorsRef.current;
+    if (old) {
+      stage.remove(old);
+      disposeObject(old);
+    }
+    const connectors = makeFamilyConnectors(currentLayout.links, currentLayout.nodes, ctx.palette, { ...ctx.viewerOptions, hoveredConnectionKey });
+    stage.add(connectors);
+    connectorsRef.current = connectors;
+    renderedConnKeyRef.current = hoveredConnectionKey;
+    refreshConnectorHits();
+    needsRenderRef.current = true;
+  }, [hoveredConnectionKey]);
 
   // A focus change (re-root) clears the click-selection.
   useEffect(() => {
+    selectedIdRef.current = null;
     setSelectedId(null);
   }, [activeId]);
 

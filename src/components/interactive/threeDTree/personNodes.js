@@ -176,6 +176,16 @@ export function makePersonNode(node, palette, personStyle, hovered = false, view
   if (selected && !hovered) group.add(makeSelectionMark(false, palette, 'selection'));
   if (hovered) group.add(makeSelectionMark(false, palette, 'hover'));
 
+  // Invisible low-poly proxy so pointer raycasts never touch the high-poly
+  // reference model (full-model raycasts made every pointer-move ~370ms).
+  const hitProxy = new THREE.Mesh(
+    new THREE.SphereGeometry(58 * minScale, 8, 6),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+  );
+  hitProxy.position.set(0, -6 * minScale, 14);
+  hitProxy.userData.hitProxy = true;
+  group.add(hitProxy);
+
   if (viewerOptions?.displayLabels !== false) {
     const fontScale = fontScaleFor(viewerOptions);
     const labelScale = (hovered && viewerOptions?.enlargeNameBadgesOnMouseOver !== false ? 1.32 : 1) * fontScale * minScale;
@@ -215,8 +225,6 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false, vi
   card.renderOrder = 3;
   group.add(card);
 
-  const rootColors = colorsForNode(node, palette, viewerOptions?.personColoringMode || 'byGender', viewerOptions);
-  group.add(makeRootMark(palette, rootColors));
   if (viewerOptions?.highlightLivingPersons && isLivingPerson(node?.person)) {
     group.add(makeLivingHalo(palette, true));
   }
@@ -224,28 +232,27 @@ export function makeFeaturedNode(node, palette, personStyle, hovered = false, vi
   if (hovered) group.add(makeSelectionMark(true, palette, 'hover'));
 
   if (shouldDrawAvatar(viewerOptions)) {
+    // The bust stands at the medallion's top edge, like the native root.
     const model = makeMacPersonModel(node, palette, true, personStyle, viewerOptions);
-    model.position.set(0, 24 + boxAlignmentOffset(viewerOptions), 28);
+    model.position.set(0, ROOT_CARD.h * 0.34 + boxAlignmentOffset(viewerOptions), 28);
     model.scale.x *= personWidthScale(viewerOptions);
     group.add(model);
   }
-
-  if (viewerOptions?.displayLabels !== false) {
-    const labelScale = 1.5 * fontScaleFor(viewerOptions);
-    const label = makePlaneFromTexture(
-      makePersonLabelTexture(node.person, palette, viewerOptions, node),
-      MAC_FAMILY_GRAPH_LAYOUT.regularLabelWidth * labelScale,
-      MAC_FAMILY_GRAPH_LAYOUT.regularLabelHeight * labelScale
-    );
-    label.position.set(0, -ROOT_CARD.h * 0.5 - 24 - (labelScale - 1.5) * 18, 18);
-    label.renderOrder = 22;
-    group.add(label);
-  }
+  // Name + ☆ birth date are drawn inside the medallion texture; no extra label.
 
   if (viewerOptions?.displayFurtherPersonsIndicators !== false && hasMoreRelatives(node)) {
     group.add(makeFurtherRelativesMarker(node, palette, true));
   }
   if (hasStatusBadges(node, viewerOptions)) group.add(makeStatusBadges(node, true, viewerOptions));
+
+  // Cheap raycast proxy covering the medallion (see makePersonNode).
+  const hitProxy = new THREE.Mesh(
+    new THREE.SphereGeometry(ROOT_CARD.w * 0.42, 8, 6),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+  );
+  hitProxy.position.set(0, 0, 16);
+  hitProxy.userData.hitProxy = true;
+  group.add(hitProxy);
 
   return group;
 }
@@ -460,28 +467,6 @@ function makeStatusBadges(node, featured, viewerOptions = {}) {
   return group;
 }
 
-function makeRootMark(palette, colors = null) {
-  const group = new THREE.Group();
-  // Tint the root ring by the focused person's resolved colour (gender / active
-  // colouring mode) — MFT's root mark is tinted, not a fixed blue.
-  const ringColor = colors?.deep || palette.male;
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(ROOT_CARD.w * 0.38, 4.5, 10, 96),
-    new THREE.MeshBasicMaterial({ color: ringColor, transparent: true, opacity: 0.92, depthWrite: false })
-  );
-  ring.position.set(0, 0, 31);
-  ring.renderOrder = 11;
-  group.add(ring);
-
-  const inner = new THREE.Mesh(
-    new THREE.TorusGeometry(ROOT_CARD.w * 0.33, 2.4, 8, 96),
-    new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.65, depthWrite: false })
-  );
-  inner.position.set(0, 0, 32);
-  inner.renderOrder = 12;
-  group.add(inner);
-  return group;
-}
 
 function makeSoftShadow(palette, width, height, opacity) {
   const texture = makeCanvasTexture(360, 180, (ctx, w, h) => {
@@ -619,46 +604,57 @@ function makePersonLabelTexture(person, palette, viewerOptions = {}, node = null
 }
 
 function makeFeaturedTexture(person, palette, viewerOptions = {}, node = null) {
+  // Native root medallion (sampled from the MFT11 reference): a WHITE disc
+  // ringed by small pearl dots, with the person's name and ☆ birth date drawn
+  // INSIDE the disc (the bust stands at the disc's top edge — see
+  // makeFeaturedNode). No blue fill, no avatar glyph.
   return makeCanvasTexture(560, 560, (ctx, w, h) => {
     const cx = w / 2;
     const cy = h / 2;
     const radius = w * 0.38;
 
     ctx.clearRect(0, 0, w, h);
-    ctx.shadowColor = 'rgba(41,74,106,0.18)';
-    ctx.shadowBlur = 38;
-    ctx.shadowOffsetY = 16;
+    ctx.shadowColor = 'rgba(60, 64, 88, 0.20)';
+    ctx.shadowBlur = 34;
+    ctx.shadowOffsetY = 14;
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(226, 247, 255, 0.96)';
+    ctx.fillStyle = 'rgba(252, 252, 255, 0.97)';
     ctx.fill();
-
     ctx.shadowColor = 'transparent';
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius - 8, 0, Math.PI * 2);
-    ctx.lineCap = 'round';
-    ctx.setLineDash([1, 22]);
-    ctx.lineWidth = 14;
-    ctx.strokeStyle = 'rgba(80, 145, 196, 0.58)';
-    ctx.stroke();
-    ctx.setLineDash([]);
 
-    const glow = ctx.createRadialGradient(cx - 42, cy - 70, 8, cx, cy, radius);
-    glow.addColorStop(0, 'rgba(255,255,255,0.62)');
-    glow.addColorStop(0.7, 'rgba(111, 195, 255, 0.08)');
-    glow.addColorStop(1, 'rgba(58, 142, 216, 0.16)');
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius - 18, 0, Math.PI * 2);
-    ctx.fillStyle = glow;
-    ctx.fill();
+    // Pearl dot rim.
+    const dots = 36;
+    const rimRadius = radius - 16;
+    ctx.fillStyle = 'rgba(148, 158, 176, 0.85)';
+    for (let i = 0; i < dots; i += 1) {
+      const angle = (i / dots) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(angle) * rimRadius, cy + Math.sin(angle) * rimRadius, 5.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius - 2, 0, Math.PI * 2);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(78, 166, 214, 0.34)';
-    ctx.stroke();
-    // Name + dates for the focused person render on a label below the node
-    // (see makeFeaturedNode), matching the placement of every other person.
+    // Name + ☆ birth date inside the disc, under the bust.
+    const name = String(person?.fullName || 'Unknown');
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.direction = isRtlText(name) ? 'rtl' : 'ltr';
+    ctx.fillStyle = '#23262b';
+    ctx.font = '600 40px -apple-system, "SF Pro Text", "Segoe UI", sans-serif';
+    const lines = wrapMeasuredText(ctx, name, radius * 1.5, 2);
+    const lineHeight = 48;
+    let textY = cy + 26 - ((lines.length - 1) * lineHeight) / 2;
+    for (const line of lines) {
+      ctx.fillText(line, cx, textY);
+      textY += lineHeight;
+    }
+    const birth = person?.birthDate ? String(person.birthDate) : yearLabel(person?.birthDate);
+    if (birth) {
+      ctx.direction = 'ltr';
+      ctx.fillStyle = 'rgba(96, 102, 112, 0.92)';
+      ctx.font = '500 33px -apple-system, "SF Pro Text", "Segoe UI", sans-serif';
+      ctx.fillText(`☆ ${birth}`, cx, textY + 8);
+    }
   }, { scale: 3 });
 }
 
