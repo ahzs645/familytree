@@ -1,0 +1,23 @@
+// Diagnose the DEPLOYED /familytree/tree: screenshot + console errors + failed requests.
+import { chromium } from 'playwright';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const BASE = process.env.BASE || 'https://projects.ahmadjalil.com/familytree';
+const OUT = process.env.OUT || resolve(__dirname, 'screenshots/mft-port/live-tree.png');
+const b = await chromium.launch();
+const p = await b.newPage({ viewport: { width: 1440, height: 760 }, deviceScaleFactor: 2 });
+const logs = [];
+p.on('pageerror', (e) => logs.push('PAGEERR: ' + e.message));
+p.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') logs.push(`CONSOLE[${m.type()}]: ${m.text()}`); });
+p.on('requestfailed', (r) => logs.push(`REQFAIL: ${r.url()} — ${r.failure()?.errorText}`));
+p.on('response', (r) => { if (r.status() >= 400) logs.push(`HTTP ${r.status()}: ${r.url()}`); });
+await p.goto(BASE + '/tree', { waitUntil: 'networkidle', timeout: 45000 }).catch((e) => logs.push('GOTO: ' + e.message));
+await p.waitForTimeout(Number(process.env.SETTLE || 8000));
+const bodyText = await p.evaluate(() => (document.body.innerText || '').slice(0, 600));
+await p.screenshot({ path: OUT });
+console.log('saved', OUT);
+console.log('--- body text ---\n' + bodyText);
+console.log('--- logs (' + logs.length + ') ---');
+for (const l of logs.slice(0, 40)) console.log(l);
+await b.close();

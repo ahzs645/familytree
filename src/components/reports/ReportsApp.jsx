@@ -3,6 +3,7 @@
  * save the configuration, export to any supported format.
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Download, FileText, PanelLeftClose, PanelLeftOpen, Play, RotateCcw, RotateCw, Save, Search, Square, Trash2 } from 'lucide-react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
@@ -523,7 +524,7 @@ export function ReportsApp() {
   if (empty) {
     return (
       <div style={loadingStyle}>
-        {t('reports.noFamilyData')} <a href="/" style={{ color: 'hsl(var(--primary))', marginInlineStart: 6 }}>{t('common.import')}</a>
+        {t('reports.noFamilyData')} <Link to="/" style={{ color: 'hsl(var(--primary))', marginInlineStart: 6 }}>{t('common.import')}</Link>
       </div>
     );
   }

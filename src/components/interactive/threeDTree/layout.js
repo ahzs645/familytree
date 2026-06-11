@@ -320,12 +320,6 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   const PARTNER_GAP = 150 * partnerFactor;
   const SIBLING_GAP = CHILD_GAP * branchFactor;
   const MIN_GEN_GAP = 124 * branchFactor;
-  // Each generation up, a lineage drifts outward by this much (paternal left,
-  // maternal right) — the native viewer's ancestor "bow". Kept SMALL so each
-  // ancestor couple sits close ABOVE the child it descends to (its holder box
-  // hugs that child like the native nested holders); same-generation overlap is
-  // resolved afterward by MIN_GEN_GAP, which separates paternal/maternal cleanly.
-  const FAN_BIAS = 64 * branchFactor;
 
   const addNode = (personId, generation, x, familyBlockId, priority = 0) => {
     const source = sourceNodes.get(personId);
@@ -346,80 +340,119 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     return next;
   };
 
-  // Place a person's siblings (other children of `family`). `side` < 0 fans them
-  // left, > 0 fans them right, 0 alternates — so on the paternal side aunts/uncles
-  // spread left and on the maternal side they spread right, keeping the couple
-  // clear in the middle.
-  const placeSiblings = (family, focalId, focalX, generation, side) => {
-    const siblingIds = orderFamilyChildren(family, focalId, generation)
-      .map((node) => node.person.recordName)
-      .filter((id) => id !== focalId);
-    const priority = 40 - Math.abs(generation);
-    if (side < 0) {
-      let x = focalX;
-      for (const id of siblingIds) { x -= SIBLING_GAP; addNode(id, generation, x, family.id, priority); }
-    } else if (side > 0) {
-      let x = focalX;
-      for (const id of siblingIds) { x += SIBLING_GAP; addNode(id, generation, x, family.id, priority); }
-    } else {
-      let leftX = focalX;
-      let rightX = focalX;
-      siblingIds.forEach((id, index) => {
-        if (index % 2 === 0) { rightX += SIBLING_GAP; addNode(id, generation, rightX, family.id, priority); }
-        else { leftX -= SIBLING_GAP; addNode(id, generation, leftX, family.id, priority); }
-      });
+  // --- Contour-packed ancestor branches (native subtree-set collision model) ---
+  // A "branch" is a person (the apex), their kept siblings beside them, and
+  // their whole ancestor fan above — positioned RELATIVE to the apex at dx 0.
+  // Sibling branches (father's vs mother's) are slid apart only as far as their
+  // per-generation row extents require — the web equivalent of the native
+  // collideLeftSetOfInfos:withRightSetOfInfos:ReturnXDeltaRequired: +
+  // moveSetOfInfos:byDelta: pass. Because a couple is always centred above its
+  // lineage child (widening symmetrically only when its two ancestor fans
+  // collide), connectors run near-vertical and holder boxes never overlap.
+
+  // Required offset between a left and right branch so every shared generation
+  // row keeps at least MIN_GEN_GAP centre-to-centre clearance.
+  const requiredSeparation = (left, right) => {
+    let sep = -Infinity;
+    for (const [gen, l] of left.extents) {
+      const r = right.extents.get(gen);
+      if (r) sep = Math.max(sep, l.max - r.min + MIN_GEN_GAP);
+    }
+    return sep;
+  };
+
+  const mergeBranch = (nodes, extents, branch, offset) => {
+    for (const node of branch.nodes) nodes.push({ ...node, dx: node.dx + offset });
+    for (const [gen, ext] of branch.extents) {
+      const current = extents.get(gen);
+      if (!current) extents.set(gen, { min: ext.min + offset, max: ext.max + offset });
+      else {
+        current.min = Math.min(current.min, ext.min + offset);
+        current.max = Math.max(current.max, ext.max + offset);
+      }
     }
   };
 
-  // Walk up from a placed person, fanning ancestors outward like the native
-  // viewer's pedigree "bow": each couple is partner-spaced, and a lineage drifts
-  // FAN_BIAS further from centre every generation (paternal left, maternal right)
-  // so the two halves never collide. The root's own parents stay centred above it
-  // (side 0) → one continuous parents band. Generations live on separate Y bands,
-  // so columns may overlap across generations; only same-generation overlap is
-  // resolved afterward.
-  const placeAncestors = (personId, personX, generation, depth, side) => {
-    if (depth > MAX_DEPTH) return;
+  // `side` < 0 spreads siblings left of the apex (paternal half), > 0 right
+  // (maternal half), 0 alternates — keeping each couple clear in the middle.
+  const buildBranch = (personId, generation, depth, side, includeSiblings = true) => {
     const family = familyByChild.get(personId);
-    if (!family) return;
-    const parents = (family.parents || []).filter((id) => sourceNodes.has(id));
-    if (parents.length === 0) return;
-    const parentGen = generation - 1;
-    const coupleCenter = personX + side * FAN_BIAS;
-    const fatherX = parents.length > 1 ? coupleCenter - PARTNER_GAP / 2 : coupleCenter;
-    const motherX = parents.length > 1 ? coupleCenter + PARTNER_GAP / 2 : coupleCenter;
-    parents.forEach((parentId, index) => {
-      const px = index === 0 ? fatherX : motherX;
-      // Once on a side, stay on it; at the root the first split sends the father
-      // lineage left and the mother lineage right.
-      const childSide = side !== 0 ? side : (index === 0 ? -1 : 1);
-      const parentFamily = familyByChild.get(parentId);
-      // Tag the ancestor with the family that groups them with their siblings
-      // (their own parents' family) so each couple's children share one holder.
-      const holderId = parentFamily?.id || `solo:${parentId}`;
-      // parentId is the lineage child of its own parents' family (parentFamily).
-      if (parentFamily) lineageChildId.set(parentFamily.id, parentId);
-      addNode(parentId, parentGen, px, holderId, 70 - Math.abs(parentGen));
-      if (parentFamily) placeSiblings(parentFamily, parentId, px, parentGen, childSide);
-      placeAncestors(parentId, px, parentGen, depth + 1, childSide);
-    });
+    // Tag with the family that groups the person with their siblings (their own
+    // parents' family) so each couple's children share one holder box.
+    const holderId = family?.id || `solo:${personId}`;
+    const nodes = [{ id: personId, gen: generation, dx: 0, holderId, priority: 70 - Math.abs(generation) }];
+    const extents = new Map([[generation, { min: 0, max: 0 }]]);
+    if (!family) return { nodes, extents };
+    // personId is the lineage child of its own parents' family.
+    lineageChildId.set(family.id, personId);
+    const siblingIds = (includeSiblings ? orderFamilyChildren(family, personId, generation) : [])
+      .map((node) => node.person.recordName)
+      .filter((id) => id !== personId);
+    const siblingPriority = 40 - Math.abs(generation);
+    const rowExtent = extents.get(generation);
+    const placeSibling = (id, dx) => {
+      nodes.push({ id, gen: generation, dx, holderId: family.id, priority: siblingPriority });
+      rowExtent.min = Math.min(rowExtent.min, dx);
+      rowExtent.max = Math.max(rowExtent.max, dx);
+    };
+    if (side < 0) {
+      let x = 0;
+      for (const id of siblingIds) { x -= SIBLING_GAP; placeSibling(id, x); }
+    } else if (side > 0) {
+      let x = 0;
+      for (const id of siblingIds) { x += SIBLING_GAP; placeSibling(id, x); }
+    } else {
+      let leftX = 0;
+      let rightX = 0;
+      siblingIds.forEach((id, index) => {
+        if (index % 2 === 0) { rightX += SIBLING_GAP; placeSibling(id, rightX); }
+        else { leftX -= SIBLING_GAP; placeSibling(id, leftX); }
+      });
+    }
+    if (depth > MAX_DEPTH) return { nodes, extents };
+    const parents = (family.parents || []).filter((id) => sourceNodes.has(id)).slice(0, 2);
+    if (parents.length === 1) {
+      // A single parent sits directly above the apex.
+      const parentBranch = buildBranch(parents[0], generation - 1, depth + 1, side || -1);
+      mergeBranch(nodes, extents, parentBranch, 0);
+    } else if (parents.length === 2) {
+      // Once on a side, stay on it; at the root the first split sends the
+      // father lineage left and the mother lineage right.
+      const fatherBranch = buildBranch(parents[0], generation - 1, depth + 1, side !== 0 ? side : -1);
+      const motherBranch = buildBranch(parents[1], generation - 1, depth + 1, side !== 0 ? side : 1);
+      const separation = Math.max(PARTNER_GAP, requiredSeparation(fatherBranch, motherBranch));
+      mergeBranch(nodes, extents, fatherBranch, -separation / 2);
+      mergeBranch(nodes, extents, motherBranch, separation / 2);
+    }
+    return { nodes, extents };
   };
 
   if (rootFamily) {
-    // Root + a companion sibling (compact root), then fan the ancestors up.
+    // Root + a companion sibling (compact root), then the contour-packed
+    // ancestor fan above. The branch is built with the root as apex but the
+    // root + companion themselves are pinned to the classic compact positions.
+    const rootX = 78;
     lineageChildId.set(rootFamily.id, rootId);
     const rootChildren = orderFamilyChildren(rootFamily, rootId, 0, true).map((node) => node.person.recordName);
     const companion = rootChildren.find((id) => id !== rootId);
     if (companion) addNode(companion, 0, -132, rootFamily.id, 80);
-    addNode(rootId, 0, 78, rootFamily.id, 900);
-    placeAncestors(rootId, 78, 0, 1, 0);
+    addNode(rootId, 0, rootX, rootFamily.id, 900);
+    // The root + companion are pinned above; the branch skips apex siblings so
+    // only the ancestor fan is emitted from it.
+    const branch = buildBranch(rootId, 0, 1, 0, false);
+    for (const node of branch.nodes) {
+      if (node.gen === 0) continue;
+      addNode(node.id, node.gen, rootX + node.dx, node.holderId, node.priority);
+    }
   } else {
     addNode(rootId, 0, 0, 'root', 900);
   }
 
-  // Resolve overlap WITHIN each generation row only (separate Y bands let
-  // lineages overlap across generations). Push apart preserving order, then
-  // recentre the row on its natural midpoint so it doesn't drift sideways.
+  // Safety net: resolve any residual same-row overlap (e.g. pedigree-collapse
+  // duplicates collapsing into one node). Push apart preserving order, then
+  // optionally recentre the row on its natural midpoint ("Adjust Parent
+  // Positions for better space usage"). With contour-packed branches this is
+  // normally a no-op.
   const rowsByGeneration = new Map();
   for (const node of placedById.values()) {
     if (!rowsByGeneration.has(node.generation)) rowsByGeneration.set(node.generation, []);
@@ -433,9 +466,6 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       const minX = row[i - 1].x + MIN_GEN_GAP;
       if (row[i].x < minX) row[i].x = minX;
     }
-    // "Adjust Parent Positions for better space usage": recentre each pushed-apart
-    // row on its natural midpoint so it doesn't drift sideways. When off, the row
-    // keeps the raw pedigree-fan positions (only overlap is resolved).
     if (options.adjustParentPositions !== false) {
       const meanAfter = row.reduce((sum, node) => sum + node.x, 0) / row.length;
       const shift = meanBefore - meanAfter;

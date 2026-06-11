@@ -4,7 +4,7 @@
  * Supports a second-person picker for Double Ancestor and Relationship Path.
  */
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FileDown, Focus, Palette, Search, Settings2, Share2, SlidersHorizontal, Users, ZoomIn } from 'lucide-react';
 import { listAllPersons, findStartPerson, buildAncestorTree, buildDescendantTree } from '../../lib/treeQuery.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
@@ -961,7 +961,7 @@ export function ChartsApp() {
   if (empty) {
     return (
       <div style={loadingStyle}>
-        No family data found. <a href="/" style={{ color: 'hsl(var(--primary))', marginLeft: 6 }}>Import a .mftpkg</a> first.
+        No family data found. <Link to="/" style={{ color: 'hsl(var(--primary))', marginLeft: 6 }}>Import a .mftpkg</Link> first.
       </div>
     );
   }

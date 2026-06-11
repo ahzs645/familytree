@@ -3,6 +3,7 @@
  * and export using the same report exporters.
  */
 import React, { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { AlertTriangle, BookOpen, FileDown, FileText, Printer, Save } from 'lucide-react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import {
@@ -284,7 +285,7 @@ export function BooksApp() {
   if (empty) {
     return (
       <div style={loadingStyle}>
-        No family data. <a href="/" style={{ color: 'hsl(var(--primary))', marginInlineStart: 6 }}>Import a .mftpkg</a> first.
+        No family data. <Link to="/" style={{ color: 'hsl(var(--primary))', marginInlineStart: 6 }}>Import a .mftpkg</Link> first.
       </div>
     );
   }

@@ -3,7 +3,7 @@
  * Uses ActivePersonContext so the choice persists across routes.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   listAllPersons,
   findStartPerson,
@@ -243,7 +243,7 @@ export function InteractiveTreeApp() {
     return (
       <EmptyMsg>
         No family data found.{' '}
-        <a href="/" style={{ color: 'hsl(var(--primary))', marginLeft: 6 }}>Import a .mftpkg</a> first.
+        <Link to="/" style={{ color: 'hsl(var(--primary))', marginLeft: 6 }}>Import a .mftpkg</Link> first.
       </EmptyMsg>
     );
   }

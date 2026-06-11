@@ -119,7 +119,7 @@ function SunPersonNode({ node, active, onPick, onEditPerson }) {
           onEditPerson?.(node.id);
         }}
       >
-        <image href="/ftree/map_2x.png" x="-96" y="-96" width="192" height="192" clipPath="url(#sun-root-map-clip)" opacity="0.98" />
+        <image href={`${import.meta.env.BASE_URL}ftree/map_2x.png`} x="-96" y="-96" width="192" height="192" clipPath="url(#sun-root-map-clip)" opacity="0.98" />
         <circle r="48" fill="none" stroke="#f7f1e6" strokeWidth="3" />
         <text y="4" textAnchor="middle" fill="#1f2933" style={rootName}>{shortRootName(node.person?.fullName)}</text>
         {dates && <text y="18" textAnchor="middle" fill="#1f2933" style={rootDate}>{dates}</text>}
