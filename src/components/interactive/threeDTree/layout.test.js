@@ -132,14 +132,15 @@ describe('buildInteractiveLayout', () => {
       const ids = link.nodeIds || [];
       return ids.includes('father') && ids.includes('mother');
     })).toBe(true);
-    // The sibling bus runs at the small figures' head level: above the row
-    // baseline but BELOW the featured medallion's top (it passes behind it,
-    // like the native viewer), instead of riding along the band edge.
+    // The sibling bus runs in the gutter just ABOVE the tallest figure's head
+    // (the featured medallion attaches at radius 96), so it clears every figure
+    // instead of cutting across the big root medallion. Each child drops down to
+    // it. featuredConnectorRadius (96) + childBusGap (34) ⇒ ~root.y + 130.
     const rootLink = familyLinks.find((link) => (link.nodeIds || []).includes('root'));
     expect(rootLink).toBeTruthy();
     const busY = Math.max(...rootLink.points.map((point) => point.y));
-    expect(busY).toBeGreaterThan(nodes.get('root').y + 20);
-    expect(busY).toBeLessThan(nodes.get('root').y + 96);
+    expect(busY).toBeGreaterThan(nodes.get('root').y + 96);
+    expect(busY).toBeLessThan(nodes.get('root').y + 170);
     // The trunk (the segment owned by both parents) crosses the gutter from the
     // couple bar down to the children's bus level.
     const trunk = familyLinks.find((link) => {
@@ -147,8 +148,11 @@ describe('buildInteractiveLayout', () => {
       return ids.includes('father') && ids.includes('mother') && (link.points?.length || 0) >= 3;
     });
     expect(trunk).toBeTruthy();
+    // Trunk spans from the couple bar (high, near the parents row) down to the
+    // gutter bus level (above the root medallion's top edge, ~root.y + 130).
     expect(Math.max(...trunk.points.map((point) => point.y))).toBeGreaterThan(nodes.get('root').y + 150);
-    expect(Math.min(...trunk.points.map((point) => point.y))).toBeLessThan(nodes.get('root').y + 96);
+    expect(Math.min(...trunk.points.map((point) => point.y))).toBeGreaterThan(nodes.get('root').y + 96);
+    expect(Math.min(...trunk.points.map((point) => point.y))).toBeLessThan(nodes.get('root').y + 170);
     expect(layout.bands.find((band) => band.generation === 0)).toMatchObject({
       count: 2,
       title: 'Root Generation',

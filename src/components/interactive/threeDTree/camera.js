@@ -1,7 +1,35 @@
 import * as THREE from 'three';
 import { CAMERA_STATE_STORAGE_KEY, CAMERA_STATE_VERSION } from './constants.js';
 
-export function computeFitState(bounds, container, cameraMode = 'tilted') {
+// Native camera presets, extracted from MacFamilyTree 11's
+// InteractiveTreeView3DViewer (Camera category, updateForChangedCameraPropertiesAnimated:).
+// Every preset uses an orthographic projection with SCNNode euler angles
+// (pitch below horizon = elevation here, yaw around the up axis; negative yaw
+// puts the camera on the viewer's left). The native default mode is 1
+// ("Top Down, slightly tilted", pitch -63°).
+const MODE_ANGLES = {
+  topDown: { elevation: 89.82, yaw: 0 },
+  topDownSlight: { elevation: 63, yaw: 0 },
+  topDownTilted: { elevation: 49.5, yaw: 0 },
+  front: { elevation: 31.5, yaw: 0 },
+  frontLeft: { elevation: 31.5, yaw: -13.5 },
+  frontRight: { elevation: 31.5, yaw: 13.5 },
+  topLeft: { elevation: 45, yaw: -13.5 },
+  topRight: { elevation: 45, yaw: 13.5 },
+  isoLeft: { elevation: 36, yaw: -45 },
+  isoRight: { elevation: 36, yaw: 45 },
+  // Legacy ids kept for persisted camera state
+  top: { elevation: 89.82, yaw: 0 },
+  tilted: { elevation: 49.5, yaw: 0 },
+};
+
+export const CAMERA_DISTANCE = 1700;
+
+export function cameraAnglesForMode(cameraMode) {
+  return MODE_ANGLES[cameraMode] || MODE_ANGLES.topDownSlight;
+}
+
+export function computeFitState(bounds, container, cameraMode = 'topDownSlight') {
   const width = Math.max(1, bounds.maxX - bounds.minX);
   const height = Math.max(1, bounds.maxY - bounds.minY);
   const centerX = (bounds.minX + bounds.maxX) / 2;
@@ -9,10 +37,17 @@ export function computeFitState(bounds, container, cameraMode = 'tilted') {
   const rect = container.getBoundingClientRect();
   const viewportWidth = Math.max(1, rect.width);
   const viewportHeight = Math.max(1, rect.height);
-  const zoomForWidth = viewportWidth / width;
-  const zoomForHeight = viewportHeight / height;
-  const fitPadding = (cameraMode === 'top' || cameraMode === 'topDown') ? 0.9 : 0.82;
-  const zoom = THREE.MathUtils.clamp(Math.min(zoomForWidth, zoomForHeight) * fitPadding, 0.1, 1.45);
+  // Project the ground rectangle through the preset's yaw/elevation so the
+  // fit is exact for tilted modes: yaw mixes width/depth on the screen's x
+  // axis, elevation foreshortens the depth axis vertically.
+  const { elevation, yaw } = cameraAnglesForMode(cameraMode);
+  const el = THREE.MathUtils.degToRad(elevation);
+  const ya = Math.abs(THREE.MathUtils.degToRad(yaw));
+  const projectedWidth = width * Math.cos(ya) + height * Math.sin(ya);
+  const projectedHeight = (width * Math.sin(ya) + height * Math.cos(ya)) * Math.sin(el);
+  const zoomForWidth = viewportWidth / projectedWidth;
+  const zoomForHeight = viewportHeight / projectedHeight;
+  const zoom = THREE.MathUtils.clamp(Math.min(zoomForWidth, zoomForHeight) * 0.9, 0.1, 1.45);
   return {
     position: cameraPositionForMode(cameraMode, centerX, centerY),
     target: new THREE.Vector3(centerX, centerY, 0),
@@ -106,33 +141,17 @@ function isFiniteCameraState(state) {
   );
 }
 
+// Native: position = focus + R(pitch)·R(yaw)·(0, 0, distance) in SceneKit's
+// Y-up frame. Mapped into our Z-up scene (camera approaches from -Y, the
+// root generation's side) that offset is:
+//   x = d·sin(yaw),  y = -d·cos(el)·cos(yaw),  z = d·sin(el)·cos(yaw)
 function cameraPositionForMode(cameraMode, centerX, centerY) {
-  switch (cameraMode) {
-    case 'topDown':
-      return new THREE.Vector3(centerX, centerY, 1700);
-    case 'topDownSlight':
-      return new THREE.Vector3(centerX, centerY - 220, 1600);
-    case 'topDownTilted':
-      return new THREE.Vector3(centerX, centerY - 480, 1500);
-    case 'front':
-      return new THREE.Vector3(centerX, centerY - 1550, 520);
-    case 'frontLeft':
-      return new THREE.Vector3(centerX - 780, centerY - 1380, 520);
-    case 'frontRight':
-      return new THREE.Vector3(centerX + 780, centerY - 1380, 520);
-    case 'topLeft':
-      return new THREE.Vector3(centerX - 560, centerY - 200, 1620);
-    case 'topRight':
-      return new THREE.Vector3(centerX + 560, centerY - 200, 1620);
-    case 'isoLeft':
-      return new THREE.Vector3(centerX - 980, centerY - 980, 1280);
-    case 'isoRight':
-      return new THREE.Vector3(centerX + 980, centerY - 980, 1280);
-    // Legacy fallbacks
-    case 'top':
-      return new THREE.Vector3(centerX, centerY, 1700);
-    case 'tilted':
-    default:
-      return new THREE.Vector3(centerX, centerY - 360, 1550);
-  }
+  const { elevation, yaw } = cameraAnglesForMode(cameraMode);
+  const el = THREE.MathUtils.degToRad(elevation);
+  const ya = THREE.MathUtils.degToRad(yaw);
+  return new THREE.Vector3(
+    centerX + CAMERA_DISTANCE * Math.sin(ya),
+    centerY - CAMERA_DISTANCE * Math.cos(el) * Math.cos(ya),
+    CAMERA_DISTANCE * Math.sin(el) * Math.cos(ya),
+  );
 }

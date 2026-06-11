@@ -31,7 +31,7 @@ export const MAC_FAMILY_GRAPH_LAYOUT = {
   // adjacent figures and need to start near the figure's silhouette edge.
   regularHorizontalConnectorRadius: 60,
   featuredHorizontalConnectorRadius: 90,
-  childBusGap: 22,
+  childBusGap: 34,
   // How far below the spouses' body centres the couple/union bar runs.
   coupleBarDrop: 30,
   parentBridgeGap: 28,

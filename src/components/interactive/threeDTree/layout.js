@@ -549,11 +549,14 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     const minChildX = Math.min(...sortedChildren.map((child) => child.x));
     const maxChildX = Math.max(...sortedChildren.map((child) => child.x));
     const attachOf = (child) => child.y + direction * nodeVerticalRadius(child);
-    // Bus level keys off the LOWEST head in the row (the minified siblings) so
-    // the line stays inside the band instead of riding along its top edge.
+    // Bus sits in the gutter just past the TALLEST head in the row (toward the
+    // parents) so it clears every figure — including the big featured root
+    // medallion — instead of cutting across it. Each child then drops down to
+    // the bus with a roundable corner, matching the source (where the bus runs
+    // above the root medallion, not through it).
     const nearestAttach = direction > 0
-      ? Math.min(...sortedChildren.map(attachOf))
-      : Math.max(...sortedChildren.map(attachOf));
+      ? Math.max(...sortedChildren.map(attachOf))
+      : Math.min(...sortedChildren.map(attachOf));
     const childBusY = nearestAttach + direction * CHILD_BUS_GAP;
     const coupleX = average(parents.map((parent) => parent.x));
     const anchorX = clamp(coupleX, minChildX, maxChildX);

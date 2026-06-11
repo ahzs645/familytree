@@ -69,42 +69,71 @@ export function makeFamilyConnectors(links, nodes, palette, options = {}) {
   return group;
 }
 
-// Distance between the bus bar and the children's top edges. Matches the Mac
-// source which keeps the bus visually close to the row it's serving.
-const BUS_OFFSET_FROM_CHILDREN = 30;
+// Distance between the bus bar and the nearest figure edge — keeps the bus in
+// the gutter between bands (like the Mac source) with room for rounded corners.
+const BUS_OFFSET_FROM_CHILDREN = 46;
 
+// Native family connection (InteractiveTreeView3DViewerFamilyConnectionObject):
+// straight risers/trunk + a children bus where ONLY the outer turns are rounded
+// L-corners — middle children drop straight off the bus (T-joins), matching the
+// SCNCapsule + per-child bend-delta model in the binary. We draw the outer drops
+// and the bus as one rounded U polyline so the corners curve like the source,
+// then straight drops for the inner children and the trunk.
 function makeFamilyBus(anchor, others, color, palette, thicknessScale, isDescendant) {
   const group = new THREE.Group();
   const z = 2;
   const anchorEdgeRadius = nodeVerticalRadius(anchor);
-  const otherEdgeRadius = nodeVerticalRadius(others[0]);
-  const otherY = others[0].y;
   const anchorEdgeY = isDescendant ? anchor.y - anchorEdgeRadius : anchor.y + anchorEdgeRadius;
-  const otherEdgeY = isDescendant ? otherY + otherEdgeRadius : otherY - otherEdgeRadius;
-  // Bus sits just above the children (or below the parents) — short drops to
-  // each child, long drop from the anchor. Mirrors the Mac source.
+  // Each child's near edge (children can differ in size → different edge Y).
+  const edgeYOf = (node) => (isDescendant
+    ? node.y + nodeVerticalRadius(node)
+    : node.y - nodeVerticalRadius(node));
+  // Bus sits in the gutter just past the figure CLOSEST to the parent/child
+  // side — i.e. above the TALLEST child (descendant) or below the LOWEST parent
+  // (ancestor). Using the nearest edge keeps the bus clear of every figure so
+  // each one gets a real drop with a roundable corner (the featured root's big
+  // head no longer pokes above a too-low bus → no sharp up-turn).
+  const nearestEdgeY = isDescendant
+    ? Math.max(...others.map(edgeYOf))
+    : Math.min(...others.map(edgeYOf));
   const busY = isDescendant
-    ? otherEdgeY + BUS_OFFSET_FROM_CHILDREN
-    : otherEdgeY - BUS_OFFSET_FROM_CHILDREN;
+    ? nearestEdgeY + BUS_OFFSET_FROM_CHILDREN
+    : nearestEdgeY - BUS_OFFSET_FROM_CHILDREN;
 
-  const xs = others.map((node) => node.x);
-  const minX = Math.min(...xs, anchor.x);
-  const maxX = Math.max(...xs, anchor.x);
-  // Tube radius in scene units. The native flat viewer draws hairline
-  // connectors, so keep these slim — ~1.5 units renders near 1px at the
-  // default top-down framing. The faint shadow tube sits just behind.
-  const radius = 2.4 * thicknessScale;
-  const shadowRadius = radius + 0.9;
+  const sorted = [...others].sort((a, b) => a.x - b.x);
+  const left = sorted[0];
+  const right = sorted[sorted.length - 1];
+  // Thin hairline tubes, matching the source (which draws connectors at a
+  // near-constant slim width, not bold focus lines).
+  const radius = 1.6 * thicknessScale;
+  const shadowRadius = radius + 0.8;
 
-  const addSegment = (a, b) => {
-    const points = [new THREE.Vector3(a.x, a.y, z), new THREE.Vector3(b.x, b.y, z)];
+  const addPath = (points) => {
     group.add(makeConnectorTube(points, palette.shadow, shadowRadius, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
     group.add(makeConnectorTube(points, color, radius, 0.95, { x: 0, y: 0, z: 0 }, 4));
   };
+  const vec = (x, y) => new THREE.Vector3(x, y, z);
 
-  addSegment({ x: anchor.x, y: anchorEdgeY }, { x: anchor.x, y: busY });
-  if (Math.abs(maxX - minX) > 1) addSegment({ x: minX, y: busY }, { x: maxX, y: busY });
-  for (const other of others) addSegment({ x: other.x, y: busY }, { x: other.x, y: otherEdgeY });
+  if (right.x - left.x > 1) {
+    // Outer frame: leftmost drop → bus → rightmost drop, rounded at both turns.
+    addPath([
+      vec(left.x, edgeYOf(left)),
+      vec(left.x, busY),
+      vec(right.x, busY),
+      vec(right.x, edgeYOf(right)),
+    ]);
+    // Inner children: straight drops off the bus.
+    for (const other of others) {
+      if (other === left || other === right) continue;
+      addPath([vec(other.x, busY), vec(other.x, edgeYOf(other))]);
+    }
+  } else {
+    // All children share one x (single stack) — one straight drop.
+    addPath([vec(left.x, busY), vec(left.x, edgeYOf(left))]);
+  }
+
+  // Trunk: anchor (couple/child) to the bus, straight.
+  addPath([vec(anchor.x, anchorEdgeY), vec(anchor.x, busY)]);
   return group;
 }
 
@@ -133,8 +162,9 @@ export function makeConnector(link, nodes, palette, options = {}) {
       : orthogonalPoints(from, to, z);
   }
 
-  const baseRadius = link.emphasis ? 2.7 : type === 'partner' ? 1.7 : 2.3;
-  const tubeRadius = baseRadius * thicknessScale * (highlighted ? 1.95 : 1);
+  // Slim, near-uniform width — the source does NOT bold the focus/emphasis line.
+  const baseRadius = type === 'partner' ? 1.2 : 1.6;
+  const tubeRadius = baseRadius * thicknessScale * (highlighted ? 1.9 : 1);
   group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.4, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
   group.add(makeConnectorTube(points, color, tubeRadius, highlighted ? 1 : link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: highlighted ? 4 : 0 }, highlighted ? 8 : 4));
   // Transparent fat tube purely for forgiving hit-testing of the thin line.
@@ -204,14 +234,17 @@ function connectorGenerationColor(generation) {
   return CONNECTOR_GENERATION_COLORS[index];
 }
 
-// Native viewer lineage hues (sampled from the MacFamilyTree 11 reference):
-// the focus person's line is violet, the descendant flow magenta-pink, and the
-// two ancestor lineages split red (husband line) / green (wife line).
+// Native viewer lineage hues. Values are pixel-sampled from the line cores of
+// the MacFamilyTree 11 reference (Screenshot 2026-05-08 10.29.06) — the source
+// lines are MUTED mid-tones (not hot/saturated), matching the binary's scheme
+// of a 0.5-saturation HSB generation palette darkened ~30% toward black.
+// The focus line is violet, descendant flow magenta-rose, ancestor lineages
+// split red (husband line) / green (wife line).
 const LINEAGE_CONNECTOR_COLORS = {
-  root: '#9b4dd1', // violet — couple bar + trunk feeding the focus person
-  descend: '#d42b94', // magenta-pink — grandparents → parents, descendant flow
-  paternal: '#c5392f', // red — ancestor link feeding a male (husband) ancestor
-  maternal: '#79a63a', // green — ancestor link feeding a female (wife) ancestor
+  root: '#9f4ac6', // violet — couple bar + trunk feeding the focus person
+  descend: '#b04489', // magenta-rose — grandparents → parents, descendant flow
+  paternal: '#ae5047', // brick/salmon red — link feeding a male (husband) ancestor
+  maternal: '#a6ba3b', // lime green — link feeding a female (wife) ancestor
 };
 
 function lineageConnectorColor(colorClass) {
@@ -348,7 +381,7 @@ function roundedPolylinePoints(points) {
       routed.push(current.clone());
       continue;
     }
-    const cornerRadius = Math.min(28, beforeLength * 0.45, afterLength * 0.45);
+    const cornerRadius = Math.min(40, beforeLength * 0.45, afterLength * 0.45);
     const entry = current.clone().add(before.multiplyScalar(cornerRadius));
     const exit = current.clone().add(after.multiplyScalar(cornerRadius));
     routed.push(entry);

@@ -137,7 +137,8 @@ export function useThreeTreeScene({
     scene.fog = new THREE.Fog(palette.background, 1700, 3900);
 
     const camera = new THREE.OrthographicCamera(-500, 500, 500, -500, 1, 6000);
-    camera.position.set(0, -360, 1550);
+    // Pre-fit placeholder at the default preset's tilt (topDownSlight, -63°).
+    camera.position.set(0, -772, 1515);
     camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });

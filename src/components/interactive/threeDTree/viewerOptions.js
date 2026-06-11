@@ -94,10 +94,10 @@ export function defaultViewerOptions() {
     generationBandsSegmentByPedigree: true,
     keepLabelsVisible: false,
 
-    // Camera — flat top-down, matching the source's framing. Figures still read
-    // as fronts because the models lie facing the camera; the 3D slab bevel
-    // gives subtle depth without an over-tilted perspective.
-    cameraMode: 'topDown',
+    // Camera — the native default is mode 1, "Top Down, slightly tilted"
+    // (orthographic, pitch -63°). The tilt is what makes figures read as
+    // standing busts and foreshortens the generation bands like the Mac view.
+    cameraMode: 'topDownSlight',
 
     // Lighting
     lightingMode: 'normal',
@@ -146,6 +146,11 @@ function migrateAndValidate(parsed, fallback) {
   // "By Generation" bands or a different camera land on the MacFamilyTree pink
   // top-down look without having to hunt through Options.
   const resetLook = (Number(parsed.version) || 0) < 5;
+
+  // v6: the camera default moved from the flat 'topDown' to the native
+  // 'topDownSlight' (-63° tilt). Stores that still sit on the old default get
+  // moved once; an explicitly chosen non-default mode is left alone.
+  const resetCamera = (Number(parsed.version) || 0) < 6 && migratedCameraMode === 'topDown';
 
   return {
     version: VIEWER_OPTIONS_VERSION,
@@ -205,7 +210,7 @@ function migrateAndValidate(parsed, fallback) {
     generationBandsSegmentByPedigree: pickBool(parsed.generationBandsSegmentByPedigree, fallback.generationBandsSegmentByPedigree),
     keepLabelsVisible: pickBool(parsed.keepLabelsVisible, fallback.keepLabelsVisible),
 
-    cameraMode: resetLook ? fallback.cameraMode : pickFrom(CAMERA_MODES, migratedCameraMode, fallback.cameraMode),
+    cameraMode: (resetLook || resetCamera) ? fallback.cameraMode : pickFrom(CAMERA_MODES, migratedCameraMode, fallback.cameraMode),
 
     lightingMode: pickFrom(LIGHTING_MODES, parsed.lightingMode, fallback.lightingMode),
     illuminationStrength: clampNumber(parsed.illuminationStrength, 0.2, 2.0, fallback.illuminationStrength),
