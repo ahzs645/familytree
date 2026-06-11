@@ -152,11 +152,12 @@ function applyMinification(layout, options) {
   if (aStart <= 0 && dStart <= 0 && sibMin <= 0 && otherSibMin <= 0) return layout;
   const nodes = layout.nodes.map((node) => {
     const gen = Number(node.generation) || 0;
-    let scale = 1;
+    // Compose with the layout's own scale hierarchy (lineage large / siblings small).
+    let scale = Number.isFinite(node.scale) ? node.scale : 1;
     if (gen < 0 && aStart > 0 && Math.abs(gen) >= aStart) {
-      scale = Math.max(0.42, 1 - (Math.abs(gen) - aStart + 1) * 0.14);
+      scale = Math.max(0.42, scale * (1 - (Math.abs(gen) - aStart + 1) * 0.14));
     } else if (gen > 0 && dStart > 0 && gen >= dStart) {
-      scale = Math.max(0.42, 1 - (gen - dStart + 1) * 0.14);
+      scale = Math.max(0.42, scale * (1 - (gen - dStart + 1) * 0.14));
     }
     // Collateral siblings (not the direct lineage): focused person's own
     // siblings (generation 0) vs. all other collateral relatives.
@@ -321,12 +322,13 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   const SIBLING_GAP = CHILD_GAP * branchFactor;
   const MIN_GEN_GAP = 124 * branchFactor;
 
-  const addNode = (personId, generation, x, familyBlockId, priority = 0) => {
+  const addNode = (personId, generation, x, familyBlockId, priority = 0, extra = null) => {
     const source = sourceNodes.get(personId);
     if (!source) return null;
     const existing = placedById.get(personId);
     const next = {
       ...source,
+      ...extra,
       id: personId,
       generation,
       x,
@@ -380,7 +382,9 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     // Tag with the family that groups the person with their siblings (their own
     // parents' family) so each couple's children share one holder box.
     const holderId = family?.id || `solo:${personId}`;
-    const nodes = [{ id: personId, gen: generation, dx: 0, holderId, priority: 70 - Math.abs(generation) }];
+    // The branch apex IS the direct-lineage ancestor — the native viewer renders
+    // it featured-sized while collateral siblings are minified small.
+    const nodes = [{ id: personId, gen: generation, dx: 0, holderId, priority: 70 - Math.abs(generation), lineage: true }];
     const extents = new Map([[generation, { min: 0, max: 0 }]]);
     if (!family) return { nodes, extents };
     // personId is the lineage child of its own parents' family.
@@ -389,24 +393,27 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       .map((node) => node.person.recordName)
       .filter((id) => id !== personId);
     const siblingPriority = 40 - Math.abs(generation);
+    // Collateral siblings render minified, so they pack tighter than full-size
+    // figures (matches the native viewer's dense sibling rows).
+    const siblingGap = SIBLING_GAP * 0.8;
     const rowExtent = extents.get(generation);
     const placeSibling = (id, dx) => {
-      nodes.push({ id, gen: generation, dx, holderId: family.id, priority: siblingPriority });
+      nodes.push({ id, gen: generation, dx, holderId: family.id, priority: siblingPriority, lineage: false });
       rowExtent.min = Math.min(rowExtent.min, dx);
       rowExtent.max = Math.max(rowExtent.max, dx);
     };
     if (side < 0) {
       let x = 0;
-      for (const id of siblingIds) { x -= SIBLING_GAP; placeSibling(id, x); }
+      for (const id of siblingIds) { x -= siblingGap; placeSibling(id, x); }
     } else if (side > 0) {
       let x = 0;
-      for (const id of siblingIds) { x += SIBLING_GAP; placeSibling(id, x); }
+      for (const id of siblingIds) { x += siblingGap; placeSibling(id, x); }
     } else {
       let leftX = 0;
       let rightX = 0;
       siblingIds.forEach((id, index) => {
-        if (index % 2 === 0) { rightX += SIBLING_GAP; placeSibling(id, rightX); }
-        else { leftX -= SIBLING_GAP; placeSibling(id, leftX); }
+        if (index % 2 === 0) { rightX += siblingGap; placeSibling(id, rightX); }
+        else { leftX -= siblingGap; placeSibling(id, leftX); }
       });
     }
     if (depth > MAX_DEPTH) return { nodes, extents };
@@ -435,14 +442,18 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     lineageChildId.set(rootFamily.id, rootId);
     const rootChildren = orderFamilyChildren(rootFamily, rootId, 0, true).map((node) => node.person.recordName);
     const companion = rootChildren.find((id) => id !== rootId);
-    if (companion) addNode(companion, 0, -132, rootFamily.id, 80);
+    if (companion) addNode(companion, 0, -132, rootFamily.id, 80, { lineage: false, scale: 0.72 });
     addNode(rootId, 0, rootX, rootFamily.id, 900);
     // The root + companion are pinned above; the branch skips apex siblings so
-    // only the ancestor fan is emitted from it.
+    // only the ancestor fan is emitted from it. Direct-lineage ancestors render
+    // large like the native viewer; collateral siblings minify small.
     const branch = buildBranch(rootId, 0, 1, 0, false);
     for (const node of branch.nodes) {
       if (node.gen === 0) continue;
-      addNode(node.id, node.gen, rootX + node.dx, node.holderId, node.priority);
+      addNode(node.id, node.gen, rootX + node.dx, node.holderId, node.priority, {
+        lineage: node.lineage,
+        scale: node.lineage ? 1.5 : 0.72,
+      });
     }
   } else {
     addNode(rootId, 0, 0, 'root', 900);
@@ -810,9 +821,11 @@ function focusBoundsFor(nodes, bands, fallback) {
 }
 
 function nodeVerticalRadius(node) {
-  return node.featured
-    ? MAC_FAMILY_GRAPH_LAYOUT.featuredConnectorRadius
-    : MAC_FAMILY_GRAPH_LAYOUT.regularConnectorRadius;
+  if (node.featured) return MAC_FAMILY_GRAPH_LAYOUT.featuredConnectorRadius;
+  // Scaled (minified or lineage-enlarged) figures attach connectors at their
+  // scaled extent so drops meet the head instead of over/undershooting.
+  const scale = Number.isFinite(node.scale) ? node.scale : 1;
+  return MAC_FAMILY_GRAPH_LAYOUT.regularConnectorRadius * scale;
 }
 
 function clusterFamilyChildren(children, splitGap) {

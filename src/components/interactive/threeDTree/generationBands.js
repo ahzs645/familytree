@@ -274,18 +274,17 @@ function bandFillForMode(band, mode, options = {}) {
       ? ancestorBandColor(Math.abs(band.generation))
       : descendantBandColor(band.generation);
   if (mode === 'macPink') {
-    // The source's pedigree band gradient runs COOL, not uniform pink: vivid
-    // magenta-pink at the focal/parents rows, drifting through lavender at the
-    // grandparents to soft periwinkle-blue for the most distant ancestors. (This
-    // is the cool half of the pedigree spectrum — deliberately NOT the warm
-    // yellow/green "rainbow" of byGeneration, which the source never shows.)
-    if (band.generation === 0) return 'rgb(236, 158, 204)';
+    // Pixel-sampled from the MFT11 reference (Screenshot 2026-06-01 8.12.34):
+    // the pedigree ramp runs WARM going back — pale lilac at the focal box,
+    // orchid at the parents, pink at the grandparents, then peach and pale
+    // yellow for the most distant holders.
+    if (band.generation === 0) return 'rgb(250, 222, 255)'; // #fadeff lilac
     const tiers = [
-      'rgb(233, 150, 202)', // gen ±1 (parents) — most saturated magenta-pink
-      'rgb(214, 162, 214)', // gen ±2 (grandparents) — pink drifting to lavender
-      'rgb(191, 172, 223)', // gen ±3 — lavender / soft purple
-      'rgb(175, 188, 230)', // gen ±4 — periwinkle
-      'rgb(182, 202, 236)', // distant generations — light periwinkle-blue
+      'rgb(250, 215, 252)', // gen ±1 (parents) — pale orchid  (#fedbff sampled)
+      'rgb(255, 208, 225)', // gen ±2 (grandparents) — pink    (#ffd0e1 sampled)
+      'rgb(255, 230, 201)', // gen ±3 — peach                  (#ffe6c9 sampled)
+      'rgb(255, 254, 211)', // gen ±4 — pale yellow            (#fffed3 sampled)
+      'rgb(255, 254, 226)', // distant generations — cream
     ];
     return tiers[Math.min(Math.abs(band.generation) - 1, tiers.length - 1)];
   }
