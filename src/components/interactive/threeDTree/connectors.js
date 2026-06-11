@@ -145,10 +145,19 @@ export function makeConnector(link, nodes, palette, options = {}) {
   const type = link.type;
   const thicknessScale = Number.isFinite(options.connectionThickness) ? options.connectionThickness : 1;
   const colorMode = options.connectionColorMode || 'byGenerationLight';
-  const highlighted = Boolean(link.familyId) && options.hoveredConnectionKey === link.familyId;
+  // Native rule (decompiled): a line highlights when its OWN connection or the
+  // person endpoint it belongs to is hovered/selected — the lines TOUCHING that
+  // family, not a traced lineage path. `hoveredKeys` is the set of family ids to
+  // light up (all families touching a hovered person, or the single hovered
+  // line); `hoveredConnectionKey` kept for the single-line callers.
+  const highlighted = Boolean(link.familyId) && (
+    (options.hoveredKeys && options.hoveredKeys.has(link.familyId))
+    || options.hoveredConnectionKey === link.familyId
+  );
   const baseColor = colorForConnector(link, type, palette, colorMode, options.connectionCustomColor);
-  // On hover the native viewer thickens the connection and shifts it to a
-  // brighter highlight tone — keep the lineage hue but lift it toward white.
+  // Native highlight = additive emissive GLOW (intensity 0.75) + thickness ×2 on
+  // top of the line's normal colour. We lift the hue toward white and add a
+  // matching emissive so the touched lines read as glowing, not just brighter.
   const color = highlighted ? lightenHex(baseColor, 0.5) : baseColor;
   const z = link.emphasis ? 5 : 2;
   let points = (link.points || []).map((point) => new THREE.Vector3(point.x, point.y, point.z ?? z));
@@ -164,9 +173,10 @@ export function makeConnector(link, nodes, palette, options = {}) {
 
   // Slim, near-uniform width — the source does NOT bold the focus/emphasis line.
   const baseRadius = type === 'partner' ? 1.2 : 1.6;
-  const tubeRadius = baseRadius * thicknessScale * (highlighted ? 1.9 : 1);
+  const tubeRadius = baseRadius * thicknessScale * (highlighted ? 2 : 1);
+  const glow = highlighted ? { emissive: color, emissiveIntensity: 0.6 } : {};
   group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.4, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
-  group.add(makeConnectorTube(points, color, tubeRadius, highlighted ? 1 : link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: highlighted ? 4 : 0 }, highlighted ? 8 : 4));
+  group.add(makeConnectorTube(points, color, tubeRadius, highlighted ? 1 : link.emphasis ? 0.98 : 0.96, { x: 0, y: 0, z: highlighted ? 4 : 0 }, highlighted ? 8 : 4, glow));
   // Transparent fat tube purely for forgiving hit-testing of the thin line.
   // Coarse geometry + a direct tag let pointer raycasts test ONLY these tubes.
   if (link.familyId) {
@@ -359,6 +369,8 @@ function makeConnectorTube(points, color, radius, opacity, offset, renderOrder, 
     transparent: true,
     opacity,
     depthWrite: false,
+    emissive: detail.emissive ? new THREE.Color(detail.emissive) : new THREE.Color(0, 0, 0),
+    emissiveIntensity: detail.emissiveIntensity || 0,
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.renderOrder = renderOrder;

@@ -36,6 +36,12 @@ export function useThreeTreeScene({
   const downRef = useRef(null);
   const hoveredIdRef = useRef(null);
   const hoveredConnectionRef = useRef(null);
+  // Native line-highlight behaviour: hovering a PERSON lights up the family
+  // lines TOUCHING it (not a traced lineage path). connHighlightKeysRef holds
+  // the set of family ids to glow; familiesByPersonRef caches person→families
+  // built from the layout links (link.nodeIds are record names = node ids).
+  const connHighlightKeysRef = useRef(new Set());
+  const familiesByPersonRef = useRef({ links: null, map: new Map() });
   const fitSignatureRef = useRef(null);
   const persistCameraTimerRef = useRef(0);
   const tweensRef = useRef(null);
@@ -62,7 +68,8 @@ export function useThreeTreeScene({
   const [zoomPercent, setZoomPercent] = useState(100);
   const [modelRevision, setModelRevision] = useState(0);
   const [hoveredId, setHoveredId] = useState(null);
-  const [hoveredConnectionKey, setHoveredConnectionKey] = useState(null);
+  // Signature of the currently glowing family-line set (drives connector rebuild).
+  const [connHighlightSig, setConnHighlightSig] = useState('');
   const [hoverCard, setHoverCard] = useState(null);
   const [contextMenu, setContextMenu] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -180,18 +187,28 @@ export function useThreeTreeScene({
 
     const illumination = Number.isFinite(viewerOptions.illuminationStrength) ? viewerOptions.illuminationStrength : 1;
     const shadowStrength = Number.isFinite(viewerOptions.shadowStrength) ? viewerOptions.shadowStrength : 1;
-    scene.add(new THREE.AmbientLight(palette.ambient, 1.45 * illumination));
+    // Match the native SceneKit rig (decompiled from InteractiveTreeView3DViewer
+    // setupSceneEssentials): ONE strong spot/key light from above (~850) + a
+    // dimmer ambient fill (~550), ratio ~1.5:1, no separate fill light. The
+    // figures' "glossy" look is NOT material specular (native materials are
+    // matte Blinn, shininess 0) — it is this single overhead key producing a
+    // bright-top / dark-bottom gradient on each rounded body.
+    scene.add(new THREE.AmbientLight(palette.ambient, 1.0 * illumination));
     const shadowRadius = Number.isFinite(viewerOptions.shadowRadius) ? viewerOptions.shadowRadius : 1;
-    const key = new THREE.DirectionalLight(palette.keyLight, 1.85 * illumination);
-    key.position.set(240, -380, 700);
+    const key = new THREE.DirectionalLight(palette.keyLight, 2.3 * illumination);
+    // High overhead, only slightly toward the camera (-y) so tops catch light
+    // and a soft contact shadow falls behind each figure.
+    key.position.set(60, -240, 940);
     key.castShadow = shadowStrength > 0;
     key.shadow.mapSize.width = 1024;
     key.shadow.mapSize.height = 1024;
     key.shadow.bias = -0.0005;
-    key.shadow.radius = Math.max(0, 2 * shadowRadius);
+    key.shadow.radius = Math.max(0, 3 * shadowRadius);
     scene.add(key);
-    const fill = new THREE.DirectionalLight(palette.fillLight, 1.35 * illumination);
-    fill.position.set(-500, 460, 420);
+    // Faint cool fill only to keep shadow sides from going fully black — the
+    // native rig has no second directional, just ambient, so keep this low.
+    const fill = new THREE.DirectionalLight(palette.fillLight, 0.4 * illumination);
+    fill.position.set(-420, 380, 520);
     scene.add(fill);
     renderer.shadowMap.enabled = shadowStrength > 0;
 
@@ -274,6 +291,39 @@ export function useThreeTreeScene({
       return hits[0]?.object?.userData?.connectionKey || null;
     };
 
+    // The set of family ids that should glow: all families touching the hovered
+    // person, or the single hovered connection. Mirrors the native rule (touched
+    // lines, not a lineage path). Rebuilds the person→families cache lazily when
+    // the layout changes.
+    const familiesForPerson = (personId) => {
+      const currentLayout = layoutRef.current;
+      if (!personId || !currentLayout) return null;
+      const cache = familiesByPersonRef.current;
+      if (cache.links !== currentLayout.links) {
+        const map = new Map();
+        for (const link of currentLayout.links || []) {
+          if (!link.familyId || !link.nodeIds) continue;
+          for (const pid of link.nodeIds) {
+            if (!map.has(pid)) map.set(pid, new Set());
+            map.get(pid).add(link.familyId);
+          }
+        }
+        familiesByPersonRef.current = { links: currentLayout.links, map };
+      }
+      return familiesByPersonRef.current.map.get(personId) || null;
+    };
+    const updateConnHighlight = (personId, connectionKey) => {
+      let keys;
+      if (personId) keys = familiesForPerson(personId) || new Set();
+      else if (connectionKey) keys = new Set([connectionKey]);
+      else keys = new Set();
+      const sig = [...keys].sort().join('|');
+      const prevSig = [...connHighlightKeysRef.current].sort().join('|');
+      if (sig === prevSig) return;
+      connHighlightKeysRef.current = keys;
+      setConnHighlightSig(sig);
+    };
+
     const onPointerDown = (event) => {
       setContextMenu(null);
       downRef.current = { x: event.clientX, y: event.clientY };
@@ -321,10 +371,10 @@ export function useThreeTreeScene({
         hoveredIdRef.current = nextHoveredId;
         setHoveredId(nextHoveredId);
       }
-      if (hoveredConnectionRef.current !== nextConnection) {
-        hoveredConnectionRef.current = nextConnection;
-        setHoveredConnectionKey(nextConnection);
-      }
+      hoveredConnectionRef.current = nextConnection;
+      // Hovering a person glows the lines touching it; hovering a bare line glows
+      // just that line. (Native: touched lines, no traced path.)
+      updateConnHighlight(nextHoveredId, nextConnection);
     };
     const onPointerMove = (event) => {
       pendingMove = { clientX: event.clientX, clientY: event.clientY };
@@ -337,10 +387,8 @@ export function useThreeTreeScene({
         hoveredIdRef.current = null;
         setHoveredId(null);
       }
-      if (hoveredConnectionRef.current !== null) {
-        hoveredConnectionRef.current = null;
-        setHoveredConnectionKey(null);
-      }
+      hoveredConnectionRef.current = null;
+      updateConnHighlight(null, null);
     };
     const onContextMenu = (event) => {
       event.preventDefault();
@@ -498,7 +546,7 @@ export function useThreeTreeScene({
     }
     genLabelsRef.current = genLabels;
 
-    const connectors = makeFamilyConnectors(layout.links, layout.nodes, palette, { ...viewerOptions, hoveredConnectionKey: hoveredConnectionRef.current });
+    const connectors = makeFamilyConnectors(layout.links, layout.nodes, palette, { ...viewerOptions, hoveredKeys: connHighlightKeysRef.current });
     stage.add(connectors);
     connectorsRef.current = connectors;
     renderedConnKeyRef.current = hoveredConnectionRef.current;
@@ -635,26 +683,27 @@ export function useThreeTreeScene({
     renderedHoverRef.current = { hoveredId, selectedId };
   }, [hoveredId, selectedId]);
 
-  // Connection hover: rebuild only the connector group (thicker + brighter
-  // highlight for the hovered family line).
+  // Line highlight: rebuild only the connector group so the family lines touching
+  // the hovered person (or the single hovered line) glow + thicken, like the
+  // native viewer. Keyed off the highlight-set signature.
   useEffect(() => {
     const stage = groupRef.current;
     const ctx = stageCtxRef.current;
     const currentLayout = layoutRef.current;
     if (!stage || !ctx || !currentLayout) return;
-    if (renderedConnKeyRef.current === hoveredConnectionKey) return;
+    if (renderedConnKeyRef.current === connHighlightSig) return;
     const old = connectorsRef.current;
     if (old) {
       stage.remove(old);
       disposeObject(old);
     }
-    const connectors = makeFamilyConnectors(currentLayout.links, currentLayout.nodes, ctx.palette, { ...ctx.viewerOptions, hoveredConnectionKey });
+    const connectors = makeFamilyConnectors(currentLayout.links, currentLayout.nodes, ctx.palette, { ...ctx.viewerOptions, hoveredKeys: connHighlightKeysRef.current });
     stage.add(connectors);
     connectorsRef.current = connectors;
-    renderedConnKeyRef.current = hoveredConnectionKey;
+    renderedConnKeyRef.current = connHighlightSig;
     refreshConnectorHits();
     needsRenderRef.current = true;
-  }, [hoveredConnectionKey]);
+  }, [connHighlightSig]);
 
   // A focus change (re-root) clears the click-selection.
   useEffect(() => {

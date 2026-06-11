@@ -14,7 +14,12 @@ export const VIEWER_OPTIONS_VERSION = 6;
 export const CAMERA_STATE_STORAGE_KEY = 'cloudtreeweb:interactive-tree-camera-state';
 export const CAMERA_STATE_VERSION = 11;
 export const OPTIONS_PANEL_STATE_STORAGE_KEY = 'cloudtreeweb:interactive-tree-options-panel';
-export const REFERENCE_MODEL_GROUND_ROTATION_X = 0;
+// Native InteractiveTreeView3DViewerPersonObject leans each figure back to face
+// the camera (decompiled bodyNode euler-X = -18° in the default perspective
+// mode). Our board is the XY plane with +Z up, so a negative X rotation tilts
+// the figure's front up toward the tilted camera, revealing the front of the
+// body+head (the puffy "cloud" silhouette) instead of a top-down foreshortening.
+export const REFERENCE_MODEL_GROUND_ROTATION_X = -0.32;
 
 // Person rendering style (matches Mac InteractiveTreeView3DViewer_PersonStyle_*)
 export const PERSON_STYLES = [

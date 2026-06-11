@@ -120,20 +120,25 @@ function cloneAndRetintMaterial(material, colors, options = {}) {
     clone.needsUpdate = true;
     return clone;
   }
-  // The native flat viewer renders soft, matte pastel figures. Keep the
-  // retint flat: no emissive glow (which reads as a glossy marble) and a high
-  // roughness so the key light produces a gentle sheen, not a hotspot.
+  // Native materials are matte Blinn (shininess 0, specular 0) but the bodies
+  // read GLOSSY because of the strong overhead key light — so keep metalness 0,
+  // no emissive, and a MODERATE roughness (~0.5) so the key produces a soft
+  // sheen gradient (bright top → dark bottom), not a flat wash. Crucially the
+  // native diffuse is the gender colour used DIRECTLY (no whitening) — our old
+  // 24% softening washed the bodies out vs the vivid source.
   if (name.includes('skin')) {
-    clone.color = new THREE.Color(softenColor(SKIN, 0.12));
+    // Native skinMaterial diffuse = cream (1.0, 0.88, 0.80). Lower roughness so
+    // the head shows the crisp top highlight the source has.
+    clone.color = new THREE.Color(1.0, 0.88, 0.80);
     clone.emissive = new THREE.Color('#000000');
     clone.emissiveIntensity = 0;
-    clone.roughness = 0.82;
+    clone.roughness = 0.38;
     clone.metalness = 0;
   } else {
-    clone.color = new THREE.Color(softenColor(colors.base, 0.24));
+    clone.color = new THREE.Color(softenColor(colors.base, 0.06));
     clone.emissive = new THREE.Color('#000000');
     clone.emissiveIntensity = 0;
-    clone.roughness = 0.72;
+    clone.roughness = 0.44;
     clone.metalness = 0;
   }
   clone.needsUpdate = true;
