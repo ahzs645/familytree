@@ -94,10 +94,10 @@ export function defaultViewerOptions() {
     generationBandsSegmentByPedigree: true,
     keepLabelsVisible: false,
 
-    // Camera — the native default is mode 1, "Top Down, slightly tilted"
-    // (orthographic, pitch -63°). The tilt is what makes figures read as
-    // standing busts and foreshortens the generation bands like the Mac view.
-    cameraMode: 'topDownSlight',
+    // Camera — "Top Down, tilted" (orthographic, pitch -49.5°). Flatter than
+    // topDownSlight so the generation depth-stagger reads as nested/overlapping
+    // bands and the figures stand more head-on, matching the Mac view.
+    cameraMode: 'topDownTilted',
 
     // Lighting
     lightingMode: 'normal',
@@ -147,10 +147,13 @@ function migrateAndValidate(parsed, fallback) {
   // top-down look without having to hunt through Options.
   const resetLook = (Number(parsed.version) || 0) < 5;
 
-  // v6: the camera default moved from the flat 'topDown' to the native
-  // 'topDownSlight' (-63° tilt). Stores that still sit on the old default get
-  // moved once; an explicitly chosen non-default mode is left alone.
-  const resetCamera = (Number(parsed.version) || 0) < 6 && migratedCameraMode === 'topDown';
+  // The camera default has moved twice: v6 flat 'topDown' → 'topDownSlight'
+  // (-63°), then v7 → 'topDownTilted' (-49.5°, flatter) so the generation
+  // depth-stagger reads as nested bands. Stores still sitting on a prior default
+  // get moved once; an explicitly chosen non-default mode is left alone.
+  const version = Number(parsed.version) || 0;
+  const resetCamera = (version < 6 && migratedCameraMode === 'topDown')
+    || (version < 7 && (migratedCameraMode === 'topDown' || migratedCameraMode === 'topDownSlight'));
 
   return {
     version: VIEWER_OPTIONS_VERSION,

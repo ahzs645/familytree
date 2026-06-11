@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ROOT_CARD } from './constants.js';
+import { ROOT_CARD, generationDepthZ } from './constants.js';
 import { MAC_FAMILY_GRAPH_LAYOUT } from './macTreeStyle.js';
 
 /**
@@ -159,7 +159,10 @@ export function makeConnector(link, nodes, palette, options = {}) {
   // top of the line's normal colour. We lift the hue toward white and add a
   // matching emissive so the touched lines read as glowing, not just brighter.
   const color = highlighted ? lightenHex(baseColor, 0.5) : baseColor;
-  const z = link.emphasis ? 5 : 2;
+  // Connectors span two generations (parent → child). Sit them at the midpoint
+  // depth between the two staggered slabs so they read as connecting both
+  // without floating in front of/behind either by a full generation step.
+  const z = (link.emphasis ? 5 : 2) + generationDepthZ((Number(link.generation) || 0) - 0.5);
   let points = (link.points || []).map((point) => new THREE.Vector3(point.x, point.y, point.z ?? z));
   if (points.length === 0 && link.from && link.to) {
     const nodeById = new Map(nodes.map((node) => [node.id, node]));
@@ -199,29 +202,23 @@ function lightenHex(hex, amount) {
   return `#${next.join('')}`;
 }
 
-// The native viewer stamps a small ⊘ "union" glyph on the middle of each couple
-// bar — a thin NEUTRAL-grey ring crossed by a diagonal slash (not tinted to the
-// bar colour), sitting on a white disc so it reads over the line.
+// The native viewer marks each couple bar with a MARRIAGE symbol — two
+// interlocking wedding rings (MacFamilyTree ships Family_Rings models for this),
+// NOT a slashed circle. Two thin neutral-silver ring outlines overlapping
+// horizontally, sitting just in front of the bar.
 function makeUnionMarker(point, emphasis) {
   const group = new THREE.Group();
-  const radius = emphasis ? 13 : 10;
-  const ringMaterial = new THREE.MeshBasicMaterial({ color: '#8c919b', transparent: true, opacity: 0.95 });
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(radius, emphasis ? 2.1 : 1.7, 10, 28), ringMaterial);
-  group.add(ring);
-  // A white disc behind the glyph so the ring reads cleanly over the bar.
-  const disc = new THREE.Mesh(
-    new THREE.CircleGeometry(radius - 0.6, 28),
-    new THREE.MeshBasicMaterial({ color: '#fbfbf7', transparent: true, opacity: 0.96 })
-  );
-  disc.position.z = -0.5;
-  group.add(disc);
-  const slash = new THREE.Mesh(
-    new THREE.BoxGeometry(radius * 2.0, emphasis ? 2.1 : 1.7, 1),
-    ringMaterial
-  );
-  slash.rotation.z = Math.PI / 4;
-  group.add(slash);
-  group.position.set(point.x, point.y, (point.z ?? 5) + 3);
+  const r = emphasis ? 8.5 : 6.8;
+  const tube = emphasis ? 1.5 : 1.25;
+  const mat = new THREE.MeshBasicMaterial({ color: '#aeb3bd', transparent: true, opacity: 0.96 });
+  const offset = r * 0.6;
+  const ringLeft = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 14, 44), mat);
+  ringLeft.position.x = -offset;
+  const ringRight = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 14, 44), mat);
+  ringRight.position.x = offset;
+  group.add(ringLeft);
+  group.add(ringRight);
+  group.position.set(point.x, point.y, (point.z ?? 5) + 4);
   group.renderOrder = 7;
   return group;
 }
@@ -360,8 +357,8 @@ function makeConnectorTube(points, color, radius, opacity, offset, renderOrder, 
   const curve = shifted.length === 2
     ? new THREE.LineCurve3(shifted[0], shifted[1])
     : new THREE.CatmullRomCurve3(shifted, false, 'centripetal', 0.08);
-  const segments = Math.max(6, Math.ceil(distance / (detail.step || 24)));
-  const geometry = new THREE.TubeGeometry(curve, segments, radius, detail.radialSegments || 12, false);
+  const segments = Math.max(8, Math.ceil(distance / (detail.step || 9)));
+  const geometry = new THREE.TubeGeometry(curve, segments, radius, detail.radialSegments || 14, false);
   const material = new THREE.MeshStandardMaterial({
     color,
     roughness: 0.52,
@@ -397,8 +394,11 @@ function roundedPolylinePoints(points) {
     const entry = current.clone().add(before.multiplyScalar(cornerRadius));
     const exit = current.clone().add(after.multiplyScalar(cornerRadius));
     routed.push(entry);
-    for (let step = 1; step <= 5; step += 1) {
-      const t = step / 6;
+    // Resolve the arc finely enough that the bend reads as a smooth curve, not
+    // a few flat chords. Scale the step count with the corner radius.
+    const arcSteps = Math.max(8, Math.round(cornerRadius / 2.5));
+    for (let step = 1; step < arcSteps; step += 1) {
+      const t = step / arcSteps;
       routed.push(quadraticPoint(entry, current, exit, t));
     }
     routed.push(exit);

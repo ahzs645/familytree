@@ -14,6 +14,7 @@ import {
 } from './sceneObjects.js';
 import { clearGroup, disposeObject } from './threeUtils.js';
 import { createCameraActions } from './treeSceneActions.js';
+import { generationDepthZ } from './constants.js';
 
 export function useThreeTreeScene({
   activeId,
@@ -537,9 +538,12 @@ export function useThreeTreeScene({
     stage.add(makeBottomPlane(palette, layout.bounds, viewerOptions.bottomPlaneMode, viewerOptions));
     const genLabels = [];
     for (const band of layout.bands) {
-      stage.add(makeGenerationBand(band, palette, viewerOptions.generationBandStyle, viewerOptions));
+      const bandObject = makeGenerationBand(band, palette, viewerOptions.generationBandStyle, viewerOptions);
+      bandObject.position.z += generationDepthZ(band.generation);
+      stage.add(bandObject);
       if (viewerOptions.generationBandStyle !== 'none') {
         const labelGroup = makeGenerationLabel(band, viewerOptions);
+        labelGroup.position.z += generationDepthZ(band.generation);
         stage.add(labelGroup);
         if (labelGroup.userData?.isGenerationLabel) genLabels.push(labelGroup);
       }
@@ -558,6 +562,7 @@ export function useThreeTreeScene({
       const object = node.featured
         ? makeFeaturedNode(node, palette, viewerOptions.personStyle, hoveredIdRef.current === node.id, viewerOptions)
         : makePersonNode(node, palette, viewerOptions.personStyle, hoveredIdRef.current === node.id, viewerOptions, selected);
+      object.position.z += generationDepthZ(node.generation);
       stage.add(object);
       clickablesRef.current.push(object);
       nodeObjects.push(object);
