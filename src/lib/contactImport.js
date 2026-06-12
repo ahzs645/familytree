@@ -23,6 +23,31 @@ export async function importContactsFile(file) {
   return { created: records.length, records };
 }
 
+/** Contact Picker API availability (Chromium on Android + desktop behind flag). */
+export function contactPickerSupported() {
+  return typeof navigator !== 'undefined' && typeof navigator.contacts?.select === 'function';
+}
+
+/**
+ * Open the browser's native Contact Picker and import the picked contacts as
+ * Person records — the browser bridge for MacFamilyTree's Address Book import.
+ */
+export async function importContactsViaPicker() {
+  if (!contactPickerSupported()) throw new Error('The Contact Picker is not supported in this browser.');
+  const picked = await navigator.contacts.select(['name', 'email', 'tel'], { multiple: true });
+  const records = (picked || [])
+    .map((contact) => contactToPersonRecord({
+      fullName: contact.name?.[0] || '',
+      email: contact.email?.[0] || '',
+      phone: contact.tel?.[0] || '',
+    }))
+    .filter(Boolean);
+  if (!records.length) throw new Error('No contacts selected.');
+  const db = getLocalDatabase();
+  await db.saveRecords(records);
+  return { created: records.length, records };
+}
+
 export function parseCSVContacts(text) {
   const rows = parseCSV(text);
   if (rows.length < 2) return [];

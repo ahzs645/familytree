@@ -7,7 +7,7 @@ import {
   NUMBERING_SYSTEM_OPTIONS,
   SUPPORTED_LOCALES,
 } from '../../../lib/i18n.js';
-import { NAME_FORMAT_OPTIONS } from '../../../lib/nameFormat.js';
+import { ADDITIONAL_NAME_DISPLAY_OPTIONS, NAME_FORMAT_OPTIONS } from '../../../lib/nameFormat.js';
 
 export default function FormatsPanel() {
   const { prefs, update, t } = useSettings();
@@ -46,6 +46,16 @@ export default function FormatsPanel() {
             }))}
           />
           <NameFormatPreview preset={prefs.formats.nameSortFormat} t={t} />
+        </Field>
+        <Field label={t('settingsPage.formats.additionalNameDisplay')}>
+          <SettingsSelect
+            value={prefs.formats.additionalNameDisplay}
+            onChange={(value) => update('formats', 'additionalNameDisplay', value)}
+            options={ADDITIONAL_NAME_DISPLAY_OPTIONS.map((option) => ({
+              value: option.value,
+              label: t(`constants.additionalNameDisplay.${option.value}`),
+            }))}
+          />
         </Field>
         <Field label={t('settingsPage.formats.surnameCase')}>
           <SettingsSelect

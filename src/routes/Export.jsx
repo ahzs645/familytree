@@ -13,7 +13,7 @@ import { downloadBackup, downloadMFTPackage } from '../lib/backup.js';
 import { analyzeBackupMergeJSON, mergeBackupJSON, planMerge, mergeBackupJSONWithResolutions } from '../lib/mergeImport.js';
 import { MergeConflictSheet } from '../components/MergeConflictSheet.jsx';
 import { downloadSubtreeBackup, removeSubtree } from '../lib/subtree.js';
-import { importContactsFile } from '../lib/contactImport.js';
+import { contactPickerSupported, importContactsFile, importContactsViaPicker } from '../lib/contactImport.js';
 import {
   deleteTreeSnapshot,
   listTreeSnapshots,
@@ -195,6 +195,20 @@ export default function Export() {
       setStatus(`Contacts import failed: ${error.message}`);
     } finally {
       if (contactsRef.current) contactsRef.current.value = '';
+      setBusy(false);
+    }
+  };
+
+  const onContactsPicker = async () => {
+    setBusy(true);
+    setStatus('Opening Contact Picker…');
+    try {
+      const result = await importContactsViaPicker();
+      await refresh();
+      setStatus(`Imported ${result.created.toLocaleString()} contact${result.created === 1 ? '' : 's'} as person records.`);
+    } catch (error) {
+      setStatus(`Contacts import failed: ${error.message}`);
+    } finally {
       setBusy(false);
     }
   };
@@ -452,9 +466,16 @@ export default function Export() {
               className="hidden"
               onChange={(e) => onContactsFile(e.target.files?.[0])}
             />
-            <button onClick={() => contactsRef.current?.click()} disabled={busy} className={btnSecondary}>
-              Choose CSV or vCard…
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => contactsRef.current?.click()} disabled={busy} className={btnSecondary}>
+                Choose CSV or vCard…
+              </button>
+              {contactPickerSupported() && (
+                <button onClick={onContactsPicker} disabled={busy} className={btnSecondary}>
+                  Pick from device contacts…
+                </button>
+              )}
+            </div>
           </Card>
         </div>
 

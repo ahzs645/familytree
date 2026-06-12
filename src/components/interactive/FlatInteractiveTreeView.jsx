@@ -7,13 +7,35 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { lifeSpanLabel } from '../../models/index.js';
 import { buildInteractiveLayout } from './threeDTree/layout.js';
 import { readInitialViewerOptions } from './threeDTree/viewerOptions.js';
-import { VIEWER_OPTIONS_STORAGE_KEY } from './threeDTree/constants.js';
+import { FLAT_BACKGROUND_STYLES, VIEWER_OPTIONS_STORAGE_KEY } from './threeDTree/constants.js';
 
 const CARD_W = 148;
 const CARD_H = 64;
 const BAND_PADDING_Y = 28;
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 3.0;
+
+// CSS background per native BackgroundStyle preset. Spotlights are radial
+// gradients lit from the upper-middle, like the Mac flat viewer.
+function flatBackgroundCss(style, customColor) {
+  const color = customColor || '#dce7f5';
+  switch (style) {
+    case 'gray': return '#e8e8ec';
+    case 'blue': return '#dbe6f4';
+    case 'whiteSpotlight':
+      return 'radial-gradient(ellipse 120% 90% at 50% 34%, #ffffff 0%, #ececf1 62%, #dddde4 100%)';
+    case 'lightBlueSpotlight':
+      return 'radial-gradient(ellipse 120% 90% at 50% 34%, #f4f9ff 0%, #d3e2f5 62%, #bdd2ea 100%)';
+    case 'lightOrangeSpotlight':
+      return 'radial-gradient(ellipse 120% 90% at 50% 34%, #fff8f0 0%, #f7e1c8 62%, #eed2b1 100%)';
+    case 'customColor': return color;
+    case 'customGradient':
+      return `linear-gradient(180deg, color-mix(in srgb, ${color}, white 55%) 0%, ${color} 100%)`;
+    case 'customSpotlight':
+      return `radial-gradient(ellipse 120% 90% at 50% 34%, color-mix(in srgb, ${color}, white 70%) 0%, ${color} 70%)`;
+    default: return 'hsl(var(--background))';
+  }
+}
 
 export function FlatInteractiveTreeView({
   ancestorTree,
@@ -127,17 +149,42 @@ export function FlatInteractiveTreeView({
   const bandOpacity = Number.isFinite(viewerOptions.generationBandOpacity) ? viewerOptions.generationBandOpacity : 0.62;
   const fullWidth = viewerOptions.generationBandsFullWidth !== false;
 
+  const backgroundStyle = viewerOptions.flatBackgroundStyle || 'none';
+  const showCustomColor = backgroundStyle.startsWith('custom');
+
   return (
-    <div style={styles.shell}>
+    <div style={{ ...styles.shell, background: flatBackgroundCss(backgroundStyle, viewerOptions.flatBackgroundCustomColor) }}>
       <div style={styles.topBar}>
         <button type="button" style={styles.barButton} onClick={onReturnToFamilyTree}>
           Return to Family Tree
         </button>
         <span style={styles.viewerLabel}>Flat Interactive Tree</span>
+        <label style={styles.viewerLabel}>
+          Background{' '}
+          <select
+            value={backgroundStyle}
+            onChange={(event) => setViewerOptions((current) => ({ ...current, flatBackgroundStyle: event.target.value }))}
+            style={styles.backgroundSelect}
+            aria-label="Background style"
+          >
+            {FLAT_BACKGROUND_STYLES.map((option) => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+        {showCustomColor && (
+          <input
+            type="color"
+            value={viewerOptions.flatBackgroundCustomColor || '#dce7f5'}
+            onChange={(event) => setViewerOptions((current) => ({ ...current, flatBackgroundCustomColor: event.target.value }))}
+            aria-label="Custom background color"
+            style={{ width: 28, height: 24, padding: 0, border: '1px solid hsl(var(--border))', borderRadius: 4, background: 'transparent' }}
+          />
+        )}
       </div>
       <div
         ref={containerRef}
-        style={styles.canvas}
+        style={backgroundStyle === 'none' ? styles.canvas : { ...styles.canvas, background: 'transparent', backgroundImage: 'none' }}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -499,6 +546,14 @@ const styles = {
     paddingInlineEnd: 6,
     color: 'hsl(var(--muted-foreground))',
     font: '650 12px -apple-system, system-ui, sans-serif',
+  },
+  backgroundSelect: {
+    height: 24,
+    borderRadius: 6,
+    border: '1px solid hsl(var(--border))',
+    background: 'hsl(var(--background))',
+    color: 'hsl(var(--foreground))',
+    font: '600 11px -apple-system, system-ui, sans-serif',
   },
   canvas: {
     position: 'absolute',

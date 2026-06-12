@@ -98,20 +98,47 @@ export function namePartsFromRecord(record) {
 }
 
 /**
+ * Additional-name display preference — mirrors MacFamilyTree's
+ * `Person_AdditionalNamePreferenceConfiguration` enum: which additional-name
+ * variant (married name / family name / nickname / all / none) is appended to
+ * chart and tree labels.
+ */
+export const ADDITIONAL_NAME_DISPLAY = Object.freeze({
+  ALL: 'all',
+  ONLY_MARRIED: 'married-name',
+  ONLY_FAMILY: 'family-name',
+  ONLY_NICKNAME: 'nickname',
+  NONE: 'none',
+});
+
+export const ADDITIONAL_NAME_DISPLAY_OPTIONS = Object.freeze([
+  { value: ADDITIONAL_NAME_DISPLAY.NONE, label: 'None' },
+  { value: ADDITIONAL_NAME_DISPLAY.ALL, label: 'All additional names' },
+  { value: ADDITIONAL_NAME_DISPLAY.ONLY_MARRIED, label: 'Only married name' },
+  { value: ADDITIONAL_NAME_DISPLAY.ONLY_FAMILY, label: 'Only family name' },
+  { value: ADDITIONAL_NAME_DISPLAY.ONLY_NICKNAME, label: 'Only nickname' },
+]);
+
+export const DEFAULT_ADDITIONAL_NAME_DISPLAY = ADDITIONAL_NAME_DISPLAY.NONE;
+
+/**
  * Module-level cache of the active preferences so sync code paths
  * (personSummary, list comparators) can consult them without an await.
  * Seeded from Settings on load via `setActiveNameFormats`.
  */
 let activeDisplay = DEFAULT_DISPLAY_FORMAT;
 let activeSort = DEFAULT_SORT_FORMAT;
+let activeAdditionalNames = DEFAULT_ADDITIONAL_NAME_DISPLAY;
 
-export function setActiveNameFormats({ display, sort } = {}) {
+export function setActiveNameFormats({ display, sort, additionalNames } = {}) {
   if (display) activeDisplay = display;
   if (sort) activeSort = sort;
+  if (additionalNames) activeAdditionalNames = additionalNames;
 }
 
 export function getActiveDisplayFormat() { return activeDisplay; }
 export function getActiveSortFormat() { return activeSort; }
+export function getActiveAdditionalNameDisplay() { return activeAdditionalNames; }
 
 export function formatDisplayName(record) {
   return formatName(namePartsFromRecord(record), activeDisplay);

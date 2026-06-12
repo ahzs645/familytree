@@ -21,6 +21,11 @@ export const MAP_VISUAL_OPTION_PRESETS = Object.freeze({
     displayCurrentLocation: false,
     personGroupMode: 'all',
     smartFilterMode: 'none',
+    connectionPattern: 'line',
+    connectionWidth: 'medium',
+    dateColorsMode: 'blue-red',
+    sunMode: 'noon',
+    tileNames: 'auto',
   },
   globe: {
     markerMode: 'pins',
@@ -44,6 +49,11 @@ export const MAP_VISUAL_OPTION_PRESETS = Object.freeze({
     displayCurrentLocation: false,
     personGroupMode: 'all',
     smartFilterMode: 'none',
+    connectionPattern: 'line',
+    connectionWidth: 'medium',
+    dateColorsMode: 'blue-red',
+    sunMode: 'noon',
+    tileNames: 'auto',
   },
 });
 
@@ -69,11 +79,64 @@ export const VISUAL_OPTION_SECTIONS = Object.freeze([
         options: [
           { value: 'event', label: 'Event type' },
           { value: 'time', label: 'Date range' },
+          { value: 'events-count', label: 'Events count at place' },
           { value: 'uniform', label: 'Uniform' },
         ],
       },
       { key: 'markerSize', label: 'Pin size', type: 'range', min: 8, max: 24, step: 1, unit: 'px' },
       { key: 'connectionLines', label: 'Connection lines', type: 'checkbox' },
+      {
+        key: 'connectionPattern',
+        label: 'Connection Pattern',
+        type: 'select',
+        options: [
+          { value: 'line', label: 'Line' },
+          { value: 'arrows', label: 'Arrows' },
+          { value: 'arrows2', label: 'Arrows 2' },
+          { value: 'blobs', label: 'Blobs' },
+        ],
+      },
+      {
+        key: 'connectionWidth',
+        label: 'Connection Width',
+        type: 'select',
+        options: [
+          { value: 'small', label: 'Small' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'large', label: 'Large' },
+        ],
+      },
+      {
+        key: 'dateColorsMode',
+        label: 'Event Date Colors',
+        type: 'select',
+        options: [
+          { value: 'blue-red', label: 'Blue to Red' },
+          { value: 'rainbow', label: 'Rainbow' },
+          { value: 'turquoise-red', label: 'Turquoise to Red' },
+        ],
+      },
+      {
+        key: 'sunMode',
+        label: 'Sun Simulation',
+        type: 'select',
+        kinds: ['globe'],
+        options: [
+          { value: 'noon', label: 'Always noon' },
+          { value: 'current', label: 'Current time' },
+          { value: 'currentBright', label: 'Current time, brighter backside' },
+        ],
+      },
+      {
+        key: 'tileNames',
+        label: 'Map Names',
+        type: 'select',
+        options: [
+          { value: 'auto', label: 'Map default' },
+          { value: 'international', label: 'International' },
+          { value: 'national', label: 'National (local names)' },
+        ],
+      },
       {
         key: 'mapType',
         label: 'Map Type',
@@ -158,7 +221,12 @@ export const VISUAL_OPTION_SECTIONS = Object.freeze([
 ]);
 
 const MARKER_MODES = new Set(['pins', 'heat', 'pins-heat']);
-const COLOR_MODES = new Set(['event', 'time', 'uniform']);
+const COLOR_MODES = new Set(['event', 'time', 'events-count', 'uniform']);
+const CONNECTION_PATTERNS = new Set(['line', 'arrows', 'arrows2', 'blobs']);
+const CONNECTION_WIDTHS = new Set(['small', 'medium', 'large']);
+const DATE_COLORS_MODES = new Set(['blue-red', 'rainbow', 'turquoise-red']);
+const SUN_MODES = new Set(['noon', 'current', 'currentBright']);
+const TILE_NAME_MODES = new Set(['auto', 'international', 'national']);
 const HEAT_GRADIENTS = new Set(['red-yellow-white', 'blue-green-red', 'purple-gold']);
 const MAP_TYPES = new Set(['standard', 'muted', 'satellite', 'dark']);
 const PERSON_GROUP_MODES = new Set(['all', 'bookmarked', 'start-family']);
@@ -188,6 +256,11 @@ export function normalizeVisualViewOptions(kind = 'mapStory', options = {}) {
   next.displayCurrentLocation = Boolean(next.displayCurrentLocation);
   next.personGroupMode = PERSON_GROUP_MODES.has(next.personGroupMode) ? next.personGroupMode : defaults.personGroupMode;
   next.smartFilterMode = SMART_FILTER_MODES.has(next.smartFilterMode) ? next.smartFilterMode : defaults.smartFilterMode;
+  next.connectionPattern = CONNECTION_PATTERNS.has(next.connectionPattern) ? next.connectionPattern : defaults.connectionPattern;
+  next.connectionWidth = CONNECTION_WIDTHS.has(next.connectionWidth) ? next.connectionWidth : defaults.connectionWidth;
+  next.dateColorsMode = DATE_COLORS_MODES.has(next.dateColorsMode) ? next.dateColorsMode : defaults.dateColorsMode;
+  next.sunMode = SUN_MODES.has(next.sunMode) ? next.sunMode : defaults.sunMode;
+  next.tileNames = TILE_NAME_MODES.has(next.tileNames) ? next.tileNames : defaults.tileNames;
   return next;
 }
 
@@ -205,8 +278,57 @@ export function usesHeatMap(options = {}) {
 
 export function colorForVisualEvent(event, options = {}, yearBounds = null) {
   if (options.colorBy === 'uniform') return '#2563eb';
-  if (options.colorBy === 'time') return colorForYear(event?.year, yearBounds);
+  if (options.colorBy === 'time') return colorForYear(event?.year, yearBounds, options.dateColorsMode);
+  if (options.colorBy === 'events-count') return colorForEventsCount(event?.eventsAtPlace, options.dateColorsMode);
   return colorForEventType(event?.overlayType || event?.conclusionType);
+}
+
+/**
+ * Annotate events with `eventsAtPlace` — how many events share the same
+ * coordinate — for the "Color pins according to Events count" mode.
+ */
+export function attachEventCounts(events = []) {
+  const counts = new Map();
+  for (const event of events) {
+    if (!Number.isFinite(event?.lat) || !Number.isFinite(event?.lng)) continue;
+    const key = `${event.lat.toFixed(4)},${event.lng.toFixed(4)}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return events.map((event) => {
+    if (!Number.isFinite(event?.lat) || !Number.isFinite(event?.lng)) return event;
+    const key = `${event.lat.toFixed(4)},${event.lng.toFixed(4)}`;
+    return { ...event, eventsAtPlace: counts.get(key) || 1 };
+  });
+}
+
+function colorForEventsCount(count, mode) {
+  if (!Number.isFinite(count) || count <= 0) return '#64748b';
+  // Log ramp: 1 event = cool end, ~20+ events = hot end of the gradient.
+  const t = Math.min(1, Math.log10(count) / Math.log10(20));
+  return dateGradientColor(t, mode);
+}
+
+function dateGradientColor(t, mode = 'blue-red') {
+  const clamped = Math.min(1, Math.max(0, t));
+  if (mode === 'rainbow') return `hsl(${Math.round(250 - clamped * 250)}, 78%, 48%)`;
+  if (mode === 'turquoise-red') return mixHex('#06b6d4', '#dc2626', clamped);
+  return mixHex('#2563eb', '#dc2626', clamped);
+}
+
+function mixHex(a, b, t) {
+  const pa = hexChannels(a);
+  const pb = hexChannels(b);
+  const channel = (x, y) => Math.round(x + (y - x) * t).toString(16).padStart(2, '0');
+  return `#${channel(pa.r, pb.r)}${channel(pa.g, pb.g)}${channel(pa.b, pb.b)}`;
+}
+
+function hexChannels(hex) {
+  const value = hex.replace('#', '');
+  return {
+    r: parseInt(value.slice(0, 2), 16),
+    g: parseInt(value.slice(2, 4), 16),
+    b: parseInt(value.slice(4, 6), 16),
+  };
 }
 
 export function buildChronologicalConnections(events = [], enabled = false) {
@@ -238,15 +360,13 @@ function colorForEventType(type) {
   return '#d97706';
 }
 
-function colorForYear(year, bounds) {
+function colorForYear(year, bounds, mode = 'blue-red') {
   if (!Number.isFinite(year) || !bounds) return '#64748b';
   const min = Array.isArray(bounds) ? bounds[0] : bounds.min;
   const max = Array.isArray(bounds) ? bounds[1] : bounds.max;
   if (!Number.isFinite(min) || !Number.isFinite(max) || min === max) return '#2563eb';
   const t = Math.min(1, Math.max(0, (year - min) / (max - min)));
-  if (t < 0.33) return '#2563eb';
-  if (t < 0.66) return '#0f766e';
-  return '#d97706';
+  return dateGradientColor(t, mode);
 }
 
 function clampNumber(value, min, max, fallback) {

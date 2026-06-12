@@ -343,6 +343,13 @@
       "windows-1252": "Windows-1252 (legacy Windows)",
       "macroman": "MacRoman (legacy Mac)",
       "ansel": "ANSEL (legacy GEDCOM)"
+    },
+    "additionalNameDisplay": {
+      "none": "None",
+      "all": "All additional names",
+      "married-name": "Only married name",
+      "family-name": "Only family name",
+      "nickname": "Only nickname"
     }
   },
   "lists": {
@@ -507,7 +514,8 @@
       "language": "Language",
       "direction": "Text Direction",
       "numberingSystem": "Numbering System",
-      "calendar": "Calendar"
+      "calendar": "Calendar",
+      "additionalNameDisplay": "Additional name on chart labels"
     },
     "arabicIslamic": {
       "panel": "Arabic and Islamic Display",
@@ -1108,7 +1116,11 @@
     "reviewIssues": {
       "one": "Review {count} GEDCOM import issue →",
       "other": "Review {count} GEDCOM import issues →"
-    }
+    },
+    "encodingTitle": "GEDCOM Character Encoding",
+    "encodingBody": "The encoding of “{name}” could not be detected automatically. Pick the encoding that makes the preview readable.",
+    "encodingCharTag": "The file declares CHAR “{tag}”, which is not a recognised encoding.",
+    "encodingConfirm": "Import with this encoding"
   },
   "home": {
     "heroTitle": "Your family tree, in the browser",

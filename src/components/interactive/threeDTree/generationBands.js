@@ -166,6 +166,7 @@ export function makeGenerationLabel(band, options = {}) {
   const peopleLine = `${band.count} ${band.count === 1 ? 'person' : 'people'}`;
   const primary = showYears ? band.subtitle : label;
   const secondary = showYears ? (showGen ? label : peopleLine) : peopleLine;
+  const vertical = band.axis === 'vertical';
   const texture = makeGenerationLabelTexture(band, primary, secondary, false);
   const compactTexture = makeGenerationLabelTexture(band, primary, secondary, true);
   const labelWidth = Math.min(BAND_LABEL_GUTTER - 22, 276);
@@ -175,26 +176,40 @@ export function makeGenerationLabel(band, options = {}) {
   let primaryLabelX = null;
   let maxRight = -Infinity;
   for (const [index, segment] of segments.entries()) {
-    const compact = index > 0;
+    // In the horizontal L→R / R→L orientations a band is a vertical column:
+    // the along-band extent lives in segment.height and labels sit at the top
+    // of each column (always compact — the column is only ~band-height wide).
+    const compact = vertical || index > 0;
     const width = compact ? 176 : labelWidth;
     const height = compact ? 58 : labelHeight;
-    if (compact && segment.width > 430) continue;
-    if (segment.width < width + 60) continue;
+    const along = vertical ? (segment.height ?? band.height) : segment.width;
+    if (!vertical && compact && along > 430) continue;
+    if (along < (vertical ? height + 60 : width + 60)) continue;
     const plane = makePlaneFromTexture(compact ? compactTexture : texture, width, height);
-    const segmentLeft = segment.x - segment.width / 2;
-    const x = compact
-      ? segmentLeft + width / 2 + 18
-      : Math.min(segmentLeft + BAND_LABEL_GUTTER / 2, segment.x - labelWidth * 0.05);
-    plane.position.set(x, band.y + (compact ? band.height * 0.2 : 2), -18);
+    let x;
+    let y;
+    if (vertical) {
+      const segmentTop = (Number.isFinite(segment.y) ? segment.y : band.y) + along / 2;
+      x = segment.x;
+      y = segmentTop - height / 2 - 14;
+    } else {
+      const segmentLeft = segment.x - segment.width / 2;
+      x = compact
+        ? segmentLeft + width / 2 + 18
+        : Math.min(segmentLeft + BAND_LABEL_GUTTER / 2, segment.x - labelWidth * 0.05);
+      y = band.y + (compact ? band.height * 0.2 : 2);
+    }
+    plane.position.set(x, y, -18);
     plane.material.depthTest = false;
     plane.renderOrder = 18;
     group.add(plane);
     if (primaryLabelX === null) primaryLabelX = x;
-    maxRight = Math.max(maxRight, segment.x + segment.width / 2);
+    maxRight = Math.max(maxRight, segment.x + (vertical ? 0 : segment.width / 2));
   }
-  // Metadata for the "keep labels visible while scrolling" per-frame slide.
+  // Metadata for the "keep labels visible while scrolling" per-frame slide
+  // (X-based, so vertical-column labels opt out).
   group.userData = {
-    isGenerationLabel: group.children.length > 0,
+    isGenerationLabel: group.children.length > 0 && !vertical,
     naturalX: primaryLabelX ?? 0,
     bandMaxX: Number.isFinite(maxRight) ? maxRight : 0,
   };

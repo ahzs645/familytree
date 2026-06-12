@@ -6,6 +6,8 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordDeleted } from '../lib/changeLog.js';
+import { deleteRecordsWithLog } from '../lib/bulkActions.js';
+import { BulkLabelMenu } from '../components/lists/BulkLabelMenu.jsx';
 import { readRef } from '../lib/schema.js';
 import {
   createMediaRecordFromBlob,
@@ -367,6 +369,24 @@ export default function Media() {
     setSelectedIds((current) => current.filter((id) => allIds.has(id)));
   }, [media]);
 
+  const mediaTypeFor = useCallback(
+    (id) => media.find((m) => m.recordName === id)?.recordType || 'MediaPicture',
+    [media]
+  );
+
+  const onDeleteSelected = useCallback(async () => {
+    const deletable = selectedIds.filter((id) => {
+      const record = media.find((m) => m.recordName === id);
+      return record && !isRecordLocked(record);
+    });
+    if (!deletable.length) return;
+    if (!(await modal.confirm(`Delete ${deletable.length} selected media record(s)?`, { title: 'Delete media', okLabel: 'Delete', destructive: true }))) return;
+    await deleteRecordsWithLog(deletable, mediaTypeFor);
+    clearSelection();
+    if (deletable.includes(activeId)) setActiveId(null);
+    await reload();
+  }, [activeId, clearSelection, media, mediaTypeFor, modal, reload, selectedIds]);
+
   useEffect(() => {
     if (mediaIdParam && filtered.some((m) => m.recordName === mediaIdParam)) {
       setActiveId(mediaIdParam);
@@ -421,6 +441,18 @@ export default function Media() {
         )}
         <button onClick={selectVisible} disabled={!filtered.length} style={select}>Select visible</button>
         <button onClick={clearSelection} disabled={!selectedIds.length} style={select}>Clear selection</button>
+        {!readOnlyGallery && selectedIds.length > 0 && (
+          <>
+            <BulkLabelMenu
+              selectedIds={selectedIds}
+              recordType={mediaTypeFor}
+              onAssigned={clearSelection}
+            />
+            <button onClick={onDeleteSelected} style={{ ...select, color: 'hsl(var(--destructive))' }}>
+              Delete selected
+            </button>
+          </>
+        )}
         {!readOnlyGallery && <button onClick={() => addFilesRef.current?.click()} style={select}>Add files</button>}
         <MoreMenu
           items={[

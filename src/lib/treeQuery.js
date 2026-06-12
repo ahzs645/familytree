@@ -9,6 +9,7 @@ import { refToRecordName } from './recordRef.js';
 import { readField } from './schema.js';
 import { familySummary, personSummary } from '../models/index.js';
 import { attachLineageToPersonSummaries, buildPersonLineage } from './personLineage.js';
+import { decorateSummaryName, loadAdditionalNameSuffixes } from './additionalNames.js';
 import { childRelationKind, childRelationLabel } from './childRelationshipTypes.js';
 
 /**
@@ -28,6 +29,7 @@ export async function buildAncestorTree(rootRecordName, maxGenerations = 5, opti
   const db = getLocalDatabase();
   const root = await db.getRecord(rootRecordName);
   if (!isPublicRecord(root)) return null;
+  const nameSuffixes = await loadAdditionalNameSuffixes();
 
   function shouldIncludeFather(gen) {
     if (branch === 'both') return true;
@@ -49,7 +51,7 @@ export async function buildAncestorTree(rootRecordName, maxGenerations = 5, opti
 
   async function recurse(record, gen) {
     if (!isPublicRecord(record)) return null;
-    const node = { person: personSummary(record), father: null, mother: null, generation: gen };
+    const node = { person: decorateSummaryName(personSummary(record), nameSuffixes), father: null, mother: null, generation: gen };
     if (gen >= maxGenerations) return node;
     const parents = await db.getPersonsParents(record.recordName);
     if (parents.length > 0) {
@@ -71,10 +73,11 @@ export async function buildDescendantTree(rootRecordName, maxGenerations = 4) {
   const db = getLocalDatabase();
   const root = await db.getRecord(rootRecordName);
   if (!isPublicRecord(root)) return null;
+  const nameSuffixes = await loadAdditionalNameSuffixes();
 
   async function recurse(record, gen) {
     if (!isPublicRecord(record)) return null;
-    const node = { person: personSummary(record), unions: [], generation: gen };
+    const node = { person: decorateSummaryName(personSummary(record), nameSuffixes), unions: [], generation: gen };
     if (gen >= maxGenerations) return node;
     const families = await db.getPersonsChildrenInformation(record.recordName);
     for (const fam of families) {
@@ -83,7 +86,7 @@ export async function buildDescendantTree(rootRecordName, maxGenerations = 4) {
         familyRecordName: fam.family.recordName,
         family: familySummary(fam.family),
         marriageDate: familySummary(fam.family)?.marriageDate || null,
-        partner: isPublicRecord(fam.partner) ? personSummary(fam.partner) : null,
+        partner: isPublicRecord(fam.partner) ? decorateSummaryName(personSummary(fam.partner), nameSuffixes) : null,
         children: [],
       };
       const relationByChild = new Map((fam.childRelations || []).map(({ child, relation }) => [child?.recordName, relation]));
@@ -124,6 +127,7 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
   const db = getLocalDatabase();
   const root = await db.getRecord(rootRecordName);
   if (!isPublicRecord(root)) return null;
+  const nameSuffixes = await loadAdditionalNameSuffixes();
 
   const [
     { records: familyRecords },
@@ -304,7 +308,7 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
     const hiddenChildFamilies = childFamilyIds.filter((familyId) => !familyIds.has(familyId) && familyById.has(familyId));
     return {
       id: person.recordName,
-      person: personSummary(person),
+      person: decorateSummaryName(personSummary(person), nameSuffixes),
       generation: hint.generation,
       roles: [...hint.roles],
       branches: [...(hint.branches || [])],

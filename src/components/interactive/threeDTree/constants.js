@@ -250,6 +250,22 @@ export const ORDINANCES_MODES = [
   { id: 'color', label: 'By Color' },
 ];
 
+// Native: _InteractiveTreeViewFlatViewer_BackgroundStyle_* — the flat (2D)
+// viewer's nine background presets (solid / spotlight / custom variants).
+export const FLAT_BACKGROUND_STYLES = [
+  { id: 'none', label: 'None' },
+  { id: 'gray', label: 'Gray' },
+  { id: 'blue', label: 'Blue' },
+  { id: 'whiteSpotlight', label: 'White Spotlight' },
+  { id: 'lightBlueSpotlight', label: 'Light Blue Spotlight' },
+  { id: 'lightOrangeSpotlight', label: 'Light Orange Spotlight' },
+  { id: 'customColor', label: 'Custom Color' },
+  { id: 'customGradient', label: 'Custom Gradient Color' },
+  { id: 'customSpotlight', label: 'Custom Spotlight Color' },
+];
+
+export const DEFAULT_FLAT_BACKGROUND_CUSTOM_COLOR = '#dce7f5';
+
 // Native: _BuilderGenerationsAlignmentHint_* — how person boxes align within a
 // generation band. We model the visible variants as a vertical offset/anchor.
 export const BOX_ALIGNMENTS = [

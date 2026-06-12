@@ -9,6 +9,8 @@ import {
   persistLocalization,
 } from './i18n.js';
 import {
+  ADDITIONAL_NAME_DISPLAY,
+  DEFAULT_ADDITIONAL_NAME_DISPLAY,
   DEFAULT_DISPLAY_FORMAT,
   DEFAULT_SORT_FORMAT,
   NAME_FORMAT_LABELS,
@@ -41,6 +43,7 @@ export const DEFAULT_APP_PREFERENCES = {
     surnameCase: 'as-entered',
     nameDisplayFormat: DEFAULT_DISPLAY_FORMAT,
     nameSortFormat: DEFAULT_SORT_FORMAT,
+    additionalNameDisplay: DEFAULT_ADDITIONAL_NAME_DISPLAY,
     dateDisplayFormat: 'YYYY-MM-DD',
     readableDateFormats: 'YYYY-MM-DD\nDD MM YYYY\nMM/DD/YYYY',
     partialDateEntry: {
@@ -156,6 +159,7 @@ export async function getAppPreferences() {
   setActiveNameFormats({
     display: prefs.formats.nameDisplayFormat,
     sort: prefs.formats.nameSortFormat,
+    additionalNames: prefs.formats.additionalNameDisplay,
   });
   setActiveVitalDisplay(prefs.formats.vitalDisplay);
   setCatalogLabelPreferences({
@@ -200,6 +204,7 @@ export function normalizePreferences(value = {}) {
   merged.media.slideshow = normalizeMediaSlideshowSettings(merged.media?.slideshow);
   if (!NAME_FORMAT_LABELS[merged.formats.nameDisplayFormat]) merged.formats.nameDisplayFormat = DEFAULT_DISPLAY_FORMAT;
   if (!NAME_FORMAT_LABELS[merged.formats.nameSortFormat]) merged.formats.nameSortFormat = DEFAULT_SORT_FORMAT;
+  if (!Object.values(ADDITIONAL_NAME_DISPLAY).includes(merged.formats.additionalNameDisplay)) merged.formats.additionalNameDisplay = DEFAULT_ADDITIONAL_NAME_DISPLAY;
   if (!['strict', 'review', 'lenient'].includes(merged.importDefaults?.gedcomMode)) merged.importDefaults.gedcomMode = 'review';
   return merged;
 }
@@ -277,6 +282,7 @@ function announcePreferences(preferences) {
   setActiveNameFormats({
     display: preferences?.formats?.nameDisplayFormat,
     sort: preferences?.formats?.nameSortFormat,
+    additionalNames: preferences?.formats?.additionalNameDisplay,
   });
   setActiveVitalDisplay(preferences?.formats?.vitalDisplay);
   setCatalogLabelPreferences({

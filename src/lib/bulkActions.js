@@ -38,10 +38,15 @@ export async function listLabels() {
 /**
  * Assign a label to each target record, skipping targets that already carry
  * the label. Returns the number of new assignments created.
+ *
+ * `recordType` is either a type string for homogeneous lists or an
+ * `(id) => type` resolver for mixed lists (e.g. the media gallery); mixed
+ * lists always use the generic `target` ref field.
  */
 export async function assignLabelToRecords(labelId, targetIds, recordType) {
   const db = getLocalDatabase();
-  const field = labelTargetField(recordType);
+  const typeFor = typeof recordType === 'function' ? recordType : () => recordType;
+  const field = typeof recordType === 'function' ? 'target' : labelTargetField(recordType);
   const { records: relations } = await db.query('LabelRelation', { limit: 100000 });
   const alreadyLabeled = new Set(
     relations
@@ -57,7 +62,7 @@ export async function assignLabelToRecords(labelId, targetIds, recordType) {
       recordType: 'LabelRelation',
       fields: {
         label: { value: refValue(labelId, 'Label'), type: 'REFERENCE' },
-        [field]: { value: refValue(targetId, recordType), type: 'REFERENCE' },
+        [field]: { value: refValue(targetId, typeFor(targetId)), type: 'REFERENCE' },
       },
     };
     await db.saveRecord(record);
@@ -69,8 +74,9 @@ export async function assignLabelToRecords(labelId, targetIds, recordType) {
 
 export async function deleteRecordsWithLog(ids, recordType) {
   const db = getLocalDatabase();
+  const typeFor = typeof recordType === 'function' ? recordType : () => recordType;
   for (const id of ids) {
     await db.deleteRecord(id);
-    await logRecordDeleted(id, recordType);
+    await logRecordDeleted(id, typeFor(id));
   }
 }

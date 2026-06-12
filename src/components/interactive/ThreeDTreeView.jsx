@@ -69,6 +69,10 @@ export function ThreeDTreeView({
       siblingGenerations: viewerOptions.siblingGenerations,
       ancestorScaleStartLevel: viewerOptions.ancestorScaleStartLevel,
       descendantScaleStartLevel: viewerOptions.descendantScaleStartLevel,
+      siblingMinification: viewerOptions.siblingMinification,
+      otherSiblingMinification: viewerOptions.otherSiblingMinification,
+      adjustParentPositions: viewerOptions.adjustParentPositions,
+      generationBandsSegmentByPedigree: viewerOptions.generationBandsSegmentByPedigree,
     }),
     [
       ancestorTree, descendantTree, activeId, familyGraph,
@@ -76,6 +80,8 @@ export function ThreeDTreeView({
       viewerOptions.generationDirection,
       viewerOptions.parentsChildrenSpacing, viewerOptions.partnerSpacing, viewerOptions.branchSpacing,
       viewerOptions.siblingGenerations, viewerOptions.ancestorScaleStartLevel, viewerOptions.descendantScaleStartLevel,
+      viewerOptions.siblingMinification, viewerOptions.otherSiblingMinification,
+      viewerOptions.adjustParentPositions, viewerOptions.generationBandsSegmentByPedigree,
     ]
   );
   // Reference numbering (Ahnentafel/d'Aboville/Henry/Generation) is loaded
@@ -217,6 +223,7 @@ export function ThreeDTreeView({
             <div style={styles.macActionMenu}>
               <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onPick?.(activeId); actionsRef.current?.fit?.(); }}>Focus on Person</button>
               <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); setPresentationMode(true); }}>Enter Presentation</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); actionsRef.current?.snapshot?.(); }}>Save as Image</button>
               <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onEditPerson?.(activeId); }}>Edit Person</button>
               <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onShowInfo?.(activeId); }}>Show Info</button>
               <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onOpenAncestorChart?.(activeId); }}>Ancestor Chart</button>

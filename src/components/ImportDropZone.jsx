@@ -3,10 +3,11 @@
  * Uses Tailwind theme tokens.
  */
 import React, { useRef, useState, useCallback } from 'react';
-import { IMPORT_ACCEPT } from '../lib/genealogyFileFormats.js';
+import { IMPORT_ACCEPT, analyzeGedcomEncoding, isGedcomFileName } from '../lib/genealogyFileFormats.js';
 import { cn } from '../lib/utils.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { GedcomImportReviewSheet } from './GedcomImportReviewSheet.jsx';
+import { GedcomEncodingSheet } from './GedcomEncodingSheet.jsx';
 
 export function ImportDropZone({ onImported }) {
   const { t } = useTranslation();
@@ -16,6 +17,9 @@ export function ImportDropZone({ onImported }) {
   const [error, setError] = useState(false);
   const [reviewResult, setReviewResult] = useState(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Pending GEDCOM whose encoding could not be auto-detected — holds the bytes
+  // while the encoding prompt is open.
+  const [encodingPrompt, setEncodingPrompt] = useState(null);
 
   const captureReview = (result) => {
     if (result?.source === 'gedcom' && Array.isArray(result.issues) && result.issues.length > 0) {
@@ -49,9 +53,8 @@ export function ImportDropZone({ onImported }) {
     };
   };
 
-  const handleFile = useCallback(
-    async (file) => {
-      updateProgress(5, t('import.reading'));
+  const runImport = useCallback(
+    async (file, { encoding } = {}) => {
       try {
         updateProgress(10, t('import.loadingSqlite'));
         const { MFTPKGImporter } = await import('../lib/MFTPKGImporter.js');
@@ -65,7 +68,7 @@ export function ImportDropZone({ onImported }) {
           result = await importer.importFromJSON(data);
         } else {
           configureImporterProgress(importer);
-          result = await importer.importFromFile(file);
+          result = await importer.importFromFile(file, { encoding });
         }
         updateProgress(100, t('import.imported', { count: result.total || 0 }));
         captureReview(result);
@@ -77,6 +80,34 @@ export function ImportDropZone({ onImported }) {
       }
     },
     [onImported, t]
+  );
+
+  const handleFile = useCallback(
+    async (file) => {
+      updateProgress(5, t('import.reading'));
+      // GEDCOMs with non-ASCII content but no BOM / usable CHAR tag get a
+      // per-import encoding prompt before anything is committed.
+      if (isGedcomFileName(file.name)) {
+        try {
+          const [bytes, { getPreferredGedcomEncoding }] = await Promise.all([
+            file.arrayBuffer().then((buffer) => new Uint8Array(buffer)),
+            import('../lib/import/importPreferences.js'),
+          ]);
+          const preferred = await getPreferredGedcomEncoding();
+          if (!preferred || preferred === 'auto') {
+            const analysis = analyzeGedcomEncoding(bytes, file.name);
+            if (analysis.ambiguous) {
+              setEncodingPrompt({ file, bytes, charTag: analysis.charTag });
+              return;
+            }
+          }
+        } catch {
+          // Analysis is best-effort; fall through to the normal import.
+        }
+      }
+      await runImport(file);
+    },
+    [runImport, t]
   );
 
   const handleDirectory = useCallback(async (entry) => {
@@ -179,6 +210,22 @@ export function ImportDropZone({ onImported }) {
     <>
     {reviewOpen && reviewResult && (
       <GedcomImportReviewSheet result={reviewResult} onClose={() => setReviewOpen(false)} />
+    )}
+    {encodingPrompt && (
+      <GedcomEncodingSheet
+        fileName={encodingPrompt.file.name}
+        bytes={encodingPrompt.bytes}
+        charTag={encodingPrompt.charTag}
+        onConfirm={async (encoding) => {
+          const pending = encodingPrompt;
+          setEncodingPrompt(null);
+          await runImport(pending.file, { encoding });
+        }}
+        onCancel={() => {
+          setEncodingPrompt(null);
+          setProgress(null);
+        }}
+      />
     )}
     <div
       className={cn(

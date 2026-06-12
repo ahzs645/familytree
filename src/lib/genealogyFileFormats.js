@@ -77,6 +77,35 @@ export function gedcomEncodingFromCharTag(tag) {
   return null;
 }
 
+/**
+ * Classify how confidently the GEDCOM's encoding can be auto-detected. Used by
+ * the import UI to decide whether to show the per-import encoding prompt (the
+ * web counterpart of MacFamilyTree's GedcomCustomEncodingSheet): a file with a
+ * BOM, a recognised `1 CHAR` tag, or pure-ASCII content imports silently;
+ * non-ASCII bytes with no usable declaration are ambiguous.
+ */
+export function analyzeGedcomEncoding(bytes, fileName = '') {
+  const ext = fileExtension(fileName);
+  if (bytes?.[0] === 0xff && bytes?.[1] === 0xfe) return { encoding: 'utf-16le', source: 'bom', ambiguous: false };
+  if (bytes?.[0] === 0xfe && bytes?.[1] === 0xff) return { encoding: 'utf-16be', source: 'bom', ambiguous: false };
+  if (bytes?.[0] === 0xef && bytes?.[1] === 0xbb && bytes?.[2] === 0xbf) return { encoding: 'utf-8', source: 'bom', ambiguous: false };
+  if (ext === '.uged16') return { encoding: 'utf-16le', source: 'extension', ambiguous: false };
+  const charTag = extractGedcomCharTag(bytes);
+  const fromTag = gedcomEncodingFromCharTag(charTag);
+  if (fromTag) return { encoding: fromTag, source: 'char-tag', charTag, ambiguous: false };
+  const limit = Math.min(bytes?.length || 0, 1 << 20);
+  let hasNonAscii = false;
+  for (let i = 0; i < limit; i += 1) {
+    if (bytes[i] > 0x7f) { hasNonAscii = true; break; }
+  }
+  return {
+    encoding: 'utf-8',
+    source: 'fallback',
+    charTag,
+    ambiguous: hasNonAscii || Boolean(charTag && !fromTag),
+  };
+}
+
 export function decodeGedcomBytes(bytes, fileName = '', { encoding = 'auto' } = {}) {
   const ext = fileExtension(fileName);
   if (encoding && encoding !== 'auto') {

@@ -20,14 +20,19 @@ progress · ⬜ todo · 🔶 needs external dependency / product decision.
 ## Wave 2 — layout engine (higher risk)
 - ✅ Generation direction (Top→Bottom / Bottom→Top / Left→Right / Right→Left)
       — coordinate transform on the finished layout (nodes, link points, bands,
-      bounds). Known gap: band labels (year/generation text) are skipped in the
-      horizontal L→R / R→L modes (label placement is still width/X-based).
+      bounds). 2026-06-12: band labels now render in the horizontal L→R / R→L
+      modes too — bands carry an `axis` tag and vertical columns place compact
+      labels at the column top (`generationBands.js`).
 - ✅ Brother/Sister Generations depth control (collateral siblings dropped past depth)
 - ✅ Scale Ancestors / Scale Descendants at Generation (per-node figure minification)
-- ⬜ Box Alignment (`BuilderGenerationsAlignmentHint`) — low visible effect in our
-      uniform-row model; deferred
-- ⬜ Minification of siblings (focused + other) — needs reliable collateral tagging
-- ⬜ Adjust Parent Positions for better space usage
+- ✅ Box Alignment (`BuilderGenerationsAlignmentHint`) — modeled as a vertical
+      figure seat offset (`personNodes.js boxAlignmentOffset`)
+- ✅ Minification of siblings (focused + other) — 2026-06-12: `applyMinification`
+      keys off the family-graph `lineage: false` tag (plus role strings on the
+      simple path), and ThreeDTreeView now actually passes the two sliders +
+      adjustParentPositions into the layout (they were dropped by the memo before)
+- ✅ Adjust Parent Positions for better space usage (row recentre pass in
+      `layout.js`, now plumbed from the options panel)
 
 ## Wave 3 — bands & display detail
 - ✅ Segment Generation Bands by Pedigree (toggle gates per-holder band split)

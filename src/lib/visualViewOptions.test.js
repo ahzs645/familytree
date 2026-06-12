@@ -56,7 +56,11 @@ describe('visual view options', () => {
 
   it('colors event and time modes deterministically', () => {
     expect(colorForVisualEvent({ conclusionType: 'Birth' }, { colorBy: 'event' })).toBe('#2563eb');
-    expect(colorForVisualEvent({ year: 1990 }, { colorBy: 'time' }, [1900, 2000])).toBe('#d97706');
+    // Time mode interpolates the selected Event Date Colors gradient
+    // (default Blue to Red): range endpoints land on the pure gradient ends.
+    expect(colorForVisualEvent({ year: 1900 }, { colorBy: 'time' }, [1900, 2000])).toBe('#2563eb');
+    expect(colorForVisualEvent({ year: 2000 }, { colorBy: 'time' }, [1900, 2000])).toBe('#dc2626');
+    expect(colorForVisualEvent({ year: 2000 }, { colorBy: 'time', dateColorsMode: 'turquoise-red' }, [1900, 2000])).toBe('#dc2626');
     expect(colorForVisualEvent({}, { colorBy: 'uniform' })).toBe('#2563eb');
   });
 });

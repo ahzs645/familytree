@@ -365,6 +365,8 @@ export default function MapsDiagram() {
             markers={mapMarkers}
             showMarkers={usesMarkerPins(visualOptions)}
             connections={mapConnections}
+            connectionOptions={{ pattern: visualOptions.connectionPattern, width: visualOptions.connectionWidth }}
+            tileNames={visualOptions.tileNames}
             heatmap={{
               enabled: statisticSource.mode === 'heat' || usesHeatMap(visualOptions),
               radius: visualOptions.heatRadius,

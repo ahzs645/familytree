@@ -38,21 +38,25 @@ export function VisualOptionsDrawer({
         </button>
       </div>
       <div className="space-y-4">
-        {sections.map((section) => (
-          <section key={section.id}>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{section.label}</div>
-            <div className="space-y-2">
-              {section.controls.map((control) => (
-                <VisualOptionControl
-                  key={control.key}
-                  control={control}
-                  value={options[control.key]}
-                  onChange={(value) => setOption(control.key, value)}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+        {sections.map((section) => {
+          const controls = section.controls.filter((control) => !control.kinds || control.kinds.includes(kind));
+          if (!controls.length) return null;
+          return (
+            <section key={section.id}>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{section.label}</div>
+              <div className="space-y-2">
+                {controls.map((control) => (
+                  <VisualOptionControl
+                    key={control.key}
+                    control={control}
+                    value={options[control.key]}
+                    onChange={(value) => setOption(control.key, value)}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </aside>
   );

@@ -684,3 +684,19 @@ Full re-verification of every open item in this doc and `macfamilytree-parity-to
 1. **List multi-select + batch ops (#1)** — checkbox column on `ConfigurableListTable`, bulk bar with delete / assign-label / export-selected. One PR, benefits every list route.
 2. **Interactive Tree Wave 2 finishers (#3)** — horizontal band-label placement + sibling minification tagging; this is the active 3D-parity project's own tail.
 3. **Additional-name display preference (#2)** — small Settings field + chart label renderers.
+
+### Fifth-pass implementation sweep (2026-06-12, same day)
+
+All of the above landed in one sweep; status of the "confirmed still open" list:
+
+1. **Multi-select + batch ops — DONE.** `useListSelection` + `BulkActionBar` (already in Persons) generalised: `BulkLabelMenu` (assign label to selected, `lib/bulkActions.js`), `RecordBulkBar`, optional `selectable`/`renderBulkActions` on `SortableListTable`/`ConfigurableListTable`, selection + bulk bar on `MasterDetailList`. Wired into Persons (label added), Families, Sources, Places, ToDos (with relation cleanup), Media (assign label + delete selected next to the existing select-visible).
+2. **Additional-name display preference — DONE.** `formats.additionalNameDisplay` (None/All/Married/Family/Nickname) in Settings → `lib/additionalNames.js` suffix map → all three `treeQuery` builders decorate chart/tree labels (nicknames quoted, others parenthesised).
+3. **Tree Wave 2 finishers — DONE.** Band labels render in horizontal orientations (bands carry an `axis` tag; compact labels at column tops); sibling minification keys off the family-graph `lineage:false` tag; ThreeDTreeView now passes the two minification sliders + `adjustParentPositions` + `generationBandsSegmentByPedigree` into the layout (they were silently dropped by the memo). Verified via `scripts/capture-tree-options.mjs` screenshots + layout tests.
+4. **GEDCOM per-import encoding prompt — DONE.** `analyzeGedcomEncoding` flags ambiguous files (non-ASCII, no BOM/CHAR); `GedcomEncodingSheet` previews the first lines per encoding before import; importer threads `{ encoding }` through `importFromFile`/`importFromBytes`.
+5. **Contact Picker — DONE.** `importContactsViaPicker` (`navigator.contacts.select`), button shown in Export only where the API exists.
+6. **3D snapshot — DONE.** `snapshot()` scene action + "Save as Image" in the tree Actions menu.
+7. **Flat viewer backgrounds — DONE.** All 9 native presets (`FLAT_BACKGROUND_STYLES`) with spotlight/gradient CSS + custom-color input in the flat viewer top bar.
+8. **Virtual Globe deltas — MOSTLY DONE.** Connection patterns (Line/Arrows/Arrows 2/Blobs) + widths, Event Date Colors gradients (Blue→Red/Rainbow/Turquoise→Red), pin color by events-count, sun simulation (night-terminator overlay; globe-only control), tile-name localization (international/national). Still open: pin color by Person Group (needs per-event group membership).
+12. **Arabic smoke checks — DONE.** `scripts/arabic-smoke.mjs` imports the real "Ahmad's Family (Arabic).mftpkg" database and runs 9 checks (import, people list, Arabic search, 3D tree, ancestor chart labels, reports, website-export lang/dir, map, globe) — 9/9 passing.
+
+Still open after this sweep: **#8-partial** pin-color-by-person-group; **#9** hosted share-link (by design — client-side `/view/:token` covers it); **#10** FamilySearch tree extension (needs authenticated FS session); **#11** AR mode (native-only; a WebXR port would be its own project).

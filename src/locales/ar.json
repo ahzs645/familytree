@@ -346,6 +346,13 @@
       "windows-1252": "Windows-1252 (Windows قديم)",
       "macroman": "MacRoman (Mac قديم)",
       "ansel": "ANSEL (GEDCOM قديم)"
+    },
+    "additionalNameDisplay": {
+      "none": "بدون",
+      "all": "كل الأسماء الإضافية",
+      "married-name": "اسم الزواج فقط",
+      "family-name": "اسم العائلة فقط",
+      "nickname": "الكنية فقط"
     }
   },
   "lists": {
@@ -518,7 +525,8 @@
       "language": "اللغة",
       "direction": "اتجاه النص",
       "numberingSystem": "نظام الأرقام",
-      "calendar": "التقويم"
+      "calendar": "التقويم",
+      "additionalNameDisplay": "الاسم الإضافي على تسميات المخططات"
     },
     "arabicIslamic": {
       "panel": "العرض العربي والإسلامي",
@@ -1151,7 +1159,11 @@
       "few": "مراجعة {count} مشكلات استيراد GEDCOM ←",
       "many": "مراجعة {count} مشكلة استيراد GEDCOM ←",
       "other": "مراجعة {count} مشكلة استيراد GEDCOM ←"
-    }
+    },
+    "encodingTitle": "ترميز أحرف GEDCOM",
+    "encodingBody": "تعذر اكتشاف ترميز «{name}» تلقائياً. اختر الترميز الذي يجعل المعاينة مقروءة.",
+    "encodingCharTag": "يصرّح الملف عن CHAR «{tag}» وهو ترميز غير معروف.",
+    "encodingConfirm": "استيراد بهذا الترميز"
   },
   "home": {
     "heroTitle": "شجرة عائلتك في المتصفح",

@@ -44,6 +44,9 @@ const HEAT_SOURCE_ID = 'ctw-marker-heat-source';
 const HEAT_LAYER_ID = 'ctw-marker-heat';
 const CONNECTION_SOURCE_ID = 'ctw-marker-connections-source';
 const CONNECTION_LAYER_ID = 'ctw-marker-connections';
+const CONNECTION_ARROW_LAYER_ID = 'ctw-marker-connection-arrows';
+const SUN_SOURCE_ID = 'ctw-sun-night-source';
+const SUN_LAYER_ID = 'ctw-sun-night';
 const MAPLIBRE_RTL_TEXT_PLUGIN_URL = 'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.3.0/dist/mapbox-gl-rtl-text.js';
 
 let rtlTextPluginRequested = false;
@@ -128,8 +131,77 @@ function removeHeatLayer(map) {
 }
 
 function removeConnectionLayer(map) {
+  if (map.getLayer(CONNECTION_ARROW_LAYER_ID)) map.removeLayer(CONNECTION_ARROW_LAYER_ID);
   if (map.getLayer(CONNECTION_LAYER_ID)) map.removeLayer(CONNECTION_LAYER_ID);
   if (map.getSource(CONNECTION_SOURCE_ID)) map.removeSource(CONNECTION_SOURCE_ID);
+}
+
+function removeSunLayer(map) {
+  if (map.getLayer(SUN_LAYER_ID)) map.removeLayer(SUN_LAYER_ID);
+  if (map.getSource(SUN_SOURCE_ID)) map.removeSource(SUN_SOURCE_ID);
+}
+
+// Night-side polygon for the sun-simulation overlay: the solar terminator
+// curve plus the dark pole. Subsolar longitude uses the mean-sun
+// approximation (±4° vs. the equation of time — fine for a shading overlay).
+function nightPolygon(date = new Date()) {
+  const rad = Math.PI / 180;
+  const dayMs = 86400000;
+  const n = date.getTime() / dayMs + 2440587.5 - 2451545.0;
+  const L = ((280.46 + 0.9856474 * n) % 360 + 360) % 360;
+  const g = (((357.528 + 0.9856003 * n) % 360 + 360) % 360) * rad;
+  const lambda = (L + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * rad;
+  const epsilon = (23.439 - 0.0000004 * n) * rad;
+  const decl = Math.asin(Math.sin(epsilon) * Math.sin(lambda));
+  const utcHours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+  const subsolarLng = -15 * (utcHours - 12);
+  const tanDecl = Math.tan(decl) || 1e-6;
+  const points = [];
+  for (let lng = -180; lng <= 180; lng += 2) {
+    const hourAngle = (lng - subsolarLng) * rad;
+    const lat = Math.atan(-Math.cos(hourAngle) / tanDecl) / rad;
+    points.push([lng, Math.max(-89.9, Math.min(89.9, lat))]);
+  }
+  const darkPoleLat = decl > 0 ? -90 : 90;
+  points.push([180, darkPoleLat], [-180, darkPoleLat], points[0]);
+  return {
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: [points] },
+    properties: {},
+  };
+}
+
+function addSunLayer(map, mode) {
+  removeSunLayer(map);
+  if (!mode || mode === 'noon') return;
+  map.addSource(SUN_SOURCE_ID, { type: 'geojson', data: nightPolygon() });
+  map.addLayer({
+    id: SUN_LAYER_ID,
+    type: 'fill',
+    source: SUN_SOURCE_ID,
+    paint: {
+      'fill-color': '#0b1020',
+      'fill-opacity': mode === 'currentBright' ? 0.16 : 0.34,
+    },
+  });
+}
+
+// Map-tile name localization: international (English where available) vs.
+// national (local names). Best-effort rewrite of the basemap's symbol layers.
+function applyTileNames(map, mode) {
+  if (!mode || mode === 'auto') return;
+  const layers = map.getStyle()?.layers || [];
+  for (const layer of layers) {
+    if (layer.type !== 'symbol') continue;
+    let current;
+    try { current = map.getLayoutProperty(layer.id, 'text-field'); } catch { continue; }
+    if (!current || !JSON.stringify(current).includes('name')) continue;
+    try {
+      map.setLayoutProperty(layer.id, 'text-field', mode === 'national'
+        ? ['coalesce', ['get', 'name'], ['get', 'name_en']]
+        : ['coalesce', ['get', 'name_en'], ['get', 'name']]);
+    } catch { /* read-only style layer */ }
+  }
 }
 
 function addClusterLayers(map, data) {
@@ -249,23 +321,66 @@ function heatGradientStops(gradient) {
   return ['rgba(127,29,29,0)', '#7f1d1d', '#dc2626', '#facc15', '#fff7ed'];
 }
 
-function addConnectionLayer(map, data) {
+// Native VirtualGlobe connection options: pattern (Line / Arrows / Arrows 2 /
+// Blobs) and width (Small / Medium / Large).
+const CONNECTION_WIDTHS = { small: 1, medium: 1.6, large: 2.8 };
+
+function addConnectionLayer(map, data, options = {}) {
   removeConnectionLayer(map);
   map.addSource(CONNECTION_SOURCE_ID, {
     type: 'geojson',
     data,
   });
+  const width = CONNECTION_WIDTHS[options.width] || CONNECTION_WIDTHS.medium;
+  const pattern = options.pattern || 'line';
+  const color = ['coalesce', ['get', 'color'], '#2563eb'];
+  if (pattern === 'blobs') {
+    // Round-cap dot dashes read as the native "Blobs" bead chain.
+    map.addLayer({
+      id: CONNECTION_LAYER_ID,
+      type: 'line',
+      source: CONNECTION_SOURCE_ID,
+      layout: { 'line-cap': 'round' },
+      paint: {
+        'line-color': color,
+        'line-width': width * 2.4,
+        'line-opacity': 0.55,
+        'line-dasharray': [0, 2.2],
+      },
+    });
+    return;
+  }
   map.addLayer({
     id: CONNECTION_LAYER_ID,
     type: 'line',
     source: CONNECTION_SOURCE_ID,
     paint: {
-      'line-color': ['coalesce', ['get', 'color'], '#2563eb'],
-      'line-width': 1.5,
-      'line-opacity': 0.48,
-      'line-dasharray': [2, 2],
+      'line-color': color,
+      'line-width': width,
+      'line-opacity': pattern === 'line' ? 0.48 : 0.4,
+      ...(pattern === 'line' ? { 'line-dasharray': [2, 2] } : {}),
     },
   });
+  if (pattern === 'arrows' || pattern === 'arrows2') {
+    map.addLayer({
+      id: CONNECTION_ARROW_LAYER_ID,
+      type: 'symbol',
+      source: CONNECTION_SOURCE_ID,
+      layout: {
+        'symbol-placement': 'line',
+        'symbol-spacing': pattern === 'arrows' ? 90 : 45,
+        'text-field': pattern === 'arrows' ? '►' : '➤',
+        'text-size': Math.round(9 + width * 2.5),
+        'text-keep-upright': false,
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+      },
+      paint: {
+        'text-color': color,
+        'text-opacity': 0.85,
+      },
+    });
+  }
 }
 
 export function Map({
@@ -281,6 +396,9 @@ export function Map({
   showMarkers = true,
   heatmap = null,
   connections = [],
+  connectionOptions = null,
+  sunMode = 'noon',
+  tileNames = 'auto',
   emptyMessage = '',
 }) {
   const { theme } = useTheme();
@@ -512,14 +630,35 @@ export function Map({
         return;
       }
       try { removeConnectionLayer(map); } catch { /* style reset */ }
-      if (connections.length > 0) addConnectionLayer(map, connectionData);
+      if (connections.length > 0) addConnectionLayer(map, connectionData, connectionOptions || {});
     };
     renderConnections();
     return () => {
       cancelled = true;
       try { removeConnectionLayer(map); } catch { /* map removed */ }
     };
-  }, [connectionData, connections.length, ready, styleUrl]);
+  }, [connectionData, connections.length, connectionOptions, ready, styleUrl]);
+
+  // Sun simulation (night-side shading) + tile-name localization.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    let cancelled = false;
+    const apply = () => {
+      if (cancelled || !mapRef.current) return;
+      if (!map.isStyleLoaded()) {
+        map.once('idle', apply);
+        return;
+      }
+      try { addSunLayer(map, sunMode); } catch { /* style reset */ }
+      try { applyTileNames(map, tileNames); } catch { /* style reset */ }
+    };
+    apply();
+    return () => {
+      cancelled = true;
+      try { removeSunLayer(map); } catch { /* map removed */ }
+    };
+  }, [sunMode, tileNames, ready, styleUrl]);
 
   // Render markers. Rebuilt from scratch whenever the prop changes — fine for
   // the scales we deal with (hundreds of places max).

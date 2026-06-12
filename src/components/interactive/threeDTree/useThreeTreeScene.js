@@ -652,6 +652,19 @@ export function useThreeTreeScene({
         tweens: tweensRef.current,
         cameraTweenRef,
       }),
+      // Snapshot the current view as a PNG download (the native viewer's
+      // "Save as Image"). Renders a fresh frame first so the capture never
+      // races the on-demand render loop.
+      snapshot(fileName = 'interactive-tree.png') {
+        const renderer = scene.userData?.renderer;
+        if (!renderer) return;
+        renderer.render(scene, camera);
+        const url = renderer.domElement.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+      },
     };
   }, [layout, palette, modelRevision, viewerOptions, activeId]);
 

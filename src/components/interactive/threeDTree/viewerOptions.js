@@ -6,9 +6,11 @@ import {
   CHILD_SORTING_MODES,
   CONNECTION_COLOR_MODES,
   ORDINANCES_MODES,
+  DEFAULT_FLAT_BACKGROUND_CUSTOM_COLOR,
   DEFAULT_GENERATION_BAND_CUSTOM_COLOR,
   DEFAULT_GROUND_CUSTOM_COLOR,
   DEFAULT_PERSON_CUSTOM_COLOR,
+  FLAT_BACKGROUND_STYLES,
   GENERATION_BAND_COLOR_MODES,
   GENERATION_BAND_STYLES,
   GENERATION_DIRECTIONS,
@@ -111,6 +113,10 @@ export function defaultViewerOptions() {
     bottomPlaneMode: 'grid',
     groundColorMode: 'auto',
     groundCustomColor: DEFAULT_GROUND_CUSTOM_COLOR,
+
+    // Flat (2D) viewer background — native BackgroundStyle presets.
+    flatBackgroundStyle: 'none',
+    flatBackgroundCustomColor: DEFAULT_FLAT_BACKGROUND_CUSTOM_COLOR,
 
     // Animations
     animationDuration: 1.0,
@@ -225,6 +231,9 @@ function migrateAndValidate(parsed, fallback) {
     bottomPlaneMode: pickFrom(BOTTOM_PLANE_MODES, parsed.bottomPlaneMode, fallback.bottomPlaneMode),
     groundColorMode: pickFrom(GROUND_COLOR_MODES, parsed.groundColorMode, fallback.groundColorMode),
     groundCustomColor: pickHex(parsed.groundCustomColor, fallback.groundCustomColor),
+
+    flatBackgroundStyle: pickFrom(FLAT_BACKGROUND_STYLES, parsed.flatBackgroundStyle, fallback.flatBackgroundStyle),
+    flatBackgroundCustomColor: pickHex(parsed.flatBackgroundCustomColor, fallback.flatBackgroundCustomColor),
 
     animationDuration: clampNumber(parsed.animationDuration, 0, 2.0, fallback.animationDuration),
 

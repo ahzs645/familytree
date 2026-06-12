@@ -43,10 +43,10 @@ export class MFTPKGImporter {
   /**
    * Import from a File (e.g. drag-and-drop or file-picker).
    */
-  async importFromFile(file) {
+  async importFromFile(file, options = {}) {
     this._progress('loading', 0, 1);
     const arrayBuffer = await file.arrayBuffer();
-    return this.importFromBytes(new Uint8Array(arrayBuffer), file.name || 'browser-import');
+    return this.importFromBytes(new Uint8Array(arrayBuffer), file.name || 'browser-import', options);
   }
 
   /**
@@ -66,7 +66,7 @@ export class MFTPKGImporter {
    * (used for the file extension). This is the main entry point that
    * dispatches by source kind.
    */
-  async importFromBytes(uint8Array, sourceName = 'browser-import') {
+  async importFromBytes(uint8Array, sourceName = 'browser-import', options = {}) {
     const parsed = await parseSource(uint8Array, sourceName);
 
     switch (parsed.kind) {
@@ -74,7 +74,7 @@ export class MFTPKGImporter {
         return this.importFromJSON(parsed.data);
 
       case SOURCE_KIND.GEDCOM:
-        return this._importGedcomBytes(parsed.bytes, sourceName, { format: parsed.format });
+        return this._importGedcomBytes(parsed.bytes, sourceName, { format: parsed.format, encoding: options.encoding });
 
       case SOURCE_KIND.ZIP_DATABASE: {
         this._progress('extracting', 0, 1);

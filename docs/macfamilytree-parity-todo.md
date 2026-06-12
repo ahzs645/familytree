@@ -32,15 +32,15 @@ Detailed bundle audit: [MacFamilyTree 11 Bundle Audit](./macfamilytree-11-bundle
   - [x] Add general, database/local storage, display, name format, date format, maps, colors, PDF/export, downloads, edit behavior, Web Search, FamilySearch, and function configuration sections.
   - [x] Store preferences in IndexedDB metadata and let routes read shared defaults.
   - [x] Add import/export of app preferences.
-- [ ] Native media acquisition equivalents
+- [x] Native media acquisition equivalents
   - [x] Add browser-safe file picker flows for pictures, PDFs, audio, video, and URLs.
   - [x] Add camera capture where available through `getUserMedia`.
   - [x] Add audio recording where available through `MediaRecorder`.
   - [x] Add image edit/enhance basics: crop, rotate, caption, and asset replacement.
-  - [ ] Document unavailable native-only features such as macOS Photos library and scanner integration.
-- [ ] Contacts import equivalent
+  - [x] Document unavailable native-only features such as macOS Photos library and scanner integration. (See `mac-to-web-remaining-gaps.md` §9/§10 + Fifth-pass out-of-scope notes: Photos library, scanner, and AR mode require native APIs; manual upload + EXIF preservation is the browser replacement.)
+- [x] Contacts import equivalent
   - [x] Add CSV/vCard import for people.
-  - [ ] Add optional browser Contact Picker support where available.
+  - [x] Add optional browser Contact Picker support where available. (`contactImport.js importContactsViaPicker` + "Pick from device contacts…" in Export; Chromium-only API, button hidden elsewhere.)
 - [ ] Native document/file lifecycle equivalents
   - [x] Expand import/open coverage beyond current `.mftpkg`, inner `database`, JSON, and GEDCOM subset flows.
   - [x] Add `.uged`, `.uged16`, GedZip, and richer `.mftsql`/`.mft` handling where practical.
@@ -72,7 +72,7 @@ Detailed bundle audit: [MacFamilyTree 11 Bundle Audit](./macfamilytree-11-bundle
   - [x] Genogram real data builder with family structure, fact/event/label markers, and genogram-specific symbol options. (`src/lib/chartData/genogramBuilder.js`)
   - [x] Sociogram real data builder from `AssociateRelation` plus toggles for parents, grandparents, partners, children, siblings, and associate relation classes. (`src/lib/chartData/sociogramBuilder.js`)
   - [x] Interactive Tree actions: add relatives, edit/delete person/family routing, node context menu, flat viewer, and camera presets. (FamilySearch tree extension remains deferred.)
-  - [x] Full Virtual Tree WebGL feature using Three.js, with person/family/connection scene objects, relationship path highlighting, color modes, symbols, depth-of-field/camera controls, and snapshot/export. (`src/components/charts/virtualTree3D/`; dedicated snapshot/export button still pending.)
+  - [x] Full Virtual Tree WebGL feature using Three.js, with person/family/connection scene objects, relationship path highlighting, color modes, symbols, depth-of-field/camera controls, and snapshot/export. (`src/components/charts/virtualTree3D/`; 2026-06-12: "Save as Image" snapshot added to the 3D tree Actions menu.)
 
 ## Broader Views Audit
 
@@ -85,7 +85,7 @@ Detailed bundle audit: [MacFamilyTree 11 Bundle Audit](./macfamilytree-11-bundle
 - [x] Add report theme/style/page/background controls beyond current simple pagination.
 - [x] Improve saved reports so they preserve full report configuration and preview state.
 - [x] Improve book sections to support richer custom pages and desktop-grade export/print behavior.
-- [ ] Add book sections for saved chart and saved report embeds.
+- [x] Add book sections for saved chart and saved report embeds. (`books.js` `saved-chart` / `saved-report` section kinds)
 - Evaluate optional speech support for narrative reports through the Web Speech API.
 
 ## Places And Geocoding
@@ -148,13 +148,13 @@ webtrees is the strongest genealogy reference for this work: it has Arabic trans
 - [x] Add MapLibre RTL text plugin loading so Arabic and Hebrew map labels render correctly.
 - [x] Add `lang`/`dir`, bidi isolation, and logical CSS to static website and report exports.
 - [x] Audit generated PDFs/reports/books for RTL text, numbers, punctuation, and table alignment.
-- [ ] Add Arabic fixture-driven browser smoke checks for people lists, charts, maps, reports, and exports.
+- [x] Add Arabic fixture-driven browser smoke checks for people lists, charts, maps, reports, and exports. (`scripts/arabic-smoke.mjs` — imports the real Arabic .mftpkg database and walks 9 checks.)
 
 ### Next Arabic/RTL Work
 
 - [x] Finish the RTL layout audit across the rest of the app: replace remaining `ml-*`, `mr-*`, `text-left`, `borderLeft`, `borderRight`, and physical timeline/sidebar styles outside the already-converted shell, people, search, and export paths.
 - [x] Add Arabic fixture smoke data with Arabic names, mixed Arabic/English names, Arabic places, and date-heavy records.
-- [ ] Verify Arabic fixtures in people list search, sorting/grouping, charts/tree labels, reports, website export, and maps.
+- [x] Verify Arabic fixtures in people list search, sorting/grouping, charts/tree labels, reports, website export, and maps. (2026-06-12: 9/9 smoke checks pass against "Ahmad's Family (Arabic).mftpkg".)
 - [x] Improve chart label wrapping: move beyond bidi-safe grapheme truncation to grapheme-aware wrapping or measured fitting for longer Arabic names.
 - [x] Audit reports/books/PDF output for RTL table alignment, punctuation flow, numbered lists, localized numbers, and mixed-direction text.
 - [x] Add regression tests for i18n helpers covering alef variants, ta marbuta, diacritics, tatweel, hamza forms, and mixed-direction matching.

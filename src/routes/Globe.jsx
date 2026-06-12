@@ -15,6 +15,7 @@ import { Map as MapView } from '../components/ui/Map.jsx';
 import { MapModeSwitch } from '../components/ui/MapModeSwitch.jsx';
 import { VisualOptionsDrawer } from '../components/charts/VisualOptionsDrawer.jsx';
 import {
+  attachEventCounts,
   buildChronologicalConnections,
   colorForVisualEvent,
   normalizeVisualViewOptions,
@@ -142,11 +143,15 @@ export default function Globe() {
     return [(Math.min(...lngs) + Math.max(...lngs)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2];
   }, [filtered]);
 
-  const mapMarkers = useMemo(() => filtered.map((point) => ({
+  const countedFiltered = useMemo(
+    () => (visualOptions.colorBy === 'events-count' ? attachEventCounts(filtered) : filtered),
+    [filtered, visualOptions.colorBy]
+  );
+  const mapMarkers = useMemo(() => countedFiltered.map((point) => ({
     ...point,
     color: colorForVisualEvent(point, visualOptions, yearBounds),
     size: visualOptions.markerSize,
-  })), [filtered, visualOptions, yearBounds]);
+  })), [countedFiltered, visualOptions, yearBounds]);
   const mapConnections = useMemo(
     () => buildChronologicalConnections(filtered, visualOptions.connectionLines),
     [filtered, visualOptions.connectionLines]
@@ -237,6 +242,9 @@ export default function Globe() {
             opacity: visualOptions.heatOpacity,
           }}
           projection={{ type: 'globe' }}
+          connectionOptions={{ pattern: visualOptions.connectionPattern, width: visualOptions.connectionWidth }}
+          sunMode={visualOptions.sunMode}
+          tileNames={visualOptions.tileNames}
           emptyMessage={loading ? '' : 'The Virtual Globe cannot display any person or family events because no coordinates have been provided.'}
         />
         <VisualOptionsDrawer

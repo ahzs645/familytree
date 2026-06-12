@@ -160,9 +160,12 @@ function applyMinification(layout, options) {
       scale = Math.max(0.42, scale * (1 - (gen - dStart + 1) * 0.14));
     }
     // Collateral siblings (not the direct lineage): focused person's own
-    // siblings (generation 0) vs. all other collateral relatives.
+    // siblings (generation 0) vs. all other collateral relatives. The family
+    // graph path tags lineage membership explicitly (`lineage: false` =
+    // collateral); the simple tree path only carries role strings.
     const role = String(node.role || (node.roles || []).join(' ')).toLowerCase();
-    if (!node.featured && role.includes('collateral')) {
+    const collateral = !node.featured && (node.lineage === false || role.includes('collateral'));
+    if (collateral) {
       const factor = gen === 0 ? sibMin : otherSibMin;
       if (factor > 0) scale = Math.min(scale, Math.max(0.42, 1 - factor));
     }
@@ -211,6 +214,9 @@ function transformBand(band, fn, swap) {
     y: by,
     width: swap ? band.height : band.width,
     height: swap ? band.width : band.height,
+    // Bands run along X by default; the L→R / R→L orientations turn them into
+    // vertical columns — label placement keys off this.
+    axis: swap ? 'vertical' : 'horizontal',
     segments,
   };
 }

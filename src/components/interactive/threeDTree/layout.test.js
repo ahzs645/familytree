@@ -159,6 +159,65 @@ describe('buildInteractiveLayout', () => {
     });
   });
 
+  it('applies sibling minification to collateral figures only', () => {
+    const familyGraph = {
+      rootId: 'root',
+      rootFamilyId: 'root-family',
+      nodes: [
+        graphNode('root', ['root']),
+        graphNode('sibling', ['collateral']),
+        graphNode('father', ['ancestor-parent']),
+        graphNode('mother', ['ancestor-parent']),
+        graphNode('uncle', ['collateral']),
+        graphNode('grandfather', ['ancestor-parent']),
+        graphNode('grandmother', ['ancestor-parent']),
+      ],
+      families: [
+        { id: 'root-family', parents: ['father', 'mother'], children: ['root', 'sibling'] },
+        { id: 'paternal-family', parents: ['grandfather', 'grandmother'], children: ['father', 'uncle'] },
+      ],
+    };
+
+    const base = buildInteractiveLayout(null, null, 'root', familyGraph);
+    const minified = buildInteractiveLayout(null, null, 'root', familyGraph, {
+      siblingMinification: 0.5,
+      otherSiblingMinification: 0.5,
+    });
+    const baseNodes = nodeById(base);
+    const minNodes = nodeById(minified);
+
+    // The focused person's sibling (gen 0) and the collateral uncle (gen -1)
+    // both shrink below their default collateral scale...
+    expect(minNodes.get('sibling').scale).toBeLessThan(baseNodes.get('sibling').scale);
+    expect(minNodes.get('uncle').scale).toBeLessThan(baseNodes.get('uncle').scale);
+    // ...while the direct lineage and the featured root are untouched.
+    expect(minNodes.get('father').scale).toBe(baseNodes.get('father').scale);
+    expect(minNodes.get('root').scale).toBe(baseNodes.get('root').scale);
+  });
+
+  it('keeps band labels placeable in horizontal orientations (vertical axis bands)', () => {
+    const familyGraph = {
+      rootId: 'root',
+      rootFamilyId: 'root-family',
+      nodes: [
+        graphNode('root', ['root']),
+        graphNode('father', ['ancestor-parent']),
+        graphNode('mother', ['ancestor-parent']),
+      ],
+      families: [
+        { id: 'root-family', parents: ['father', 'mother'], children: ['root'] },
+      ],
+    };
+    const layout = buildInteractiveLayout(null, null, 'root', familyGraph, { generationDirection: 'leftToRight' });
+    for (const band of layout.bands) {
+      expect(band.axis).toBe('vertical');
+      // Along-band extent survives the swap in segment.height.
+      for (const segment of band.segments) {
+        expect(segment.height).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it('uses finite split gaps for near-ancestor family band clustering', () => {
     expect(bandSplitGap(0)).toBe(Infinity);
     expect(bandSplitGap(-1)).toBe(980);
