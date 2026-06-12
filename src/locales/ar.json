@@ -360,6 +360,20 @@
       "other": "{count} محدد"
     },
     "clear": "مسح",
+    "selectAll": "تحديد الكل",
+    "assignLabel": "تعيين تسمية",
+    "noLabels": "لا توجد تسميات بعد",
+    "exportSelected": "تصدير المحدد",
+    "deleteConfirm": {
+      "zero": "لا سجلات محددة للحذف.",
+      "one": "حذف السجل المحدد؟ لا يمكن التراجع عن هذا.",
+      "two": "حذف السجلين المحددين؟ لا يمكن التراجع عن هذا.",
+      "few": "حذف {count} سجلات محددة؟ لا يمكن التراجع عن هذا.",
+      "many": "حذف {count} سجلاً محدداً؟ لا يمكن التراجع عن هذا.",
+      "other": "حذف {count} سجل محدد؟ لا يمكن التراجع عن هذا."
+    },
+    "deleteTitle": "حذف السجلات",
+    "deleteOk": "حذف",
     "preview": "معاينة",
     "list": "قائمة",
     "saveReport": "حفظ التقرير",
@@ -439,7 +453,8 @@
     "personsWithoutLastName": "أشخاص بلا اسم عائلة",
     "picture": "صورة",
     "rowsCount": "{count} صف · {language}",
-    "rowsWithCitations": "{count} صف · {language} · اقتباسات {mode}"
+    "rowsWithCitations": "{count} صف · {language} · اقتباسات {mode}",
+    "selectRow": "تحديد الصف"
   },
   "settingsPage": {
     "title": "الإعدادات",

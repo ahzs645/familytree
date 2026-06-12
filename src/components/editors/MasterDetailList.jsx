@@ -6,7 +6,7 @@
 import React, { useMemo, useState } from 'react';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 
-export function MasterDetailList({ items, activeId, onPick, renderRow, placeholder = 'Search…', detail, detailHeader = null, emptyTitle, emptyHint }) {
+export function MasterDetailList({ items, activeId, onPick, renderRow, placeholder = 'Search…', detail, detailHeader = null, emptyTitle, emptyHint, selection = null, bulkBar = null }) {
   const [query, setQuery] = useState('');
   const [mobileView, setMobileView] = useState('list');
   const isMobile = useIsMobile();
@@ -43,6 +43,7 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
               {filtered.length} of {items.length}
             </div>
           </div>
+          {bulkBar ? <div style={{ padding: '8px 10px', borderBottom: '1px solid hsl(var(--border))' }}>{bulkBar}</div> : null}
           <div style={{ flex: 1, overflow: 'auto' }}>
             {filtered.length === 0 ? (
               <div style={emptyState}>
@@ -56,28 +57,41 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
                 )}
               </div>
             ) : (
-              filtered.map((it) => (
-                <div
-                  key={it.recordName || it.id}
-                  onClick={() => handlePick(it.recordName || it.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault();
-                      handlePick(it.recordName || it.id);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  style={{
-                    ...row,
-                    ...(isMobile ? { minHeight: 44 } : null),
-                    background: (it.recordName || it.id) === activeId ? 'hsl(var(--secondary))' : 'transparent',
-                    borderInlineStart: (it.recordName || it.id) === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
-                  }}
-                >
-                  {renderRow(it)}
-                </div>
-              ))
+              filtered.map((it) => {
+                const itemId = it.recordName || it.id;
+                return (
+                  <div
+                    key={itemId}
+                    onClick={() => handlePick(itemId)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        handlePick(itemId);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    style={{
+                      ...row,
+                      ...(isMobile ? { minHeight: 44 } : null),
+                      ...(selection ? { display: 'flex', alignItems: 'flex-start', gap: 8 } : null),
+                      background: itemId === activeId ? 'hsl(var(--secondary))' : selection?.isSelected(itemId) ? 'hsl(var(--primary) / 0.06)' : 'transparent',
+                      borderInlineStart: itemId === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
+                    }}
+                  >
+                    {selection ? (
+                      <input
+                        type="checkbox"
+                        checked={selection.isSelected(itemId)}
+                        onClick={(event) => event.stopPropagation()}
+                        onChange={(event) => selection.toggle(itemId, { range: event.nativeEvent?.shiftKey })}
+                        style={{ marginTop: 3, flexShrink: 0 }}
+                      />
+                    ) : null}
+                    <div style={selection ? { minWidth: 0, flex: 1 } : undefined}>{renderRow(it)}</div>
+                  </div>
+                );
+              })
             )}
           </div>
         </aside>

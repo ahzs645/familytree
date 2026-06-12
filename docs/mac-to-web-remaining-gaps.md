@@ -630,3 +630,57 @@ Verified during an implementation sweep. Several items the earlier passes flagge
 1. **#2 Smart Filter authoring sheet** — compound filter builder + "Save current search as smart filter". Pairs naturally with #3 in the same PR.
 2. **#4 Welcome multi-tree actions** — rename / favorite / sort / delete-with-typed-confirm on `Home.jsx`.
 3. **#16 Global keyboard shortcut palette** — single sheet listing bindings, with `?`-style toggle. Prior audit flagged it; still nothing global.
+
+---
+
+## Fifth-pass reconciliation (2026-06-12)
+
+Full re-verification of every open item in this doc and `macfamilytree-parity-todo.md` against the codebase (~89 commits landed since the fourth pass), plus one fresh sweep of the bundle for never-catalogued surfaces.
+
+### Verified DONE since the fourth pass (do not re-propose)
+
+- **#2 Smart Filter authoring** — `src/routes/SmartFilters.jsx` (nested and/or rule groups) + `SearchApp.jsx` "save current search as smart filter".
+- **#3 Saved searches** — `SearchApp.jsx` save/load/delete with metadata persistence.
+- **#4 Welcome / multi-tree library** — `src/lib/treeLibrary.js` rename/favorite/label/sort/send-as-copy/delete.
+- **#5 Backup depth** — `src/routes/Backup.jsx` scheduler, retention, history browser, restore-per-entry.
+- **#7 Merge conflict resolution** — `MergeTreesWizardSheet.jsx` (file → mode → plan → conflicts → progress) wired with `MergeConflictSheet.jsx`.
+- **#12 Slideshow configuration** — interval/loop/random/captions in `Slideshow.jsx`.
+- **#13 Batch Place Lookup** — `BatchPlaceLookupSheet.jsx` wired from `Places.jsx`.
+- **#16 Keyboard shortcuts + palette** — `CommandPalette.jsx` (⌘K, in AppShell) + `useKeyboardShortcuts.js`.
+- **#20 Research log** — journal entries persisted in `Research.jsx`.
+- **#27 Place Convert-to-Detail** — `PlaceConvertToDetailSheet.jsx` wired from `Places.jsx`.
+- **3P.3 Narrative TTS** — Web Speech API in `ReportsApp.jsx`.
+- **2P.2/2P.11 Name format presets (display + sort)** — `src/lib/nameFormat.js` + `FormatsPanel.jsx`.
+- **2P.6 Privacy depth** — `src/lib/privacy.js` policy profiles (`privateArchive`/`familyShare`/`publicWebsite`/`livingMasked`) with `isVisibleRecord`/`maskLivingDetails` consulted by exports.
+- **2P.7 Citation long/short model** — `src/lib/citationFormat.js` + `formatBibliography` used by books.
+- **2P.8 Column chooser** — `src/components/lists/ColumnChooser.jsx` + `ConfigurableListTable.jsx`.
+- **2P.9 Sort profiles** — sort dropdowns via `ConfigurableListTable`.
+- **2P.16 Page setup / print** — `PageSetupSheet.jsx` (margins, overlap, cut marks, page numbers, omit-empty).
+- **2P.20 Book title-page presets + book validation** — `books.js` `TITLE_PAGE_PRESETS` + `validateBook`.
+- **#24 World History categories** — toggleable categories in `WorldHistory.jsx`.
+- **3P.6 Maps Diagram slideshow** — play/stop + "show all years" + step config in `MapsDiagram.jsx:328-349`.
+- **Chart pipeline** (todo-doc items, all verified): export/share (`chartExport.js`, navigator.share), document schema v2 (`chartDocumentSchema.js` builderConfig/compositorConfig/exportSettings/pageSetup + migration), real-data builders for distribution/timeline/statistics/genogram/sociogram (`src/lib/chartData/`), Edit Background dialog (`ChartBackgroundSheet.jsx`), multi-path relationship config (`RelationshipPathControls.jsx`).
+- **Publishing depth** — theme management + publish history/validation in `Websites.jsx`.
+- **Function configuration** — `FunctionsPanel.jsx` + Favorites/nav filtering.
+- **Book embeds** — `saved-chart` / `saved-report` section kinds in `books.js`.
+- **GEDCOM encoding** — auto-detect (BOM + `CHAR` tag) with UTF-8/UTF-16LE/BE/ANSEL-fallback in `genealogyFileFormats.js`; default-encoding preference in `ExportPanel.jsx`. (Per-import override prompt still missing — see below.)
+
+### Confirmed still open (the complete remaining list)
+
+1. **Multi-select + batch operations on lists** (2P.17) — no `selectedIds` set, no bulk delete/label-assign/export-selected anywhere. Biggest remaining UX gap; pairs with the existing `ConfigurableListTable`.
+2. **Additional-name display preference** (2P.3) — no All/OnlyMarriedName/OnlyNickname/None setting governing which name variant renders on chart labels.
+3. **Interactive Tree Wave 2 layout finishers** — option keys exist in `viewerOptions.js` but layout honors them partially: sibling minification needs reliable collateral tagging; band labels misplace in horizontal (L→R/R→L) orientations; box alignment / adjust-parent-positions effect on layout unverified.
+4. **GEDCOM per-import encoding override** — auto-detect + settings default exist; Mac additionally prompts per-file when `CHAR` is exotic.
+5. **Contact Picker API** (`navigator.contacts.select()`) — CSV/vCard import exists; the picker bridge does not.
+6. **3D tree snapshot/export button** — renderer supports it; no dedicated UI.
+7. **Flat viewer background presets** — Mac ships 9 spotlight/gradient backgrounds; web flat viewer has none.
+8. **Virtual Globe option deltas** (fresh sweep, `CoreVirtualGlobe.strings`): connection pattern styles (Arrows/Arrows 2/Blobs vs. plain line), connection width modes, pin color by events-count / person-group, sun-lighting simulation, international vs. national tile names. Web `visualViewOptions.js` covers markers/heat/slideshow/groups/smart-filter but not these.
+9. **Share-as-link with hosted snapshot** (3P.10) — client-side `/view/:token` LZ link exists; no upload-to-host flow. Acceptable browser answer; revisit only if links exceed URL-length limits.
+10. **FamilySearch tree extension** (network traversal from a matched FS person) — deferred; needs authenticated API session.
+11. **AR mode** (Virtual Globe / Virtual Tree, fresh sweep) — native-only (ARKit); document as out of scope (WebXR port would be a separate project).
+12. **Arabic fixture browser smoke checks** — last open verification task from the RTL backlog.
+
+### Fifth-pass "Next 3"
+1. **List multi-select + batch ops (#1)** — checkbox column on `ConfigurableListTable`, bulk bar with delete / assign-label / export-selected. One PR, benefits every list route.
+2. **Interactive Tree Wave 2 finishers (#3)** — horizontal band-label placement + sibling minification tagging; this is the active 3D-parity project's own tail.
+3. **Additional-name display preference (#2)** — small Settings field + chart label renderers.

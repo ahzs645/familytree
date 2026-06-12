@@ -353,6 +353,16 @@
       "other": "{count} selected"
     },
     "clear": "Clear",
+    "selectAll": "Select all",
+    "assignLabel": "Assign label",
+    "noLabels": "No labels yet",
+    "exportSelected": "Export selected",
+    "deleteConfirm": {
+      "one": "Delete {count} selected record? This cannot be undone.",
+      "other": "Delete {count} selected records? This cannot be undone."
+    },
+    "deleteTitle": "Delete records",
+    "deleteOk": "Delete",
     "preview": "Preview",
     "list": "List",
     "saveReport": "Save Report",
@@ -432,7 +442,8 @@
     "personsWithoutLastName": "Persons without Last Name",
     "picture": "Picture",
     "rowsCount": "{count} rows · {language}",
-    "rowsWithCitations": "{count} rows · {language} · {mode} citations"
+    "rowsWithCitations": "{count} rows · {language} · {mode} citations",
+    "selectRow": "Select row"
   },
   "settingsPage": {
     "title": "Settings",

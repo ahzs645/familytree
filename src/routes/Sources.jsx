@@ -28,6 +28,8 @@ import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { EditorSectionNavProvider, EditorSectionNavBar } from '../components/editors/EditorSectionNav.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useListSelection } from '../components/lists/useListSelection.js';
+import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
 
 function uuid(p) {
   return generateId(p);
@@ -136,6 +138,10 @@ export default function Sources() {
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  const sourceIds = useMemo(() => sources.map((record) => record.recordName), [sources]);
+  const selection = useListSelection(sourceIds);
+
   useEffect(() => {
     if (!querySourceId || sources.length === 0) return;
     if (sources.some((source) => source.recordName === querySourceId)) setActiveId(querySourceId);
@@ -485,6 +491,17 @@ export default function Sources() {
         placeholder="Search sources…"
         detail={detail}
         detailHeader={detailHeader}
+        selection={selection}
+        bulkBar={(
+          <RecordBulkBar
+            selection={selection}
+            recordType="Source"
+            onDeleted={async (ids) => {
+              if (ids.includes(activeId)) setActiveId(null);
+              await reload();
+            }}
+          />
+        )}
       />
     </EditorSectionNavProvider>
   );

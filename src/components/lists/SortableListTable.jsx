@@ -1,7 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { compareStrings, formatInteger, getCurrentLocalization, matchesSearchText } from '../../lib/i18n.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { BulkActionBar } from './BulkActionBar.jsx';
 import { ListReportPreview } from './ListReportWorkbench.jsx';
 import { listToolbarCountClass, listToolbarInputClass } from './listToolbarClasses.js';
+import { useListSelection } from './useListSelection.js';
 
 function defaultValue(row, column) {
   if (column.sortValue) return column.sortValue(row);
@@ -60,7 +63,10 @@ export function SortableListTable({
   toolbar,
   onRowClick,
   reportPreview,
+  selectable = false,
+  renderBulkActions,
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState(initialSortKey || columns.find((column) => column.sortable !== false)?.key || '');
   const [sortDirection, setSortDirection] = useState(initialSortDirection);
@@ -95,6 +101,12 @@ export function SortableListTable({
     setSortDirection('asc');
   };
 
+  const visibleIds = useMemo(
+    () => (selectable ? visibleRows.map((row) => rowKey(row)) : []),
+    [selectable, visibleRows, rowKey]
+  );
+  const selection = useListSelection(visibleIds);
+
   return (
     <div className="flex flex-col h-full min-h-0">
       <div className="flex flex-wrap items-center gap-2 px-4 md:px-5 py-2 border-b border-border bg-background">
@@ -109,6 +121,13 @@ export function SortableListTable({
         </span>
         {toolbar}
       </div>
+      {selectable && selection.count > 0 ? (
+        <div className="px-4 md:px-5 py-2 border-b border-border bg-background">
+          <BulkActionBar count={selection.count} onClear={selection.clear}>
+            {renderBulkActions ? renderBulkActions(selection.selectedIds, selection.clear) : null}
+          </BulkActionBar>
+        </div>
+      ) : null}
       <div className="flex-1 min-h-0 overflow-auto">
         {reportPreview?.enabled ? (
           <ListReportPreview
@@ -129,8 +148,18 @@ export function SortableListTable({
               <div
                 key={rowKey(row)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`px-4 py-3 text-sm ${onRowClick ? 'cursor-pointer active:bg-accent/70' : ''}`}
+                className={`px-4 py-3 text-sm ${onRowClick ? 'cursor-pointer active:bg-accent/70' : ''} ${selectable && selection.isSelected(rowKey(row)) ? 'bg-primary/5' : ''}`}
               >
+                {selectable ? (
+                  <label className="flex items-center gap-2 pb-1" onClick={(event) => event.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selection.isSelected(rowKey(row))}
+                      onChange={() => selection.toggle(rowKey(row))}
+                      aria-label={t('lists.selectRow')}
+                    />
+                  </label>
+                ) : null}
                 {columns.map((column) => {
                   const content = column.render ? column.render(row) : String(defaultValue(row, column) ?? '');
                   if (content === '' || content == null) return null;
@@ -147,6 +176,16 @@ export function SortableListTable({
           <table className="hidden md:table w-full border-collapse text-sm" style={{ minWidth: `${columns.length * 140}px` }}>
             <thead className="sticky top-0 z-10 bg-card border-b border-border">
               <tr>
+                {selectable ? (
+                  <th scope="col" className="w-8 px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selection.allSelected}
+                      onChange={() => (selection.allSelected ? selection.clear() : selection.selectAll())}
+                      aria-label={t('lists.selectAll')}
+                    />
+                  </th>
+                ) : null}
                 {columns.map((column) => {
                   const active = sortKey === column.key;
                   return (
@@ -177,8 +216,18 @@ export function SortableListTable({
                 <tr
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={`border-b border-border/70 hover:bg-accent/60 ${onRowClick ? 'cursor-pointer' : ''}`}
+                  className={`border-b border-border/70 hover:bg-accent/60 ${onRowClick ? 'cursor-pointer' : ''} ${selectable && selection.isSelected(rowKey(row)) ? 'bg-primary/5' : ''}`}
                 >
+                  {selectable ? (
+                    <td className="w-8 px-3 py-2 align-top" onClick={(event) => event.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selection.isSelected(rowKey(row))}
+                        onChange={(event) => selection.toggle(rowKey(row), { range: event.nativeEvent?.shiftKey })}
+                        aria-label={t('lists.selectRow')}
+                      />
+                    </td>
+                  ) : null}
                   {columns.map((column) => (
                     <td key={column.key} className={`px-3 py-2 align-top text-foreground ${column.cellClassName || ''}`}>
                       {column.render ? column.render(row) : String(defaultValue(row, column) ?? '')}

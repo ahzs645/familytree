@@ -1,18 +1,29 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
 import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
 import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { SORT_PROFILES, useSortProfile } from '../components/lists/useSortProfile.js';
+import { BulkLabelMenu } from '../components/lists/BulkLabelMenu.jsx';
+import { deleteRecordsWithLog } from '../lib/bulkActions.js';
+import { downloadRowsAsCsv } from '../lib/listExport.js';
 import { loadMarriageRows } from '../lib/listData.js';
+import { useModal } from '../contexts/ModalContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 export default function Families() {
   const { t } = useTranslation();
+  const modal = useModal();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const sortProfile = useSortProfile('families', SORT_PROFILES.Families, 'partner1Name');
+
+  const reload = useCallback(async () => {
+    const next = await loadMarriageRows();
+    setRows(next);
+    setLoading(false);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +75,39 @@ export default function Families() {
     rowIds: (row) => row.id,
   });
 
+  const bulkDelete = useCallback(async (ids, clear) => {
+    if (!ids.length) return;
+    if (!(await modal.confirm(t('lists.deleteConfirm', { count: ids.length }), { title: t('lists.deleteTitle'), okLabel: t('lists.deleteOk'), destructive: true }))) return;
+    await deleteRecordsWithLog(ids, 'Family');
+    clear();
+    await reload();
+  }, [modal, reload, t]);
+
+  const renderBulkActions = useCallback((ids, clear) => (
+    <>
+      <BulkLabelMenu selectedIds={ids} recordType="Family" onAssigned={clear} />
+      <button
+        type="button"
+        onClick={() => downloadRowsAsCsv('families-selected', rows.filter((row) => ids.includes(row.id)), [
+          { key: 'partner1Name', label: t('families.partner1') },
+          { key: 'partner2Name', label: t('families.partner2') },
+          { key: 'marriageDate', label: t('families.marriageDate') },
+          { key: 'id', label: t('families.familyId') },
+        ])}
+        className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent"
+      >
+        {t('lists.exportSelected')}
+      </button>
+      <button
+        type="button"
+        onClick={() => bulkDelete(ids, clear)}
+        className="border border-destructive text-destructive rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10"
+      >
+        {t('common.delete')}
+      </button>
+    </>
+  ), [bulkDelete, rows, t]);
+
   if (loading) return <div className="p-10 text-muted-foreground">{t('families.loading')}</div>;
 
   const filters = (
@@ -96,6 +140,8 @@ export default function Families() {
         toolbar={filters}
         emptyTitle={t('families.emptyTitle')}
         emptyHint={t('families.emptyHint')}
+        selectable
+        renderBulkActions={renderBulkActions}
       />
     </div>
   );

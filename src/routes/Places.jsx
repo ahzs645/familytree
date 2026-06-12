@@ -45,6 +45,8 @@ import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { EditorSectionNavProvider, EditorSectionNavBar } from '../components/editors/EditorSectionNav.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useListSelection } from '../components/lists/useListSelection.js';
+import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
 
 function uuid(p) {
   return generateId(p);
@@ -143,6 +145,9 @@ export default function Places() {
     reload();
     getMapPreferences().then(setMapPrefs);
   }, [reload]);
+
+  const placeIds = useMemo(() => places.map((record) => record.recordName), [places]);
+  const selection = useListSelection(placeIds);
 
   useEffect(() => {
     const onPrefsChanged = (event) => setMapPrefs(event.detail || {});
@@ -676,6 +681,17 @@ export default function Places() {
         placeholder="Search places…"
         detail={detail}
         detailHeader={detailHeader}
+        selection={selection}
+        bulkBar={(
+          <RecordBulkBar
+            selection={selection}
+            recordType="Place"
+            onDeleted={async (ids) => {
+              if (ids.includes(activeId)) setActiveId(null);
+              await reload();
+            }}
+          />
+        )}
       />
       {showBatchSheet && (
         <BatchPlaceLookupSheet

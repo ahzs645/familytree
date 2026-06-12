@@ -18,6 +18,8 @@ import { useSaveShortcut } from '../lib/useSaveShortcut.js';
 import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useListSelection } from '../components/lists/useListSelection.js';
+import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
 
 const TARGET_TYPES = ['Person', 'Family', 'Source', 'Place', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
 const TODO_TYPE_BUILTINS = [
@@ -85,6 +87,20 @@ export default function ToDos() {
   }, [activeId]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  const todoIds = useMemo(() => todos.map((todo) => todo.recordName), [todos]);
+  const selection = useListSelection(todoIds);
+
+  const bulkDeleteTodos = async (ids) => {
+    const idSet = new Set(ids);
+    const ownedRelations = relations.filter((relation) => idSet.has(readRef(relation.fields?.todo)));
+    const db = getLocalDatabase();
+    await db.applyRecordTransaction({
+      deleteRecordNames: [...ids, ...ownedRelations.map((relation) => relation.recordName)],
+    });
+    for (const id of ids) await logRecordDeleted(id, 'ToDo');
+  };
+
   useEffect(() => {
     if (!queryTodoId || todos.length === 0) return;
     if (todos.some((todo) => todo.recordName === queryTodoId)) setActiveId(queryTodoId);
@@ -356,7 +372,26 @@ export default function ToDos() {
         onCreated={() => reload()}
       />
       <div className="flex-1 min-h-0">
-        <MasterDetailList items={todos} activeId={activeId} onPick={setActiveId} renderRow={renderRow} placeholder={t('todosPage.searchPlaceholder')} detail={detail} />
+        <MasterDetailList
+          items={todos}
+          activeId={activeId}
+          onPick={setActiveId}
+          renderRow={renderRow}
+          placeholder={t('todosPage.searchPlaceholder')}
+          detail={detail}
+          selection={selection}
+          bulkBar={(
+            <RecordBulkBar
+              selection={selection}
+              recordType="ToDo"
+              onDelete={bulkDeleteTodos}
+              onDeleted={async (ids) => {
+                if (ids.includes(activeId)) setActiveId(null);
+                await reload();
+              }}
+            />
+          )}
+        />
       </div>
     </div>
   );

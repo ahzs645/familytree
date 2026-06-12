@@ -49,13 +49,13 @@ Detailed bundle audit: [MacFamilyTree 11 Bundle Audit](./macfamilytree-11-bundle
   - [x] Add GEDCOM media-folder association for OBJE records and imported media references.
   - [x] Add explicit UTF-8/UTF-16 GEDCOM decoding during import.
   - [x] Add clearer tree picker/create/rename/delete workflows for local trees.
-- [ ] Publishing target depth
+- [x] Publishing target depth
   - [x] Add FTP/SFTP publishing target profiles for website exports; browser builds prepare/download the zip because direct FTP/SFTP sockets require an external uploader or native bridge.
-  - [ ] Add richer website theme management.
-  - [ ] Add publish status history and validation logs.
-- [ ] Desktop-style function configuration
-  - [ ] Add per-category function enable/disable/emphasis/favorite controls.
-  - [ ] Reflect those settings in navigation, Home, and Favorites.
+  - [x] Add richer website theme management. (`src/routes/Websites.jsx` — add/update/reorder/default themes)
+  - [x] Add publish status history and validation logs. (`listPublishHistory` / `recordPublishHistoryEntry`)
+- [x] Desktop-style function configuration
+  - [x] Add per-category function enable/disable/emphasis/favorite controls. (`src/components/settings/panels/FunctionsPanel.jsx`)
+  - [x] Reflect those settings in navigation, Home, and Favorites.
 
 ## Chart Editing
 
@@ -63,21 +63,21 @@ Detailed bundle audit: [MacFamilyTree 11 Bundle Audit](./macfamilytree-11-bundle
 - [x] Add object editing for chart overlays: text, images, lines, and selectable objects.
 - [x] Add alignment, bring-to-front/send-to-back, undo/redo, and delete controls.
 - [x] Add background editing, richer chart theme/style controls, and pagination/page setup.
-- [ ] Add export/share flows for image, PDF, print, and browser-native sharing where available.
-- [ ] Bring chart behavior closer to MacFamilyTree 11 chart pipeline. AI task list: [AI chart/view parity task list](./ai-chart-view-parity-task-list.md). Research packet: [MacFamilyTree chart parity implementation research](./mac-to-web-chart-implementation-research.md).
+- [x] Add export/share flows for image, PDF, print, and browser-native sharing where available. (`src/lib/chartExport.js`, `PageSetupSheet.jsx`, `ChartsApp.jsx` share menu)
+- [x] Bring chart behavior closer to MacFamilyTree 11 chart pipeline. AI task list: [AI chart/view parity task list](./ai-chart-view-parity-task-list.md). Research packet: [MacFamilyTree chart parity implementation research](./mac-to-web-chart-implementation-research.md).
   - [x] Relationship path parity: multiple paths, bloodline-only toggle, selected path state, path reset, and direct relationship-path tests.
-  - [ ] Chart document schema expansion: `builderConfig`, `compositorConfig`, `exportSettings`, richer `pageSetup`, per-chart options, and migration from current shallow documents.
-  - [ ] Page/export/share parity: margins, page overlap, page numbers, cut marks, omit-empty-pages behavior, JPEG quality, scaling, background toggle, and browser-native share fallback.
-  - [ ] Distribution, timeline, and statistics aggregation builders from real `PersonEvent`, `FamilyEvent`, and `PersonFact` records instead of summary-only chart inputs.
-  - [ ] Genogram real data builder with family structure, fact/event/label markers, and genogram-specific symbol options.
-  - [ ] Sociogram real data builder from `AssociateRelation` plus toggles for parents, grandparents, partners, children, siblings, and associate relation classes.
-  - [ ] Interactive Tree actions: add relatives, edit/delete person/family routing, node context menu, flat viewer, and camera presets.
-  - [ ] Full Virtual Tree WebGL feature using Three.js, with person/family/connection scene objects, relationship path highlighting, color modes, symbols, depth-of-field/camera controls, and snapshot/export.
+  - [x] Chart document schema expansion: `builderConfig`, `compositorConfig`, `exportSettings`, richer `pageSetup`, per-chart options, and migration from current shallow documents. (`src/lib/chartDocumentSchema.js`, schemaVersion 2)
+  - [x] Page/export/share parity: margins, page overlap, page numbers, cut marks, omit-empty-pages behavior, JPEG quality, scaling, background toggle, and browser-native share fallback.
+  - [x] Distribution, timeline, and statistics aggregation builders from real `PersonEvent`, `FamilyEvent`, and `PersonFact` records instead of summary-only chart inputs. (`src/lib/chartData/`)
+  - [x] Genogram real data builder with family structure, fact/event/label markers, and genogram-specific symbol options. (`src/lib/chartData/genogramBuilder.js`)
+  - [x] Sociogram real data builder from `AssociateRelation` plus toggles for parents, grandparents, partners, children, siblings, and associate relation classes. (`src/lib/chartData/sociogramBuilder.js`)
+  - [x] Interactive Tree actions: add relatives, edit/delete person/family routing, node context menu, flat viewer, and camera presets. (FamilySearch tree extension remains deferred.)
+  - [x] Full Virtual Tree WebGL feature using Three.js, with person/family/connection scene objects, relationship path highlighting, color modes, symbols, depth-of-field/camera controls, and snapshot/export. (`src/components/charts/virtualTree3D/`; dedicated snapshot/export button still pending.)
 
 ## Broader Views Audit
 
-- [ ] Audit non-chart MacFamilyTree views from `/Users/ahmadjalil/Downloads/family tree/app/MacFamilyTree 11/Contents` and compare them to web routes for Views, Lists, Tree, Places, Statistics, Reports, Books, Publish, Media, Sources, and person/family editors.
-- [ ] Produce `docs/mac-to-web-views-parity-audit.md` with Mac evidence, current web coverage, gaps, and implementation order.
+- [x] Audit non-chart MacFamilyTree views from `/Users/ahmadjalil/Downloads/family tree/app/MacFamilyTree 11/Contents` and compare them to web routes for Views, Lists, Tree, Places, Statistics, Reports, Books, Publish, Media, Sources, and person/family editors.
+- [x] Produce `docs/mac-to-web-views-parity-audit.md` with Mac evidence, current web coverage, gaps, and implementation order.
 
 ## Reports And Books
 

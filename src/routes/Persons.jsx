@@ -13,6 +13,7 @@ import { Select } from '../components/ui/Select.jsx';
 import { useListSelection } from '../components/lists/useListSelection.js';
 import { useColumnVisibility } from '../components/lists/useColumnVisibility.js';
 import { BulkActionBar } from '../components/lists/BulkActionBar.jsx';
+import { BulkLabelMenu } from '../components/lists/BulkLabelMenu.jsx';
 import { ColumnChooser } from '../components/lists/ColumnChooser.jsx';
 import { listToolbarButtonClass } from '../components/lists/listToolbarClasses.js';
 import { ListReportPreview, ListReportToolbar, useListReportOptions } from '../components/lists/ListReportWorkbench.jsx';
@@ -345,6 +346,7 @@ export default function Persons() {
             {selection.count > 0 ? (
               <div className="px-3 pt-3">
                 <BulkActionBar count={selection.count} onClear={selection.clear}>
+                  <BulkLabelMenu selectedIds={selection.selectedIds} recordType="Person" onAssigned={() => selection.clear()} />
                   <button type="button" onClick={bulkExport} className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent">{t('persons.exportCsv')}</button>
                   <button type="button" onClick={bulkDelete} className="border border-destructive text-destructive rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10">{t('common.delete')}</button>
                 </BulkActionBar>
