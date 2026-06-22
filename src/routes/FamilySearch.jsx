@@ -7,14 +7,29 @@ import { formClasses } from '../components/ui/formClasses.js';
 import {
   DEFAULT_FAMILYSEARCH_CONFIG,
   FAMILYSEARCH_ENVIRONMENTS,
-  buildFamilySearchAuthorizationUrl,
+  addFamilySearchDiscussionComment,
+  applyFamilySearchSyncAction,
+  beginFamilySearchPkceAuthorization,
+  buildFamilySearchSyncRows,
   compareLocalToFamilySearchPerson,
+  createFamilySearchDiscussion,
+  exchangeFamilySearchAuthorizationCode,
+  familySearchPersonWebUrl,
   findFamilySearchMatchesByExample,
   getFamilySearchConfig,
+  listFamilySearchDiscussions,
+  listFamilySearchRecordMatches,
+  markFamilySearchRecordMatchesSeen,
   mergeFamilySearchPersons,
+  normalizeChangeHistoryFeed,
+  normalizeRecordMatchFeed,
+  readFamilySearchChangeHistory,
   readFamilySearchMergeAnalysis,
   readFamilySearchPerson,
   saveFamilySearchConfig,
+  setFamilySearchRecordMatchStatus,
+  uploadFamilySearchMemory,
+  uploadFamilySearchPerson,
 } from '../lib/familySearchApi.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { matchesSearchText } from '../lib/i18n.js';
@@ -91,6 +106,14 @@ export default function FamilySearch() {
   const [resourcesToDelete, setResourcesToDelete] = useState('');
   const [sourceFoldersOpen, setSourceFoldersOpen] = useState(false);
   const [batchDownloadOpen, setBatchDownloadOpen] = useState(false);
+  const [syncPersonId, setSyncPersonId] = useState('');
+  const [syncRows, setSyncRows] = useState([]);
+  const [recordMatchRows, setRecordMatchRows] = useState([]);
+  const [recordMatchPersonId, setRecordMatchPersonId] = useState('');
+  const [discussionRows, setDiscussionRows] = useState([]);
+  const [discussionPersonId, setDiscussionPersonId] = useState('');
+  const [changeHistoryRows, setChangeHistoryRows] = useState([]);
+  const [comparePersonRecord, setComparePersonRecord] = useState(null);
 
   const setPane = useCallback((nextPane) => {
     setSearchParams((params) => {
@@ -127,6 +150,43 @@ export default function FamilySearch() {
     return () => {
       cancel = true;
     };
+  }, []);
+
+  // PKCE redirect handler: when FamilySearch redirects back with ?code=, exchange it
+  // for an access token. Falls back to the manual token-paste flow if the exchange
+  // fails (the most common case in this backend-less build is a CORS error — a backend
+  // proxy is required for the token endpoint).
+  useEffect(() => {
+    const code = searchParams.get('code');
+    if (!code) return;
+    const returnedState = searchParams.get('state') || '';
+    let cancel = false;
+    (async () => {
+      setApiStatus('Exchanging FamilySearch authorization code…');
+      try {
+        const config = await getFamilySearchConfig();
+        const { accessToken } = await exchangeFamilySearchAuthorizationCode(config, code, { state: returnedState });
+        const saved = await saveFamilySearchConfig({ ...config, accessToken });
+        if (cancel) return;
+        setApiConfig(saved);
+        setApiStatus('FamilySearch access token obtained via PKCE.');
+      } catch (error) {
+        if (cancel) return;
+        setApiStatus(`Code exchange failed (${error.message}). Paste the access token manually instead.`);
+      } finally {
+        // Strip the code/state from the URL so a reload does not re-trigger exchange.
+        setSearchParams((params) => {
+          const next = new URLSearchParams(params);
+          next.delete('code');
+          next.delete('state');
+          return next;
+        }, { replace: true });
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const stats = useMemo(() => {
@@ -250,11 +310,15 @@ export default function FamilySearch() {
     }
   }, [apiConfig]);
 
-  const onOpenAuthorization = useCallback(() => {
+  const onOpenAuthorization = useCallback(async () => {
     try {
-      const url = buildFamilySearchAuthorizationUrl(apiConfig, `ctw-${Date.now().toString(36)}`);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      setApiStatus('Authorization page opened. Paste the returned access token or exchange the code outside this browser build.');
+      // Persist the latest config (clientId/redirectUri) so the redirect handler can
+      // complete the exchange after FamilySearch sends us back.
+      await saveFamilySearchConfig(apiConfig);
+      const { url } = await beginFamilySearchPkceAuthorization(apiConfig);
+      // Same-tab navigation so the ?code= redirect lands back on this route and the
+      // PKCE verifier stored in sessionStorage is still available.
+      window.location.href = url;
     } catch (error) {
       setApiStatus(error.message);
     }
@@ -280,10 +344,216 @@ export default function FamilySearch() {
       const remote = await readFamilySearchPerson(apiConfig, personId);
       setApiOutput({ title: `FamilySearch ${personId}`, data: remote });
       setCompareRows(compareLocalToFamilySearchPerson(entry.record, remote));
+      setSyncRows(buildFamilySearchSyncRows(entry.record, remote));
+      setSyncPersonId(personId);
+      setComparePersonRecord(entry.record);
       setMergeSurvivorId((current) => current || personId);
       setApiStatus('Comparison ready.');
     } catch (error) {
       setApiStatus(`Compare failed: ${error.message}`);
+    }
+  }, [apiConfig, modal]);
+
+  const onSyncAction = useCallback(async (row, direction) => {
+    if (!syncPersonId || !comparePersonRecord) return;
+    const verb = direction === 'download' ? 'Download' : direction === 'upload' ? 'Upload' : direction === 'replace' ? 'Replace' : 'Delete';
+    const reason = await modal.prompt(
+      `Reason for ${verb.toLowerCase()} of "${row.field}" on FamilySearch:`,
+      '',
+      { title: `${verb} ${row.field}` },
+    );
+    if (!reason) return;
+    setApiStatus(`${verb} ${row.field}…`);
+    try {
+      if (direction === 'download') {
+        // Pull the remote value into the local record.
+        const next = {
+          ...comparePersonRecord,
+          fields: { ...(comparePersonRecord.fields || {}) },
+        };
+        if (row.conclusion === 'birth') next.fields.birthDate = { value: row.remote, type: 'STRING' };
+        else if (row.conclusion === 'death') next.fields.deathDate = { value: row.remote, type: 'STRING' };
+        else if (row.conclusion === 'gender') next.fields.gender = { value: row.remote === 'Female' ? 2 : 1, type: 'INT64' };
+        else if (row.conclusion === 'name') next.fields.cached_fullName = { value: row.remote, type: 'STRING' };
+        await saveWithChangeLog(next);
+        await reload();
+        setApiStatus(`Downloaded ${row.field} into the local record.`);
+        return;
+      }
+      await applyFamilySearchSyncAction(apiConfig, {
+        personId: syncPersonId,
+        row,
+        direction,
+        localPerson: comparePersonRecord,
+        reason,
+      });
+      setApiStatus(`${verb} of ${row.field} sent to FamilySearch.`);
+    } catch (error) {
+      setApiStatus(`${verb} failed: ${error.message}`);
+    }
+  }, [apiConfig, comparePersonRecord, modal, reload, syncPersonId]);
+
+  const onUploadPerson = useCallback(async (entry) => {
+    if (!(await modal.confirm(
+      `Upload "${entry.summary.fullName}" as a NEW FamilySearch person? Search for existing duplicates first to avoid creating a duplicate in the shared tree.`,
+      { title: 'Upload to FamilySearch', okLabel: 'Upload' },
+    ))) return;
+    const reason = await modal.prompt('Reason for adding this person to FamilySearch:', '', { title: 'Upload reason' });
+    if (reason === null) return;
+    setApiStatus('Uploading person to FamilySearch…');
+    try {
+      const { personId } = await uploadFamilySearchPerson(apiConfig, entry.record, { reason });
+      if (personId) {
+        const next = { ...entry.record, fields: { ...(entry.record.fields || {}) } };
+        next.fields.familySearchID = { value: personId, type: 'STRING' };
+        await saveWithChangeLog(next);
+        await reload();
+        setApiStatus(`Uploaded. New FamilySearch ID ${personId} saved locally.`);
+      } else {
+        setApiStatus('Upload succeeded but no FamilySearch ID was returned.');
+      }
+    } catch (error) {
+      setApiStatus(`Upload failed: ${error.message}`);
+    }
+  }, [apiConfig, modal, reload]);
+
+  const onLoadRecordMatches = useCallback(async (entry) => {
+    const personId = entry.familySearchID || await modal.prompt('FamilySearch person ID for record matches:', '', { title: 'Record matches' });
+    if (!personId) return;
+    setApiStatus('Loading record matches…');
+    try {
+      const feed = await listFamilySearchRecordMatches(apiConfig, personId);
+      setRecordMatchRows(normalizeRecordMatchFeed(feed));
+      setRecordMatchPersonId(personId);
+      setApiOutput({ title: `Record matches ${personId}`, data: feed });
+      setApiStatus('Record matches loaded.');
+    } catch (error) {
+      setApiStatus(`Record matches failed: ${error.message}`);
+    }
+  }, [apiConfig, modal]);
+
+  const onResolveRecordMatch = useCallback(async (match, statusValue) => {
+    const reason = statusValue === 'pending' ? '' : await modal.prompt(`Reason to ${statusValue === 'accepted' ? 'accept' : 'reject'} this record match:`, '', { title: 'Record match' });
+    if (statusValue !== 'pending' && reason === null) return;
+    setApiStatus(`Marking record match ${statusValue}…`);
+    try {
+      await setFamilySearchRecordMatchStatus(apiConfig, {
+        personId: recordMatchPersonId,
+        matchId: match.id,
+        status: statusValue,
+        reason,
+      });
+      setRecordMatchRows((rows) => rows.map((row) => row.id === match.id ? { ...row, status: statusValue } : row));
+      setApiStatus(`Record match marked ${statusValue}.`);
+    } catch (error) {
+      setApiStatus(`Record match update failed: ${error.message}`);
+    }
+  }, [apiConfig, modal, recordMatchPersonId]);
+
+  const onMarkAllRecordMatchesSeen = useCallback(async () => {
+    if (!recordMatchPersonId) return;
+    setApiStatus('Marking all record matches seen…');
+    try {
+      await markFamilySearchRecordMatchesSeen(apiConfig, recordMatchPersonId);
+      setApiStatus('All record matches marked seen.');
+    } catch (error) {
+      setApiStatus(`Mark all seen failed: ${error.message}`);
+    }
+  }, [apiConfig, recordMatchPersonId]);
+
+  const onAttachRecordMatchAsSource = useCallback(async (match) => {
+    setApiStatus('Attaching record match as local source…');
+    try {
+      const sourceRecord = {
+        recordName: generateId('src'),
+        recordType: 'Source',
+        fields: {
+          title: { value: match.title || 'FamilySearch record match', type: 'STRING' },
+          ...(match.url ? { url: { value: match.url, type: 'STRING' } } : {}),
+          ...(match.collection ? { citation: { value: match.collection, type: 'STRING' } } : {}),
+          note: { value: 'Imported from a FamilySearch record match.', type: 'STRING' },
+        },
+      };
+      await saveWithChangeLog(sourceRecord);
+      setApiStatus('Record match saved as a local source.');
+    } catch (error) {
+      setApiStatus(`Attach as source failed: ${error.message}`);
+    }
+  }, []);
+
+  const onUploadMemory = useCallback(async () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,application/pdf,text/plain';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const title = await modal.prompt('Memory title:', file.name, { title: 'Upload memory' });
+      if (title === null) return;
+      setApiStatus('Uploading memory to FamilySearch…');
+      try {
+        const { memoryId } = await uploadFamilySearchMemory(apiConfig, { file, title });
+        setApiStatus(memoryId ? `Memory uploaded (id ${memoryId}).` : 'Memory uploaded.');
+      } catch (error) {
+        setApiStatus(`Memory upload failed: ${error.message}`);
+      }
+    };
+    input.click();
+  }, [apiConfig, modal]);
+
+  const onLoadDiscussions = useCallback(async (entry) => {
+    const personId = entry.familySearchID || await modal.prompt('FamilySearch person ID for discussions:', '', { title: 'Discussions' });
+    if (!personId) return;
+    setApiStatus('Loading discussions…');
+    try {
+      const feed = await listFamilySearchDiscussions(apiConfig, personId);
+      const refs = feed?.persons?.[0]?.['discussion-references'] || feed?.discussions || [];
+      setDiscussionRows(Array.isArray(refs) ? refs : []);
+      setDiscussionPersonId(personId);
+      setApiOutput({ title: `Discussions ${personId}`, data: feed });
+      setApiStatus('Discussions loaded.');
+    } catch (error) {
+      setApiStatus(`Discussions failed: ${error.message}`);
+    }
+  }, [apiConfig, modal]);
+
+  const onCreateDiscussion = useCallback(async () => {
+    const title = await modal.prompt('Discussion title:', '', { title: 'New discussion' });
+    if (!title) return;
+    const details = await modal.prompt('Discussion details:', '', { title: 'New discussion' });
+    if (details === null) return;
+    setApiStatus('Creating discussion…');
+    try {
+      await createFamilySearchDiscussion(apiConfig, { title, details });
+      setApiStatus('Discussion created.');
+    } catch (error) {
+      setApiStatus(`Create discussion failed: ${error.message}`);
+    }
+  }, [apiConfig, modal]);
+
+  const onAddDiscussionComment = useCallback(async (discussionId) => {
+    const text = await modal.prompt('Comment:', '', { title: 'Add comment' });
+    if (!text) return;
+    setApiStatus('Adding comment…');
+    try {
+      await addFamilySearchDiscussionComment(apiConfig, discussionId, text);
+      setApiStatus('Comment added.');
+    } catch (error) {
+      setApiStatus(`Add comment failed: ${error.message}`);
+    }
+  }, [apiConfig, modal]);
+
+  const onLoadChangeHistory = useCallback(async (entry) => {
+    const personId = entry.familySearchID || await modal.prompt('FamilySearch person ID for change history:', '', { title: 'Change history' });
+    if (!personId) return;
+    setApiStatus('Loading change history…');
+    try {
+      const feed = await readFamilySearchChangeHistory(apiConfig, personId);
+      setChangeHistoryRows(normalizeChangeHistoryFeed(feed));
+      setApiOutput({ title: `Change history ${personId}`, data: feed });
+      setApiStatus('Change history loaded.');
+    } catch (error) {
+      setApiStatus(`Change history failed: ${error.message}`);
     }
   }, [apiConfig, modal]);
 
@@ -411,7 +681,29 @@ export default function FamilySearch() {
                         <div className="flex flex-wrap gap-2">
                           <button onClick={() => navigate(`/web-search?provider=familysearch&personId=${encodeURIComponent(entry.record.recordName)}`)} className={secondaryButton}>Search</button>
                           <button onClick={() => onFindMatches(entry)} className={secondaryButton}>API matches</button>
-                          <button onClick={() => onComparePerson(entry)} className={secondaryButton}>Compare</button>
+                          <button onClick={() => onComparePerson(entry)} className={secondaryButton}>Compare / Sync</button>
+                          {!entry.familySearchID && (
+                            <button onClick={() => onUploadPerson(entry)} className={secondaryButton}>Upload</button>
+                          )}
+                          {activePane === 'record-matches' && (
+                            <button onClick={() => onLoadRecordMatches(entry)} className={secondaryButton}>Record matches</button>
+                          )}
+                          {activePane === 'discussions' && (
+                            <button onClick={() => onLoadDiscussions(entry)} className={secondaryButton}>Discussions</button>
+                          )}
+                          {activePane === 'change-history' && (
+                            <button onClick={() => onLoadChangeHistory(entry)} className={secondaryButton}>History</button>
+                          )}
+                          {entry.familySearchID && (
+                            <a
+                              href={familySearchPersonWebUrl(apiConfig, entry.familySearchID)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={secondaryButton}
+                            >
+                              Open on FamilySearch.org
+                            </a>
+                          )}
                           <button onClick={() => startEditingId(entry)} className={secondaryButton}>ID</button>
                           <button onClick={() => addTask(entry.record.recordName)} className={secondaryButton}>Task</button>
                           <button onClick={() => navigate(`/person/${entry.record.recordName}`)} className={secondaryButton}>Open</button>
@@ -472,6 +764,14 @@ export default function FamilySearch() {
                 <Field label="Access token">
                   <input value={apiConfig.accessToken} onChange={(event) => updateApiConfig('accessToken', event.target.value)} className={inputClass} type="password" />
                 </Field>
+                <Field label="Token endpoint (optional proxy)">
+                  <input
+                    value={apiConfig.tokenEndpoint}
+                    onChange={(event) => updateApiConfig('tokenEndpoint', event.target.value)}
+                    placeholder="Leave blank to use the environment default"
+                    className={inputClass}
+                  />
+                </Field>
                 <label className="flex items-start gap-2 text-xs text-muted-foreground">
                   <input
                     type="checkbox"
@@ -488,6 +788,42 @@ export default function FamilySearch() {
                 {apiStatus && <div className="text-xs text-muted-foreground">{apiStatus}</div>}
               </div>
             </section>
+
+            {syncRows.length > 0 && (
+              <section className="rounded-lg border border-border bg-card p-4">
+                <h2 className="text-base font-semibold mb-1">Sync conclusions</h2>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Per-field download / upload / replace / delete{syncPersonId ? ` for ${syncPersonId}` : ''}. Each FamilySearch write requires a reason.
+                </p>
+                <div className="overflow-hidden rounded-md border border-border text-xs">
+                  <div className="grid grid-cols-[64px_1fr_1fr] gap-2 border-b border-border p-2 font-semibold text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span>Field</span><span>Local</span><span>FamilySearch</span>
+                  </div>
+                  {syncRows.map((row) => (
+                    <div key={row.field} className="border-b border-border last:border-b-0 p-2">
+                      <div className="grid grid-cols-[64px_1fr_1fr] gap-2">
+                        <span className="font-medium">{row.field}</span>
+                        <span className={row.status === 'same' ? 'text-emerald-500' : 'text-muted-foreground'}>{row.local || '—'}</span>
+                        <span className={row.status === 'same' ? 'text-emerald-500' : row.status === 'different' ? 'text-amber-500' : 'text-muted-foreground'}>{row.remote || '—'}</span>
+                      </div>
+                      {row.actions.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1.5">
+                          {row.actions.map((action) => (
+                            <button
+                              key={action}
+                              onClick={() => onSyncAction(row, action)}
+                              className="rounded border border-border bg-background px-2 py-0.5 text-[10px] capitalize hover:bg-accent"
+                            >
+                              {action}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section className="rounded-lg border border-border bg-card p-4">
               <h2 className="text-base font-semibold mb-3">Compare / merge</h2>
@@ -524,6 +860,92 @@ export default function FamilySearch() {
                 </div>
               </div>
             </section>
+
+            {activePane === 'record-matches' && (
+              <section className="rounded-lg border border-border bg-card p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-semibold">Record matches</h2>
+                  {recordMatchPersonId && (
+                    <button onClick={onMarkAllRecordMatchesSeen} className={secondaryButton}>Mark all seen</button>
+                  )}
+                </div>
+                {recordMatchRows.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">Use “Record matches” on a person row to load FamilySearch record hints.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {recordMatchRows.map((match) => (
+                      <div key={match.id} className="rounded-md border border-border bg-background p-3">
+                        <div className="text-sm font-medium"><BdiText>{match.title}</BdiText></div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {match.collection || 'Record'}{match.score != null ? ` · score ${match.score}` : ''}{match.status ? ` · ${match.status}` : ''}
+                        </div>
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          <button onClick={() => onResolveRecordMatch(match, 'accepted')} className={secondaryButton}>Accept</button>
+                          <button onClick={() => onResolveRecordMatch(match, 'rejected')} className={secondaryButton}>Reject</button>
+                          <button onClick={() => onResolveRecordMatch(match, 'pending')} className={secondaryButton}>Pending</button>
+                          <button onClick={() => onAttachRecordMatchAsSource(match)} className={secondaryButton}>Attach as source</button>
+                          {match.url && (
+                            <a href={match.url} target="_blank" rel="noopener noreferrer" className={secondaryButton}>Open</a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {activePane === 'discussions' && (
+              <section className="rounded-lg border border-border bg-card p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-base font-semibold">Discussions</h2>
+                  <button onClick={onCreateDiscussion} className={secondaryButton}>New…</button>
+                </div>
+                {discussionRows.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">Use “Discussions” on a person row to load FamilySearch discussion references.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {discussionRows.map((ref, index) => {
+                      const discussionId = ref.resourceId || ref.id || ref.resource?.split('/').pop() || '';
+                      return (
+                        <div key={ref.resourceId || ref.id || index} className="rounded-md border border-border bg-background p-3">
+                          <div className="text-sm font-medium"><BdiText>{ref.title || discussionId || 'Discussion'}</BdiText></div>
+                          {discussionId && (
+                            <button onClick={() => onAddDiscussionComment(discussionId)} className={`${secondaryButton} mt-2`}>Add comment</button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {activePane === 'change-history' && (
+              <section className="rounded-lg border border-border bg-card p-4">
+                <h2 className="text-base font-semibold mb-3">Change history</h2>
+                {changeHistoryRows.length === 0 ? (
+                  <div className="text-sm text-muted-foreground">Use “History” on a person row to load the FamilySearch change feed.</div>
+                ) : (
+                  <div className="space-y-2">
+                    {changeHistoryRows.slice(0, 30).map((change) => (
+                      <div key={change.id} className="rounded-md border border-border bg-background p-2 text-xs">
+                        <div className="font-medium"><BdiText>{change.title || 'Change'}</BdiText></div>
+                        <div className="text-muted-foreground mt-0.5">{[change.contributor, change.updated].filter(Boolean).join(' · ')}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {activePane === 'memories' && (
+              <section className="rounded-lg border border-border bg-card p-4">
+                <h2 className="text-base font-semibold mb-1">Memories</h2>
+                <p className="text-xs text-muted-foreground mb-3">Upload a photo, document, or story to FamilySearch Memories.</p>
+                <button onClick={onUploadMemory} className={primaryButton}>Upload memory…</button>
+              </section>
+            )}
 
             {apiOutput && (
               <section className="rounded-lg border border-border bg-card p-4">

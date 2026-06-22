@@ -22,6 +22,7 @@ import { Select } from '../ui/Select.jsx';
 import { buildTimelineData } from '../../lib/chartData/timelineBuilder.js';
 import { buildGenogramData } from '../../lib/chartData/genogramBuilder.js';
 import { buildDistributionData } from '../../lib/chartData/distributionBuilder.js';
+import { buildSociogramData } from '../../lib/chartData/sociogramBuilder.js';
 import { buildVirtualTreeData } from '../../lib/chartData/virtualTreeBuilder.js';
 import { COMPLETENESS_COLOR_MODES, COMPLETENESS_LEGEND, colorForCompleteness, loadCompletenessRowsByPerson } from '../../lib/researchCompleteness.js';
 import { THEMES, getTheme } from './theme.js';
@@ -45,6 +46,7 @@ import {
   RadialDescendantTimelineChart,
   LifespanDescendantChart,
   GenogramChart,
+  SociogramChart,
   FractalAncestorChart,
 } from './SpecializedCharts.jsx';
 import { StatisticsChart } from './StatisticsChart.jsx';
@@ -141,6 +143,24 @@ export function ChartsApp() {
   const [genogramData, setGenogramData] = useState(null);
   const [distributionData, setDistributionData] = useState(null);
   const [distributionType, setDistributionType] = useState('gender');
+  const [distributionRelativeValues, setDistributionRelativeValues] = useState(false);
+  const [distributionGraphType, setDistributionGraphType] = useState('bar');
+  const [distributionFromYear, setDistributionFromYear] = useState('');
+  const [distributionToYear, setDistributionToYear] = useState('');
+  const [sociogramData, setSociogramData] = useState(null);
+  const [sociogramConfig, setSociogramConfig] = useState({
+    showParents: true,
+    showGrandparents: false,
+    showPartners: true,
+    showChildren: true,
+    showAssociateRelationsOfStartPerson: true,
+    showAssociateRelationsOfPartners: false,
+    showAssociateRelationsOfChildren: false,
+    associatedPersonsSpacing: 80,
+  });
+  const [timelineGrouping, setTimelineGrouping] = useState('none');
+  const [timelineCollapse, setTimelineCollapse] = useState(true);
+  const [timelineMarkerMode, setTimelineMarkerMode] = useState('bar');
   const {
     currentDocumentId, setCurrentDocumentId,
     currentDocumentName, setCurrentDocumentName,
@@ -275,6 +295,9 @@ export function ChartsApp() {
     relationshipBloodlineOnly, selectedRelationshipPathId, overlays,
     pageMargins, pagePrintMargins, pageOverlap, pageCutMarks,
     pagePrintPageNumbers, pageOmitEmptyPages, coloringMode, chartContent,
+    distributionType, distributionRelativeValues, distributionGraphType,
+    distributionFromYear, distributionToYear, sociogramConfig,
+    timelineGrouping, timelineCollapse, timelineMarkerMode,
   ]);
 
   useEffect(() => {
@@ -348,6 +371,18 @@ export function ChartsApp() {
     setGenerations(nextGenerations);
     setColoringMode(normalized.builderConfig.common?.coloringMode || 'gender');
     setChartContent({ ...DEFAULT_CHART_CONTENT, ...(normalized.builderConfig.common?.chartContent || {}) });
+    const common = normalized.builderConfig.common || {};
+    if (common.distributionType) setDistributionType(common.distributionType);
+    setDistributionRelativeValues(Boolean(common.distributionRelativeValues));
+    setDistributionGraphType(common.distributionGraphType === 'line' ? 'line' : 'bar');
+    setDistributionFromYear(common.distributionFromYear ?? '');
+    setDistributionToYear(common.distributionToYear ?? '');
+    if (common.sociogramConfig && typeof common.sociogramConfig === 'object') {
+      setSociogramConfig((current) => ({ ...current, ...common.sociogramConfig }));
+    }
+    if (common.timelineGrouping) setTimelineGrouping(common.timelineGrouping);
+    setTimelineCollapse(common.timelineCollapse !== false);
+    setTimelineMarkerMode(common.timelineMarkerMode === 'event' ? 'event' : 'bar');
     setVirtualSource(normalized.builderConfig.virtual?.source || 'descendant');
     setVirtualOrientation(normalized.builderConfig.virtual?.orientation || 'vertical');
     setVirtualHSpacing(normalized.builderConfig.virtual?.hSpacing || 24);
@@ -518,17 +553,22 @@ export function ChartsApp() {
     let cancelled = false;
     (async () => {
       try {
-        const data = await buildTimelineData({ rootPersonId: rootId || null });
+        const data = await buildTimelineData({
+          rootPersonId: rootId || null,
+          grouping: timelineGrouping,
+          collapseForBestFit: timelineCollapse,
+          markerMode: timelineMarkerMode,
+        });
         if (!cancelled) setTimelineData(data);
       } catch (_error) {
         if (!cancelled) setTimelineData(null);
       }
     })();
     return () => { cancelled = true; };
-  }, [chartType, rootId]);
+  }, [chartType, rootId, timelineGrouping, timelineCollapse, timelineMarkerMode]);
 
   useEffect(() => {
-    if (chartType !== 'genogram' && chartType !== 'sociogram') { setGenogramData(null); return undefined; }
+    if (chartType !== 'genogram') { setGenogramData(null); return undefined; }
     if (!rootId) { setGenogramData(null); return undefined; }
     let cancelled = false;
     (async () => {
@@ -542,19 +582,46 @@ export function ChartsApp() {
     return () => { cancelled = true; };
   }, [chartType, rootId, descendantGenerations]);
 
+  // Sociogram uses its own builder (buildSociogramData) so the relationship
+  // inclusion toggles (parents/grandparents/partners/children/associates) and
+  // the associated-persons spacing slider drive a dedicated social-graph
+  // render rather than reusing the genogram descendant pipeline.
+  useEffect(() => {
+    if (chartType !== 'sociogram') { setSociogramData(null); return undefined; }
+    if (!rootId) { setSociogramData(null); return undefined; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await buildSociogramData({ rootPersonId: rootId, ...sociogramConfig });
+        if (!cancelled) setSociogramData(data);
+      } catch (_error) {
+        if (!cancelled) setSociogramData(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [chartType, rootId, sociogramConfig]);
+
   useEffect(() => {
     if (chartType !== 'distribution') { setDistributionData(null); return undefined; }
     let cancelled = false;
     (async () => {
       try {
-        const data = await buildDistributionData({ distributionType });
+        const fromYear = Number.parseInt(distributionFromYear, 10);
+        const toYear = Number.parseInt(distributionToYear, 10);
+        const data = await buildDistributionData({
+          distributionType,
+          relativeValues: distributionRelativeValues,
+          graphType: distributionGraphType,
+          fromYear: Number.isFinite(fromYear) ? fromYear : null,
+          toYear: Number.isFinite(toYear) ? toYear : null,
+        });
         if (!cancelled) setDistributionData(data);
       } catch (_error) {
         if (!cancelled) setDistributionData(null);
       }
     })();
     return () => { cancelled = true; };
-  }, [chartType, distributionType]);
+  }, [chartType, distributionType, distributionRelativeValues, distributionGraphType, distributionFromYear, distributionToYear]);
 
   useEffect(() => {
     if (chartType !== 'virtual') { setVirtualTreeData(null); return undefined; }
@@ -687,7 +754,20 @@ export function ChartsApp() {
       secondaryPersonId: secondId,
     },
     builderConfig: {
-      common: { generations, coloringMode, chartContent },
+      common: {
+        generations,
+        coloringMode,
+        chartContent,
+        distributionType,
+        distributionRelativeValues,
+        distributionGraphType,
+        distributionFromYear,
+        distributionToYear,
+        sociogramConfig,
+        timelineGrouping,
+        timelineCollapse,
+        timelineMarkerMode,
+      },
       relationship: {
         bloodlineOnly: relationshipBloodlineOnly,
         selectedPathId: selectedRelationshipPathId,
@@ -724,7 +804,7 @@ export function ChartsApp() {
       jpegQuality: exportJpegQuality,
       fileNameTemplate: exportFileNameTemplate,
     },
-  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, selectedOverlayId, pageMargins, pagePrintMargins, pageOverlap, pageCutMarks, pagePrintPageNumbers, pageOmitEmptyPages, exportFormat, exportScale, exportIncludeBackground, exportJpegQuality, exportFileNameTemplate]);
+  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, selectedOverlayId, pageMargins, pagePrintMargins, pageOverlap, pageCutMarks, pagePrintPageNumbers, pageOmitEmptyPages, exportFormat, exportScale, exportIncludeBackground, exportJpegQuality, exportFileNameTemplate, coloringMode, chartContent, distributionType, distributionRelativeValues, distributionGraphType, distributionFromYear, distributionToYear, sociogramConfig, timelineGrouping, timelineCollapse, timelineMarkerMode]);
 
   const buildChartShareUrl = useCallback(async () => {
     const doc = currentDocumentState(currentDocumentName || 'Shared Chart', currentDocumentId || 'shared');
@@ -1060,7 +1140,7 @@ export function ChartsApp() {
           </button>
           {moreOpen && (
             <div style={popoverStyle}>
-              <div style={morePopoverTabs} role="tablist" aria-label="Chart options">
+              <div className="no-scrollbar" style={morePopoverTabs} role="tablist" aria-label="Chart options">
                 {[
                   ['view', 'View'],
                   ['layout', 'Layout'],
@@ -1668,6 +1748,7 @@ export function ChartsApp() {
             chartCanvasRef={chartCanvasRef}
             persons={persons}
             distributionData={distributionData}
+            distributionType={distributionType}
             theme={theme}
             page={chartPage}
             overlays={overlays}
@@ -1716,14 +1797,12 @@ export function ChartsApp() {
           />
         )}
         {chartType === 'sociogram' && (
-          <GenogramChart
+          <SociogramChart
             chartCanvasRef={chartCanvasRef}
-            tree={descendantTree}
-            genogramData={genogramData}
+            sociogramData={sociogramData}
             onPersonClick={onPersonClick}
             theme={theme}
             page={chartPage}
-            sociogram
             overlays={overlays}
             colorForPerson={colorForPerson}
             {...overlayChartProps}
@@ -1987,7 +2066,14 @@ export function ChartsApp() {
         // them as separate toolbar buttons was redundant. The user picks a tab
         // inside the panel after opening it.
         onChart={() => {
-          setChartOptionsTab('general');
+          // Land directly on the per-chart "Chart" tab for chart types that
+          // have dedicated options (distribution/sociogram/timeline); otherwise
+          // open to General.
+          setChartOptionsTab(
+            chartType === 'distribution' || chartType === 'sociogram' || chartType === 'timeline'
+              ? 'chart'
+              : 'general'
+          );
           setChartOptionsOpen((open) => !open);
         }}
         chartOptionsOpen={chartOptionsOpen}
@@ -2019,6 +2105,25 @@ export function ChartsApp() {
           onChartContentChange={setChartContent}
           localization={chartLocalization}
           onLocalizationChange={setChartLocalization}
+          chartType={chartType}
+          distributionType={distributionType}
+          onDistributionTypeChange={setDistributionType}
+          distributionRelativeValues={distributionRelativeValues}
+          onDistributionRelativeValuesChange={setDistributionRelativeValues}
+          distributionGraphType={distributionGraphType}
+          onDistributionGraphTypeChange={setDistributionGraphType}
+          distributionFromYear={distributionFromYear}
+          onDistributionFromYearChange={setDistributionFromYear}
+          distributionToYear={distributionToYear}
+          onDistributionToYearChange={setDistributionToYear}
+          sociogramConfig={sociogramConfig}
+          onSociogramConfigChange={setSociogramConfig}
+          timelineGrouping={timelineGrouping}
+          onTimelineGroupingChange={setTimelineGrouping}
+          timelineCollapse={timelineCollapse}
+          onTimelineCollapseChange={setTimelineCollapse}
+          timelineMarkerMode={timelineMarkerMode}
+          onTimelineMarkerModeChange={setTimelineMarkerMode}
         />
       )}
       {pageSetupSheetOpen && (

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { planMerge, mergeBackupJSONWithResolutions, CONFLICT_RESOLUTION } from '../lib/mergeImport.js';
+import { planMerge, mergeBackupJSONWithResolutions, loadMergeFileToBackupJSON, CONFLICT_RESOLUTION } from '../lib/mergeImport.js';
 import { MergeConflictSheet } from './MergeConflictSheet.jsx';
 import { Sheet } from './ui/Sheet.jsx';
 
@@ -34,14 +34,16 @@ export function MergeTreesWizardSheet({ onClose, onComplete }) {
   const onPickFile = async (selected) => {
     setError('');
     if (!selected) return;
+    setProgress(`Reading ${selected.name}…`);
     try {
-      const text = await selected.text();
-      const parsed = JSON.parse(text);
+      const parsed = await loadMergeFileToBackupJSON(selected);
       setFile(selected);
       setJson(parsed);
       setStep('mode');
     } catch (err) {
       setError(`Failed to read ${selected.name}: ${err.message}`);
+    } finally {
+      setProgress('');
     }
   };
 
@@ -107,10 +109,9 @@ export function MergeTreesWizardSheet({ onClose, onComplete }) {
   if (step === 'conflicts' && plan) {
     return (
       <MergeConflictSheet
-        conflicts={plan.conflicts}
-        initialResolutions={resolutions}
+        plan={plan}
         onCancel={() => setStep('plan')}
-        onConfirm={onManualConfirm}
+        onApply={onManualConfirm}
       />
     );
   }
@@ -138,8 +139,9 @@ export function MergeTreesWizardSheet({ onClose, onComplete }) {
       {error && <div className="text-destructive">{error}</div>}
           {step === 'file' && (
             <div className="space-y-2">
-              <p className="text-muted-foreground">Choose a CloudTreeWeb backup .json file to merge into the current tree.</p>
-              <input type="file" accept="application/json,.json" onChange={(e) => onPickFile(e.target.files?.[0])} className="w-full" />
+              <p className="text-muted-foreground">Choose a CloudTreeWeb backup (.json) or a MacFamilyTree package (.mftpkg) to merge into the current tree.</p>
+              <input type="file" accept="application/json,.json,.mftpkg,.mftsql,.zip" onChange={(e) => onPickFile(e.target.files?.[0])} className="w-full" />
+              {progress && <div className="text-muted-foreground">{progress}</div>}
               {file && <div>Selected: <span className="font-mono">{file.name}</span></div>}
             </div>
           )}
@@ -172,8 +174,10 @@ export function MergeTreesWizardSheet({ onClose, onComplete }) {
           {step === 'done' && result && (
             <div className="space-y-1">
               <div className="text-emerald-500 font-semibold">Merge complete.</div>
-              <div>Records saved: {result.savedRecords ?? result.records?.length ?? 0}</div>
-              <div>Assets saved: {result.savedAssets ?? result.assets?.length ?? 0}</div>
+              <div>Records saved: {result.records ?? 0}</div>
+              <div>Assets saved: {result.assets ?? 0}</div>
+              {result.renamed ? <div>Renamed records: {result.renamed}</div> : null}
+              {result.assetRenamed ? <div>Renamed assets: {result.assetRenamed}</div> : null}
             </div>
           )}
     </Sheet>

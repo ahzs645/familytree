@@ -348,8 +348,13 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
       if (r.ZPERSON) f.person = ref('Person', r.ZPERSON);
       if (r.CTYPE_UID) f.conclusionType = field(`${r.CTYPE_UID}---${entityMap._names?.[r.CTYPE_ENT] || 'ConclusionPersonFactType'}`, 'REFERENCE');
       if (r.CONCLUSION_NAME) f.factType = field(r.CONCLUSION_NAME);
-      if (r.ZVALUE) f.value = field(r.ZVALUE);
-      if (r.ZUSERDESCRIPTION2) f.description = field(r.ZUSERDESCRIPTION2);
+      // MFT stores a fact's value in ZVALUE (e.g. "Brown", "166cm"), while the
+      // web fact editor and GEDCOM exporter read the `description` field. Map the
+      // primary value there so imported facts aren't blank; ZUSERDESCRIPTION2 is
+      // a rare secondary note kept separately when a distinct ZVALUE also exists.
+      const factValue = r.ZVALUE != null && r.ZVALUE !== '' ? r.ZVALUE : r.ZUSERDESCRIPTION2;
+      if (factValue) f.description = field(factValue);
+      if (r.ZVALUE != null && r.ZVALUE !== '' && r.ZUSERDESCRIPTION2) f.userDescription = field(r.ZUSERDESCRIPTION2);
       if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
       addRecord(makeId('PersonFact', r.Z_PK), 'PersonFact', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
     }

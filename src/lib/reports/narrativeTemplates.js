@@ -219,6 +219,34 @@ export function describeDeath(personSummary) {
   });
 }
 
+/**
+ * Residence describer. Wires the previously-dead EVENT.RESIDENCE templates.
+ * Pass the residence place and (optionally) a date string.
+ */
+export function describeResidence(personSummary, place, date) {
+  const year = yearOf(date);
+  return narrativeSentenceFor(EVENT.RESIDENCE, personSummary?.gender, {
+    Name: personSummary?.fullName || '',
+    Place: place || '',
+    Date: date || '',
+    Year: year || '',
+  });
+}
+
+/**
+ * Occupation describer. Wires the previously-dead EVENT.OCCUPATION templates.
+ * Pass the occupation description and (optionally) a date string.
+ */
+export function describeOccupation(personSummary, description, date) {
+  const year = yearOf(date);
+  return narrativeSentenceFor(EVENT.OCCUPATION, personSummary?.gender, {
+    Name: personSummary?.fullName || '',
+    Description: description || '',
+    Date: date || '',
+    Year: year || '',
+  });
+}
+
 export function describeMarriage(personSummary, partnerSummary, marriageDate, marriagePlace) {
   const year = yearOf(marriageDate);
   return narrativeSentenceFor(EVENT.MARRIAGE, personSummary?.gender, {

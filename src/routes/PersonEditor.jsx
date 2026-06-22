@@ -42,6 +42,7 @@ import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { TypePicker } from '../components/editors/TypePicker.jsx';
 import { AssociateRelationsEditor, MediaRelationsEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
+import { SourcePickerSheet } from '../components/editors/SourcePickerSheet.jsx';
 import { OldestAncestorsWidget } from '../components/editors/OldestAncestorsWidget.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { confirmUnsavedChanges, useDirtyBaseline } from '../lib/editorState.js';
@@ -133,6 +134,7 @@ export default function PersonEditor() {
   const [related, setRelated] = useState({ media: [], sources: [], todos: [], stories: [], groups: [] });
   const [tribalMemberships, setTribalMemberships] = useState([]);
   const [evidence, setEvidence] = useState(null);
+  const [sourceTarget, setSourceTarget] = useState(null);
   const [allPersons, setAllPersons] = useState([]);
   const [relativeType, setRelativeType] = useState('parent');
   const [relativeId, setRelativeId] = useState('');
@@ -229,7 +231,9 @@ export default function PersonEditor() {
     setFacts(fact.records.map((f) => ({
       recordName: f.recordName,
       type: normalizeConclusionTypeId(refToRecordName(f.fields?.conclusionType?.value) || ''),
-      value: f.fields?.description?.value || '',
+      // Canonical fact value lives in `description`; fall back to `value` so facts
+      // imported by older builds (which stored the value under `value`) still show.
+      value: f.fields?.description?.value || f.fields?.value?.value || '',
       date: f.fields?.date?.value || '',
     })));
     setNotes(note.records.map((n) => ({
@@ -584,7 +588,7 @@ export default function PersonEditor() {
                       return (
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
                           <span className="text-sm">{label}{date && <span className="text-muted-foreground"> · {date}</span>}</span>
-                          <EvidenceBadge evidence={evidence?.byRecord?.get(e.recordName)} onClick={scrollToSourceCitations} />
+                          <EvidenceBadge evidence={evidence?.byRecord?.get(e.recordName)} onClick={() => setSourceTarget({ recordName: e.recordName, recordType: 'PersonEvent', label })} />
                           <button onClick={() => guardedNavigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-primary hover:underline">edit</button>
                         </div>
                       );
@@ -623,7 +627,7 @@ export default function PersonEditor() {
                         className="w-full sm:w-[180px] shrink-0"
                       />
                       <div className="flex items-center gap-2 ms-auto shrink-0">
-                        <EvidenceBadge evidence={it.recordName ? evidence?.byRecord?.get(it.recordName) : null} onClick={scrollToSourceCitations} />
+                        <EvidenceBadge evidence={it.recordName ? evidence?.byRecord?.get(it.recordName) : null} onClick={() => it.recordName && setSourceTarget({ recordName: it.recordName, recordType: 'PersonFact', label })} />
                         <RemoveBtn onClick={() => setFacts((a) => a.filter((_, j) => j !== i))} />
                       </div>
                     </div>
@@ -806,6 +810,14 @@ export default function PersonEditor() {
         </div>
       </main>
     </div>
+    {sourceTarget && (
+      <SourcePickerSheet
+        target={sourceTarget}
+        onClose={() => setSourceTarget(null)}
+        onLinked={reload}
+        onManageAll={scrollToSourceCitations}
+      />
+    )}
     </EditorSectionNavProvider>
   );
 }

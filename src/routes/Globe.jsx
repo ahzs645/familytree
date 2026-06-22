@@ -209,8 +209,12 @@ export default function Globe() {
     size: visualOptions.markerSize,
   })), [countedFiltered, visualOptions, yearBounds]);
   const mapConnections = useMemo(
-    () => buildChronologicalConnections(filtered, visualOptions.connectionLines),
-    [filtered, visualOptions.connectionLines]
+    () => buildChronologicalConnections(
+      mapMarkers,
+      visualOptions.connectionLines,
+      { connectionColor: visualOptions.connectionColor }
+    ),
+    [mapMarkers, visualOptions.connectionLines, visualOptions.connectionColor]
   );
 
   const yearRange = yearBounds.min !== null && yearBounds.max !== null
@@ -296,11 +300,18 @@ export default function Globe() {
             enabled: usesHeatMap(visualOptions),
             radius: visualOptions.heatRadius,
             opacity: visualOptions.heatOpacity,
+            amplification: visualOptions.heatAmplification,
+            autoRadius: visualOptions.heatAutoRadius,
+            fixedRadius: visualOptions.fixedHeatRadius,
+            gradient: visualOptions.heatGradient,
+            darkHeatMap: visualOptions.darkHeatMap,
           }}
           projection={{ type: 'globe' }}
           connectionOptions={{ pattern: visualOptions.connectionPattern, width: visualOptions.connectionWidth, animate: visualOptions.animateConnections }}
           sunMode={visualOptions.sunMode}
           tileNames={visualOptions.tileNames}
+          mapType={visualOptions.mapType}
+          displayCurrentLocation={visualOptions.displayCurrentLocation}
           emptyMessage={loading ? '' : 'The Virtual Globe cannot display any person or family events because no coordinates have been provided.'}
         />
         <VisualOptionsDrawer

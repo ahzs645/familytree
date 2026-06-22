@@ -22,24 +22,30 @@ import {
 import { readField, readRef } from '../schema.js';
 import { Gender } from '../../models/index.js';
 
-const SUPPORTED_TYPES = new Set([
-  'gender',
-  'firstName',
-  'lastName',
-  'birthPlace',
-  'deathPlace',
-  'birthCountry',
-  'deathCountry',
-  'birthCentury',
-  'deathCentury',
-  'occupation',
-  'illness',
-  'eyeColor',
-  'nationalOrigin',
-  'race',
-  'skinColor',
-  'caste',
-]);
+// Ordered list of every distribution type the builder can compute, with a
+// friendly label that mirrors the Mac _DistributionChartBuilder_Type_* names.
+// Exported so the chart options UI can offer a Distribution Type selector
+// without re-deriving the labels.
+export const DISTRIBUTION_TYPES = [
+  { id: 'lastName', label: 'Last Names' },
+  { id: 'firstName', label: 'First Names' },
+  { id: 'birthPlace', label: 'Birth Places' },
+  { id: 'birthCountry', label: 'Birth Countries' },
+  { id: 'deathPlace', label: 'Death Places' },
+  { id: 'deathCountry', label: 'Death Countries' },
+  { id: 'gender', label: 'Genders' },
+  { id: 'birthCentury', label: 'Birth Centuries' },
+  { id: 'deathCentury', label: 'Death Centuries' },
+  { id: 'occupation', label: 'Occupations' },
+  { id: 'illness', label: 'Illnesses' },
+  { id: 'eyeColor', label: 'Eye Colors' },
+  { id: 'race', label: 'Races' },
+  { id: 'skinColor', label: 'Skin Colors' },
+  { id: 'caste', label: 'Caste Names' },
+  { id: 'nationalOrigin', label: 'National Origins' },
+];
+
+export const SUPPORTED_TYPES = new Set(DISTRIBUTION_TYPES.map((type) => type.id));
 
 const FACT_FIELD_BY_TYPE = {
   occupation: 'occupation',
@@ -58,7 +64,23 @@ export function normalizeDistributionConfig(raw = {}) {
     graphType: raw.graphType === 'line' ? 'line' : 'bar',
     showValueLabels: raw.showValueLabels !== false,
     minBucketSize: Number.isFinite(raw.minBucketSize) ? raw.minBucketSize : 0,
+    fromYear: Number.isFinite(raw.fromYear) ? Number(raw.fromYear) : null,
+    toYear: Number.isFinite(raw.toYear) ? Number(raw.toYear) : null,
   };
+}
+
+// A person passes the date-range filter when at least one of their birth/death
+// years falls inside the (optional) from/to bounds. When both bounds are unset
+// every person is included.
+function withinDateRange(birth, death, fromYear, toYear) {
+  if (fromYear == null && toYear == null) return true;
+  const years = [birth, death].filter((year) => Number.isFinite(year));
+  if (!years.length) return false;
+  return years.some((year) => {
+    if (fromYear != null && year < fromYear) return false;
+    if (toYear != null && year > toYear) return false;
+    return true;
+  });
 }
 
 function bucketKeyForPerson(person, type, placeIndex) {
@@ -125,6 +147,7 @@ export async function buildDistributionData(config = {}) {
 
   const type = normalized.distributionType;
   const factField = FACT_FIELD_BY_TYPE[type];
+  const { fromYear, toYear } = normalized;
   const personById = new Map();
   for (const person of persons) {
     if (person?.recordName) personById.set(person.recordName, person);
@@ -141,6 +164,7 @@ export async function buildDistributionData(config = {}) {
         : null;
       const birth = person ? readBirthYear(person) : null;
       const death = person ? readDeathYear(person) : null;
+      if (!withinDateRange(birth, death, fromYear, toYear)) continue;
       increment(value, { birth, death });
     }
   } else {
@@ -148,6 +172,7 @@ export async function buildDistributionData(config = {}) {
       const key = bucketKeyForPerson(person, type, placeIndex);
       const birth = readBirthYear(person);
       const death = readDeathYear(person);
+      if (!withinDateRange(birth, death, fromYear, toYear)) continue;
       increment(key, { birth, death });
     }
   }

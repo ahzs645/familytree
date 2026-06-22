@@ -10,8 +10,9 @@ import { downloadGraphvizDot } from '../lib/graphvizExport.js';
 import { analyzeGedcomText, canImportGedcomAnalysis, gedcomImportModeLabel, importGedcomText } from '../lib/gedcomImport.js';
 import { GEDCOM_ACCEPT, readGedcomTextFromFile } from '../lib/genealogyFileFormats.js';
 import { downloadBackup, downloadMFTPackage } from '../lib/backup.js';
-import { analyzeBackupMergeJSON, mergeBackupJSON, planMerge, mergeBackupJSONWithResolutions } from '../lib/mergeImport.js';
+import { analyzeBackupMergeJSON, mergeBackupJSON, planMerge, mergeBackupJSONWithResolutions, loadMergeFileToBackupJSON } from '../lib/mergeImport.js';
 import { MergeConflictSheet } from '../components/MergeConflictSheet.jsx';
+import { MergeTreesWizardSheet } from '../components/MergeTreesWizardSheet.jsx';
 import { downloadSubtreeBackup, removeSubtree } from '../lib/subtree.js';
 import { contactPickerSupported, importContactsFile, importContactsViaPicker } from '../lib/contactImport.js';
 import {
@@ -57,6 +58,7 @@ export default function Export() {
   const [pendingMerge, setPendingMerge] = useState(null);
   const [rollbackNote, setRollbackNote] = useState('');
   const [conflictPlan, setConflictPlan] = useState(null);
+  const [mergeWizardOpen, setMergeWizardOpen] = useState(false);
   const [persons, setPersons] = useState([]);
   const [subtreeRoot, setSubtreeRoot] = useState(null);
   const [treeSnapshots, setTreeSnapshots] = useState([]);
@@ -172,15 +174,15 @@ export default function Export() {
   const onBackupMergeFile = async (file) => {
     if (!file) return;
     setBusy(true);
-    setStatus('Reviewing backup merge…');
+    setStatus('Reviewing merge source…');
     try {
-      const json = JSON.parse(await file.text());
+      const json = await loadMergeFileToBackupJSON(file);
       const preview = await analyzeBackupMergeJSON(json);
       setPendingMerge({ fileName: file.name, json, preview });
       setRollbackNote(`Rollback note for ${file.name}: restore a backup captured before this merge if the result is not wanted.`);
-      setStatus('Backup merge ready for review.');
+      setStatus('Merge source ready for review.');
     } catch (e) {
-      setStatus(`Backup review failed: ${e.message}`);
+      setStatus(`Merge review failed: ${e.message}`);
     }
     setBusy(false);
   };
@@ -452,15 +454,20 @@ export default function Export() {
         </div>
 
         <div id="merge-tree">
-          <Card title="Merge another tree" description="Merge a CloudTreeWeb backup into the current database. Name collisions are renamed and references are rewritten.">
-            <input ref={mergeRef} type="file" accept="application/json" className="hidden"
+          <Card title="Merge another tree" description="Merge a CloudTreeWeb backup (.json) or a MacFamilyTree package (.mftpkg) into the current database. Conflicting records are resolved interactively; name collisions are renamed and references are rewritten.">
+            <input ref={mergeRef} type="file" accept="application/json,.json,.mftpkg,.mftsql,.zip" className="hidden"
               onChange={(e) => onBackupMergeFile(e.target.files?.[0])} />
-            <button onClick={() => mergeRef.current?.click()} disabled={busy} className={btnSecondary}>
-              Choose backup to merge…
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => mergeRef.current?.click()} disabled={busy} className={btnSecondary}>
+                Choose backup or .mftpkg to merge…
+              </button>
+              <button onClick={() => setMergeWizardOpen(true)} disabled={busy} className={btnSecondary}>
+                Guided merge wizard…
+              </button>
+            </div>
             {pendingMerge && (
               <div className="mt-4 rounded-md border border-border bg-background p-3 text-xs">
-                <div className="font-semibold mb-1">Backup merge preview</div>
+                <div className="font-semibold mb-1">Merge preview</div>
                 <div className="text-muted-foreground mb-2">
                   <span className="text-foreground">{pendingMerge.fileName}</span> · {pendingMerge.preview.records.toLocaleString()} records ·{' '}
                   {pendingMerge.preview.assets.toLocaleString()} assets · {pendingMerge.preview.collisions.toLocaleString()} record collisions ·{' '}
@@ -609,6 +616,15 @@ export default function Export() {
           plan={conflictPlan}
           onApply={onApplyResolutions}
           onCancel={() => setConflictPlan(null)}
+        />
+      )}
+      {mergeWizardOpen && (
+        <MergeTreesWizardSheet
+          onClose={() => setMergeWizardOpen(false)}
+          onComplete={async (result) => {
+            await refresh();
+            setStatus(`Merged ${(result.records ?? 0).toLocaleString()} records and ${(result.assets ?? 0).toLocaleString()} assets via the merge wizard.`);
+          }}
         />
       )}
     </div>

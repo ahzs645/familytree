@@ -1,5 +1,102 @@
 import { getLocalDatabase } from './LocalDatabase.js';
 
+/**
+ * Map a dataset produced by `extractMFTPKGDataset` (lib/mftpkgExtractor.js) to
+ * the `cloudtreeweb-backup` JSON shape the merge pipeline understands. The
+ * extractor already returns `records` as a recordName→record map and `assets`
+ * as an array of {assetId, ownerRecordName, dataBase64, …}, which is exactly
+ * what planMerge / mergeBackupJSONWithResolutions expect — this just stamps the
+ * recognised envelope (`format`) and carries useful metadata. Pure: no I/O.
+ */
+export function mftpkgDatasetToBackupJSON(dataset, { sourceName = '' } = {}) {
+  if (!dataset || typeof dataset !== 'object' || !dataset.records) {
+    throw new Error('Extracted package did not contain any records.');
+  }
+  const records = Array.isArray(dataset.records)
+    ? Object.fromEntries(dataset.records.filter((r) => r?.recordName).map((r) => [r.recordName, r]))
+    : dataset.records;
+  return {
+    format: 'cloudtreeweb-backup',
+    version: dataset.meta?.datasetSchemaVersion || dataset.datasetSchemaVersion || 2,
+    datasetSchemaVersion: dataset.datasetSchemaVersion || dataset.meta?.datasetSchemaVersion,
+    exportedAt: dataset.meta?.importedAt || new Date().toISOString(),
+    counts: dataset.counts || dataset.meta?.counts || {},
+    assetCount: Array.isArray(dataset.assets) ? dataset.assets.length : 0,
+    records,
+    assets: Array.isArray(dataset.assets) ? dataset.assets : [],
+    treeName: dataset.treeName || sourceName || '',
+    sourceFormat: 'mftpkg',
+  };
+}
+
+/**
+ * Read a user-picked File and return a `cloudtreeweb-backup` JSON ready for
+ * planMerge/merge. Accepts both CloudTreeWeb JSON backups and MacFamilyTree
+ * packages (.mftpkg / .mftsql / SQLite / zipped database), routing the latter
+ * through the existing parseSource + sql.js + extractMFTPKGDataset pipeline.
+ * Not pure (dynamic imports, sql.js); the pure mapping lives in
+ * mftpkgDatasetToBackupJSON above.
+ */
+export async function loadMergeFileToBackupJSON(file) {
+  if (!file) throw new Error('No file selected.');
+  const name = file.name || 'merge-source';
+  const lower = name.toLowerCase();
+
+  // Cheap path: a plain CloudTreeWeb .json backup.
+  if (lower.endsWith('.json')) {
+    const json = JSON.parse(await file.text());
+    if (json?.format !== 'cloudtreeweb-backup' || !json.records) {
+      throw new Error('File is not a CloudTreeWeb backup.');
+    }
+    return json;
+  }
+
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const [{ parseSource, SOURCE_KIND }, { getSqlJs }, { extractMFTPKGDataset }] = await Promise.all([
+    import('./import/parseSource.js'),
+    import('./import/sqlJs.js'),
+    import('./mftpkgExtractor.js'),
+  ]);
+  const parsed = await parseSource(bytes, name);
+
+  // A backup JSON can also arrive inside a .json/.zip wrapper.
+  if (parsed.kind === SOURCE_KIND.JSON) {
+    const json = parsed.data;
+    if (json?.format === 'cloudtreeweb-backup' && json.records) return json;
+    // Some packages embed a database.json that is already a full dataset.
+    if (json?.records) return mftpkgDatasetToBackupJSON(json, { sourceName: name });
+    throw new Error('File is not a CloudTreeWeb backup or MacFamilyTree package.');
+  }
+
+  let dbBytes = null;
+  let resourceFiles = [];
+  let pkgName = name;
+  if (parsed.kind === SOURCE_KIND.ZIP_DATABASE) {
+    dbBytes = parsed.dbBytes;
+    resourceFiles = parsed.resourceFiles || [];
+    pkgName = parsed.sourceName || name;
+  } else if (parsed.kind === SOURCE_KIND.SQLITE) {
+    dbBytes = parsed.bytes;
+  } else {
+    throw new Error('Unsupported merge source. Choose a CloudTreeWeb backup .json or a MacFamilyTree .mftpkg package.');
+  }
+
+  const SQL = await getSqlJs();
+  const db = new SQL.Database(dbBytes);
+  try {
+    const query = (sql) => {
+      const result = db.exec(sql);
+      if (!result.length) return [];
+      const { columns, values } = result[0];
+      return values.map((row) => Object.fromEntries(columns.map((c, i) => [c, row[i]])));
+    };
+    const dataset = extractMFTPKGDataset({ query, sourceName: pkgName, resourceFiles });
+    return mftpkgDatasetToBackupJSON(dataset, { sourceName: pkgName });
+  } finally {
+    db.close();
+  }
+}
+
 export const CONFLICT_RESOLUTION = Object.freeze({
   KEEP_EXISTING: 'existing',
   USE_INCOMING: 'incoming',

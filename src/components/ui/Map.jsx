@@ -36,6 +36,40 @@ const STYLE_URLS = {
   },
 };
 
+// Esri World Imagery raster tiles for the satellite / hybrid "Map Type" presets.
+// Hybrid layers a transparent Carto label overlay on top of the imagery.
+const ESRI_IMAGERY_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const ESRI_ATTRIBUTION = 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community';
+const CARTO_LABEL_OVERLAY_TILES = 'https://basemaps.cartocdn.com/gl/dark-matter-only-labels-gl-style/{z}/{x}/{y}.png';
+
+function rasterImageryStyle(hybrid) {
+  const sources = {
+    'esri-imagery': {
+      type: 'raster',
+      tiles: [ESRI_IMAGERY_TILES],
+      tileSize: 256,
+      attribution: ESRI_ATTRIBUTION,
+    },
+  };
+  const layers = [
+    { id: 'esri-imagery', type: 'raster', source: 'esri-imagery' },
+  ];
+  if (hybrid) {
+    sources['carto-labels'] = {
+      type: 'raster',
+      tiles: [CARTO_LABEL_OVERLAY_TILES],
+      tileSize: 256,
+    };
+    layers.push({ id: 'carto-labels', type: 'raster', source: 'carto-labels' });
+  }
+  return {
+    version: 8,
+    glyphs: 'https://fonts.openmaptiles.org/{fontstack}/{range}.pbf',
+    sources,
+    layers,
+  };
+}
+
 const CLUSTER_SOURCE_ID = 'ctw-marker-cluster-source';
 const CLUSTER_LAYER_ID = 'ctw-marker-clusters';
 const CLUSTER_COUNT_LAYER_ID = 'ctw-marker-cluster-count';
@@ -59,12 +93,29 @@ function ensureRtlTextPlugin() {
   });
 }
 
-function styleUrlFor(theme, preferences) {
+// Resolve the basemap to a stable identity key. Satellite/hybrid map types and
+// the heat-map dark-basemap override take precedence over the user's basemap
+// preference. Returns a string the memo can compare; resolveStyle() turns that
+// key into the actual MapLibre style (URL string or inline raster style object).
+function styleKeyFor(theme, preferences, mapType, forceDark) {
+  if (mapType === 'satellite') return 'mapType:satellite';
+  if (mapType === 'hybrid') return 'mapType:hybrid';
+  if (forceDark) return preferences.showLabels ? 'dark:labels' : 'dark:noLabels';
+  if (mapType === 'dark') return preferences.showLabels ? 'dark:labels' : 'dark:noLabels';
+  if (mapType === 'muted') return preferences.showLabels ? 'positron:labels' : 'positron:noLabels';
   const preferred = preferences.basemap === 'auto'
     ? (theme === 'dark' ? 'dark' : 'positron')
     : preferences.basemap;
   const style = STYLE_URLS[preferred] || STYLE_URLS.positron;
-  return preferences.showLabels ? style.labels : style.noLabels;
+  return `${preferred in STYLE_URLS ? preferred : 'positron'}:${preferences.showLabels ? 'labels' : 'noLabels'}`;
+}
+
+function resolveStyle(styleKey) {
+  if (styleKey === 'mapType:satellite') return rasterImageryStyle(false);
+  if (styleKey === 'mapType:hybrid') return rasterImageryStyle(true);
+  const [base, variant] = styleKey.split(':');
+  const style = STYLE_URLS[base] || STYLE_URLS.positron;
+  return variant === 'noLabels' ? style.noLabels : style.labels;
 }
 
 function distanceSq(a, b) {
@@ -420,6 +471,8 @@ export function Map({
   connectionOptions = null,
   sunMode = 'noon',
   tileNames = 'auto',
+  mapType = 'standard',
+  displayCurrentLocation = false,
   emptyMessage = '',
 }) {
   const { theme } = useTheme();
@@ -431,7 +484,13 @@ export function Map({
   const navControlRef = useRef(null);
   const isMobileRef = useRef(isMobile);
   const [ready, setReady] = useState(false);
-  const styleUrl = useMemo(() => styleUrlFor(theme, preferences), [theme, preferences]);
+  // A dark basemap is forced when an active heat map requests "always dark".
+  const forceDarkBasemap = Boolean(heatmap?.enabled && heatmap?.darkHeatMap);
+  const styleKey = useMemo(
+    () => styleKeyFor(theme, preferences, mapType, forceDarkBasemap),
+    [theme, preferences, mapType, forceDarkBasemap]
+  );
+  const styleUrl = useMemo(() => resolveStyle(styleKey), [styleKey]);
   const useSourceClustering = showMarkers && preferences.markerClustering && markers.length >= 60 && !markers.some((marker) => marker.draggable);
   const markerData = useMemo(() => geojsonForMarkers(markers), [markers]);
   const connectionData = useMemo(() => geojsonForConnections(connections), [connections]);
@@ -680,6 +739,38 @@ export function Map({
       try { removeSunLayer(map); } catch { /* map removed */ }
     };
   }, [sunMode, tileNames, ready, styleUrl]);
+
+  // "Display current location" — drop a you-are-here marker via the Geolocation
+  // API. Permission denial / unavailable geolocation degrades silently.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return undefined;
+    let marker = null;
+    const clearMarker = () => { if (marker) { marker.remove(); marker = null; } };
+    if (!displayCurrentLocation || typeof navigator === 'undefined' || !navigator.geolocation) {
+      return clearMarker;
+    }
+    let cancelled = false;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (cancelled || !mapRef.current) return;
+        const { longitude, latitude } = position.coords || {};
+        if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return;
+        const el = document.createElement('div');
+        el.setAttribute('aria-label', 'Your current location');
+        el.title = 'You are here';
+        el.style.cssText =
+          'width:16px;height:16px;border-radius:50%;background:#2563eb;border:3px solid #ffffff;box-shadow:0 0 0 4px rgba(37,99,235,0.35),0 1px 3px rgba(0,0,0,0.5);';
+        marker = new maplibregl.Marker({ element: el })
+          .setLngLat([longitude, latitude])
+          .setPopup(new maplibregl.Popup({ offset: 14 }).setText('You are here'))
+          .addTo(map);
+      },
+      () => { /* permission denied or position unavailable — no marker */ },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    );
+    return () => { cancelled = true; clearMarker(); };
+  }, [displayCurrentLocation, ready]);
 
   // Render markers. Rebuilt from scratch whenever the prop changes — fine for
   // the scales we deal with (hundreds of places max).

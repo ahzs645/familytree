@@ -61,17 +61,38 @@ export const REPORT_BUILDERS = [
     { key: 'showParents', label: 'Parents', type: 'boolean', default: true, checkboxLabel: 'Show parents' },
     { key: 'showFamilies', label: 'Families', type: 'boolean', default: true, checkboxLabel: 'Show families & children' },
     { key: 'showEvents', label: 'Events', type: 'boolean', default: true, checkboxLabel: 'Show events table' },
+    { key: 'appendCitations', label: 'Citations', type: 'boolean', default: false, checkboxLabel: 'Append source citations' },
   ], helpText: 'Summarizes the selected person, parents, families, children, and direct events.', run: (rn, o) => buildPersonSummary(rn, o) },
   { id: 'person-events', category: 'Person Reports', label: 'Person Events Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, optionsSchema: [
     { key: 'includeFamilyEvents', label: 'Family events', type: 'boolean', default: true, checkboxLabel: 'Include linked family events' },
+    { key: 'showWorldHistory', label: 'World history', type: 'boolean', default: false, checkboxLabel: 'Show world history events' },
+    { key: 'appendCitations', label: 'Citations', type: 'boolean', default: false, checkboxLabel: 'Append source citations' },
   ], helpText: 'Lists the selected person\'s direct events and linked family events with context.', run: (rn, o) => buildPersonEventsReport(rn, o) },
   { id: 'ancestor-narrative', category: 'Lineage Reports', label: 'Ancestor Narrative', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, helpText: 'Builds a generation-by-generation ancestor narrative from the selected proband.', run: (rn, o) => buildAncestorNarrative(rn, o.generations) },
   { id: 'gia-pha-lineage', category: 'Lineage Reports', label: 'Gia phả / Family Lineage Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Lineage subject', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, helpText: 'Builds a Vietnamese-oriented lineage register with ancestor and descendant branch codes.', run: (rn, o) => buildGiaPhaLineageReport(rn, o.generations) },
   { id: 'descendant-narrative', category: 'Lineage Reports', label: 'Descendant Narrative', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 4 }, helpText: 'Builds a descendant narrative grouped by generation.', run: (rn, o) => buildDescendantNarrative(rn, o.generations) },
-  { id: 'narrative', category: 'Person Reports', label: 'Narrative Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 4 }, helpText: 'Combines family context and descendant narrative for the selected person.', run: (rn, o) => buildNarrativeReport(rn, o.generations) },
-  { id: 'family-group-sheet', category: 'Family Reports', label: 'Family Group Sheet', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, helpText: 'Shows partner families and children for the selected person.', run: (rn) => buildFamilyGroupSheet(rn) },
-  { id: 'story-report', category: 'Story & Media', label: 'Story Report', needsSubject: true, subjectType: 'Story', subjectLabel: 'Story', includeHeader: true, defaultOptions: {}, helpText: 'Prints a selected story with metadata, sections, and related people, families, events, and media.', run: (rn) => buildStoryReport(rn) },
-  { id: 'kinship-report', category: 'Analysis', label: 'Kinship Report', needsSubject: true, needsSecondSubject: true, subjectType: 'Person', subjectLabel: 'Person A', secondSubjectType: 'Person', secondSubjectLabel: 'Person B', includeHeader: true, defaultOptions: {}, helpText: 'Finds the shortest known family path between two selected people.', run: (rn, _o, second) => buildKinshipReport(rn, second) },
+  { id: 'narrative', category: 'Person Reports', label: 'Narrative Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 4 }, optionsSchema: [
+    { key: 'includeChristening', label: 'Christening', type: 'boolean', default: false, checkboxLabel: 'Narrate christening / baptism' },
+    { key: 'includeBurial', label: 'Burial', type: 'boolean', default: false, checkboxLabel: 'Narrate burial' },
+    { key: 'includeEducation', label: 'Education', type: 'boolean', default: false, checkboxLabel: 'Narrate education' },
+    { key: 'includeResidence', label: 'Residence', type: 'boolean', default: false, checkboxLabel: 'Narrate residence' },
+    { key: 'includeOccupation', label: 'Occupation', type: 'boolean', default: false, checkboxLabel: 'Narrate occupation' },
+    { key: 'includeSiblings', label: 'Siblings', type: 'boolean', default: false, checkboxLabel: 'Narrate siblings' },
+    { key: 'showWorldHistory', label: 'World history', type: 'boolean', default: false, checkboxLabel: 'Show world history events' },
+    { key: 'appendCitations', label: 'Citations', type: 'boolean', default: false, checkboxLabel: 'Append source citations' },
+  ], helpText: 'Combines family context and descendant narrative for the selected person.', run: (rn, o) => buildNarrativeReport(rn, o.generations, o) },
+  { id: 'family-group-sheet', category: 'Family Reports', label: 'Family Group Sheet', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'appendCitations', label: 'Citations', type: 'boolean', default: false, checkboxLabel: 'Append source citations' },
+  ], helpText: 'Shows partner families and children for the selected person.', run: (rn, o) => buildFamilyGroupSheet(rn, o) },
+  { id: 'story-report', category: 'Story & Media', label: 'Story Report', needsSubject: true, subjectType: 'Story', subjectLabel: 'Story', includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'showWorldHistory', label: 'World history', type: 'boolean', default: false, checkboxLabel: 'Show world history events' },
+  ], helpText: 'Prints a selected story with metadata, sections, and related people, families, events, and media.', run: (rn, o) => buildStoryReport(rn, o) },
+  { id: 'kinship-report', category: 'Analysis', label: 'Kinship Report', needsSubject: true, needsSecondSubject: true, subjectType: 'Person', subjectLabel: 'Person A', secondSubjectType: 'Person', secondSubjectLabel: 'Person B', includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'lineType', label: 'Relationship lines', type: 'select', default: 'any', choices: [['any', 'Any relationship'], ['blood', 'Blood relatives only'], ['biological', 'Biological lines only']] },
+    { key: 'maxDepth', label: 'Maximum depth', type: 'number', default: 12, min: 2, max: 20 },
+    { key: 'showLifeSpan', label: 'Life span column', type: 'boolean', default: true, checkboxLabel: 'Show life span column' },
+    { key: 'showCoefficients', label: 'Coefficients', type: 'boolean', default: true, checkboxLabel: 'Show relationship coefficients' },
+  ], helpText: 'Finds the shortest known family path between two selected people.', run: (rn, o, second) => buildKinshipReport(rn, second, o) },
   { id: 'kinship-roster', category: 'Analysis', label: 'Kinship Roster', needsSubject: true, subjectType: 'Person', subjectLabel: 'Root person', includeHeader: true, defaultOptions: {}, helpText: 'Lists every known relative of one person with their relationship.', run: (rn, o) => buildKinshipRosterReport(rn, o) },
   { id: 'person-analysis', category: 'Analysis', label: 'Person Analysis', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
     { key: 'onlyShowCount', label: 'Detail', type: 'boolean', default: false, checkboxLabel: 'Only show counts (omit value tables)' },
@@ -87,6 +108,12 @@ export const REPORT_BUILDERS = [
     { key: 'groupBy', label: 'Group into sections', type: 'select', default: 'none', choices: [['none', 'No sections'], ['surname', 'Surname initial'], ['birthDecade', 'Birth decade'], ['gender', 'Gender']] },
     { key: 'search', label: 'Search names', type: 'text', default: '', placeholder: 'Filter by name…' },
     { key: 'includeGender', label: 'Gender column', type: 'boolean', default: true, checkboxLabel: 'Show gender' },
+    { key: 'showBirthDate', label: 'Birth date column', type: 'boolean', default: true, checkboxLabel: 'Show birth date' },
+    { key: 'showBirthPlace', label: 'Birth place column', type: 'boolean', default: false, checkboxLabel: 'Show birth place' },
+    { key: 'showDeathDate', label: 'Death date column', type: 'boolean', default: true, checkboxLabel: 'Show death date' },
+    { key: 'showDeathPlace', label: 'Death place column', type: 'boolean', default: false, checkboxLabel: 'Show death place' },
+    { key: 'showLifespan', label: 'Life span column', type: 'boolean', default: false, checkboxLabel: 'Show life span' },
+    { key: 'showRecordId', label: 'Record ID column', type: 'boolean', default: false, checkboxLabel: 'Show record ID' },
     { key: 'onlyWithDates', label: 'Date filter', type: 'boolean', default: false, checkboxLabel: 'Only people with a birth or death date' },
   ], helpText: 'Lists every public person with gender and life dates.', run: (rn, o) => buildPersonsList(o) },
   { id: 'places-list', category: 'Lists', label: 'Places List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
@@ -101,6 +128,13 @@ export const REPORT_BUILDERS = [
   { id: 'events-list', category: 'Lists', label: 'Events List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
     { key: 'sortBy', label: 'Sort by', type: 'select', default: 'date', choices: [['date', 'Date'], ['type', 'Type'], ['owner', 'Owner']] },
     { key: 'onlyFullDate', label: 'Date filter', type: 'boolean', default: false, checkboxLabel: 'Only events with a full date' },
+    { key: 'showDescription', label: 'Description column', type: 'boolean', default: true, checkboxLabel: 'Show description' },
+    { key: 'showAge', label: 'Age column', type: 'boolean', default: false, checkboxLabel: 'Show age at event' },
+    { key: 'showTime', label: 'Time column', type: 'boolean', default: false, checkboxLabel: 'Show time' },
+    { key: 'showPlaceDetail', label: 'Place detail column', type: 'boolean', default: false, checkboxLabel: 'Show place detail' },
+    { key: 'showAuthority', label: 'Authority column', type: 'boolean', default: false, checkboxLabel: 'Show authority' },
+    { key: 'showCause', label: 'Cause column', type: 'boolean', default: false, checkboxLabel: 'Show cause' },
+    { key: 'showNotes', label: 'Notes column', type: 'boolean', default: false, checkboxLabel: 'Show notes' },
   ], helpText: 'Lists person and family events with owner and place context.', run: (rn, o) => buildEventsList(o) },
   { id: 'facts-list', category: 'Lists', label: 'Facts List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists recorded person facts with values and dates.', run: () => buildFactsListReport() },
   { id: 'marriage-list', category: 'Family Reports', label: 'Marriage List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
@@ -110,7 +144,9 @@ export const REPORT_BUILDERS = [
     { key: 'type', label: 'Anniversary type', type: 'select', default: 'all', choices: [['all', 'Birth & Death'], ['Birth', 'Birth'], ['Death', 'Death']] },
     { key: 'sortBy', label: 'Sort by', type: 'select', default: 'monthDay', choices: [['monthDay', 'Month / Day'], ['person', 'Person'], ['year', 'Year']] },
   ], helpText: 'Lists birth and death anniversaries by month and day.', run: (rn, o) => buildAnniversaryList(o) },
-  { id: 'timeline-report', category: 'Analysis', label: 'Timeline Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Orders all person and family events by date.', run: () => buildTimelineReport() },
+  { id: 'timeline-report', category: 'Analysis', label: 'Timeline Report', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'includeHistoryEvents', label: 'History events', type: 'boolean', default: false, checkboxLabel: 'Include history events' },
+  ], helpText: 'Orders all person and family events by date.', run: (rn, o) => buildTimelineReport(o) },
   { id: 'media-gallery-report', category: 'Story & Media', label: 'Media Gallery Report', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
     { key: 'groupBy', label: 'Group into sections', type: 'select', default: 'none', choices: [['none', 'Single list'], ['type', 'By media type']] },
   ], helpText: 'Lists media records and their file or URL references.', run: (rn, o) => buildMediaGalleryReport(o) },
@@ -1066,7 +1102,7 @@ const primaryButton = {
   justifyContent: 'center',
   background: 'hsl(var(--primary))',
   color: 'hsl(var(--primary-foreground))',
-  borderColor: 'hsl(var(--primary))',
+  border: '1px solid hsl(var(--primary))',
 };
 const dangerIconButton = {
   ...iconButton,
@@ -1139,7 +1175,7 @@ const reportButton = {
 const activeReportButton = {
   ...reportButton,
   background: 'hsl(var(--primary) / 0.12)',
-  borderColor: 'hsl(var(--primary) / 0.35)',
+  border: '1px solid hsl(var(--primary) / 0.35)',
   color: 'hsl(var(--foreground))',
 };
 const reportButtonText = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };

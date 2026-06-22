@@ -13,11 +13,24 @@ import {
 import {
   familyLabel,
   mediaLabel,
+  personGroupLabel,
   placeLabel,
   safeAssetName,
+  savedChartLabel,
   sourceLabel,
   storyLabel,
 } from './labels.js';
+
+// Bookmark flag aliases (mirrors schema FIELD_ALIASES.bookmark).
+const BOOKMARK_FIELDS = ['isBookmarked', 'bookmarked', 'isBookmarked1', 'isBookmarked2', 'isBookmarked3', 'isBookmarked4'];
+
+function isBookmarked(record) {
+  for (const key of BOOKMARK_FIELDS) {
+    const raw = record?.fields?.[key]?.value ?? record?.fields?.[key];
+    if (raw === true || raw === 1 || raw === '1' || String(raw).toLowerCase() === 'true') return true;
+  }
+  return false;
+}
 
 export function buildPublishModel(snapshot, options) {
   const include = (record) => {
@@ -55,6 +68,24 @@ export function buildPublishModel(snapshot, options) {
     .sort(compareBy(mediaLabel, options));
   const stories = snapshot.stories.filter(include).sort(compareBy(storyLabel, options));
 
+  // Person Groups page — public groups plus their members that survived the
+  // person filter. Each group becomes a standalone page with a member index.
+  const personGroupRelations = (snapshot.personGroupRelations || [])
+    .filter((rel) => include(rel) && personIds.has(readRef(rel.fields?.person)));
+  const groupMembersByGroup = groupRefs(personGroupRelations, 'personGroup', 'person');
+  const personGroups = options.contentSections.personGroups
+    ? (snapshot.personGroups || [])
+      .filter((group) => include(group) && (groupMembersByGroup.get(group.recordName) || []).length > 0)
+      .sort(compareBy(personGroupLabel, options))
+    : [];
+
+  // Saved Charts page — authored chart records (SavedChart). Always public-only.
+  const savedCharts = options.contentSections.savedCharts
+    ? (snapshot.savedCharts || [])
+      .filter((chart) => include(chart))
+      .sort(compareBy(savedChartLabel, options))
+    : [];
+
   const pageRecords = [
     ...(options.contentSections.people ? persons : []),
     ...(options.contentSections.families ? families : []),
@@ -62,6 +93,8 @@ export function buildPublishModel(snapshot, options) {
     ...(options.contentSections.sources ? sources : []),
     ...(options.contentSections.media ? media : []),
     ...(options.contentSections.stories ? stories : []),
+    ...personGroups,
+    ...savedCharts,
   ];
   const pathById = buildPathMap(pageRecords);
 
@@ -115,6 +148,9 @@ export function buildPublishModel(snapshot, options) {
     storyRelations,
     storySections,
     dnaResults,
+    personGroups,
+    personGroupRelations,
+    savedCharts,
     assets,
     pathById,
     assetPathById,
@@ -124,7 +160,39 @@ export function buildPublishModel(snapshot, options) {
     sourceById: new Map(sources.map((record) => [record.recordName, record])),
     mediaById: new Map(media.map((record) => [record.recordName, record])),
     storyById: new Map(stories.map((record) => [record.recordName, record])),
+    personGroupById: new Map(personGroups.map((record) => [record.recordName, record])),
+    savedChartById: new Map(savedCharts.map((record) => [record.recordName, record])),
   };
+
+  // Group members in published-person sort order, restricted to visible groups.
+  model.groupMembersByGroup = new Map();
+  for (const group of personGroups) {
+    const memberIds = (groupMembersByGroup.get(group.recordName) || []);
+    const memberPersons = memberIds
+      .map((id) => model.personById.get(id))
+      .filter(Boolean)
+      .sort(compareBy((record) => personSummary(record)?.fullName || record.recordName, options));
+    model.groupMembersByGroup.set(group.recordName, memberPersons);
+  }
+  // Groups each person belongs to (for cross-linking on person pages).
+  model.groupsByPerson = new Map();
+  for (const group of personGroups) {
+    for (const person of model.groupMembersByGroup.get(group.recordName) || []) {
+      if (!model.groupsByPerson.has(person.recordName)) model.groupsByPerson.set(person.recordName, []);
+      model.groupsByPerson.get(person.recordName).push(group);
+    }
+  }
+
+  // Bookmarked people surfaced on the homepage (#homepage bookmarks).
+  model.bookmarkedPersons = options.includeBookmarks
+    ? persons.filter(isBookmarked)
+    : [];
+
+  // Start person card (#homepage start person): only when the chosen person
+  // survived the publish filter.
+  model.startPerson = options.startPersonId
+    ? (model.personById.get(options.startPersonId) || null)
+    : null;
 
   model.dnaResultsByPerson = groupRecords(dnaResults, (record) => readRef(record.fields?.person));
   model.childrenByFamily = groupRefs(childRels, 'family', 'child');
@@ -235,6 +303,9 @@ function pageFolder(record) {
     Place: 'places',
     Source: 'sources',
     Story: 'stories',
+    PersonGroup: 'groups',
+    SavedChart: 'charts',
+    SavedView: 'charts',
   }[record.recordType] || (record.recordType?.startsWith('Media') ? 'media' : 'records');
   return folder;
 }

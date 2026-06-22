@@ -8,8 +8,11 @@ import { buildSite, downloadSite, validateSiteExport } from '../lib/websiteExpor
 import { listAllScopes } from '../lib/smartScopes.js';
 import { SUPPORTED_LOCALES, DIRECTION_OPTIONS } from '../lib/i18n.js';
 import { formClasses } from '../components/ui/formClasses.js';
+import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { personSummary } from '../models/index.js';
 import {
   DEFAULT_SITE_OPTIONS,
+  SITE_FONT_FAMILIES,
   addSiteTheme,
   getWebsiteOptions,
   moveSiteTheme,
@@ -47,9 +50,21 @@ export default function Websites() {
   const [publishTarget, setPublishTarget] = useState(DEFAULT_PUBLISH_TARGET);
   const [publishHistory, setPublishHistory] = useState([]);
   const [personScopes, setPersonScopes] = useState([]);
+  const [personOptions, setPersonOptions] = useState([]);
   useEffect(() => {
     let cancelled = false;
     listAllScopes('Person').then((scopes) => { if (!cancelled) setPersonScopes(scopes); }).catch(() => {});
+    (async () => {
+      try {
+        const { records } = await getLocalDatabase().query('Person', { limit: 100000 });
+        const list = records
+          .map((rec) => ({ id: rec.recordName, label: personSummary(rec)?.fullName || rec.recordName }))
+          .sort((a, b) => a.label.localeCompare(b.label));
+        if (!cancelled) setPersonOptions(list);
+      } catch {
+        if (!cancelled) setPersonOptions([]);
+      }
+    })();
     return () => { cancelled = true; };
   }, []);
   const controllerRef = useRef(null);
@@ -121,6 +136,23 @@ export default function Websites() {
     setValidation(null);
     setCompletedStats(null);
   }, []);
+
+  const updateActiveThemeField = useCallback((patch) => {
+    setOptions((current) => ({
+      ...current,
+      siteThemes: updateSiteTheme(current.siteThemes, current.theme, patch),
+    }));
+    setValidation(null);
+    setCompletedStats(null);
+  }, []);
+
+  const readDataUrl = useCallback((file) => new Promise((resolve) => {
+    if (!file) { resolve(''); return; }
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  }), []);
 
   const onAddTheme = useCallback(() => {
     setOptions((current) => {
@@ -399,6 +431,58 @@ export default function Websites() {
                 <Field label="Text color">
                   <input type="color" value={activeTheme?.colors?.text || '#18202f'} onChange={(event) => updateActiveThemeColor('text', event.target.value)} className="h-10 w-12 rounded-md border border-border bg-background p-1" />
                 </Field>
+                <Field label="Link color">
+                  <input type="color" value={activeTheme?.colors?.link || '#2563eb'} onChange={(event) => updateActiveThemeColor('link', event.target.value)} className="h-10 w-12 rounded-md border border-border bg-background p-1" />
+                </Field>
+                <Field label="Active link color">
+                  <input type="color" value={activeTheme?.colors?.linkActive || '#1d4ed8'} onChange={(event) => updateActiveThemeColor('linkActive', event.target.value)} className="h-10 w-12 rounded-md border border-border bg-background p-1" />
+                </Field>
+                <Field label="Male tint">
+                  <input type="color" value={activeTheme?.colors?.maleTint || '#e8f0fe'} onChange={(event) => updateActiveThemeColor('maleTint', event.target.value)} className="h-10 w-12 rounded-md border border-border bg-background p-1" />
+                </Field>
+                <Field label="Female tint">
+                  <input type="color" value={activeTheme?.colors?.femaleTint || '#fdeef4'} onChange={(event) => updateActiveThemeColor('femaleTint', event.target.value)} className="h-10 w-12 rounded-md border border-border bg-background p-1" />
+                </Field>
+                <Field label="Font family">
+                  <select value={activeTheme?.font || 'system'} onChange={(event) => updateActiveThemeField({ font: event.target.value })} className={inputClass}>
+                    {SITE_FONT_FAMILIES.map((font) => <option key={font.id} value={font.id}>{font.label}</option>)}
+                  </select>
+                </Field>
+                <Field label="Text alignment">
+                  <select value={activeTheme?.textAlign || 'start'} onChange={(event) => updateActiveThemeField({ textAlign: event.target.value })} className={inputClass}>
+                    <option value="start">Start</option>
+                    <option value="center">Center</option>
+                    <option value="end">End</option>
+                    <option value="justify">Justify</option>
+                  </select>
+                </Field>
+                <Field label="Section placement">
+                  <select value={activeTheme?.sectionPlacement || 'stacked'} onChange={(event) => updateActiveThemeField({ sectionPlacement: event.target.value })} className={inputClass}>
+                    <option value="stacked">Stacked</option>
+                    <option value="sidebar">Sidebar</option>
+                  </select>
+                </Field>
+                <Field label="Card blur (px)">
+                  <input type="number" min="0" max="24" value={activeTheme?.blur ?? 0} onChange={(event) => updateActiveThemeField({ blur: Number(event.target.value) })} className={inputClass} />
+                </Field>
+              </div>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex items-center gap-2 text-sm">
+                  <input type="checkbox" checked={activeTheme?.genderTint === true} onChange={(event) => updateActiveThemeField({ genderTint: event.target.checked })} />
+                  <span>Tint member cards by gender</span>
+                </label>
+                <Field label="Background image">
+                  <div className="flex items-center gap-2">
+                    <input type="file" accept="image/*" onChange={async (event) => updateActiveThemeField({ backgroundImage: await readDataUrl(event.target.files?.[0]) })} className="text-xs" />
+                    {activeTheme?.backgroundImage && <button type="button" onClick={() => updateActiveThemeField({ backgroundImage: '' })} className="text-xs text-muted-foreground underline">Clear</button>}
+                  </div>
+                </Field>
+                <Field label="Header image">
+                  <div className="flex items-center gap-2">
+                    <input type="file" accept="image/*" onChange={async (event) => updateActiveThemeField({ headerImage: await readDataUrl(event.target.files?.[0]) })} className="text-xs" />
+                    {activeTheme?.headerImage && <button type="button" onClick={() => updateActiveThemeField({ headerImage: '' })} className="text-xs text-muted-foreground underline">Clear</button>}
+                  </div>
+                </Field>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" onClick={() => onMoveTheme('up')} className={buttonSecondary}>Move up</button>
@@ -520,6 +604,8 @@ export default function Websites() {
                   ['sources', 'Source pages'],
                   ['media', 'Media pages'],
                   ['stories', 'Story pages'],
+                  ['personGroups', 'Person group pages'],
+                  ['savedCharts', 'Saved chart pages'],
                   ['charts', 'Pedigree & hourglass charts'],
                   ['dna', 'DNA test results'],
                   ['relatedMedia', 'Related media sections'],
@@ -560,6 +646,44 @@ export default function Websites() {
                   </div>
                 </div>
               )}
+            </div>
+
+            <div className="mt-5 rounded-md border border-border bg-background p-4">
+              <h3 className="text-sm font-semibold mb-3">Homepage</h3>
+              <Field label="Introduction">
+                <textarea
+                  value={options.introduction || ''}
+                  onChange={(event) => updateOption('introduction', event.target.value)}
+                  placeholder="A short introduction shown on the homepage. Separate paragraphs with a blank line."
+                  rows={4}
+                  className={`${inputClass} min-h-[96px]`}
+                />
+              </Field>
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Start person">
+                  <select
+                    value={options.startPersonId || ''}
+                    onChange={(event) => updateOption('startPersonId', event.target.value)}
+                    className={inputClass}
+                  >
+                    <option value="">No start person</option>
+                    {personOptions.map((person) => (
+                      <option key={person.id} value={person.id}>{person.label}</option>
+                    ))}
+                  </select>
+                </Field>
+                <label className="flex items-end gap-2 text-sm pb-2">
+                  <input
+                    type="checkbox"
+                    checked={options.includeBookmarks !== false}
+                    onChange={(event) => updateOption('includeBookmarks', event.target.checked)}
+                  />
+                  <span>Show bookmarked people on the homepage</span>
+                </label>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                The start person renders a prominent card linking into the tree. Bookmarks list people flagged in your records.
+              </p>
             </div>
 
             <div className="mt-5 rounded-md border border-border bg-background p-4">

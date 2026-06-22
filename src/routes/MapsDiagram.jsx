@@ -238,6 +238,7 @@ export default function MapsDiagram() {
   const mapMarkers = useMemo(() => {
     return filtered.map((event) => ({
       id: event.recordName,
+      year: event.year,
       lat: event.lat,
       lng: event.lng,
       color: colorForStatisticEvent(event, statisticSource, visualOptions, yearBounds),
@@ -247,8 +248,12 @@ export default function MapsDiagram() {
     }));
   }, [filtered, statisticSource, visualOptions, yearBounds]);
   const mapConnections = useMemo(
-    () => buildChronologicalConnections(filtered, visualOptions.connectionLines),
-    [filtered, visualOptions.connectionLines]
+    () => buildChronologicalConnections(
+      mapMarkers,
+      visualOptions.connectionLines,
+      { connectionColor: visualOptions.connectionColor }
+    ),
+    [mapMarkers, visualOptions.connectionLines, visualOptions.connectionColor]
   );
 
   const setRangeMin = (value) => {
@@ -395,8 +400,10 @@ export default function MapsDiagram() {
             markers={mapMarkers}
             showMarkers={usesMarkerPins(visualOptions)}
             connections={mapConnections}
-            connectionOptions={{ pattern: visualOptions.connectionPattern, width: visualOptions.connectionWidth }}
+            connectionOptions={{ pattern: visualOptions.connectionPattern, width: visualOptions.connectionWidth, animate: visualOptions.animateConnections }}
             tileNames={visualOptions.tileNames}
+            mapType={visualOptions.mapType}
+            displayCurrentLocation={visualOptions.displayCurrentLocation}
             heatmap={{
               enabled: statisticSource.mode === 'heat' || usesHeatMap(visualOptions),
               radius: visualOptions.heatRadius,
@@ -405,6 +412,7 @@ export default function MapsDiagram() {
               autoRadius: visualOptions.heatAutoRadius,
               fixedRadius: visualOptions.fixedHeatRadius,
               gradient: visualOptions.heatGradient,
+              darkHeatMap: visualOptions.darkHeatMap,
             }}
             emptyMessage={loading ? '' : 'Not enough information to display this map. Make sure you have entered data for the selected statistics type and coordinates for event places.'}
           />
