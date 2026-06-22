@@ -112,21 +112,36 @@ function RelationRow({ rel, target, label, typeLabel, children, onRemove, onLine
   );
 }
 
+function mediaPictureIdentifier(record) {
+  return record?.fields?.pictureFileIdentifier?.value
+    || record?.fields?.thumbnailFileIdentifier?.value
+    || record?.recordName
+    || '';
+}
+
+// Owner record types that carry a primary "entry image" (thumbnailFileIdentifier).
+const ENTRY_IMAGE_OWNERS = ['Person', 'Family', 'Place'];
+
 export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChanged, emptyHint = 'Attach media records to this entry.' }) {
   const [relations, setRelations] = useState([]);
   const [media, setMedia] = useState([]);
   const [mediaType, setMediaType] = useState(MEDIA_TYPES[0]);
   const [mediaId, setMediaId] = useState('');
+  const [ownerThumb, setOwnerThumb] = useState('');
+
+  const supportsEntryImage = ENTRY_IMAGE_OWNERS.includes(ownerRecordType);
 
   const reload = useCallback(async () => {
     if (!ownerRecordName) return;
     const db = getLocalDatabase();
-    const [relRows, pool] = await Promise.all([
+    const [relRows, pool, owner] = await Promise.all([
       db.query('MediaRelation', { referenceField: 'target', referenceValue: ownerRecordName, limit: 100000 }),
       loadRecordPool(MEDIA_TYPES),
+      db.getRecord(ownerRecordName),
     ]);
     const byId = new Map(pool.map((record) => [record.recordName, record]));
     setMedia(pool);
+    setOwnerThumb(owner?.fields?.thumbnailFileIdentifier?.value || '');
     setRelations(relRows.records.map((rel) => ({
       rel,
       target: byId.get(readRef(rel.fields?.media)),
@@ -134,6 +149,19 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
   }, [ownerRecordName]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  const setEntryImage = useCallback(async (mediaRecord, makePrimary) => {
+    if (!ownerRecordName) return;
+    const db = getLocalDatabase();
+    const owner = await db.getRecord(ownerRecordName);
+    if (!owner) return;
+    const fields = { ...owner.fields };
+    if (makePrimary) fields.thumbnailFileIdentifier = { value: mediaPictureIdentifier(mediaRecord), type: 'STRING' };
+    else delete fields.thumbnailFileIdentifier;
+    await saveWithChangeLog({ ...owner, fields });
+    await reload();
+    onChanged?.();
+  }, [onChanged, ownerRecordName, reload]);
 
   const filteredMedia = useMemo(() => media.filter((record) => record.recordType === mediaType), [media, mediaType]);
   const attachedIds = useMemo(() => new Set(relations.map(({ rel }) => readRef(rel.fields?.media)).filter(Boolean)), [relations]);
@@ -172,15 +200,29 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
         <Empty title="No media attached" hint={emptyHint} />
       ) : (
         <div className="space-y-2 mb-3">
-          {relations.map(({ rel, target }) => (
-            <RelationRow
-              key={rel.recordName}
-              rel={rel}
-              target={target}
-              typeLabel={target?.recordType?.replace('Media', '') || 'Media'}
-              onRemove={() => removeRelation(rel)}
-            />
-          ))}
+          {relations.map(({ rel, target }) => {
+            const isPicture = target?.recordType === 'MediaPicture';
+            const isEntry = supportsEntryImage && isPicture && !!ownerThumb && ownerThumb === mediaPictureIdentifier(target);
+            return (
+              <RelationRow
+                key={rel.recordName}
+                rel={rel}
+                target={target}
+                typeLabel={target?.recordType?.replace('Media', '') || 'Media'}
+                onRemove={() => removeRelation(rel)}
+              >
+                {supportsEntryImage && isPicture && (
+                  <div className="mt-1.5">
+                    {isEntry ? (
+                      <button onClick={() => setEntryImage(target, false)} className="text-xs text-primary hover:underline" title="Stop using this picture as the entry image.">★ Entry image — remove</button>
+                    ) : (
+                      <button onClick={() => setEntryImage(target, true)} className="text-xs text-muted-foreground hover:underline" title="Use this picture as the profile/entry image.">Use as entry image</button>
+                    )}
+                  </div>
+                )}
+              </RelationRow>
+            );
+          })}
         </div>
       )}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[130px_1fr_auto]">
@@ -516,6 +558,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
   const [persons, setPersons] = useState([]);
   const [typeId, setTypeId] = useState(relationTypes?.[0]?.id || '');
   const [personId, setPersonId] = useState('');
+  const [newDate, setNewDate] = useState('');
   const [drafts, setDrafts] = useState({});
 
   const ownerField = ownerRecordType === 'Family' ? 'sourceFamily' : 'sourcePerson';
@@ -539,6 +582,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
       {
         type: stripConclusionId(readRef(rel.fields?.relationType) || rel.fields?.type?.value || ''),
         targetPerson: readRef(rel.fields?.targetPerson) || '',
+        date: rel.fields?.date?.value || '',
       },
     ])));
   }, [ownerField, ownerRecordName]);
@@ -560,14 +604,16 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
         relationType: writeRef(typeId, 'ConclusionAssociateRelationType'),
         type: { value: typeId, type: 'STRING' },
         cached_targetName: { value: recordDisplayLabel(targetPerson), type: 'STRING' },
+        ...(newDate ? { date: { value: newDate, type: 'STRING' } } : {}),
       },
     };
     await db.saveRecord(rec);
     await logRecordCreated(rec);
     setPersonId('');
+    setNewDate('');
     await reload();
     onChanged?.();
-  }, [onChanged, ownerField, ownerRecordName, ownerRecordType, personId, persons, reload, typeId]);
+  }, [newDate, onChanged, ownerField, ownerRecordName, ownerRecordType, personId, persons, reload, typeId]);
 
   const saveRelation = useCallback(async (rel) => {
     const draft = drafts[rel.recordName] || {};
@@ -580,6 +626,8 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
       type: { value: draft.type, type: 'STRING' },
       cached_targetName: { value: recordDisplayLabel(targetPerson), type: 'STRING' },
     };
+    if (draft.date) fields.date = { value: draft.date, type: 'STRING' };
+    else delete fields.date;
     await saveWithChangeLog({ ...rel, fields });
     await reload();
     onChanged?.();
@@ -609,7 +657,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
                 typeLabel={relationLabel(draft.type)}
                 onRemove={() => removeRelation(rel)}
               >
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[150px_1fr_auto] mt-2">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[150px_1fr_130px_auto] mt-2">
                   <select
                     value={draft.type || ''}
                     onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, type: e.target.value } }))}
@@ -629,6 +677,13 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
                     <option value="">Select person...</option>
                     {persons.map((person) => <option key={person.recordName} value={person.recordName}>{recordDisplayLabel(person)}</option>)}
                   </select>
+                  <input
+                    value={draft.date || ''}
+                    onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, date: e.target.value } }))}
+                    className={inputClass}
+                    placeholder="Date"
+                    aria-label="Associate relation date"
+                  />
                   <button onClick={() => saveRelation(rel)} disabled={!draft.type || !draft.targetPerson} className={buttonClass}>Save relation now</button>
                 </div>
               </RelationRow>
@@ -636,7 +691,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
           })}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[150px_1fr_auto]">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-[150px_1fr_130px_auto]">
         <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className={inputClass} aria-label="New associate relation type">
           {relationTypes.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
         </select>
@@ -644,6 +699,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
           <option value="">Select person...</option>
           {persons.map((person) => <option key={person.recordName} value={person.recordName}>{recordDisplayLabel(person)}</option>)}
         </select>
+        <input value={newDate} onChange={(e) => setNewDate(e.target.value)} className={inputClass} placeholder="Date (optional)" aria-label="New associate relation date" />
         <button onClick={addRelation} disabled={!personId || !typeId} className={primaryButtonClass}>Attach now</button>
       </div>
     </div>

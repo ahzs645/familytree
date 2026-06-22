@@ -4,6 +4,7 @@ import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { generateId } from '../lib/ids.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { readRef, writeRef } from '../lib/schema.js';
+import { collectRelatives } from '../lib/relationshipPath.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
@@ -98,6 +99,42 @@ export default function PersonGroups() {
     setActiveId(rec.recordName);
   };
 
+  const addRelatives = async (direction) => {
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this group before editing members.');
+      return;
+    }
+    if (!activeId || !personId) {
+      setStatus('Pick a person first.');
+      return;
+    }
+    setStatus(`Collecting ${direction}…`);
+    try {
+      const relatives = await collectRelatives(personId, { includeSpouses: false });
+      const existing = new Set(memberRelations.map((r) => readRef(r.fields?.person)).filter(Boolean));
+      existing.add(personId);
+      const wanted = relatives.filter((rel) => {
+        const edges = rel.steps.slice(1).map((step) => step.edgeFromPrev);
+        if (edges.length === 0) return false;
+        return direction === 'ancestors' ? edges.every((e) => e === 'parent') : edges.every((e) => e === 'child');
+      });
+      const db = getLocalDatabase();
+      let added = 0;
+      for (const rel of wanted) {
+        if (existing.has(rel.id)) continue;
+        existing.add(rel.id);
+        const rec = { recordName: uuid('pgr'), recordType: 'PersonGroupRelation', fields: { personGroup: writeRef(activeId, 'PersonGroup'), person: writeRef(rel.id, 'Person') } };
+        await db.saveRecord(rec);
+        await logRecordCreated(rec);
+        added += 1;
+      }
+      await reload();
+      setStatus(`Added ${added} ${direction}.`);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  };
+
   const addMember = async () => {
     if (isRecordLocked(active)) {
       setStatus('Unlock this group before editing members.');
@@ -172,6 +209,10 @@ export default function PersonGroups() {
             {persons.map(({ rec, summary }) => <option key={rec.recordName} value={rec.recordName}>{summary.fullName}</option>)}
           </select>
           <button onClick={addMember} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">Add now</button>
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <button onClick={() => addRelatives('ancestors')} disabled={!personId} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs disabled:opacity-50">Add ancestors of selected</button>
+          <button onClick={() => addRelatives('descendants')} disabled={!personId} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs disabled:opacity-50">Add descendants of selected</button>
         </div>
       </section>
     </div>

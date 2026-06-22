@@ -75,6 +75,17 @@ export default function ExportPanel() {
             ]}
           />
         </Field>
+        <Field label={t('settingsPage.export.csvSeparator')}>
+          <SettingsSelect
+            value={prefs.exportDefaults.csvSeparator || ','}
+            onChange={(value) => update('exportDefaults', 'csvSeparator', value)}
+            options={[
+              { value: ',', label: t('settingsPage.export.csvComma') },
+              { value: ';', label: t('settingsPage.export.csvSemicolon') },
+              { value: 'tab', label: t('settingsPage.export.csvTab') },
+            ]}
+          />
+        </Field>
         <Switch label={t('settingsPage.export.includePrivate')} checked={prefs.exportDefaults.includePrivate} onChange={(value) => update('exportDefaults', 'includePrivate', value)} />
         <Switch label={t('settingsPage.export.includeMedia')} checked={prefs.exportDefaults.includeMedia} onChange={(value) => update('exportDefaults', 'includeMedia', value)} />
       </Grid>

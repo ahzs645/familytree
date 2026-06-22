@@ -1,10 +1,12 @@
 /**
  * Websites route - publish-oriented static site configuration and export.
  */
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { buildSite, downloadSite, validateSiteExport } from '../lib/websiteExport.js';
+import { listAllScopes } from '../lib/smartScopes.js';
+import { SUPPORTED_LOCALES, DIRECTION_OPTIONS } from '../lib/i18n.js';
 import { formClasses } from '../components/ui/formClasses.js';
 import {
   DEFAULT_SITE_OPTIONS,
@@ -44,6 +46,12 @@ export default function Websites() {
   const [completedStats, setCompletedStats] = useState(null);
   const [publishTarget, setPublishTarget] = useState(DEFAULT_PUBLISH_TARGET);
   const [publishHistory, setPublishHistory] = useState([]);
+  const [personScopes, setPersonScopes] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    listAllScopes('Person').then((scopes) => { if (!cancelled) setPersonScopes(scopes); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
   const controllerRef = useRef(null);
 
   React.useEffect(() => {
@@ -91,6 +99,15 @@ export default function Websites() {
     setOptions((current) => ({
       ...current,
       contentSections: { ...current.contentSections, [key]: value },
+    }));
+    setValidation(null);
+    setCompletedStats(null);
+  }, []);
+
+  const updateMediaType = useCallback((key, value) => {
+    setOptions((current) => ({
+      ...current,
+      mediaTypes: { ...current.mediaTypes, [key]: value },
     }));
     setValidation(null);
     setCompletedStats(null);
@@ -454,6 +471,43 @@ export default function Websites() {
                   <span className="text-xs text-muted-foreground">Included media assets are copied into the website zip under assets/media.</span>
                 </span>
               </label>
+
+              <label className="mt-3 flex items-start gap-3 rounded-md border border-border bg-background p-3">
+                <input
+                  type="checkbox"
+                  checked={options.includeStatisticsPage !== false}
+                  onChange={(event) => updateOption('includeStatisticsPage', event.target.checked)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="block text-sm font-medium">Generate a Statistics page</span>
+                  <span className="text-xs text-muted-foreground">Counts, average lifespan, and most-common surnames.</span>
+                </span>
+              </label>
+
+              <div className="mt-3 rounded-md border border-border bg-background p-3">
+                <div className="text-sm font-medium mb-2">Persons to include</div>
+                <select
+                  value={options.exportPersonsMode || 'all'}
+                  onChange={(event) => updateOption('exportPersonsMode', event.target.value)}
+                  className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm"
+                >
+                  <option value="all">All persons</option>
+                  <option value="smartFilter">Only a smart filter</option>
+                </select>
+                {options.exportPersonsMode === 'smartFilter' && (
+                  <select
+                    value={options.exportScopeId || ''}
+                    onChange={(event) => updateOption('exportScopeId', event.target.value)}
+                    className="mt-2 w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm"
+                  >
+                    <option value="">Select a smart filter…</option>
+                    {personScopes.map((scope) => (
+                      <option key={scope.id} value={scope.id}>{scope.label}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
 
             <div className="mt-5 rounded-md border border-border bg-background p-4">
@@ -466,6 +520,8 @@ export default function Websites() {
                   ['sources', 'Source pages'],
                   ['media', 'Media pages'],
                   ['stories', 'Story pages'],
+                  ['charts', 'Pedigree & hourglass charts'],
+                  ['dna', 'DNA test results'],
                   ['relatedMedia', 'Related media sections'],
                   ['relatedSources', 'Related source sections'],
                   ['relatedStories', 'Related story sections'],
@@ -481,6 +537,60 @@ export default function Websites() {
                   </label>
                 ))}
               </div>
+              {options.contentSections.media && (
+                <div className="mt-3 border-t border-border pt-3">
+                  <div className="text-xs font-medium text-muted-foreground mb-2">Media types to include</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      ['MediaPicture', 'Photos'],
+                      ['MediaPDF', 'Documents (PDF)'],
+                      ['MediaAudio', 'Audio'],
+                      ['MediaVideo', 'Video'],
+                      ['MediaURL', 'Web links'],
+                    ].map(([key, label]) => (
+                      <label key={key} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={options.mediaTypes?.[key] !== false}
+                          onChange={(event) => updateMediaType(key, event.target.checked)}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 rounded-md border border-border bg-background p-4">
+              <h3 className="text-sm font-semibold mb-3">Site language</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Field label="Language">
+                  <select
+                    value={options.locale}
+                    onChange={(event) => updateOption('locale', event.target.value)}
+                    className={inputClass}
+                  >
+                    {SUPPORTED_LOCALES.map((loc) => (
+                      <option key={loc.value} value={loc.value}>{loc.label} — {loc.nativeLabel}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Text direction">
+                  <select
+                    value={options.direction}
+                    onChange={(event) => updateOption('direction', event.target.value)}
+                    className={inputClass}
+                  >
+                    {DIRECTION_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Sets the generated site's <code>lang</code> and <code>dir</code> attributes and built-in label translations.
+              </p>
             </div>
 
             <div className="mt-5 rounded-md border border-border bg-background p-4">

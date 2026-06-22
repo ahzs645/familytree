@@ -58,6 +58,9 @@ export function isMarkedPrivate(record) {
  */
 export function isLiving(record, thresholdYears = DEFAULT_LIVING_THRESHOLD_YEARS) {
   if (!record || record.recordType !== 'Person') return false;
+  // Explicitly marked deceased ("dead, no further info" — GEDCOM `1 DEAT Y`):
+  // confirmed not living even when no death date is recorded.
+  if (record.fields?.isDeceased?.value) return false;
   const deathDate = record.fields?.cached_deathDate?.value
     || record.fields?.deathDate?.value
     || record.fields?.cached_deathYear?.value;

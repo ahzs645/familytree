@@ -33,7 +33,10 @@ export function buildPublishModel(snapshot, options) {
     livingPersonThresholdYears: options.livingThresholdYears,
   };
   const applyMask = (record) => (options.hideLivingDetailsOnly ? maskLivingDetails(record, livingMaskPolicy) : record);
-  const persons = snapshot.persons.filter(include).map(applyMask).sort(compareBy((record) => personSummary(record)?.fullName || record.recordName, options));
+  // "Persons to include" scope (#13): when a resolved id set is supplied, only
+  // those persons (and the families/records reachable from them) are published.
+  const inScope = (record) => !options.exportPersonIds || options.exportPersonIds.has(record.recordName);
+  const persons = snapshot.persons.filter((record) => include(record) && inScope(record)).map(applyMask).sort(compareBy((record) => personSummary(record)?.fullName || record.recordName, options));
   const personIds = new Set(persons.map((record) => record.recordName));
   const childRels = snapshot.childRels.filter((rel) => include(rel) && personIds.has(readRef(rel.fields?.child)));
 
@@ -44,7 +47,12 @@ export function buildPublishModel(snapshot, options) {
 
   const places = snapshot.places.filter(include).sort(compareBy(placeLabel, options));
   const sources = snapshot.sources.filter(include).sort(compareBy(sourceLabel, options));
-  const media = snapshot.media.filter(include).sort(compareBy(mediaLabel, options));
+  // Per-media-type include toggles (#62): when a Media* type is switched off,
+  // drop those records entirely from the export.
+  const mediaTypes = options.mediaTypes || {};
+  const media = snapshot.media
+    .filter((record) => include(record) && mediaTypes[record.recordType] !== false)
+    .sort(compareBy(mediaLabel, options));
   const stories = snapshot.stories.filter(include).sort(compareBy(storyLabel, options));
 
   const pageRecords = [
@@ -80,6 +88,11 @@ export function buildPublishModel(snapshot, options) {
     include(section) && storyIds.has(readRef(section.fields?.story) || readRef(section.fields?.storySection))
   ));
 
+  // DNA test results (#86) — public results whose person is in the export.
+  const dnaResults = options.contentSections.dna
+    ? (snapshot.dnaResults || []).filter((record) => include(record) && personIds.has(readRef(record.fields?.person)))
+    : [];
+
   const assets = options.includeAssets && options.contentSections.media
     ? snapshot.assets.filter((asset) => mediaIds.has(asset.ownerRecordName))
     : [];
@@ -101,6 +114,7 @@ export function buildPublishModel(snapshot, options) {
     mediaRelations,
     storyRelations,
     storySections,
+    dnaResults,
     assets,
     pathById,
     assetPathById,
@@ -112,6 +126,7 @@ export function buildPublishModel(snapshot, options) {
     storyById: new Map(stories.map((record) => [record.recordName, record])),
   };
 
+  model.dnaResultsByPerson = groupRecords(dnaResults, (record) => readRef(record.fields?.person));
   model.childrenByFamily = groupRefs(childRels, 'family', 'child');
   model.parentFamilyByChild = new Map(childRels.map((rel) => [readRef(rel.fields?.child), readRef(rel.fields?.family)]));
   model.familiesByPerson = buildFamiliesByPerson(families);

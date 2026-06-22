@@ -8,6 +8,8 @@ import { AlertTriangle, BookOpen, FileDown, FileText, Printer, Save } from 'luci
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import {
   SECTION_KINDS,
+  BOOK_TEMPLATES,
+  bookFromTemplate,
   listBooks,
   saveBook,
   deleteBook,
@@ -317,6 +319,15 @@ export function BooksApp() {
         </button>
         <div className={`${optionsOpen ? 'contents' : 'hidden'} sm:contents`}>
         <button onClick={onSave} style={input}><Save size={14} /> Save</button>
+        <select
+          value=""
+          onChange={(e) => { if (e.target.value) setBook(bookFromTemplate(e.target.value)); }}
+          style={{ ...input, minWidth: 150 }}
+          title="Start a new book from a template"
+        >
+          <option value="">New from template…</option>
+          {BOOK_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+        </select>
         <select value="" onChange={(e) => e.target.value && onLoad(e.target.value)} style={{ ...input, minWidth: 140 }}>
           <option value="">Load saved…</option>
           {savedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}

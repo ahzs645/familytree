@@ -233,11 +233,64 @@ export function distinctiveTags(row) {
 
 export async function loadDistinctivePersonRows() {
   const rows = await loadPersonRows();
+  const db = getLocalDatabase();
+  const [{ records: families }, { records: childRels }] = await Promise.all([
+    db.query('Family', { limit: 100000 }),
+    db.query('ChildRelation', { limit: 100000 }),
+  ]);
+  const byId = new Map(rows.map((row) => [row.id, row]));
+
+  // children grouped by family, then aggregated per parent / per child
+  const childrenByFamily = new Map();
+  for (const rel of childRels) {
+    const fam = readRef(rel.fields?.family);
+    const child = readRef(rel.fields?.child);
+    if (!fam || !child) continue;
+    if (!childrenByFamily.has(fam)) childrenByFamily.set(fam, []);
+    childrenByFamily.get(fam).push(child);
+  }
+  const childrenCountByParent = new Map();
+  const marriageAgeByPerson = new Map();
+  const parentAgeByChild = new Map();
+  for (const fam of families) {
+    const manId = readRef(fam.fields?.man);
+    const womanId = readRef(fam.fields?.woman);
+    const kids = childrenByFamily.get(fam.recordName) || [];
+    for (const parentId of [manId, womanId]) {
+      if (parentId) childrenCountByParent.set(parentId, (childrenCountByParent.get(parentId) || 0) + kids.length);
+    }
+    const marriageYear = yearOf(fam.fields?.cached_marriageDate?.value);
+    if (marriageYear) {
+      for (const parentId of [manId, womanId]) {
+        const birthYear = byId.get(parentId)?.birthYear;
+        if (parentId && birthYear) {
+          const age = marriageYear - birthYear;
+          if (!marriageAgeByPerson.has(parentId) || age < marriageAgeByPerson.get(parentId)) marriageAgeByPerson.set(parentId, age);
+        }
+      }
+    }
+    const fatherBirth = byId.get(manId)?.birthYear;
+    const motherBirth = byId.get(womanId)?.birthYear;
+    for (const childId of kids) {
+      const childBirth = byId.get(childId)?.birthYear;
+      if (!childBirth) continue;
+      const entry = parentAgeByChild.get(childId) || {};
+      if (fatherBirth) entry.father = childBirth - fatherBirth;
+      if (motherBirth) entry.mother = childBirth - motherBirth;
+      parentAgeByChild.set(childId, entry);
+    }
+  }
+
   return rows.map((row) => {
     const markerField = distinctiveMarkerFor(row.record);
+    const parentAge = parentAgeByChild.get(row.id) || {};
     return {
       ...row,
       markerField,
+      childrenCount: childrenCountByParent.get(row.id) || 0,
+      marriageAge: marriageAgeByPerson.has(row.id) ? marriageAgeByPerson.get(row.id) : null,
+      fatherAgeAtBirth: parentAge.father ?? null,
+      motherAgeAtBirth: parentAge.mother ?? null,
       tags: distinctiveTags({ ...row, markerField }),
     };
   });

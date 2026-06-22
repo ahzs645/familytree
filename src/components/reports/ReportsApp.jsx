@@ -38,6 +38,8 @@ import {
   buildFactsListReport,
   buildMarriageListReport,
   buildMapReport,
+  buildKinshipRosterReport,
+  buildPersonAnalysisReport,
 } from '../../lib/reports/builders.js';
 import { applyPageStyle, listSavedReports, saveReport, deleteSavedReport, renameSavedReport, newReportId } from '../../lib/reports/savedReports.js';
 import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
@@ -55,8 +57,14 @@ import { localizeReportAst } from '../../lib/reports/localizeReport.js';
 export { normalizePageStyle };
 
 export const REPORT_BUILDERS = [
-  { id: 'person-summary', category: 'Person Reports', label: 'Person Summary', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, helpText: 'Summarizes the selected person, parents, families, children, and direct events.', run: (rn) => buildPersonSummary(rn) },
-  { id: 'person-events', category: 'Person Reports', label: 'Person Events Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, helpText: 'Lists the selected person\'s direct events and linked family events with context.', run: (rn) => buildPersonEventsReport(rn) },
+  { id: 'person-summary', category: 'Person Reports', label: 'Person Summary', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'showParents', label: 'Parents', type: 'boolean', default: true, checkboxLabel: 'Show parents' },
+    { key: 'showFamilies', label: 'Families', type: 'boolean', default: true, checkboxLabel: 'Show families & children' },
+    { key: 'showEvents', label: 'Events', type: 'boolean', default: true, checkboxLabel: 'Show events table' },
+  ], helpText: 'Summarizes the selected person, parents, families, children, and direct events.', run: (rn, o) => buildPersonSummary(rn, o) },
+  { id: 'person-events', category: 'Person Reports', label: 'Person Events Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'includeFamilyEvents', label: 'Family events', type: 'boolean', default: true, checkboxLabel: 'Include linked family events' },
+  ], helpText: 'Lists the selected person\'s direct events and linked family events with context.', run: (rn, o) => buildPersonEventsReport(rn, o) },
   { id: 'ancestor-narrative', category: 'Lineage Reports', label: 'Ancestor Narrative', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, helpText: 'Builds a generation-by-generation ancestor narrative from the selected proband.', run: (rn, o) => buildAncestorNarrative(rn, o.generations) },
   { id: 'gia-pha-lineage', category: 'Lineage Reports', label: 'Gia phả / Family Lineage Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Lineage subject', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, helpText: 'Builds a Vietnamese-oriented lineage register with ancestor and descendant branch codes.', run: (rn, o) => buildGiaPhaLineageReport(rn, o.generations) },
   { id: 'descendant-narrative', category: 'Lineage Reports', label: 'Descendant Narrative', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 4 }, helpText: 'Builds a descendant narrative grouped by generation.', run: (rn, o) => buildDescendantNarrative(rn, o.generations) },
@@ -64,24 +72,60 @@ export const REPORT_BUILDERS = [
   { id: 'family-group-sheet', category: 'Family Reports', label: 'Family Group Sheet', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, helpText: 'Shows partner families and children for the selected person.', run: (rn) => buildFamilyGroupSheet(rn) },
   { id: 'story-report', category: 'Story & Media', label: 'Story Report', needsSubject: true, subjectType: 'Story', subjectLabel: 'Story', includeHeader: true, defaultOptions: {}, helpText: 'Prints a selected story with metadata, sections, and related people, families, events, and media.', run: (rn) => buildStoryReport(rn) },
   { id: 'kinship-report', category: 'Analysis', label: 'Kinship Report', needsSubject: true, needsSecondSubject: true, subjectType: 'Person', subjectLabel: 'Person A', secondSubjectType: 'Person', secondSubjectLabel: 'Person B', includeHeader: true, defaultOptions: {}, helpText: 'Finds the shortest known family path between two selected people.', run: (rn, _o, second) => buildKinshipReport(rn, second) },
+  { id: 'kinship-roster', category: 'Analysis', label: 'Kinship Roster', needsSubject: true, subjectType: 'Person', subjectLabel: 'Root person', includeHeader: true, defaultOptions: {}, helpText: 'Lists every known relative of one person with their relationship.', run: (rn, o) => buildKinshipRosterReport(rn, o) },
+  { id: 'person-analysis', category: 'Analysis', label: 'Person Analysis', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'onlyShowCount', label: 'Detail', type: 'boolean', default: false, checkboxLabel: 'Only show counts (omit value tables)' },
+  ], helpText: 'Frequency of occupations, education, illnesses, religion, physical traits, labels, and more across the tree.', run: (rn, o) => buildPersonAnalysisReport(o) },
   { id: 'ahnentafel', category: 'Lineage Reports', label: 'Ahnentafel Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 6 }, helpText: 'Numbers ancestors using the standard Ahnentafel sequence.', run: (rn, o) => buildAhnentafelReport(rn, o.generations) },
   { id: 'register', category: 'Lineage Reports', label: 'Register Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 4 }, helpText: 'Creates a register-style descendant report from the selected person.', run: (rn, o) => buildRegisterReport(rn, o.generations) },
-  { id: 'descendancy', category: 'Lineage Reports', label: 'Descendancy Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, helpText: 'Creates a tabular descendant report with parent context.', run: (rn, o) => buildDescendancyReport(rn, o.generations) },
-  { id: 'persons-list', category: 'Lists', label: 'Persons List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists every public person with gender and life dates.', run: () => buildPersonsList() },
-  { id: 'places-list', category: 'Lists', label: 'Places List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists recorded places with short names and GeoName identifiers.', run: () => buildPlacesList() },
-  { id: 'sources-list', category: 'Lists', label: 'Sources List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists sources with dates and source text excerpts.', run: () => buildSourcesList() },
+  { id: 'descendancy', category: 'Lineage Reports', label: 'Descendancy Report', needsSubject: true, subjectType: 'Person', subjectLabel: 'Proband', usesGenerations: true, includeHeader: true, defaultOptions: { generations: 5 }, optionsSchema: [
+    { key: 'showDates', label: 'Dates', type: 'boolean', default: true, checkboxLabel: 'Show birth / death dates' },
+    { key: 'showPlaces', label: 'Places', type: 'boolean', default: false, checkboxLabel: 'Show birth places' },
+  ], helpText: 'Creates a tabular descendant report with parent context.', run: (rn, o) => buildDescendancyReport(rn, o.generations, o) },
+  { id: 'persons-list', category: 'Lists', label: 'Persons List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'sortBy', label: 'Sort by', type: 'select', default: 'name', choices: [['name', 'Name'], ['birth', 'Birth date'], ['death', 'Death date']] },
+    { key: 'groupBy', label: 'Group into sections', type: 'select', default: 'none', choices: [['none', 'No sections'], ['surname', 'Surname initial'], ['birthDecade', 'Birth decade'], ['gender', 'Gender']] },
+    { key: 'search', label: 'Search names', type: 'text', default: '', placeholder: 'Filter by name…' },
+    { key: 'includeGender', label: 'Gender column', type: 'boolean', default: true, checkboxLabel: 'Show gender' },
+    { key: 'onlyWithDates', label: 'Date filter', type: 'boolean', default: false, checkboxLabel: 'Only people with a birth or death date' },
+  ], helpText: 'Lists every public person with gender and life dates.', run: (rn, o) => buildPersonsList(o) },
+  { id: 'places-list', category: 'Lists', label: 'Places List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'sortBy', label: 'Sort by', type: 'select', default: 'name', choices: [['name', 'Name'], ['geoname', 'GeoName ID']] },
+    { key: 'onlyMissingGeoname', label: 'GeoName filter', type: 'boolean', default: false, checkboxLabel: 'Only places without a GeoName ID' },
+  ], helpText: 'Lists recorded places with short names and GeoName identifiers.', run: (rn, o) => buildPlacesList(o) },
+  { id: 'sources-list', category: 'Lists', label: 'Sources List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'sortBy', label: 'Sort by', type: 'select', default: 'title', choices: [['title', 'Title'], ['date', 'Date']] },
+    { key: 'includeText', label: 'Text column', type: 'boolean', default: true, checkboxLabel: 'Show source text excerpt' },
+  ], helpText: 'Lists sources with dates and source text excerpts.', run: (rn, o) => buildSourcesList(o) },
   { id: 'source-citation-audit', category: 'Lists', label: 'Source Citation Audit', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists source citations, referenced entries, citation text, and private lineage metadata.', run: () => buildSourceCitationAuditReport() },
-  { id: 'events-list', category: 'Lists', label: 'Events List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists person and family events with owner and place context.', run: () => buildEventsList() },
+  { id: 'events-list', category: 'Lists', label: 'Events List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'sortBy', label: 'Sort by', type: 'select', default: 'date', choices: [['date', 'Date'], ['type', 'Type'], ['owner', 'Owner']] },
+    { key: 'onlyFullDate', label: 'Date filter', type: 'boolean', default: false, checkboxLabel: 'Only events with a full date' },
+  ], helpText: 'Lists person and family events with owner and place context.', run: (rn, o) => buildEventsList(o) },
   { id: 'facts-list', category: 'Lists', label: 'Facts List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists recorded person facts with values and dates.', run: () => buildFactsListReport() },
-  { id: 'marriage-list', category: 'Family Reports', label: 'Marriage List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists families and recorded marriage dates.', run: () => buildMarriageListReport() },
-  { id: 'anniversary-list', category: 'Lists', label: 'Anniversary List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists birth and death anniversaries by month and day.', run: () => buildAnniversaryList() },
+  { id: 'marriage-list', category: 'Family Reports', label: 'Marriage List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'sortBy', label: 'Sort by', type: 'select', default: 'date', choices: [['date', 'Marriage date'], ['partner1', 'Partner 1'], ['partner2', 'Partner 2']] },
+  ], helpText: 'Lists families and recorded marriage dates.', run: (rn, o) => buildMarriageListReport(o) },
+  { id: 'anniversary-list', category: 'Lists', label: 'Anniversary List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'type', label: 'Anniversary type', type: 'select', default: 'all', choices: [['all', 'Birth & Death'], ['Birth', 'Birth'], ['Death', 'Death']] },
+    { key: 'sortBy', label: 'Sort by', type: 'select', default: 'monthDay', choices: [['monthDay', 'Month / Day'], ['person', 'Person'], ['year', 'Year']] },
+  ], helpText: 'Lists birth and death anniversaries by month and day.', run: (rn, o) => buildAnniversaryList(o) },
   { id: 'timeline-report', category: 'Analysis', label: 'Timeline Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Orders all person and family events by date.', run: () => buildTimelineReport() },
-  { id: 'media-gallery-report', category: 'Story & Media', label: 'Media Gallery Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists media records and their file or URL references.', run: () => buildMediaGalleryReport() },
+  { id: 'media-gallery-report', category: 'Story & Media', label: 'Media Gallery Report', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'groupBy', label: 'Group into sections', type: 'select', default: 'none', choices: [['none', 'Single list'], ['type', 'By media type']] },
+  ], helpText: 'Lists media records and their file or URL references.', run: (rn, o) => buildMediaGalleryReport(o) },
   { id: 'status-report', category: 'Analysis', label: 'Status Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Shows high-level database completeness and count metrics.', run: () => buildStatusReport() },
-  { id: 'today-report', category: 'Analysis', label: 'Today Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Shows recorded births and deaths that match today\'s month and day.', run: () => buildTodayReport() },
+  { id: 'today-report', category: 'Analysis', label: 'Today Report', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'forDate', label: 'Generate for date', type: 'text', default: '', placeholder: 'YYYY-MM-DD (blank = today)' },
+    { key: 'sortBy', label: 'Sort by', type: 'select', default: 'type', choices: [['type', 'Type'], ['person', 'Person']] },
+  ], helpText: 'Shows recorded births and deaths that match a given month and day, with how many years ago.', run: (rn, o) => buildTodayReport(o) },
   { id: 'changes-list', category: 'Lists', label: 'Changes List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists recent change-log entries in reverse chronological order.', run: () => buildChangesListReport() },
   { id: 'map-report', category: 'Analysis', label: 'Map Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists places with latitude, longitude, and GeoName identifiers.', run: () => buildMapReport() },
-  { id: 'todo-list', category: 'Lists', label: 'ToDo List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists ToDo records with status, priority, due date, and description.', run: () => buildToDoListReport() },
+  { id: 'todo-list', category: 'Lists', label: 'ToDo List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'sortBy', label: 'Sort by', type: 'select', default: 'due', choices: [['due', 'Due date'], ['priority', 'Priority'], ['status', 'Status'], ['title', 'Title']] },
+    { key: 'includeCompleted', label: 'Completed', type: 'boolean', default: true, checkboxLabel: 'Include completed ToDos' },
+    { key: 'showText', label: 'Description', type: 'boolean', default: true, checkboxLabel: 'Show description column' },
+  ], helpText: 'Lists ToDo records with status, priority, due date, and description.', run: (rn, o) => buildToDoListReport(o) },
   { id: 'plausibility-list', category: 'Analysis', label: 'Plausibility List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Runs plausibility checks and lists resulting warnings.', run: () => buildPlausibilityReport() },
 ];
 
@@ -105,8 +149,11 @@ export function getReportBuilder(id) {
 
 export function defaultOptionsForBuilder(builderOrId) {
   const builder = typeof builderOrId === 'string' ? getReportBuilder(builderOrId) : builderOrId;
+  const schemaDefaults = {};
+  for (const option of builder?.optionsSchema || []) schemaDefaults[option.key] = option.default;
   return {
     includeHeader: builder?.includeHeader !== false,
+    ...schemaDefaults,
     ...(builder?.defaultOptions || {}),
   };
 }
@@ -648,6 +695,56 @@ export function ReportsApp() {
                   />
                 </Field>
               )}
+
+              {(builder?.optionsSchema || []).map((option) => {
+                const current = options[option.key] ?? option.default;
+                if (option.type === 'boolean') {
+                  return (
+                    <Field key={option.key} label={option.label}>
+                      <label style={checkRow}>
+                        <input type="checkbox" checked={current !== false} onChange={(e) => updateOption(option.key, e.target.checked)} /> {option.checkboxLabel || 'Enabled'}
+                      </label>
+                    </Field>
+                  );
+                }
+                if (option.type === 'select') {
+                  return (
+                    <Field key={option.key} label={option.label}>
+                      <select value={current} onChange={(e) => updateOption(option.key, e.target.value)} style={input}>
+                        {option.choices.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </select>
+                    </Field>
+                  );
+                }
+                if (option.type === 'number') {
+                  return (
+                    <Field key={option.key} label={option.label}>
+                      <input
+                        type="number"
+                        min={option.min}
+                        max={option.max}
+                        value={current}
+                        onChange={(e) => updateOption(option.key, Math.max(option.min ?? -Infinity, Math.min(option.max ?? Infinity, +e.target.value || option.default)))}
+                        style={{ ...input, width: '100%' }}
+                      />
+                    </Field>
+                  );
+                }
+                if (option.type === 'text') {
+                  return (
+                    <Field key={option.key} label={option.label}>
+                      <input
+                        type="text"
+                        value={current || ''}
+                        placeholder={option.placeholder || ''}
+                        onChange={(e) => updateOption(option.key, e.target.value)}
+                        style={{ ...input, width: '100%' }}
+                      />
+                    </Field>
+                  );
+                }
+                return null;
+              })}
 
               <Field label={t('reports.header')}>
                 <label style={checkRow}>

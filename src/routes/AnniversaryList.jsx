@@ -17,6 +17,7 @@ export default function AnniversaryList() {
   const [typeFilter, setTypeFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState('');
   const [dayFilter, setDayFilter] = useState('');
+  const currentYear = useMemo(() => new Date().getFullYear(), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,13 +63,19 @@ export default function AnniversaryList() {
       render: (row) => row.yearLabel,
     },
     {
+      key: 'yearsAgo',
+      label: t('anniversaryList.yearsAgo'),
+      sortValue: (row) => (row.year ? currentYear - row.year : -1),
+      render: (row) => (row.year ? t('anniversaryList.yearsAgoValue', { count: currentYear - row.year }) : '—'),
+    },
+    {
       key: 'action',
       label: t('anniversaryList.action'),
       sortable: false,
       export: false,
       render: (row) => <Link to={`/person/${row.personId}`} className="text-xs text-primary hover:underline">{t('anniversaryList.openPerson')}</Link>,
     },
-  ], [t]);
+  ], [t, currentYear]);
 
   if (loading) return <div className="p-10 text-muted-foreground">{t('anniversaryList.loading')}</div>;
 

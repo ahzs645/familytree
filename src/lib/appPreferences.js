@@ -26,6 +26,7 @@ import {
   setActiveVitalDisplay,
 } from './vitalFormat.js';
 import { setCatalogLabelPreferences } from './catalogs.js';
+import { privacyPolicyFromPreferences, DEFAULT_PRIVACY_POLICY } from './privacy.js';
 
 const META_KEY = 'appPreferences';
 export const APP_PREFERENCES_EVENT = 'cloudtreeweb:app-preferences-changed';
@@ -97,6 +98,8 @@ export const DEFAULT_APP_PREFERENCES = {
     factTypesCollapsed: false,
     defaultEventType: 'Birth',
     defaultFactType: 'Occupation',
+    defaultFamilyEventType: 'Marriage',
+    applyDefaultEvents: false,
   },
   categoryConfigurations: {
     labelOrder: 'alphabetical',
@@ -108,6 +111,7 @@ export const DEFAULT_APP_PREFERENCES = {
     includeMedia: true,
     gedcomEncoding: 'utf-8',
     websiteTheme: 'classic',
+    csvSeparator: ',',
   },
   importDefaults: {
     gedcomEncoding: 'auto',
@@ -128,6 +132,8 @@ export const DEFAULT_APP_PREFERENCES = {
       'parent-too-young': true,
       'parent-too-old': true,
       'child-after-parent-death': true,
+      'event-outside-lifespan': true,
+      'birth-order-mismatch': true,
     },
     thresholds: {
       maxLifespan: 120,
@@ -153,6 +159,77 @@ export const DEFAULT_APP_PREFERENCES = {
   },
 };
 
+/**
+ * Apply the appearance preferences to the live document. The accent colour is
+ * converted to the HSL channel triplet the Tailwind theme expects so existing
+ * `hsl(var(--primary))` usages pick it up. Called at boot (App.jsx) and on
+ * every preferences change.
+ */
+// Synchronous mirror of exportDefaults so pure export utilities (listExport.js)
+// can read the chosen CSV separator without an async preferences load. Kept up
+// to date on every preferences load + change.
+let activeExportDefaults = { ...DEFAULT_APP_PREFERENCES.exportDefaults };
+
+export function getActiveExportDefaults() {
+  return activeExportDefaults;
+}
+
+function setActiveExportDefaults(value) {
+  if (value && typeof value === 'object') activeExportDefaults = { ...activeExportDefaults, ...value };
+}
+
+// Synchronous mirror of the privacy policy so report/chart/list builders can
+// honor "hide marked-private / living" without an async preferences load.
+let activePrivacyPolicy = { ...DEFAULT_PRIVACY_POLICY };
+
+export function getActivePrivacyPolicy() {
+  return activePrivacyPolicy;
+}
+
+function setActivePrivacyPolicy(prefs) {
+  if (prefs && typeof prefs === 'object') activePrivacyPolicy = privacyPolicyFromPreferences(prefs);
+}
+
+export function applyDocumentAppearance(appearance = {}) {
+  if (typeof document === 'undefined') return;
+  const root = document.documentElement;
+  const accent = String(appearance.accentColor || '').trim();
+  const triplet = hexToHslTriplet(accent);
+  if (triplet) {
+    root.style.setProperty('--primary', triplet);
+    root.style.setProperty('--ring', triplet);
+  } else {
+    root.style.removeProperty('--primary');
+    root.style.removeProperty('--ring');
+  }
+}
+
+function hexToHslTriplet(hex) {
+  const match = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!match) return null;
+  const int = parseInt(match[1], 16);
+  const r = ((int >> 16) & 255) / 255;
+  const g = ((int >> 8) & 255) / 255;
+  const b = (int & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d !== 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    switch (max) {
+      case r: h = ((g - b) / d) % 6; break;
+      case g: h = (b - r) / d + 2; break;
+      default: h = (r - g) / d + 4; break;
+    }
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+  return `${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+
 export async function getAppPreferences() {
   const db = getLocalDatabase();
   const prefs = normalizePreferences(await db.getMeta(META_KEY));
@@ -162,6 +239,8 @@ export async function getAppPreferences() {
     additionalNames: prefs.formats.additionalNameDisplay,
   });
   setActiveVitalDisplay(prefs.formats.vitalDisplay);
+  setActiveExportDefaults(prefs.exportDefaults);
+  setActivePrivacyPolicy(prefs);
   setCatalogLabelPreferences({
     preferArabicCatalogLabels: prefs.arabicIslamic.preferArabicCatalogLabels,
   });
@@ -285,6 +364,8 @@ function announcePreferences(preferences) {
     additionalNames: preferences?.formats?.additionalNameDisplay,
   });
   setActiveVitalDisplay(preferences?.formats?.vitalDisplay);
+  setActiveExportDefaults(preferences?.exportDefaults);
+  setActivePrivacyPolicy(preferences);
   setCatalogLabelPreferences({
     preferArabicCatalogLabels: !!preferences?.arabicIslamic?.preferArabicCatalogLabels,
   });

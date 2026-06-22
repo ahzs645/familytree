@@ -33,6 +33,9 @@ export function renderText(report) {
       case 'spacer':
         out.push('');
         break;
+      case 'image':
+        out.push(b.caption ? `[Image: ${b.caption}]` : '[Image]');
+        break;
     }
   }
   return out.join('\n');

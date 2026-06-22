@@ -24,6 +24,7 @@ import { buildMediaSlideshowSearchParams } from '../lib/mediaPresentation.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { GalleryDetail } from '../components/media/GalleryDetail.jsx';
 import { MediaPreview } from '../components/media/MediaPreview.jsx';
+import { ImageEditingSheet } from '../components/ImageEditingSheet.jsx';
 import { useMediaCapture } from '../components/media/useMediaCapture.js';
 import { canvasToBlob, editedFilename, loadImage } from '../components/media/mediaHelpers.js';
 import { isRecordLocked } from '../lib/recordLock.js';
@@ -99,6 +100,7 @@ export default function Media() {
     reload();
   }, [reload]);
 
+  const [imageEditorSrc, setImageEditorSrc] = useState(null);
   const {
     captureMode,
     recording,
@@ -107,6 +109,8 @@ export default function Media() {
     onCapturePhoto,
     onStartAudioRecording,
     onStopAudioRecording,
+    onStartVideoRecording,
+    onStopVideoRecording,
     onCancelCapture,
   } = useMediaCapture({ setStatus, reload, setActiveId });
 
@@ -322,6 +326,47 @@ export default function Media() {
     }
   }, [active, activeAssets, reload, values.caption, values.filename]);
 
+  const onOpenImageEditor = useCallback(() => {
+    if (!active || active.recordType !== 'MediaPicture') return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this media record before editing its image.');
+      return;
+    }
+    const asset = activeAssets[0];
+    if (!asset?.dataBase64) {
+      setStatus('No local image asset is available to edit.');
+      return;
+    }
+    setImageEditorSrc(`data:${asset.mimeType || 'image/png'};base64,${asset.dataBase64}`);
+  }, [active, activeAssets]);
+
+  const onApplyImageEdit = useCallback(async (dataUrl) => {
+    if (!active) return;
+    const dataBase64 = String(dataUrl || '').split(',')[1] || '';
+    if (!dataBase64) {
+      setStatus('Edited image could not be read.');
+      setImageEditorSrc(null);
+      return;
+    }
+    setStatus('Saving edited image…');
+    try {
+      const filename = editedFilename(activeAssets[0]?.filename || values.filename || active.recordName, 'edit', 'image/png');
+      const next = await replaceMediaRecordImageData(active, {
+        dataBase64,
+        mimeType: 'image/png',
+        filename,
+        caption: values.caption,
+      });
+      await reload();
+      setActiveId(next.recordName);
+      setStatus('Image updated.');
+    } catch (error) {
+      setStatus(`Image edit failed: ${error.message}`);
+    } finally {
+      setImageEditorSrc(null);
+    }
+  }, [active, activeAssets, reload, values.caption, values.filename]);
+
   const filtered = useMemo(() => {
     const byType = filter === 'all' ? media : media.filter((m) => m.recordType === filter);
     if (!relatedMediaIds) return byType;
@@ -468,6 +513,7 @@ export default function Media() {
             !readOnlyGallery && { label: 'Add URL', onClick: onAddURL },
             !readOnlyGallery && { label: 'Camera', onClick: onStartCamera },
             !readOnlyGallery && { label: 'Record audio', onClick: onStartAudioRecording },
+            !readOnlyGallery && { label: 'Record video', onClick: onStartVideoRecording },
             !readOnlyGallery && { label: 'Match media folder', onClick: () => folderRef.current?.click() },
           ]}
         />
@@ -554,6 +600,7 @@ export default function Media() {
                 {active.recordType !== 'MediaURL' && <button onClick={() => replaceFileRef.current?.click()} disabled={isRecordLocked(active)} style={deleteBtn}>Replace</button>}
                 {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('rotate')} disabled={isRecordLocked(active)} style={deleteBtn}>Rotate</button>}
                 {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('crop-square')} disabled={isRecordLocked(active)} style={deleteBtn}>Crop</button>}
+                {active.recordType === 'MediaPicture' && <button onClick={onOpenImageEditor} disabled={isRecordLocked(active)} style={deleteBtn}>Edit &amp; Enhance…</button>}
                 <button onClick={onDelete} disabled={isRecordLocked(active)} style={deleteBtn}>Delete</button>
                 <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
               </div>
@@ -615,7 +662,7 @@ export default function Media() {
           <div style={modal}>
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
               <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>
-                {captureMode === 'camera' ? 'Camera capture' : 'Audio recording'}
+                {captureMode === 'camera' ? 'Camera capture' : captureMode === 'video' ? 'Video recording' : 'Audio recording'}
               </h2>
               <button onClick={onCancelCapture} style={{ ...deleteBtn, marginLeft: 'auto' }}>Cancel</button>
             </div>
@@ -624,6 +671,17 @@ export default function Media() {
                 <video ref={videoRef} muted playsInline style={videoPreview} />
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
                   <button onClick={onCapturePhoto} style={saveBtn}>Capture photo</button>
+                </div>
+              </>
+            ) : captureMode === 'video' ? (
+              <>
+                <video ref={videoRef} muted playsInline style={videoPreview} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+                  <div style={recordingDot} />
+                  <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                    {recording ? 'Recording video and audio…' : 'Preparing recorder…'}
+                  </span>
+                  <button onClick={onStopVideoRecording} disabled={!recording} style={{ ...saveBtn, marginLeft: 'auto' }}>Stop and save</button>
                 </div>
               </>
             ) : (
@@ -641,6 +699,15 @@ export default function Media() {
             )}
           </div>
         </div>
+      )}
+
+      {imageEditorSrc && (
+        <ImageEditingSheet
+          src={imageEditorSrc}
+          title="Edit & Enhance Picture"
+          onCancel={() => setImageEditorSrc(null)}
+          onApply={onApplyImageEdit}
+        />
       )}
     </div>
   );

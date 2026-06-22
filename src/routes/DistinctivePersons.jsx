@@ -6,16 +6,25 @@ import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
 import { listToolbarButtonClass, listToolbarSelectTriggerClass } from '../components/lists/listToolbarClasses.js';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadDistinctivePersonRows } from '../lib/listData.js';
+import { Gender } from '../models/index.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const CRITERIA_DEFS = [
+  // MacFamilyTree's DistinctivePersonsAnalyzer superlatives (CoreDistinctivePersonsAnalyzer.strings).
+  { id: 'manyChildren', test: (row) => row.gender === Gender.Female && row.childrenCount > 4 },
+  { id: 'diedOld', test: (row) => row.birthYear && row.deathYear && row.deathYear - row.birthYear >= 80 },
+  { id: 'diedYoung', test: (row) => row.birthYear && row.deathYear && row.deathYear - row.birthYear < 10 },
+  { id: 'earlyMarriage', test: (row) => row.marriageAge != null && row.marriageAge < 18 },
+  { id: 'lateMarriage', test: (row) => row.marriageAge != null && row.marriageAge > 40 },
+  { id: 'youngParents', test: (row) => (row.fatherAgeAtBirth != null && row.fatherAgeAtBirth < 18) || (row.motherAgeAtBirth != null && row.motherAgeAtBirth < 18) },
+  { id: 'oldParents', test: (row) => (row.fatherAgeAtBirth != null && row.fatherAgeAtBirth > 40) || (row.motherAgeAtBirth != null && row.motherAgeAtBirth > 40) },
+  // Retained data-quality signals.
   { id: 'marker', test: (row) => !!row.markerField },
   { id: 'bookmarked', test: (row) => row.bookmarked },
   { id: 'startPerson', test: (row) => row.startPerson },
   { id: 'missingBirth', test: (row) => !row.birthDate },
   { id: 'missingDeath', test: (row) => !row.deathDate },
   { id: 'missingSurname', test: (row) => !row.lastName },
-  { id: 'longLifespan', test: (row) => row.birthYear && row.deathYear && row.deathYear - row.birthYear >= 90 },
   { id: 'hasPhoto', test: (row) => row.hasPhoto },
 ];
 

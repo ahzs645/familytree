@@ -5,7 +5,7 @@ import React, { useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { listAllPersons, findStartPerson } from '../lib/treeQuery.js';
-import { downloadGedcom } from '../lib/gedcomExport.js';
+import { downloadGedcom, downloadGedZip } from '../lib/gedcomExport.js';
 import { downloadGraphvizDot } from '../lib/graphvizExport.js';
 import { analyzeGedcomText, canImportGedcomAnalysis, gedcomImportModeLabel, importGedcomText } from '../lib/gedcomImport.js';
 import { GEDCOM_ACCEPT, readGedcomTextFromFile } from '../lib/genealogyFileFormats.js';
@@ -48,6 +48,8 @@ export default function Export() {
   const { recordName: activePersonId, setActivePerson } = useActivePerson();
   const [searchParams] = useSearchParams();
   const [busy, setBusy] = useState(false);
+  const [gedHideLiving, setGedHideLiving] = useState(false);
+  const [gedMaskOnly, setGedMaskOnly] = useState(false);
   const [status, setStatus] = useState(null);
   const [gedIssues, setGedIssues] = useState(null);
   const [pendingGedcom, setPendingGedcom] = useState(null);
@@ -342,7 +344,35 @@ export default function Export() {
 
         <div id="gedcom-export">
           <Card title="GEDCOM export" description="Standard genealogy interchange format. Lossy for app-specific fields.">
-            <button onClick={wrap('Building GEDCOM…', downloadGedcom)} disabled={busy} className={btn}>Download .ged</button>
+            <div className="flex flex-col gap-2 mb-3 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={gedHideLiving} onChange={(e) => setGedHideLiving(e.target.checked)} />
+                Exclude living persons
+              </label>
+              {gedHideLiving && (
+                <label className="flex items-center gap-2 ps-6 text-xs text-muted-foreground">
+                  <input type="checkbox" checked={gedMaskOnly} onChange={(e) => setGedMaskOnly(e.target.checked)} />
+                  Keep living persons but strip their dates/contact details
+                </label>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={wrap('Building GEDCOM…', () => downloadGedcom({ hideLiving: gedHideLiving, hideLivingDetailsOnly: gedHideLiving && gedMaskOnly }))}
+                disabled={busy}
+                className={btn}
+              >
+                Download .ged
+              </button>
+              <button
+                onClick={wrap('Building GedZip…', () => downloadGedZip({ hideLiving: gedHideLiving, hideLivingDetailsOnly: gedHideLiving && gedMaskOnly }))}
+                disabled={busy}
+                className={btn}
+                title="GEDCOM plus attached photos, bundled as a .gdz archive"
+              >
+                Download .gdz (with media)
+              </button>
+            </div>
           </Card>
         </div>
 
@@ -396,6 +426,11 @@ export default function Export() {
                     {issue.line ? `Line ${issue.line}: ` : ''}{issue.message}
                   </div>
                 ))}
+                {gedIssues.issues.length > 8 && (
+                  <div className="text-muted-foreground italic">
+                    +{gedIssues.issues.length - 8} more issue(s) — resolve blocking errors or switch to Lenient mode to proceed.
+                  </div>
+                )}
                 <div className="mt-3 flex gap-2">
                   <button onClick={onConfirmGedImport} disabled={busy || !canImportGedcomAnalysis(pendingGedcom?.analysis, gedcomImportMode)} className={btn}>
                     Import reviewed GEDCOM

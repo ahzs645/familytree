@@ -103,6 +103,7 @@ export const ROUTE_MANIFEST = [
     children: [
       { path: 'general', loader: () => import('../components/settings/panels/GeneralPanel.jsx') },
       { path: 'formats', loader: () => import('../components/settings/panels/FormatsPanel.jsx') },
+      { path: 'colors', loader: () => import('../components/settings/panels/ColorsPanel.jsx') },
       { path: 'arabic-islamic', loader: () => import('../components/settings/panels/ArabicIslamicPanel.jsx') },
       { path: 'tree-layout', loader: () => import('../components/settings/panels/TreeLayoutPanel.jsx') },
       { path: 'maps', loader: () => import('../components/settings/panels/MapsPanel.jsx') },

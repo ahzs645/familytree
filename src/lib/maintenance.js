@@ -182,6 +182,72 @@ export async function mediaSizeReport() {
   return { count, totalBytes: total };
 }
 
+const OPTIMIZABLE_IMAGE = /^image\/(jpe?g|png|webp)$/i;
+
+/**
+ * Optimize stored image assets (#51): downscale to a max dimension and
+ * re-encode as JPEG, replacing the stored blob only when it gets smaller.
+ * Dry-run reports the potential saving without writing.
+ */
+export async function optimizeMedia({ maxDimension = 2048, quality = 0.82, dryRun = true } = {}) {
+  const db = getLocalDatabase();
+  const assets = await db.listAllAssets();
+  const results = [];
+  let savedBytes = 0;
+  for (const asset of assets) {
+    if (!asset?.dataBase64 || !OPTIMIZABLE_IMAGE.test(asset.mimeType || '')) continue;
+    const originalBytes = approximateBase64Bytes(asset.dataBase64);
+    let optimized;
+    try {
+      optimized = await reencodeImageAsset(asset.dataBase64, asset.mimeType, { maxDimension, quality });
+    } catch {
+      continue;
+    }
+    if (!optimized) continue;
+    const newBytes = approximateBase64Bytes(optimized.dataBase64);
+    if (newBytes >= originalBytes) continue; // no worthwhile gain
+    savedBytes += originalBytes - newBytes;
+    results.push({ assetId: asset.assetId, ownerRecordName: asset.ownerRecordName, originalBytes, newBytes });
+    if (!dryRun) {
+      await db.saveAsset({ ...asset, dataBase64: optimized.dataBase64, mimeType: optimized.mimeType });
+    }
+  }
+  return { count: results.length, savedBytes, results };
+}
+
+function approximateBase64Bytes(base64) {
+  const text = String(base64 || '');
+  const padding = text.endsWith('==') ? 2 : text.endsWith('=') ? 1 : 0;
+  return Math.max(0, Math.floor((text.length * 3) / 4) - padding);
+}
+
+async function reencodeImageAsset(dataBase64, mimeType, { maxDimension, quality }) {
+  if (typeof document === 'undefined' || typeof Image === 'undefined') return null;
+  const img = await loadImageElement(`data:${mimeType || 'image/png'};base64,${dataBase64}`);
+  const longest = Math.max(img.width, img.height) || 1;
+  const scale = Math.min(1, maxDimension / longest);
+  const targetW = Math.max(1, Math.round(img.width * scale));
+  const targetH = Math.max(1, Math.round(img.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.drawImage(img, 0, 0, targetW, targetH);
+  const dataUrl = canvas.toDataURL('image/jpeg', quality);
+  const base64 = dataUrl.split(',')[1] || '';
+  return base64 ? { dataBase64: base64, mimeType: 'image/jpeg' } : null;
+}
+
+function loadImageElement(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
 export function findAncestryLoops(records = []) {
   const families = records.filter((record) => record.recordType === 'Family');
   const childRelations = records.filter((record) => record.recordType === 'ChildRelation');

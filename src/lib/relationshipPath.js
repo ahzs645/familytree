@@ -186,6 +186,37 @@ export async function computeKinshipCoefficient(recordA, recordB, options = {}) 
   };
 }
 
+/**
+ * Single-source BFS that labels every reachable relative of a root person.
+ * Returns [{ id, steps, person }] with the shortest path to each relative,
+ * so callers can `relationshipLabel(steps)` to build a kinship roster.
+ */
+export async function collectRelatives(rootId, { maxDepth = 12, includeSpouses = true } = {}) {
+  const db = getLocalDatabase();
+  const root = rootId ? await db.getRecord(rootId) : null;
+  if (!root || !isPublicRecord(root)) return [];
+  const rootStep = { recordName: rootId, edgeFromPrev: null, person: personSummary(root) };
+  const best = new Map();
+  const visited = new Set([rootId]);
+  let queue = [{ id: rootId, steps: [rootStep] }];
+  while (queue.length) {
+    const next = [];
+    for (const { id, steps } of queue) {
+      if (steps.length - 1 >= maxDepth) continue;
+      const neighbors = await getNeighbors(db, id, { includeSpouses });
+      for (const n of neighbors) {
+        if (visited.has(n.neighbor)) continue;
+        visited.add(n.neighbor);
+        const nextSteps = [...steps, { recordName: n.neighbor, edgeFromPrev: n.edge, person: personSummary(n.record) }];
+        best.set(n.neighbor, nextSteps);
+        next.push({ id: n.neighbor, steps: nextSteps });
+      }
+    }
+    queue = next;
+  }
+  return [...best.entries()].map(([id, steps]) => ({ id, steps, person: steps[steps.length - 1].person }));
+}
+
 async function getNeighbors(db, recordName, options = {}) {
   const { includeSpouses = true, excludeNonBiological = false } = options;
   const out = [];
@@ -300,15 +331,30 @@ export function relationshipLabel(steps, localization = getCurrentLocalization()
     else if (e === 'child') downs++;
     else if (e === 'spouse') spouses++;
   }
+  // Gender of the *target* (last step) drives the gendered English term.
+  const gender = steps[steps.length - 1]?.person?.gender;
+  const pick = (male, female, neutral) => (gender === Gender.Male ? male : gender === Gender.Female ? female : neutral);
+  const greatPrefix = (n) => (n === 1 ? 'Great-' : n > 1 ? `${n}×-Great-` : '');
+
   if (spouses === 1 && ups === 0 && downs === 0) return 'Spouse';
-  if (ups === 1 && downs === 0) return 'Parent';
-  if (ups === 0 && downs === 1) return 'Child';
-  if (ups === 1 && downs === 1) return 'Sibling';
-  if (ups === 2 && downs === 0) return 'Grandparent';
-  if (ups === 0 && downs === 2) return 'Grandchild';
-  if (ups === 2 && downs === 1) return 'Aunt/Uncle';
-  if (ups === 1 && downs === 2) return 'Niece/Nephew';
-  if (ups >= 2 && downs >= 2) return englishCousinLabel(ups, downs);
+
+  if (spouses === 0) {
+    if (ups === 1 && downs === 0) return pick('Father', 'Mother', 'Parent');
+    if (ups === 0 && downs === 1) return pick('Son', 'Daughter', 'Child');
+    if (ups === 1 && downs === 1) return pick('Brother', 'Sister', 'Sibling');
+    if (ups >= 2 && downs === 0) return `${greatPrefix(ups - 2)}${pick('Grandfather', 'Grandmother', 'Grandparent')}`;
+    if (ups === 0 && downs >= 2) return `${greatPrefix(downs - 2)}${pick('Grandson', 'Granddaughter', 'Grandchild')}`;
+    if (ups >= 2 && downs === 1) return `${greatPrefix(ups - 2)}${pick('Uncle', 'Aunt', 'Aunt/Uncle')}`;
+    if (ups === 1 && downs >= 2) return `${greatPrefix(downs - 2)}${pick('Nephew', 'Niece', 'Niece/Nephew')}`;
+    if (ups >= 2 && downs >= 2) return englishCousinLabel(ups, downs);
+  } else if (spouses === 1) {
+    // One marriage edge → in-law relation on the underlying blood path.
+    if (ups === 0 && downs === 0) return 'Spouse';
+    if (ups === 1 && downs === 0) return pick('Father-in-law', 'Mother-in-law', 'Parent-in-law');
+    if (ups === 0 && downs === 1) return pick('Son-in-law', 'Daughter-in-law', 'Child-in-law');
+    if (ups === 1 && downs === 1) return pick('Brother-in-law', 'Sister-in-law', 'Sibling-in-law');
+    return 'In-law relative';
+  }
   return `Relative (${ups}↑ / ${downs}↓${spouses ? ` / ${spouses} spouse` : ''})`;
 }
 

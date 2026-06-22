@@ -7,6 +7,7 @@ import { Link, useParams } from 'react-router-dom';
 import { decodeSharePayload, SHARE_PAYLOAD_VERSION } from '../lib/chartShareLink.js';
 import { getTheme } from '../components/charts/theme.js';
 import { AncestorChart } from '../components/charts/AncestorChart.jsx';
+import { StatisticsChart } from '../components/charts/StatisticsChart.jsx';
 import { DescendantChart } from '../components/charts/DescendantChart.jsx';
 import { HourglassChart } from '../components/charts/HourglassChart.jsx';
 import { TreeChart } from '../components/charts/TreeChart.jsx';
@@ -120,6 +121,9 @@ function PreviewChart({ payload }) {
 
   const common = { theme, page, overlays };
 
+  if (chartType === 'statistics') {
+    return <StatisticsChart theme={theme} />;
+  }
   if (chartType === 'descendant') {
     return <DescendantChart tree={trees.descendantTree} {...common} />;
   }

@@ -124,6 +124,8 @@ export const PERSON_COLORING_MODES = [
   { id: 'byGender', label: 'By Gender' },
   { id: 'byGeneration', label: 'By Generation' },
   { id: 'byPedigree', label: 'By Pedigree' },
+  { id: 'byBirthYear', label: 'By Birth Year' },
+  { id: 'byAge', label: 'By Age at Death' },
   { id: 'byLabel', label: 'By Label' },
   { id: 'byPersonGroup', label: 'By Person Group' },
   { id: 'customColor', label: 'Custom Color' },

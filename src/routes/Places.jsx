@@ -27,10 +27,12 @@ import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { MediaRelationsEditor, NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { Map as MapView } from '../components/ui/Map.jsx';
 import { BatchPlaceLookupSheet } from '../components/BatchPlaceLookupSheet.jsx';
+import { FreeformPlaceLookupSheet } from '../components/FreeformPlaceLookupSheet.jsx';
 import { PlaceConvertToDetailSheet } from '../components/PlaceConvertToDetailSheet.jsx';
 import {
   MAP_PREFERENCES_EVENT,
   batchLookupMissingCoordinates,
+  batchLookupMissingGeoNames,
   getMapPreferences,
   lookupGeoNameId,
   lookupPlaceCandidates,
@@ -105,6 +107,7 @@ export default function Places() {
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [nameType, setNameType] = useState('');
   // Coordinate record lives separate from Place, linked by Place.coordinate or Coordinate.place.
   const [coordinate, setCoordinate] = useState(null);
   const [latitude, setLatitude] = useState('');
@@ -115,6 +118,41 @@ export default function Places() {
   const [placeQueryMessage, setPlaceQueryMessage] = useState(null);
   const [showBatchSheet, setShowBatchSheet] = useState(false);
   const [showConvertSheet, setShowConvertSheet] = useState(false);
+  const [showNewPlaceSheet, setShowNewPlaceSheet] = useState(false);
+
+  const onCreatePlace = useCallback(async (payload) => {
+    setShowNewPlaceSheet(false);
+    const db = getLocalDatabase();
+    const record = {
+      recordName: uuid('place'),
+      recordType: 'Place',
+      fields: {
+        placeName: { value: payload.name || payload.displayName || 'New Place', type: 'STRING' },
+        cached_normallocationString: { value: payload.displayName || payload.name || 'New Place', type: 'STRING' },
+      },
+    };
+    for (const [key, field] of [['locality', 'locality'], ['adminLevel1', 'adminLevel1'], ['country', 'country'], ['postalCode', 'postalCode'], ['notes', 'note']]) {
+      if (payload[key]) record.fields[field] = { value: String(payload[key]), type: 'STRING' };
+    }
+    if (Number.isFinite(payload.latitude) && Number.isFinite(payload.longitude)) {
+      const coordinate = {
+        recordName: uuid('coord'),
+        recordType: 'Coordinate',
+        fields: {
+          place: { value: refValue(record.recordName, 'Place'), type: 'REFERENCE' },
+          latitude: { value: payload.latitude, type: 'DOUBLE' },
+          longitude: { value: payload.longitude, type: 'DOUBLE' },
+        },
+      };
+      await db.saveRecord(coordinate);
+      await logRecordCreated(coordinate);
+      record.fields.coordinate = { value: refValue(coordinate.recordName, 'Coordinate'), type: 'REFERENCE' };
+    }
+    await db.saveRecord(record);
+    await logRecordCreated(record);
+    await reload();
+    setActiveId(record.recordName);
+  }, [reload]);
   const [loadSeq, setLoadSeq] = useState(0);
   const queryPlaceId = searchParams.get('placeId');
   const focus = searchParams.get('focus');
@@ -212,6 +250,7 @@ export default function Places() {
     setComponents(comps);
 
     setBookmarked(!!record.fields?.isBookmarked?.value);
+    setNameType(record.fields?.nameType?.value || record.fields?.placeNameType?.value || '');
     setIsPrivate(!!record.fields?.isPrivate?.value);
 
     const refs = {};
@@ -294,6 +333,8 @@ export default function Places() {
 
     nextFields.isBookmarked = { value: !!bookmarked, type: 'BOOLEAN' };
     nextFields.isPrivate = { value: !!isPrivate, type: 'BOOLEAN' };
+    if (nameType) nextFields.nameType = { value: nameType, type: 'STRING' };
+    else delete nextFields.nameType;
     for (const f of REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID')) {
       const v = refNumbers[f.id];
       if (v == null || v === '') delete nextFields[f.id];
@@ -449,6 +490,19 @@ export default function Places() {
     }
   }, [mapPrefs.batchLimit, reload, modal]);
 
+  const onBatchGeoName = useCallback(async () => {
+    const limit = Number(mapPrefs.batchLimit) || 10;
+    if (!(await modal.confirm(`Find GeoName IDs for up to ${limit} places without one?`, { title: 'Match GeoName IDs', okLabel: 'Run match' }))) return;
+    setStatus('Matching GeoName IDs…');
+    try {
+      const changed = await batchLookupMissingGeoNames({ limit });
+      await reload();
+      setStatus(`Matched GeoName IDs for ${changed.length} place${changed.length === 1 ? '' : 's'}.`);
+    } catch (error) {
+      setStatus(error.message);
+    }
+  }, [mapPrefs.batchLimit, reload, modal]);
+
   const onConvertToDetails = useCallback(() => {
     const generated = placeDetailsFromComponents(components);
     if (!generated.length) return;
@@ -582,9 +636,11 @@ export default function Places() {
           </Field>
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
+          <button onClick={() => setShowNewPlaceSheet(true)} className="text-xs bg-primary text-primary-foreground rounded-md px-2.5 py-1.5">+ New Place</button>
           <button onClick={onLookupPlace} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Lookup Place</button>
           <button onClick={onLookupGeoName} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">GeoName ID</button>
           <button onClick={onBatchLookup} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title={`Quick lookup for up to ${Number(mapPrefs.batchLimit) || 10} places missing coordinates`}>Batch Missing</button>
+          <button onClick={onBatchGeoName} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title={`Find GeoName IDs for up to ${Number(mapPrefs.batchLimit) || 10} places without one`}>Match GeoName IDs</button>
           <button onClick={() => setShowBatchSheet(true)} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title="Review and lookup places missing coordinates one by one">Batch Sheet…</button>
           <button onClick={onConvertToDetails} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title="Generate PlaceDetail rows from the current place components">Place to Details</button>
           <button onClick={() => setShowConvertSheet(true)} disabled={!activeId} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title="Collapse this Place into a PlaceDetail of a parent place">Convert to Detail…</button>
@@ -648,6 +704,16 @@ export default function Places() {
               <Field label="GeoName ID">
                 <input value={refNumbers.geonameID ?? ''} onChange={(e) => setRefNumbers((s) => ({ ...s, geonameID: e.target.value }))} className={inputClass} />
               </Field>
+              <Field label="Name type">
+                <select value={nameType} onChange={(e) => setNameType(e.target.value)} className={inputClass}>
+                  <option value="">Standard</option>
+                  <option value="official">Official</option>
+                  <option value="historical">Historical</option>
+                  <option value="native">Native / local</option>
+                  <option value="abbreviation">Abbreviation</option>
+                  <option value="alternate">Alternate</option>
+                </select>
+              </Field>
             </div>
           </Section>
           <Section title="Bookmarks" accent={ACCENTS.bookmarks}>
@@ -708,6 +774,13 @@ export default function Places() {
             setActiveId(null);
             await reload();
           }}
+        />
+      )}
+      {showNewPlaceSheet && (
+        <FreeformPlaceLookupSheet
+          title="New place"
+          onApply={onCreatePlace}
+          onCancel={() => setShowNewPlaceSheet(false)}
         />
       )}
     </EditorSectionNavProvider>

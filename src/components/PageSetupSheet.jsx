@@ -25,6 +25,7 @@ export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, t
     omitEmptyPages: pageSetup?.omitEmptyPages !== false,
     cutMarks: !!pageSetup?.cutMarks,
     printPageNumbers: !!pageSetup?.printPageNumbers,
+    watermark: pageSetup?.watermark || '',
     backgroundColor: pageSetup?.backgroundColor || '',
     exportFormat: exportSettings?.format || 'png',
     exportScale: exportSettings?.scale ?? 1,
@@ -54,6 +55,7 @@ export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, t
       omitEmptyPages: !!draft.omitEmptyPages,
       cutMarks: !!draft.cutMarks,
       printPageNumbers: !!draft.printPageNumbers,
+      watermark: draft.watermark || '',
       backgroundColor: draft.backgroundColor || '',
     }, {
       format: draft.exportFormat,
@@ -117,6 +119,9 @@ export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, t
             <label className="flex items-center gap-2"><input type="checkbox" checked={draft.cutMarks} onChange={(e) => set('cutMarks', e.target.checked)} /> Cut marks</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={draft.printPageNumbers} onChange={(e) => set('printPageNumbers', e.target.checked)} /> Print page numbers</label>
           </div>
+          <label className="block">Watermark
+            <input type="text" value={draft.watermark} placeholder="e.g. DRAFT or your family name" onChange={(e) => set('watermark', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2" />
+          </label>
           <label className="block">Background color
             <input type="text" value={draft.backgroundColor} placeholder="e.g. #ffffff or leave blank" onChange={(e) => set('backgroundColor', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2" />
           </label>

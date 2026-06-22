@@ -6,6 +6,7 @@
 import React from 'react';
 import { chartOptionsPanelStyle, optionSelect } from './styles.js';
 import { RangeField, CheckOption, SelectOption } from './FormFields.jsx';
+import { CHART_COLORING_MODES } from '../coloring.js';
 
 export function ChartOptionsPanel({
   tab,
@@ -27,12 +28,20 @@ export function ChartOptionsPanel({
   onSpacingChange,
   personGroupMode,
   onPersonGroupModeChange,
+  coloringMode,
+  onColoringModeChange,
+  chartContent,
+  onChartContentChange,
   localization,
   onLocalizationChange,
 }) {
+  const content = chartContent || { showPortraits: false, showLifespan: true, showIds: false };
+  const setContent = (key, value) => onChartContentChange?.({ ...content, [key]: value });
   const tabs = [
     ['general', 'General'],
     ['spacing', 'Spacing'],
+    ['coloring', 'Coloring'],
+    ['content', 'Content'],
     ['groups', 'Person Groups'],
     ['localization', 'Localization & Formats'],
   ];
@@ -66,6 +75,27 @@ export function ChartOptionsPanel({
           <RangeField label="Horizontal Spacing" value={spacing.horizontal} min={8} max={120} onChange={(value) => onSpacingChange({ ...spacing, horizontal: value })} />
           <RangeField label="Vertical Spacing" value={spacing.vertical} min={50} max={220} onChange={(value) => onSpacingChange({ ...spacing, vertical: value })} />
           <RangeField label="Branch Spacing" value={spacing.branch} min={8} max={120} onChange={(value) => onSpacingChange({ ...spacing, branch: value })} />
+        </div>
+      )}
+      {tab === 'coloring' && (
+        <div style={{ display: 'grid', gap: 10 }}>
+          <SelectOption
+            label="Coloring Mode"
+            value={coloringMode || 'gender'}
+            onChange={onColoringModeChange}
+            options={CHART_COLORING_MODES.map((mode) => [mode.id, mode.label])}
+          />
+          <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+            Color person boxes by generation, paternal/maternal side, birth year, age at death, or a flat color. By Gender uses the chart theme.
+          </p>
+        </div>
+      )}
+      {tab === 'content' && (
+        <div style={{ display: 'grid', gap: 10 }}>
+          <CheckOption label="Show portraits" checked={content.showPortraits} onChange={(v) => setContent('showPortraits', v)} />
+          <CheckOption label="Show birth/death dates" checked={content.showLifespan} onChange={(v) => setContent('showLifespan', v)} />
+          <CheckOption label="Show reference / GEDCOM / FS ID" checked={content.showIds} onChange={(v) => setContent('showIds', v)} />
+          <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: 0 }}>Portraits load from each person's attached pictures.</p>
         </div>
       )}
       {tab === 'groups' && (

@@ -48,6 +48,19 @@ export default function WorldHistory() {
     } catch {}
     return null;
   });
+  const [hiddenEvents, setHiddenEvents] = useState(() => {
+    try {
+      const raw = localStorage.getItem('worldHistory.hiddenEvents');
+      if (raw) return new Set(JSON.parse(raw));
+    } catch {}
+    return new Set();
+  });
+  useEffect(() => {
+    try { localStorage.setItem('worldHistory.hiddenEvents', JSON.stringify([...hiddenEvents])); } catch {}
+  }, [hiddenEvents]);
+  const eventKey = (e) => `${e.title}|${e.year}`;
+  const hideEvent = (e) => setHiddenEvents((prev) => new Set(prev).add(eventKey(e)));
+  const clearHiddenEvents = () => setHiddenEvents(new Set());
 
   const allCategories = useMemo(() => [...new Set(WORLD_EVENTS.map((e) => e.kind))].sort(), []);
 
@@ -113,6 +126,7 @@ export default function WorldHistory() {
   const normalizedQuery = query.trim().toLowerCase();
   const worldEvents = useMemo(() => WORLD_EVENTS
     .filter((e) => isEnabled(e.kind))
+    .filter((e) => !hiddenEvents.has(`${e.title}|${e.year}`))
     .filter((e) => !showPersonOnlyRange || !personRange || (e.year >= personRange[0] && e.year <= personRange[1]))
     .filter((e) => {
       if (!normalizedQuery) return true;
@@ -123,7 +137,7 @@ export default function WorldHistory() {
       sourceKind: 'world',
       category: e.kind,
       detail: e.region,
-    })), [enabledCategories, normalizedQuery, personRange, showPersonOnlyRange]);
+    })), [enabledCategories, hiddenEvents, normalizedQuery, personRange, showPersonOnlyRange]);
 
   const items = useMemo(() => [...personEvents, ...worldEvents].sort((a, b) => (
     a.year - b.year || (a.sourceKind === 'person' ? -1 : 1) || a.title.localeCompare(b.title)
@@ -209,6 +223,11 @@ export default function WorldHistory() {
                   </label>
                 ))}
               </div>
+              {hiddenEvents.size > 0 && (
+                <button type="button" onClick={clearHiddenEvents} className="mt-2 text-xs text-primary hover:underline">
+                  Show {hiddenEvents.size} hidden event{hiddenEvents.size === 1 ? '' : 's'}
+                </button>
+              )}
             </div>
 
             <label className="flex items-start gap-2 rounded-md border border-border bg-card p-3 text-xs">
@@ -263,6 +282,9 @@ export default function WorldHistory() {
                               <a href={href} target="_blank" rel="noreferrer" className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" title="Open reference">
                                 <ExternalLink className="h-3.5 w-3.5" />
                               </a>
+                            )}
+                            {!isPerson && (
+                              <button type="button" onClick={() => hideEvent(it)} className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground" title="Hide this event">×</button>
                             )}
                           </div>
                           <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">

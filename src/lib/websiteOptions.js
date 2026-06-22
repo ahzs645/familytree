@@ -54,10 +54,22 @@ export const DEFAULT_CONTENT_SECTIONS = Object.freeze({
   sources: true,
   media: true,
   stories: true,
+  charts: true,
+  dna: true,
   relatedMedia: true,
   relatedSources: true,
   relatedStories: true,
   author: true,
+});
+
+// Per-media-type include toggles (#62) — applied only when the `media` content
+// section is enabled. Keys are Media* record types.
+export const DEFAULT_MEDIA_TYPES = Object.freeze({
+  MediaPicture: true,
+  MediaPDF: true,
+  MediaAudio: true,
+  MediaVideo: true,
+  MediaURL: true,
 });
 
 export const DEFAULT_SITE_OPTIONS = Object.freeze({
@@ -74,6 +86,12 @@ export const DEFAULT_SITE_OPTIONS = Object.freeze({
   livingThresholdYears: 110,
   includeAssets: true,
   contentSections: DEFAULT_CONTENT_SECTIONS,
+  mediaTypes: DEFAULT_MEDIA_TYPES,
+  exportPersonsMode: 'all',
+  exportScopeId: '',
+  includeStatisticsPage: true,
+  faviconDataUrl: '',
+  homeImageDataUrl: '',
   locale: DEFAULT_LOCALIZATION.locale,
   direction: DEFAULT_LOCALIZATION.direction,
   numberingSystem: DEFAULT_LOCALIZATION.numberingSystem,
@@ -116,6 +134,12 @@ export function normalizeWebsiteOptions(options = {}) {
     livingThresholdYears: Number.isFinite(+options.livingThresholdYears) ? +options.livingThresholdYears : DEFAULT_SITE_OPTIONS.livingThresholdYears,
     includeAssets: options.includeAssets !== false,
     contentSections: normalizeContentSections(options.contentSections),
+    mediaTypes: normalizeMediaTypes(options.mediaTypes),
+    exportPersonsMode: ['all', 'smartFilter'].includes(options.exportPersonsMode) ? options.exportPersonsMode : 'all',
+    exportScopeId: String(options.exportScopeId || ''),
+    includeStatisticsPage: options.includeStatisticsPage !== false,
+    faviconDataUrl: String(options.faviconDataUrl || ''),
+    homeImageDataUrl: String(options.homeImageDataUrl || ''),
     locale,
     direction: directionForLocale(locale, directionPreference),
     numberingSystem: options.numberingSystem || currentLocalization.numberingSystem || DEFAULT_SITE_OPTIONS.numberingSystem,
@@ -142,6 +166,15 @@ export function normalizeContentSections(sections = {}) {
     Object.entries(DEFAULT_CONTENT_SECTIONS).map(([key, defaultValue]) => [
       key,
       typeof sections[key] === 'boolean' ? sections[key] : defaultValue,
+    ]),
+  );
+}
+
+export function normalizeMediaTypes(types = {}) {
+  return Object.fromEntries(
+    Object.entries(DEFAULT_MEDIA_TYPES).map(([key, defaultValue]) => [
+      key,
+      typeof types[key] === 'boolean' ? types[key] : defaultValue,
     ]),
   );
 }

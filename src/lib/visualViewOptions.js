@@ -23,8 +23,10 @@ export const MAP_VISUAL_OPTION_PRESETS = Object.freeze({
     smartFilterMode: 'none',
     connectionPattern: 'line',
     connectionWidth: 'medium',
+    animateConnections: false,
     dateColorsMode: 'blue-red',
     sunMode: 'noon',
+    globeBackground: 'space',
     tileNames: 'auto',
   },
   globe: {
@@ -51,8 +53,10 @@ export const MAP_VISUAL_OPTION_PRESETS = Object.freeze({
     smartFilterMode: 'none',
     connectionPattern: 'line',
     connectionWidth: 'medium',
+    animateConnections: false,
     dateColorsMode: 'blue-red',
     sunMode: 'noon',
+    globeBackground: 'space',
     tileNames: 'auto',
   },
 });
@@ -80,11 +84,13 @@ export const VISUAL_OPTION_SECTIONS = Object.freeze([
           { value: 'event', label: 'Event type' },
           { value: 'time', label: 'Date range' },
           { value: 'events-count', label: 'Events count at place' },
+          { value: 'person-group', label: 'Person group' },
           { value: 'uniform', label: 'Uniform' },
         ],
       },
       { key: 'markerSize', label: 'Pin size', type: 'range', min: 8, max: 24, step: 1, unit: 'px' },
       { key: 'connectionLines', label: 'Connection lines', type: 'checkbox' },
+      { key: 'animateConnections', label: 'Animate connections', type: 'checkbox' },
       {
         key: 'connectionPattern',
         label: 'Connection Pattern',
@@ -125,6 +131,16 @@ export const VISUAL_OPTION_SECTIONS = Object.freeze([
           { value: 'noon', label: 'Always noon' },
           { value: 'current', label: 'Current time' },
           { value: 'currentBright', label: 'Current time, brighter backside' },
+        ],
+      },
+      {
+        key: 'globeBackground',
+        label: 'Background',
+        type: 'select',
+        kinds: ['globe'],
+        options: [
+          { value: 'space', label: 'Starry sky' },
+          { value: 'light', label: 'Light box' },
         ],
       },
       {
@@ -221,7 +237,8 @@ export const VISUAL_OPTION_SECTIONS = Object.freeze([
 ]);
 
 const MARKER_MODES = new Set(['pins', 'heat', 'pins-heat']);
-const COLOR_MODES = new Set(['event', 'time', 'events-count', 'uniform']);
+const COLOR_MODES = new Set(['event', 'time', 'events-count', 'person-group', 'uniform']);
+const GLOBE_BACKGROUNDS = new Set(['space', 'light']);
 const CONNECTION_PATTERNS = new Set(['line', 'arrows', 'arrows2', 'blobs']);
 const CONNECTION_WIDTHS = new Set(['small', 'medium', 'large']);
 const DATE_COLORS_MODES = new Set(['blue-red', 'rainbow', 'turquoise-red']);
@@ -258,8 +275,10 @@ export function normalizeVisualViewOptions(kind = 'mapStory', options = {}) {
   next.smartFilterMode = SMART_FILTER_MODES.has(next.smartFilterMode) ? next.smartFilterMode : defaults.smartFilterMode;
   next.connectionPattern = CONNECTION_PATTERNS.has(next.connectionPattern) ? next.connectionPattern : defaults.connectionPattern;
   next.connectionWidth = CONNECTION_WIDTHS.has(next.connectionWidth) ? next.connectionWidth : defaults.connectionWidth;
+  next.animateConnections = Boolean(next.animateConnections);
   next.dateColorsMode = DATE_COLORS_MODES.has(next.dateColorsMode) ? next.dateColorsMode : defaults.dateColorsMode;
   next.sunMode = SUN_MODES.has(next.sunMode) ? next.sunMode : defaults.sunMode;
+  next.globeBackground = GLOBE_BACKGROUNDS.has(next.globeBackground) ? next.globeBackground : (defaults.globeBackground || 'space');
   next.tileNames = TILE_NAME_MODES.has(next.tileNames) ? next.tileNames : defaults.tileNames;
   return next;
 }
@@ -280,7 +299,16 @@ export function colorForVisualEvent(event, options = {}, yearBounds = null) {
   if (options.colorBy === 'uniform') return '#2563eb';
   if (options.colorBy === 'time') return colorForYear(event?.year, yearBounds, options.dateColorsMode);
   if (options.colorBy === 'events-count') return colorForEventsCount(event?.eventsAtPlace, options.dateColorsMode);
+  if (options.colorBy === 'person-group') return colorForPersonGroup(event?.personGroupId);
   return colorForEventType(event?.overlayType || event?.conclusionType);
+}
+
+function colorForPersonGroup(groupId) {
+  if (!groupId) return '#94a3b8'; // slate — no group
+  let hash = 0;
+  const str = String(groupId);
+  for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
+  return `hsl(${hash % 360} 65% 55%)`;
 }
 
 /**

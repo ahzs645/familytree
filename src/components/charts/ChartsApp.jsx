@@ -47,7 +47,9 @@ import {
   GenogramChart,
   FractalAncestorChart,
 } from './SpecializedCharts.jsx';
+import { StatisticsChart } from './StatisticsChart.jsx';
 import { ChartSelectionProvider } from './ChartSelectionContext.jsx';
+import { ChartContentProvider, DEFAULT_CHART_CONTENT, loadChartPortraits } from './ChartContentContext.jsx';
 import { PersonSidePanel } from './PersonSidePanel.jsx';
 import { ChartObjectInspector } from './ChartObjectInspector.jsx';
 import { Field, RangeField, CheckOption, SelectOption, Section } from './parts/FormFields.jsx';
@@ -55,6 +57,7 @@ import { RelationshipPathControls } from './parts/RelationshipPathControls.jsx';
 import { ChartPersonBrowser } from './parts/ChartPersonBrowser.jsx';
 import { ChartBottomToolbar } from './parts/ChartBottomToolbar.jsx';
 import { ChartOptionsPanel } from './parts/ChartOptionsPanel.jsx';
+import { buildGenerationIndex, chartColorForPerson } from './coloring.js';
 import {
   shellStyle,
   headerStyle,
@@ -85,6 +88,7 @@ const CHART_TYPES = [
   { id: 'radial-descendant', label: 'Radial Descendant', needsSecond: false },
   { id: 'symmetrical', label: 'Symmetrical Tree', needsSecond: false },
   { id: 'distribution', label: 'Distribution', needsSecond: false },
+  { id: 'statistics', label: 'Statistics', needsSecond: false },
   { id: 'lifespan', label: 'Lifespan', needsSecond: false },
   { id: 'timeline', label: 'Timeline', needsSecond: false },
   { id: 'genogram', label: 'Genogram', needsSecond: false },
@@ -110,6 +114,9 @@ export function ChartsApp() {
   const [themeId, setThemeId] = useState('auto');
   const [completenessColorMode, setCompletenessColorMode] = useState('gender');
   const [completenessRowsByPerson, setCompletenessRowsByPerson] = useState(new Map());
+  const [coloringMode, setColoringMode] = useState('gender');
+  const [chartContent, setChartContent] = useState(DEFAULT_CHART_CONTENT);
+  const [chartPhotos, setChartPhotos] = useState(null);
   const { theme: appTheme } = useTheme();
   const {
     virtualSource, setVirtualSource,
@@ -267,7 +274,7 @@ export function ChartsApp() {
     chartNote, pageSize, pageOrientation, chartBackground,
     relationshipBloodlineOnly, selectedRelationshipPathId, overlays,
     pageMargins, pagePrintMargins, pageOverlap, pageCutMarks,
-    pagePrintPageNumbers, pageOmitEmptyPages,
+    pagePrintPageNumbers, pageOmitEmptyPages, coloringMode, chartContent,
   ]);
 
   useEffect(() => {
@@ -339,6 +346,8 @@ export function ChartsApp() {
     setSecondId(normalized.roots.secondaryPersonId || null);
     setThemeId(normalized.compositorConfig.themeId || 'auto');
     setGenerations(nextGenerations);
+    setColoringMode(normalized.builderConfig.common?.coloringMode || 'gender');
+    setChartContent({ ...DEFAULT_CHART_CONTENT, ...(normalized.builderConfig.common?.chartContent || {}) });
     setVirtualSource(normalized.builderConfig.virtual?.source || 'descendant');
     setVirtualOrientation(normalized.builderConfig.virtual?.orientation || 'vertical');
     setVirtualHSpacing(normalized.builderConfig.virtual?.hSpacing || 24);
@@ -589,10 +598,29 @@ export function ChartsApp() {
     orientation: virtualOrientation,
   }), [virtualHSpacing, virtualVSpacing, virtualOrientation]);
 
+  const generationIndex = useMemo(
+    () => buildGenerationIndex({ ancestorTree, descendantTree }),
+    [ancestorTree, descendantTree]
+  );
+
+  // Load portraits for the charted persons when "Show portraits" is on (#25).
+  useEffect(() => {
+    if (!chartContent.showPortraits) { setChartPhotos(null); return undefined; }
+    let cancelled = false;
+    const ids = [...(generationIndex?.byId?.keys() || [])];
+    loadChartPortraits(ids).then((map) => { if (!cancelled) setChartPhotos(map); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [chartContent.showPortraits, generationIndex]);
+
   const colorForPerson = useCallback((person) => {
-    if (!person?.recordName || completenessColorMode === 'gender') return null;
+    if (!person?.recordName) return null;
+    // Aesthetic coloring mode (by generation / pedigree / year / age / …) wins.
+    const aesthetic = chartColorForPerson(coloringMode, person, generationIndex);
+    if (aesthetic) return aesthetic;
+    // Otherwise fall back to the research-completeness overlay, then theme gender.
+    if (completenessColorMode === 'gender') return null;
     return colorForCompleteness(completenessRowsByPerson.get(person.recordName), completenessColorMode);
-  }, [completenessColorMode, completenessRowsByPerson]);
+  }, [coloringMode, generationIndex, completenessColorMode, completenessRowsByPerson]);
 
   const onPersonClick = useCallback(
     (p) => {
@@ -659,7 +687,7 @@ export function ChartsApp() {
       secondaryPersonId: secondId,
     },
     builderConfig: {
-      common: { generations },
+      common: { generations, coloringMode, chartContent },
       relationship: {
         bloodlineOnly: relationshipBloodlineOnly,
         selectedPathId: selectedRelationshipPathId,
@@ -1504,6 +1532,7 @@ export function ChartsApp() {
       )}
 
       <ChartSelectionProvider openPerson={openPersonInPanel}>
+      <ChartContentProvider content={chartContent} photosById={chartPhotos}>
       <div style={canvasRowStyle}>
       <main style={mainStyle}>
         {chartType === 'ancestor' && (
@@ -1645,6 +1674,9 @@ export function ChartsApp() {
             colorForPerson={colorForPerson}
             {...overlayChartProps}
           />
+        )}
+        {chartType === 'statistics' && (
+          <StatisticsChart chartCanvasRef={chartCanvasRef} theme={theme} />
         )}
         {chartType === 'lifespan' && (
           <LifespanDescendantChart
@@ -1939,6 +1971,7 @@ export function ChartsApp() {
           onReroot={rerootFromPanel}
         />
       </div>
+      </ChartContentProvider>
       </ChartSelectionProvider>
       <ChartBottomToolbar
         personBrowserOpen={personBrowserOpen}
@@ -1980,6 +2013,10 @@ export function ChartsApp() {
           onSpacingChange={setChartSpacing}
           personGroupMode={chartPersonGroupMode}
           onPersonGroupModeChange={setChartPersonGroupMode}
+          coloringMode={coloringMode}
+          onColoringModeChange={setColoringMode}
+          chartContent={chartContent}
+          onChartContentChange={setChartContent}
           localization={chartLocalization}
           onLocalizationChange={setChartLocalization}
         />

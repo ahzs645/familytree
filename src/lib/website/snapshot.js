@@ -29,6 +29,7 @@ export async function loadSnapshot() {
     rawStoryRelations,
     rawStories,
     rawStorySections,
+    rawDnaResults,
     rawAssets,
     ...mediaRows
   ] = await Promise.all([
@@ -44,6 +45,7 @@ export async function loadSnapshot() {
     db.query('StoryRelation', { limit: 100000 }),
     db.query('Story', { limit: 100000 }),
     db.query('StorySection', { limit: 100000 }),
+    db.query('DNATestResult', { limit: 100000 }),
     db.listAllAssets(),
     ...MEDIA_TYPES.map((type) => db.query(type, { limit: 100000 })),
   ]);
@@ -63,6 +65,7 @@ export async function loadSnapshot() {
     ...rawStoryRelations.records,
     ...rawStories.records,
     ...rawStorySections.records,
+    ...rawDnaResults.records,
     ...mediaRecords,
   ];
   const allRecordsById = new Map(records.map((record) => [record.recordName, record]));
@@ -80,6 +83,7 @@ export async function loadSnapshot() {
     storyRelations: rawStoryRelations.records,
     stories: rawStories.records,
     storySections: rawStorySections.records,
+    dnaResults: rawDnaResults.records,
     media: mediaRecords,
     assets: rawAssets,
     allRecordsById,

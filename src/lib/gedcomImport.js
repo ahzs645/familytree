@@ -187,6 +187,10 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
         // Cache shortcuts on the person record
         if (name === 'Birth' && date) person.fields.cached_birthDate = { value: date, type: 'STRING' };
         if (name === 'Death' && date) person.fields.cached_deathDate = { value: date, type: 'STRING' };
+        // Bare "1 DEAT Y" — deceased, no further information.
+        if (name === 'Death' && !date && String(ev.value || '').trim().toUpperCase() === 'Y') {
+          person.fields.isDeceased = { value: true, type: 'BOOLEAN' };
+        }
       }
       // Notes
       for (const n of children(top, 'NOTE')) {
@@ -216,6 +220,10 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
         const date = child(marr, 'DATE')?.value;
         const eventName = eventNameForNode(marr, 'FamilyEvent');
         if (date && eventName === 'Marriage') fam.fields.cached_marriageDate = { value: date, type: 'STRING' };
+        // Bare "1 MARR Y" — married, no further information.
+        if (!date && eventName === 'Marriage' && String(marr.value || '').trim().toUpperCase() === 'Y') {
+          fam.fields.isMarried = { value: true, type: 'BOOLEAN' };
+        }
         const eventRec = {
           recordName: uuid('fe-imp'),
           recordType: 'FamilyEvent',

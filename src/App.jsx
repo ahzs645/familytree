@@ -14,6 +14,7 @@ import { ModalProvider } from './contexts/ModalContext.jsx';
 import { LocalizationProvider, useTranslation } from './contexts/LocalizationContext.jsx';
 import Home from './routes/Home.jsx';
 import { startBackupScheduler } from './lib/backup.js';
+import { getAppPreferences, applyDocumentAppearance, APP_PREFERENCES_EVENT } from './lib/appPreferences.js';
 import { useObjectDeepLink } from './lib/deepLinks.js';
 import { getShareTokenFromHash } from './lib/shareRoute.js';
 import { SchemaMigrationSheet } from './components/SchemaMigrationSheet.jsx';
@@ -103,6 +104,15 @@ export function App() {
       window.removeEventListener('cloudtreeweb:backup-settings-changed', onSettingsChanged);
       scheduler.stop();
     };
+  }, []);
+  useEffect(() => {
+    // Apply the saved accent colour to the live theme at boot and whenever
+    // preferences change (Colors settings panel).
+    let cancelled = false;
+    getAppPreferences().then((prefs) => { if (!cancelled) applyDocumentAppearance(prefs.appearance); }).catch(() => {});
+    const onPrefs = (event) => applyDocumentAppearance(event.detail?.appearance || event.detail?.preferences?.appearance);
+    window.addEventListener(APP_PREFERENCES_EVENT, onPrefs);
+    return () => { cancelled = true; window.removeEventListener(APP_PREFERENCES_EVENT, onPrefs); };
   }, []);
   const ChartPreviewLazy = memoLazy(SHARE_PREVIEW_ROUTE.loader);
   return (

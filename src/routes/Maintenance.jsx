@@ -13,6 +13,7 @@ import {
   auditFamilyGenderMismatch,
   reformatNames,
   mediaSizeReport,
+  optimizeMedia,
 } from '../lib/maintenance.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 
@@ -68,6 +69,7 @@ export default function Maintenance() {
   const [nameField, setNameField] = useState('lastName');
   const [nameMode, setNameMode] = useState('TITLE');
   const [media, setMedia] = useState(null);
+  const [optimize, setOptimize] = useState(null);
   const [busy, setBusy] = useState(false);
 
   const wrap = (fn) => async () => {
@@ -197,6 +199,25 @@ export default function Maintenance() {
             <div className="mt-3 text-sm">
               <div>{media.count.toLocaleString()} media records</div>
               <div className="text-muted-foreground">{(media.totalBytes / 1024 / 1024).toFixed(2)} MB total (recorded sizes)</div>
+            </div>
+          )}
+        </Card>
+
+        <Card title="Optimize Media" description="Downscale oversized photos to 2048px and re-encode as JPEG to reclaim storage. Scan estimates the saving; Apply rewrites the stored images.">
+          <div className="flex gap-2">
+            <button className={btnSecondary} disabled={busy}
+              onClick={wrap(async () => setOptimize(await optimizeMedia({ dryRun: true })))}>Scan</button>
+            <button className={btnPrimary} disabled={busy || !optimize?.count}
+              onClick={wrap(async () => {
+                const result = await optimizeMedia({ dryRun: false });
+                setOptimize(result);
+                setMedia(null);
+              })}>Apply</button>
+          </div>
+          {optimize && (
+            <div className="mt-3 text-sm">
+              <div>{optimize.count.toLocaleString()} image{optimize.count === 1 ? '' : 's'} can be optimized</div>
+              <div className="text-muted-foreground">{(optimize.savedBytes / 1024 / 1024).toFixed(2)} MB reclaimable</div>
             </div>
           )}
         </Card>

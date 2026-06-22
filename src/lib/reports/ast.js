@@ -21,6 +21,7 @@ export const block = {
   }),
   pageBreak: () => ({ kind: 'pageBreak' }),
   spacer: (size = 12) => ({ kind: 'spacer', size }),
+  image: (src, caption = '') => ({ kind: 'image', src, caption }),
 };
 
 export function emptyReport(title) {

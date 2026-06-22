@@ -15,6 +15,8 @@ import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { generateId } from '../lib/ids.js';
 import { logRecordCreated } from '../lib/changeLog.js';
 import { linkExistingRelative } from '../lib/relativeLinks.js';
+import { getAppPreferences } from '../lib/appPreferences.js';
+import { refValue } from '../lib/recordRef.js';
 import { Gender } from '../models/index.js';
 
 function uuid(prefix) {
@@ -72,6 +74,24 @@ export default function NewPerson() {
         };
         await db.saveRecord(newRecord);
         await logRecordCreated(newRecord);
+
+        // Default Values: optionally pre-add the configured default event.
+        try {
+          const prefs = await getAppPreferences();
+          const defaultEvent = prefs.editControllers?.defaultEventType;
+          if (prefs.editControllers?.applyDefaultEvents && defaultEvent && defaultEvent !== 'none') {
+            const eventRecord = {
+              recordName: uuid('pe'),
+              recordType: 'PersonEvent',
+              fields: {
+                person: { value: refValue(newRecord.recordName, 'Person'), type: 'REFERENCE' },
+                conclusionType: { value: refValue(defaultEvent, 'ConclusionPersonEventType'), type: 'REFERENCE' },
+              },
+            };
+            await db.saveRecord(eventRecord);
+            await logRecordCreated(eventRecord);
+          }
+        } catch { /* default events are best-effort */ }
 
         if (anchorId) {
           const linkType = relationType(relation);

@@ -93,6 +93,49 @@ export async function lookupGeoNameId(geoNameID) {
   };
 }
 
+// Search GeoNames by free-text name and return the top match's id (or null).
+export async function searchGeoNameIdForName(name) {
+  const q = String(name || '').trim();
+  if (!q) return null;
+  const url = new URL('https://secure.geonames.org/searchJSON');
+  url.searchParams.set('q', q);
+  url.searchParams.set('maxRows', '1');
+  url.searchParams.set('username', 'demo');
+  const response = await fetch(url.toString(), { headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error(`GeoName search failed (${response.status})`);
+  const data = await response.json();
+  if (data.status?.message) throw new Error(data.status.message);
+  const row = (data.geonames || [])[0];
+  return row?.geonameId ? String(row.geonameId) : null;
+}
+
+// Tree-wide "Find GeoName IDs for Places" (#35): fills in geonameID on places
+// that don't have one yet, matched by their display name.
+export async function batchLookupMissingGeoNames({ limit = 10 } = {}) {
+  const db = getLocalDatabase();
+  const { records: places } = await db.query('Place', { limit: 100000 });
+  const changed = [];
+  for (const place of places) {
+    if (changed.length >= limit) break;
+    if (place.fields?.geonameID?.value || place.fields?.geoNameID?.value) continue;
+    const label = placeLookupLabel(place);
+    if (!label) continue;
+    let geonameId = null;
+    try { geonameId = await searchGeoNameIdForName(label); } catch { geonameId = null; }
+    if (!geonameId) continue;
+    await db.saveRecord({
+      ...place,
+      fields: {
+        ...place.fields,
+        geonameID: { value: geonameId, type: 'STRING' },
+        geoNameID: { value: geonameId, type: 'STRING' },
+      },
+    });
+    changed.push({ place: place.recordName, label, geonameId });
+  }
+  return changed;
+}
+
 export async function batchLookupMissingCoordinates({ limit = 10 } = {}) {
   const db = getLocalDatabase();
   const [places, coords] = await Promise.all([

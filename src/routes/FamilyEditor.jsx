@@ -23,12 +23,14 @@ import { AssociateRelationsEditor, MediaRelationsEditor, SourceCitationsEditor }
 import {
   FAMILY_EVENT_TYPES,
   INFLUENTIAL_PERSON_TYPES_FAMILY,
+  CHILD_RELATION_TYPES,
   LABELS,
   REFERENCE_NUMBER_FIELDS,
   formatTimestamp,
   labelForCatalogType,
 } from '../lib/catalogs.js';
 import { resolveLabelDefinitions } from '../lib/labels.js';
+import { listCustomTypes, mergeWithBuiltins } from '../lib/customTypes.js';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { confirmUnsavedChanges, useDirtyBaseline } from '../lib/editorState.js';
 import { useSaveShortcut } from '../lib/useSaveShortcut.js';
@@ -63,6 +65,11 @@ const ACCENTS = {
 
 const inputClass = formClasses.input;
 
+function writeChildRelType(fields, key, value) {
+  if (value) fields[key] = { value, type: 'STRING' };
+  else delete fields[key];
+}
+
 function Field({ label, children }) {
   return (
     <div className="flex-1 min-w-0">
@@ -90,11 +97,22 @@ export default function FamilyEditor() {
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [isMarried, setIsMarried] = useState(false);
 
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [loadSeq, setLoadSeq] = useState(0);
+  const [familyEventTypes, setFamilyEventTypes] = useState(FAMILY_EVENT_TYPES);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const custom = await listCustomTypes('event');
+      if (!cancelled) setFamilyEventTypes(mergeWithBuiltins(FAMILY_EVENT_TYPES, custom));
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -106,6 +124,7 @@ export default function FamilyEditor() {
     setMarriageDate(f.fields?.cached_marriageDate?.value || '');
     setBookmarked(!!f.fields?.isBookmarked?.value);
     setIsPrivate(!!f.fields?.isPrivate?.value);
+    setIsMarried(!!f.fields?.isMarried?.value);
 
     const refs = {};
     for (const fd of REFERENCE_NUMBER_FIELDS) refs[fd.id] = f.fields?.[fd.id]?.value ?? '';
@@ -130,6 +149,8 @@ export default function FamilyEditor() {
         childRecordName: childRef,
         summary: personSummary(c),
         order: rel.fields?.order?.value ?? 0,
+        fatherRelationType: rel.fields?.fatherRelationType?.value || '',
+        motherRelationType: rel.fields?.motherRelationType?.value || '',
       });
     }
     hydrated.sort((a, b) => a.order - b.order);
@@ -185,7 +206,7 @@ export default function FamilyEditor() {
     if (!recordName || children.some((c) => c.childRecordName === recordName)) return;
     const sum = persons.find((p) => p.recordName === recordName);
     if (!sum) return;
-    setChildren((arr) => [...arr, { childRelationName: null, childRecordName: recordName, summary: sum, order: arr.length }]);
+    setChildren((arr) => [...arr, { childRelationName: null, childRecordName: recordName, summary: sum, order: arr.length, fatherRelationType: '', motherRelationType: '' }]);
   };
 
   const onSave = useCallback(async () => {
@@ -207,6 +228,7 @@ export default function FamilyEditor() {
     else delete nextFields.cached_marriageDate;
     nextFields.isBookmarked = { value: !!bookmarked, type: 'BOOLEAN' };
     nextFields.isPrivate = { value: !!isPrivate, type: 'BOOLEAN' };
+    nextFields.isMarried = { value: !!isMarried, type: 'BOOLEAN' };
     for (const f of REFERENCE_NUMBER_FIELDS) {
       const v = refNumbers[f.id];
       if (v == null || v === '') delete nextFields[f.id];
@@ -223,19 +245,24 @@ export default function FamilyEditor() {
       const existing = existingByChild.get(c.childRecordName);
       if (existing) {
         keep.add(existing.recordName);
-        if ((existing.fields?.order?.value ?? 0) !== i) {
-          await saveWithChangeLog({ ...existing, fields: { ...existing.fields, order: { value: i, type: 'NUMBER' } } });
+        const orderChanged = (existing.fields?.order?.value ?? 0) !== i;
+        const fatherChanged = (existing.fields?.fatherRelationType?.value || '') !== (c.fatherRelationType || '');
+        const motherChanged = (existing.fields?.motherRelationType?.value || '') !== (c.motherRelationType || '');
+        if (orderChanged || fatherChanged || motherChanged) {
+          const fields = { ...existing.fields, order: { value: i, type: 'NUMBER' } };
+          writeChildRelType(fields, 'fatherRelationType', c.fatherRelationType);
+          writeChildRelType(fields, 'motherRelationType', c.motherRelationType);
+          await saveWithChangeLog({ ...existing, fields });
         }
       } else {
-        const rec = {
-          recordName: uuid('cr'),
-          recordType: 'ChildRelation',
-          fields: {
-            family: { value: refValue(id, 'Family'), type: 'REFERENCE' },
-            child: { value: refValue(c.childRecordName, 'Person'), type: 'REFERENCE' },
-            order: { value: i, type: 'NUMBER' },
-          },
+        const fields = {
+          family: { value: refValue(id, 'Family'), type: 'REFERENCE' },
+          child: { value: refValue(c.childRecordName, 'Person'), type: 'REFERENCE' },
+          order: { value: i, type: 'NUMBER' },
         };
+        writeChildRelType(fields, 'fatherRelationType', c.fatherRelationType);
+        writeChildRelType(fields, 'motherRelationType', c.motherRelationType);
+        const rec = { recordName: uuid('cr'), recordType: 'ChildRelation', fields };
         await db.saveRecord(rec);
         await logRecordCreated(rec);
         keep.add(rec.recordName);
@@ -307,7 +334,7 @@ export default function FamilyEditor() {
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
-  }, [family, manId, womanId, marriageDate, children, notes, labels, refNumbers, bookmarked, isPrivate, id, reload]);
+  }, [family, manId, womanId, marriageDate, children, notes, labels, refNumbers, bookmarked, isPrivate, isMarried, id, reload]);
 
   const editableSnapshot = useMemo(() => ({
     familyFields: family?.fields || {},
@@ -320,7 +347,8 @@ export default function FamilyEditor() {
     refNumbers,
     bookmarked,
     isPrivate,
-  }), [family, manId, womanId, marriageDate, children, notes, labels, refNumbers, bookmarked, isPrivate]);
+    isMarried,
+  }), [family, manId, womanId, marriageDate, children, notes, labels, refNumbers, bookmarked, isPrivate, isMarried]);
   const dirty = useDirtyBaseline(editableSnapshot, {
     recordKey: family?.recordName,
     reloadKey: loadSeq,
@@ -426,19 +454,39 @@ export default function FamilyEditor() {
                 ) : (
                   <div className="space-y-1.5">
                     {children.map((c, i) => (
-                      <div key={c.childRecordName} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 p-2 bg-secondary/30 rounded-md">
-                        <span className="text-xs text-muted-foreground w-6">{i + 1}.</span>
-                        <span className="text-sm min-w-0 flex items-baseline gap-2">
-                          <span className="min-w-0 truncate">
-                            <BdiText>{c.summary?.fullName || c.childRecordName}</BdiText>
+                      <div key={c.childRecordName} className="p-2 bg-secondary/30 rounded-md">
+                        <div className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2">
+                          <span className="text-xs text-muted-foreground w-6">{i + 1}.</span>
+                          <span className="text-sm min-w-0 flex items-baseline gap-2">
+                            <span className="min-w-0 truncate">
+                              <BdiText>{c.summary?.fullName || c.childRecordName}</BdiText>
+                            </span>
+                            {lifeSpanLabel(c.summary) && <LtrText as="span" className="shrink-0 text-muted-foreground text-xs">{lifeSpanLabel(c.summary)}</LtrText>}
                           </span>
-                          {lifeSpanLabel(c.summary) && <LtrText as="span" className="shrink-0 text-muted-foreground text-xs">{lifeSpanLabel(c.summary)}</LtrText>}
-                        </span>
-                        <div className="flex justify-end gap-1">
-                          <button disabled={i === 0} onClick={() => moveChild(i, -1)} className="text-xs text-muted-foreground border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 hover:bg-accent disabled:opacity-30">↑</button>
-                          <button disabled={i === children.length - 1} onClick={() => moveChild(i, 1)} className="text-xs text-muted-foreground border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 hover:bg-accent disabled:opacity-30">↓</button>
-                          <button onClick={() => guardedNavigate(`/person/${c.childRecordName}`)} className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent">edit</button>
-                          <button onClick={() => removeChild(i)} title="Stage child removal until Save changes" className="text-destructive border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 text-xs hover:bg-destructive/10 ms-1">×</button>
+                          <div className="flex justify-end gap-1">
+                            <button disabled={i === 0} onClick={() => moveChild(i, -1)} className="text-xs text-muted-foreground border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 hover:bg-accent disabled:opacity-30">↑</button>
+                            <button disabled={i === children.length - 1} onClick={() => moveChild(i, 1)} className="text-xs text-muted-foreground border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 hover:bg-accent disabled:opacity-30">↓</button>
+                            <button onClick={() => guardedNavigate(`/person/${c.childRecordName}`)} className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent">edit</button>
+                            <button onClick={() => removeChild(i)} title="Stage child removal until Save changes" className="text-destructive border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 text-xs hover:bg-destructive/10 ms-1">×</button>
+                          </div>
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 ps-8 text-[11px] text-muted-foreground">
+                          <label className="flex items-center gap-1">to father
+                            <select value={c.fatherRelationType || ''} aria-label="Relationship to father"
+                              onChange={(e) => setChildren((arr) => arr.map((x, j) => j === i ? { ...x, fatherRelationType: e.target.value } : x))}
+                              className="bg-background border border-border rounded px-1.5 py-0.5 text-xs">
+                              <option value="">Biological</option>
+                              {CHILD_RELATION_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                            </select>
+                          </label>
+                          <label className="flex items-center gap-1">to mother
+                            <select value={c.motherRelationType || ''} aria-label="Relationship to mother"
+                              onChange={(e) => setChildren((arr) => arr.map((x, j) => j === i ? { ...x, motherRelationType: e.target.value } : x))}
+                              className="bg-background border border-border rounded px-1.5 py-0.5 text-xs">
+                              <option value="">Biological</option>
+                              {CHILD_RELATION_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                            </select>
+                          </label>
                         </div>
                       </div>
                     ))}
@@ -447,7 +495,7 @@ export default function FamilyEditor() {
               </Section>
 
               <Section title="Family Events" accent={ACCENTS.events}
-                controls={<TypePicker placeholder="Add Event" options={FAMILY_EVENT_TYPES}
+                controls={<TypePicker placeholder="Add Event" options={familyEventTypes}
                   onPick={async (t) => {
                     if (isRecordLocked(family)) return;
                     const db = getLocalDatabase();
@@ -472,6 +520,10 @@ export default function FamilyEditor() {
                     placeholder="YYYY, YYYY-MM, or YYYY-MM-DD"
                   />
                 </Field>
+                <div className="mt-2">
+                  <EditSwitch label="Married (no further information)" checked={isMarried} onChange={setIsMarried} />
+                  <p className="text-[11px] text-muted-foreground mt-1">Records that the couple married even without a date — exports as <code>1 MARR Y</code>.</p>
+                </div>
                 {events.length === 0 ? (
                   <div className="mt-3">
                     <Empty title="No family events" hint="Use the menu above to add one." />
@@ -480,7 +532,7 @@ export default function FamilyEditor() {
                   <div className="mt-3 space-y-2">
                     {events.map((e) => {
                       const rawType = e.fields?.conclusionType?.value || e.fields?.eventType?.value || '';
-                      const label = labelForCatalogType(FAMILY_EVENT_TYPES, rawType, readConclusionType(e) || 'Event');
+                      const label = labelForCatalogType(familyEventTypes, rawType, readConclusionType(e) || 'Event');
                       const date = e.fields?.date?.value || '';
                       return (
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">

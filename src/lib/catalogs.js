@@ -98,6 +98,7 @@ export const PERSON_EVENT_TYPES = [
   { id: 'Emigration', label: 'Emigration' },
   { id: 'Excommunication', label: 'Excommunication' },
   { id: 'FirstCommunion', label: 'First Communion' },
+  { id: 'FosterChild', label: 'Foster Child' },
   { id: 'Education', label: 'Formal Education' },
   { id: 'Funeral', label: 'Funeral' },
   { id: 'Graduation', label: 'Graduation' },
@@ -181,6 +182,16 @@ export const PERSON_FACT_TYPES = [
   { id: 'SocialSecurityNumber', label: 'Social Security Number' },
   { id: 'TribeName', label: 'Tribe' },
   { id: 'Weight', label: 'Weight' },
+];
+
+// Child-to-parent relationship types. Source: CoreChildRelations.strings
+// (_ChildRelationType_Biological/Adopted/Step/Foster). Stored per ChildRelation
+// on fatherRelationType / motherRelationType and read by childRelationshipTypes.js.
+export const CHILD_RELATION_TYPES = [
+  { id: 'Biological', label: 'Biological' },
+  { id: 'Adopted', label: 'Adopted' },
+  { id: 'Step', label: 'Step' },
+  { id: 'Foster', label: 'Foster' },
 ];
 
 export const INFLUENTIAL_PERSON_TYPES_PERSON = [

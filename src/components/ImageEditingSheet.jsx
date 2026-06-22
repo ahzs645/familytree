@@ -17,6 +17,7 @@ export function ImageEditingSheet({ src, onApply, onCancel, title = 'Edit image'
   const [flipV, setFlipV] = useState(false);
   const [brightness, setBrightness] = useState(100);
   const [contrast, setContrast] = useState(100);
+  const [saturation, setSaturation] = useState(100);
   const [grayscale, setGrayscale] = useState(0);
   const [crop, setCrop] = useState({ x: 0, y: 0, w: 0, h: 0 });
   const [cropEnabled, setCropEnabled] = useState(false);
@@ -39,7 +40,7 @@ export function ImageEditingSheet({ src, onApply, onCancel, title = 'Edit image'
   useEffect(() => {
     if (!ready) return;
     draw();
-  }, [ready, rotation, flipH, flipV, brightness, contrast, grayscale, crop, cropEnabled]);
+  }, [ready, rotation, flipH, flipV, brightness, contrast, saturation, grayscale, crop, cropEnabled]);
 
   const draw = () => {
     const canvas = canvasRef.current;
@@ -54,7 +55,7 @@ export function ImageEditingSheet({ src, onApply, onCancel, title = 'Edit image'
     canvas.width = outW;
     canvas.height = outH;
     const ctx = canvas.getContext('2d');
-    ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) grayscale(${grayscale}%)`;
+    ctx.filter = `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturation}%) grayscale(${grayscale}%)`;
     ctx.save();
     ctx.translate(outW / 2, outH / 2);
     ctx.rotate(radians);
@@ -151,6 +152,9 @@ export function ImageEditingSheet({ src, onApply, onCancel, title = 'Edit image'
             <label className="block">Contrast: {contrast}%
               <input type="range" min={0} max={200} value={contrast} onChange={(e) => setContrast(Number(e.target.value))} className="w-full" />
             </label>
+            <label className="block">Saturation: {saturation}%
+              <input type="range" min={0} max={200} value={saturation} onChange={(e) => setSaturation(Number(e.target.value))} className="w-full" />
+            </label>
             <label className="block">Grayscale: {grayscale}%
               <input type="range" min={0} max={100} value={grayscale} onChange={(e) => setGrayscale(Number(e.target.value))} className="w-full" />
             </label>
@@ -158,7 +162,7 @@ export function ImageEditingSheet({ src, onApply, onCancel, title = 'Edit image'
             <button
               onClick={() => {
                 setRotation(0); setFlipH(false); setFlipV(false);
-                setBrightness(100); setContrast(100); setGrayscale(0);
+                setBrightness(100); setContrast(100); setSaturation(100); setGrayscale(0);
                 setCropEnabled(false);
                 if (imgRef.current) setCrop({ x: 0, y: 0, w: imgRef.current.width, h: imgRef.current.height });
               }}

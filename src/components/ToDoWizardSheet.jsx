@@ -27,8 +27,10 @@ const suggestionKey = (s) => (typeof s === 'string' ? s : s.key);
 const CREATORS = [
   { id: 'findBirthRecord', type: 'Research' },
   { id: 'findDeathRecord', type: 'Research' },
+  { id: 'findMarriageRecord', type: 'Research' },
   { id: 'identifyParents', type: 'Research' },
   { id: 'identifySpousesChildren', type: 'Research' },
+  { id: 'findSourceCitation', type: 'Source' },
   { id: 'addPortraitPhoto', type: 'Media' },
   { id: 'confirmFullName', type: 'Verify' },
 ];
@@ -49,6 +51,10 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(null);
+  // Pre-assign: priority + optional due date stamped on every ToDo this batch
+  // creates (mirrors MFT's wizard, which lets you set these before generating).
+  const [priority, setPriority] = useState('Normal');
+  const [dueDate, setDueDate] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -180,7 +186,8 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
             title: { value: title, type: 'STRING' },
             type: { value: creator.type, type: 'STRING' },
             status: { value: 'Open', type: 'STRING' },
-            priority: { value: 'Normal', type: 'STRING' },
+            priority: { value: priority, type: 'STRING' },
+            ...(dueDate ? { dueDate: { value: dueDate, type: 'STRING' } } : {}),
             description: { value: `Auto-generated from Research Assistant for ${match.fullName}.`, type: 'STRING' },
           },
         };
@@ -285,6 +292,29 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
                 <button onClick={toggleAllVisible} disabled={filtered.length === 0} className="text-xs border border-border bg-secondary rounded-md px-2 py-1.5 disabled:opacity-50">
                   {t('todosPage.wizard.toggleVisible')}
                 </button>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <label className="flex items-center gap-1.5">
+                  {t('todosPage.field.priority')}
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                    className="bg-background border border-border rounded-md px-2 py-1 text-foreground"
+                  >
+                    {['Low', 'Normal', 'High'].map((p) => (
+                      <option key={p} value={p}>{t(`todosPage.priority.${p}`, { defaultValue: p })}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-1.5">
+                  {t('todosPage.field.dueDate')}
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="bg-background border border-border rounded-md px-2 py-1 text-foreground"
+                  />
+                </label>
               </div>
             </div>
             <main className="flex-1 overflow-auto p-3 space-y-1">

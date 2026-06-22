@@ -71,7 +71,40 @@ export const AUTO_THEME = {
   name: 'Auto (follow app)',
 };
 
-export const THEMES = [AUTO_THEME, DEFAULT_THEME, LIGHT_THEME, SEPIA_THEME];
+// Additional named styles (MFT exposes a large compositor-style library; these
+// give the picker a meaningful spread of palettes rather than 4 options).
+function namedStyle(id, name, palette) {
+  return {
+    ...DEFAULT_THEME,
+    id,
+    name,
+    background: palette.background,
+    connector: palette.connector,
+    text: palette.text,
+    textMuted: palette.textMuted,
+    placeholderFill: palette.placeholderFill,
+    placeholderStroke: palette.placeholderStroke,
+    gender: {
+      0: { fill: palette.male[0], stroke: palette.male[1] },
+      1: { fill: palette.female[0], stroke: palette.female[1] },
+      2: { fill: palette.neutral[0], stroke: palette.neutral[1] },
+      3: { fill: palette.neutral[0], stroke: palette.neutral[1] },
+    },
+  };
+}
+
+export const NAMED_STYLES = [
+  namedStyle('ocean', 'Ocean', { background: '#eef6fb', connector: '#4b86a8', text: '#0e2a3a', textMuted: '#4d6b7a', placeholderFill: '#f4fafe', placeholderStroke: '#bcd6e6', male: ['#d4e8f6', '#3f78a0'], female: ['#d2f0ec', '#319287'], neutral: ['#e3eef4', '#7a98a8'] }),
+  namedStyle('forest', 'Forest', { background: '#eef6ee', connector: '#5a8a52', text: '#16301a', textMuted: '#4d6b48', placeholderFill: '#f4fbf3', placeholderStroke: '#c4ddbf', male: ['#d8ecd2', '#4f8a52'], female: ['#e6e7c5', '#8a8a32'], neutral: ['#e3efe0', '#7a987a'] }),
+  namedStyle('slate', 'Slate', { background: '#f1f3f5', connector: '#64748b', text: '#1f2733', textMuted: '#5b6675', placeholderFill: '#f8fafc', placeholderStroke: '#cbd5e1', male: ['#dbe2ea', '#566173'], female: ['#e6dde8', '#7a6688'], neutral: ['#e3e7ec', '#7e8794'] }),
+  namedStyle('rose', 'Rose', { background: '#fbeef3', connector: '#b06a86', text: '#3a1422', textMuted: '#7a4d5e', placeholderFill: '#fef4f8', placeholderStroke: '#e6bccd', male: ['#dfe0f6', '#5a5aa0'], female: ['#f6d2e1', '#a23f6c'], neutral: ['#f0e0e8', '#98778a'] }),
+  namedStyle('mono', 'Monochrome', { background: '#f4f4f5', connector: '#71717a', text: '#18181b', textMuted: '#52525b', placeholderFill: '#fafafa', placeholderStroke: '#d4d4d8', male: ['#e4e4e7', '#52525b'], female: ['#d4d4d8', '#3f3f46'], neutral: ['#dcdce0', '#71717a'] }),
+  namedStyle('midnight', 'Midnight', { background: '#0f172a', connector: '#475569', text: '#e2e8f0', textMuted: '#94a3b8', placeholderFill: '#1e293b', placeholderStroke: '#334155', male: ['#1e3a5f', '#3b82f6'], female: ['#3b1f4f', '#a855f7'], neutral: ['#293548', '#64748b'] }),
+  namedStyle('pastel', 'Pastel', { background: '#fdf6ff', connector: '#b59ad0', text: '#322041', textMuted: '#6d5a82', placeholderFill: '#fefaff', placeholderStroke: '#e3d2f0', male: ['#d6e6ff', '#7aa0d8'], female: ['#ffe0ef', '#d885ab'], neutral: ['#eee2f6', '#9a85b0'] }),
+  namedStyle('vibrant', 'Vibrant', { background: '#fff8f0', connector: '#e07a3f', text: '#2a1605', textMuted: '#7a5230', placeholderFill: '#fffcf7', placeholderStroke: '#f0d4b8', male: ['#bfe3ff', '#1f7ad8'], female: ['#ffd6c2', '#e0552a'], neutral: ['#fff0cc', '#d99a1f'] }),
+];
+
+export const THEMES = [AUTO_THEME, DEFAULT_THEME, LIGHT_THEME, SEPIA_THEME, ...NAMED_STYLES];
 
 function currentAppIsDark() {
   if (typeof document === 'undefined') return true;

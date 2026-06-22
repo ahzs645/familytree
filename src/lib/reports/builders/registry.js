@@ -13,6 +13,7 @@ import {
   buildDescendantNarrative,
   buildFamilyGroupSheet,
   buildKinshipReport,
+  buildKinshipRosterReport,
   buildNarrativeReport,
   buildPersonEventsReport,
   buildPersonSummary,
@@ -38,6 +39,7 @@ import {
 } from './storyAndMediaReports.js';
 import {
   buildMapReport,
+  buildPersonAnalysisReport,
   buildPlausibilityReport,
   buildRichStatisticsReport,
   buildStatusReport,
@@ -51,6 +53,8 @@ export const REPORT_BUILDERS = Object.freeze({
   'family-group-sheet': buildFamilyGroupSheet,
   'person-events': buildPersonEventsReport,
   'kinship': buildKinshipReport,
+  'kinship-roster': buildKinshipRosterReport,
+  'person-analysis': buildPersonAnalysisReport,
   'ahnentafel': buildAhnentafelReport,
   'ancestor-completeness': buildAncestorCompletenessReport,
   'register': buildRegisterReport,

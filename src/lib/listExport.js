@@ -1,3 +1,12 @@
+import { getActiveExportDefaults } from './appPreferences.js';
+
+const SEPARATORS = { comma: ',', semicolon: ';', tab: '\t' };
+
+function resolveSeparator(separator) {
+  const raw = separator || getActiveExportDefaults().csvSeparator || ',';
+  return SEPARATORS[raw] || raw;
+}
+
 function valueFor(row, column) {
   if (column.exportValue) return column.exportValue(row);
   if (column.sortValue) return column.sortValue(row);
@@ -5,9 +14,9 @@ function valueFor(row, column) {
   return '';
 }
 
-function escapeCsv(value) {
+function escapeCsv(value, separator = ',') {
   const text = String(value ?? '');
-  if (!/[",\n\r]/.test(text)) return text;
+  if (!text.includes('"') && !text.includes('\n') && !text.includes('\r') && !text.includes(separator)) return text;
   return `"${text.replace(/"/g, '""')}"`;
 }
 
@@ -23,13 +32,15 @@ function downloadText(filename, text, mime) {
   setTimeout(() => URL.revokeObjectURL(url), 200);
 }
 
-export function downloadRowsAsCsv(filenameBase, rows, columns) {
+export function downloadRowsAsCsv(filenameBase, rows, columns, { separator } = {}) {
   const exportable = columns.filter((column) => column.export !== false);
+  const sep = resolveSeparator(separator);
   const lines = [
-    exportable.map((column) => escapeCsv(column.label || column.key)).join(','),
-    ...rows.map((row) => exportable.map((column) => escapeCsv(valueFor(row, column))).join(',')),
+    exportable.map((column) => escapeCsv(column.label || column.key, sep)).join(sep),
+    ...rows.map((row) => exportable.map((column) => escapeCsv(valueFor(row, column), sep)).join(sep)),
   ];
-  downloadText(`${filenameBase}.csv`, lines.join('\n'), 'text/csv');
+  const isTab = sep === '\t';
+  downloadText(`${filenameBase}.${isTab ? 'tsv' : 'csv'}`, lines.join('\n'), isTab ? 'text/tab-separated-values' : 'text/csv');
 }
 
 export function downloadRowsAsJson(filenameBase, rows, columns) {

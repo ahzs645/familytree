@@ -63,6 +63,9 @@ export function pageWrap(title, body, options, fromFolder = '', author = null, p
     .map(([folder, label]) => `<a href="${attr(homeHref(`${folder}/index.html`, fromFolder))}">${esc(label)}</a>`)
     .join('');
   const privacyLink = `<a href="${attr(homeHref('privacy.html', fromFolder))}">Privacy</a>`;
+  const imprintLink = includeAuthor ? `<a href="${attr(homeHref('imprint.html', fromFolder))}">Imprint</a>` : '';
+  const statisticsLink = options.includeStatisticsPage !== false ? `<a href="${attr(homeHref('statistics.html', fromFolder))}">Statistics</a>` : '';
+  const faviconLink = options.faviconDataUrl ? `<link rel="icon" href="${attr(homeHref('favicon.png', fromFolder))}">` : '';
   return `<!doctype html>
 <html lang="${attr(options.locale)}" dir="${attr(options.direction)}">
 <head>
@@ -73,6 +76,7 @@ export function pageWrap(title, body, options, fromFolder = '', author = null, p
   ${metaAuthor}
   ${metaCopyright}
   ${canonical}
+  ${faviconLink}
   <link rel="stylesheet" href="${attr(cssHref)}">
 </head>
 <body class="theme-${attr(options.theme)}">
@@ -83,7 +87,9 @@ export function pageWrap(title, body, options, fromFolder = '', author = null, p
     </div>
     <nav>
       ${navLinks}
+      ${statisticsLink}
       ${privacyLink}
+      ${imprintLink}
     </nav>
   </header>
   <main class="container">${body}</main>
@@ -253,6 +259,31 @@ export function personSurnamePage(group, model, fromFolder = 'people/surnames') 
     <p class="muted"><a href="${attr(homeHref('people/surnames/index.html', fromFolder))}">Back to surnames</a></p>`;
 }
 
+export function imprintPage(model, options, author) {
+  // Mac reference: WebSiteExport imprint/legal page. Renders the tree-level
+  // author/contact metadata captured in Author Information.
+  const a = author || model.author || {};
+  const addressLine = [a.address1, a.address2, [a.postalCode, a.city].filter(Boolean).join(' '), a.region, a.country]
+    .filter(Boolean).join(', ');
+  const rows = [];
+  if (a.authorName) rows.push(['Author', bdi(a.authorName)]);
+  if (a.organization) rows.push(['Organization', bdi(a.organization)]);
+  if (addressLine) rows.push(['Address', bdi(addressLine)]);
+  if (a.email) { const href = mailtoUrl(a.email); rows.push(['Email', href ? `<a href="${attr(href)}">${bdi(a.email)}</a>` : bdi(a.email)]); }
+  if (a.phone) rows.push(['Phone', bdi(a.phone)]);
+  if (a.website) { const href = safeUrl(a.website); rows.push(['Website', href ? `<a href="${attr(href)}">${bdi(a.website)}</a>` : bdi(a.website)]); }
+  if (a.copyright) rows.push(['Copyright', bdi(a.copyright)]);
+  const body = rows.length
+    ? `<table><tbody>${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${v}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="muted">No author or contact information has been provided for this family tree.</p>';
+  return `<article>
+    <h1>Imprint</h1>
+    <p>Contact and responsibility information for this family tree website.</p>
+    <div class="card">${body}</div>
+    ${a.notes ? `<div class="card"><p>${bdi(a.notes)}</p></div>` : ''}
+  </article>`;
+}
+
 export function privacyPage(model, options) {
   const privatePolicy = options.includePrivate
     ? 'Records marked private may be included because this export was configured to include private records.'
@@ -371,8 +402,119 @@ export function personPage(person, model) {
     }).join('')}</div>` : ''}
     ${families.length ? `<h2>Families</h2>${families.map((family) => familyCard(family, person.recordName, model, 'people')).join('')}` : ''}
     ${events.length ? `<h2>Events</h2>${eventsTable(events, model, 'people')}` : ''}
+    ${model.options.contentSections.charts ? chartsSection(person, model) : ''}
+    ${model.options.contentSections.dna ? dnaSection(person.recordName, model) : ''}
     ${relatedSections(person.recordName, model, 'people')}
   </article>`;
+}
+
+// Ancestor pedigree (#59) + descendant hourglass (#60) rendered inline per
+// person — a self-contained SVG box chart for ancestors and a nested outline
+// for descendants, both driven by the in-memory family graph.
+function chartsSection(person, model) {
+  const pedigree = pedigreeChartSvg(person.recordName, model, 3);
+  const descendants = descendantOutline(person.recordName, model, 2, new Set());
+  if (!pedigree && !descendants) return '';
+  return `<h2>Charts</h2>
+    ${pedigree ? `<div class="card"><h3 class="muted">Ancestor pedigree</h3>${pedigree}</div>` : ''}
+    ${descendants ? `<div class="card"><h3 class="muted">Descendants (hourglass)</h3>${descendants}</div>` : ''}`;
+}
+
+function ancestorTreeNode(personRecordName, model, depth) {
+  const person = personRecordName ? model.personById.get(personRecordName) : null;
+  if (!person) return null;
+  const node = { person, father: null, mother: null };
+  if (depth > 0) {
+    const familyId = model.parentFamilyByChild.get(personRecordName);
+    const family = familyId ? model.familyById.get(familyId) : null;
+    if (family) {
+      node.father = ancestorTreeNode(readRef(family.fields?.man), model, depth - 1);
+      node.mother = ancestorTreeNode(readRef(family.fields?.woman), model, depth - 1);
+    }
+  }
+  return node;
+}
+
+function pedigreeChartSvg(personRecordName, model, generations) {
+  const root = ancestorTreeNode(personRecordName, model, generations);
+  if (!root || (!root.father && !root.mother)) return '';
+  const rowGap = 30;
+  const colGap = 168;
+  let cursor = 0;
+  let maxGen = 0;
+  const nodes = [];
+  const place = (node, gen) => {
+    if (!node) return;
+    node.gen = gen;
+    maxGen = Math.max(maxGen, gen);
+    nodes.push(node);
+    const kids = [node.father, node.mother].filter(Boolean);
+    if (kids.length === 0) {
+      node.y = cursor * rowGap + rowGap / 2;
+      cursor += 1;
+      return;
+    }
+    kids.forEach((kid) => place(kid, gen + 1));
+    node.y = kids.reduce((sum, kid) => sum + kid.y, 0) / kids.length;
+  };
+  place(root, 0);
+  const boxW = 150;
+  const boxH = 22;
+  const width = (maxGen + 1) * colGap;
+  const height = Math.max(cursor * rowGap, rowGap);
+  const parts = [];
+  for (const node of nodes) {
+    const x = node.gen * colGap;
+    for (const kid of [node.father, node.mother].filter(Boolean)) {
+      const kx = kid.gen * colGap;
+      parts.push(`<path d="M${(x + boxW).toFixed(1)},${node.y.toFixed(1)} C${(x + boxW + 24).toFixed(1)},${node.y.toFixed(1)} ${(kx - 24).toFixed(1)},${kid.y.toFixed(1)} ${kx.toFixed(1)},${kid.y.toFixed(1)}" fill="none" stroke="#9aa7b5" stroke-width="1"/>`);
+    }
+  }
+  for (const node of nodes) {
+    const x = node.gen * colGap;
+    const summary = personSummary(node.person);
+    const name = esc(summary?.fullName || node.person.recordName);
+    const span = esc(lifeSpanLabel(summary) || '');
+    parts.push(`<rect x="${x.toFixed(1)}" y="${(node.y - boxH / 2).toFixed(1)}" width="${boxW}" height="${boxH}" rx="4" fill="#ffffff" stroke="#c4cdd6"/>`);
+    parts.push(`<text x="${(x + 6).toFixed(1)}" y="${(node.y - 1).toFixed(1)}" font-family="system-ui, sans-serif" font-size="9" fill="#1f2933">${name}</text>`);
+    if (span) parts.push(`<text x="${(x + 6).toFixed(1)}" y="${(node.y + 8).toFixed(1)}" font-family="system-ui, sans-serif" font-size="7.5" fill="#74808c">${span}</text>`);
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${Math.ceil(width)}" height="${Math.ceil(height)}" viewBox="0 0 ${Math.ceil(width)} ${Math.ceil(height)}" style="max-width:100%;height:auto">${parts.join('')}</svg>`;
+}
+
+function descendantOutline(personRecordName, model, depth, seen) {
+  if (depth < 0 || seen.has(personRecordName)) return '';
+  seen.add(personRecordName);
+  const familyIds = model.familiesByPerson.get(personRecordName) || [];
+  const childIds = [];
+  for (const familyId of familyIds) {
+    for (const childId of model.childrenByFamily.get(familyId) || []) {
+      if (!childIds.includes(childId)) childIds.push(childId);
+    }
+  }
+  if (!childIds.length) return '';
+  const items = childIds.map((childId) => {
+    const child = model.personById.get(childId);
+    if (!child) return '';
+    const summary = personSummary(child);
+    const label = `${linkTo(childId, summary?.fullName || childId, model, 'people')} <span class="muted">${esc(lifeSpanLabel(summary) || '')}</span>`;
+    return `<li>${label}${descendantOutline(childId, model, depth - 1, seen)}</li>`;
+  }).filter(Boolean).join('');
+  return items ? `<ul>${items}</ul>` : '';
+}
+
+function dnaSection(personRecordName, model) {
+  const results = model.dnaResultsByPerson?.get(personRecordName) || [];
+  if (!results.length) return '';
+  const cell = (record, field) => esc(readField(record, [field], ''));
+  const rows = results.map((record) => `<tr>
+    <td>${esc(readField(record, ['testName', 'lab', 'kitNumber'], 'DNA test'))}</td>
+    <td>${cell(record, 'testType')}</td>
+    <td>${cell(record, 'lab')}</td>
+    <td>${cell(record, 'date')}</td>
+    <td>${cell(record, 'haplogroup')}</td>
+  </tr>`).join('');
+  return `<h2>DNA tests</h2><table><thead><tr><th>Test</th><th>Type</th><th>Lab</th><th>Date</th><th>Haplogroup</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 export function familyPage(family, model) {

@@ -37,6 +37,7 @@ import {
   normalizeConclusionTypeId,
 } from '../lib/catalogs.js';
 import { resolveLabelDefinitions } from '../lib/labels.js';
+import { listCustomTypes, mergeWithBuiltins } from '../lib/customTypes.js';
 import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { TypePicker } from '../components/editors/TypePicker.jsx';
@@ -141,11 +142,31 @@ export default function PersonEditor() {
   const [bookmarked, setBookmarked] = useState(false);
   const [isStartPerson, setIsStartPerson] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
+  const [isDeceased, setIsDeceased] = useState(false);
   const [outsideFamily, setOutsideFamily] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [loadSeq, setLoadSeq] = useState(0);
+  const [eventTypes, setEventTypes] = useState(PERSON_EVENT_TYPES);
+  const [factTypes, setFactTypes] = useState(PERSON_FACT_TYPES);
+  const [nameTypes, setNameTypes] = useState(ADDITIONAL_NAME_TYPES);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [ev, ft, an] = await Promise.all([
+        listCustomTypes('event'),
+        listCustomTypes('fact'),
+        listCustomTypes('additionalName'),
+      ]);
+      if (cancelled) return;
+      setEventTypes(mergeWithBuiltins(PERSON_EVENT_TYPES, ev));
+      setFactTypes(mergeWithBuiltins(PERSON_FACT_TYPES, ft));
+      setNameTypes(mergeWithBuiltins(ADDITIONAL_NAME_TYPES, an));
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const reload = useCallback(async () => {
     const db = getLocalDatabase();
@@ -160,6 +181,7 @@ export default function PersonEditor() {
     setBookmarked(!!r.fields?.isBookmarked?.value);
     setIsStartPerson(!!r.fields?.isStartPerson?.value);
     setIsPrivate(!!r.fields?.isPrivate?.value);
+    setIsDeceased(!!r.fields?.isDeceased?.value);
     setOutsideFamily(!!r.fields?.fromOutsideFamily?.value);
     setGrave({
       cemetery: r.fields?.cemetery?.value || '',
@@ -295,8 +317,9 @@ export default function PersonEditor() {
     bookmarked,
     isStartPerson,
     isPrivate,
+    isDeceased,
     outsideFamily,
-  }), [record, values, additionalNames, facts, grave, milkKinships, notes, labels, refNumbers, bookmarked, isStartPerson, isPrivate, outsideFamily]);
+  }), [record, values, additionalNames, facts, grave, milkKinships, notes, labels, refNumbers, bookmarked, isStartPerson, isPrivate, isDeceased, outsideFamily]);
   const dirty = useDirtyBaseline(editableSnapshot, {
     recordKey: record?.recordName,
     reloadKey: loadSeq,
@@ -331,6 +354,7 @@ export default function PersonEditor() {
     next.fields.isBookmarked = { value: !!bookmarked, type: 'BOOLEAN' };
     next.fields.isStartPerson = { value: !!isStartPerson, type: 'BOOLEAN' };
     next.fields.isPrivate = { value: !!isPrivate, type: 'BOOLEAN' };
+    next.fields.isDeceased = { value: !!isDeceased, type: 'BOOLEAN' };
     next.fields.fromOutsideFamily = { value: !!outsideFamily, type: 'BOOLEAN' };
     writeOptionalStringField(next, 'cemetery', grave.cemetery);
     writeOptionalStringField(next, 'cemeteryLocation', grave.cemeteryLocation);
@@ -388,7 +412,7 @@ export default function PersonEditor() {
     setStatus('Saved');
     // Baseline is re-captured by the loadSeq effect after reload() hydrates.
     setTimeout(() => setStatus(null), 1500);
-  }, [record, values, refNumbers, bookmarked, isStartPerson, isPrivate, outsideFamily, grave, additionalNames, facts, notes, milkKinships, labels, id, reload]);
+  }, [record, values, refNumbers, bookmarked, isStartPerson, isPrivate, isDeceased, outsideFamily, grave, additionalNames, facts, notes, milkKinships, labels, id, reload]);
 
   const locked = !!record && isRecordLocked(record);
   useSaveShortcut(onSave, { enabled: !saving && !locked && dirty });
@@ -504,7 +528,7 @@ export default function PersonEditor() {
               <Section
                 title="Additional Names"
                 accent={ACCENTS.additional}
-                controls={<TypePicker placeholder="Add Name" options={ADDITIONAL_NAME_TYPES}
+                controls={<TypePicker placeholder="Add Name" options={nameTypes}
                   onPick={(t) => setAdditionalNames((a) => [...a, { type: t, value: '' }])} />}
               >
                 {additionalNames.length === 0 ? (
@@ -516,7 +540,7 @@ export default function PersonEditor() {
                       onChange={(e) => setAdditionalNames((a) => a.map((x, j) => j === i ? { ...x, type: e.target.value } : x))}
                       className={inputClass() + ' max-w-[180px]'}
                     >
-                      {ADDITIONAL_NAME_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                      {nameTypes.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                     </select>
                     <input
                       value={it.value}
@@ -533,7 +557,7 @@ export default function PersonEditor() {
               <Section
                 title="Events"
                 accent={ACCENTS.events}
-                controls={<TypePicker placeholder="Add Event" options={PERSON_EVENT_TYPES}
+                controls={<TypePicker placeholder="Add Event" options={eventTypes}
                   onPick={async (t) => {
                     const db = getLocalDatabase();
                     const rec = {
@@ -555,7 +579,7 @@ export default function PersonEditor() {
                   <div className="space-y-2">
                     {events.map((e) => {
                       const rawType = e.fields?.conclusionType?.value || e.fields?.eventType?.value || '';
-                      const label = labelForCatalogType(PERSON_EVENT_TYPES, rawType, readConclusionType(e) || 'Event');
+                      const label = labelForCatalogType(eventTypes, rawType, readConclusionType(e) || 'Event');
                       const date = e.fields?.date?.value || '';
                       return (
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
@@ -578,13 +602,13 @@ export default function PersonEditor() {
               <Section
                 title="Facts"
                 accent={ACCENTS.facts}
-                controls={<TypePicker placeholder="Add Fact" options={PERSON_FACT_TYPES}
+                controls={<TypePicker placeholder="Add Fact" options={factTypes}
                   onPick={(t) => setFacts((a) => [...a, { type: t, value: '', date: '' }])} />}
               >
                 {facts.length === 0 ? (
                   <Empty title="No facts" hint="Use the menu above to add one." />
                 ) : facts.map((it, i) => {
-                  const label = labelForCatalogType(PERSON_FACT_TYPES, it.type, it.type || 'Fact');
+                  const label = labelForCatalogType(factTypes, it.type, it.type || 'Fact');
                   return (
                     <div key={it.recordName || i} className="flex flex-wrap gap-2 mb-2 items-center">
                       <span className="text-xs font-medium w-[140px] shrink-0">{label}</span>
@@ -742,6 +766,11 @@ export default function PersonEditor() {
               <Section title="Private" accent={ACCENTS.private}>
                 <EditSwitch label="Marked as Private" checked={isPrivate} onChange={setIsPrivate} />
                 <p className="text-[11px] text-muted-foreground mt-2">If selected, this person won't appear in charts or reports.</p>
+              </Section>
+
+              <Section title="Vital Status" accent={ACCENTS.grave}>
+                <EditSwitch label="Deceased (no further information)" checked={isDeceased} onChange={setIsDeceased} />
+                <p className="text-[11px] text-muted-foreground mt-2">Confirms the person has died even without a death date — keeps them out of "living person" privacy filters and exports as <code>1 DEAT Y</code>.</p>
               </Section>
 
               <Section title="Family Scope" accent={ACCENTS.outside}>

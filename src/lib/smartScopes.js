@@ -11,6 +11,7 @@ import { getLocalDatabase } from './LocalDatabase.js';
 import { matchesSearchText } from './i18n.js';
 import { refToRecordName } from './recordRef.js';
 import { FIELD_ALIASES, readField, readRef } from './schema.js';
+import { listCustomFilters, runCustomFilter } from './customScopes.js';
 
 export const BUILTIN_SCOPES = [
   {
@@ -177,6 +178,7 @@ function hasCoordValue(value) {
 }
 
 export async function runScope(scopeId) {
+  if (String(scopeId || '').startsWith('custom:')) return runCustomScope(scopeId);
   const scope = BUILTIN_SCOPES.find((s) => s.id === scopeId);
   const db = getLocalDatabase();
   if (!scope) return runImportedScope(scopeId, db);
@@ -186,14 +188,42 @@ export async function runScope(scopeId) {
   return { entityType: scope.entityType, scope, records: matched, total: matched.length };
 }
 
+function customScopeDescriptor(filter) {
+  return {
+    id: `custom:${filter.id}`,
+    entityType: filter.entityType,
+    label: filter.name || 'Custom smart filter',
+    description: 'User-authored smart filter.',
+    custom: true,
+    executable: true,
+  };
+}
+
+async function runCustomScope(scopeId) {
+  const id = String(scopeId || '').replace(/^custom:/, '');
+  const filters = await listCustomFilters();
+  const filter = filters.find((f) => f.id === id);
+  if (!filter) throw new Error('Unknown custom filter: ' + scopeId);
+  const result = await runCustomFilter(filter);
+  return {
+    entityType: filter.entityType,
+    scope: customScopeDescriptor(filter),
+    records: result.records || [],
+    total: result.total || 0,
+  };
+}
+
 export function listScopes(entityType) {
   if (!entityType) return BUILTIN_SCOPES;
   return BUILTIN_SCOPES.filter((s) => s.entityType === entityType);
 }
 
 export async function listAllScopes(entityType) {
-  const imported = await listImportedScopes(entityType);
-  return [...listScopes(entityType), ...imported];
+  const [imported, custom] = await Promise.all([
+    listImportedScopes(entityType),
+    listCustomFilters(entityType),
+  ]);
+  return [...listScopes(entityType), ...custom.map(customScopeDescriptor), ...imported];
 }
 
 export async function listImportedScopes(entityType) {

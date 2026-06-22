@@ -15,6 +15,10 @@ export default function EditControllersPanel() {
         <Field label={t('settingsPage.editControllers.defaultFact')}>
           <input type="text" value={prefs.editControllers?.defaultFactType || 'Occupation'} onChange={(event) => update('editControllers', 'defaultFactType', event.target.value)} className={inputClass} />
         </Field>
+        <Field label={t('settingsPage.editControllers.defaultFamilyEvent')}>
+          <input type="text" value={prefs.editControllers?.defaultFamilyEventType || 'Marriage'} onChange={(event) => update('editControllers', 'defaultFamilyEventType', event.target.value)} className={inputClass} />
+        </Field>
+        <Switch label={t('settingsPage.editControllers.applyDefaultEvents')} checked={!!prefs.editControllers?.applyDefaultEvents} onChange={(value) => update('editControllers', 'applyDefaultEvents', value)} />
       </Grid>
     </Panel>
   );

@@ -131,9 +131,29 @@ function removeHeatLayer(map) {
 }
 
 function removeConnectionLayer(map) {
+  stopConnectionAnimation(map);
   if (map.getLayer(CONNECTION_ARROW_LAYER_ID)) map.removeLayer(CONNECTION_ARROW_LAYER_ID);
   if (map.getLayer(CONNECTION_LAYER_ID)) map.removeLayer(CONNECTION_LAYER_ID);
   if (map.getSource(CONNECTION_SOURCE_ID)) map.removeSource(CONNECTION_SOURCE_ID);
+}
+
+// "Animate Connections" — marching-ants effect by cycling the line-dasharray.
+const DASH_SEQUENCE = [
+  [0, 4, 3], [0.5, 4, 2.5], [1, 4, 2], [1.5, 4, 1.5], [2, 4, 1], [2.5, 4, 0.5], [3, 4, 0],
+];
+function startConnectionAnimation(map) {
+  stopConnectionAnimation(map);
+  let i = 0;
+  const tick = () => {
+    if (!map.getLayer(CONNECTION_LAYER_ID)) { map.__ctwConnAnim = null; return; }
+    i = (i + 1) % DASH_SEQUENCE.length;
+    try { map.setPaintProperty(CONNECTION_LAYER_ID, 'line-dasharray', DASH_SEQUENCE[i]); } catch { /* layer gone */ }
+    map.__ctwConnAnim = setTimeout(tick, 80);
+  };
+  map.__ctwConnAnim = setTimeout(tick, 80);
+}
+function stopConnectionAnimation(map) {
+  if (map.__ctwConnAnim) { clearTimeout(map.__ctwConnAnim); map.__ctwConnAnim = null; }
 }
 
 function removeSunLayer(map) {
@@ -381,6 +401,7 @@ function addConnectionLayer(map, data, options = {}) {
       },
     });
   }
+  if (options.animate && pattern !== 'blobs') startConnectionAnimation(map);
 }
 
 export function Map({

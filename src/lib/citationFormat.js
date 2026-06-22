@@ -78,14 +78,43 @@ function fieldValue(source, key) {
   }
 }
 
-function applyFont(value, key, fontMode) {
+function applyFont(value, isTitle, fontMode) {
   if (!value) return '';
-  if (key !== 'title') return value;
+  if (!isTitle) return value;
   switch (fontMode) {
     case FONT_MODE.ITALIC: return `*${value}*`;
     case FONT_MODE.SMALL_CAPS: return value.toUpperCase();
     default: return value;
   }
+}
+
+/**
+ * Build a citation config from a source's resolved SourceTemplateKeyRelation
+ * set so `formatCitation` honors the user's per-key order, enable, and
+ * title-component choices (MFT longCitationOrder / shortCitationOrder /
+ * isTitleComponent).
+ *
+ * keyRelations: [{ templateKey, longCitationOrder, shortCitationOrder, isTitleComponent }]
+ * values:       map of templateKey -> resolved string value (from SourceKeyValue).
+ * Returns null when the template carries no usable ordering, so callers fall
+ * back to the hardcoded record-field defaults.
+ */
+export function buildCitationConfigFromTemplate(keyRelations, mode = CITATION_MODE.NORMAL, values = {}) {
+  const orderField = mode === CITATION_MODE.LONG ? 'longCitationOrder' : 'shortCitationOrder';
+  const base = mode === CITATION_MODE.LONG ? DEFAULT_LONG_CITATION : DEFAULT_NORMAL_CITATION;
+  const usable = (keyRelations || []).filter((rel) => rel?.templateKey && Number.isFinite(Number(rel[orderField])) && Number(rel[orderField]) >= 0);
+  if (usable.length === 0) return null;
+  usable.sort((a, b) => Number(a[orderField]) - Number(b[orderField]));
+  const titleRel = usable.find((rel) => rel.isTitleComponent);
+  return {
+    enabled: true,
+    order: usable.map((rel) => rel.templateKey),
+    titleKey: titleRel?.templateKey || null,
+    values,
+    bracketMode: base.bracketMode,
+    fontMode: base.fontMode,
+    trailingMode: base.trailingMode,
+  };
 }
 
 function bracket(value, mode) {
@@ -115,11 +144,15 @@ function trail(value, mode) {
 export function formatCitation(source, mode = CITATION_MODE.NORMAL, config) {
   const cfg = config || (mode === CITATION_MODE.LONG ? DEFAULT_LONG_CITATION : DEFAULT_NORMAL_CITATION);
   if (!cfg.enabled) return '';
+  // Template-driven config supplies a `values` map keyed by templateKey and a
+  // `titleKey`; otherwise fall back to resolving from the source record's fields.
+  const fromTemplate = cfg.values && typeof cfg.values === 'object';
   const parts = [];
   for (const key of cfg.order || []) {
-    const raw = fieldValue(source, key);
+    const raw = fromTemplate ? cfg.values[key] : fieldValue(source, key);
     if (!raw) continue;
-    parts.push(applyFont(raw, key, cfg.fontMode));
+    const isTitle = fromTemplate ? key === cfg.titleKey : key === 'title';
+    parts.push(applyFont(String(raw), isTitle, cfg.fontMode));
   }
   if (parts.length === 0) return '';
   const joined = parts.join(mode === CITATION_MODE.LONG ? '. ' : ', ');

@@ -139,6 +139,22 @@ export default function Sources() {
 
   useEffect(() => { reload(); }, [reload]);
 
+  const onCreate = useCallback(async () => {
+    const db = getLocalDatabase();
+    const record = {
+      recordName: uuid('src'),
+      recordType: 'Source',
+      fields: {
+        title: { value: 'New Source', type: 'STRING' },
+        cached_title: { value: 'New Source', type: 'STRING' },
+      },
+    };
+    await db.saveRecord(record);
+    await logRecordCreated(record);
+    await reload();
+    setActiveId(record.recordName);
+  }, [reload]);
+
   const sourceIds = useMemo(() => sources.map((record) => record.recordName), [sources]);
   const selection = useListSelection(sourceIds);
 
@@ -477,32 +493,44 @@ export default function Sources() {
     <div className="p-10 text-muted-foreground">No source selected.</div>
   );
 
-  if (sources.length === 0) {
-    return <div className="p-10 text-muted-foreground">No sources in this tree yet.</div>;
-  }
-
   return (
     <EditorSectionNavProvider>
-      <MasterDetailList
-        items={sources}
-        activeId={activeId}
-        onPick={setActiveId}
-        renderRow={renderRow}
-        placeholder="Search sources…"
-        detail={detail}
-        detailHeader={detailHeader}
-        selection={selection}
-        bulkBar={(
-          <RecordBulkBar
-            selection={selection}
-            recordType="Source"
-            onDeleted={async (ids) => {
-              if (ids.includes(activeId)) setActiveId(null);
-              await reload();
-            }}
-          />
-        )}
-      />
+      <div className="flex flex-col h-full">
+        <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
+          <h1 className="text-base font-semibold">Sources</h1>
+          <span className="text-xs text-muted-foreground">{sources.length}</span>
+          <button onClick={onCreate} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New Source</button>
+        </header>
+        <div className="flex-1 min-h-0">
+          {sources.length === 0 ? (
+            <div className="p-10 text-center text-muted-foreground">
+              <div className="text-sm text-foreground mb-2">No sources in this tree yet.</div>
+              <button onClick={onCreate} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold">Add First Source</button>
+            </div>
+          ) : (
+            <MasterDetailList
+              items={sources}
+              activeId={activeId}
+              onPick={setActiveId}
+              renderRow={renderRow}
+              placeholder="Search sources…"
+              detail={detail}
+              detailHeader={detailHeader}
+              selection={selection}
+              bulkBar={(
+                <RecordBulkBar
+                  selection={selection}
+                  recordType="Source"
+                  onDeleted={async (ids) => {
+                    if (ids.includes(activeId)) setActiveId(null);
+                    await reload();
+                  }}
+                />
+              )}
+            />
+          )}
+        </div>
+      </div>
     </EditorSectionNavProvider>
   );
 }

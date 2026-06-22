@@ -13,7 +13,7 @@ import { SettingsProvider, useSettings } from '../components/settings/SettingsCo
 import { primaryButton, secondaryButton } from '../components/settings/sharedUI.jsx';
 
 const TAB_IDS = [
-  'general', 'formats', 'arabic-islamic', 'tree-layout', 'maps', 'media',
+  'general', 'formats', 'colors', 'arabic-islamic', 'tree-layout', 'maps', 'media',
   'pdf', 'history', 'content-download', 'edit-controllers', 'categories',
   'export', 'privacy', 'plausibility', 'integrations', 'functions',
 ];

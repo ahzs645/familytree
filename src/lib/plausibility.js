@@ -26,6 +26,8 @@ export const PLAUSIBILITY_ANALYZERS = Object.freeze([
   { id: 'parent-too-young', label: 'Parent under age N', defaultEnabled: true, threshold: 'minParentAge' },
   { id: 'parent-too-old', label: 'Parent over age N', defaultEnabled: true, threshold: 'maxParentAge' },
   { id: 'child-after-parent-death', label: 'Child born after parent death', defaultEnabled: true },
+  { id: 'event-outside-lifespan', label: 'Event before birth / after death', defaultEnabled: true },
+  { id: 'birth-order-mismatch', label: 'Children birth order vs dates', defaultEnabled: true },
 ]);
 
 export const DEFAULT_PLAUSIBILITY_CONFIG = Object.freeze({
@@ -37,6 +39,8 @@ export const DEFAULT_PLAUSIBILITY_CONFIG = Object.freeze({
     'parent-too-young': true,
     'parent-too-old': true,
     'child-after-parent-death': true,
+    'event-outside-lifespan': true,
+    'birth-order-mismatch': true,
   },
   thresholds: {
     maxLifespan: 120,
@@ -60,8 +64,19 @@ export async function runPlausibilityChecks(config) {
   const persons = (await db.query('Person', { limit: 100000 })).records;
   const families = (await db.query('Family', { limit: 100000 })).records;
   const childRels = (await db.query('ChildRelation', { limit: 100000 })).records;
+  const needEvents = enabled['event-outside-lifespan'];
+  const personEvents = needEvents ? (await db.query('PersonEvent', { limit: 100000 })).records : [];
 
   const personById = new Map(persons.map((p) => [p.recordName, p]));
+  const eventsByPerson = new Map();
+  if (needEvents) {
+    for (const ev of personEvents) {
+      const pid = refToRecordName(ev.fields?.person?.value);
+      if (!pid) continue;
+      if (!eventsByPerson.has(pid)) eventsByPerson.set(pid, []);
+      eventsByPerson.get(pid).push(ev);
+    }
+  }
   const warnings = [];
 
   for (const p of persons) {
@@ -77,6 +92,17 @@ export async function runPlausibilityChecks(config) {
     }
     if (enabled['birth-year-suspicious'] && by && by < 1000) {
       warnings.push(rule('birth-year-suspicious', 'low', p, `${sum.fullName}: birth year ${by} is suspiciously early`));
+    }
+    if (needEvents && (by || dy)) {
+      for (const ev of eventsByPerson.get(p.recordName) || []) {
+        const ey = yearOf(ev.fields?.date?.value);
+        if (!ey) continue;
+        if (by && ey < by - 1) {
+          warnings.push(rule('event-outside-lifespan', 'medium', p, `${sum.fullName}: an event dated ${ey} is before birth (${by})`));
+        } else if (dy && ey > dy + 1) {
+          warnings.push(rule('event-outside-lifespan', 'medium', p, `${sum.fullName}: an event dated ${ey} is after death (${dy})`));
+        }
+      }
     }
   }
 
@@ -98,6 +124,21 @@ export async function runPlausibilityChecks(config) {
     }
 
     const rels = childRels.filter((r) => refToRecordName(r.fields?.family?.value) === fam.recordName);
+
+    if (enabled['birth-order-mismatch'] && rels.length > 1) {
+      const ordered = rels
+        .map((r) => ({ order: r.fields?.order?.value ?? 0, child: personById.get(refToRecordName(r.fields?.child?.value)) }))
+        .filter((entry) => entry.child)
+        .sort((a, b) => a.order - b.order);
+      for (let i = 1; i < ordered.length; i++) {
+        const prevY = yearOf(ordered[i - 1].child.fields?.cached_birthDate?.value);
+        const curY = yearOf(ordered[i].child.fields?.cached_birthDate?.value);
+        if (prevY && curY && curY < prevY) {
+          warnings.push(rule('birth-order-mismatch', 'low', ordered[i].child, `${personSummary(ordered[i].child).fullName}: listed after a sibling born later (${prevY} → ${curY})`));
+        }
+      }
+    }
+
     for (const rel of rels) {
       const childId = refToRecordName(rel.fields?.child?.value);
       const child = personById.get(childId);

@@ -6,7 +6,7 @@
  */
 import { buildAncestorTree, buildDescendantTree } from '../../treeQuery.js';
 import { buildPersonContext } from '../../personContext.js';
-import { computeKinshipCoefficient, findRelationshipPath } from '../../relationshipPath.js';
+import { computeKinshipCoefficient, findRelationshipPath, collectRelatives, relationshipLabel } from '../../relationshipPath.js';
 import { computeAncestorCompleteness, loadGenealogyMetricRecords } from '../../genealogyMetrics.js';
 import { sosaFather, sosaGeneration, sosaMother, sosaRelation } from '../../sosa.js';
 import { describeBirth, describeDeath, describeMarriage } from '../narrativeTemplates.js';
@@ -25,6 +25,8 @@ import {
   parentFamilyContextLabel,
   pathEdgeLabel,
   personSummary,
+  placeSummary,
+  readRef,
   relationNameAt,
   spanAnnotated,
   spouseFamilyContextLabel,
@@ -33,9 +35,12 @@ import {
 /**
  * PERSON SUMMARY — name, life dates, parents, partners, children, events table.
  */
-export async function buildPersonSummary(recordName) {
+export async function buildPersonSummary(recordName, options = {}) {
   const ctx = await buildPersonContext(recordName);
   if (!ctx) return emptyReport('Person not found');
+  const showParents = options.showParents !== false;
+  const showFamilies = options.showFamilies !== false;
+  const showEvents = options.showEvents !== false;
   const self = ctx.selfSummary;
   const report = emptyReport(`Person Summary — ${nameOf(self)}`);
 
@@ -49,7 +54,7 @@ export async function buildPersonSummary(recordName) {
   vitals.push(`Gender: ${genderLabel(self.gender)}`);
   if (vitals.length > 0) report.blocks.push(block.list(vitals));
 
-  if (ctx.parents.length > 0) {
+  if (showParents && ctx.parents.length > 0) {
     report.blocks.push(block.title('Parents', 2));
     const items = [];
     for (const fam of ctx.parents) {
@@ -59,7 +64,7 @@ export async function buildPersonSummary(recordName) {
     report.blocks.push(block.list(items));
   }
 
-  if (ctx.families.length > 0) {
+  if (showFamilies && ctx.families.length > 0) {
     report.blocks.push(block.title('Families', 2));
     for (const fam of ctx.families) {
       report.blocks.push(block.title(`With ${nameOf(fam.partner)} ${spanAnnotated(fam.partner)}`.trim(), 3));
@@ -71,7 +76,7 @@ export async function buildPersonSummary(recordName) {
     }
   }
 
-  if (ctx.events.length > 0) {
+  if (showEvents && ctx.events.length > 0) {
     report.blocks.push(block.title('Events', 2));
     report.blocks.push(
       block.table(
@@ -157,7 +162,7 @@ export async function buildFamilyGroupSheet(recordName) {
 /**
  * PERSON EVENTS — direct person events plus family events from parent/spouse families.
  */
-export async function buildPersonEventsReport(recordName) {
+export async function buildPersonEventsReport(recordName, options = {}) {
   const ctx = await buildPersonContext(recordName);
   if (!ctx) return emptyReport('Person not found');
 
@@ -171,12 +176,15 @@ export async function buildPersonEventsReport(recordName) {
     rows.push(await eventReportRow(db, event, 'Personal event'));
   }
 
+  const includeFamilyEvents = options.includeFamilyEvents !== false;
   const familyContexts = new Map();
-  for (const family of ctx.parents) {
-    addFamilyContext(familyContexts, family.family?.recordName, parentFamilyContextLabel(family));
-  }
-  for (const family of ctx.families) {
-    addFamilyContext(familyContexts, family.family?.recordName, spouseFamilyContextLabel(family));
+  if (includeFamilyEvents) {
+    for (const family of ctx.parents) {
+      addFamilyContext(familyContexts, family.family?.recordName, parentFamilyContextLabel(family));
+    }
+    for (const family of ctx.families) {
+      addFamilyContext(familyContexts, family.family?.recordName, spouseFamilyContextLabel(family));
+    }
   }
 
   for (const [familyId, context] of familyContexts.entries()) {
@@ -209,6 +217,33 @@ export async function buildPersonEventsReport(recordName) {
 /**
  * KINSHIP REPORT — shortest relationship path between two people.
  */
+/**
+ * KINSHIP ROSTER — every known relative of a single root person, labelled.
+ * Mirrors MFT's KinshipReport (single-root relatives roster).
+ */
+export async function buildKinshipRosterReport(recordName, options = {}) {
+  const db = getLocalDatabase();
+  const root = recordName ? await db.getRecord(recordName) : null;
+  if (!root) return emptyReport('Person not found');
+  const rootName = nameOf(personSummary(root));
+  const relatives = await collectRelatives(recordName, { maxDepth: options.maxDepth || 12 });
+  const rows = relatives
+    .map((entry) => ({
+      name: nameOf(entry.person),
+      relation: relationshipLabel(entry.steps),
+      span: lifeSpanLabel(entry.person),
+      depth: entry.steps.length - 1,
+    }))
+    .filter((row) => row.relation && row.relation !== 'Same person')
+    .sort((a, b) => a.depth - b.depth || compareStrings(a.relation, b.relation) || compareStrings(a.name, b.name))
+    .map((row) => [row.name, row.relation, row.span]);
+  const report = emptyReport(`Kinship Roster — ${rootName}`);
+  report.blocks.push(block.title(report.title, 1));
+  report.blocks.push(block.paragraph(`${formatInteger(rows.length)} relatives of ${rootName}`));
+  report.blocks.push(block.table(['Person', 'Relationship', 'Life Span'], rows));
+  return report;
+}
+
 export async function buildKinshipReport(recordA, recordB) {
   const db = getLocalDatabase();
   const [personA, personB] = await Promise.all([
@@ -372,21 +407,48 @@ export async function buildRegisterReport(recordName, generations = 4) {
   return report;
 }
 
-export async function buildDescendancyReport(recordName, generations = 5) {
+export async function buildDescendancyReport(recordName, generations = 5, options = {}) {
   const tree = await buildDescendantTree(recordName, generations);
   if (!tree) return emptyReport('Person not found');
+  const showDates = options.showDates !== false;
+  const showPlaces = !!options.showPlaces;
+
+  const birthPlaceByPerson = new Map();
+  if (showPlaces) {
+    const db = getLocalDatabase();
+    const [{ records: persons }, { records: places }] = await Promise.all([
+      db.query('Person', { limit: 100000 }),
+      db.query('Place', { limit: 100000 }),
+    ]);
+    const placeName = new Map(places.map((place) => [place.recordName, placeSummary(place)?.displayName || placeSummary(place)?.name || '']));
+    for (const person of persons) {
+      const ref = readRef(person.fields?.birthPlace);
+      if (ref) birthPlaceByPerson.set(person.recordName, placeName.get(ref) || '');
+    }
+  }
+
   const rows = [];
   function visit(node, gen, parent = '') {
     if (!node?.person || gen > generations) return;
-    rows.push([String(gen + 1), nameOf(node.person), node.person.birthDate || '', node.person.deathDate || '', parent]);
+    const row = [String(gen + 1), nameOf(node.person)];
+    if (showDates) row.push(node.person.birthDate || '', node.person.deathDate || '');
+    if (showPlaces) row.push(birthPlaceByPerson.get(node.person.recordName) || '');
+    row.push(parent);
+    rows.push(row);
     for (const union of node.unions || []) {
       for (const child of union.children || []) visit(child, gen + 1, nameOf(node.person));
     }
   }
   visit(tree, 0);
+
+  const columns = ['Generation', 'Name'];
+  if (showDates) columns.push('Born', 'Died');
+  if (showPlaces) columns.push('Birth Place');
+  columns.push('Parent');
+
   const report = emptyReport(`Descendancy Report — ${nameOf(tree.person)}`);
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.table(['Generation', 'Name', 'Born', 'Died', 'Parent'], rows));
+  report.blocks.push(block.table(columns, rows));
   return report;
 }
 

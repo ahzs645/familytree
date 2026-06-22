@@ -16,9 +16,11 @@
  */
 import JSZip from 'jszip';
 import { formatInteger } from './i18n.js';
+import { buildGedcom } from './gedcomExport.js';
+import { runScope } from './smartScopes.js';
 import { DEFAULT_SITE_OPTIONS, SITE_THEME_PRESETS } from './websiteOptions.js';
 import { personSummary } from '../models/index.js';
-import { checkCanceled, normalizeOptions, progress } from './website/utilities.js';
+import { checkCanceled, esc, normalizeOptions, progress } from './website/utilities.js';
 import { loadSnapshot, validateSnapshot, validateSiteExport } from './website/snapshot.js';
 import { buildPublishModel } from './website/buildModel.js';
 import {
@@ -34,6 +36,7 @@ import {
   entityIndexPage,
   familyPage,
   homePage,
+  imprintPage,
   mediaPage,
   pageWrap,
   personPage,
@@ -65,6 +68,20 @@ export async function buildSite(options = {}) {
     throw new Error(validation.errors.join(' '));
   }
 
+  // "Persons to include" scope (#13): resolve the chosen smart filter to a
+  // person-id set the model build can restrict to.
+  if (normalized.exportPersonsMode === 'smartFilter' && normalized.exportScopeId) {
+    try {
+      const result = await runScope(normalized.exportScopeId);
+      if (result?.entityType === 'Person') {
+        normalized.exportPersonIds = new Set((result.records || []).map((record) => record.recordName));
+      }
+    } catch {
+      // Fall back to publishing everyone if the scope can't be resolved.
+    }
+  }
+  checkCanceled(signal);
+
   const model = buildPublishModel(snapshot, normalized);
   model.author = author;
   const zip = new JSZip();
@@ -72,9 +89,32 @@ export async function buildSite(options = {}) {
   zip.file('assets/site.css', css);
   zip.file('robots.txt', robotsTxt(normalized));
 
+  // Downloadable GEDCOM of the published tree (private records always excluded;
+  // living-person filtering mirrors the site privacy options). Best-effort:
+  // a GEDCOM failure must not abort the whole website export.
+  let gedcomText = null;
+  try {
+    gedcomText = await buildGedcom({
+      hideLiving: normalized.hideLiving,
+      hideLivingDetailsOnly: normalized.hideLivingDetailsOnly,
+      livingThresholdYears: normalized.livingThresholdYears,
+    });
+  } catch {
+    gedcomText = null;
+  }
+  checkCanceled(signal);
+
+  // Optional favicon (#89) bundled from a data URL.
+  if (normalized.faviconDataUrl) {
+    const b64 = String(normalized.faviconDataUrl).split(',')[1];
+    if (b64) zip.file('favicon.png', b64, { base64: true });
+  }
+
   const enabledSections = SITE_SECTIONS.filter(([key]) => normalized.contentSections[key]);
   const surnamePageCount = normalized.contentSections.people ? 1 + model.personSurnameGroups.length : 0;
-  const totalPages = 2 + surnamePageCount + enabledSections.reduce((total, [, , modelKey]) => total + 1 + model[modelKey].length, 0);
+  const imprintPageCount = normalized.contentSections.author ? 1 : 0;
+  const statisticsPageCount = normalized.includeStatisticsPage ? 1 : 0;
+  const totalPages = 2 + imprintPageCount + statisticsPageCount + surnamePageCount + enabledSections.reduce((total, [, , modelKey]) => total + 1 + model[modelKey].length, 0);
   let completed = 0;
   const pagePaths = [];
   const markPage = (message) => {
@@ -87,10 +127,24 @@ export async function buildSite(options = {}) {
   };
 
   progress(onProgress, { phase: 'pages', completed, total: totalPages, message: 'Writing index pages...' });
-  writePage('index.html', 'Home', homePage(model, normalized), '');
+  const homeImageBlock = normalized.homeImageDataUrl
+    ? `<p><img src="${esc(normalized.homeImageDataUrl)}" alt="" style="max-width:100%;border-radius:8px;border:1px solid var(--border)"></p>`
+    : '';
+  const downloadsBlock = gedcomText
+    ? '<section><h2>Downloads</h2><p class="muted"><a href="tree.ged" download>Download this family tree (GEDCOM)</a></p></section>'
+    : '';
+  writePage('index.html', 'Home', homeImageBlock + homePage(model, normalized) + downloadsBlock, '');
   markPage('Wrote home page.');
   writePage('privacy.html', 'Privacy', privacyPage(model, normalized), '');
   markPage('Wrote privacy page.');
+  if (normalized.includeStatisticsPage) {
+    writePage('statistics.html', 'Statistics', statisticsPageHtml(model), '');
+    markPage('Wrote statistics page.');
+  }
+  if (normalized.contentSections.author) {
+    writePage('imprint.html', 'Imprint', imprintPage(model, normalized, author), '');
+    markPage('Wrote imprint page.');
+  }
   for (const [folder, title, modelKey, renderer] of enabledSections) {
     checkCanceled(signal);
     const records = model[modelKey];
@@ -146,6 +200,7 @@ export async function buildSite(options = {}) {
 
   const sitemap = sitemapXml(pagePaths, normalized);
   if (sitemap) zip.file('sitemap.xml', sitemap);
+  if (gedcomText) zip.file('tree.ged', gedcomText);
 
   let assetCount = 0;
   if (normalized.includeAssets) {
@@ -188,6 +243,46 @@ export async function buildSite(options = {}) {
   };
   progress(onProgress, { phase: 'complete', completed: totalPages, total: totalPages, message: 'Website export complete.', stats });
   return { blob, stats, validation, options: normalized };
+}
+
+function yearFromValue(value) {
+  const match = String(value || '').match(/-?\d{4}/);
+  return match ? parseInt(match[0], 10) : null;
+}
+
+function statisticsPageHtml(model) {
+  const persons = model.persons || [];
+  const lifespans = [];
+  for (const person of persons) {
+    const by = yearFromValue(person.fields?.cached_birthDate?.value);
+    const dy = yearFromValue(person.fields?.cached_deathDate?.value);
+    if (by && dy && dy >= by) lifespans.push(dy - by);
+  }
+  const avgLifespan = lifespans.length ? Math.round(lifespans.reduce((a, b) => a + b, 0) / lifespans.length) : null;
+  const withBirth = persons.filter((p) => p.fields?.cached_birthDate?.value).length;
+  const counts = [
+    ['People', persons.length],
+    ['Families', (model.families || []).length],
+    ['Places', (model.places || []).length],
+    ['Sources', (model.sources || []).length],
+    ['Media', (model.media || []).length],
+    ['Stories', (model.stories || []).length],
+  ];
+  const surnameRows = (model.personSurnameGroups || [])
+    .map((g) => [g.surname || '—', (g.persons?.length ?? g.count ?? 0)])
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15);
+  const statBlock = counts.map(([k, v]) => `<div class="stat"><strong>${esc(String(v))}</strong>${esc(k)}</div>`).join('');
+  return `<article>
+    <h1>Statistics</h1>
+    <div class="stats">${statBlock}</div>
+    <h2>Vital records</h2>
+    <table><tbody>
+      <tr><th>Average lifespan</th><td>${avgLifespan == null ? '—' : esc(`${avgLifespan} years`)}</td></tr>
+      <tr><th>People with a birth date</th><td>${esc(String(withBirth))} of ${esc(String(persons.length))}</td></tr>
+    </tbody></table>
+    ${surnameRows.length ? `<h2>Most common surnames</h2><table><thead><tr><th>Surname</th><th>People</th></tr></thead><tbody>${surnameRows.map(([s, c]) => `<tr><td>${esc(String(s))}</td><td>${esc(String(c))}</td></tr>`).join('')}</tbody></table>` : ''}
+  </article>`;
 }
 
 export async function downloadSite(options = {}) {

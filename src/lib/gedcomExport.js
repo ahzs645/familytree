@@ -3,8 +3,10 @@
  * Subset focus: INDI / FAM / EVENT / PLAC / SOUR / NOTE.
  */
 import { getAppDataClient } from './data/index.js';
+import { getLocalDatabase } from './LocalDatabase.js';
 import { refToRecordName } from './recordRef.js';
 import { isPublicRecord, isLiving, maskLivingDetails, DEFAULT_PRIVACY_POLICY } from './privacy.js';
+import { getActivePrivacyPolicy } from './appPreferences.js';
 import { getAuthorInfo } from './authorInfo.js';
 import { Gender } from '../models/index.js';
 import { affiliationLevelLabel, affiliationName, factAffiliationInfo } from './tribalAffiliations.js';
@@ -101,6 +103,105 @@ function eventTag(conclusion) {
   return EVENT_TAG[conclusion] || FAMILY_EVENT_TAG[conclusion] || 'EVEN';
 }
 
+const MIME_EXTENSIONS = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/tiff': 'tif',
+  'image/bmp': 'bmp',
+};
+
+function gedcomFormFromMime(mimeType, filename) {
+  const fromMime = MIME_EXTENSIONS[String(mimeType || '').toLowerCase()];
+  if (fromMime) return fromMime;
+  const ext = String(filename || '').split('.').pop();
+  return ext && ext.length <= 4 ? ext.toLowerCase() : 'jpg';
+}
+
+/**
+ * Resolve attached MediaPicture records into a media plan for GEDCOM OBJE
+ * export (#18). For each public Person/Family record we follow
+ * MediaRelation → MediaPicture → stored asset, assign a stable OBJE xref, and
+ * record the binary so a GedZip bundle can carry the files alongside the .ged.
+ *
+ * Returns { byRecord: Map(recordName -> [{xref, path, form, title}]),
+ *           objects: [{xref, path, form, title}], files: [{path, dataBase64, mimeType}] }.
+ */
+async function collectGedcomMedia(allowedRecordNames) {
+  const empty = { byRecord: new Map(), objects: [], files: [] };
+  let db;
+  try {
+    db = getLocalDatabase();
+  } catch {
+    return empty;
+  }
+  if (!db || typeof db.query !== 'function') return empty;
+
+  let rels;
+  let pictures;
+  try {
+    [rels, pictures] = await Promise.all([
+      db.query('MediaRelation', { limit: 100000 }),
+      db.query('MediaPicture', { limit: 100000 }),
+    ]);
+  } catch {
+    return empty;
+  }
+  const pictureById = new Map((pictures?.records || []).map((p) => [p.recordName, p]));
+
+  // Gather, per allowed record, the distinct pictures attached to it (order preserved).
+  const picturesForRecord = new Map();
+  for (const rel of rels?.records || []) {
+    const target = refToRecordName(rel.fields?.target?.value);
+    if (!target || !allowedRecordNames.has(target)) continue;
+    const picture = pictureById.get(refToRecordName(rel.fields?.media?.value));
+    if (!picture) continue;
+    if (!picturesForRecord.has(target)) picturesForRecord.set(target, []);
+    const list = picturesForRecord.get(target);
+    if (!list.some((p) => p.recordName === picture.recordName)) list.push(picture);
+  }
+  if (picturesForRecord.size === 0) return empty;
+
+  const objects = [];
+  const files = [];
+  const xrefByPicture = new Map();
+  const byRecord = new Map();
+  let counter = 0;
+
+  for (const [recordName, list] of picturesForRecord) {
+    const entries = [];
+    for (const picture of list) {
+      let plan = xrefByPicture.get(picture.recordName);
+      if (!plan) {
+        let asset = null;
+        try {
+          const assetIds = picture.fields?.assetIds?.value || [];
+          asset = assetIds.length ? await db.getAsset(assetIds[0]) : null;
+          if (!asset && typeof db.listAssetsForRecord === 'function') {
+            asset = (await db.listAssetsForRecord(picture.recordName) || [])[0] || null;
+          }
+        } catch {
+          asset = null;
+        }
+        if (!asset?.dataBase64) continue; // skip pictures whose binary isn't available
+        counter += 1;
+        const form = gedcomFormFromMime(asset.mimeType, picture.fields?.filename?.value);
+        const title = picture.fields?.caption?.value || picture.fields?.title?.value || '';
+        const path = `media/${picture.recordName}.${form}`;
+        plan = { xref: `@O${counter}@`, path, form, title };
+        xrefByPicture.set(picture.recordName, plan);
+        objects.push(plan);
+        files.push({ path, dataBase64: asset.dataBase64, mimeType: asset.mimeType || 'image/jpeg' });
+      }
+      entries.push(plan);
+    }
+    if (entries.length) byRecord.set(recordName, entries);
+  }
+  return { byRecord, objects, files };
+}
+
 export async function buildGedcom(exportOptions = {}) {
   const policy = {
     ...DEFAULT_PRIVACY_POLICY,
@@ -174,6 +275,12 @@ export async function buildGedcom(exportOptions = {}) {
 
   const author = await safeGetAuthorInfo();
 
+  // Media (#18): resolve attached pictures into OBJE records + a bundle plan.
+  const media = exportOptions.includeMedia
+    ? await collectGedcomMedia(new Set([...publicPersonIds, ...publicFamilyIds]))
+    : { byRecord: new Map(), objects: [], files: [] };
+  if (Array.isArray(exportOptions.collectMedia)) exportOptions.collectMedia.push(...media.files);
+
   const lines = [];
   // Header
   lines.push('0 HEAD');
@@ -235,6 +342,9 @@ export async function buildGedcom(exportOptions = {}) {
     if (f.cached_deathDate?.value) {
       lines.push('1 DEAT');
       lines.push(`2 DATE ${escape(f.cached_deathDate.value)}`);
+    } else if (f.isDeceased?.value) {
+      // "Dead, no further information" — GEDCOM bare death assertion.
+      lines.push('1 DEAT Y');
     }
 
     // Person events
@@ -292,6 +402,11 @@ export async function buildGedcom(exportOptions = {}) {
       const text = n.fields?.text?.value || '';
       if (text) pushText(lines, 1, 'NOTE', text);
     }
+
+    // Attached media (#18)
+    for (const obj of media.byRecord.get(p.recordName) || []) {
+      lines.push(`1 OBJE ${obj.xref}`);
+    }
   }
 
   // Families
@@ -309,6 +424,9 @@ export async function buildGedcom(exportOptions = {}) {
     if (fam.fields?.cached_marriageDate?.value) {
       lines.push('1 MARR');
       lines.push(`2 DATE ${escape(fam.fields.cached_marriageDate.value)}`);
+    } else if (fam.fields?.isMarried?.value) {
+      // "Married, no further information" — GEDCOM bare marriage assertion.
+      lines.push('1 MARR Y');
     }
     appendSourceCitations(lines, sourceRelations, fam.recordName, 1, sourceIdx);
     for (const ev of familyEvents.filter((e) => refToRecordName(e.fields?.family?.value) === fam.recordName)) {
@@ -318,6 +436,17 @@ export async function buildGedcom(exportOptions = {}) {
       appendGedcomExtensions(lines, ev, 2, pointerMap);
       appendSourceCitations(lines, sourceRelations, ev.recordName, 2, sourceIdx);
     }
+    for (const obj of media.byRecord.get(fam.recordName) || []) {
+      lines.push(`1 OBJE ${obj.xref}`);
+    }
+  }
+
+  // Multimedia objects (#18) — referenced by INDI/FAM OBJE pointers above.
+  for (const obj of media.objects) {
+    lines.push(`0 ${obj.xref} OBJE`);
+    lines.push(`1 FILE ${escape(obj.path)}`);
+    lines.push(`2 FORM ${escape(obj.form)}`);
+    if (obj.title) lines.push(`2 TITL ${escape(obj.title)}`);
   }
 
   // Sources
@@ -392,13 +521,56 @@ function familyHasPublicMember(family, childRels, publicPersonIds) {
   ));
 }
 
-export async function downloadGedcom() {
-  const text = await buildGedcom();
+export async function downloadGedcom(overrides = {}) {
+  // Honor the user's living-person privacy preference. (Private records are
+  // always excluded by buildGedcom via isPublicRecord.)
+  const policy = getActivePrivacyPolicy();
+  const text = await buildGedcom({
+    hideLiving: policy.hideLivingPersons,
+    hideLivingDetailsOnly: policy.hideLivingDetailsOnly,
+    livingThresholdYears: policy.livingPersonThresholdYears,
+    ...overrides,
+  });
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  triggerDownload(blob, `cloudtreeweb-${new Date().toISOString().slice(0, 10)}.ged`);
+}
+
+/**
+ * GedZip export (#18): a single .gdz archive bundling the GEDCOM document plus
+ * every attached media file under `media/`, referenced by OBJE.FILE pointers.
+ * GedZip (GEDCOM 7) requires the GEDCOM file to be named `gedcom.ged` at the
+ * archive root, with media stored at the paths referenced by the document.
+ */
+export async function buildGedZipBlob(overrides = {}) {
+  const policy = getActivePrivacyPolicy();
+  const files = [];
+  const text = await buildGedcom({
+    hideLiving: policy.hideLivingPersons,
+    hideLivingDetailsOnly: policy.hideLivingDetailsOnly,
+    livingThresholdYears: policy.livingPersonThresholdYears,
+    includeMedia: true,
+    collectMedia: files,
+    ...overrides,
+  });
+  const { default: JSZip } = await import('jszip');
+  const zip = new JSZip();
+  zip.file('gedcom.ged', text);
+  for (const file of files) {
+    zip.file(file.path, file.dataBase64, { base64: true });
+  }
+  return zip.generateAsync({ type: 'blob' });
+}
+
+export async function downloadGedZip(overrides = {}) {
+  const blob = await buildGedZipBlob(overrides);
+  triggerDownload(blob, `cloudtreeweb-${new Date().toISOString().slice(0, 10)}.gdz`);
+}
+
+function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `cloudtreeweb-${new Date().toISOString().slice(0, 10)}.ged`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();

@@ -11,16 +11,32 @@ export async function generateResearchSuggestions() {
   const persons = (await db.query('Person', { limit: 100000 })).records;
   const families = (await db.query('Family', { limit: 100000 })).records;
   const childRels = (await db.query('ChildRelation', { limit: 100000 })).records;
+  const sourceRelations = (await db.query('SourceRelation', { limit: 100000 })).records;
 
   const childrenByParent = new Set();
+  // Persons who are partners in a family that has no recorded marriage date.
+  const marriedNoDate = new Set();
   for (const fam of families) {
-    if (fam.fields?.man?.value) childrenByParent.add(refToRecordName(fam.fields.man.value));
-    if (fam.fields?.woman?.value) childrenByParent.add(refToRecordName(fam.fields.woman.value));
+    const man = fam.fields?.man?.value ? refToRecordName(fam.fields.man.value) : null;
+    const woman = fam.fields?.woman?.value ? refToRecordName(fam.fields.woman.value) : null;
+    if (man) childrenByParent.add(man);
+    if (woman) childrenByParent.add(woman);
+    if (!fam.fields?.cached_marriageDate?.value && (man || woman)) {
+      if (man) marriedNoDate.add(man);
+      if (woman) marriedNoDate.add(woman);
+    }
   }
   const hasParents = new Set();
   for (const cr of childRels) {
     const c = refToRecordName(cr.fields?.child?.value);
     if (c) hasParents.add(c);
+  }
+  // Persons that carry at least one source citation.
+  const sourcedPersons = new Set();
+  for (const rel of sourceRelations) {
+    if ((rel.fields?.targetType?.value || '') !== 'Person') continue;
+    const target = refToRecordName(rel.fields?.target?.value);
+    if (target) sourcedPersons.add(target);
   }
 
   const out = [];
@@ -41,6 +57,8 @@ export async function generateResearchSuggestions() {
     }
     if (!hasParents.has(p.recordName)) push('identifyParents');
     if (!childrenByParent.has(p.recordName)) push('identifySpousesChildren');
+    if (marriedNoDate.has(p.recordName)) push('findMarriageRecord');
+    if (!sourcedPersons.has(p.recordName)) push('findSourceCitation');
     if (!f.thumbnailFileIdentifier?.value) push('addPortraitPhoto');
     if (!f.cached_fullName?.value) push('confirmFullName');
 

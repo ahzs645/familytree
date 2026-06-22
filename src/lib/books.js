@@ -44,10 +44,43 @@ import { personSummary, sourceSummary } from '../models/index.js';
 import {
   formatBibliography,
   formatCitation,
+  buildCitationConfigFromTemplate,
   CITATION_MODE,
   DEFAULT_LONG_CITATION,
   DEFAULT_NORMAL_CITATION,
 } from './citationFormat.js';
+import { refToRecordName } from './recordRef.js';
+
+/**
+ * Resolve one source's citation text, honoring its SourceTemplate's per-key
+ * citation order / title-component when a template is assigned; otherwise fall
+ * back to the record-field default formatter. `caches.relsByTemplate` memoizes
+ * the template key relations across sources in one render pass.
+ */
+async function resolveTemplatedCitation(db, source, mode, baseConfig, caches) {
+  const templateId = refToRecordName(source.fields?.template?.value) || refToRecordName(source.fields?.sourceTemplate?.value);
+  if (!templateId) return formatCitation(source, mode, baseConfig);
+  let keyRelations = caches.relsByTemplate.get(templateId);
+  if (!keyRelations) {
+    const { records } = await db.query('SourceTemplateKeyRelation', { referenceField: 'template', referenceValue: templateId, limit: 1000 });
+    keyRelations = records.map((rel) => ({
+      templateKey: refToRecordName(rel.fields?.templateKey?.value),
+      longCitationOrder: rel.fields?.longCitationOrder?.value,
+      shortCitationOrder: rel.fields?.shortCitationOrder?.value,
+      isTitleComponent: !!rel.fields?.isTitleComponent?.value,
+    }));
+    caches.relsByTemplate.set(templateId, keyRelations);
+  }
+  const { records: keyValues } = await db.query('SourceKeyValue', { referenceField: 'source', referenceValue: source.recordName, limit: 1000 });
+  const values = {};
+  for (const kv of keyValues) {
+    const key = refToRecordName(kv.fields?.templateKey?.value);
+    if (key) values[key] = kv.fields?.value?.value || '';
+  }
+  const templateConfig = buildCitationConfigFromTemplate(keyRelations, mode, values);
+  if (!templateConfig) return formatCitation(source, mode, baseConfig);
+  return formatCitation(source, mode, { ...baseConfig, order: templateConfig.order, titleKey: templateConfig.titleKey, values: templateConfig.values, enabled: true });
+}
 
 const META_KEY = 'savedBooks';
 
@@ -82,9 +115,47 @@ export const SECTION_KINDS = [
   { id: 'bibliography', label: 'Bibliography (long citations)' },
   { id: 'footnotes', label: 'Footnotes (short citations)' },
   { id: 'media-gallery', label: 'Media Gallery' },
+  { id: 'media-page', label: 'Media Page (single image)', needsMedia: true },
   { id: 'saved-report', label: 'Saved Report Embed', needsSavedReport: true },
   { id: 'saved-chart', label: 'Saved Chart Embed', needsSavedChart: true },
 ];
+
+// New-book templates (#41) — preset section lists for common book types.
+export const BOOK_TEMPLATES = [
+  { id: 'blank', label: 'Blank book', sections: [{ kind: 'cover', text: 'My Family Book' }] },
+  { id: 'ancestor', label: 'Ancestor book', sections: [
+    { kind: 'cover', text: 'Ancestors' },
+    { kind: 'toc' },
+    { kind: 'ahnentafel-report', generations: 6 },
+    { kind: 'ancestor-narrative', generations: 5 },
+    { kind: 'bibliography' },
+  ] },
+  { id: 'descendant', label: 'Descendant book', sections: [
+    { kind: 'cover', text: 'Descendants' },
+    { kind: 'toc' },
+    { kind: 'register-report', generations: 4 },
+    { kind: 'descendant-narrative', generations: 4 },
+    { kind: 'bibliography' },
+  ] },
+  { id: 'family', label: 'Family book', sections: [
+    { kind: 'cover', text: 'Our Family' },
+    { kind: 'toc' },
+    { kind: 'family-group-sheet' },
+    { kind: 'persons-list' },
+    { kind: 'media-gallery' },
+    { kind: 'bibliography' },
+  ] },
+];
+
+export function bookFromTemplate(templateId, title) {
+  const template = BOOK_TEMPLATES.find((t) => t.id === templateId) || BOOK_TEMPLATES[0];
+  return {
+    id: newBookId(),
+    title: title || template.label,
+    sections: template.sections.map((section) => ({ ...section })),
+    presentationSettings: normalizeBookPresentationSettings({}),
+  };
+}
 
 export function normalizeBookPresentationSettings(settings = {}) {
   return normalizePresentationSettings({
@@ -316,6 +387,8 @@ async function sectionToBlocks(section, author = null) {
       const r = await buildMediaGalleryReport();
       return r.blocks;
     }
+    case 'media-page':
+      return buildMediaPageInsert(section.targetRecordName, section.caption);
     case 'saved-report':
       return buildSavedReportInsert(section.savedReportId);
     case 'saved-chart':
@@ -450,9 +523,14 @@ function buildTitlePage(section, author) {
     for (const token of tokens) {
       if (token === 'Title') out.push(block.title(title, 1));
       else if (token === 'SubTitle' && subtitle) out.push(block.paragraph(subtitle));
-      else if (token === 'Image' && image) out.push(block.paragraph(`[Image: ${image}]`));
-      else if (token === 'FamilyCrest' && crest) out.push(block.paragraph(`[Family Crest: ${crest}]`));
-      else if (token === 'Metadata' && metadata.length > 0) out.push(block.list(metadata));
+      else if (token === 'Image') {
+        // Real image when a data URL is supplied (#85), else the caption placeholder.
+        if (section.imageDataUrl) out.push(block.image(section.imageDataUrl, image || ''));
+        else if (image) out.push(block.paragraph(`[Image: ${image}]`));
+      } else if (token === 'FamilyCrest') {
+        if (section.crestDataUrl || author?.crestDataUrl) out.push(block.image(section.crestDataUrl || author.crestDataUrl, crest || 'Family Crest'));
+        else if (crest) out.push(block.paragraph(`[Family Crest: ${crest}]`));
+      } else if (token === 'Metadata' && metadata.length > 0) out.push(block.list(metadata));
     }
   };
 
@@ -484,7 +562,13 @@ async function buildBibliographyInsert(config) {
     readField(a, ['author', 'title'], ''),
     readField(b, ['author', 'title'], ''),
   ));
-  const entries = formatBibliography(sorted, { ...DEFAULT_LONG_CITATION, ...(config || {}) });
+  const baseConfig = { ...DEFAULT_LONG_CITATION, ...(config || {}) };
+  const caches = { relsByTemplate: new Map() };
+  const entries = [];
+  for (const source of sorted) {
+    const text = await resolveTemplatedCitation(db, source, CITATION_MODE.LONG, baseConfig, caches);
+    if (text) entries.push(text);
+  }
   const out = [block.title('Bibliography', 2)];
   if (entries.length === 0) out.push(block.paragraph('No sources recorded.'));
   else out.push(block.list(entries));
@@ -499,14 +583,36 @@ async function buildFootnotesInsert(config) {
     readField(b, ['title'], ''),
   ));
   const cfg = { ...DEFAULT_NORMAL_CITATION, ...(config || {}) };
-  const entries = sorted.map((record, index) => {
-    const text = formatCitation(record, CITATION_MODE.NORMAL, cfg);
-    return text ? `${index + 1}. ${text}` : '';
-  }).filter(Boolean);
+  const caches = { relsByTemplate: new Map() };
+  const entries = [];
+  for (let index = 0; index < sorted.length; index++) {
+    const text = await resolveTemplatedCitation(db, sorted[index], CITATION_MODE.NORMAL, cfg, caches);
+    if (text) entries.push(`${entries.length + 1}. ${text}`);
+  }
   const out = [block.title('Footnotes', 2)];
   if (entries.length === 0) out.push(block.paragraph('No sources recorded.'));
   else out.push(block.list(entries));
   return out;
+}
+
+async function buildMediaPageInsert(mediaRecordName, caption) {
+  const db = getLocalDatabase();
+  const media = mediaRecordName ? await db.getRecord(mediaRecordName) : null;
+  if (!media) return [block.paragraph('Media not found.')];
+  const ids = media.fields?.assetIds?.value || [];
+  let asset = ids.length ? await db.getAsset(ids[0]) : null;
+  if (!asset && db.listAssetsForRecord) {
+    const assets = await db.listAssetsForRecord(media.recordName);
+    asset = (assets || [])[0] || null;
+  }
+  const title = caption || media.fields?.caption?.value || media.fields?.filename?.value || media.fields?.fileName?.value || 'Media';
+  const blocks = [block.title(title, 2)];
+  if (asset?.dataBase64) {
+    blocks.push(block.image(`data:${asset.mimeType || 'image/png'};base64,${asset.dataBase64}`, caption || media.fields?.caption?.value || ''));
+  } else {
+    blocks.push(block.paragraph(media.fields?.url?.value || 'No image data available for this media record.'));
+  }
+  return blocks;
 }
 
 async function buildSourceInsert(sourceRecordName) {

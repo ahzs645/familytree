@@ -14,6 +14,7 @@ export {
   buildDescendantNarrative,
   buildFamilyGroupSheet,
   buildKinshipReport,
+  buildKinshipRosterReport,
   buildNarrativeReport,
   buildPersonEventsReport,
   buildPersonSummary,
@@ -43,6 +44,7 @@ export {
 
 export {
   buildMapReport,
+  buildPersonAnalysisReport,
   buildPlausibilityReport,
   buildRichStatisticsReport,
   buildStatusReport,

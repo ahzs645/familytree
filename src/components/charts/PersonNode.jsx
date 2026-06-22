@@ -8,6 +8,7 @@ import { personDisplayName } from '../../lib/personDisplayName.js';
 import { textDirection, wrapGraphemes } from '../../lib/i18n.js';
 import { DEFAULT_THEME } from './theme.js';
 import { useChartSelection } from './ChartSelectionContext.jsx';
+import { useChartContent } from './ChartContentContext.jsx';
 
 export function PersonNode({
   x,
@@ -20,11 +21,16 @@ export function PersonNode({
   colorOverride = null,
 }) {
   const { openPerson } = useChartSelection();
+  const { content, photoFor } = useChartContent();
 
   if (!person && !placeholder) return null;
   const colors = theme.gender[person?.gender ?? 0] || theme.gender[0];
   const display = (person ? personDisplayName(person) : '') || 'No name recorded';
-  const span = person ? lifeSpanLabel(person) : '';
+  const photo = content.showPortraits && person ? photoFor(person.recordName) : null;
+  const refId = content.showIds && person ? (person.referenceNumber || person.gedcomId || person.familySearchID || '') : '';
+  const baseSpan = person && content.showLifespan ? lifeSpanLabel(person) : '';
+  const span = [baseSpan, refId && `#${refId}`].filter(Boolean).join(' · ');
+  const portraitSize = Math.min(theme.nodeHeight - 8, 34);
   const displayDirection = textDirection(display, 'ltr');
   const spanDirection = textDirection(span, displayDirection);
   const displayX = displayDirection === 'rtl' ? theme.nodeWidth - 12 : 12;
@@ -63,6 +69,18 @@ export function PersonNode({
         strokeWidth={strokeWidth}
         strokeDasharray={placeholder ? '4 3' : 'none'}
       />
+      {photo && (
+        <image
+          href={photo}
+          x={theme.nodeWidth - portraitSize - 4}
+          y={4}
+          width={portraitSize}
+          height={portraitSize}
+          preserveAspectRatio="xMidYMid slice"
+          rx={4}
+          style={{ outline: `1px solid ${stroke}` }}
+        />
+      )}
       <text
         x={displayX}
         y={wrappedDisplay ? 17 : 22}

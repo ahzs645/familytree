@@ -34,6 +34,10 @@ function renderBlock(b) {
       return `<div style="page-break-after:always"></div>`;
     case 'spacer':
       return `<div style="height:${Math.max(0, b.size || 12)}px"></div>`;
+    case 'image':
+      return b.src
+        ? `<figure style="margin:12px 0;text-align:center"><img src="${esc(b.src)}" alt="${esc(b.caption || '')}" style="max-width:100%;border-radius:6px"/>${b.caption ? `<figcaption style="font-size:12px;color:#667085;margin-top:4px">${bdi(b.caption)}</figcaption>` : ''}</figure>`
+        : '';
     default:
       return '';
   }

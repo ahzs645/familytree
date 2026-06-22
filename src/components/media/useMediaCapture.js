@@ -27,9 +27,9 @@ export function useMediaCapture({ setStatus, reload, setActiveId }) {
   const recorderChunksRef = useRef([]);
   const audioCanceledRef = useRef(false);
 
-  // Wire the active stream to the <video> element whenever camera mode is on.
+  // Wire the active stream to the <video> element for camera + video modes.
   useEffect(() => {
-    if (captureMode !== 'camera' || !videoRef.current || !captureStream) return;
+    if ((captureMode !== 'camera' && captureMode !== 'video') || !videoRef.current || !captureStream) return;
     videoRef.current.srcObject = captureStream;
     videoRef.current.play().catch(() => {});
   }, [captureMode, captureStream]);
@@ -143,6 +143,60 @@ export function useMediaCapture({ setStatus, reload, setActiveId }) {
     }
   }, []);
 
+  const onStartVideoRecording = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setStatus('Video recording is not available in this browser.');
+      return;
+    }
+    setStatus('Starting video recorder…');
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const recorder = new MediaRecorder(stream);
+      recorderChunksRef.current = [];
+      audioCanceledRef.current = false;
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size) recorderChunksRef.current.push(event.data);
+      };
+      recorder.onstop = async () => {
+        const canceled = audioCanceledRef.current;
+        stopStream(stream);
+        setCaptureStream(null);
+        setCaptureMode(null);
+        setRecording(false);
+        if (canceled) {
+          setStatus('Video recording canceled.');
+          return;
+        }
+        try {
+          const type = recorder.mimeType || 'video/webm';
+          const extension = type.includes('mp4') ? 'mp4' : 'webm';
+          const blob = new Blob(recorderChunksRef.current, { type });
+          const record = await createMediaRecordFromBlob(blob, {
+            filename: `video-${new Date().toISOString().replace(/[:.]/g, '-')}.${extension}`,
+            caption: 'Video recording',
+            recordType: 'MediaVideo',
+          });
+          await reload();
+          setActiveId(record.recordName);
+          setStatus('Video recording saved.');
+        } catch (error) {
+          setStatus(`Video save failed: ${error.message}`);
+        }
+      };
+      mediaRecorderRef.current = recorder;
+      setCaptureStream(stream);
+      setCaptureMode('video');
+      setRecording(true);
+      recorder.start();
+      setStatus('Recording video…');
+    } catch (error) {
+      setStatus(`Video recording failed: ${error.message}`);
+    }
+  }, [reload, setActiveId, setStatus]);
+
+  // Video uses the same recorder-stop path as audio.
+  const onStopVideoRecording = onStopAudioRecording;
+
   const onCancelCapture = useCallback(() => {
     audioCanceledRef.current = true;
     if (mediaRecorderRef.current?.state && mediaRecorderRef.current.state !== 'inactive') {
@@ -165,6 +219,8 @@ export function useMediaCapture({ setStatus, reload, setActiveId }) {
     onCapturePhoto,
     onStartAudioRecording,
     onStopAudioRecording,
+    onStartVideoRecording,
+    onStopVideoRecording,
     onCancelCapture,
   };
 }

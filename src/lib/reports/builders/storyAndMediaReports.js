@@ -9,10 +9,13 @@ import {
   appendTextParagraphs,
   eventOwnerLabel,
   getLocalDatabase,
+  isRecordVisibleInReport,
+  loadVisiblePersonIds,
   placeLabel,
   readConclusionType,
   readField,
   readRef,
+  reportPrivacyPolicy,
   storySectionTitle,
   storyTitle,
   storyRelationRow,
@@ -103,35 +106,65 @@ export async function buildStoryReport(recordName) {
   return report;
 }
 
-export async function buildMediaGalleryReport() {
+export async function buildMediaGalleryReport(options = {}) {
   const db = getLocalDatabase();
   const mediaTypes = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
-  const rows = [];
+  const fileField = (media) => readField(media, ['url', 'pictureFileIdentifier', 'thumbnailFileIdentifier', 'pdfFileIdentifier', 'audioFileIdentifier', 'videoFileIdentifier'], '');
+  const byType = new Map();
+  const flatRows = [];
   for (const type of mediaTypes) {
     const { records } = await db.query(type, { limit: 100000 });
+    const label = type.replace('Media', '');
     for (const media of records) {
-      rows.push([
-        type.replace('Media', ''),
-        readField(media, ['title', 'caption', 'filename'], media.recordName),
-        readField(media, ['date'], ''),
-        readField(media, ['url', 'pictureFileIdentifier', 'thumbnailFileIdentifier', 'pdfFileIdentifier', 'audioFileIdentifier', 'videoFileIdentifier'], ''),
-      ]);
+      const title = readField(media, ['title', 'caption', 'filename'], media.recordName);
+      const date = readField(media, ['date'], '');
+      flatRows.push([label, title, date, fileField(media)]);
+      if (!byType.has(label)) byType.set(label, []);
+      byType.get(label).push([title, date, fileField(media)]);
     }
   }
   const report = emptyReport('Media Gallery Report');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.table(['Type', 'Title', 'Date', 'File / URL'], rows.sort((a, b) => compareStrings(a[1], b[1]))));
+  // Group into per-type sections (#69) when requested; otherwise a single table.
+  if ((options.groupBy || 'none') === 'type') {
+    for (const [label, rows] of byType) {
+      if (!rows.length) continue;
+      report.blocks.push(block.title(`${label} (${rows.length})`, 2));
+      report.blocks.push(block.table(['Title', 'Date', 'File / URL'], rows.sort((a, b) => compareStrings(a[0], b[0]))));
+    }
+    return report;
+  }
+  report.blocks.push(block.table(['Type', 'Title', 'Date', 'File / URL'], flatRows.sort((a, b) => compareStrings(a[1], b[1]))));
   return report;
 }
 
 export async function buildTimelineReport() {
   const db = getLocalDatabase();
-  const [personEvents, familyEvents] = await Promise.all([
+  const policy = reportPrivacyPolicy();
+  const [personEvents, familyEvents, families, visiblePersonIds] = await Promise.all([
     db.query('PersonEvent', { limit: 100000 }),
     db.query('FamilyEvent', { limit: 100000 }),
+    db.query('Family', { limit: 100000 }),
+    loadVisiblePersonIds(db, policy),
   ]);
+  const familyById = new Map(families.records.map((f) => [f.recordName, f]));
+  const eventOwnerVisible = (event) => {
+    const personId = readRef(event.fields?.person);
+    if (personId) return visiblePersonIds.has(personId);
+    const familyId = readRef(event.fields?.family);
+    if (familyId) {
+      const fam = familyById.get(familyId);
+      if (fam && !isRecordVisibleInReport(fam, policy)) return false;
+      const man = readRef(fam?.fields?.man);
+      const woman = readRef(fam?.fields?.woman);
+      if (man && !visiblePersonIds.has(man)) return false;
+      if (woman && !visiblePersonIds.has(woman)) return false;
+    }
+    return true;
+  };
   const rows = [];
   for (const event of [...personEvents.records, ...familyEvents.records]) {
+    if (!eventOwnerVisible(event)) continue;
     rows.push([
       readField(event, ['date'], ''),
       readConclusionType(event) || 'Event',

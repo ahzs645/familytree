@@ -10,7 +10,38 @@ import { getLocalDatabase } from '../../LocalDatabase.js';
 import { readConclusionType, readField, readRef, refType } from '../../schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, genderLabel } from '../../../models/index.js';
 import { humanizeType } from '../../../utils/humanizeType.js';
+import { getActivePrivacyPolicy } from '../../appPreferences.js';
+import { isVisibleRecord, maskLivingDetails } from '../../privacy.js';
 import { block } from '../ast.js';
+
+/**
+ * Privacy plumbing for the global list/analysis report builders. MFT excludes
+ * private (and, when configured, living) people from reports; the web port
+ * previously queried raw and leaked them. These read the synchronous active
+ * policy mirrored from preferences (appPreferences.getActivePrivacyPolicy).
+ */
+export function reportPrivacyPolicy() {
+  return getActivePrivacyPolicy();
+}
+
+export function isRecordVisibleInReport(record, policy = reportPrivacyPolicy()) {
+  return isVisibleRecord(record, policy);
+}
+
+// Filter a record list to visible records, masking living-person details when
+// the policy says "keep the node but strip sensitive fields".
+export function visibleReportRecords(records, policy = reportPrivacyPolicy()) {
+  return (records || [])
+    .filter((record) => isVisibleRecord(record, policy))
+    .map((record) => maskLivingDetails(record, policy));
+}
+
+export async function loadVisiblePersonIds(db, policy = reportPrivacyPolicy()) {
+  const { records } = await db.query('Person', { limit: 100000 });
+  const ids = new Set();
+  for (const record of records) if (isVisibleRecord(record, policy)) ids.add(record.recordName);
+  return ids;
+}
 
 export function nameOf(summaryOrPerson) {
   return summaryOrPerson?.fullName || 'No name recorded';

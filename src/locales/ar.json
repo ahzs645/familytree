@@ -491,7 +491,8 @@
       "privacy": "الخصوصية",
       "plausibility": "التحقق المنطقي",
       "integrations": "التكاملات",
-      "functions": "الوظائف"
+      "functions": "الوظائف",
+      "colors": "الألوان"
     },
     "general": {
       "panel": "عام",
@@ -610,7 +611,9 @@
       "eventTypesCollapsed": "طي مجموعات أنواع الأحداث افتراضياً",
       "factTypesCollapsed": "طي مجموعات أنواع الحقائق افتراضياً",
       "defaultEvent": "نوع الحدث الافتراضي",
-      "defaultFact": "نوع الحقيقة الافتراضي"
+      "defaultFact": "نوع الحقيقة الافتراضي",
+      "defaultFamilyEvent": "نوع حدث العائلة الافتراضي",
+      "applyDefaultEvents": "إضافة الحدث الافتراضي تلقائيًا للأشخاص الجدد"
     },
     "categories": {
       "panel": "إعدادات الفئات",
@@ -641,7 +644,11 @@
       "includePrivate": "تضمين السجلات الخاصة",
       "includeMedia": "تضمين الوسائط",
       "downloadPrefs": "تنزيل التفضيلات",
-      "importPrefs": "استيراد التفضيلات"
+      "importPrefs": "استيراد التفضيلات",
+      "csvSeparator": "فاصل CSV",
+      "csvComma": "فاصلة (,)",
+      "csvSemicolon": "فاصلة منقوطة (;)",
+      "csvTab": "علامة جدولة"
     },
     "privacy": {
       "panel": "الخصوصية",
@@ -682,6 +689,20 @@
       "favorite": "مفضل",
       "emphasized": "بارز",
       "hidden": "مخفي"
+    },
+    "colors": {
+      "panel": "الألوان والمظهر",
+      "theme": "سمة الواجهة",
+      "themeLight": "فاتح",
+      "themeDark": "داكن",
+      "themeSystem": "النظام",
+      "accent": "اللون المميّز",
+      "chartTheme": "سمة المخطط",
+      "chartThemeAuto": "مطابقة الواجهة",
+      "reportBackground": "خلفية التقرير",
+      "reportBackgroundNone": "بدون",
+      "reportBackgroundSubtle": "خفيفة",
+      "reportBackgroundParchment": "ورق قديم"
     }
   },
   "todosPage": {
@@ -722,8 +743,10 @@
       "explanation": {
         "findBirthRecord": "يضيف مهمة بحث لكل شخص ليس له تاريخ ميلاد مسجل.",
         "findDeathRecord": "يضيف مهمة بحث للأشخاص الأكبر سنًا الذين ليس لهم وفاة مسجلة.",
+        "findMarriageRecord": "يضيف مهمة بحث لكل شخص متزوج ليس لزواجه تاريخ مسجل.",
         "identifyParents": "يضيف مهمة بحث لكل شخص والداه غير معروفين.",
         "identifySpousesChildren": "يضيف مهمة بحث لكل شخص ليس له زوج أو أطفال مسجلون.",
+        "findSourceCitation": "يضيف مهمة للعثور على استشهاد مصدر لكل شخص ليس له مصدر.",
         "addPortraitPhoto": "يضيف مهمة لإرفاق صورة شخصية لكل شخص ليس له صورة.",
         "confirmFullName": "يضيف مهمة لتأكيد الاسم الكامل لكل شخص باسم غير مكتمل."
       }
@@ -915,7 +938,14 @@
       "missingDeath": "تاريخ وفاة مفقود",
       "missingSurname": "اسم عائلة مفقود",
       "longLifespan": "عمر طويل",
-      "hasPhoto": "لديه صورة"
+      "hasPhoto": "لديه صورة",
+      "manyChildren": "أم لأكثر من 4 أطفال",
+      "diedOld": "تُوفّي بعد سن 80",
+      "diedYoung": "تُوفّي قبل سن 10",
+      "earlyMarriage": "تزوّج قبل سن 18",
+      "lateMarriage": "تزوّج بعد سن 40",
+      "youngParents": "وُلد لأبٍ دون 18",
+      "oldParents": "وُلد لأبٍ فوق 40"
     },
     "searchPlaceholder": "ابحث في الأشخاص المميزين...",
     "emptyTitle": "لا أشخاص مميزون",
@@ -1055,6 +1085,11 @@
       "10": "أكتوبر",
       "11": "نوفمبر",
       "12": "ديسمبر"
+    },
+    "yearsAgo": "عدد السنوات",
+    "yearsAgoValue": {
+      "one": "{count} سنة",
+      "other": "{count} سنة"
     }
   },
   "factsList": {
@@ -1081,8 +1116,10 @@
   "researchSuggestions": {
     "findBirthRecord": "العثور على سجل ميلاد",
     "findDeathRecord": "وفاة محتملة — العثور على سجل وفاة",
+    "findMarriageRecord": "العثور على سجل زواج",
     "identifyParents": "تحديد الوالدين",
     "identifySpousesChildren": "تحديد الأزواج / الأطفال",
+    "findSourceCitation": "العثور على استشهاد مصدر",
     "addPortraitPhoto": "إضافة صورة شخصية",
     "confirmFullName": "تأكيد الاسم الكامل"
   },
@@ -1218,7 +1255,11 @@
     "clearOk": "مسح",
     "anniversaryBirth": "ميلاد",
     "anniversaryDeath": "وفاة",
-    "yearUnknown": "سنة غير معروفة"
+    "yearUnknown": "سنة غير معروفة",
+    "yearsAgo": {
+      "one": "قبل {count} سنة",
+      "other": "قبل {count} سنوات"
+    }
   },
   "categories": {
     "charts": "المخططات",

@@ -480,7 +480,8 @@
       "privacy": "Privacy",
       "plausibility": "Plausibility",
       "integrations": "Integrations",
-      "functions": "Functions"
+      "functions": "Functions",
+      "colors": "Colors"
     },
     "general": {
       "panel": "General",
@@ -599,7 +600,9 @@
       "eventTypesCollapsed": "Collapse event-type groups by default",
       "factTypesCollapsed": "Collapse fact-type groups by default",
       "defaultEvent": "Default event type",
-      "defaultFact": "Default fact type"
+      "defaultFact": "Default fact type",
+      "defaultFamilyEvent": "Default Family Event Type",
+      "applyDefaultEvents": "Pre-add the default event to new persons"
     },
     "categories": {
       "panel": "Category configurations",
@@ -630,7 +633,11 @@
       "includePrivate": "Include Private Records",
       "includeMedia": "Include Media",
       "downloadPrefs": "Download Preferences",
-      "importPrefs": "Import Preferences"
+      "importPrefs": "Import Preferences",
+      "csvSeparator": "CSV Separator",
+      "csvComma": "Comma (,)",
+      "csvSemicolon": "Semicolon (;)",
+      "csvTab": "Tab"
     },
     "privacy": {
       "panel": "Privacy",
@@ -671,6 +678,20 @@
       "favorite": "Favorite",
       "emphasized": "Emphasized",
       "hidden": "Hidden"
+    },
+    "colors": {
+      "panel": "Colors & Appearance",
+      "theme": "Interface Theme",
+      "themeLight": "Light",
+      "themeDark": "Dark",
+      "themeSystem": "System",
+      "accent": "Accent Color",
+      "chartTheme": "Chart Theme",
+      "chartThemeAuto": "Match Interface",
+      "reportBackground": "Report Background",
+      "reportBackgroundNone": "None",
+      "reportBackgroundSubtle": "Subtle",
+      "reportBackgroundParchment": "Parchment"
     }
   },
   "todosPage": {
@@ -711,8 +732,10 @@
       "explanation": {
         "findBirthRecord": "Adds a research ToDo for each person without a recorded birth date.",
         "findDeathRecord": "Adds a research ToDo for older persons who have no recorded death.",
+        "findMarriageRecord": "Adds a research ToDo for each married person whose marriage has no recorded date.",
         "identifyParents": "Adds a research ToDo for each person whose parents are unknown.",
         "identifySpousesChildren": "Adds a research ToDo for each person with no recorded spouse or children.",
+        "findSourceCitation": "Adds a ToDo to find a source citation for each person with none.",
         "addPortraitPhoto": "Adds a ToDo to attach a portrait photo for each person without one.",
         "confirmFullName": "Adds a ToDo to confirm the full name for each person with an incomplete name."
       }
@@ -875,7 +898,14 @@
       "missingDeath": "Missing death date",
       "missingSurname": "Missing surname",
       "longLifespan": "Long lifespan",
-      "hasPhoto": "Has photo"
+      "hasPhoto": "Has photo",
+      "manyChildren": "Mother of more than 4 children",
+      "diedOld": "Died after age 80",
+      "diedYoung": "Died before age 10",
+      "earlyMarriage": "Married before age 18",
+      "lateMarriage": "Married after age 40",
+      "youngParents": "Born to a parent under 18",
+      "oldParents": "Born to a parent over 40"
     },
     "searchPlaceholder": "Search distinctive persons...",
     "emptyTitle": "No distinctive persons",
@@ -1024,6 +1054,11 @@
       "10": "October",
       "11": "November",
       "12": "December"
+    },
+    "yearsAgo": "Years Ago",
+    "yearsAgoValue": {
+      "one": "{count} yr",
+      "other": "{count} yrs"
     }
   },
   "factsList": {
@@ -1050,8 +1085,10 @@
   "researchSuggestions": {
     "findBirthRecord": "Find a birth record",
     "findDeathRecord": "Probable death — find death record",
+    "findMarriageRecord": "Find a marriage record",
     "identifyParents": "Identify parents",
     "identifySpousesChildren": "Identify spouses / children",
+    "findSourceCitation": "Find a source citation",
     "addPortraitPhoto": "Add a portrait photo",
     "confirmFullName": "Confirm full name"
   },
@@ -1171,7 +1208,11 @@
     "clearOk": "Clear",
     "anniversaryBirth": "Birth",
     "anniversaryDeath": "Death",
-    "yearUnknown": "Year unknown"
+    "yearUnknown": "Year unknown",
+    "yearsAgo": {
+      "one": "{count} year ago",
+      "other": "{count} years ago"
+    }
   },
   "categories": {
     "charts": "Charts",

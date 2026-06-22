@@ -64,18 +64,59 @@ export default function Globe() {
     let cancel = false;
     (async () => {
       const db = getLocalDatabase();
-      const [pe, fe, places, coords] = await Promise.all([
+      const [pe, fe, places, coords, personsQ, familiesQ, childRelsQ, groupRelsQ] = await Promise.all([
         db.query('PersonEvent', { limit: 100000 }),
         db.query('FamilyEvent', { limit: 100000 }),
         db.query('Place', { limit: 100000 }),
         db.query('Coordinate', { limit: 100000 }),
+        db.query('Person', { limit: 100000 }),
+        db.query('Family', { limit: 100000 }),
+        db.query('ChildRelation', { limit: 100000 }),
+        db.query('PersonGroupRelation', { limit: 100000 }),
       ]);
+      const groupByPerson = new Map();
+      for (const rel of groupRelsQ.records) {
+        const personId = refToRecordName(rel.fields?.person?.value);
+        const groupId = refToRecordName(rel.fields?.personGroup?.value);
+        if (personId && groupId && !groupByPerson.has(personId)) groupByPerson.set(personId, groupId);
+      }
       const placeById = new Map(places.records.map((p) => [p.recordName, p]));
       const coordByPlace = new Map();
       for (const c of coords.records) {
         const placeId = refToRecordName(c.fields?.place?.value);
         if (placeId) coordByPlace.set(placeId, c);
       }
+      // Subject metadata so the "Person Groups" and "Smart Filter" option
+      // drawers actually filter the globe (parity with MapsDiagram).
+      const personById = new Map(personsQ.records.map((p) => [p.recordName, p]));
+      const familyById = new Map(familiesQ.records.map((f) => [f.recordName, f]));
+      const childrenByFamily = new Map();
+      for (const cr of childRelsQ.records) {
+        const fam = refToRecordName(cr.fields?.family?.value);
+        const childId = refToRecordName(cr.fields?.child?.value);
+        if (!fam || !childId) continue;
+        if (!childrenByFamily.has(fam)) childrenByFamily.set(fam, []);
+        childrenByFamily.get(fam).push(childId);
+      }
+      const startPerson = personsQ.records.find((p) => p.fields?.isStartPerson?.value);
+      const startFamilyIds = new Set();
+      if (startPerson) {
+        startFamilyIds.add(startPerson.recordName);
+        for (const fam of familiesQ.records) {
+          const members = [
+            refToRecordName(fam.fields?.man?.value),
+            refToRecordName(fam.fields?.woman?.value),
+            ...(childrenByFamily.get(fam.recordName) || []),
+          ].filter(Boolean);
+          if (members.includes(startPerson.recordName)) for (const m of members) startFamilyIds.add(m);
+        }
+      }
+      const subjectPersonForEvent = (ev) => {
+        const direct = refToRecordName(ev.fields?.person?.value);
+        if (direct) return direct;
+        const fam = familyById.get(refToRecordName(ev.fields?.family?.value));
+        return refToRecordName(fam?.fields?.man?.value) || refToRecordName(fam?.fields?.woman?.value) || '';
+      };
       const events = [...pe.records, ...fe.records];
       const out = [];
       let minYear = Number.POSITIVE_INFINITY;
@@ -95,6 +136,8 @@ export default function Globe() {
           if (year < minYear) minYear = year;
           if (year > maxYear) maxYear = year;
         }
+        const subjectId = subjectPersonForEvent(ev);
+        const subject = subjectId ? personById.get(subjectId) : null;
         out.push({
           id: ev.recordName,
           lat,
@@ -102,6 +145,10 @@ export default function Globe() {
           year,
           overlayType: classifyOverlay(conclusion),
           conclusion,
+          subjectDeathYear: yearFromDateValue(subject?.fields?.cached_deathDate?.value || subject?.fields?.deathDate?.value),
+          subjectBookmarked: !!subject?.fields?.isBookmarked?.value,
+          inStartFamily: !!subjectId && startFamilyIds.has(subjectId),
+          personGroupId: subjectId ? groupByPerson.get(subjectId) || null : null,
           popup: `${conclusion}${dateValue ? ' · ' + dateValue : ''} — ${place?.fields?.cached_normallocationString?.value || place?.fields?.placeName?.value || placeId}`,
         });
       }
@@ -119,13 +166,22 @@ export default function Globe() {
   }, []);
 
   const filtered = useMemo(() => {
+    const smartFilter = visualOptions.smartFilterMode;
+    const personGroup = visualOptions.personGroupMode;
     return points.filter((point) => {
       if (overlay !== 'all' && point.overlayType !== overlay) return false;
       if (yearFrom !== null && point.year !== null && point.year < yearFrom) return false;
       if (yearTo !== null && point.year !== null && point.year > yearTo) return false;
+      // Smart Filter drawer
+      if (smartFilter === 'missing-date' && point.year !== null) return false;
+      if (smartFilter === 'living' && point.subjectDeathYear) return false;
+      // ('with-places' is a no-op on the globe: every plotted event already has coordinates.)
+      // Person Groups drawer
+      if (personGroup === 'bookmarked' && !point.subjectBookmarked) return false;
+      if (personGroup === 'start-family' && !point.inStartFamily) return false;
       return true;
     });
-  }, [overlay, points, yearFrom, yearTo]);
+  }, [overlay, points, yearFrom, yearTo, visualOptions.smartFilterMode, visualOptions.personGroupMode]);
 
   const countsByOverlay = useMemo(() => {
     const map = {};
@@ -229,7 +285,7 @@ export default function Globe() {
         </button>
         <span className="text-xs text-muted-foreground">3D projection · drag to rotate · scroll to zoom</span>
       </header>
-      <div className="flex-1 relative">
+      <div className="flex-1 relative" style={{ background: visualOptions.globeBackground === 'light' ? '#eef2f7' : '#0a0a14' }}>
         <MapView
           center={center}
           zoom={1.6}
@@ -242,7 +298,7 @@ export default function Globe() {
             opacity: visualOptions.heatOpacity,
           }}
           projection={{ type: 'globe' }}
-          connectionOptions={{ pattern: visualOptions.connectionPattern, width: visualOptions.connectionWidth }}
+          connectionOptions={{ pattern: visualOptions.connectionPattern, width: visualOptions.connectionWidth, animate: visualOptions.animateConnections }}
           sunMode={visualOptions.sunMode}
           tileNames={visualOptions.tileNames}
           emptyMessage={loading ? '' : 'The Virtual Globe cannot display any person or family events because no coordinates have been provided.'}

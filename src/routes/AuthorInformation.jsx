@@ -7,6 +7,7 @@ import { readField } from '../lib/schema.js';
 export default function AuthorInformation() {
   const [values, setValues] = useState(null);
   const [media, setMedia] = useState([]);
+  const [iconUrl, setIconUrl] = useState('');
   const [status, setStatus] = useState('');
 
   useEffect(() => {
@@ -28,6 +29,26 @@ export default function AuthorInformation() {
   const update = useCallback((key, value) => {
     setValues((current) => ({ ...(current || {}), [key]: value }));
   }, []);
+
+  // Resolve the chosen tree icon to a data URL for the thumbnail preview (#91).
+  useEffect(() => {
+    let cancelled = false;
+    const recordName = values?.iconMediaRecordName;
+    if (!recordName) { setIconUrl(''); return undefined; }
+    (async () => {
+      try {
+        const db = getLocalDatabase();
+        const picture = await db.getRecord(recordName);
+        const assetIds = picture?.fields?.assetIds?.value || [];
+        let asset = assetIds.length ? await db.getAsset(assetIds[0]) : null;
+        if (!asset && db.listAssetsForRecord) asset = (await db.listAssetsForRecord(recordName) || [])[0] || null;
+        if (!cancelled) setIconUrl(asset?.dataBase64 ? `data:${asset.mimeType || 'image/png'};base64,${asset.dataBase64}` : '');
+      } catch {
+        if (!cancelled) setIconUrl('');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [values?.iconMediaRecordName]);
 
   const save = useCallback(async () => {
     const next = await saveAuthorInfo(values);
@@ -107,6 +128,13 @@ export default function AuthorInformation() {
           </main>
 
           <aside className="rounded-lg border border-border bg-card p-5 h-fit">
+            {iconUrl && (
+              <img
+                src={iconUrl}
+                alt="Tree icon"
+                className="mb-3 h-16 w-16 rounded-md border border-border object-cover"
+              />
+            )}
             <h2 className="text-base font-semibold mb-3">{values.treeName || 'Family Tree'}</h2>
             {values.subtitle && <div className="text-sm text-muted-foreground mb-4">{values.subtitle}</div>}
             <div className="whitespace-pre-line text-sm leading-relaxed">{addressPreview || 'No author contact entered.'}</div>

@@ -45,6 +45,21 @@ function resolveNodeColors(node, palette, mode, options) {
     if (role.includes('patern')) return PEDIGREE_COLORS.paternal;
     return colorsForGender(node?.person?.gender, palette);
   }
+  if (mode === 'byBirthYear') {
+    const year = yearFromDate(node?.person?.birthDate);
+    if (year == null) return colorsForGender(node?.person?.gender, palette);
+    const t = clamp01((year - 1500) / (new Date().getFullYear() - 1500));
+    const hue = 240 - t * 200; // blue (older) → red (recent)
+    return { base: hslToHex(hue, 55, 70), deep: hslToHex(hue, 60, 48) };
+  }
+  if (mode === 'byAge') {
+    const born = yearFromDate(node?.person?.birthDate);
+    const died = yearFromDate(node?.person?.deathDate);
+    if (born == null || died == null) return colorsForGender(node?.person?.gender, palette);
+    const t = clamp01((died - born) / 100);
+    const hue = 0 + t * 130; // red (young) → green (long-lived)
+    return { base: hslToHex(hue, 55, 70), deep: hslToHex(hue, 60, 48) };
+  }
   if (mode === 'byLabel') {
     const key = labelKeyForPerson(node?.person);
     return key ? colorFromString(key) : colorsForGender(node?.person?.gender, palette);
@@ -88,6 +103,15 @@ function colorFromString(value) {
 
 function isHex(value) {
   return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
+function yearFromDate(value) {
+  const match = String(value || '').match(/-?\d{3,4}/);
+  return match ? parseInt(match[0], 10) : null;
+}
+
+function clamp01(t) {
+  return t < 0 ? 0 : t > 1 ? 1 : t;
 }
 
 function adjustSaturation(colors, factor) {

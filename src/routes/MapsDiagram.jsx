@@ -80,14 +80,39 @@ export default function MapsDiagram() {
     let cancel = false;
     (async () => {
       const db = getLocalDatabase();
-      const [pe, fe, places, coords, persons] = await Promise.all([
+      const [pe, fe, places, coords, persons, familiesQ, childRelsQ, groupRelsQ] = await Promise.all([
         db.query('PersonEvent', { limit: 100000 }),
         db.query('FamilyEvent', { limit: 100000 }),
         db.query('Place', { limit: 100000 }),
         db.query('Coordinate', { limit: 100000 }),
         db.query('Person', { limit: 100000 }),
+        db.query('Family', { limit: 100000 }),
+        db.query('ChildRelation', { limit: 100000 }),
+        db.query('PersonGroupRelation', { limit: 100000 }),
       ]);
       const personById = new Map(persons.records.map((person) => [person.recordName, person]));
+      // Person-group scoping inputs (parity with the Globe drawer).
+      const groupByPerson = new Map();
+      for (const rel of groupRelsQ.records) {
+        const pid = refToRecordName(rel.fields?.person?.value);
+        const gid = refToRecordName(rel.fields?.personGroup?.value);
+        if (pid && gid && !groupByPerson.has(pid)) groupByPerson.set(pid, gid);
+      }
+      const childrenByFamily = new Map();
+      for (const rel of childRelsQ.records) {
+        const fam = refToRecordName(rel.fields?.family?.value);
+        const child = refToRecordName(rel.fields?.child?.value);
+        if (fam && child) { if (!childrenByFamily.has(fam)) childrenByFamily.set(fam, []); childrenByFamily.get(fam).push(child); }
+      }
+      const startPerson = persons.records.find((p) => p.fields?.isStartPerson?.value);
+      const startFamilyIds = new Set();
+      if (startPerson) {
+        startFamilyIds.add(startPerson.recordName);
+        for (const fam of familiesQ.records) {
+          const members = [refToRecordName(fam.fields?.man?.value), refToRecordName(fam.fields?.woman?.value), ...(childrenByFamily.get(fam.recordName) || [])].filter(Boolean);
+          if (members.includes(startPerson.recordName)) for (const m of members) startFamilyIds.add(m);
+        }
+      }
       const placeById = new Map(places.records.map((p) => [p.recordName, p]));
       const coordById = new Map(coords.records.map((coord) => [coord.recordName, coord]));
       const coordByPlace = new Map();
@@ -121,6 +146,9 @@ export default function MapsDiagram() {
           subjectGender: personById.get(subjectId)?.fields?.gender?.value || personById.get(subjectId)?.fields?.sex?.value || '',
           subjectBirthYear: yearOf(personById.get(subjectId)?.fields?.birthDate?.value || personById.get(subjectId)?.fields?.cached_birthDate?.value),
           subjectDeathYear: yearOf(personById.get(subjectId)?.fields?.deathDate?.value || personById.get(subjectId)?.fields?.cached_deathDate?.value),
+          subjectBookmarked: !!personById.get(subjectId)?.fields?.isBookmarked?.value,
+          inStartFamily: !!subjectId && startFamilyIds.has(subjectId),
+          personGroupId: subjectId ? groupByPerson.get(subjectId) || null : null,
           lat,
           lng,
         });
@@ -162,9 +190,11 @@ export default function MapsDiagram() {
     if (visualOptions.smartFilterMode === 'with-places' && !e.placeId) return false;
     if (visualOptions.smartFilterMode === 'missing-date' && e.year) return false;
     if (visualOptions.smartFilterMode === 'living' && e.subjectDeathYear) return false;
+    if (visualOptions.personGroupMode === 'bookmarked' && !e.subjectBookmarked) return false;
+    if (visualOptions.personGroupMode === 'start-family' && !e.inStartFamily) return false;
     if (!allYears && Number.isFinite(e.year) && (e.year < effectiveRange[0] || e.year > effectiveRange[1])) return false;
     return true;
-  }), [events, statisticSource, filterType, subjectId, visualOptions.smartFilterMode, effectiveRange, allYears]);
+  }), [events, statisticSource, filterType, subjectId, visualOptions.smartFilterMode, visualOptions.personGroupMode, effectiveRange, allYears]);
 
   useEffect(() => {
     if (!playing) return undefined;

@@ -13,6 +13,7 @@ import { personSummary, placeSummary } from '../models/index.js';
 import { buildPersonLineage, attachLineageToPersonSummaries } from '../lib/personLineage.js';
 import { personDisplayName } from '../lib/personDisplayName.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
+import { NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { formatEventDate } from '../utils/formatDate.js';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
@@ -129,12 +130,14 @@ export default function Events({
       conclusionTypeLabel: readConclusionType(ev),
       date: ev.fields?.date?.value || '',
       description: ev.fields?.description?.value || ev.fields?.userDescription?.value || '',
+      isPrivate: !!ev.fields?.isPrivate?.value,
       personRef: refToRecordName(ev.fields?.person?.value) || '',
       familyRef: refToRecordName(ev.fields?.family?.value) || '',
       placeRef:
         refToRecordName(ev.fields?.place?.value) ||
         refToRecordName(ev.fields?.assignedPlace?.value) ||
         '',
+      placeDetail: ev.fields?.placeDetail?.value || ev.fields?.placeDescription?.value || '',
     });
   }, [activeId, events]);
 
@@ -163,6 +166,8 @@ export default function Events({
     else delete next.fields.date;
     if (values.description) next.fields.description = { value: values.description, type: 'STRING' };
     else delete next.fields.description;
+    if (values.isPrivate) next.fields.isPrivate = { value: true, type: 'BOOLEAN' };
+    else delete next.fields.isPrivate;
     if (ev.recordType === 'PersonEvent' && values.personRef) {
       next.fields.person = { value: refValue(values.personRef, 'Person'), type: 'REFERENCE' };
     }
@@ -171,6 +176,8 @@ export default function Events({
     }
     if (values.placeRef) next.fields.place = { value: refValue(values.placeRef, 'Place'), type: 'REFERENCE' };
     else delete next.fields.place;
+    if (values.placeDetail?.trim()) next.fields.placeDetail = { value: values.placeDetail.trim(), type: 'STRING' };
+    else delete next.fields.placeDetail;
 
     await saveWithChangeLog(next);
     await reload();
@@ -364,6 +371,14 @@ export default function Events({
             })}
           </select>
         </FieldRow>
+        <FieldRow label="Place detail">
+          <input
+            value={values.placeDetail ?? ''}
+            onChange={(e) => setValues({ ...values, placeDetail: e.target.value })}
+            style={editorInput}
+            placeholder="e.g. St Mary's Church, Plot 14"
+          />
+        </FieldRow>
       </div>
       <FieldRow label="Description">
         <textarea
@@ -373,6 +388,34 @@ export default function Events({
           rows={4}
         />
       </FieldRow>
+      <FieldRow label="Privacy">
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'hsl(var(--foreground))' }}>
+          <input type="checkbox" checked={!!values.isPrivate} onChange={(e) => setValues({ ...values, isPrivate: e.target.checked })} />
+          Mark this event as private (hidden from charts and reports)
+        </label>
+      </FieldRow>
+
+      <div style={{ marginTop: 24, display: 'grid', gap: 22 }}>
+        <section>
+          <h3 style={sectionHeading}>Source Citations</h3>
+          <SourceCitationsEditor
+            key={`sources-${active.recordName}`}
+            ownerRecordName={active.recordName}
+            ownerRecordType={active.recordType}
+            ownerRole="target"
+            onChanged={reload}
+          />
+        </section>
+        <section>
+          <h3 style={sectionHeading}>Notes</h3>
+          <NotesEditor
+            key={`notes-${active.recordName}`}
+            ownerRecordName={active.recordName}
+            ownerRecordType={active.recordType}
+            onChanged={reload}
+          />
+        </section>
+      </div>
     </div>
   ) : (
     <div style={{ color: 'hsl(var(--muted-foreground))', padding: 40 }}>No event selected. Create one from the toolbar.</div>
@@ -422,6 +465,7 @@ export default function Events({
 }
 
 const detailStyle = { padding: 28, maxWidth: 860 };
+const sectionHeading = { fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))', margin: '0 0 10px' };
 const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 12 };
 const saveBtn = { background: 'hsl(var(--primary))', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 600 };
 const deleteBtn = { background: 'transparent', color: 'hsl(var(--destructive))', border: '1px solid #3a2d30', borderRadius: 6, padding: '8px 12px', fontSize: 12, cursor: 'pointer' };

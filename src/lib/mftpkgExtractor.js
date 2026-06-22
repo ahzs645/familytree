@@ -532,8 +532,21 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
     }
   }
   if (entityMap.SourceRelation) {
+    // MFT stores the three Evidence-Explained certainty axes as integer indexes
+    // (ZQUALITYSOURCE/INFORMATION/EVIDENCE). Map them to the string enums the
+    // editor reads (sourceCertainty.js CERTAINTY_AXES); index 0 = DontKnow is
+    // left unset so it round-trips with the editor's "delete on DontKnow" rule.
+    const SOURCE_QUALITY_BY_INDEX = ['DontKnow', 'Derivative', 'Original'];
+    const INFORMATION_QUALITY_BY_INDEX = ['DontKnow', 'Secondary', 'Primary'];
+    const EVIDENCE_QUALITY_BY_INDEX = ['DontKnow', 'Negative', 'Indirect', 'Direct'];
+    const mapCertainty = (value, table) => {
+      const index = Number(value);
+      if (!Number.isInteger(index) || index <= 0 || index >= table.length) return null;
+      return table[index];
+    };
     for (const r of safeRows(query, `
       SELECT Z_PK, ZSOURCE, ZSOURCECONTAINER, Z11_SOURCECONTAINER, ZUNIQUEID, ZPAGE, ZTEXT2, ZTEXT3,
+             ZQUALITYSOURCE, ZQUALITYINFORMATION, ZQUALITYEVIDENCE,
              ZCHANGEDATE, ZCREATIONDATE
       FROM ZBASEOBJECT WHERE Z_ENT = ${entityMap.SourceRelation}
     `, warnings)) {
@@ -547,6 +560,12 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
       if (r.ZPAGE) f.page = field(r.ZPAGE);
       if (r.ZTEXT2) f.text = field(r.ZTEXT2);
       if (r.ZTEXT3) f.citation = field(r.ZTEXT3);
+      const sourceQuality = mapCertainty(r.ZQUALITYSOURCE, SOURCE_QUALITY_BY_INDEX);
+      if (sourceQuality) f.sourceQuality = field(sourceQuality);
+      const informationQuality = mapCertainty(r.ZQUALITYINFORMATION, INFORMATION_QUALITY_BY_INDEX);
+      if (informationQuality) f.informationQuality = field(informationQuality);
+      const evidenceQuality = mapCertainty(r.ZQUALITYEVIDENCE, EVIDENCE_QUALITY_BY_INDEX);
+      if (evidenceQuality) f.evidenceQuality = field(evidenceQuality);
       addRecord(makeId('SourceRelation', r.Z_PK), 'SourceRelation', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
     }
   }

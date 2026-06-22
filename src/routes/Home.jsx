@@ -220,6 +220,7 @@ export function Home() {
                   {row.daysUntil === 0
                     ? t('home.today')
                     : t('home.inDays', { count: row.daysUntil })}
+                  {row.year ? ` · ${t('home.yearsAgo', { count: new Date().getFullYear() - row.year })}` : ''}
                 </div>
               </button>
             ))}

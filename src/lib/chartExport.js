@@ -22,7 +22,8 @@ function svgEl(tag, attrs = {}) {
 function decorateClone(clone, pageSetup = {}) {
   const cutMarks = Boolean(pageSetup.cutMarks);
   const printPageNumbers = Boolean(pageSetup.printPageNumbers);
-  if (!cutMarks && !printPageNumbers) return;
+  const watermark = String(pageSetup.watermark || '').trim();
+  if (!cutMarks && !printPageNumbers && !watermark) return;
   const dims = normalizePageDimensions(pageSetup);
   const margins = normalizeMargins(pageSetup);
   const tiles = computePageTiles(
@@ -34,6 +35,25 @@ function decorateClone(clone, pageSetup = {}) {
   const strokeWidth = 1;
   const decorateTile = (tile, index) => {
     const { x, y, width, height } = tile.chart;
+    if (watermark) {
+      // Faint diagonal text centred on each printed page (#84).
+      const cx = x + width / 2;
+      const cy = y + height / 2;
+      const mark = svgEl('text', {
+        x: cx,
+        y: cy,
+        'text-anchor': 'middle',
+        'dominant-baseline': 'middle',
+        'font-size': Math.max(28, Math.min(width, height) / 8),
+        'font-family': 'system-ui, -apple-system, sans-serif',
+        'font-weight': 700,
+        fill: '#000',
+        'fill-opacity': 0.07,
+        transform: `rotate(-30 ${cx} ${cy})`,
+      });
+      mark.textContent = watermark;
+      layer.appendChild(mark);
+    }
     if (cutMarks) {
       const corners = [
         [x, y, x + tickSize, y, x, y + tickSize],

@@ -86,6 +86,8 @@ export function createDefaultBuilderConfig(chartType = 'ancestor', raw = {}) {
     ...existing,
     common: {
       privacyMode: 'public',
+      coloringMode: 'gender',
+      chartContent: { showPortraits: false, showLifespan: true, showIds: false },
       ...(existing.common || {}),
       generations,
     },
@@ -150,6 +152,7 @@ export function createDefaultPageSetup(raw = {}) {
     overlap: numberOrDefault(existing.overlap, 0),
     printPageNumbers: Boolean(existing.printPageNumbers),
     cutMarks: Boolean(existing.cutMarks),
+    watermark: existing.watermark || '',
     omitEmptyPages: existing.omitEmptyPages !== false,
     backgroundColor: existing.backgroundColor || legacyPage.backgroundColor || '',
     title: existing.title || legacyPage.title || raw.title || '',
