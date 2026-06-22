@@ -13,11 +13,29 @@
 
 import { getLocalDatabase } from './LocalDatabase.js';
 
+// Built-in ToDo status / priority values. These mirror the fixed arrays the
+// ToDos route used before statuses/priorities became custom catalogs, so the
+// defaults stay identical and existing records keep resolving.
+export const TODO_STATUS_BUILTINS = [
+  { id: 'Open', label: 'Open' },
+  { id: 'InProgress', label: 'In Progress' },
+  { id: 'Done', label: 'Done' },
+  { id: 'Blocked', label: 'Blocked' },
+];
+
+export const TODO_PRIORITY_BUILTINS = [
+  { id: 'Low', label: 'Low' },
+  { id: 'Normal', label: 'Normal' },
+  { id: 'High', label: 'High' },
+];
+
 export const CUSTOM_TYPE_CATEGORIES = [
   { id: 'event', label: 'Custom Event Types', description: 'Extra event kinds for PersonEvent / FamilyEvent pickers.', metaKey: 'customTypes:event' },
   { id: 'fact', label: 'Custom Fact Types', description: 'Extra fact kinds for the PersonFact picker.', metaKey: 'customTypes:fact' },
   { id: 'additionalName', label: 'Custom Additional-Name Types', description: 'Alias/alternate-name kinds (stage name, married name, etc.).', metaKey: 'customTypes:additionalName' },
   { id: 'todo', label: 'Custom ToDo Types', description: 'Research-task categories for the ToDos list.', metaKey: 'customTypes:todo' },
+  { id: 'todoStatus', label: 'Custom ToDo Statuses', description: 'Workflow states for the ToDos list (in addition to the built-in Open / In Progress / Done / Blocked).', metaKey: 'customTypes:todoStatus', defaults: TODO_STATUS_BUILTINS },
+  { id: 'todoPriority', label: 'Custom ToDo Priorities', description: 'Priority levels for the ToDos list (in addition to the built-in Low / Normal / High).', metaKey: 'customTypes:todoPriority', defaults: TODO_PRIORITY_BUILTINS },
 ];
 
 function categoryFor(id) {

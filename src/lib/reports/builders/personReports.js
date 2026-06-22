@@ -5,18 +5,23 @@
  * report AST.
  */
 import { buildAncestorTree, buildDescendantTree } from '../../treeQuery.js';
-import { buildPersonContext } from '../../personContext.js';
-import { computeKinshipCoefficient, findRelationshipPath, collectRelatives, relationshipLabel } from '../../relationshipPath.js';
+import { buildPersonContext, getSiblings } from '../../personContext.js';
+import { computeKinshipCoefficient, findRelationshipPaths, collectRelatives, relationshipLabel } from '../../relationshipPath.js';
 import { computeAncestorCompleteness, loadGenealogyMetricRecords } from '../../genealogyMetrics.js';
 import { sosaFather, sosaGeneration, sosaMother, sosaRelation } from '../../sosa.js';
-import { describeBirth, describeDeath, describeMarriage } from '../narrativeTemplates.js';
+import { describeBirth, describeDeath, describeMarriage, describeResidence, describeOccupation } from '../narrativeTemplates.js';
 import { formatVitalDateParts } from '../../vitalFormat.js';
 import { compareStrings, formatInteger } from '../../i18n.js';
 import { eventTypeLabel } from '../../catalogs.js';
 import { block, emptyReport } from '../ast.js';
+import { appendCitationsSection } from './citations.js';
+import { citationTargetsForContext } from './reportContextTargets.js';
 import {
   addFamilyContext,
+  eventDate,
+  eventDescription,
   eventReportRow,
+  eventTypeLabel as eventTypeLabelOf,
   genderLabel,
   getLocalDatabase,
   lifeSpanLabel,
@@ -25,12 +30,18 @@ import {
   parentFamilyContextLabel,
   pathEdgeLabel,
   personSummary,
+  placeLabel,
   placeSummary,
   readRef,
   relationNameAt,
   spanAnnotated,
   spouseFamilyContextLabel,
 } from './_helpers.js';
+import {
+  worldEventsInRange,
+  worldEventLine,
+  yearSpanOfDates,
+} from './worldHistoryInject.js';
 
 /**
  * PERSON SUMMARY — name, life dates, parents, partners, children, events table.
@@ -90,6 +101,10 @@ export async function buildPersonSummary(recordName, options = {}) {
     );
   }
 
+  if (options.appendCitations) {
+    await appendCitationsSection(report, citationTargetsForContext(ctx));
+  }
+
   return report;
 }
 
@@ -131,7 +146,7 @@ export async function buildAncestorNarrative(recordName, generations = 5) {
 /**
  * FAMILY GROUP SHEET — partner A, partner B, marriage info, children list.
  */
-export async function buildFamilyGroupSheet(recordName) {
+export async function buildFamilyGroupSheet(recordName, options = {}) {
   const ctx = await buildPersonContext(recordName);
   if (!ctx || ctx.families.length === 0) return emptyReport('No families to summarize');
   const self = ctx.selfSummary;
@@ -155,6 +170,9 @@ export async function buildFamilyGroupSheet(recordName) {
     } else {
       report.blocks.push(block.paragraph('No children recorded.'));
     }
+  }
+  if (options.appendCitations) {
+    await appendCitationsSection(report, citationTargetsForContext(ctx));
   }
   return report;
 }
@@ -200,6 +218,16 @@ export async function buildPersonEventsReport(recordName, options = {}) {
     }
   }
 
+  const eventCount = rows.length;
+
+  // Interleave matching world-history events into the table (#world history).
+  if (options.showWorldHistory) {
+    const { minYear, maxYear } = yearSpanOfDates(rows.map((row) => row[1]));
+    for (const worldEvent of worldEventsInRange(minYear, maxYear, { limit: 60 })) {
+      rows.push(['World History', worldEvent.date || String(worldEvent.year || ''), worldEvent.region || '', worldEvent.title, 'Historical context']);
+    }
+  }
+
   rows.sort(
     (a, b) =>
       compareStrings(a[1], b[1]) ||
@@ -209,8 +237,11 @@ export async function buildPersonEventsReport(recordName, options = {}) {
 
   const report = emptyReport(`Person Events — ${nameOf(ctx.selfSummary)}`);
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.paragraph(`${formatInteger(rows.length)} events for ${nameOf(ctx.selfSummary)}`));
+  report.blocks.push(block.paragraph(`${formatInteger(eventCount)} events for ${nameOf(ctx.selfSummary)}`));
   report.blocks.push(block.table(['Type', 'Date', 'Place', 'Description', 'Context'], rows));
+  if (options.appendCitations) {
+    await appendCitationsSection(report, citationTargetsForContext(ctx));
+  }
   return report;
 }
 
@@ -244,7 +275,7 @@ export async function buildKinshipRosterReport(recordName, options = {}) {
   return report;
 }
 
-export async function buildKinshipReport(recordA, recordB) {
+export async function buildKinshipReport(recordA, recordB, options = {}) {
   const db = getLocalDatabase();
   const [personA, personB] = await Promise.all([
     recordA ? db.getRecord(recordA) : null,
@@ -262,7 +293,18 @@ export async function buildKinshipReport(recordA, recordB) {
     return report;
   }
 
-  const path = await findRelationshipPath(recordA, recordB);
+  // Relationship-scope config: line type (any / blood / biological-only) and
+  // a configurable maximum depth. 'biological' also excludes adoptive/step
+  // edges via excludeNonBiological.
+  const lineType = options.lineType || 'any';
+  const maxDepth = Math.max(2, Math.min(20, Number(options.maxDepth) || 12));
+  const pathOptions = {
+    maxDepth,
+    bloodlineOnly: lineType !== 'any',
+    excludeNonBiological: lineType === 'biological',
+  };
+  const { paths } = await findRelationshipPaths(recordA, recordB, { ...pathOptions, maxPaths: 1 });
+  const path = paths[0] || null;
   if (!path) {
     report.blocks.push(block.paragraph(`No relationship path found between ${labelA} and ${labelB}.`));
     report.blocks.push(block.table(['Person A', 'Person B', 'Relationship'], [[labelA, labelB, 'No path found']]));
@@ -270,17 +312,25 @@ export async function buildKinshipReport(recordA, recordB) {
   }
 
   report.blocks.push(block.paragraph(`Relationship: ${path.label || 'Related'}`));
+  const showLifeSpan = options.showLifeSpan !== false;
+  const stepColumns = showLifeSpan
+    ? ['Step', 'Connection', 'Person', 'Life Span']
+    : ['Step', 'Connection', 'Person'];
   report.blocks.push(
     block.table(
-      ['Step', 'Connection', 'Person', 'Life Span'],
-      path.steps.map((step, index) => [
-        String(index + 1),
-        index === 0 ? 'Start' : pathEdgeLabel(step.edgeFromPrev),
-        nameOf(step.person),
-        lifeSpanLabel(step.person),
-      ])
+      stepColumns,
+      path.steps.map((step, index) => {
+        const row = [
+          String(index + 1),
+          index === 0 ? 'Start' : pathEdgeLabel(step.edgeFromPrev),
+          nameOf(step.person),
+        ];
+        if (showLifeSpan) row.push(lifeSpanLabel(step.person));
+        return row;
+      })
     )
   );
+  if (options.showCoefficients === false) return report;
   const coefficient = await computeKinshipCoefficient(recordA, recordB);
   if (coefficient) {
     report.blocks.push(block.paragraph(`Relationship coefficient: ${formatCoefficient(coefficient.relationshipCoefficient)}; kinship coefficient: ${formatCoefficient(coefficient.kinshipCoefficient)}.`));
@@ -452,29 +502,131 @@ export async function buildDescendancyReport(recordName, generations = 5, option
   return report;
 }
 
-export async function buildNarrativeReport(recordName, generations = 4) {
+/**
+ * Find the first event of a given conclusion/event type within a person's
+ * events, returning a normalized { date, place, description } for the
+ * narrative describers. The place is resolved to a display name.
+ */
+async function firstEventOfType(db, events, typeMatcher) {
+  for (const event of events || []) {
+    const label = eventTypeLabelOf(event);
+    if (!typeMatcher.test(label)) continue;
+    const place = await placeLabel(db, readRef(event.fields?.place) || readRef(event.fields?.assignedPlace));
+    return { date: eventDate(event), place, description: eventDescription(event) };
+  }
+  return null;
+}
+
+export async function buildNarrativeReport(recordName, generations = 4, options = {}) {
   const ctx = await buildPersonContext(recordName);
   if (!ctx) return emptyReport('Person not found');
+  const db = getLocalDatabase();
   const report = emptyReport(`Narrative Report — ${nameOf(ctx.selfSummary)}`);
   report.blocks.push(block.title(report.title, 1));
   const self = ctx.selfSummary;
+  const facts = [];
+  const dateSpan = [];
+
   const birth = describeBirth(self);
   if (birth) report.blocks.push(block.paragraph(birth));
+  if (self.birthDate) dateSpan.push(self.birthDate);
+
+  // Christening / baptism.
+  if (options.includeChristening) {
+    const christening = await firstEventOfType(db, ctx.events, /christening|baptism/i);
+    if (christening) {
+      facts.push(christening.date);
+      const where = christening.place ? ` in ${christening.place}` : '';
+      const when = christening.date ? ` on ${christening.date}` : '';
+      if (where || when) report.blocks.push(block.paragraph(`${nameOf(self)} was christened${when}${where}.`));
+    }
+  }
+
   for (const parentFamily of ctx.parents) {
     const parents = [parentFamily.man, parentFamily.woman].filter(Boolean).map(nameOf).join(' and ');
     if (parents) report.blocks.push(block.paragraph(`${nameOf(self)} was a child of ${parents}.`));
   }
+
+  // Siblings.
+  if (options.includeSiblings) {
+    const siblings = await getSiblings(recordName);
+    if (siblings.length) {
+      report.blocks.push(block.paragraph(`${nameOf(self)} had ${siblings.length === 1 ? 'one sibling' : `${siblings.length} siblings`}: ${siblings.map(nameOf).join(', ')}.`));
+    }
+  }
+
+  // Education.
+  if (options.includeEducation) {
+    const education = await firstEventOfType(db, ctx.events, /education|graduation|degree/i);
+    if (education) {
+      facts.push(education.date);
+      const detail = education.description ? ` (${education.description})` : '';
+      const where = education.place ? ` in ${education.place}` : '';
+      report.blocks.push(block.paragraph(`${nameOf(self)} was educated${where}${detail}.`));
+    }
+  }
+
+  // Residence — wires describeResidence.
+  if (options.includeResidence) {
+    const residence = await firstEventOfType(db, ctx.events, /residence/i);
+    if (residence) {
+      facts.push(residence.date);
+      const sentence = describeResidence(self, residence.place, residence.date);
+      if (sentence) report.blocks.push(block.paragraph(sentence));
+    }
+  }
+
+  // Occupation — wires describeOccupation.
+  if (options.includeOccupation) {
+    const occupation = await firstEventOfType(db, ctx.events, /occupation/i);
+    if (occupation) {
+      facts.push(occupation.date);
+      const sentence = describeOccupation(self, occupation.description, occupation.date);
+      if (sentence) report.blocks.push(block.paragraph(sentence));
+    }
+  }
+
   for (const family of ctx.families) {
     if (family.partner) {
       const marriageDate = family.familySummary?.marriageDate || '';
+      if (marriageDate) dateSpan.push(marriageDate);
       report.blocks.push(block.paragraph(describeMarriage(self, family.partner, marriageDate, '')));
     }
     if (family.children.length) report.blocks.push(block.paragraph(`Their recorded children are ${family.children.map(nameOf).join(', ')}.`));
   }
+
+  // Burial.
+  if (options.includeBurial) {
+    const burial = await firstEventOfType(db, ctx.events, /burial|interment/i);
+    if (burial) {
+      facts.push(burial.date);
+      const where = burial.place ? ` in ${burial.place}` : '';
+      const when = burial.date ? ` on ${burial.date}` : '';
+      if (where || when) report.blocks.push(block.paragraph(`${nameOf(self)} was buried${when}${where}.`));
+    }
+  }
+
   const death = describeDeath(self);
   if (death) report.blocks.push(block.paragraph(death));
+  if (self.deathDate) dateSpan.push(self.deathDate);
+
+  // World-history injection over the subject's life span.
+  if (options.showWorldHistory) {
+    const { minYear, maxYear } = yearSpanOfDates([...dateSpan, ...facts]);
+    const events = worldEventsInRange(minYear, maxYear, { limit: 40 });
+    if (events.length) {
+      report.blocks.push(block.spacer(8));
+      report.blocks.push(block.title('World History', 2));
+      report.blocks.push(block.list(events.map(worldEventLine)));
+    }
+  }
+
   const descendants = await buildDescendantNarrative(recordName, generations);
   report.blocks.push(...descendants.blocks.slice(1));
+
+  if (options.appendCitations) {
+    await appendCitationsSection(report, citationTargetsForContext(ctx));
+  }
   return report;
 }
 

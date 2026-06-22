@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
 import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
@@ -8,63 +8,6 @@ import { layoutDescendants } from './layouts/descendantLayout.js';
 const NODE_PAD_X = 90;
 const ROW_HEIGHT = 86;
 const RADIAL_DESCENDANT_SIZE = 800;
-
-const GENDER_LABELS = { 0: 'Male', 1: 'Female', 2: 'Unknown', 3: 'Intersex' };
-
-const DISTRIBUTION_CATEGORIES = [
-  {
-    id: 'lastNames',
-    title: 'Distribution of Last Names',
-    description: 'Usage of the Last Names in your family tree by year.',
-    sidebarTitle: 'Last Names',
-    extract: (p) => (p.lastName || '').trim() || null,
-  },
-  {
-    id: 'firstNames',
-    title: 'Distribution of First Names',
-    description: 'Usage of the First Names in your family tree by year.',
-    sidebarTitle: 'First Names',
-    extract: (p) => (p.firstName || '').trim() || null,
-  },
-  {
-    id: 'genders',
-    title: 'Distribution of Genders',
-    description: 'Distribution of Genders in your family tree by year.',
-    sidebarTitle: 'Genders',
-    extract: (p) => GENDER_LABELS[p.gender ?? 2] || 'Unknown',
-  },
-  {
-    id: 'birthPlaces',
-    title: 'Distribution of Birth Places',
-    description: 'The Places of Birth in your family tree showing where persons were born.',
-    sidebarTitle: 'Birth Places',
-    extract: (p) => (p.birthPlace || '').split(',')[0]?.trim() || null,
-  },
-  {
-    id: 'birthCountries',
-    title: 'Distribution of Birth Countries',
-    description: 'The Countries of Birth in your family tree showing where persons were born.',
-    sidebarTitle: 'Birth Countries',
-    extract: (p) => {
-      const parts = (p.birthPlace || '').split(',').map((s) => s.trim()).filter(Boolean);
-      return parts.length ? parts[parts.length - 1] : null;
-    },
-  },
-  {
-    id: 'deathPlaces',
-    title: 'Distribution of Death Places',
-    description: 'The Places of Death in your family tree showing where persons died.',
-    sidebarTitle: 'Death Places',
-    extract: (p) => (p.deathPlace || '').split(',')[0]?.trim() || null,
-  },
-];
-
-function normalizeYear(value) {
-  if (!value) return null;
-  if (typeof value === 'number') return value;
-  const match = String(value).match(/(\d{4})/);
-  return match ? Number.parseInt(match[1], 10) : null;
-}
 
 function parseYear(value) {
   const match = String(value || '').match(/(\d{4})/);
@@ -513,163 +456,179 @@ function ribbonColor(index) {
   return palette[index % palette.length];
 }
 
-function buildRibbons(persons, category) {
-  const current = new Date().getFullYear();
-  const bucket = new Map();
-  for (const person of persons) {
-    const value = category.extract(person);
-    if (!value) continue;
-    const birth = normalizeYear(person.birthDate);
-    const death = normalizeYear(person.deathDate);
-    if (!birth && !death) continue;
-    const start = birth ?? death;
-    const end = death ?? current;
-    const entry = bucket.get(value) || { value, min: Infinity, max: -Infinity, count: 0 };
-    entry.min = Math.min(entry.min, start);
-    entry.max = Math.max(entry.max, end);
-    entry.count += 1;
-    bucket.set(value, entry);
-  }
-  return [...bucket.values()]
-    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
-    .slice(0, 16);
-}
+// Friendly title fragment for the active distribution type. Falls back to the
+// raw type id (or the legacy category title) so the heading is always sensible.
+const DISTRIBUTION_TYPE_TITLES = {
+  lastName: 'Last Names',
+  firstName: 'First Names',
+  gender: 'Genders',
+  birthPlace: 'Birth Places',
+  birthCountry: 'Birth Countries',
+  deathPlace: 'Death Places',
+  deathCountry: 'Death Countries',
+  birthCentury: 'Birth Centuries',
+  deathCentury: 'Death Centuries',
+  occupation: 'Occupations',
+  illness: 'Illnesses',
+  eyeColor: 'Eye Colors',
+  race: 'Races',
+  skinColor: 'Skin Colors',
+  caste: 'Caste Names',
+  nationalOrigin: 'National Origins',
+};
 
-export function DistributionChart({ persons = [], distributionData, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
-  const [categoryId, setCategoryId] = useState(DISTRIBUTION_CATEGORIES[0].id);
-  const category = DISTRIBUTION_CATEGORIES.find((c) => c.id === categoryId) || DISTRIBUTION_CATEGORIES[0];
+export function DistributionChart({ persons = [], distributionData, distributionType, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
+  // Single source of truth: the active distribution type is chosen in the chart
+  // options panel and threaded through `distributionType` / the builder's
+  // `distributionData.config`. The legacy 6-item sidebar has been removed so it
+  // can no longer fight the selector. We render a count-based bar/line graph
+  // (driven by `config.graphType`), optionally as relative percentages
+  // (`config.relativeValues`).
+  const config = distributionData?.config || {};
+  const activeType = config.distributionType || distributionType || 'gender';
+  const relative = Boolean(config.relativeValues);
+  const graphType = config.graphType === 'line' ? 'line' : 'bar';
+  const title = `Distribution of ${DISTRIBUTION_TYPE_TITLES[activeType] || activeType}`;
 
-  // When a caller supplies `distributionData` from `buildDistributionData`
-  // (src/lib/chartData/distributionBuilder.js) we prefer its record-backed
-  // buckets + year ranges; this unlocks fact-based categories (occupation,
-  // illness, eye color, etc.) that the tree-derived path can't compute.
-  // The builder's per-bucket minYear/maxYear map straight to ribbon min/max.
-  const ribbons = useMemo(() => {
-    if (Array.isArray(distributionData?.items) && distributionData.items.length > 0) {
-      return distributionData.items
-        .filter((item) => item.minYear != null && item.maxYear != null)
-        .map((item) => ({ value: item.label, min: item.minYear, max: item.maxYear, count: item.count }))
-        .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
-        .slice(0, 16);
-    }
-    return buildRibbons(persons, category);
-  }, [persons, category, distributionData]);
+  const items = useMemo(() => {
+    const source = Array.isArray(distributionData?.items) ? distributionData.items : [];
+    return source
+      .map((item) => ({
+        value: item.label,
+        count: item.count,
+        fraction: item.fraction,
+      }))
+      .sort((a, b) => b.count - a.count || String(a.value).localeCompare(String(b.value)))
+      .slice(0, 16);
+  }, [distributionData]);
 
-  const current = new Date().getFullYear();
-  const minYear = ribbons.length ? Math.floor(Math.min(...ribbons.map((r) => r.min)) / 25) * 25 : 1900;
-  const maxYear = ribbons.length ? Math.ceil(Math.max(...ribbons.map((r) => r.max), current) / 25) * 25 : current;
-  const chartWidth = 960;
-  const chartHeight = 540;
-  const axisX = 90;
-  const plotTop = 110;
+  const total = distributionData?.total || items.reduce((sum, item) => sum + item.count, 0) || 1;
+  const valueFor = (item) => (relative ? (item.fraction ?? item.count / total) : item.count);
+  const maxValue = items.length ? Math.max(...items.map(valueFor)) : 1;
+
+  const chartWidth = 1040;
+  const chartHeight = 520;
+  const axisX = 70;
+  const plotTop = 120;
   const plotBottom = plotTop + chartHeight;
-  const plotLeft = axisX + 40;
+  const plotLeft = axisX + 30;
   const plotRight = chartWidth + 40;
   const plotWidth = plotRight - plotLeft;
-  const yearToY = (y) => plotBottom - ((y - minYear) / Math.max(1, maxYear - minYear)) * (plotBottom - plotTop);
-  const gridYears = [];
-  for (let y = minYear; y <= maxYear; y += 25) gridYears.push(y);
-  const ribbonSlot = ribbons.length ? plotWidth / ribbons.length : 0;
-  const ribbonWidth = Math.min(28, Math.max(10, ribbonSlot * 0.45));
+  const valueToY = (value) => plotBottom - (value / Math.max(maxValue, relative ? 0.0001 : 1)) * (plotBottom - plotTop);
+  const slot = items.length ? plotWidth / items.length : 0;
+  const barWidth = Math.min(48, Math.max(10, slot * 0.6));
+
+  const ticks = [];
+  const tickCount = 5;
+  for (let i = 0; i <= tickCount; i += 1) ticks.push((maxValue * i) / tickCount);
+  const formatValue = (value) => (relative ? `${Math.round(value * 100)}%` : Math.round(value).toLocaleString());
+
+  const linePoints = items
+    .map((item, i) => `${plotLeft + slot * (i + 0.5)},${valueToY(valueFor(item))}`)
+    .join(' ');
 
   return (
-    <div style={{ display: 'flex', height: '100%' }}>
-      <div style={{ flex: 1, position: 'relative' }}>
-        <ChartCanvas
-          ref={chartCanvasRef}
-          theme={theme}
-          page={page}
-          overlays={overlays}
-          onOverlaysChange={onOverlaysChange}
-          {...overlayProps}
-        >
-          <g>
-            <text x={plotLeft + plotWidth / 2} y={50} textAnchor="middle" fill={theme.text} fontSize={24} fontWeight={700} fontFamily={theme.fontFamily}>{category.title}</text>
-            <text x={plotLeft + plotWidth / 2} y={74} textAnchor="middle" fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{persons.length} people</text>
+    <ChartCanvas
+      ref={chartCanvasRef}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+      {...overlayProps}
+    >
+      <g>
+        <text x={plotLeft + plotWidth / 2} y={56} textAnchor="middle" fill={theme.text} fontSize={24} fontWeight={700} fontFamily={theme.fontFamily}>{title}</text>
+        <text x={plotLeft + plotWidth / 2} y={80} textAnchor="middle" fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>
+          {total.toLocaleString()} records{relative ? ' · relative values' : ''}
+          {config.fromYear != null || config.toYear != null ? ` · ${config.fromYear ?? '…'}–${config.toYear ?? '…'}` : ''}
+        </text>
 
-            {gridYears.map((y) => (
-              <g key={y}>
-                <line x1={plotLeft} y1={yearToY(y)} x2={plotRight} y2={yearToY(y)} stroke={theme.connector} strokeWidth={0.5} opacity={0.4} />
-                <text x={axisX} y={yearToY(y) + 4} textAnchor="end" fill={theme.textMuted} fontSize={11} fontFamily={theme.fontFamily}>{y}</text>
-              </g>
-            ))}
+        {ticks.map((tick, i) => (
+          <g key={i}>
+            <line x1={plotLeft} y1={valueToY(tick)} x2={plotRight} y2={valueToY(tick)} stroke={theme.connector} strokeWidth={0.5} opacity={0.4} />
+            <text x={axisX} y={valueToY(tick) + 4} textAnchor="end" fill={theme.textMuted} fontSize={11} fontFamily={theme.fontFamily}>{formatValue(tick)}</text>
+          </g>
+        ))}
 
-            {ribbons.map((r, i) => {
-              const cx = plotLeft + ribbonSlot * (i + 0.5);
-              const yTop = yearToY(r.max);
-              const yBottom = yearToY(r.min);
-              const color = ribbonColor(i);
+        {graphType === 'bar' && items.map((item, i) => {
+          const cx = plotLeft + slot * (i + 0.5);
+          const yTop = valueToY(valueFor(item));
+          return (
+            <g key={item.value}>
+              <rect
+                x={cx - barWidth / 2}
+                y={yTop}
+                width={barWidth}
+                height={Math.max(2, plotBottom - yTop)}
+                rx={3}
+                fill={ribbonColor(i)}
+                opacity={0.9}
+              />
+              {config.showValueLabels !== false && (
+                <text x={cx} y={yTop - 4} textAnchor="middle" fill={theme.text} fontSize={10} fontFamily={theme.fontFamily}>{formatValue(valueFor(item))}</text>
+              )}
+            </g>
+          );
+        })}
+
+        {graphType === 'line' && items.length > 0 && (
+          <>
+            <polyline points={linePoints} fill="none" stroke={ribbonColor(0)} strokeWidth={2.4} />
+            {items.map((item, i) => {
+              const cx = plotLeft + slot * (i + 0.5);
+              const cy = valueToY(valueFor(item));
               return (
-                <g key={r.value}>
-                  <rect
-                    x={cx - ribbonWidth / 2}
-                    y={yTop}
-                    width={ribbonWidth}
-                    height={Math.max(4, yBottom - yTop)}
-                    rx={ribbonWidth / 2}
-                    fill={color}
-                    opacity={0.9}
-                  />
-                  <text
-                    x={cx}
-                    y={plotBottom + 18}
-                    textAnchor="middle"
-                    fill={theme.text}
-                    fontSize={11}
-                    fontFamily={theme.fontFamily}
-                    transform={`rotate(-35 ${cx} ${plotBottom + 18})`}
-                  >
-                    {r.value}
-                  </text>
+                <g key={item.value}>
+                  <circle cx={cx} cy={cy} r={4} fill={ribbonColor(i)} />
+                  {config.showValueLabels !== false && (
+                    <text x={cx} y={cy - 8} textAnchor="middle" fill={theme.text} fontSize={10} fontFamily={theme.fontFamily}>{formatValue(valueFor(item))}</text>
+                  )}
                 </g>
               );
             })}
+          </>
+        )}
 
-            {ribbons.length === 0 && (
-              <text x={plotLeft + plotWidth / 2} y={plotTop + chartHeight / 2} textAnchor="middle" fill={theme.textMuted} fontSize={14} fontFamily={theme.fontFamily}>
-                No data available for this category.
-              </text>
-            )}
-          </g>
-        </ChartCanvas>
-      </div>
-      <aside style={{ width: 260, borderInlineStart: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', overflowY: 'auto', padding: '12px 0' }}>
-        {DISTRIBUTION_CATEGORIES.map((c) => {
-          const selected = c.id === category.id;
+        {items.map((item, i) => {
+          const cx = plotLeft + slot * (i + 0.5);
           return (
-            <button
-              key={c.id}
-              onClick={() => setCategoryId(c.id)}
-              style={{
-                display: 'block',
-                width: '100%',
-                textAlign: 'start',
-                padding: '10px 16px',
-                border: 'none',
-                borderInlineStart: selected ? '3px solid hsl(var(--primary))' : '3px solid transparent',
-                background: selected ? 'hsl(var(--accent))' : 'transparent',
-                color: 'hsl(var(--foreground))',
-                cursor: 'pointer',
-                font: '13px -apple-system, system-ui, sans-serif',
-              }}
+            <text
+              key={`label-${item.value}`}
+              x={cx}
+              y={plotBottom + 18}
+              textAnchor="middle"
+              fill={theme.text}
+              fontSize={11}
+              fontFamily={theme.fontFamily}
+              transform={`rotate(-35 ${cx} ${plotBottom + 18})`}
             >
-              <div style={{ fontWeight: 600, marginBottom: 2 }}>{c.title}</div>
-              <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, lineHeight: 1.35 }}>{c.description}</div>
-            </button>
+              {item.value}
+            </text>
           );
         })}
-      </aside>
-    </div>
+
+        {items.length === 0 && (
+          <text x={plotLeft + plotWidth / 2} y={plotTop + chartHeight / 2} textAnchor="middle" fill={theme.textMuted} fontSize={14} fontFamily={theme.fontFamily}>
+            No data available for this distribution type.
+          </text>
+        )}
+      </g>
+    </ChartCanvas>
   );
 }
 
 export function TimelineChart({ ancestorTree, descendantTree, timelineData, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, ...overlayProps }) {
   // When the caller supplies `timelineData` (from `buildTimelineData` in
   // src/lib/chartData/timelineBuilder.js) we render the full record-backed
-  // timeline including per-row PersonEvent/FamilyEvent markers. Otherwise we
-  // fall back to the legacy tree-scan path that derives rows from birth/death
-  // years only.
+  // timeline including per-row PersonEvent/FamilyEvent markers, honoring the
+  // builder's grouping mode and marker mode. Otherwise we fall back to the
+  // legacy tree-scan path that derives rows from birth/death years only.
   const hasBuilderRows = Array.isArray(timelineData?.rows) && timelineData.rows.length > 0;
+  const config = timelineData?.config || {};
+  const grouping = config.grouping && config.grouping !== 'none' ? config.grouping : null;
+  // marker mode: 'event' draws each event as a vertical tick (line); otherwise
+  // events render as dots. The lifespan bar is always drawn.
+  const markerStyle = config.markerMode === 'event' ? 'line' : 'dot';
 
   const rows = useMemo(() => {
     if (hasBuilderRows) {
@@ -680,6 +639,7 @@ export function TimelineChart({ ancestorTree, descendantTree, timelineData, them
           birth: row.birthYear ?? null,
           death: row.deathYear ?? null,
           events: Array.isArray(row.events) ? row.events : [],
+          group: row.group ?? 'all',
           gender: null,
         }))
         .filter((row) => row.birth != null || row.death != null || row.events.length > 0)
@@ -696,12 +656,32 @@ export function TimelineChart({ ancestorTree, descendantTree, timelineData, them
         birth: parseYear(person.birthDate),
         death: parseYear(person.deathDate),
         events: [],
+        group: 'all',
         gender: person.gender ?? 0,
       }))
       .filter((row) => row.birth || row.death)
       .sort((a, b) => (a.birth || 9999) - (b.birth || 9999))
       .slice(0, 80);
   }, [ancestorTree, descendantTree, timelineData, hasBuilderRows]);
+
+  // Build a flat render list. When grouping is active we interleave a header
+  // entry before each group's rows so the timeline visibly clusters by the
+  // selected grouping mode (last name / gender / birth place / etc.).
+  const renderItems = useMemo(() => {
+    if (!grouping) return rows.map((row) => ({ type: 'row', row }));
+    const byGroup = new Map();
+    for (const row of rows) {
+      const key = row.group || 'Unknown';
+      if (!byGroup.has(key)) byGroup.set(key, []);
+      byGroup.get(key).push(row);
+    }
+    const items = [];
+    for (const [key, groupRows] of [...byGroup.entries()].sort((a, b) => String(a[0]).localeCompare(String(b[0])))) {
+      items.push({ type: 'header', label: key });
+      for (const row of groupRows) items.push({ type: 'row', row });
+    }
+    return items;
+  }, [rows, grouping]);
 
   const currentYear = new Date().getFullYear();
   const allYears = rows.flatMap((row) => [row.birth, row.death, ...row.events.map((e) => e.year)]).filter((y) => Number.isFinite(y));
@@ -718,28 +698,151 @@ export function TimelineChart({ ancestorTree, descendantTree, timelineData, them
       {...overlayProps}
     >
       <g transform="translate(30,90)">
-        <text x={190} y={-28} fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{min} - {max}</text>
-        {rows.map((row, index) => {
+        <text x={190} y={-28} fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{min} - {max}{grouping ? ` · grouped by ${grouping}` : ''}</text>
+        {renderItems.map((item, index) => {
           const y = index * 30;
+          if (item.type === 'header') {
+            return (
+              <g key={`header-${item.label}-${index}`} transform={`translate(0,${y})`}>
+                <line x1={0} y1={6} x2={980} y2={6} stroke={theme.connector} strokeWidth={0.5} opacity={0.5} />
+                <text x={0} y={20} fill={theme.text} fontSize={12} fontWeight={700} fontFamily={theme.fontFamily}>{item.label}</text>
+              </g>
+            );
+          }
+          const row = item.row;
           const start = row.birth || row.death;
           const end = row.death || Math.min(max, currentYear);
           const strokeColor = row.gender != null ? (theme.gender[row.gender]?.stroke || theme.connector) : theme.connector;
           return (
             <g key={row.key} transform={`translate(0,${y})`}>
-              <text x={0} y={17} fill={theme.text} fontSize={12} fontFamily={theme.fontFamily}>{row.name}</text>
+              <text x={grouping ? 14 : 0} y={17} fill={theme.text} fontSize={12} fontFamily={theme.fontFamily}>{row.name}</text>
               {start != null && (
                 <>
                   <line x1={scale(start)} y1={12} x2={scale(end)} y2={12} stroke={strokeColor} strokeWidth={8} strokeLinecap="round" />
                   <text x={scale(end) + 8} y={16} fill={theme.textMuted} fontSize={11} fontFamily={theme.fontFamily}>{start}{row.death ? `-${row.death}` : ''}</text>
                 </>
               )}
-              {row.events.map((event) => (
-                event.year != null ? (
-                  <circle key={event.id} cx={scale(event.year)} cy={12} r={4} fill={theme.connector} stroke={theme.background || '#fff'} strokeWidth={1.5}>
+              {row.events.map((event) => {
+                if (event.year == null) return null;
+                const x = scale(event.year);
+                if (markerStyle === 'line') {
+                  return (
+                    <line key={event.id} x1={x} y1={3} x2={x} y2={21} stroke={theme.text} strokeWidth={2}>
+                      <title>{`${event.type || 'event'} ${event.year}${event.placeName ? ` — ${event.placeName}` : ''}`}</title>
+                    </line>
+                  );
+                }
+                return (
+                  <circle key={event.id} cx={x} cy={12} r={4} fill={theme.connector} stroke={theme.background || '#fff'} strokeWidth={1.5}>
                     <title>{`${event.type || 'event'} ${event.year}${event.placeName ? ` — ${event.placeName}` : ''}`}</title>
                   </circle>
-                ) : null
-              ))}
+                );
+              })}
+            </g>
+          );
+        })}
+      </g>
+    </ChartCanvas>
+  );
+}
+
+// Role → ring distance multiplier. The root sits at the centre; immediate
+// family forms an inner ring and associates push out to an outer ring so the
+// social neighbourhood reads at a glance.
+const SOCIOGRAM_ROLE_RING = {
+  root: 0,
+  partner: 1,
+  parent: 1,
+  child: 1,
+  grandparent: 1.9,
+  associate: 2,
+};
+
+const SOCIOGRAM_ROLE_COLOR = {
+  root: '#2563eb',
+  partner: '#db2777',
+  parent: '#7c3aed',
+  grandparent: '#9333ea',
+  child: '#16a34a',
+  associate: '#d08c60',
+};
+
+export function SociogramChart({ sociogramData, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
+  const spacing = Number.isFinite(sociogramData?.config?.associatedPersonsSpacing)
+    ? sociogramData.config.associatedPersonsSpacing
+    : 80;
+
+  const layout = useMemo(() => {
+    const nodes = Array.isArray(sociogramData?.nodes) ? sociogramData.nodes : [];
+    const edges = Array.isArray(sociogramData?.edges) ? sociogramData.edges : [];
+    const cx = 520;
+    const cy = 420;
+    const ringStep = Math.max(110, spacing * 1.6);
+    const byRing = new Map();
+    for (const node of nodes) {
+      const ring = SOCIOGRAM_ROLE_RING[node.role] ?? 1.5;
+      if (!byRing.has(ring)) byRing.set(ring, []);
+      byRing.get(ring).push(node);
+    }
+    const positioned = new Map();
+    for (const [ring, ringNodes] of byRing.entries()) {
+      if (ring === 0) {
+        for (const node of ringNodes) positioned.set(node.id, { ...node, x: cx, y: cy });
+        continue;
+      }
+      const radius = ring * ringStep;
+      ringNodes.forEach((node, index) => {
+        const angle = -Math.PI / 2 + (index / ringNodes.length) * Math.PI * 2;
+        positioned.set(node.id, {
+          ...node,
+          x: cx + Math.cos(angle) * radius,
+          y: cy + Math.sin(angle) * radius,
+        });
+      });
+    }
+    const positionedEdges = edges
+      .map((edge) => ({ ...edge, from: positioned.get(edge.fromId), to: positioned.get(edge.toId) }))
+      .filter((edge) => edge.from && edge.to);
+    return { nodes: [...positioned.values()], edges: positionedEdges, cx, cy };
+  }, [sociogramData, spacing]);
+
+  if (!sociogramData || layout.nodes.length === 0) {
+    return <ChartEmptyState theme={theme}>{sociogramData?.warning || 'No social connections to display.'}</ChartEmptyState>;
+  }
+
+  return (
+    <ChartCanvas
+      ref={chartCanvasRef}
+      theme={theme}
+      page={page}
+      overlays={overlays}
+      onOverlaysChange={onOverlaysChange}
+      {...overlayProps}
+    >
+      <g>
+        {layout.edges.map((edge, index) => (
+          <line
+            key={`${edge.fromId}-${edge.toId}-${index}`}
+            x1={edge.from.x}
+            y1={edge.from.y}
+            x2={edge.to.x}
+            y2={edge.to.y}
+            stroke={edge.kind === 'associate' ? '#d08c60' : theme.connector}
+            strokeWidth={edge.kind === 'associate' ? 2 : 1.6}
+            strokeDasharray={edge.kind === 'associate' ? '6 4' : 'none'}
+            opacity={0.8}
+          />
+        ))}
+        {layout.nodes.map((node) => {
+          const override = colorForPerson?.({ recordName: node.id, gender: node.gender });
+          const fill = override?.fill || SOCIOGRAM_ROLE_COLOR[node.role] || theme.connector;
+          const isRoot = node.role === 'root';
+          const r = isRoot ? 16 : 11;
+          return (
+            <g key={node.id} transform={`translate(${node.x},${node.y})`} onClick={() => onPersonClick?.({ recordName: node.id })} style={{ cursor: 'pointer' }}>
+              <circle r={r} fill={fill} stroke="#fff" strokeWidth={2} />
+              <text x={0} y={r + 14} textAnchor="middle" fill={theme.text} fontSize={11} fontFamily={theme.fontFamily}>{node.name}</text>
+              <title>{`${node.name} · ${node.role}`}</title>
             </g>
           );
         })}

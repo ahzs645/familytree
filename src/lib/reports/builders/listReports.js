@@ -11,6 +11,7 @@ import {
   genderLabel,
   getLocalDatabase,
   isRecordVisibleInReport,
+  lifeSpanLabel,
   loadVisiblePersonIds,
   placeLabel,
   placeSummary,
@@ -27,7 +28,23 @@ import {
 export async function buildPersonsList(options = {}) {
   const db = getLocalDatabase();
   const { records } = await db.query('Person', { limit: 100000 });
-  let people = visibleReportRecords(records).map(personSummary).filter(Boolean);
+  const visibleRecords = visibleReportRecords(records);
+  let people = visibleRecords.map(personSummary).filter(Boolean);
+
+  // Resolve birth/death place display names only when those columns are on,
+  // so the common path stays a single Person query (matches descendancy).
+  if (options.showBirthPlace || options.showDeathPlace) {
+    const { records: placeRecords } = await db.query('Place', { limit: 100000 });
+    const placeName = new Map(placeRecords.map((place) => [place.recordName, placeSummary(place)?.displayName || placeSummary(place)?.name || '']));
+    const byId = new Map(visibleRecords.map((record) => [record.recordName, record]));
+    for (const person of people) {
+      const record = byId.get(person.recordName);
+      if (!record) continue;
+      if (options.showBirthPlace) person.birthPlace = placeName.get(readRef(record.fields?.birthPlace)) || '';
+      if (options.showDeathPlace) person.deathPlace = placeName.get(readRef(record.fields?.deathPlace)) || '';
+    }
+  }
+
   if (options.onlyWithDates) people = people.filter((p) => p.birthDate || p.deathDate);
   // Per-list search: free-text narrowing on the person's name (#74).
   const search = (options.search || '').trim().toLowerCase();
@@ -38,11 +55,21 @@ export async function buildPersonsList(options = {}) {
       : sortBy === 'death' ? compareStrings(a.deathDate || '', b.deathDate || '') || compareStrings(a.fullName, b.fullName)
         : compareStrings(a.fullName, b.fullName)
   ));
+  // Per-column info chooser (mirrors the Lists workbench INFO_COLUMN_DEFS).
+  // Name is always present; the rest are toggled. Defaults preserve the prior
+  // Gender / Born / Died layout.
   const includeGender = options.includeGender !== false;
-  const columns = includeGender ? ['Name', 'Gender', 'Born', 'Died'] : ['Name', 'Born', 'Died'];
-  const toRow = (p) => (includeGender
-    ? [p.fullName, genderLabel(p.gender), p.birthDate || '', p.deathDate || '']
-    : [p.fullName, p.birthDate || '', p.deathDate || '']);
+  const columnDefs = [
+    { key: 'gender', label: 'Gender', enabled: includeGender, value: (p) => genderLabel(p.gender) },
+    { key: 'birth', label: 'Born', enabled: options.showBirthDate !== false, value: (p) => p.birthDate || '' },
+    { key: 'birthPlace', label: 'Birth Place', enabled: !!options.showBirthPlace, value: (p) => p.birthPlace || '' },
+    { key: 'death', label: 'Died', enabled: options.showDeathDate !== false, value: (p) => p.deathDate || '' },
+    { key: 'deathPlace', label: 'Death Place', enabled: !!options.showDeathPlace, value: (p) => p.deathPlace || '' },
+    { key: 'lifespan', label: 'Life Span', enabled: !!options.showLifespan, value: (p) => lifeSpanLabel(p) || '' },
+    { key: 'id', label: 'Record ID', enabled: !!options.showRecordId, value: (p) => p.recordName || '' },
+  ].filter((column) => column.enabled);
+  const columns = ['Name', ...columnDefs.map((column) => column.label)];
+  const toRow = (p) => [p.fullName, ...columnDefs.map((column) => column.value(p))];
   const report = emptyReport('Persons List');
   report.blocks.push(block.title(report.title, 1));
   report.blocks.push(block.paragraph(`${formatInteger(people.length)} persons`));
@@ -150,16 +177,36 @@ function hasFullDate(value) {
   return /\d{3,4}[-./]\d{1,2}[-./]\d{1,2}|\d{1,2}[-./]\d{1,2}[-./]\d{3,4}/.test(String(value || ''));
 }
 
+function yearOfDate(value) {
+  const match = String(value || '').match(/\b(\d{3,4})\b/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+function timeOfDate(value) {
+  const match = String(value || '').match(/\b(\d{1,2}:\d{2}(?::\d{2})?)\b/);
+  return match ? match[1] : '';
+}
+
 export async function buildEventsList(options = {}) {
   const db = getLocalDatabase();
   const policy = reportPrivacyPolicy();
-  const [personEvents, familyEvents, families, visiblePersonIds] = await Promise.all([
+  // Per-column info chooser for the Events list. The Age column needs the
+  // subject's birth date, so only load the Person index when it is requested.
+  const showAge = !!options.showAge;
+  const [personEvents, familyEvents, families, visiblePersonIds, personIndex] = await Promise.all([
     db.query('PersonEvent', { limit: 100000 }),
     db.query('FamilyEvent', { limit: 100000 }),
     db.query('Family', { limit: 100000 }),
     loadVisiblePersonIds(db, policy),
+    showAge ? db.query('Person', { limit: 100000 }) : Promise.resolve({ records: [] }),
   ]);
   const familyById = new Map(families.records.map((f) => [f.recordName, f]));
+  const personBirthYear = new Map();
+  if (showAge) {
+    for (const person of personIndex.records) {
+      personBirthYear.set(person.recordName, yearOfDate(personSummary(person)?.birthDate));
+    }
+  }
   const eventOwnerVisible = (ev) => {
     const personId = readRef(ev.fields?.person);
     if (personId) return visiblePersonIds.has(personId);
@@ -174,6 +221,24 @@ export async function buildEventsList(options = {}) {
     }
     return true;
   };
+  // Fixed leading columns (used for sorting), then optional info columns. The
+  // optional set surfaces the Age / Time / Place detail / Authority / Cause /
+  // Notes data that the builder previously dropped.
+  const optionalColumns = [
+    { key: 'age', label: 'Age', enabled: showAge, value: (ev) => {
+      const personId = readRef(ev.fields?.person);
+      const birthYear = personId ? personBirthYear.get(personId) : null;
+      const eventYear = yearOfDate(readField(ev, ['date']));
+      return birthYear != null && eventYear != null ? String(Math.max(0, eventYear - birthYear)) : '';
+    } },
+    { key: 'time', label: 'Time', enabled: !!options.showTime, value: (ev) => timeOfDate(readField(ev, ['date'])) },
+    { key: 'placeDetail', label: 'Place Detail', enabled: !!options.showPlaceDetail, async: true, value: async (ev) => placeLabel(db, readRef(ev.fields?.placeDetail)) },
+    { key: 'authority', label: 'Authority', enabled: !!options.showAuthority, value: (ev) => readField(ev, ['authority', 'agency', 'value']) || '' },
+    { key: 'cause', label: 'Cause', enabled: !!options.showCause, value: (ev) => readField(ev, ['cause', 'causeOfDeath']) || '' },
+    { key: 'notes', label: 'Notes', enabled: !!options.showNotes, value: (ev) => readField(ev, ['note', 'notes', 'userDescription', 'comment']) || '' },
+  ].filter((column) => column.enabled);
+
+  const showDescription = options.showDescription !== false;
   const rows = [];
   for (const ev of [...personEvents.records, ...familyEvents.records]) {
     if (!eventOwnerVisible(ev)) continue;
@@ -181,21 +246,28 @@ export async function buildEventsList(options = {}) {
     if (options.onlyFullDate && !hasFullDate(date)) continue;
     const owner = await eventOwnerLabel(db, ev);
     const place = await placeLabel(db, readRef(ev.fields?.place) || readRef(ev.fields?.assignedPlace));
-    rows.push([
+    const row = [
       readConclusionType(ev) || readField(ev, ['eventType', 'type']) || 'Event',
       date,
       owner,
       place,
-      readField(ev, ['description', 'userDescription', 'text']) || '',
-    ]);
+    ];
+    if (showDescription) row.push(readField(ev, ['description', 'userDescription', 'text']) || '');
+    for (const column of optionalColumns) {
+      row.push(column.async ? await column.value(ev) : column.value(ev));
+    }
+    rows.push(row);
   }
   const sortBy = options.sortBy || 'date';
   const sortIndex = sortBy === 'type' ? 0 : sortBy === 'owner' ? 2 : 1;
   rows.sort((a, b) => compareStrings(a[sortIndex], b[sortIndex]) || compareStrings(a[1], b[1]));
+  const columns = ['Type', 'Date', 'Owner', 'Place'];
+  if (showDescription) columns.push('Description');
+  for (const column of optionalColumns) columns.push(column.label);
   const report = emptyReport('Events List');
   report.blocks.push(block.title(report.title, 1));
   report.blocks.push(block.paragraph(`${formatInteger(rows.length)} events`));
-  report.blocks.push(block.table(['Type', 'Date', 'Owner', 'Place', 'Description'], rows));
+  report.blocks.push(block.table(columns, rows));
   return report;
 }
 

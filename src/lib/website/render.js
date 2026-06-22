@@ -10,7 +10,7 @@ import { readConclusionType, readField, readRef } from '../schema.js';
 import { isPrivateRecord } from '../privacy.js';
 import { getAuthorInfo } from '../authorInfo.js';
 import { formatInteger } from '../i18n.js';
-import { resolveSiteTheme } from '../websiteOptions.js';
+import { fontStackFor, resolveSiteTheme } from '../websiteOptions.js';
 import {
   lifeSpanLabel,
   personSummary,
@@ -21,7 +21,9 @@ import { attr, bdi, esc, mailtoUrl, safeUrl } from './utilities.js';
 import {
   familyLabel,
   mediaLabel,
+  personGroupLabel,
   placeLabel,
+  savedChartLabel,
   sourceLabel,
   storyLabel,
   targetLabel,
@@ -34,6 +36,8 @@ export const SITE_SECTIONS = [
   ['sources', 'Sources', 'sources', sourceIndexItem],
   ['media', 'Media', 'media', mediaIndexItem],
   ['stories', 'Stories', 'stories', storyIndexItem],
+  ['personGroups', 'Groups', 'personGroups', personGroupIndexItem],
+  ['savedCharts', 'Charts', 'savedCharts', savedChartIndexItem],
 ];
 
 export function hrefTo(recordName, model, fromFolder = '') {
@@ -58,6 +62,8 @@ export function pageWrap(title, body, options, fromFolder = '', author = null, p
   const metaCopyright = includeAuthor && author?.copyright ? `<meta name="copyright" content="${attr(author.copyright)}">` : '';
   const robotsMeta = `<meta name="robots" content="${attr(options.allowSearchIndexing ? 'index, follow' : 'noindex, nofollow')}">`;
   const canonical = canonicalUrl(options, pagePath) ? `<link rel="canonical" href="${attr(canonicalUrl(options, pagePath))}">` : '';
+  const theme = resolveSiteTheme(options);
+  const layoutClass = theme.sectionPlacement === 'sidebar' ? ' layout-sidebar' : '';
   const navLinks = SITE_SECTIONS
     .filter(([key]) => options.contentSections[key])
     .map(([folder, label]) => `<a href="${attr(homeHref(`${folder}/index.html`, fromFolder))}">${esc(label)}</a>`)
@@ -79,7 +85,7 @@ export function pageWrap(title, body, options, fromFolder = '', author = null, p
   ${faviconLink}
   <link rel="stylesheet" href="${attr(cssHref)}">
 </head>
-<body class="theme-${attr(options.theme)}">
+<body class="theme-${attr(options.theme)}${layoutClass}">
   <header class="site-header">
     <div>
       <a class="brand" href="${attr(homeHref('index.html', fromFolder))}">${bdi(options.siteTitle)}</a>
@@ -138,12 +144,36 @@ export function createCSS(options) {
   const fg = theme.colors.text;
   const muted = theme.colors.muted;
   const border = theme.colors.border;
-  return `:root{--bg:${bg};--card:${card};--fg:${fg};--muted:${muted};--border:${border};--accent:${options.accentColor}}
+  const link = theme.colors.link || options.accentColor;
+  const linkActive = theme.colors.linkActive || link;
+  const fontStack = fontStackFor(theme.font);
+  const textAlign = theme.textAlign || 'start';
+  const blur = Number(theme.blur) || 0;
+  // Optional decorative images embedded as data URLs.
+  const bodyBg = theme.backgroundImage
+    ? `background:var(--bg) url("${theme.backgroundImage}") center/cover fixed no-repeat`
+    : 'background:var(--bg)';
+  const headerBg = theme.headerImage
+    ? `background:var(--card) url("${theme.headerImage}") center/cover no-repeat`
+    : 'background:var(--card)';
+  const blurRule = blur > 0
+    ? `.card,.entity-link,.stat{backdrop-filter:blur(${blur}px)}`
+    : '';
+  // Gender tint colors people/family member cards by sex when enabled.
+  const genderTintRule = theme.genderTint
+    ? `.gender-male{background:var(--male-tint)}.gender-female{background:var(--female-tint)}`
+    : '';
+  return `:root{--bg:${bg};--card:${card};--fg:${fg};--muted:${muted};--border:${border};--accent:${options.accentColor};--link:${link};--link-active:${linkActive};--male-tint:${theme.colors.maleTint};--female-tint:${theme.colors.femaleTint}}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Naskh Arabic",Tahoma,sans-serif;line-height:1.55;text-align:start}
-a{color:var(--accent);text-decoration:none}
+body{margin:0;${bodyBg};color:var(--fg);font-family:${fontStack};line-height:1.55;text-align:${textAlign}}
+a{color:var(--link);text-decoration:none}
 a:hover{text-decoration:underline}
-.site-header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 28px;border-bottom:1px solid var(--border);background:var(--card);position:sticky;top:0}
+a:active{color:var(--link-active)}
+${blurRule}
+${genderTintRule}
+.layout-sidebar .container{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px;align-items:start}
+@media (max-width:860px){.layout-sidebar .container{grid-template-columns:1fr}}
+.site-header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:22px 28px;border-bottom:1px solid var(--border);${headerBg};position:sticky;top:0}
 .brand{font-size:20px;font-weight:750;color:var(--fg)}
 .site-header p{margin:2px 0 0;color:var(--muted);font-size:13px}
 nav{display:flex;gap:12px;flex-wrap:wrap;font-size:13px;font-weight:650}
@@ -171,6 +201,9 @@ bdi{unicode-bidi:isolate}
 .media-card img,.media-preview{max-width:100%;border-radius:7px;border:1px solid var(--border);background:#fff}
 .thumb{width:100%;aspect-ratio:4/3;object-fit:cover;margin-bottom:8px}
 .private{border-color:#f59e0b}
+.start-person{border-width:2px;border-color:var(--accent);padding:18px}
+.start-person strong{font-size:18px}
+.chart-frame{overflow:auto}
 footer{border-top:1px solid var(--border);padding:18px;color:var(--muted);font-size:12px;text-align:center}
 .author-credit{margin-bottom:6px;color:var(--fg);opacity:.85}
 @media (max-width:720px){.site-header{align-items:flex-start;flex-direction:column;position:static}.container{padding:22px 16px 44px}h1{font-size:26px}}`;
@@ -197,8 +230,57 @@ export function homePage(model, options) {
     ${options.tagline ? `<p class="muted">${bdi(options.tagline)}</p>` : ''}
     <div class="stats">${stats}</div>
   </section>
+  ${introductionSection(options)}
+  ${startPersonSection(model, options)}
   ${options.contentSections.author ? authorHomeSection(model.author) : ''}
+  ${bookmarksSection(model, options)}
   ${peoplePreview}`;
+}
+
+// Homepage Introduction (#homepage): free-form rich text/paragraphs. Plain
+// text is escaped and split on blank lines into paragraphs; basic inline HTML
+// is intentionally not trusted to keep the static export safe.
+function introductionSection(options) {
+  const text = String(options.introduction || '').trim();
+  if (!text) return '';
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((para) => para.trim())
+    .filter(Boolean)
+    .map((para) => `<p>${esc(para).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+  return `<section>
+    <h2>Introduction</h2>
+    <div class="card">${paragraphs}</div>
+  </section>`;
+}
+
+// Homepage Start Person card (#homepage): a prominent entry-point linking into
+// the tree, when a published start person is configured.
+function startPersonSection(model, options) {
+  const person = model.startPerson;
+  if (!person || !options.contentSections.people) return '';
+  const summary = personSummary(person);
+  const href = hrefTo(person.recordName, model, '');
+  if (!href) return '';
+  return `<section>
+    <h2>Start here</h2>
+    <a class="entity-link start-person" href="${attr(href)}">
+      <strong>${bdi(summary?.fullName || person.recordName)}</strong>
+      <span class="muted">${esc(lifeSpanLabel(summary) || 'Begin exploring the family tree')}</span>
+    </a>
+  </section>`;
+}
+
+// Homepage bookmarked entities (#homepage): people flagged as bookmarked.
+function bookmarksSection(model, options) {
+  if (!options.includeBookmarks || !options.contentSections.people) return '';
+  const bookmarked = model.bookmarkedPersons || [];
+  if (!bookmarked.length) return '';
+  return `<section>
+    <h2>Bookmarks</h2>
+    <div class="grid">${bookmarked.slice(0, 24).map((person) => personIndexItem(person, model, '')).join('')}</div>
+  </section>`;
 }
 
 function authorHomeSection(author) {
@@ -383,6 +465,74 @@ function storyIndexItem(story, model, fromFolder) {
   </a>`;
 }
 
+function personGroupIndexItem(group, model, fromFolder) {
+  const members = model.groupMembersByGroup?.get(group.recordName) || [];
+  return `<a class="entity-link${isPrivateRecord(group) ? ' private' : ''}" href="${attr(hrefTo(group.recordName, model, fromFolder))}">
+    <strong>${bdi(personGroupLabel(group))}</strong>
+    <span class="muted">${formatInteger(members.length, model.options)} member${members.length === 1 ? '' : 's'}</span>
+  </a>`;
+}
+
+function savedChartIndexItem(chart, model, fromFolder) {
+  const type = readField(chart, ['chartType', 'type'], '');
+  return `<a class="entity-link${isPrivateRecord(chart) ? ' private' : ''}" href="${attr(hrefTo(chart.recordName, model, fromFolder))}">
+    <strong>${bdi(savedChartLabel(chart))}</strong>
+    <span class="muted">${esc(type ? `${type} chart` : 'Saved chart')}</span>
+  </a>`;
+}
+
+export function personGroupPage(group, model) {
+  const members = model.groupMembersByGroup?.get(group.recordName) || [];
+  const description = readField(group, ['description', 'userDescription', 'notes'], '');
+  return `<article>
+    <h1>${bdi(personGroupLabel(group))}</h1>
+    <p class="muted">${formatInteger(members.length, model.options)} member${members.length === 1 ? '' : 's'}</p>
+    ${isPrivateRecord(group) ? '<span class="badge">Private export</span>' : ''}
+    ${description ? `<div class="card"><p>${bdi(description)}</p></div>` : ''}
+    ${members.length
+      ? `<h2>Members</h2><div class="grid">${members.map((person) => personIndexItem(person, model, 'groups')).join('')}</div>`
+      : '<p class="muted">No published members are part of this group.</p>'}
+  </article>`;
+}
+
+// Saved chart standalone page (#savedCharts). Renders the chart's stored SVG
+// when present, otherwise falls back to an in-memory pedigree/hourglass built
+// from the chart's root person — reusing the same renderers used per-person.
+export function savedChartPage(chart, model) {
+  const title = savedChartLabel(chart);
+  const subtitle = readField(chart, ['subtitle', 'note', 'description'], '');
+  const storedSvg = savedChartStoredSvg(chart);
+  const rootId = readRef(chart.fields?.rootPerson) || readRef(chart.fields?.primaryPerson) || readRef(chart.fields?.person);
+  const chartType = String(readField(chart, ['chartType', 'type'], '')).toLowerCase();
+  let chartBody = '';
+  if (storedSvg) {
+    chartBody = `<div class="card chart-frame">${storedSvg}</div>`;
+  } else if (rootId && model.personById.has(rootId)) {
+    const wantDescendant = chartType.includes('descend') || chartType.includes('hourglass');
+    const pedigree = !wantDescendant ? pedigreeChartSvg(rootId, model, 4) : '';
+    const descendants = wantDescendant || !pedigree ? descendantOutline(rootId, model, 3, new Set()) : '';
+    const rootSummary = personSummary(model.personById.get(rootId));
+    chartBody = `<p class="muted">Root: ${linkTo(rootId, rootSummary?.fullName, model, 'charts')}</p>
+      ${pedigree ? `<div class="card chart-frame"><h3 class="muted">Ancestor pedigree</h3>${pedigree}</div>` : ''}
+      ${descendants ? `<div class="card"><h3 class="muted">Descendants</h3>${descendants}</div>` : ''}`;
+  }
+  return `<article>
+    <h1>${bdi(title)}</h1>
+    ${subtitle ? `<p class="muted">${bdi(subtitle)}</p>` : ''}
+    ${isPrivateRecord(chart) ? '<span class="badge">Private export</span>' : ''}
+    ${chartBody || '<p class="muted">This saved chart has no renderable content in the published export.</p>'}
+  </article>`;
+}
+
+// Extracts an inline <svg> from common SavedChart payload fields, if present.
+function savedChartStoredSvg(chart) {
+  const candidate = readField(chart, ['svg', 'previewSVG', 'previewSvg', 'renderedSVG', 'image'], '');
+  const raw = String(candidate || '').trim();
+  if (!raw) return '';
+  const match = raw.match(/<svg[\s\S]*<\/svg>/i);
+  return match ? match[0] : '';
+}
+
 export function personPage(person, model) {
   const summary = personSummary(person);
   const parentFamilyId = model.parentFamilyByChild.get(person.recordName);
@@ -404,8 +554,17 @@ export function personPage(person, model) {
     ${events.length ? `<h2>Events</h2>${eventsTable(events, model, 'people')}` : ''}
     ${model.options.contentSections.charts ? chartsSection(person, model) : ''}
     ${model.options.contentSections.dna ? dnaSection(person.recordName, model) : ''}
+    ${model.options.contentSections.personGroups ? personGroupsSection(person.recordName, model) : ''}
     ${relatedSections(person.recordName, model, 'people')}
   </article>`;
+}
+
+function personGroupsSection(recordName, model) {
+  const groups = model.groupsByPerson?.get(recordName) || [];
+  if (!groups.length) return '';
+  return `<h2>Groups</h2><div class="card"><ul>${groups.map((group) => (
+    `<li>${linkTo(group.recordName, personGroupLabel(group), model, 'people')}</li>`
+  )).join('')}</ul></div>`;
 }
 
 // Ancestor pedigree (#59) + descendant hourglass (#60) rendered inline per

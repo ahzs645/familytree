@@ -21,11 +21,16 @@ import {
   storyRelationRow,
   trimText,
 } from './_helpers.js';
+import {
+  worldEventsInRange,
+  worldEventLine,
+  yearSpanOfDates,
+} from './worldHistoryInject.js';
 
 /**
  * STORY REPORT — metadata, narrative sections, and related records.
  */
-export async function buildStoryReport(recordName) {
+export async function buildStoryReport(recordName, options = {}) {
   const db = getLocalDatabase();
   const story = recordName ? await db.getRecord(recordName) : null;
   if (!story || story.recordType !== 'Story') return emptyReport('Story not found');
@@ -33,6 +38,7 @@ export async function buildStoryReport(recordName) {
   const title = storyTitle(story);
   const report = emptyReport(`Story Report — ${title}`);
   report.blocks.push(block.title(report.title, 1));
+  const storyDates = [readField(story, ['date', 'dateString'], '')];
 
   report.blocks.push(block.title('Metadata', 2));
   report.blocks.push(
@@ -103,6 +109,24 @@ export async function buildStoryReport(recordName) {
 
   report.blocks.push(block.title('Relations', 2));
   report.blocks.push(block.table(['Scope', 'Target Type', 'Target', 'Record ID'], relationRows));
+
+  // World-history injection: derive a year span from the story's own date plus
+  // any dates on the people/events the story references, then list matching
+  // world events.
+  if (options.showWorldHistory) {
+    const targetIds = [...new Set(relationRows.map((row) => row[3]).filter(Boolean))];
+    for (const targetId of targetIds) {
+      const target = await db.getRecord(targetId);
+      const date = readField(target, ['date', 'cached_birthDate', 'birthDate', 'cached_deathDate', 'deathDate', 'dateString'], '');
+      if (date) storyDates.push(date);
+    }
+    const { minYear, maxYear } = yearSpanOfDates(storyDates);
+    const worldEvents = worldEventsInRange(minYear, maxYear, { limit: 60 });
+    if (worldEvents.length) {
+      report.blocks.push(block.title('World History', 2));
+      report.blocks.push(block.list(worldEvents.map(worldEventLine)));
+    }
+  }
   return report;
 }
 
@@ -138,7 +162,7 @@ export async function buildMediaGalleryReport(options = {}) {
   return report;
 }
 
-export async function buildTimelineReport() {
+export async function buildTimelineReport(options = {}) {
   const db = getLocalDatabase();
   const policy = reportPrivacyPolicy();
   const [personEvents, familyEvents, families, visiblePersonIds] = await Promise.all([
@@ -172,6 +196,13 @@ export async function buildTimelineReport() {
       await placeLabel(db, readRef(event.fields?.place) || readRef(event.fields?.assignedPlace)),
       trimText(readField(event, ['description', 'text'], ''), 90),
     ]);
+  }
+  // "Include History Events": interleave matching world-history rows by year.
+  if (options.includeHistoryEvents || options.showWorldHistory) {
+    const { minYear, maxYear } = yearSpanOfDates(rows.map((row) => row[0]));
+    for (const worldEvent of worldEventsInRange(minYear, maxYear, { limit: 100 })) {
+      rows.push([worldEvent.date || String(worldEvent.year || ''), 'World History', 'World', worldEvent.region || '', worldEvent.title]);
+    }
   }
   const report = emptyReport('Timeline Report');
   report.blocks.push(block.title(report.title, 1));

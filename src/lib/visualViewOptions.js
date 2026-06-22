@@ -23,6 +23,7 @@ export const MAP_VISUAL_OPTION_PRESETS = Object.freeze({
     smartFilterMode: 'none',
     connectionPattern: 'line',
     connectionWidth: 'medium',
+    connectionColor: 'white',
     animateConnections: false,
     dateColorsMode: 'blue-red',
     sunMode: 'noon',
@@ -53,6 +54,7 @@ export const MAP_VISUAL_OPTION_PRESETS = Object.freeze({
     smartFilterMode: 'none',
     connectionPattern: 'line',
     connectionWidth: 'medium',
+    connectionColor: 'white',
     animateConnections: false,
     dateColorsMode: 'blue-red',
     sunMode: 'noon',
@@ -113,6 +115,19 @@ export const VISUAL_OPTION_SECTIONS = Object.freeze([
         ],
       },
       {
+        key: 'connectionColor',
+        label: 'Connection Color',
+        type: 'select',
+        options: [
+          { value: 'white', label: 'White' },
+          { value: 'orange', label: 'Orange' },
+          { value: 'green', label: 'Green' },
+          { value: 'turquoise', label: 'Turquoise' },
+          { value: 'pink', label: 'Pink' },
+          { value: 'event-date', label: 'Event Date' },
+        ],
+      },
+      {
         key: 'dateColorsMode',
         label: 'Event Date Colors',
         type: 'select',
@@ -160,7 +175,8 @@ export const VISUAL_OPTION_SECTIONS = Object.freeze([
         options: [
           { value: 'standard', label: 'Standard' },
           { value: 'muted', label: 'Muted' },
-          { value: 'satellite', label: 'Satellite-style' },
+          { value: 'satellite', label: 'Satellite' },
+          { value: 'hybrid', label: 'Hybrid' },
           { value: 'dark', label: 'Dark' },
         ],
       },
@@ -245,7 +261,23 @@ const DATE_COLORS_MODES = new Set(['blue-red', 'rainbow', 'turquoise-red']);
 const SUN_MODES = new Set(['noon', 'current', 'currentBright']);
 const TILE_NAME_MODES = new Set(['auto', 'international', 'national']);
 const HEAT_GRADIENTS = new Set(['red-yellow-white', 'blue-green-red', 'purple-gold']);
-const MAP_TYPES = new Set(['standard', 'muted', 'satellite', 'dark']);
+const MAP_TYPES = new Set(['standard', 'muted', 'satellite', 'hybrid', 'dark']);
+const CONNECTION_COLORS = new Set(['white', 'orange', 'green', 'turquoise', 'pink', 'event-date']);
+
+// Connection line color presets (parity with VirtualGlobe's connection color
+// menu). 'event-date' is a sentinel — the renderer falls back to the per-event
+// date gradient already carried on each connection feature.
+const CONNECTION_COLOR_HEX = Object.freeze({
+  white: '#f8fafc',
+  orange: '#f97316',
+  green: '#22c55e',
+  turquoise: '#06b6d4',
+  pink: '#ec4899',
+});
+
+export function connectionColorHex(mode) {
+  return CONNECTION_COLOR_HEX[mode] || null;
+}
 const PERSON_GROUP_MODES = new Set(['all', 'bookmarked', 'start-family']);
 const SMART_FILTER_MODES = new Set(['none', 'with-places', 'missing-date', 'living']);
 
@@ -275,6 +307,7 @@ export function normalizeVisualViewOptions(kind = 'mapStory', options = {}) {
   next.smartFilterMode = SMART_FILTER_MODES.has(next.smartFilterMode) ? next.smartFilterMode : defaults.smartFilterMode;
   next.connectionPattern = CONNECTION_PATTERNS.has(next.connectionPattern) ? next.connectionPattern : defaults.connectionPattern;
   next.connectionWidth = CONNECTION_WIDTHS.has(next.connectionWidth) ? next.connectionWidth : defaults.connectionWidth;
+  next.connectionColor = CONNECTION_COLORS.has(next.connectionColor) ? next.connectionColor : (defaults.connectionColor || 'white');
   next.animateConnections = Boolean(next.animateConnections);
   next.dateColorsMode = DATE_COLORS_MODES.has(next.dateColorsMode) ? next.dateColorsMode : defaults.dateColorsMode;
   next.sunMode = SUN_MODES.has(next.sunMode) ? next.sunMode : defaults.sunMode;
@@ -359,8 +392,10 @@ function hexChannels(hex) {
   };
 }
 
-export function buildChronologicalConnections(events = [], enabled = false) {
+export function buildChronologicalConnections(events = [], enabled = false, options = {}) {
   if (!enabled) return [];
+  const colorMode = typeof options === 'string' ? options : options?.connectionColor;
+  const presetColor = connectionColorHex(colorMode);
   const sorted = events
     .filter((event) => Number.isFinite(event?.lat) && Number.isFinite(event?.lng))
     .sort((a, b) => {
@@ -371,11 +406,16 @@ export function buildChronologicalConnections(events = [], enabled = false) {
   return sorted.slice(1)
     .map((event, index) => {
       const previous = sorted[index];
-      return {
+      const connection = {
         id: `${previous.recordName || previous.id || index}-${event.recordName || event.id || index + 1}`,
         from: { lng: previous.lng, lat: previous.lat },
         to: { lng: event.lng, lat: event.lat },
       };
+      // 'event-date' keeps each segment colored by the destination event's
+      // marker color (already computed for the pins); presets force one hue.
+      if (presetColor) connection.color = presetColor;
+      else if (colorMode === 'event-date' && event.color) connection.color = event.color;
+      return connection;
     });
 }
 

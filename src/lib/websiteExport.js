@@ -26,7 +26,9 @@ import { buildPublishModel } from './website/buildModel.js';
 import {
   familyLabel,
   mediaLabel,
+  personGroupLabel,
   placeLabel,
+  savedChartLabel,
   sourceLabel,
   storyLabel,
 } from './website/labels.js';
@@ -39,6 +41,7 @@ import {
   imprintPage,
   mediaPage,
   pageWrap,
+  personGroupPage,
   personPage,
   personSurnameIndexPage,
   personSurnamePage,
@@ -46,6 +49,7 @@ import {
   privacyPage,
   robotsTxt,
   safeGetAuthorInfo,
+  savedChartPage,
   sitemapXml,
   sourcePage,
   storyPage,
@@ -197,6 +201,18 @@ export async function buildSite(options = {}) {
     writePage(model.pathById.get(story.recordName), title, storyPage(story, model), 'stories');
     markPage(`Wrote ${title}.`);
   }
+  for (const group of normalized.contentSections.personGroups ? model.personGroups : []) {
+    checkCanceled(signal);
+    const title = personGroupLabel(group) || group.recordName;
+    writePage(model.pathById.get(group.recordName), title, personGroupPage(group, model), 'groups');
+    markPage(`Wrote ${title}.`);
+  }
+  for (const chart of normalized.contentSections.savedCharts ? model.savedCharts : []) {
+    checkCanceled(signal);
+    const title = savedChartLabel(chart) || chart.recordName;
+    writePage(model.pathById.get(chart.recordName), title, savedChartPage(chart, model), 'charts');
+    markPage(`Wrote ${title}.`);
+  }
 
   const sitemap = sitemapXml(pagePaths, normalized);
   if (sitemap) zip.file('sitemap.xml', sitemap);
@@ -238,6 +254,8 @@ export async function buildSite(options = {}) {
     sources: normalized.contentSections.sources ? model.sources.length : 0,
     media: normalized.contentSections.media ? model.media.length : 0,
     stories: normalized.contentSections.stories ? model.stories.length : 0,
+    personGroups: normalized.contentSections.personGroups ? model.personGroups.length : 0,
+    savedCharts: normalized.contentSections.savedCharts ? model.savedCharts.length : 0,
     pages: totalPages,
     assets: assetCount,
   };

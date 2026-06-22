@@ -30,6 +30,9 @@ export async function loadSnapshot() {
     rawStories,
     rawStorySections,
     rawDnaResults,
+    rawPersonGroups,
+    rawPersonGroupRelations,
+    rawSavedCharts,
     rawAssets,
     ...mediaRows
   ] = await Promise.all([
@@ -46,6 +49,9 @@ export async function loadSnapshot() {
     db.query('Story', { limit: 100000 }),
     db.query('StorySection', { limit: 100000 }),
     db.query('DNATestResult', { limit: 100000 }),
+    db.query('PersonGroup', { limit: 100000 }).catch(() => ({ records: [] })),
+    db.query('PersonGroupRelation', { limit: 100000 }).catch(() => ({ records: [] })),
+    db.query('SavedChart', { limit: 100000 }).catch(() => ({ records: [] })),
     db.listAllAssets(),
     ...MEDIA_TYPES.map((type) => db.query(type, { limit: 100000 })),
   ]);
@@ -84,6 +90,9 @@ export async function loadSnapshot() {
     stories: rawStories.records,
     storySections: rawStorySections.records,
     dnaResults: rawDnaResults.records,
+    personGroups: rawPersonGroups.records || [],
+    personGroupRelations: rawPersonGroupRelations.records || [],
+    savedCharts: rawSavedCharts.records || [],
     media: mediaRecords,
     assets: rawAssets,
     allRecordsById,

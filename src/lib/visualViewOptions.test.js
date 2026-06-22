@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildChronologicalConnections,
   colorForVisualEvent,
+  connectionColorHex,
   normalizeVisualViewOptions,
   updateVisualViewOption,
   usesHeatMap,
@@ -52,6 +53,43 @@ describe('visual view options', () => {
       { id: 'early-middle', from: { lng: 2, lat: 1 }, to: { lng: 3, lat: 2 } },
       { id: 'middle-late', from: { lng: 3, lat: 2 }, to: { lng: 4, lat: 3 } },
     ]);
+  });
+
+  it('applies a connection color preset to every segment', () => {
+    const events = [
+      { id: 'a', year: 1800, lat: 1, lng: 2, color: '#111111' },
+      { id: 'b', year: 1900, lat: 3, lng: 4, color: '#222222' },
+    ];
+    const orange = buildChronologicalConnections(events, true, { connectionColor: 'orange' });
+    expect(orange).toHaveLength(1);
+    expect(orange[0].color).toBe(connectionColorHex('orange'));
+    expect(connectionColorHex('orange')).toBe('#f97316');
+  });
+
+  it("keeps per-event colors when connection color is 'event-date'", () => {
+    const events = [
+      { id: 'a', year: 1800, lat: 1, lng: 2, color: '#111111' },
+      { id: 'b', year: 1900, lat: 3, lng: 4, color: '#222222' },
+    ];
+    const [segment] = buildChronologicalConnections(events, true, { connectionColor: 'event-date' });
+    // The segment inherits the destination event's marker color.
+    expect(segment.color).toBe('#222222');
+    expect(connectionColorHex('event-date')).toBeNull();
+  });
+
+  it('leaves connections uncolored without a color option (backward compatible)', () => {
+    const [segment] = buildChronologicalConnections([
+      { id: 'a', year: 1800, lat: 1, lng: 2 },
+      { id: 'b', year: 1900, lat: 3, lng: 4 },
+    ], true);
+    expect(segment.color).toBeUndefined();
+  });
+
+  it('normalizes connectionColor and map type to known presets', () => {
+    expect(normalizeVisualViewOptions('globe', { connectionColor: 'nope' }).connectionColor).toBe('white');
+    expect(normalizeVisualViewOptions('globe', { connectionColor: 'turquoise' }).connectionColor).toBe('turquoise');
+    expect(normalizeVisualViewOptions('globe', { mapType: 'hybrid' }).mapType).toBe('hybrid');
+    expect(normalizeVisualViewOptions('globe', { mapType: 'bogus' }).mapType).toBe('standard');
   });
 
   it('colors event and time modes deterministically', () => {

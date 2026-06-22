@@ -44,6 +44,14 @@ export function storyLabel(story) {
   return readField(story, ['title', 'name'], story?.recordName || 'Story');
 }
 
+export function personGroupLabel(group) {
+  return readField(group, ['name', 'title', 'label'], group?.recordName || 'Group');
+}
+
+export function savedChartLabel(chart) {
+  return readField(chart, ['title', 'name', 'chartTitle'], chart?.recordName || 'Chart');
+}
+
 export function targetLabel(recordName, model) {
   const record =
     model.personById.get(recordName) ||

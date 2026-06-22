@@ -10,7 +10,7 @@ import { FieldRow, editorInput, editorTextarea } from '../components/editors/Fie
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { ToDoWizardSheet } from '../components/ToDoWizardSheet.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
-import { listCustomTypes, saveCustomType, mergeWithBuiltins } from '../lib/customTypes.js';
+import { listCustomTypes, saveCustomType, mergeWithBuiltins, TODO_STATUS_BUILTINS, TODO_PRIORITY_BUILTINS } from '../lib/customTypes.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { useDirtyBaseline } from '../lib/editorState.js';
@@ -29,8 +29,6 @@ const TODO_TYPE_BUILTINS = [
   { id: 'Media', label: 'Media' },
   { id: 'Cleanup', label: 'Cleanup' },
 ];
-const TODO_STATUS_OPTIONS = ['Open', 'InProgress', 'Done', 'Blocked'];
-const TODO_PRIORITY_OPTIONS = ['Low', 'Normal', 'High'];
 const COMPLETED_STATUSES = new Set(['done', 'completed', 'complete', 'closed']);
 
 function uuid(prefix) {
@@ -65,6 +63,8 @@ export default function ToDos() {
   const [status, setStatus] = useState(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [todoTypes, setTodoTypes] = useState(TODO_TYPE_BUILTINS);
+  const [todoStatuses, setTodoStatuses] = useState(TODO_STATUS_BUILTINS);
+  const [todoPriorities, setTodoPriorities] = useState(TODO_PRIORITY_BUILTINS);
   const [loadSeq, setLoadSeq] = useState(0);
 
   const reload = useCallback(async () => {
@@ -108,8 +108,15 @@ export default function ToDos() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const custom = await listCustomTypes('todo');
-      if (!cancelled) setTodoTypes(mergeWithBuiltins(TODO_TYPE_BUILTINS, custom));
+      const [customTypes, customStatuses, customPriorities] = await Promise.all([
+        listCustomTypes('todo'),
+        listCustomTypes('todoStatus'),
+        listCustomTypes('todoPriority'),
+      ]);
+      if (cancelled) return;
+      setTodoTypes(mergeWithBuiltins(TODO_TYPE_BUILTINS, customTypes));
+      setTodoStatuses(mergeWithBuiltins(TODO_STATUS_BUILTINS, customStatuses));
+      setTodoPriorities(mergeWithBuiltins(TODO_PRIORITY_BUILTINS, customPriorities));
     })();
     return () => { cancelled = true; };
   }, []);
@@ -225,6 +232,26 @@ export default function ToDos() {
     setValues((prev) => ({ ...prev, type: saved.label }));
   };
 
+  const addCustomTodoStatus = async () => {
+    const label = await modal.prompt(t('todosPage.addStatusPrompt', { defaultValue: 'New status label' }), '', { title: t('todosPage.addStatusTitle', { defaultValue: 'Add ToDo status' }) });
+    const trimmed = label?.trim();
+    if (!trimmed) return;
+    const saved = await saveCustomType('todoStatus', { label: trimmed });
+    const custom = await listCustomTypes('todoStatus');
+    setTodoStatuses(mergeWithBuiltins(TODO_STATUS_BUILTINS, custom));
+    setValues((prev) => ({ ...prev, status: saved.id || saved.label }));
+  };
+
+  const addCustomTodoPriority = async () => {
+    const label = await modal.prompt(t('todosPage.addPriorityPrompt', { defaultValue: 'New priority label' }), '', { title: t('todosPage.addPriorityTitle', { defaultValue: 'Add ToDo priority' }) });
+    const trimmed = label?.trim();
+    if (!trimmed) return;
+    const saved = await saveCustomType('todoPriority', { label: trimmed });
+    const custom = await listCustomTypes('todoPriority');
+    setTodoPriorities(mergeWithBuiltins(TODO_PRIORITY_BUILTINS, custom));
+    setValues((prev) => ({ ...prev, priority: saved.id || saved.label }));
+  };
+
   const addRelation = async () => {
     if (!activeId || !targetId) return;
     const db = getLocalDatabase();
@@ -251,8 +278,16 @@ export default function ToDos() {
   };
 
   const todoTypeLabel = (type) => t(`todosPage.todoType.${type.id || type.label}`, { defaultValue: type.label });
-  const statusLabel = (key) => t(`todosPage.status.${key}`, { defaultValue: key });
-  const priorityLabel = (key) => t(`todosPage.priority.${key}`, { defaultValue: key });
+  // Resolve either a raw stored value (e.g. 'InProgress' from renderRow) or a
+  // catalog entry object ({ id, label }) to a display label, preferring the
+  // catalog label for built-ins/custom entries and falling back to the locale.
+  const catalogLabel = (catalog, ns) => (entry) => {
+    const key = typeof entry === 'object' ? (entry.id || entry.label) : entry;
+    const match = typeof entry === 'object' ? entry : catalog.find((item) => (item.id || item.label) === entry);
+    return t(`todosPage.${ns}.${key}`, { defaultValue: match?.label || key });
+  };
+  const statusLabel = catalogLabel(todoStatuses, 'status');
+  const priorityLabel = catalogLabel(todoPriorities, 'priority');
 
   const renderRow = (record) => (
     <div>
@@ -306,14 +341,20 @@ export default function ToDos() {
           </div>
         </FieldRow>
         <FieldRow label={t('todosPage.field.status')}>
-          <select value={values.status || 'Open'} onChange={(e) => setValues({ ...values, status: e.target.value })} style={editorInput}>
-            {TODO_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
-          </select>
+          <div className="flex gap-2">
+            <select value={values.status || 'Open'} onChange={(e) => setValues({ ...values, status: e.target.value })} style={editorInput}>
+              {todoStatuses.map((s) => <option key={s.id || s.label} value={s.id || s.label}>{statusLabel(s)}</option>)}
+            </select>
+            <button type="button" onClick={addCustomTodoStatus} className="bg-secondary border border-border rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap">{t('todosPage.addType')}</button>
+          </div>
         </FieldRow>
         <FieldRow label={t('todosPage.field.priority')}>
-          <select value={values.priority || 'Normal'} onChange={(e) => setValues({ ...values, priority: e.target.value })} style={editorInput}>
-            {TODO_PRIORITY_OPTIONS.map((s) => <option key={s} value={s}>{priorityLabel(s)}</option>)}
-          </select>
+          <div className="flex gap-2">
+            <select value={values.priority || 'Normal'} onChange={(e) => setValues({ ...values, priority: e.target.value })} style={editorInput}>
+              {todoPriorities.map((s) => <option key={s.id || s.label} value={s.id || s.label}>{priorityLabel(s)}</option>)}
+            </select>
+            <button type="button" onClick={addCustomTodoPriority} className="bg-secondary border border-border rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap">{t('todosPage.addType')}</button>
+          </div>
         </FieldRow>
       </div>
       <FieldRow label={t('todosPage.field.description')}>
