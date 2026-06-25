@@ -9,6 +9,7 @@ import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { useDirtyBaseline } from '../lib/editorState.js';
 import { useRecordLock } from '../lib/useRecordLock.js';
@@ -32,6 +33,7 @@ function targetLabel(record) {
 
 export default function Stories() {
   const { t } = useTranslation();
+  const modal = useModal();
   const [searchParams] = useSearchParams();
   const queryStoryId = searchParams.get('storyId');
   const [stories, setStories] = useState([]);
@@ -115,6 +117,28 @@ export default function Stories() {
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
+  };
+
+  const remove = async () => {
+    if (!active) return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this story before deleting.');
+      return;
+    }
+    if (!(await modal.confirm(t('stories.deleteConfirm'), { title: t('stories.deleteTitle'), okLabel: t('stories.deleteOk'), destructive: true }))) return;
+    const db = getLocalDatabase();
+    for (const section of storySections) {
+      await db.deleteRecord(section.recordName);
+      await logRecordDeleted(section.recordName, 'StorySection');
+    }
+    for (const relation of storyRelations) {
+      await db.deleteRecord(relation.recordName);
+      await logRecordDeleted(relation.recordName, 'StoryRelation');
+    }
+    await db.deleteRecord(active.recordName);
+    await logRecordDeleted(active.recordName, 'Story');
+    setActiveId(null);
+    await reload();
   };
 
   const addSection = async () => {
@@ -214,7 +238,8 @@ export default function Stories() {
         <h2 className="text-base font-semibold">{storyTitle(active, t('stories.fallbackTitle'))}</h2>
         {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-        <button onClick={save} disabled={saving || isRecordLocked(active)} className="ms-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? t('stories.saving') : t('stories.save')}</button>
+        <button onClick={remove} disabled={saving || isRecordLocked(active)} className="text-destructive border border-border rounded-md px-3 py-2 text-xs hover:bg-destructive/10 disabled:opacity-50">{t('stories.delete')}</button>
+        <button onClick={save} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? t('stories.saving') : t('stories.save')}</button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldRow label={t('stories.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>

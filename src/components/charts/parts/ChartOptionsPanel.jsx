@@ -234,11 +234,6 @@ export function ChartOptionsPanel({
             ['he', 'Hebrew'],
             ['system', 'System default'],
           ]} />
-          <SelectOption label="Name Format" value="display" onChange={() => {}} options={[
-            ['display', 'Display name'],
-            ['last-first', 'Last, First'],
-            ['given-family', 'Given Family'],
-          ]} />
         </div>
       )}
     </aside>
