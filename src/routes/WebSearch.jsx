@@ -36,6 +36,7 @@ export default function WebSearch() {
   const [personId, setPersonId] = useState(searchParams.get('personId') || '');
   const [provider, setProvider] = useState(searchParams.get('provider') || 'familysearch');
   const [customUrl, setCustomUrl] = useState('');
+  const [openInNewTab, setOpenInNewTab] = useState(true);
   const [insertAction, setInsertAction] = useState('note');
   const [insertValue, setInsertValue] = useState('');
   const [status, setStatus] = useState('');
@@ -55,6 +56,7 @@ export default function WebSearch() {
       setPersons(list);
       setProvider(searchParams.get('provider') || prefs.webSearch.provider || 'familysearch');
       setCustomUrl(prefs.webSearch.customUrl || '');
+      setOpenInNewTab(prefs.webSearch.openInNewTab !== false);
       setHistory((await db.getMeta('webSearchHistory')) || []);
       setPersonFields(new Map(rawPeople.records.map((record) => [record.recordName, record.fields || {}])));
       setPersonId((current) => current || searchParams.get('personId') || list[0]?.recordName || '');
@@ -69,7 +71,7 @@ export default function WebSearch() {
 
   const openSearch = useCallback(async () => {
     if (!searchUrl || !selected) return;
-    window.open(searchUrl, '_blank', 'noopener,noreferrer');
+    window.open(searchUrl, openInNewTab ? '_blank' : '_self', 'noopener,noreferrer');
     const db = getLocalDatabase();
     const nextHistory = [
       { at: new Date().toISOString(), provider, personId, label: selected.fullName, url: searchUrl },
@@ -77,7 +79,7 @@ export default function WebSearch() {
     ].slice(0, 25);
     await db.setMeta('webSearchHistory', nextHistory);
     setHistory(nextHistory);
-  }, [history, personId, provider, searchUrl, selected]);
+  }, [history, openInNewTab, personId, provider, searchUrl, selected]);
 
   const saveProvider = useCallback(async () => {
     const prefs = await getAppPreferences();
@@ -174,7 +176,7 @@ export default function WebSearch() {
             ) : (
               <div className="space-y-2">
                 {history.slice(0, 8).map((entry) => (
-                  <a key={`${entry.at}-${entry.url}`} href={entry.url} target="_blank" rel="noreferrer" className="block rounded-md border border-border bg-background p-2 hover:bg-secondary">
+                  <a key={`${entry.at}-${entry.url}`} href={entry.url} target={openInNewTab ? '_blank' : '_self'} rel="noreferrer" className="block rounded-md border border-border bg-background p-2 hover:bg-secondary">
                     <div className="text-sm truncate">{entry.label}</div>
                     <div className="text-[11px] text-muted-foreground">{providerLabel(entry.provider)} · {new Date(entry.at).toLocaleDateString()}</div>
                   </a>

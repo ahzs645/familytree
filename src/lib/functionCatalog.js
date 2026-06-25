@@ -17,10 +17,12 @@ export const APP_FUNCTIONS = [
   { to: '/repositories', label: 'Source Repositories', category: 'Edit' },
   { to: '/subtree', label: 'Subtree', category: 'Edit' },
   { to: '/maintenance', label: 'Database Maintenance', category: 'Edit' },
+  { to: '/custom-validation', label: 'Custom Validation Schemas', category: 'Edit' },
   { to: '/change-log', label: 'Change Log', category: 'Edit' },
 
   { to: '/charts', label: 'Charts', category: 'Charts' },
   { to: '/saved-charts', label: 'Saved Charts', category: 'Charts' },
+  { to: '/chart-split', label: 'Split Chart', category: 'Charts' },
 
   { to: '/views/virtual-map', label: 'Maps', category: 'Views' },
   { to: '/views/media-gallery', label: 'Media Gallery', category: 'Views' },
@@ -37,6 +39,7 @@ export const APP_FUNCTIONS = [
   { to: '/distinctive-persons', label: 'Distinctive Persons', category: 'Lists' },
   { to: '/person-analysis', label: 'Person Analysis', category: 'Lists' },
   { to: '/lds-ordinances', label: 'LDS Ordinances', category: 'Lists' },
+  { to: '/reference-numbering', label: 'Reference Numbering', category: 'Lists' },
 
   { to: '/publish', label: 'Publish', category: 'Publish' },
   { to: '/websites', label: 'Websites', category: 'Publish' },

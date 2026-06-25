@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAppPreferences } from '../lib/appPreferences.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
@@ -90,6 +90,7 @@ export default function FamilySearch() {
   const [people, setPeople] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState('unmatched');
+  const defaultFilterApplied = useRef(false);
   const [taskType, setTaskType] = useState('match-review');
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
@@ -137,6 +138,14 @@ export default function FamilySearch() {
     })).filter((entry) => entry.summary));
     setTasks(Array.isArray(savedTasks) ? savedTasks : []);
     setTaskType(prefs.familySearch?.defaultTaskType || 'match-review');
+    if (!defaultFilterApplied.current) {
+      defaultFilterApplied.current = true;
+      const showMatched = prefs.familySearch?.showMatched !== false;
+      const showUnmatched = prefs.familySearch?.showUnmatched !== false;
+      if (showMatched && !showUnmatched) setFilter('matched');
+      else if (!showMatched && showUnmatched) setFilter('unmatched');
+      else setFilter('all');
+    }
   }, []);
 
   useEffect(() => { reload(); }, [reload]);

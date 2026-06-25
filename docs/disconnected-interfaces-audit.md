@@ -67,9 +67,10 @@ code reads the value, so it has **zero functional effect**. Severity is
   `ColorsPanel.jsx:64-71`. (`accentColor` IS applied.)
 - **Export defaults**: `gedcomEncoding`, `websiteTheme`, `includePrivate`,
   `includeMedia` — `ExportPanel.jsx`. (`csvSeparator` IS read by `listExport.js`.)
-- **Integrations**: `webSearch.openInNewTab` (`IntegrationsPanel.jsx:39`);
-  `familySearch.showMatched` / `showUnmatched` (`:40-41`). FamilySearch filtering
-  uses a local `useState('unmatched')` instead.
+- **Integrations**: `webSearch.openInNewTab` (`IntegrationsPanel.jsx:39`) ✅ now
+  read by `WebSearch.jsx` (controls `window.open` target + history links);
+  `familySearch.showMatched` / `showUnmatched` (`:40-41`) ✅ now seed the default
+  matched/unmatched filter in `FamilySearch.jsx`.
 - **Edit Controllers** (half-connected): `eventTypesCollapsed`,
   `factTypesCollapsed`, `defaultFactType`, `defaultFamilyEventType` are unread.
   (`defaultEventType` + `applyDefaultEvents` ARE wired in `NewPerson.jsx`.)
@@ -90,14 +91,17 @@ and the entire Maps panel.
 - `/reference-numbering` → `ReferenceNumbering.jsx` (`manifest.js:63`)
 - `/custom-validation` → `CustomValidationSchemas.jsx` (`manifest.js:65`)
 
-None appear in `functionCatalog.js`, the nav config, the command palette, or any
-in-app `navigate()`/`<Link>`. Fixed by adding them to `APP_FUNCTIONS` so they are
-reachable from the Functions/Actions screen and command palette.
+None appeared in `functionCatalog.js`, the nav config, the command palette, or any
+in-app `navigate()`/`<Link>`. ✅ Fixed by adding all three to `APP_FUNCTIONS`
+(`Split Chart`, `Reference Numbering`, `Custom Validation Schemas`) so they are
+now reachable from the Functions/Actions screen and command palette.
 
 ### No-op buttons / actions
 - **Name Format dropdown** — `ChartOptionsPanel.jsx:237`: `value="display"`
   hardcoded, `onChange={() => {}}`. The 3-option select did nothing. (The
-  adjacent Localization select is correctly wired.)
+  adjacent Localization select is correctly wired.) ✅ Removed the no-op control;
+  chart names already follow the global name-format preference. A per-chart
+  override would be a feature, not a wire.
 - **Section reorder buttons** inside `BookSectionConfigSheet.jsx:49-50`
   (`onMoveUp/onMoveDown = () => {}`) — moot, the whole sheet was dead and is
   deleted. The live path in `BooksApp.jsx` uses a real `moveSection`.
