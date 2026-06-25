@@ -1,13 +1,20 @@
 # Disconnected Interfaces Audit — 2026-06-25
 
+> **Primary focus (per the request): screens that DISPLAY database data but give
+> the user no way to edit, add, or change it.** That CRUD-gap audit is **section
+> 4** below. Sections 1–3 are a related sweep (dead code, write-only settings,
+> unreachable routes) done first under a broader reading of "not connected".
+
 Audit of UI/code "interfaces that are not actually connected" across the
-CloudTreeWeb reconstruction. Three passes were run:
+CloudTreeWeb reconstruction. Four passes were run:
 
 1. **Orphaned modules** — files never imported anywhere (static import graph).
 2. **Write-only settings** — controls that render and persist but whose value
    is never read, so toggling them has no effect.
 3. **Unreachable routes / no-op actions** — views with no inbound navigation
    and buttons whose handlers do nothing.
+4. **Read-only screens that should be editable** — screens showing DB records
+   with no add/edit/change path (the main request).
 
 Every claim below was verified by grepping the whole repo (not just `src/`).
 A ✅ in the **Done** column means it was fixed in this branch; ⏳ means it
@@ -114,6 +121,49 @@ None found. The only env-gated UI (`REMOTE_IMPORT_ENABLED`, `DEMO_DATA_ENABLED`)
 is enabled in dev builds, not statically false.
 
 ---
+
+## 4. Read-only screens that should be editable (main request)
+
+Swept ~30 screens that display DB records, checking each against the app's
+editable baseline (a row links to an editor — e.g. `/person/:id`, `/family/:id`
+— or the screen has Add/Edit/Delete wired to DB writes). Result: the app is in
+good shape here — **exactly one genuine gap**, plus a few minor parity nits.
+
+### The one real GAP — fixed ✅
+- **LDS Ordinances** (`/lds-ordinances`): displayed ordinance records (ordinance
+  type, date, status, temple) pulled from the DB but had **no editor anywhere** —
+  the only affordance was a link to the owning person/family editor, which does
+  not surface ordinance records. No add/edit/delete.
+  **Fix:** rewrote `routes/LdsOrdinances.jsx` into a master/detail editor
+  (modeled on `DNAResults.jsx`): create (`+ New ordinance`), edit
+  (ordinance/date/status/temple + linked person), and delete, all through
+  `saveWithChangeLog` / `db.saveRecord` / `db.deleteRecord`. `loadLdsOrdinanceRows`
+  now returns each row's source field keys + an `editable` flag.
+  **Safety:** because ordinances are *heuristically detected* across record types,
+  the editor only writes to dedicated ordinance-type records. Person/Family
+  records that merely contain a matching field stay read-only (with an owner
+  link) so the editor can never clobber a person. New records use a canonical
+  `LDSOrdinance` type, which also bootstraps the previously schema-gated screen.
+
+### Verified OK (display + working edit/add/delete or click-through)
+Persons, Families, PersonGroups, Sources, SourceRepositories, Places, Events,
+FamilyEvents, Stories, Labels, CustomTypes, Templates, ToDos, DNAResults,
+TribalAffiliations, Lineages, MarriageList, FactsList, DistinctivePersons,
+AuthorInformation, Favorites, SmartFilters, Research, Duplicates, SubtreeWizard,
+Bookmarks.
+
+### Read-only by design (derived reports / computed views / static data)
+AnniversaryList, PersonAnalysis, PlausibilityList (derived — they link to the
+underlying record editors), and WorldHistory (events are a hardcoded constant,
+not DB records).
+
+### Minor parity nits (not gaps — full editing exists elsewhere)
+- **Bookmarks**: no inline "remove bookmark"; you un-bookmark by opening the
+  record's editor. A `★` toggle writing `isBookmarked=false` via
+  `applyRecordTransaction` would be a nicety.
+- **PersonGroups** / **Stories**: full field + relation editing and create, but
+  no top-level "delete this group/story" button (other managers expose delete via
+  `RecordBulkBar`). Smallest fix mirrors `Labels.jsx`'s delete.
 
 ## Remaining work (needs a build or a product decision)
 

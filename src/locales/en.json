@@ -988,7 +988,22 @@
     "detectedSchemaPrefix": "Detected schema: {schema}",
     "searchPlaceholder": "Search LDS ordinances...",
     "emptyTitle": "No LDS ordinance rows",
-    "emptyHint": "Schema-like fields exist, but no listable ordinance rows were found."
+    "emptyHint": "Schema-like fields exist, but no listable ordinance rows were found.",
+    "addNew": "+ New ordinance",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this ordinance record?",
+    "deleteTitle": "Delete ordinance",
+    "deleteOk": "Delete",
+    "person": "Person",
+    "noPerson": "No person linked",
+    "unlockSave": "Unlock this record before saving.",
+    "unlockDelete": "Unlock this record before deleting.",
+    "detailEmpty": "Select an ordinance to view or edit.",
+    "bootstrapHint": "Or add the first ordinance record to start tracking them here.",
+    "readOnlyNote": "This ordinance is stored on a Person or Family record. Open the linked record to edit it."
   },
   "marriageList": {
     "title": "Marriage List",

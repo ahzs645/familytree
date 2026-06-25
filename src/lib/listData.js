@@ -302,6 +302,32 @@ export async function loadPersonAnalysisRows() {
 }
 
 const LDS_SCHEMA_RE = /lds|ordinance|temple|endowment|sealing|sealed|confirmation/i;
+const LDS_DATE_KEYS = ['date', 'ordinanceDate', 'completedDate', 'templeDate', 'confirmationDate', 'endowmentDate', 'sealingDate'];
+const LDS_STATUS_KEYS = ['status', 'ordinanceStatus', 'completed', 'isCompleted'];
+const LDS_TEMPLE_KEYS = ['temple', 'templeName', 'place'];
+const LDS_ORDINANCE_KEYS = ['ordinanceType', 'ordinance', 'type', 'name', 'title'];
+const LDS_OWNER_KEYS = ['person', 'targetPerson', 'individual'];
+
+// Canonical record type + field keys used when CREATING a new ordinance from the
+// editor (see routes/LdsOrdinances.jsx). Existing records keep their own keys.
+export const LDS_ORDINANCE_RECORD_TYPE = 'LDSOrdinance';
+export const LDS_ORDINANCE_KEY_MAP = {
+  date: LDS_DATE_KEYS[0],
+  status: LDS_STATUS_KEYS[0],
+  temple: LDS_TEMPLE_KEYS[0],
+  ordinance: LDS_ORDINANCE_KEYS[0],
+  owner: LDS_OWNER_KEYS[0],
+};
+
+// First alias that actually exists on the record, so edits write back to the same
+// key the value was read from; falls back to the canonical key for new fields.
+function ldsFieldKey(record, aliases) {
+  const fields = record?.fields || {};
+  for (const name of aliases) {
+    if (Object.prototype.hasOwnProperty.call(fields, name)) return name;
+  }
+  return aliases[0];
+}
 
 export async function loadLdsOrdinanceRows() {
   const db = getLocalDatabase();
@@ -324,8 +350,13 @@ export async function loadLdsOrdinanceRows() {
     matchedFields.forEach(([key]) => detectedSchema.add(`${record.recordType}.${key}`));
 
     const owner = ownerForLdsRow(record, personsById, familiesById);
-    const rawOrdinance = readConclusionType(record) || readField(record, ['ordinanceType', 'ordinance', 'type', 'name', 'title'], record.recordType);
+    const conclusionOrdinance = readConclusionType(record);
+    const rawOrdinance = conclusionOrdinance || readField(record, LDS_ORDINANCE_KEYS, record.recordType);
     const ordinance = labelForConclusionType(rawOrdinance);
+    // A row is editable only when the record itself is a dedicated ordinance
+    // record. Person/Family records that merely contain a matching field (e.g. a
+    // "temple" note) are left read-only so the editor can never clobber them.
+    const editable = matchedType && record.recordType !== 'Person' && record.recordType !== 'Family';
     rows.push({
       id: record.recordName,
       recordType: record.recordType,
@@ -333,9 +364,20 @@ export async function loadLdsOrdinanceRows() {
       ownerType: owner.type,
       ownerName: owner.name,
       ordinance,
-      date: readField(record, ['date', 'ordinanceDate', 'completedDate', 'templeDate', 'confirmationDate', 'endowmentDate', 'sealingDate'], ''),
-      status: readField(record, ['status', 'ordinanceStatus', 'completed', 'isCompleted'], ''),
-      temple: readField(record, ['temple', 'templeName', 'place'], ''),
+      date: readField(record, LDS_DATE_KEYS, ''),
+      status: readField(record, LDS_STATUS_KEYS, ''),
+      temple: readField(record, LDS_TEMPLE_KEYS, ''),
+      editable,
+      // The ordinance label comes from a conclusion-type reference here, which the
+      // simple editor can't safely restructure — surface it as read-only.
+      ordinanceIsConclusion: !!conclusionOrdinance,
+      fieldKeys: {
+        date: ldsFieldKey(record, LDS_DATE_KEYS),
+        status: ldsFieldKey(record, LDS_STATUS_KEYS),
+        temple: ldsFieldKey(record, LDS_TEMPLE_KEYS),
+        ordinance: ldsFieldKey(record, LDS_ORDINANCE_KEYS),
+        owner: ldsFieldKey(record, LDS_OWNER_KEYS),
+      },
     });
   }
 
