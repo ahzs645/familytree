@@ -6,6 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
 import { personSummary, familySummary, placeSummary, sourceSummary } from '../models/index.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
@@ -61,6 +62,18 @@ export default function Bookmarks() {
     })();
     return () => { cancel = true; };
   }, []);
+
+  const removeBookmark = async (typeId, recordName) => {
+    const db = getLocalDatabase();
+    const record = await db.getRecord(recordName);
+    if (!record) return;
+    const next = { ...record, fields: { ...record.fields, isBookmarked: { value: false, type: 'BOOLEAN' } } };
+    await saveWithChangeLog(next);
+    setGroups((current) => ({
+      ...current,
+      [typeId]: (current[typeId] || []).filter((r) => r.recordName !== recordName),
+    }));
+  };
 
   const move = (typeId, recordName, delta) => {
     const list = (groups[typeId] || []);
@@ -123,6 +136,17 @@ export default function Bookmarks() {
                         <div className="text-sm font-medium truncate">★ <BdiText>{label}</BdiText></div>
                         <div className="text-[11px] text-muted-foreground mt-0.5 truncate"><LtrText>{r.recordName}</LtrText></div>
                       </button>
+                      {!editMode ? (
+                        <button
+                          type="button"
+                          onClick={() => removeBookmark(typ.id, r.recordName)}
+                          className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          title={t('bookmarks.remove')}
+                          aria-label={t('bookmarks.remove')}
+                        >
+                          ★✕
+                        </button>
+                      ) : null}
                     </div>
                   );
                 })}

@@ -8,6 +8,7 @@ import { collectRelatives } from '../lib/relationshipPath.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { useDirtyBaseline } from '../lib/editorState.js';
 import { useRecordLock } from '../lib/useRecordLock.js';
@@ -22,6 +23,7 @@ function groupName(record) {
 }
 
 export default function PersonGroups() {
+  const modal = useModal();
   const [searchParams] = useSearchParams();
   const queryGroupId = searchParams.get('groupId');
   const [groups, setGroups] = useState([]);
@@ -97,6 +99,24 @@ export default function PersonGroups() {
     await logRecordCreated(rec);
     await reload();
     setActiveId(rec.recordName);
+  };
+
+  const remove = async () => {
+    if (!active) return;
+    if (isRecordLocked(active)) {
+      setStatus('Unlock this group before deleting.');
+      return;
+    }
+    if (!(await modal.confirm('Delete this group? Members keep their records — only the group and its memberships are removed.', { title: 'Delete group', okLabel: 'Delete', destructive: true }))) return;
+    const db = getLocalDatabase();
+    for (const rel of memberRelations) {
+      await db.deleteRecord(rel.recordName);
+      await logRecordDeleted(rel.recordName, 'PersonGroupRelation');
+    }
+    await db.deleteRecord(active.recordName);
+    await logRecordDeleted(active.recordName, 'PersonGroup');
+    setActiveId(null);
+    await reload();
   };
 
   const addRelatives = async (direction) => {
@@ -187,7 +207,8 @@ export default function PersonGroups() {
         <h2 className="text-base font-semibold">{groupName(active)}</h2>
         {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-        <button onClick={save} disabled={saving || isRecordLocked(active)} className="ms-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? 'Saving...' : 'Save'}</button>
+        <button onClick={remove} disabled={saving || isRecordLocked(active)} className="text-destructive border border-border rounded-md px-3 py-2 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
+        <button onClick={save} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? 'Saving...' : 'Save'}</button>
       </div>
       <FieldRow label="Group name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} style={editorInput} /></FieldRow>
       <FieldRow label="Color"><input value={values.color || ''} onChange={(e) => setValues({ ...values, color: e.target.value })} style={editorInput} /></FieldRow>

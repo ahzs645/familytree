@@ -810,6 +810,10 @@
     "newSection": "New Section",
     "saving": "Saving...",
     "save": "Save",
+    "delete": "Delete",
+    "deleteConfirm": "Delete this story? Its sections and related-entry links are removed too.",
+    "deleteTitle": "Delete story",
+    "deleteOk": "Delete",
     "noStorySelected": "No story selected.",
     "emptyTitle": "No stories yet",
     "emptyHint": "Tap + New to write your first story.",
@@ -847,7 +851,8 @@
     "places": "Places",
     "sources": "Sources",
     "moveUp": "Move up",
-    "moveDown": "Move down"
+    "moveDown": "Move down",
+    "remove": "Remove bookmark"
   },
   "plausibilityList": {
     "title": "Plausibility List",

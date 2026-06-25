@@ -157,13 +157,15 @@ AnniversaryList, PersonAnalysis, PlausibilityList (derived — they link to the
 underlying record editors), and WorldHistory (events are a hardcoded constant,
 not DB records).
 
-### Minor parity nits (not gaps — full editing exists elsewhere)
-- **Bookmarks**: no inline "remove bookmark"; you un-bookmark by opening the
-  record's editor. A `★` toggle writing `isBookmarked=false` via
-  `applyRecordTransaction` would be a nicety.
-- **PersonGroups** / **Stories**: full field + relation editing and create, but
-  no top-level "delete this group/story" button (other managers expose delete via
-  `RecordBulkBar`). Smallest fix mirrors `Labels.jsx`'s delete.
+### Minor parity nits — fixed ✅
+- **Bookmarks**: added an inline "remove bookmark" button on each row that writes
+  `isBookmarked=false` via `saveWithChangeLog` and drops the row from the list
+  (previously you had to open the record's editor to un-bookmark).
+- **PersonGroups** / **Stories**: added a top-level **Delete** button to the
+  detail header (mirroring `Labels.jsx`), with a confirm dialog. Deleting a group
+  cascades its `PersonGroupRelation` memberships; deleting a story cascades its
+  `StorySection` and `StoryRelation` records. Linked persons/records are never
+  deleted — only the group/story and its own join records.
 
 ## Remaining work (needs a build or a product decision)
 
