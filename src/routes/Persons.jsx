@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, UserPlus } from 'lucide-react';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
 import { PersonList } from '../components/interactive/PersonList.jsx';
 import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
@@ -23,6 +23,7 @@ import { useModal } from '../contexts/ModalContext.jsx';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { findRelationshipPaths } from '../lib/relationshipPath.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { cn } from '../lib/utils.js';
 
 const ME_PERSON_STORAGE_KEY = 'cloudtreeweb:mePersonId';
 
@@ -231,6 +232,15 @@ export default function Persons() {
 
   const listActions = (
     <>
+      <button
+        type="button"
+        onClick={() => navigate('/person/new')}
+        className={cn(listToolbarButtonClass, 'border-primary/60 text-primary')}
+        title={t('persons.newPerson', { defaultValue: 'New person' })}
+      >
+        <UserPlus size={15} className="flex-shrink-0" />
+        <span className="hidden sm:inline">{t('persons.newPerson', { defaultValue: 'New person' })}</span>
+      </button>
       <ColumnChooser
         columns={listColumns}
         isVisible={columnVisibility.isVisible}

@@ -99,6 +99,7 @@ export function Section({
   defaultCollapsed = false,
   persistKey,
   domId,
+  forceExpand = false,
 }) {
   const IconComponent = icon || defaultIconForTitle(title);
   const storageKey = sectionStorageKey(persistKey, title);
@@ -107,6 +108,10 @@ export function Section({
 
   const [collapsed, setCollapsed] = useState(() => {
     if (!collapsible) return false;
+    // Deep links (e.g. /person/:id?section=influential) request a specific
+    // section be opened on arrival. Honour that over the stored/default state;
+    // the user can still collapse it afterwards.
+    if (forceExpand) return false;
     if (storageKey && typeof window !== 'undefined') {
       try {
         const stored = window.localStorage.getItem(storageKey);

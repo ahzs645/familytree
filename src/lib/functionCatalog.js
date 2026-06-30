@@ -1,6 +1,7 @@
 export const APP_FUNCTIONS = [
   { to: '/tree', label: 'Interactive Tree', category: 'Edit' },
   { to: '/persons', label: 'Edit Persons', category: 'Edit' },
+  { to: '/person/new', label: 'Add Person', category: 'Edit' },
   { to: '/groups', label: 'Edit Person Groups', category: 'Edit' },
   { to: '/families', label: 'Edit Families', category: 'Edit' },
   { to: '/places', label: 'Edit Places', category: 'Edit' },
