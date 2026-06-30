@@ -209,6 +209,7 @@ export default function Maintenance() {
               onClick={wrap(async () => setOptimize(await optimizeMedia({ dryRun: true })))}>Scan</button>
             <button className={btnPrimary} disabled={busy || !optimize?.count}
               onClick={wrap(async () => {
+                if (!(await modal.confirm(`Optimize ${optimize.count} image${optimize.count === 1 ? '' : 's'}? This rewrites the stored images.`, { title: 'Optimize media', okLabel: 'Apply', destructive: true }))) return;
                 const result = await optimizeMedia({ dryRun: false });
                 setOptimize(result);
                 setMedia(null);

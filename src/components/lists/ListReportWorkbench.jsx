@@ -22,24 +22,12 @@ export const DEFAULT_LIST_REPORT_OPTIONS = Object.freeze({
   sorting: 'current',
   separateSections: true,
   sortAscending: true,
-  smartFilter: 'none',
   hidePrivate: false,
-  separateNameComponents: false,
   personPictureColumn: true,
   informationColumns: ['birthDate', 'birthPlace', '', '', '', ''],
   localization: 'en',
   sourceCitations: false,
   citationMode: 'short',
-  includeCitationText: true,
-  includeSourceCitationNotes: false,
-  includeSourceNotes: false,
-  includeReferencedEntries: false,
-  includeSourceRepository: false,
-  includePictures: false,
-  pictureSize: 'small',
-  theme: 'classic',
-  style: 'compact',
-  paperSize: 'letter',
   orientation: 'portrait',
 });
 
@@ -133,10 +121,11 @@ export function ListReportPreview({ title, rows = [], columns = [], options = DE
   const { t } = useTranslation();
   const localization = getCurrentLocalization();
   const visibleColumns = useMemo(() => reportColumns(columns, options), [columns, options]);
+  const preparedRows = useMemo(() => prepareRows(rows, options), [rows, options]);
   const grouped = useMemo(() => {
-    if (!options.separateSections) return [{ key: '', label: '', rows }];
+    if (!options.separateSections) return [{ key: '', label: '', rows: preparedRows }];
     const map = new Map();
-    for (const row of rows) {
+    for (const row of preparedRows) {
       const value = String(row.fullName || row.name || row.label || row.title || row.id || '').trim();
       const key = value ? value[0].toLocaleUpperCase() : '#';
       if (!map.has(key)) map.set(key, []);
@@ -147,12 +136,12 @@ export function ListReportPreview({ title, rows = [], columns = [], options = DE
       label: key === '#' ? t('lists.personsWithoutLastName') : key,
       rows: groupRows,
     }));
-  }, [rows, options.separateSections, t]);
+  }, [preparedRows, options.separateSections, t]);
 
   const languageLabel = options.localization === 'en' ? t('lists.langEnglish') : options.localization;
   const headerLine = options.sourceCitations
-    ? t('lists.rowsWithCitations', { count: formatInteger(rows.length, localization), language: languageLabel, mode: options.citationMode })
-    : t('lists.rowsCount', { count: formatInteger(rows.length, localization), language: languageLabel });
+    ? t('lists.rowsWithCitations', { count: formatInteger(preparedRows.length, localization), language: languageLabel, mode: options.citationMode })
+    : t('lists.rowsCount', { count: formatInteger(preparedRows.length, localization), language: languageLabel });
 
   return (
     <div className="h-full overflow-auto bg-muted/30 p-4 md:p-8">
@@ -199,8 +188,6 @@ function ListReportOptionsPanel({ panel, setPanel, options, update, updateInfoCo
   const infoColumnOptions = INFO_COLUMN_DEFS.map((item) => [item.value, t(item.labelKey)]);
   const tabs = [
     { id: 'report', label: t('lists.report') },
-    { id: 'theme', label: t('lists.theme') },
-    { id: 'style', label: t('lists.style') },
     { id: 'page', label: t('lists.page') },
   ];
   return (
@@ -233,16 +220,9 @@ function ListReportOptionsPanel({ panel, setPanel, options, update, updateInfoCo
             ]} />
             <CheckField label={t('lists.separateSections')} checked={options.separateSections} onChange={(value) => update('separateSections', value)} />
             <CheckField label={t('lists.sortAscending')} checked={options.sortAscending} onChange={(value) => update('sortAscending', value)} />
-            <SelectField label={t('lists.smartFilter')} value={options.smartFilter} onChange={(value) => update('smartFilter', value)} options={[
-              ['none', t('lists.smartNone')],
-              ['bookmarked', t('lists.smartBookmarked')],
-              ['private', t('lists.smartPrivate')],
-              ['missingDates', t('lists.smartMissingDates')],
-            ]} />
             <CheckField label={t('lists.hidePrivate')} checked={options.hidePrivate} onChange={(value) => update('hidePrivate', value)} />
           </OptionGroup>
           <OptionGroup title={t('lists.columnsHeading')}>
-            <CheckField label={t('lists.separateNameComponents')} checked={options.separateNameComponents} onChange={(value) => update('separateNameComponents', value)} />
             <CheckField label={t('lists.personPictureColumn')} checked={options.personPictureColumn} onChange={(value) => update('personPictureColumn', value)} />
             {options.informationColumns.map((value, index) => (
               <SelectField key={index} label={t('lists.informationColumn', { index: index + 1 })} value={value} onChange={(next) => updateInfoColumn(index, next)} options={infoColumnOptions} />
@@ -263,46 +243,11 @@ function ListReportOptionsPanel({ panel, setPanel, options, update, updateInfoCo
               ['full', t('lists.citationFull')],
               ['footnotes', t('lists.citationFootnotes')],
             ]} />
-            <CheckField label={t('lists.citationText')} checked={options.includeCitationText} onChange={(value) => update('includeCitationText', value)} />
-            <CheckField label={t('lists.citationSourceCitationNotes')} checked={options.includeSourceCitationNotes} onChange={(value) => update('includeSourceCitationNotes', value)} />
-            <CheckField label={t('lists.citationSourceNotes')} checked={options.includeSourceNotes} onChange={(value) => update('includeSourceNotes', value)} />
-            <CheckField label={t('lists.citationReferencedEntries')} checked={options.includeReferencedEntries} onChange={(value) => update('includeReferencedEntries', value)} />
-            <CheckField label={t('lists.citationSourceRepository')} checked={options.includeSourceRepository} onChange={(value) => update('includeSourceRepository', value)} />
-            <CheckField label={t('lists.citationPictures')} checked={options.includePictures} onChange={(value) => update('includePictures', value)} />
-            <SelectField label={t('lists.citationPictureSize')} value={options.pictureSize} onChange={(value) => update('pictureSize', value)} options={[
-              ['small', t('lists.sizeSmall')],
-              ['medium', t('lists.sizeMedium')],
-              ['large', t('lists.sizeLarge')],
-            ]} />
           </OptionGroup>
         </div>
       )}
-      {panel === 'theme' && (
-        <OptionGroup title={t('lists.theme')}>
-          <SelectField label={t('lists.reportTheme')} value={options.theme} onChange={(value) => update('theme', value)} options={[
-            ['classic', t('lists.themeClassic')],
-            ['compact', t('lists.themeCompact')],
-            ['archive', t('lists.themeArchive')],
-            ['presentation', t('lists.themePresentation')],
-          ]} />
-        </OptionGroup>
-      )}
-      {panel === 'style' && (
-        <OptionGroup title={t('lists.style')}>
-          <SelectField label={t('lists.tableStyle')} value={options.style} onChange={(value) => update('style', value)} options={[
-            ['compact', t('lists.styleCompact')],
-            ['comfortable', t('lists.styleComfortable')],
-            ['ruled', t('lists.styleRuled')],
-          ]} />
-        </OptionGroup>
-      )}
       {panel === 'page' && (
         <OptionGroup title={t('lists.page')}>
-          <SelectField label={t('lists.paper')} value={options.paperSize} onChange={(value) => update('paperSize', value)} options={[
-            ['letter', t('lists.paperLetter')],
-            ['a4', t('lists.paperA4')],
-            ['legal', t('lists.paperLegal')],
-          ]} />
           <SelectField label={t('lists.orientation')} value={options.orientation} onChange={(value) => update('orientation', value)} options={[
             ['portrait', t('lists.orientationPortrait')],
             ['landscape', t('lists.orientationLandscape')],
@@ -311,6 +256,47 @@ function ListReportOptionsPanel({ panel, setPanel, options, update, updateInfoCo
       )}
     </div>
   );
+}
+
+// Maps a `sorting` option value to the row field used for comparison.
+// `current`/`none` (or anything unrecognized) means "leave order unchanged".
+const SORT_KEY_BY_OPTION = {
+  lastName: 'lastName',
+  birthDate: 'birthYear',
+  recordId: 'id',
+};
+
+// Returns a copy of `rows` filtered (hidePrivate) and sorted per options.
+// Never mutates the incoming array.
+function prepareRows(rows, options) {
+  let prepared = rows;
+  if (options.hidePrivate) {
+    prepared = prepared.filter((row) => !row.private);
+  }
+  const sortKey = SORT_KEY_BY_OPTION[options.sorting];
+  if (sortKey) {
+    const direction = options.sortAscending === false ? -1 : 1;
+    prepared = [...prepared].sort((a, b) => compareValues(a[sortKey], b[sortKey]) * direction);
+  } else if (prepared === rows) {
+    // Ensure callers always get a fresh array they can safely reuse.
+    prepared = [...prepared];
+  }
+  return prepared;
+}
+
+// Stable, locale-aware comparison: numeric where both sides are numbers,
+// otherwise a locale-aware string compare. Nullish values sort last.
+function compareValues(a, b) {
+  const aMissing = a == null || a === '';
+  const bMissing = b == null || b === '';
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1;
+  if (bMissing) return -1;
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  const aNum = Number(a);
+  const bNum = Number(b);
+  if (!Number.isNaN(aNum) && !Number.isNaN(bNum)) return aNum - bNum;
+  return String(a).localeCompare(String(b));
 }
 
 function reportColumns(columns, options) {
@@ -327,6 +313,41 @@ function renderCell(row, column) {
   if (column.render) return column.render(row);
   const value = row[column.key];
   if (value == null || value === '') return '—';
+  return String(value);
+}
+
+// Resolves a plain-text cell value for HTML export, mirroring how the
+// on-screen `renderCell` resolves a displayable value. Prefers an explicit
+// `exportValue`, then the raw key value, then a text extraction of `render`.
+// Columns flagged `export: false` are skipped. Never throws.
+function exportCellValue(row, column) {
+  if (column.export === false) return '';
+  try {
+    if (typeof column.exportValue === 'function') {
+      return stringifyCell(column.exportValue(row));
+    }
+    const value = row[column.key];
+    if (value != null && value !== '') return stringifyCell(value);
+    if (column.render) return stringifyCell(column.render(row));
+    return '';
+  } catch {
+    return '';
+  }
+}
+
+// Best-effort text extraction from a cell value, including React elements
+// produced by a `render` function (pull readable strings out of children).
+function stringifyCell(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return value.map(stringifyCell).join('');
+  if (typeof value === 'object') {
+    if ('props' in value && value.props && 'children' in value.props) {
+      return stringifyCell(value.props.children);
+    }
+    return '';
+  }
   return String(value);
 }
 
@@ -364,8 +385,10 @@ function CheckField({ label, checked, onChange }) {
 
 function downloadReportHtml(title, rows, columns, options) {
   const safeTitle = String(title || 'Report').replace(/[^\w.-]+/g, '-').replace(/^-|-$/g, '') || 'report';
-  const header = reportColumns(columns, options).map((column) => `<th>${escapeHtml(column.label)}</th>`).join('');
-  const body = rows.map((row) => `<tr>${reportColumns(columns, options).map((column) => `<td>${escapeHtml(row[column.key] ?? '')}</td>`).join('')}</tr>`).join('');
+  const exportColumns = reportColumns(columns, options);
+  const preparedRows = prepareRows(rows, options);
+  const header = exportColumns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join('');
+  const body = preparedRows.map((row) => `<tr>${exportColumns.map((column) => `<td>${escapeHtml(exportCellValue(row, column))}</td>`).join('')}</tr>`).join('');
   const html = `<!doctype html><meta charset="utf-8"><title>${escapeHtml(title)}</title><h1>${escapeHtml(title)}</h1><table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
   const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
   const a = document.createElement('a');

@@ -1,23 +1,42 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Users } from 'lucide-react';
 import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
 import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
 import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { SORT_PROFILES, useSortProfile } from '../components/lists/useSortProfile.js';
 import { BulkLabelMenu } from '../components/lists/BulkLabelMenu.jsx';
+import { listToolbarButtonClass } from '../components/lists/listToolbarClasses.js';
 import { deleteRecordsWithLog } from '../lib/bulkActions.js';
 import { downloadRowsAsCsv } from '../lib/listExport.js';
 import { loadMarriageRows } from '../lib/listData.js';
+import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { generateId } from '../lib/ids.js';
+import { logRecordCreated } from '../lib/changeLog.js';
+import { cn } from '../lib/utils.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 export default function Families() {
   const { t } = useTranslation();
   const modal = useModal();
+  const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const sortProfile = useSortProfile('families', SORT_PROFILES.Families, 'partner1Name');
+
+  // Create an empty Family and open it in the editor. Families otherwise only
+  // came into existence as a side effect of linking spouses/children, leaving
+  // no way to start one from this list. The editor lets the user set the
+  // partners and children from there.
+  const newFamily = useCallback(async () => {
+    const db = getLocalDatabase();
+    const record = { recordName: generateId('family'), recordType: 'Family', fields: {} };
+    await db.saveRecord(record);
+    await logRecordCreated(record);
+    navigate(`/family/${record.recordName}`);
+  }, [navigate]);
 
   const reload = useCallback(async () => {
     const next = await loadMarriageRows();
@@ -129,6 +148,17 @@ export default function Families() {
         subtitle={t('families.subtitle')}
         count={scoped.rows.length}
         total={rows.length}
+        actions={(
+          <button
+            type="button"
+            onClick={newFamily}
+            className={cn(listToolbarButtonClass, 'border-primary/60 text-primary')}
+            title={t('families.newFamily', { defaultValue: 'New family' })}
+          >
+            <Users size={15} className="flex-shrink-0" />
+            <span className="hidden sm:inline">{t('families.newFamily', { defaultValue: 'New family' })}</span>
+          </button>
+        )}
       />
       <ConfigurableListTable
         listId="families"

@@ -1,7 +1,7 @@
 /**
  * Floating options panel that pops up over the chart canvas.
- * Tabs: General (generations, recursion, kinships), Spacing,
- * Person Groups, and Localization.
+ * Tabs: General (generations, privacy, kinships, duplicate collapsing),
+ * Spacing (Family Chart only), Coloring, Content, and Person Groups.
  */
 import React from 'react';
 import { chartOptionsPanelStyle, optionSelect } from './styles.js';
@@ -20,14 +20,12 @@ export function ChartOptionsPanel({
   onGenerationsChange,
   descendantGenerations,
   onDescendantGenerationsChange,
-  separatedTreeAlignment,
-  onSeparatedTreeAlignmentChange,
   hidePrivateChartInfo,
   onHidePrivateChartInfoChange,
   showKinships,
   onShowKinshipsChange,
-  maxRecursionDepth,
-  onMaxRecursionDepthChange,
+  collapseDuplicates,
+  onCollapseDuplicatesChange,
   spacing,
   onSpacingChange,
   personGroupMode,
@@ -36,8 +34,6 @@ export function ChartOptionsPanel({
   onColoringModeChange,
   chartContent,
   onChartContentChange,
-  localization,
-  onLocalizationChange,
   chartType,
   distributionType,
   onDistributionTypeChange,
@@ -63,14 +59,16 @@ export function ChartOptionsPanel({
   const socio = sociogramConfig || {};
   const setSocio = (key, value) => onSociogramConfigChange?.({ ...socio, [key]: value });
   const showChartTab = CHART_TAB_TYPES.has(chartType);
+  // The spacing controls only affect the Family Chart layout, so hide the tab
+  // for every other chart type.
+  const showSpacingTab = chartType === 'family-chart';
   const tabs = [
     ['general', 'General'],
     ...(showChartTab ? [['chart', 'Chart']] : []),
-    ['spacing', 'Spacing'],
+    ...(showSpacingTab ? [['spacing', 'Spacing']] : []),
     ['coloring', 'Coloring'],
     ['content', 'Content'],
     ['groups', 'Person Groups'],
-    ['localization', 'Localization & Formats'],
   ];
   return (
     <aside style={chartOptionsPanelStyle}>
@@ -87,14 +85,9 @@ export function ChartOptionsPanel({
         <div style={{ display: 'grid', gap: 10 }}>
           <RangeField label="Parent Generations" value={generations} min={1} max={10} onChange={onGenerationsChange} />
           <RangeField label="Children Generations" value={descendantGenerations} min={1} max={10} onChange={onDescendantGenerationsChange} />
-          <SelectOption label="Alignment of Separated Trees" value={separatedTreeAlignment} onChange={onSeparatedTreeAlignmentChange} options={[
-            ['shortest', 'Shortest Distance to Origin'],
-            ['centered', 'Centered'],
-            ['left', 'Left Aligned'],
-          ]} />
           <CheckOption label="Hide Information marked as Private" checked={hidePrivateChartInfo} onChange={onHidePrivateChartInfoChange} />
           <CheckOption label="Show Kinships" checked={showKinships} onChange={onShowKinshipsChange} />
-          <RangeField label="Maximum Recursion Depth" value={maxRecursionDepth} min={0} max={6} onChange={onMaxRecursionDepthChange} />
+          <CheckOption label="Collapse duplicates" checked={collapseDuplicates !== false} onChange={onCollapseDuplicatesChange} />
         </div>
       )}
       {tab === 'chart' && showChartTab && (
@@ -191,7 +184,7 @@ export function ChartOptionsPanel({
           )}
         </div>
       )}
-      {tab === 'spacing' && (
+      {tab === 'spacing' && showSpacingTab && (
         <div style={{ display: 'grid', gap: 10 }}>
           <RangeField label="Horizontal Spacing" value={spacing.horizontal} min={8} max={120} onChange={(value) => onSpacingChange({ ...spacing, horizontal: value })} />
           <RangeField label="Vertical Spacing" value={spacing.vertical} min={50} max={220} onChange={(value) => onSpacingChange({ ...spacing, vertical: value })} />
@@ -220,21 +213,10 @@ export function ChartOptionsPanel({
         </div>
       )}
       {tab === 'groups' && (
-        <SelectOption label="Person Group" value={personGroupMode} onChange={onPersonGroupModeChange} options={[
+        <SelectOption label="Person Browser Filter" value={personGroupMode} onChange={onPersonGroupModeChange} options={[
           ['all', 'All Persons'],
           ['bookmarked', 'Bookmarked'],
-          ['start-family', 'Start-person family'],
         ]} />
-      )}
-      {tab === 'localization' && (
-        <div style={{ display: 'grid', gap: 10 }}>
-          <SelectOption label="Localization" value={localization} onChange={onLocalizationChange} options={[
-            ['en', 'English'],
-            ['ar', 'Arabic'],
-            ['he', 'Hebrew'],
-            ['system', 'System default'],
-          ]} />
-        </div>
       )}
     </aside>
   );

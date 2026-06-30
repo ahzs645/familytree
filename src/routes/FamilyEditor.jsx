@@ -8,7 +8,7 @@
  *   • Labels, Reference Numbers, Bookmarks, Private, Last Edited
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
@@ -65,6 +65,19 @@ const ACCENTS = {
 
 const inputClass = formClasses.input;
 
+// Anchors + hints for deep links from the interactive tree's context menu
+// ("Select Existing Person as Father/Mother/Child" → /family/:id?addRelative=…).
+const MAN_ANCHOR = 'family-man';
+const WOMAN_ANCHOR = 'family-woman';
+const CHILDREN_ANCHOR = 'family-children';
+
+const ADD_RELATIVE_TARGET = {
+  existingFather: { anchor: MAN_ANCHOR, hint: 'Pick the existing person to set as the father below.' },
+  existingMother: { anchor: WOMAN_ANCHOR, hint: 'Pick the existing person to set as the mother below.' },
+  existingPartner: { anchor: MAN_ANCHOR, hint: 'Pick the existing person to set as a partner below.' },
+  existingChild: { anchor: CHILDREN_ANCHOR, hint: 'Pick the existing person to add as a child below.' },
+};
+
 function writeChildRelType(fields, key, value) {
   if (value) fields[key] = { value, type: 'STRING' };
   else delete fields[key];
@@ -82,6 +95,9 @@ function Field({ label, children }) {
 export default function FamilyEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const addRelativeParam = searchParams.get('addRelative');
+  const deepLinkTarget = ADD_RELATIVE_TARGET[addRelativeParam] || null;
 
   const [family, setFamily] = useState(null);
   const [persons, setPersons] = useState([]);
@@ -191,6 +207,18 @@ export default function FamilyEditor() {
   }, [id, persons.length]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // Scroll to the Man/Woman/Children section when the tree deep-links a
+  // "Select Existing Person as …" intent, once the record has hydrated.
+  const deepLinkApplied = useRef(false);
+  useEffect(() => {
+    if (deepLinkApplied.current || !loadSeq || !deepLinkTarget) return undefined;
+    deepLinkApplied.current = true;
+    const timer = setTimeout(() => {
+      document.getElementById(deepLinkTarget.anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [loadSeq, deepLinkTarget]);
 
   const moveChild = (i, dir) => {
     setChildren((arr) => {
@@ -414,8 +442,14 @@ export default function FamilyEditor() {
       <main className="flex-1 overflow-auto bg-background">
         <div className="max-w-6xl mx-auto p-5">
 
+          {deepLinkTarget && (
+            <div className="mb-4 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs text-foreground">
+              {deepLinkTarget.hint}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-            <Section title="Man" accent={ACCENTS.man}>
+            <Section title="Man" accent={ACCENTS.man} domId={MAN_ANCHOR}>
               <Field label="Partner">
                 <PersonPicker persons={persons} value={manId} onChange={setManId} />
               </Field>
@@ -425,7 +459,7 @@ export default function FamilyEditor() {
                 Open person editor →
               </button>
             </Section>
-            <Section title="Woman" accent={ACCENTS.woman}>
+            <Section title="Woman" accent={ACCENTS.woman} domId={WOMAN_ANCHOR}>
               <Field label="Partner">
                 <PersonPicker persons={persons} value={womanId} onChange={setWomanId} />
               </Field>
@@ -439,7 +473,7 @@ export default function FamilyEditor() {
 
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
             <div className="min-w-0">
-              <Section title={`Children · ${children.length}`} accent={ACCENTS.children}
+              <Section title={`Children · ${children.length}`} accent={ACCENTS.children} domId={CHILDREN_ANCHOR}
                 controls={
                   <div className="hidden sm:block max-w-[260px]">
                     <PersonPicker persons={persons} value={null} onChange={addChild} />

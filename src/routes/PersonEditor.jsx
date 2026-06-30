@@ -17,7 +17,7 @@
  * Every save appends a ChangeLogEntry via saveWithChangeLog().
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { generateId } from '../lib/ids.js';
 import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
@@ -117,10 +117,39 @@ const ACCENTS = {
 // Stable DOM id for the Source Citations section so "Unsourced" evidence
 // badges can scroll the user straight to where they attach a source.
 const SOURCE_CITATIONS_ANCHOR = 'person-source-citations';
+// Stable anchors for deep links arriving from the interactive tree's context
+// menu (e.g. "Select Existing Person as Father", "Add/Edit Influential Persons").
+const RELATIVES_ANCHOR = 'person-parents-relatives';
+const INFLUENTIAL_ANCHOR = 'person-influential';
+
+// Map the tree's `?addRelative=existing*` intent onto the inline
+// "Link relative" picker's relation type, so arriving there preselects the
+// right kind of link and points the user at the picker.
+const ADD_RELATIVE_TO_TYPE = {
+  existingFather: 'parent',
+  existingMother: 'parent',
+  existingParent: 'parent',
+  existingPartner: 'spouse',
+  existingSpouse: 'spouse',
+  existingChild: 'child',
+  existingSibling: 'sibling',
+};
+
+function deepLinkHintForRelation(relation) {
+  const type = ADD_RELATIVE_TO_TYPE[relation];
+  if (type === 'parent') return 'Pick an existing person below to link as a parent.';
+  if (type === 'spouse') return 'Pick an existing person below to link as a partner.';
+  if (type === 'child') return 'Pick an existing person below to link as a child.';
+  if (type === 'sibling') return 'Pick an existing person below to link as a sibling.';
+  return null;
+}
 
 export default function PersonEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const addRelativeParam = searchParams.get('addRelative');
+  const sectionParam = searchParams.get('section');
   const [record, setRecord] = useState(null);
   const [context, setContext] = useState(null);
   const [values, setValues] = useState({});
@@ -136,8 +165,9 @@ export default function PersonEditor() {
   const [evidence, setEvidence] = useState(null);
   const [sourceTarget, setSourceTarget] = useState(null);
   const [allPersons, setAllPersons] = useState([]);
-  const [relativeType, setRelativeType] = useState('parent');
+  const [relativeType, setRelativeType] = useState(() => ADD_RELATIVE_TO_TYPE[addRelativeParam] || 'parent');
   const [relativeId, setRelativeId] = useState('');
+  const [deepLinkHint, setDeepLinkHint] = useState(() => deepLinkHintForRelation(addRelativeParam));
   const [labels, setLabels] = useState({}); // labelId -> bool
   const [labelDefs, setLabelDefs] = useState(LABELS);
   const [refNumbers, setRefNumbers] = useState({});
@@ -298,6 +328,7 @@ export default function PersonEditor() {
     try {
       await linkExistingRelative(id, relativeId, relativeType);
       setRelativeId('');
+      setDeepLinkHint(null);
       await reload();
       setStatus('Relative linked');
       setTimeout(() => setStatus(null), 1500);
@@ -307,6 +338,25 @@ export default function PersonEditor() {
   }, [id, relativeId, relativeType, reload]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // Deep-link intents from the interactive tree's context menu. Once the record
+  // has hydrated (so the target sections exist in the DOM), scroll to the
+  // relevant section: the inline relative picker for "Select Existing Person
+  // as …", or the Influential Persons section for "Add/Edit Influential …".
+  const deepLinkApplied = useRef(false);
+  useEffect(() => {
+    if (deepLinkApplied.current || !loadSeq) return undefined;
+    if (!addRelativeParam && !sectionParam) return undefined;
+    deepLinkApplied.current = true;
+    const anchor = sectionParam === 'influential'
+      ? INFLUENTIAL_ANCHOR
+      : addRelativeParam ? RELATIVES_ANCHOR : null;
+    if (!anchor) return undefined;
+    const timer = setTimeout(() => {
+      document.getElementById(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [loadSeq, addRelativeParam, sectionParam]);
 
   const editableSnapshot = useMemo(() => ({
     recordFields: record?.fields || {},
@@ -463,8 +513,13 @@ export default function PersonEditor() {
         <div className="max-w-6xl mx-auto p-5">
 
           {context && (
-            <Section title="Parents & Relatives" accent={ACCENTS.parents}>
+            <Section title="Parents & Relatives" accent={ACCENTS.parents} domId={RELATIVES_ANCHOR}>
               <ParentsBlock context={context} onPick={(rn) => guardedNavigate(`/person/${rn}`)} />
+              {deepLinkHint && (
+                <div className="mt-3 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs text-foreground">
+                  {deepLinkHint}
+                </div>
+              )}
               <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[130px_1fr_auto]">
                 <select value={relativeType} onChange={(event) => setRelativeType(event.target.value)} className={inputClass()}>
                   <option value="parent">Parent</option>
@@ -726,7 +781,8 @@ export default function PersonEditor() {
                 <RelatedList items={[...related.todos, ...related.stories, ...related.groups]} emptyTitle="No related records" emptyHint="Imported ToDos, stories, and groups linked to this person appear here." />
               </Section>
 
-              <Section title="Influential Persons" accent={ACCENTS.influential} collapsible defaultCollapsed persistKey="person">
+              <Section title="Influential Persons" accent={ACCENTS.influential} collapsible defaultCollapsed persistKey="person"
+                domId={INFLUENTIAL_ANCHOR} forceExpand={sectionParam === 'influential'}>
                 <AssociateRelationsEditor ownerRecordName={id} ownerRecordType="Person" relationTypes={INFLUENTIAL_PERSON_TYPES_PERSON} onChanged={reload} />
               </Section>
 

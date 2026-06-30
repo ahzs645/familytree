@@ -262,19 +262,22 @@ function OverlayLayer({ overlays, theme, onDragStart, onSelect, selectedOverlayI
     <g>
       {overlays.map((overlay) => {
         const isSelected = overlay.id === selectedOverlayId;
+        const opacity = overlayOpacity(overlay);
         if (overlay.type === 'line') {
           const stroke = isSelected ? '#1e88e5' : (overlay.color || theme.text);
           const strokeWidth = isSelected ? (overlay.strokeWidth || 2) + 1 : (overlay.strokeWidth || 2);
+          const dashArray = strokeDashArray(overlay.strokeDash, strokeWidth);
           return (
             <g
               key={overlay.id}
+              opacity={opacity}
               onPointerDown={(event) => {
                 onSelect?.(overlay.id);
                 onDragStart(event, overlay);
               }}
               style={{ cursor: 'move' }}
             >
-              <line x1={overlay.x1} y1={overlay.y1} x2={overlay.x2} y2={overlay.y2} stroke={stroke} strokeWidth={strokeWidth} />
+              <line x1={overlay.x1} y1={overlay.y1} x2={overlay.x2} y2={overlay.y2} stroke={stroke} strokeWidth={strokeWidth} strokeDasharray={dashArray} />
               <line x1={overlay.x1} y1={overlay.y1} x2={overlay.x2} y2={overlay.y2} stroke="transparent" strokeWidth={12} />
             </g>
           );
@@ -282,7 +285,7 @@ function OverlayLayer({ overlays, theme, onDragStart, onSelect, selectedOverlayI
 
         if (overlay.type === 'image') {
           return (
-            <g key={overlay.id}>
+            <g key={overlay.id} opacity={opacity}>
               <image
                 href={overlay.href}
                 x={overlay.x}
@@ -320,7 +323,8 @@ function OverlayLayer({ overlays, theme, onDragStart, onSelect, selectedOverlayI
             fill={isSelected ? '#1e88e5' : (overlay.color || theme.text)}
             fontSize={overlay.fontSize || 18}
             fontFamily={theme.fontFamily}
-            fontWeight={overlay.bold ? 700 : 500}
+            fontWeight={overlayFontWeight(overlay)}
+            opacity={opacity}
             style={{ cursor: 'move', userSelect: 'none' }}
             onPointerDown={(event) => {
               onSelect?.(overlay.id);
@@ -333,6 +337,30 @@ function OverlayLayer({ overlays, theme, onDragStart, onSelect, selectedOverlayI
       })}
     </g>
   );
+}
+
+// Object Inspector edits write `fontWeight` ('normal'|'bold'); older overlays
+// may still carry a boolean `bold`. Render either as an SVG numeric weight.
+function overlayFontWeight(overlay) {
+  if (overlay.fontWeight === 'bold' || overlay.fontWeight === 700) return 700;
+  if (overlay.fontWeight === 'normal' || overlay.fontWeight === 400) return 400;
+  return overlay.bold ? 700 : 500;
+}
+
+// Clamp the inspector's 0–1 opacity; undefined means fully opaque.
+function overlayOpacity(overlay) {
+  const value = overlay.opacity;
+  if (value === undefined || value === null || !Number.isFinite(Number(value))) return 1;
+  return Math.min(1, Math.max(0, Number(value)));
+}
+
+// Map the inspector's stroke-style choice to an SVG strokeDasharray, scaling
+// the pattern by the line's stroke width so it reads at any thickness.
+function strokeDashArray(strokeDash, strokeWidth = 2) {
+  const w = Math.max(0.5, Number(strokeWidth) || 2);
+  if (strokeDash === 'dashed') return `${w * 3} ${w * 2}`;
+  if (strokeDash === 'dotted') return `${w} ${w * 1.5}`;
+  return undefined;
 }
 
 function moveOverlay(overlay, dx, dy) {

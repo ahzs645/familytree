@@ -108,6 +108,11 @@ export function ChartsApp() {
   const navigate = useNavigate();
   const { recordName: sharedRootId, setActivePerson } = useActivePerson();
   const [persons, setPersons] = useState([]);
+  // Record names flagged private (`isPrivate`). The chart data source filters
+  // these out when "Hide Information marked as Private" is on. Derived by
+  // diffing the private-inclusive person list against the public-only one,
+  // since person summaries don't carry a privacy flag of their own.
+  const [privateIds, setPrivateIds] = useState(() => new Set());
   const [rootId, setRootId] = useState(searchParams.get('person') || sharedRootId);
   const [secondId, setSecondId] = useState(searchParams.get('second') || null);
   const [chartType, setChartType] = useState(searchParams.get('type') || 'ancestor');
@@ -225,11 +230,11 @@ export function ChartsApp() {
   const [personBrowserQuery, setPersonBrowserQuery] = useState('');
   const [personBrowserGroup, setPersonBrowserGroup] = useState('lastName');
   const [chartSpacing, setChartSpacing] = useState({ horizontal: 24, vertical: 110, branch: 44 });
-  const [separatedTreeAlignment, setSeparatedTreeAlignment] = useState('shortest');
   const [showKinships, setShowKinships] = useState(false);
-  const [maxRecursionDepth, setMaxRecursionDepth] = useState(1);
-  const [hidePrivateChartInfo, setHidePrivateChartInfo] = useState(false);
-  const [chartLocalization, setChartLocalization] = useState('en');
+  const [collapseDuplicates, setCollapseDuplicates] = useState(true);
+  // Defaults to true: the chart data pipeline already excludes records flagged
+  // private, so keeping this on preserves the long-standing rendered behavior.
+  const [hidePrivateChartInfo, setHidePrivateChartInfo] = useState(true);
   const [chartPersonGroupMode, setChartPersonGroupMode] = useState('all');
   const moreRef = useRef(null);
   const [panelPersonId, setPanelPersonId] = useState(null);
@@ -425,10 +430,17 @@ export function ChartsApp() {
 
   useEffect(() => {
     (async () => {
-    const list = await listAllPersons();
+    const [list, publicList] = await Promise.all([
+        listAllPersons({ includePrivate: true }),
+        listAllPersons(),
+      ]);
       const docs = await listChartDocuments();
       const tpls = await listChartTemplates();
       const completenessRows = await loadCompletenessRowsByPerson();
+      const publicIds = new Set(publicList.map((person) => person.recordName));
+      setPrivateIds(new Set(
+        list.filter((person) => !publicIds.has(person.recordName)).map((person) => person.recordName)
+      ));
       setPersons(list);
       setCompletenessRowsByPerson(completenessRows);
       setTemplates(tpls);
@@ -1038,11 +1050,21 @@ export function ChartsApp() {
     fileNameTemplate: exportFileNameTemplate,
   }), [exportFormat, exportScale, exportIncludeBackground, exportJpegQuality, exportFileNameTemplate]);
 
+  // People available to the chart's data sources (person browser, picker,
+  // distribution chart). When "Hide Information marked as Private" is on we drop
+  // records flagged private so the rendered chart — and therefore exports —
+  // never surface them.
+  const chartPersons = useMemo(() => (
+    hidePrivateChartInfo && privateIds.size
+      ? persons.filter((person) => !privateIds.has(person.recordName))
+      : persons
+  ), [persons, privateIds, hidePrivateChartInfo]);
+
   const chartPersonBrowserRows = useMemo(() => {
     const query = personBrowserQuery.trim();
     let next = query
-      ? persons.filter((person) => matchesSearchText(String(person.fullName || `${person.firstName || ''} ${person.lastName || ''}`), query))
-      : persons;
+      ? chartPersons.filter((person) => matchesSearchText(String(person.fullName || `${person.firstName || ''} ${person.lastName || ''}`), query))
+      : chartPersons;
     if (chartPersonGroupMode === 'bookmarked') next = next.filter((person) => person.bookmarked);
     return [...next].sort((a, b) => {
       if (personBrowserGroup === 'birth') return (a.birthYear || 99999) - (b.birthYear || 99999);
@@ -1050,7 +1072,7 @@ export function ChartsApp() {
       const bv = personBrowserGroup === 'firstName' ? b.firstName : b.lastName;
       return String(av || a.fullName || '').localeCompare(String(bv || b.fullName || ''));
     });
-  }, [chartPersonGroupMode, personBrowserGroup, personBrowserQuery, persons]);
+  }, [chartPersonGroupMode, personBrowserGroup, personBrowserQuery, chartPersons]);
 
   const overlayChartProps = useMemo(
     () => ({
@@ -1078,12 +1100,12 @@ export function ChartsApp() {
     <div style={shellStyle}>
       <header style={headerStyle}>
         <Field label="Person">
-          <PersonPicker persons={persons} value={rootId} onChange={onRootChange} />
+          <PersonPicker persons={chartPersons} value={rootId} onChange={onRootChange} />
         </Field>
 
         {needsSecond && (
           <Field label={chartType === 'relationship' ? 'Compare to' : 'Partner'}>
-            <PersonPicker persons={persons} value={secondId} onChange={setSecondId} />
+            <PersonPicker persons={chartPersons} value={secondId} onChange={setSecondId} />
           </Field>
         )}
 
@@ -1684,7 +1706,7 @@ export function ChartsApp() {
             colorForPerson={colorForPerson}
             spacing={chartSpacing}
             showKinships={showKinships}
-            collapseDuplicates={maxRecursionDepth >= 0}
+            collapseDuplicates={collapseDuplicates}
             editable={!isReadOnly}
             {...overlayChartProps}
           />
@@ -1746,7 +1768,7 @@ export function ChartsApp() {
         {chartType === 'distribution' && (
           <DistributionChart
             chartCanvasRef={chartCanvasRef}
-            persons={persons}
+            persons={chartPersons}
             distributionData={distributionData}
             distributionType={distributionType}
             theme={theme}
@@ -2087,14 +2109,12 @@ export function ChartsApp() {
           onGenerationsChange={setGenerations}
           descendantGenerations={descendantGenerations}
           onDescendantGenerationsChange={setDescendantGenerations}
-          separatedTreeAlignment={separatedTreeAlignment}
-          onSeparatedTreeAlignmentChange={setSeparatedTreeAlignment}
           hidePrivateChartInfo={hidePrivateChartInfo}
           onHidePrivateChartInfoChange={setHidePrivateChartInfo}
           showKinships={showKinships}
           onShowKinshipsChange={setShowKinships}
-          maxRecursionDepth={maxRecursionDepth}
-          onMaxRecursionDepthChange={setMaxRecursionDepth}
+          collapseDuplicates={collapseDuplicates}
+          onCollapseDuplicatesChange={setCollapseDuplicates}
           spacing={chartSpacing}
           onSpacingChange={setChartSpacing}
           personGroupMode={chartPersonGroupMode}
@@ -2103,8 +2123,6 @@ export function ChartsApp() {
           onColoringModeChange={setColoringMode}
           chartContent={chartContent}
           onChartContentChange={setChartContent}
-          localization={chartLocalization}
-          onLocalizationChange={setChartLocalization}
           chartType={chartType}
           distributionType={distributionType}
           onDistributionTypeChange={setDistributionType}

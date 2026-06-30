@@ -6,14 +6,47 @@
  * category. This route collapses them into a single tabbed page so callers
  * don't need four routes.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CUSTOM_TYPE_CATEGORIES,
   listCustomTypes,
   saveCustomType,
   deleteCustomType,
+  reorderCustomTypes,
 } from '../lib/customTypes.js';
+import {
+  PERSON_EVENT_TYPES,
+  FAMILY_EVENT_TYPES,
+  PERSON_FACT_TYPES,
+  ADDITIONAL_NAME_TYPES,
+} from '../lib/catalogs.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+
+// Built-in catalogs that back each custom-type category, so the page can show
+// the full set (built-ins + user additions) the pickers actually offer. The
+// 'event' category feeds both PersonEvent and FamilyEvent pickers, so it lists
+// both catalogs. Categories whose defaults live on the category meta
+// (todoStatus / todoPriority) fall back to that list; 'todo' has no exported
+// catalog, so it shows user entries only.
+const BUILTIN_CATALOGS = {
+  event: [...PERSON_EVENT_TYPES, ...FAMILY_EVENT_TYPES],
+  fact: PERSON_FACT_TYPES,
+  additionalName: ADDITIONAL_NAME_TYPES,
+};
+
+function builtinsForCategory(category) {
+  if (!category) return [];
+  const list = BUILTIN_CATALOGS[category.id] || category.defaults || [];
+  // The 'event' category merges two catalogs that share some ids (e.g. Census),
+  // so de-duplicate by id to keep React keys unique and the listing clean.
+  const seen = new Set();
+  return list.filter((entry) => {
+    if (seen.has(entry.id)) return false;
+    seen.add(entry.id);
+    return true;
+  });
+}
 
 const input = 'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm';
 const button = 'rounded-md border border-border bg-secondary px-3 py-1.5 text-sm font-medium hover:bg-accent';
@@ -21,6 +54,7 @@ const buttonPrimary = 'rounded-md bg-primary text-primary-foreground px-3 py-1.5
 
 export default function CustomTypes() {
   const modal = useModal();
+  const { t } = useTranslation();
   const [activeCategory, setActiveCategory] = useState(CUSTOM_TYPE_CATEGORIES[0].id);
   const [entries, setEntries] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -56,7 +90,24 @@ export default function CustomTypes() {
     await refresh();
   }, [activeCategory, refresh]);
 
+  // Move a user entry up/down by swapping it with its neighbour, then persist
+  // the new order via reorderCustomTypes(categoryId, orderedIds) and refresh.
+  const onMove = useCallback(async (index, delta) => {
+    const target = index + delta;
+    if (target < 0 || target >= entries.length) return;
+    const orderedIds = entries.map((entry) => entry.id);
+    [orderedIds[index], orderedIds[target]] = [orderedIds[target], orderedIds[index]];
+    setBusy(true);
+    try {
+      await reorderCustomTypes(activeCategory, orderedIds);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }, [activeCategory, entries, refresh]);
+
   const activeCategoryMeta = CUSTOM_TYPE_CATEGORIES.find((category) => category.id === activeCategory);
+  const builtins = useMemo(() => builtinsForCategory(activeCategoryMeta), [activeCategoryMeta]);
 
   return (
     <div className="h-full overflow-auto bg-background">
@@ -105,13 +156,38 @@ export default function CustomTypes() {
           </div>
         </div>
 
+        <h2 className="text-sm font-semibold mb-2">
+          {t('customTypes.yourTypesHeading', { defaultValue: 'Your types' })}
+        </h2>
         <div className="rounded-lg border border-border bg-card">
           {entries.length === 0 ? (
             <div className="p-4 text-sm text-muted-foreground">No custom entries yet for this category.</div>
           ) : (
             <ul className="divide-y divide-border">
-              {entries.map((entry) => (
+              {entries.map((entry, index) => (
                 <li key={entry.id} className="flex items-center gap-3 p-3">
+                  <div className="flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => onMove(index, -1)}
+                      disabled={busy || index === 0}
+                      aria-label={t('customTypes.moveUp', { defaultValue: 'Move up' })}
+                      title={t('customTypes.moveUp', { defaultValue: 'Move up' })}
+                      className="px-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onMove(index, 1)}
+                      disabled={busy || index === entries.length - 1}
+                      aria-label={t('customTypes.moveDown', { defaultValue: 'Move down' })}
+                      title={t('customTypes.moveDown', { defaultValue: 'Move down' })}
+                      className="px-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-30"
+                    >
+                      ▼
+                    </button>
+                  </div>
                   <input
                     defaultValue={entry.label}
                     onBlur={(e) => onEditLabel(entry, e.target.value.trim())}
@@ -123,6 +199,31 @@ export default function CustomTypes() {
                   <button onClick={() => onDelete(entry.id)} className={button}>
                     Delete
                   </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <h2 className="text-sm font-semibold mt-6 mb-1">
+          {t('customTypes.builtinHeading', { defaultValue: 'Built-in types' })}
+        </h2>
+        <p className="text-xs text-muted-foreground mb-2">
+          {t('customTypes.builtinDescription', {
+            defaultValue: 'Shipped with the app and always available in the pickers. These cannot be edited or removed.',
+          })}
+        </p>
+        <div className="rounded-lg border border-border bg-card">
+          {builtins.length === 0 ? (
+            <div className="p-4 text-sm text-muted-foreground">
+              {t('customTypes.builtinEmpty', { defaultValue: 'No built-in types for this category.' })}
+            </div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {builtins.map((entry) => (
+                <li key={entry.id} className="flex items-center justify-between gap-3 px-3 py-2">
+                  <span className="text-sm">{entry.label}</span>
+                  <code className="text-xs text-muted-foreground">{entry.id}</code>
                 </li>
               ))}
             </ul>

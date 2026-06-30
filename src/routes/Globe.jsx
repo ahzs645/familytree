@@ -38,6 +38,14 @@ function yearFromDateValue(value) {
   return match ? Number(match[0]) : null;
 }
 
+// Coerce coordinates the same way the flat maps (MapView/MapsDiagram) do, so
+// string-valued latitude/longitude (e.g. "48.85") still plot on the globe.
+function parseCoord(value) {
+  if (value == null || value === '') return null;
+  const n = typeof value === 'number' ? value : parseFloat(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 function classifyOverlay(type) {
   if (!type) return 'other';
   for (const overlay of OVERLAY_TYPES) {
@@ -126,9 +134,9 @@ export default function Globe() {
         if (!placeId) continue;
         const place = placeById.get(placeId);
         const coord = coordByPlace.get(placeId);
-        const lat = coord?.fields?.latitude?.value;
-        const lng = coord?.fields?.longitude?.value;
-        if (typeof lat !== 'number' || typeof lng !== 'number') continue;
+        const lat = parseCoord(coord?.fields?.latitude?.value);
+        const lng = parseCoord(coord?.fields?.longitude?.value);
+        if (lat == null || lng == null) continue;
         const conclusion = readConclusionType(ev) || ev.fields?.eventType?.value || 'Event';
         const dateValue = ev.fields?.date?.value || '';
         const year = yearFromDateValue(dateValue);
