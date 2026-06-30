@@ -73,6 +73,7 @@ export function BooksApp() {
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [includeWebsite, setIncludeWebsite] = useState(true);
   const [issueSheet, setIssueSheet] = useState(null);
+  const [pendingExport, setPendingExport] = useState(null);
   const controllerRef = React.useRef(null);
   const previewRef = React.useRef(null);
   const sectionRefs = React.useRef([]);
@@ -136,6 +137,14 @@ export function BooksApp() {
 
   const guardedExport = useCallback(async (next, label = 'Export') => {
     if (validation.errors.length > 0) {
+      setPendingExport(null);
+      setIssueSheet({ ...validation, source: label });
+      return;
+    }
+    if (validation.warnings.length > 0) {
+      // Warnings only: show the sheet and defer the export so the user can
+      // review the warnings and choose "Export anyway".
+      setPendingExport(() => next);
       setIssueSheet({ ...validation, source: label });
       return;
     }
@@ -259,6 +268,7 @@ export function BooksApp() {
     setStatus('Building publish bundle...');
     setProgress(null);
     if (validation.errors.length > 0) {
+      setPendingExport(null);
       setIssueSheet({ ...validation, source: 'Bundle book' });
       setBusy(false);
       return;
@@ -367,7 +377,7 @@ export function BooksApp() {
       </header>
 
       {(validation.errors.length > 0 || validation.warnings.length > 0) && (
-        <button type="button" onClick={() => setIssueSheet(validation)} style={{
+        <button type="button" onClick={() => { setPendingExport(null); setIssueSheet(validation); }} style={{
           padding: '8px 16px',
           borderBottom: '1px solid hsl(var(--border))',
           borderInline: 0,
@@ -453,11 +463,18 @@ export function BooksApp() {
         <BookHasErrorsSheet
           errors={issueSheet.errors}
           warnings={issueSheet.warnings}
+          onProceedAnyway={pendingExport ? () => {
+            const run = pendingExport;
+            setPendingExport(null);
+            setIssueSheet(null);
+            run?.();
+          } : undefined}
           onJumpToSection={(index) => {
+            setPendingExport(null);
             setIssueSheet(null);
             requestAnimationFrame(() => jumpToSection(index));
           }}
-          onClose={() => setIssueSheet(null)}
+          onClose={() => { setPendingExport(null); setIssueSheet(null); }}
         />
       )}
     </div>

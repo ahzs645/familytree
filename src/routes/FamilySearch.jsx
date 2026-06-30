@@ -60,7 +60,6 @@ const TASKS_BY_PANE = {
   discussions: 'record-match-review',
   'change-history': 'sync-review',
   records: 'record-match-review',
-  sync: 'sync-review',
   statistics: null,
 };
 

@@ -44,53 +44,74 @@ render and the right section is focused/expanded.
 
 ---
 
-## Theme 2 — Controls that look functional but do nothing (open)
+## Theme 2 — Controls that looked functional but did nothing (fixed)
 
-These render as normal toggles/selects but write to state nothing consumes. Each
-needs a decision: **wire it up** (implement the feature) or **remove** the
-misleading control. Left open because that's a product judgment call.
+These rendered as normal toggles/selects but wrote to state nothing consumed.
+Each got a wire-up-or-remove decision and is now resolved.
 
-### Charts options (`components/charts/ChartsApp.jsx`, `parts/ChartOptionsPanel.jsx`)
-- **[OPEN] "Hide Information marked as Private" checkbox is inert** — a privacy
-  control that never masks anything (`hidePrivateChartInfo` is never read).
-- **[OPEN] "Localization" select does nothing** (`chartLocalization` unread).
-- **[OPEN] "Alignment of Separated Trees" select is inert**
-  (`separatedTreeAlignment` unread).
-- **[OPEN] Object Inspector Weight / Opacity / Stroke-style edits don't render** —
-  `ChartObjectInspector` writes `fontWeight`/`opacity`/`strokeDash`, but
-  `ChartCanvas` reads `overlay.bold` and never applies opacity/dash.
-- **[OPEN] Spacing tab only affects the Family Chart** — `chartSpacing` is passed
-  to one chart; the tab shows for all chart types.
-- **[OPEN] "Maximum Recursion Depth" slider value ignored** — only the boolean
-  "is ≥ 0" is used (always true).
-- **[OPEN] "Person Group" select** — only `bookmarked` works and it filters the
-  browser sidebar, not the chart; `start-family` is unhandled.
+### Charts options (`components/charts/ChartsApp.jsx`, `parts/ChartOptionsPanel.jsx`, `ChartCanvas.jsx`)
+- **[FIXED · wired] "Hide Information marked as Private"** — now derives the
+  private record-name set and drops those records from the chart's person-backed
+  views (browser, pickers, distribution). Defaulted **on**, matching the app's own
+  contract ("private persons won't appear in charts or reports"). Note: the
+  ancestor/descendant/family tree builders already hard-exclude private records,
+  so the toggle is moot for those (and can't reveal them — that lives in
+  `treeQuery.js`).
+- **[FIXED · removed] "Localization" select** — deep i18n feature; removed the
+  control + state rather than ship a half-wired version (global localization
+  already handles formatting/RTL).
+- **[FIXED · removed] "Alignment of Separated Trees" select** — removed control +
+  state (layout-offset feature was out of scope).
+- **[FIXED · wired] Object Inspector Weight / Opacity / Stroke-style** —
+  `ChartCanvas` overlay renderer now reads the inspector's `fontWeight`/`opacity`/
+  `strokeDash` fields (with backward-compat for legacy `bold`), so the edits show
+  on canvas and in exports.
+- **[FIXED · scoped] Spacing tab** — now only shown for the Family Chart (the only
+  chart `chartSpacing` feeds).
+- **[FIXED · converted] "Maximum Recursion Depth" slider** — replaced the
+  meaningless 0–6 slider with a real **"Collapse duplicates"** checkbox driving
+  `collapseDuplicates` (default on, preserving prior behavior).
+- **[FIXED · trimmed] "Person Group" select** — removed the never-handled
+  `start-family` option (kept All / Bookmarked) and relabelled it "Person Browser
+  Filter" to reflect what it scopes.
 
 ### List Report customizer (`components/lists/ListReportWorkbench.jsx`)
-- **[OPEN] ~15 "Customize" options are dead** — theme, style, paper size, sorting,
-  sort direction, smart filter, hide-private, separate-name-components, the
-  `include*` citation toggles, include-pictures, picture-size — none are read by
-  the preview or HTML export.
-- **[OPEN] HTML "Save report" emits blank cells for render-only columns** —
-  `downloadReportHtml` uses `row[key] ?? ''` and ignores `column.render`.
+- **[FIXED · wired] Sorting / sort direction / hide-private** — `sorting` +
+  `sortAscending` now actually sort the preview and HTML export (sorted copy,
+  numeric-aware compare); `hidePrivate` filters private rows (rows carry a
+  `private` flag from `listData.js`).
+- **[FIXED · wired] HTML "Save report" blank cells** — `downloadReportHtml` now
+  resolves a cell value via `exportValue` / raw key / text-extraction of
+  `column.render`, never blank for render-only columns.
+- **[FIXED · removed] 12 dead controls** — `smartFilter`,
+  `separateNameComponents`, the five `include*` citation toggles,
+  `includePictures`, `pictureSize`, `theme`, `style`, `paperSize` had no rendering
+  path and were removed (kept `sourceCitations`, `citationMode`,
+  `separateSections`, `localization`, `orientation`, `personPictureColumn`,
+  `informationColumns`).
 
 ---
 
-## Theme 3 — Minor / polish (open)
+## Theme 3 — Minor / polish (fixed)
 
-- **[OPEN] Book "Export anyway" button is unreachable** — `BookHasErrorsSheet`
-  supports `onProceedAnyway`, but `BooksApp` never passes it (warnings-only books
-  can still export directly, so not blocking).
-- **[OPEN] Globe drops string-valued coordinates** — `Globe.jsx` requires numeric
-  lat/lng while `MapView`/`MapsDiagram` run them through `parseCoord`; coordinates
-  stored as strings plot on the flat maps but vanish on the globe.
-- **[OPEN] FamilySearch dead `sync` pane key** — `TASKS_BY_PANE` maps a `sync`
-  pane that isn't in `FAMILYSEARCH_PANES`.
-- **[OPEN] Maintenance "Optimize Media" has no confirm; gender-mismatch "open"
-  link uses a family name where a record id is expected.**
-- **[OPEN] Custom Types** can't list/hide built-in catalogs; exported
-  `reorderCustomTypes` helper has no UI.
-- **[OPEN] Smart Filters** has no unsaved-changes guard when switching filters.
+- **[FIXED · wired] Book "Export anyway"** — `BooksApp` now defers the export when
+  a warnings-only book is gated and passes `onProceedAnyway` so the sheet's button
+  runs it.
+- **[FIXED · wired] Globe string-valued coordinates** — `Globe.jsx` now coerces
+  lat/lng with a `parseCoord` helper, matching the flat maps.
+- **[FIXED · removed] FamilySearch dead `sync` pane key** — orphan entry removed
+  from `TASKS_BY_PANE`.
+- **[FIXED · wired / N/A] Maintenance** — added a confirm before "Optimize Media".
+  The gender-mismatch "open" link was a **false alarm**: `familyRecordName` is
+  literally `fam.recordName` (the real id), so the link already worked — left
+  unchanged to avoid introducing a bug.
+- **[FIXED · partial] Custom Types** — wired the unused `reorderCustomTypes` helper
+  to up/down controls on user types and added a read-only "Built-in types"
+  listing. The "hide built-ins" toggle was **deliberately skipped**: it can't be
+  centralized in `mergeWithBuiltins` (synchronous, no category context) without
+  editing every raw-catalog consumer, so a page-only half-version was avoided.
+- **[FIXED · wired] Smart Filters** — added a dirty baseline + confirm prompt when
+  switching filters (or starting a new one) with unsaved edits.
 
 ---
 

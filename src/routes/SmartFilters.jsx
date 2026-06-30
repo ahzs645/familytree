@@ -43,10 +43,32 @@ export default function SmartFilters() {
   const modal = useModal();
   const [filters, setFilters] = useState([]);
   const [selected, setSelected] = useState(null);
+  // Saved baseline of the selected filter, used to detect unsaved edits before
+  // switching to a different filter. Compared structurally via JSON.
+  const [baseline, setBaseline] = useState(null);
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const isDirty = useCallback((current = selected, base = baseline) => (
+    JSON.stringify(current ?? null) !== JSON.stringify(base ?? null)
+  ), [selected, baseline]);
+
+  // Switch to a filter, guarding against silently discarding unsaved edits.
+  const selectFilter = useCallback(async (filter) => {
+    if (filter && selected && filter.id === selected.id) return;
+    if (isDirty()) {
+      const discard = await modal.confirm(
+        'Discard unsaved changes to this smart filter?',
+        { title: 'Unsaved changes', okLabel: 'Discard', destructive: true },
+      );
+      if (!discard) return;
+    }
+    setSelected(filter);
+    setBaseline(filter);
+    setPreview(null);
+  }, [selected, isDirty, modal]);
 
   const refresh = useCallback(async () => {
     const list = await listCustomFilters();
@@ -60,15 +82,25 @@ export default function SmartFilters() {
   useEffect(() => {
     const draft = location.state?.draftFilter;
     if (draft) {
-      setSelected({ ...newBlankFilter(draft.entityType || 'Person'), ...draft });
+      const next = { ...newBlankFilter(draft.entityType || 'Person'), ...draft };
+      setSelected(next);
+      setBaseline(next);
       setPreview(null);
       navigate(location.pathname, { replace: true, state: null });
     }
   }, [location, navigate]);
 
-  const onNew = () => {
+  const onNew = async () => {
+    if (isDirty()) {
+      const discard = await modal.confirm(
+        'Discard unsaved changes to this smart filter?',
+        { title: 'Unsaved changes', okLabel: 'Discard', destructive: true },
+      );
+      if (!discard) return;
+    }
     const blank = newBlankFilter('Person');
     setSelected(blank);
+    setBaseline(blank);
     setPreview(null);
   };
 
@@ -78,6 +110,7 @@ export default function SmartFilters() {
     try {
       const saved = await saveCustomFilter(selected);
       setSelected(saved);
+      setBaseline(saved);
       await refresh();
     } finally {
       setBusy(false);
@@ -87,7 +120,7 @@ export default function SmartFilters() {
   const onDelete = useCallback(async (id) => {
     if (!(await modal.confirm('Delete this smart filter?', { title: 'Delete smart filter', okLabel: 'Delete', destructive: true }))) return;
     await deleteCustomFilter(id);
-    if (selected?.id === id) setSelected(null);
+    if (selected?.id === id) { setSelected(null); setBaseline(null); }
     await refresh();
   }, [selected, refresh, modal]);
 
@@ -121,7 +154,7 @@ export default function SmartFilters() {
               {filters.map((filter) => (
                 <li key={filter.id}>
                   <button
-                    onClick={() => { setSelected(filter); setPreview(null); }}
+                    onClick={() => selectFilter(filter)}
                     className={`block w-full text-start px-3 py-2 rounded-md border ${selected?.id === filter.id ? 'border-primary bg-accent' : 'border-border bg-card hover:bg-accent/40'}`}
                   >
                     <div className="text-sm font-medium">{filter.name}</div>
