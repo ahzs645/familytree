@@ -55,6 +55,10 @@ export function CommandPalette({ commands = [], open: controlledOpen, onOpenChan
     const routeEntries = APP_FUNCTIONS.map((fn) => ({
       id: `route:${fn.to}`,
       label: t(routeLabelKey(fn.to) || fn.label),
+      // Keep the catalog's own name searchable too: nav labels are often
+      // abbreviated ("Stats") or phrased differently ("Tree"), which made
+      // full names like "statistics" or "interactive tree" match nothing.
+      altText: `${fn.label} ${fn.category}`,
       section: t(categoryLabelKey(fn.category) || fn.category),
       action: () => navigate(fn.to),
     }));
@@ -64,7 +68,11 @@ export function CommandPalette({ commands = [], open: controlledOpen, onOpenChan
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return allEntries;
-    return allEntries.filter((entry) => entry.label.toLowerCase().includes(q) || entry.section?.toLowerCase().includes(q));
+    return allEntries.filter((entry) => (
+      entry.label.toLowerCase().includes(q)
+      || entry.section?.toLowerCase().includes(q)
+      || entry.altText?.toLowerCase().includes(q)
+    ));
   }, [allEntries, query]);
 
   if (!open) return null;

@@ -27,6 +27,7 @@ export function DuplicatesApp() {
   const [kind, setKind] = useState(initialKind);
   const [pairs, setPairs] = useState([]);
   const [scanning, setScanning] = useState(false);
+  const [hasScanned, setHasScanned] = useState(false);
   const [skippedCount, setSkippedCount] = useState(0);
   useEffect(() => {
     const paramKind = searchParams.get('kind');
@@ -40,6 +41,7 @@ export function DuplicatesApp() {
     const [result, skippedPairs] = await Promise.all([scan.run(), getSkippedDuplicatePairs(kind)]);
     setPairs(result);
     setSkippedCount(skippedPairs.length);
+    setHasScanned(true);
     setScanning(false);
   }, [kind]);
 
@@ -67,6 +69,8 @@ export function DuplicatesApp() {
         onChange={(e) => {
           const nextKind = e.target.value;
           setKind(nextKind);
+          setPairs([]);
+          setHasScanned(false);
           const next = new URLSearchParams(searchParams);
           next.set('kind', nextKind);
           setSearchParams(next, { replace: true });
@@ -93,7 +97,9 @@ export function DuplicatesApp() {
       <main style={main}>
         {pairs.length === 0 && !scanning && (
           <div style={{ color: 'hsl(var(--muted-foreground))', textAlign: 'center', marginTop: 60 }}>
-            Pick an entity type and click <strong>Scan</strong> to find potential duplicates.
+            {hasScanned
+              ? <>No duplicate candidates found{skippedCount > 0 ? ` (${skippedCount} skipped pair${skippedCount === 1 ? '' : 's'} hidden)` : ''}.</>
+              : <>Pick an entity type and click <strong>Scan</strong> to find potential duplicates.</>}
           </div>
         )}
         {pairs.map((pair) => {
