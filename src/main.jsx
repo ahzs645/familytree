@@ -110,6 +110,16 @@ async function loadFromUrl(url) {
 
   localStorage.setItem('cloudtreeweb-has-imported', '1');
   localStorage.setItem(LOADED_URL_KEY, url);
+
+  // Register the tree in the library so the tree switcher and Home's
+  // "My family trees" list pick it up instead of showing "No tree yet".
+  try {
+    const { upsertActiveTreeSnapshot } = await import('./lib/treeLibrary.js');
+    await upsertActiveTreeSnapshot({ name: result.treeName || sourceName.replace(/\.(mftpkg\.zip|mftpkg|zip|ged|json)$/i, '') });
+  } catch (err) {
+    console.warn('[CloudTreeWeb] could not register imported tree in the library', err);
+  }
+
   console.log(`[CloudTreeWeb] loaded ${result.total || 0} records from ${url}`);
 }
 

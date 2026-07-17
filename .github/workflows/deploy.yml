@@ -40,6 +40,10 @@ jobs:
 
       - name: Build with Vite
         run: npx vite build --base=/familytree/
+        env:
+          # The public project cards deep-link datasets via ?url=…; without
+          # this flag the production bundle compiles the loader out entirely.
+          VITE_ENABLE_REMOTE_IMPORT: 'true'
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

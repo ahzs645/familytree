@@ -120,6 +120,32 @@ export default function Places() {
   const [showConvertSheet, setShowConvertSheet] = useState(false);
   const [showNewPlaceSheet, setShowNewPlaceSheet] = useState(false);
 
+  const [loadSeq, setLoadSeq] = useState(0);
+  const queryPlaceId = searchParams.get('placeId');
+  const focus = searchParams.get('focus');
+
+  const reload = useCallback(async () => {
+    const db = getLocalDatabase();
+    const { records } = await db.query('Place', { limit: 100000 });
+    const sorted = records.sort((a, b) => {
+      const an = (a.fields?.placeName?.value || a.fields?.cached_normallocationString?.value || '').toLowerCase();
+      const bn = (b.fields?.placeName?.value || b.fields?.cached_normallocationString?.value || '').toLowerCase();
+      return an.localeCompare(bn);
+    });
+    setPlaces(sorted);
+    const tpls = await db.query('PlaceTemplate', { limit: 10000 });
+    setTemplates(
+      tpls.records
+        .map((t) => ({
+          recordName: t.recordName,
+          name: t.fields?.name?.value || t.fields?.title?.value || t.recordName,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+    );
+    if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
+    setLoadSeq((n) => n + 1);
+  }, [activeId]);
+
   const onCreatePlace = useCallback(async (payload) => {
     setShowNewPlaceSheet(false);
     const db = getLocalDatabase();
@@ -153,31 +179,6 @@ export default function Places() {
     await reload();
     setActiveId(record.recordName);
   }, [reload]);
-  const [loadSeq, setLoadSeq] = useState(0);
-  const queryPlaceId = searchParams.get('placeId');
-  const focus = searchParams.get('focus');
-
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const { records } = await db.query('Place', { limit: 100000 });
-    const sorted = records.sort((a, b) => {
-      const an = (a.fields?.placeName?.value || a.fields?.cached_normallocationString?.value || '').toLowerCase();
-      const bn = (b.fields?.placeName?.value || b.fields?.cached_normallocationString?.value || '').toLowerCase();
-      return an.localeCompare(bn);
-    });
-    setPlaces(sorted);
-    const tpls = await db.query('PlaceTemplate', { limit: 10000 });
-    setTemplates(
-      tpls.records
-        .map((t) => ({
-          recordName: t.recordName,
-          name: t.fields?.name?.value || t.fields?.title?.value || t.recordName,
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-    );
-    if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
-    setLoadSeq((n) => n + 1);
-  }, [activeId]);
 
   useEffect(() => {
     reload();

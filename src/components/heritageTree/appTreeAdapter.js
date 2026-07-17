@@ -183,7 +183,9 @@ export function layoutHeritageTree(data = {}, preferredRootId = null) {
     if (gen > rtMaxGen) rtMaxGen = gen;
     const centerX = mapX(rtn.left + 1);
     const centerY = mapY(rtn.top + 1);
-    return { ...i, x: centerX - CW / 2, y: centerY - 45, h: 90, gen, hasHiddenRelations: hasHiddenRelations(i, fams, renderedIds, indis) };
+    // Pedigree collapse (e.g. cousin marriages) makes relatives-tree place the
+    // same person at several positions, so the person id alone is not unique.
+    return { ...i, renderKey: `${rtn.id}@${rtn.left},${rtn.top}`, x: centerX - CW / 2, y: centerY - 45, h: 90, gen, hasHiddenRelations: hasHiddenRelations(i, fams, renderedIds, indis) };
   }).filter(Boolean);
 
   const dummyPoints = tree.nodes.filter((n) => workingIndis[n.id]?.isDummy).map((n) => ({ x: mapX(n.left + 1), y: mapY(n.top) }));
