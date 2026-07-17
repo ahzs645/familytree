@@ -329,7 +329,7 @@ export default function HeritageTree() {
 
         {nodes.map((p) => (
           <PersonCard
-            key={p.id}
+            key={p.renderKey || p.id}
             person={p}
             isRoot={p.id === rootId}
             isDimmed={highlightedIds && !highlightedIds.has(p.id)}

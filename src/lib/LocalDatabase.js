@@ -201,24 +201,27 @@ export class LocalDatabase {
     const records = Object.values(dataset.records || dataset);
     const assets = Array.isArray(dataset.assets) ? dataset.assets.filter((asset) => asset?.assetId) : [];
 
+    // One transaction so an interrupted import (tab closed, navigation away)
+    // rolls back instead of leaving partial records without the schema-version
+    // stamp — which used to resurface as a bogus migration prompt.
     await db.transaction('rw', db[STORE_RECORDS], db[STORE_META], db[STORE_ASSETS], async () => {
       await db[STORE_RECORDS].clear();
       await db[STORE_META].clear();
       await db[STORE_ASSETS].clear();
+
+      const batchSize = 500;
+      for (let i = 0; i < records.length; i += batchSize) {
+        await db[STORE_RECORDS].bulkPut(records.slice(i, i + batchSize));
+      }
+
+      await db[STORE_META].put({ key: DATASET_SCHEMA_VERSION_META_KEY, value: datasetSchemaVersionForImport(dataset) });
+      if (dataset.meta) await db[STORE_META].put({ key: 'importInfo', value: dataset.meta });
+      if (dataset.zones) await db[STORE_META].put({ key: 'zones', value: dataset.zones });
+
+      for (let i = 0; i < assets.length; i += batchSize) {
+        await db[STORE_ASSETS].bulkPut(assets.slice(i, i + batchSize));
+      }
     });
-
-    const batchSize = 500;
-    for (let i = 0; i < records.length; i += batchSize) {
-      await db[STORE_RECORDS].bulkPut(records.slice(i, i + batchSize));
-    }
-
-    await this.setMeta(DATASET_SCHEMA_VERSION_META_KEY, datasetSchemaVersionForImport(dataset));
-    if (dataset.meta) await this.setMeta('importInfo', dataset.meta);
-    if (dataset.zones) await this.setMeta('zones', dataset.zones);
-
-    for (let i = 0; i < assets.length; i += batchSize) {
-      await db[STORE_ASSETS].bulkPut(assets.slice(i, i + batchSize));
-    }
 
     return records.length;
   }

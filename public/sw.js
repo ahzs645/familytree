@@ -1,4 +1,9 @@
-const CACHE_NAME = 'cloudtreeweb-familytree-v1';
+const CACHE_NAME = 'cloudtreeweb-familytree-v2';
+
+// Family tree datasets (the ?url= import flow) must always come from the
+// network: cache-first would serve a stale tree one reload behind after the
+// published package is updated.
+const DATASET_RE = /\.(zip|mftpkg|ged|gedz|sqlite)$/i;
 const APP_SHELL = [
   './',
   './index.html',
@@ -28,6 +33,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (DATASET_RE.test(url.pathname)) return;
 
   if (request.mode === 'navigate') {
     event.respondWith((async () => {

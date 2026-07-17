@@ -6,6 +6,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { mergeRecordsSafely, previewMergeRecords } from '../../lib/duplicates.js';
 import { readRef } from '../../lib/schema.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 const SKIP_FIELDS = new Set(['modified', 'created']);
 
@@ -26,6 +27,7 @@ function displayValue(v) {
 }
 
 export function MergePair({ pair, onMerged, onSkip }) {
+  const { t } = useTranslation();
   const { a, b, score, reasons } = pair;
   const fields = useMemo(() => collectFields(a, b), [a, b]);
   const [choices, setChoices] = useState(() => {
@@ -64,24 +66,26 @@ export function MergePair({ pair, onMerged, onSkip }) {
       <div style={header}>
         <div>
           <div style={{ fontSize: 14, color: 'hsl(var(--foreground))', fontWeight: 600 }}>
-            {a.recordType} pair — score {(score * 100).toFixed(0)}%
+            {t('duplicatesPage.pairTitle', { type: t(`duplicatesPage.entity.${a.recordType}`, { defaultValue: a.recordType }), score: (score * 100).toFixed(0) })}
           </div>
-          <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>{reasons.join(' · ') || 'heuristic match'}</div>
+          <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+            {reasons.map((reason) => t(`duplicatesPage.reason.${reason}`, { defaultValue: reason })).join(' · ') || t('duplicatesPage.heuristicMatch')}
+          </div>
           {preview && (
             <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 5 }}>
-              Rewrites {preview.rewrittenReferenceCount} refs · preserves {preview.preservedRecordCount} related records · removes {preview.deletedRecordNames.length} record{preview.deletedRecordNames.length === 1 ? '' : 's'}
-              {preview.dedupedRelationCount ? ` · dedupes ${preview.dedupedRelationCount} relations` : ''}
+              {t('duplicatesPage.previewSummary', { refs: preview.rewrittenReferenceCount, kept: preview.preservedRecordCount, removed: preview.deletedRecordNames.length })}
+              {preview.dedupedRelationCount ? t('duplicatesPage.previewDedupe', { count: preview.dedupedRelationCount }) : ''}
             </div>
           )}
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={onSkip} style={btnSecondary}>Skip</button>
-          <button onClick={onMergeClick} disabled={busy} style={btnPrimary}>{busy ? 'Merging…' : 'Merge →'}</button>
+          <button onClick={onSkip} style={btnSecondary}>{t('duplicatesPage.skip')}</button>
+          <button onClick={onMergeClick} disabled={busy} style={btnPrimary}>{busy ? t('duplicatesPage.merging') : t('duplicatesPage.merge')}</button>
         </div>
       </div>
       <div style={grid}>
-        <div style={colHeader}>Keep (A) · {a.recordName}</div>
-        <div style={colHeader}>Discard (B) · {b.recordName}</div>
+        <div style={colHeader}>{t('duplicatesPage.keepA')} · {a.recordName}</div>
+        <div style={colHeader}>{t('duplicatesPage.discardB')} · {b.recordName}</div>
       </div>
       {fields.map((k) => {
         const av = a.fields?.[k]?.value;
@@ -93,14 +97,14 @@ export function MergePair({ pair, onMerged, onSkip }) {
               <div style={fieldLabel}>{k}</div>
               <div style={fieldValue}>{displayValue(av)}</div>
               {different && (
-                <button onClick={() => setChoices({ ...choices, [k]: 'a' })} style={tinyBtn}>Use A</button>
+                <button onClick={() => setChoices({ ...choices, [k]: 'a' })} style={tinyBtn}>{t('duplicatesPage.useA')}</button>
               )}
             </div>
             <div style={{ ...cell, border: choices[k] === 'b' ? '1px solid #b8417a' : '1px solid hsl(var(--border))', background: different && bv != null ? 'hsl(var(--accent))' : 'hsl(var(--muted))' }}>
               <div style={fieldLabel}>{k}</div>
               <div style={fieldValue}>{displayValue(bv)}</div>
               {different && (
-                <button onClick={() => setChoices({ ...choices, [k]: 'b' })} style={tinyBtn}>Use B</button>
+                <button onClick={() => setChoices({ ...choices, [k]: 'b' })} style={tinyBtn}>{t('duplicatesPage.useB')}</button>
               )}
             </div>
           </div>

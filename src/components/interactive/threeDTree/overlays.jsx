@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from '../../../contexts/LocalizationContext.jsx';
 import { lifeSpanLabel } from '../../../models/index.js';
 import { styles, dockToggleStyle } from './styles.js';
 import { buildTreeNavigationOptions, firstNavigationOption } from './navigationOptions.js';
@@ -31,6 +32,7 @@ export function ViewerSelect({ label, value, options, onChange }) {
 }
 
 export function TreeNavigationControls({ context, onPick }) {
+  const { t } = useTranslation();
   const sections = buildTreeNavigationOptions(context);
   const selectValue = '';
   const jump = (sectionId) => {
@@ -41,13 +43,13 @@ export function TreeNavigationControls({ context, onPick }) {
   return (
     <div style={styles.navDockGroup}>
       <button type="button" style={styles.dockButton} onClick={() => jump('parents')} disabled={!sections.some((section) => section.id === 'parents')}>
-        Parent
+        {t('interactiveTree.navParent')}
       </button>
       <button type="button" style={styles.dockButton} onClick={() => jump('partners')} disabled={!sections.some((section) => section.id === 'partners')}>
-        Partner
+        {t('interactiveTree.navPartner')}
       </button>
       <button type="button" style={styles.dockButton} onClick={() => jump('children')} disabled={!sections.some((section) => section.id === 'children')}>
-        Child
+        {t('interactiveTree.navChild')}
       </button>
       <select
         value={selectValue}
@@ -55,9 +57,9 @@ export function TreeNavigationControls({ context, onPick }) {
           if (event.target.value) onPick?.(event.target.value);
         }}
         style={styles.navigationSelect}
-        aria-label="Navigate family tree"
+        aria-label={t('interactiveTree.navigateAria')}
       >
-        <option value="">Navigate...</option>
+        <option value="">{t('interactiveTree.navigate')}</option>
         {sections.map((section) => (
           <optgroup key={section.id} label={section.label}>
             {section.options.map((option) => (
@@ -73,10 +75,11 @@ export function TreeNavigationControls({ context, onPick }) {
 }
 
 export function PersonHoverCard({ person, x, y }) {
+  const { t } = useTranslation();
   return (
     <div style={{ ...styles.hoverCard, left: x + 14, top: y + 14 }}>
-      <div style={styles.hoverName}>{person?.fullName || 'Unnamed person'}</div>
-      <div style={styles.hoverMeta}>{lifeSpanLabel(person) || 'No life dates'}</div>
+      <div style={styles.hoverName}>{person?.fullName || t('interactiveTree.unnamedPerson')}</div>
+      <div style={styles.hoverMeta}>{lifeSpanLabel(person) || t('interactiveTree.noLifeDates')}</div>
     </div>
   );
 }
@@ -100,6 +103,7 @@ export function PersonContextMenu({
   onOpenFamilySearch,
   context,
 }) {
+  const { t } = useTranslation();
   const familyId = selectableFamilyId(node);
   const hasFamilySearch = Boolean(node?.status?.familySearch);
   const run = (handler) => {
@@ -128,13 +132,13 @@ export function PersonContextMenu({
       role="menu"
     >
       <div style={styles.contextHeader}>
-        <div style={styles.contextName}>{person?.fullName || 'Unnamed person'}</div>
-        <div style={styles.contextMeta}>{lifeSpanLabel(person) || 'No life dates'}</div>
+        <div style={styles.contextName}>{person?.fullName || t('interactiveTree.unnamedPerson')}</div>
+        <div style={styles.contextMeta}>{lifeSpanLabel(person) || t('interactiveTree.noLifeDates')}</div>
       </div>
-      <button type="button" style={styles.contextItem} onClick={() => run(onPick)} role="menuitem">Focus on Person</button>
-      <button type="button" style={styles.contextItem} onClick={() => run(onShowInfo)} role="menuitem">Show Info</button>
-      <button type="button" style={styles.contextItem} onClick={() => run(onEditPerson)} role="menuitem">Edit Person</button>
-      {familyId && <button type="button" style={styles.contextItem} onClick={runFamily} role="menuitem">Select Family…</button>}
+      <button type="button" style={styles.contextItem} onClick={() => run(onPick)} role="menuitem">{t('interactiveTree.focusOnPerson')}</button>
+      <button type="button" style={styles.contextItem} onClick={() => run(onShowInfo)} role="menuitem">{t('interactiveTree.showInfo')}</button>
+      <button type="button" style={styles.contextItem} onClick={() => run(onEditPerson)} role="menuitem">{t('interactiveTree.editPerson')}</button>
+      {familyId && <button type="button" style={styles.contextItem} onClick={runFamily} role="menuitem">{t('interactiveTree.selectFamily')}</button>}
       {onAddRelative && (
         <>
           <div style={styles.contextDivider} />
@@ -145,40 +149,40 @@ export function PersonContextMenu({
             role="menuitem"
             aria-expanded={addOpen}
           >
-            {addOpen ? '▾' : '▸'} Add Relatives…
+            {addOpen ? '▾' : '▸'} {t('interactiveTree.addRelatives')}
           </button>
           {addOpen && (
             <div style={styles.contextSubmenu}>
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('father')}>Add Father</button>
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('mother')}>Add Mother</button>
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('partner')}>Add Partner</button>
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('brother')}>Add Brother</button>
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('sister')}>Add Sister</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('father')}>{t('interactiveTree.addFather')}</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('mother')}>{t('interactiveTree.addMother')}</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('partner')}>{t('interactiveTree.addPartner')}</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('brother')}>{t('interactiveTree.addBrother')}</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('sister')}>{t('interactiveTree.addSister')}</button>
               {partners.length === 0 && (
                 <>
-                  <button type="button" style={styles.contextItem} onClick={() => runAdd('son')}>Add Son</button>
-                  <button type="button" style={styles.contextItem} onClick={() => runAdd('daughter')}>Add Daughter</button>
+                  <button type="button" style={styles.contextItem} onClick={() => runAdd('son')}>{t('interactiveTree.addSon')}</button>
+                  <button type="button" style={styles.contextItem} onClick={() => runAdd('daughter')}>{t('interactiveTree.addDaughter')}</button>
                 </>
               )}
               {partners.map((partner) => (
                 <React.Fragment key={partner.recordName}>
                   <button type="button" style={styles.contextItem} onClick={() => runAdd('son', { partnerId: partner.recordName })}>
-                    Add Son with {partner.fullName || 'partner'}
+                    {t('interactiveTree.addSonWith', { name: partner.fullName || t('interactiveTree.partnerFallback') })}
                   </button>
                   <button type="button" style={styles.contextItem} onClick={() => runAdd('daughter', { partnerId: partner.recordName })}>
-                    Add Daughter with {partner.fullName || 'partner'}
+                    {t('interactiveTree.addDaughterWith', { name: partner.fullName || t('interactiveTree.partnerFallback') })}
                   </button>
                 </React.Fragment>
               ))}
               <div style={styles.contextDivider} />
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('father')}>Add Further Father</button>
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('mother')}>Add Further Mother</button>
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('partner')}>Add Further Partner</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('father')}>{t('interactiveTree.addFurtherFather')}</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('mother')}>{t('interactiveTree.addFurtherMother')}</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('partner')}>{t('interactiveTree.addFurtherPartner')}</button>
               <div style={styles.contextDivider} />
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingFather')}>Select Existing Person as Father</button>
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingMother')}>Select Existing Person as Mother</button>
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingPartner')}>Select Existing Person as Partner</button>
-              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingChild')}>Select Existing Person as Child</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingFather')}>{t('interactiveTree.selectExistingFather')}</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingMother')}>{t('interactiveTree.selectExistingMother')}</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingPartner')}>{t('interactiveTree.selectExistingPartner')}</button>
+              <button type="button" style={styles.contextItem} onClick={() => runAdd('existingChild')}>{t('interactiveTree.selectExistingChild')}</button>
             </div>
           )}
         </>
@@ -187,19 +191,19 @@ export function PersonContextMenu({
         <>
           <div style={styles.contextDivider} />
           {onEditInfluential && (
-            <button type="button" style={styles.contextItem} onClick={() => run(onEditInfluential)} role="menuitem">Add / Edit Influential Persons…</button>
+            <button type="button" style={styles.contextItem} onClick={() => run(onEditInfluential)} role="menuitem">{t('interactiveTree.editInfluential')}</button>
           )}
           {onOpenFamilySearch && hasFamilySearch && (
             <>
-              <button type="button" style={styles.contextItem} onClick={() => run(onOpenFamilySearch)} role="menuitem">Display FamilySearch Person</button>
-              <button type="button" style={styles.contextItem} onClick={() => run(onOpenFamilySearch)} role="menuitem">Matches on FamilySearch</button>
+              <button type="button" style={styles.contextItem} onClick={() => run(onOpenFamilySearch)} role="menuitem">{t('interactiveTree.displayFamilySearch')}</button>
+              <button type="button" style={styles.contextItem} onClick={() => run(onOpenFamilySearch)} role="menuitem">{t('interactiveTree.matchesFamilySearch')}</button>
             </>
           )}
         </>
       )}
       <div style={styles.contextDivider} />
-      <button type="button" style={styles.contextItem} onClick={() => run(onOpenAncestorChart)} role="menuitem">Ancestor Chart</button>
-      <button type="button" style={styles.contextItem} onClick={() => run(onOpenDescendantChart)} role="menuitem">Descendant Chart</button>
+      <button type="button" style={styles.contextItem} onClick={() => run(onOpenAncestorChart)} role="menuitem">{t('interactiveTree.ancestorChart')}</button>
+      <button type="button" style={styles.contextItem} onClick={() => run(onOpenDescendantChart)} role="menuitem">{t('interactiveTree.descendantChart')}</button>
       {(onDeletePerson || (onDeleteFamily && familyId)) && (
         <>
           <div style={styles.contextDivider} />
@@ -210,7 +214,7 @@ export function PersonContextMenu({
               onClick={() => run(onDeletePerson)}
               role="menuitem"
             >
-              Delete Person…
+              {t('interactiveTree.deletePerson')}
             </button>
           )}
           {onDeleteFamily && familyId && (
@@ -220,7 +224,7 @@ export function PersonContextMenu({
               onClick={runDeleteFamily}
               role="menuitem"
             >
-              Delete Family…
+              {t('interactiveTree.deleteFamily')}
             </button>
           )}
         </>

@@ -77,6 +77,7 @@ import { usePageSetup } from './hooks/usePageSetup.js';
 import { useVirtualTreeOptions } from './hooks/useVirtualTreeOptions.js';
 import { useRelationshipPaths } from './hooks/useRelationshipPaths.js';
 import { useChartDocument } from './hooks/useChartDocument.js';
+import { copyTextToClipboard } from '../../lib/clipboard.js';
 
 const CHART_TYPES = [
   { id: 'ancestor', label: 'Ancestor', needsSecond: false },
@@ -833,7 +834,13 @@ export function ChartsApp() {
     }
     try {
       const { url, token } = await buildChartShareUrl();
-      await navigator.clipboard?.writeText(url).catch(() => {});
+      const copied = await copyTextToClipboard(url);
+      if (!copied) {
+        // Clipboard unavailable (insecure origin / permission denied) — show
+        // the link so the user can copy it manually.
+        await modal.prompt('Copy the share link:', url, { title: 'Share link' });
+        return;
+      }
       const size = Math.round(token.length / 1024 * 10) / 10;
       modal.toast(`Token size: ~${size}KB\nLink length: ${url.length.toLocaleString()} characters`, {
         title: 'Share link copied',
@@ -857,8 +864,13 @@ export function ChartsApp() {
         await navigator.share({ title, text: `View ${title}`, url });
         return;
       }
-      await navigator.clipboard?.writeText(url).catch(() => {});
-      await modal.alert(`Share dialog not supported on this browser. Link copied:\n\n${url}`, { title: 'Share' });
+      const copied = await copyTextToClipboard(url);
+      await modal.alert(
+        copied
+          ? `Share dialog not supported on this browser. Link copied:\n\n${url}`
+          : `Share dialog not supported on this browser. Copy the link manually:\n\n${url}`,
+        { title: 'Share' }
+      );
     } catch (error) {
       if (error?.name === 'AbortError') return;
       console.error('[ChartsApp] share failed', error);
@@ -1624,7 +1636,7 @@ export function ChartsApp() {
             <img src={qrShare.dataUrl} alt="Chart share QR code" className="w-60 h-60 mx-auto bg-white rounded-md p-2" />
             <button
               type="button"
-              onClick={() => navigator.clipboard?.writeText(qrShare.url)}
+              onClick={() => copyTextToClipboard(qrShare.url)}
               className="mt-4 w-full rounded-md border border-border bg-secondary px-3 py-2 text-sm hover:bg-accent"
             >
               Copy link

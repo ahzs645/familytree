@@ -26,6 +26,7 @@ import {
   setTreeSnapshotFavorite,
   setTreeSnapshotLabel,
   switchToTree,
+  upsertActiveTreeSnapshot,
 } from '../lib/treeLibrary.js';
 import { loadAnniversaryRows } from '../lib/listData.js';
 
@@ -150,7 +151,14 @@ export function Home() {
             </span>
           </div>
         )}
-        <ImportDropZone onImported={() => navigate('/tree')} />
+        <ImportDropZone
+          onImported={async (result) => {
+            // Register the import in the tree library so the switcher and the
+            // "My family trees" list reflect it (Welcome.jsx does the same).
+            try { await upsertActiveTreeSnapshot({ name: result?.treeName }); } catch { /* non-fatal */ }
+            navigate('/tree');
+          }}
+        />
         {!hasData && (
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-sm">
             <span className="text-muted-foreground">{t('home.or')}</span>

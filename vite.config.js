@@ -26,8 +26,26 @@ function privateDemoDataGuard() {
   };
 }
 
+// Vite's dev server reserves `?url` as an internal import query, so a bare
+// `GET /?url=…` deep link (the remote-dataset import flow in main.jsx) is
+// rejected with "403 Restricted". Rewriting to /index.html serves the SPA
+// shell while window.location keeps the original query for the loader.
+function urlQueryDeepLinkDevFix() {
+  return {
+    name: 'url-query-deep-link-dev-fix',
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url?.startsWith('/?') && new URLSearchParams(req.url.slice(2)).has('url')) {
+          req.url = '/index.html' + req.url.slice(1);
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), privateDemoDataGuard()],
+  plugins: [react(), privateDemoDataGuard(), urlQueryDeepLinkDevFix()],
   resolve: {
     alias: {
       '@firstform/json-url': fileURLToPath(new URL('./vendor/json-url/src/main/index.ts', import.meta.url)),

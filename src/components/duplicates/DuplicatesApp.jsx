@@ -13,20 +13,23 @@ import {
   skipDuplicatePair,
 } from '../../lib/duplicates.js';
 import { MergePair } from './MergePair.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 const SCANS = [
-  { id: 'Person', label: 'Persons', run: findDuplicatePersons },
-  { id: 'Family', label: 'Families', run: findDuplicateFamilies },
-  { id: 'Source', label: 'Sources', run: findDuplicateSources },
-  { id: 'Place', label: 'Places', run: findDuplicatePlaces },
+  { id: 'Person', run: findDuplicatePersons },
+  { id: 'Family', run: findDuplicateFamilies },
+  { id: 'Source', run: findDuplicateSources },
+  { id: 'Place', run: findDuplicatePlaces },
 ];
 
 export function DuplicatesApp() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialKind = SCANS.find((entry) => entry.id === searchParams.get('kind'))?.id || 'Person';
   const [kind, setKind] = useState(initialKind);
   const [pairs, setPairs] = useState([]);
   const [scanning, setScanning] = useState(false);
+  const [hasScanned, setHasScanned] = useState(false);
   const [skippedCount, setSkippedCount] = useState(0);
   useEffect(() => {
     const paramKind = searchParams.get('kind');
@@ -40,6 +43,7 @@ export function DuplicatesApp() {
     const [result, skippedPairs] = await Promise.all([scan.run(), getSkippedDuplicatePairs(kind)]);
     setPairs(result);
     setSkippedCount(skippedPairs.length);
+    setHasScanned(true);
     setScanning(false);
   }, [kind]);
 
@@ -67,6 +71,8 @@ export function DuplicatesApp() {
         onChange={(e) => {
           const nextKind = e.target.value;
           setKind(nextKind);
+          setPairs([]);
+          setHasScanned(false);
           const next = new URLSearchParams(searchParams);
           next.set('kind', nextKind);
           setSearchParams(next, { replace: true });
@@ -74,26 +80,30 @@ export function DuplicatesApp() {
         style={input}
       >
         {SCANS.map((s) => (
-          <option key={s.id} value={s.id}>{s.label}</option>
+          <option key={s.id} value={s.id}>{t(`duplicatesPage.entity.${s.id}`)}</option>
         ))}
       </select>
         <button onClick={onScan} disabled={scanning} style={{ ...input, background: 'hsl(var(--primary))', cursor: 'pointer' }}>
-          {scanning ? 'Scanning…' : 'Scan'}
+          {scanning ? t('duplicatesPage.scanning') : t('duplicatesPage.scan')}
         </button>
         {skippedCount > 0 && (
           <button onClick={onClearSkipped} disabled={scanning} style={input}>
-            Show {skippedCount} skipped
+            {t('duplicatesPage.showSkipped', { count: skippedCount })}
           </button>
         )}
         <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
-          {pairs.length > 0 && `${pairs.length} candidate pair${pairs.length === 1 ? '' : 's'}`}
+          {pairs.length > 0 && t('duplicatesPage.candidateCount', { count: pairs.length })}
         </span>
       </header>
 
       <main style={main}>
         {pairs.length === 0 && !scanning && (
           <div style={{ color: 'hsl(var(--muted-foreground))', textAlign: 'center', marginTop: 60 }}>
-            Pick an entity type and click <strong>Scan</strong> to find potential duplicates.
+            {hasScanned
+              ? (skippedCount > 0
+                ? t('duplicatesPage.noneFoundSkipped', { count: skippedCount })
+                : t('duplicatesPage.noneFound'))
+              : t('duplicatesPage.emptyPrompt')}
           </div>
         )}
         {pairs.map((pair) => {

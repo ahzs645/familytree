@@ -158,16 +158,75 @@ export function findDuplicatePersonCandidates(records = [], threshold = PERSON_T
     blocks.get(key).push(r);
   }
   const pairs = [];
+  const seenPairs = new Set();
+  const pairKey = (a, b) => [a.recordName, b.recordName].sort().join('|');
   for (const group of blocks.values()) {
     if (group.length < 2) continue;
     for (let i = 0; i < group.length; i++) {
       for (let j = i + 1; j < group.length; j++) {
         const { score, reasons } = scorePersonPair(group[i], group[j], context);
-        if (score >= threshold) pairs.push({ a: group[i], b: group[j], score, reasons });
+        if (score >= threshold) {
+          pairs.push({ a: group[i], b: group[j], score, reasons });
+          seenPairs.add(pairKey(group[i], group[j]));
+        }
       }
     }
   }
+  for (const pair of findStructuralPersonCandidates(persons, context)) {
+    if (!seenPairs.has(pairKey(pair.a, pair.b))) pairs.push(pair);
+  }
   return pairs.sort((x, y) => y.score - x.score);
+}
+
+function personNameText(record) {
+  const f = record.fields || {};
+  return normalize([f.firstName?.value, f.lastName?.value].filter(Boolean).join(' '));
+}
+
+/**
+ * Structural pass: the name-similarity scorer can never flag records without
+ * names, but placeholder-heavy trees (very common in Arabic patrilineal data)
+ * accumulate duplicate unnamed children created by repeated data entry. Flag
+ * pairs that share the SAME parents (by record id) when their names are
+ * identical or both missing, gender is compatible, and no birth year
+ * contradicts the match.
+ */
+function findStructuralPersonCandidates(persons, context) {
+  const byParents = new Map();
+  for (const person of persons) {
+    const parents = [...new Set(context.parentsByChild.get(person.recordName) || [])].sort();
+    if (!parents.length) continue;
+    const key = parents.join('|');
+    if (!byParents.has(key)) byParents.set(key, []);
+    byParents.get(key).push(person);
+  }
+  const out = [];
+  for (const siblings of byParents.values()) {
+    if (siblings.length < 2) continue;
+    for (let i = 0; i < siblings.length; i++) {
+      for (let j = i + 1; j < siblings.length; j++) {
+        const a = siblings[i];
+        const b = siblings[j];
+        const ag = a.fields?.gender?.value;
+        const bg = b.fields?.gender?.value;
+        if (ag != null && bg != null && ag !== 0 && bg !== 0 && ag !== bg) continue;
+        const an = personNameText(a);
+        const bn = personNameText(b);
+        const bothUnnamed = !an && !bn;
+        if (!bothUnnamed && an !== bn) continue;
+        const ay = yearOf(a.fields?.cached_birthDate?.value);
+        const by = yearOf(b.fields?.cached_birthDate?.value);
+        if (ay != null && by != null && Math.abs(ay - by) > 1) continue;
+        out.push({
+          a,
+          b,
+          score: bothUnnamed ? 0.86 : 0.92,
+          reasons: ['Same parents', bothUnnamed ? 'Both unnamed' : 'Identical names'],
+        });
+      }
+    }
+  }
+  return out;
 }
 
 export async function findDuplicatePersons(threshold = PERSON_THRESHOLD) {

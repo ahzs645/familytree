@@ -102,11 +102,15 @@ async function parseZipBundle(uint8Array, sourceName) {
     for (const { path, entry } of resourceEntries) {
       resourceFiles.push({ path, name: path.split('/').pop(), bytes: await entry.async('uint8array') });
     }
+    // Prefer the package folder inside the archive ("Ahmad's Family.mftpkg/database")
+    // over the outer zip filename — it carries the human-readable tree name and
+    // survives renamed/downloaded zips like "family_tree_arabic.mftpkg.zip".
+    const packageDir = (dbEntry.name || '').split('/').slice(0, -1).pop();
     return {
       kind: SOURCE_KIND.ZIP_DATABASE,
       dbBytes,
       resourceFiles,
-      sourceName: sourceName.replace(/\.zip$/i, ''),
+      sourceName: packageDir || sourceName.replace(/\.zip$/i, ''),
     };
   }
 

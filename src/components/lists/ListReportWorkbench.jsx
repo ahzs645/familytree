@@ -4,6 +4,7 @@ import { formatInteger, getCurrentLocalization } from '../../lib/i18n.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { Select } from '../ui/Select.jsx';
 import { listToolbarButtonClass, listToolbarIconButtonClass } from './listToolbarClasses.js';
+import { copyTextToClipboard } from '../../lib/clipboard.js';
 
 const INFO_COLUMN_DEFS = [
   { value: '', labelKey: 'lists.infoDoNotShow' },
@@ -404,7 +405,7 @@ async function shareReport(title, rows) {
     await navigator.share({ title, text });
     return;
   }
-  await navigator.clipboard?.writeText(text).catch(() => {});
+  await copyTextToClipboard(text);
 }
 
 function escapeHtml(value) {

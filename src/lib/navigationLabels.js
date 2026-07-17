@@ -51,6 +51,7 @@ const ROUTE_LABEL_KEYS = {
   '/templates': 'nav.templates',
   '/todos': 'nav.todos',
   '/tree': 'nav.tree',
+  '/tribal-affiliations': 'nav.tribalAffiliations',
   '/views': 'nav.views',
   '/views/family-quiz': 'nav.familyQuiz',
   '/views/media-gallery': 'nav.media',

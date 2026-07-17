@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { CAMERA_MODES, VIEWER_OPTIONS_STORAGE_KEY } from './threeDTree/constants.js';
 import { buildInteractiveLayout } from './threeDTree/layout.js';
@@ -38,6 +39,7 @@ export function ThreeDTreeView({
   const { theme } = useTheme();
   const appDark = theme === 'dark';
   const isMobile = useIsMobile();
+  const { t } = useTranslation();
   const macBarButtonStyle = isMobile ? { ...styles.macBarButton, ...styles.macBarButtonMobile } : styles.macBarButton;
   const dockButtonStyle = isMobile ? { ...styles.dockButton, ...styles.dockButtonMobile } : styles.dockButton;
   const [viewerOptions, setViewerOptions] = useState(readInitialViewerOptions);
@@ -190,22 +192,22 @@ export function ThreeDTreeView({
       <div ref={containerRef} style={styles.canvas} />
       {presentationMode && (
         <div style={styles.presentationBadge}>
-          Presentation — press Esc to exit
+          {t('interactiveTree.presentationBadge')}
         </div>
       )}
       {!presentationMode && (
       <div style={styles.macTopBar}>
         <button type="button" onClick={() => onReturnToFamilyTree?.()} style={macBarButtonStyle}>
-          Return to Family Tree
+          {t('interactiveTree.returnToFamilyTree')}
         </button>
         <button type="button" onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} style={macBarButtonStyle}>
-          Options
+          {t('interactiveTree.options')}
         </button>
         <button type="button" onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} style={macBarButtonStyle}>
-          Style
+          {t('interactiveTree.style')}
         </button>
         <button type="button" onClick={() => actionsRef.current.fit()} style={macBarButtonStyle}>
-          Size to Fit
+          {t('interactiveTree.sizeToFit')}
         </button>
         <div style={styles.macActionWrap}>
           <button
@@ -217,18 +219,18 @@ export function ThreeDTreeView({
             style={macBarButtonStyle}
             aria-expanded={actionsOpen}
           >
-            Actions...
+            {t('interactiveTree.actions')}
           </button>
           {actionsOpen && (
             <div style={styles.macActionMenu}>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onPick?.(activeId); actionsRef.current?.fit?.(); }}>Focus on Person</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); setPresentationMode(true); }}>Enter Presentation</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); actionsRef.current?.snapshot?.(); }}>Save as Image</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onEditPerson?.(activeId); }}>Edit Person</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onShowInfo?.(activeId); }}>Show Info</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onOpenAncestorChart?.(activeId); }}>Ancestor Chart</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onOpenDescendantChart?.(activeId); }}>Descendant Chart</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onToggleChrome?.('people'); }}>Person List</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onPick?.(activeId); actionsRef.current?.fit?.(); }}>{t('interactiveTree.focusOnPerson')}</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); setPresentationMode(true); }}>{t('interactiveTree.enterPresentation')}</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); actionsRef.current?.snapshot?.(); }}>{t('interactiveTree.saveAsImage')}</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onEditPerson?.(activeId); }}>{t('interactiveTree.editPerson')}</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onShowInfo?.(activeId); }}>{t('interactiveTree.showInfo')}</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onOpenAncestorChart?.(activeId); }}>{t('interactiveTree.ancestorChart')}</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onOpenDescendantChart?.(activeId); }}>{t('interactiveTree.descendantChart')}</button>
+              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onToggleChrome?.('people'); }}>{t('interactiveTree.personList')}</button>
             </div>
           )}
         </div>
@@ -236,15 +238,15 @@ export function ThreeDTreeView({
       )}
       {!presentationMode && (
       <div style={{ ...styles.controls, ...(!controlsVisible ? styles.controlsHidden : null) }}>
-        <button type="button" onClick={() => actionsRef.current.zoom(0.82)} style={styles.iconButton} title="Zoom in">+</button>
-        <button type="button" onClick={() => actionsRef.current.zoom(1.18)} style={styles.iconButton} title="Zoom out">-</button>
-        <button type="button" onClick={() => actionsRef.current.fit()} style={styles.fitButton} title="Size to fit">Fit</button>
+        <button type="button" onClick={() => actionsRef.current.zoom(0.82)} style={styles.iconButton} title={t('interactiveTree.zoomIn')}>+</button>
+        <button type="button" onClick={() => actionsRef.current.zoom(1.18)} style={styles.iconButton} title={t('interactiveTree.zoomOut')}>-</button>
+        <button type="button" onClick={() => actionsRef.current.fit()} style={styles.fitButton} title={t('interactiveTree.sizeToFit')}>{t('interactiveTree.fit')}</button>
       </div>
       )}
       {!presentationMode && (
       <div style={{ ...styles.bottomDock, ...(isMobile ? styles.bottomDockMobile : null), ...(!controlsVisible ? (isMobile ? styles.bottomDockHiddenMobile : styles.bottomDockHidden) : null) }}>
         <div style={styles.dockGroup}>
-          <span style={styles.dockLabel}>Size to Fit</span>
+          <span style={styles.dockLabel}>{t('interactiveTree.sizeToFit')}</span>
           <input
             type="range"
             min="10"
@@ -252,14 +254,14 @@ export function ThreeDTreeView({
             value={zoomPercent}
             onChange={(event) => actionsRef.current.zoomTo(Number(event.target.value))}
             style={styles.zoomSlider}
-            aria-label="Tree zoom"
+            aria-label={t('interactiveTree.treeZoomAria')}
           />
           <span style={styles.zoomReadout}>{zoomPercent}%</span>
         </div>
         <div style={styles.dockGroup}>
-          <Metric label="Parents" value={relationshipCounts.parents} />
-          <Metric label="Partners" value={relationshipCounts.partners} />
-          <Metric label="Children" value={relationshipCounts.children} />
+          <Metric label={t('interactiveTree.parents')} value={relationshipCounts.parents} />
+          <Metric label={t('interactiveTree.partners')} value={relationshipCounts.partners} />
+          <Metric label={t('interactiveTree.children')} value={relationshipCounts.children} />
         </div>
         <TreeNavigationControls context={context} onPick={onPick} />
         <div style={styles.dockGroup}>
@@ -269,10 +271,10 @@ export function ThreeDTreeView({
             onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }}
             aria-pressed={optionsPanelOpen}
           >
-            Options...
+            {t('interactiveTree.options')}...
           </button>
           <ViewerSelect
-            label="Camera"
+            label={t('interactiveTree.camera')}
             value={viewerOptions.cameraMode}
             options={CAMERA_MODES}
             onChange={(cameraMode) => setViewerOptions((current) => ({ ...current, cameraMode }))}
@@ -285,7 +287,7 @@ export function ThreeDTreeView({
             onClick={() => onToggleChrome?.('navigation')}
             aria-pressed={chrome.navigation}
           >
-            Nav
+            {t('interactiveTree.nav')}
           </button>
           <button
             type="button"
@@ -293,7 +295,7 @@ export function ThreeDTreeView({
             onClick={() => onToggleChrome?.('people')}
             aria-pressed={chrome.people}
           >
-            People
+            {t('interactiveTree.people')}
           </button>
           <button
             type="button"
@@ -301,7 +303,7 @@ export function ThreeDTreeView({
             onClick={() => onToggleChrome?.('inspector')}
             aria-pressed={chrome.inspector}
           >
-            Inspector
+            {t('interactiveTree.inspector')}
           </button>
           <button
             type="button"
@@ -309,7 +311,7 @@ export function ThreeDTreeView({
             onClick={() => onToggleChrome?.('header')}
             aria-pressed={chrome.header}
           >
-            Header
+            {t('interactiveTree.header')}
           </button>
         </div>
       </div>
@@ -322,20 +324,20 @@ export function ThreeDTreeView({
         />
       )}
       {loading && (
-        <div style={styles.overlay}>Loading tree...</div>
+        <div style={styles.overlay}>{t('interactiveTree.loading')}</div>
       )}
       {!loading && !hasTree && (
         <div style={styles.emptyCta}>
-          <div style={styles.emptyCtaTitle}>No persons present</div>
+          <div style={styles.emptyCtaTitle}>{t('interactiveTree.emptyTitle')}</div>
           <div style={styles.emptyCtaMessage}>
-            There are no persons in this family tree. Use the button below to start with a new person.
+            {t('interactiveTree.emptyMessage')}
           </div>
           <button
             type="button"
             style={styles.emptyCtaButton}
             onClick={() => onAddRelative?.({ relation: 'new', anchorId: '' })}
           >
-            Add First Person
+            {t('interactiveTree.addFirstPerson')}
           </button>
         </div>
       )}

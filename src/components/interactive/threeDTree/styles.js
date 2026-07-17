@@ -25,7 +25,9 @@ export const styles = {
     border: '1px solid hsl(var(--border))',
     boxShadow: '0 10px 24px rgb(0 0 0 / 0.12)',
     backdropFilter: 'blur(14px)',
-    maxWidth: 'calc(100% - 104px)',
+    // Reserve room for the zoom cluster (+/−/Fit ≈ 110px wide at inset 12px)
+    // so the two bars never overlap on narrow screens.
+    maxWidth: 'calc(100% - 148px)',
     overflowX: 'auto',
   },
   macBarButton: {
