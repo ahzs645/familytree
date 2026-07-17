@@ -12,6 +12,16 @@ import App from './App.jsx';
 import { getAppDataClient } from './lib/data/index.js';
 import { getLocalDatabase } from './lib/LocalDatabase.js';
 import { getShareTokenFromHash } from './lib/shareRoute.js';
+import { APP_LOCALIZATION_STORAGE_KEY } from './lib/i18n.js';
+import { translate } from './lib/translate.js';
+
+// Pre-render translation helper: the React LocalizationProvider isn't mounted
+// yet when the ?url= confirm fires, so read the persisted locale directly.
+function bootTranslate(key, params) {
+  let localization = {};
+  try { localization = JSON.parse(localStorage.getItem(APP_LOCALIZATION_STORAGE_KEY) || 'null') || {}; } catch { /* default locale */ }
+  return translate(key, params, { localization });
+}
 
 if (import.meta.env.DEV) {
   exposeDebugHandles();
@@ -138,8 +148,8 @@ async function autoLoadIfEmpty() {
     const hasData = await client.records.hasData();
     const ok = window.confirm(
       hasData
-        ? `Importing ${queryUrl} will replace the family tree currently stored in this browser. Continue?`
-        : `Import family tree data from ${queryUrl}?`
+        ? bootTranslate('app.remoteImport.confirmReplace', { url: queryUrl })
+        : bootTranslate('app.remoteImport.confirmImport', { url: queryUrl })
     );
     if (!ok) return;
     try {

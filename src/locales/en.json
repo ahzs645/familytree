@@ -6,6 +6,10 @@
       "title": "Page not found",
       "body": "The page you're looking for doesn't exist. It may have moved, or the link is mistyped.",
       "home": "Go to Home"
+    },
+    "remoteImport": {
+      "confirmReplace": "Importing {url} will replace the family tree currently stored in this browser. Continue?",
+      "confirmImport": "Import family tree data from {url}?"
     }
   },
   "common": {
@@ -125,7 +129,8 @@
     "webSearch": "Web Search",
     "websites": "Websites",
     "workspace": "Workspace",
-    "worldHistory": "World history"
+    "worldHistory": "World history",
+    "tribalAffiliations": "Tribal affiliations"
   },
   "commandPalette": {
     "ariaLabel": "Command palette",
