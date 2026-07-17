@@ -13,15 +13,17 @@ import {
   skipDuplicatePair,
 } from '../../lib/duplicates.js';
 import { MergePair } from './MergePair.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 const SCANS = [
-  { id: 'Person', label: 'Persons', run: findDuplicatePersons },
-  { id: 'Family', label: 'Families', run: findDuplicateFamilies },
-  { id: 'Source', label: 'Sources', run: findDuplicateSources },
-  { id: 'Place', label: 'Places', run: findDuplicatePlaces },
+  { id: 'Person', run: findDuplicatePersons },
+  { id: 'Family', run: findDuplicateFamilies },
+  { id: 'Source', run: findDuplicateSources },
+  { id: 'Place', run: findDuplicatePlaces },
 ];
 
 export function DuplicatesApp() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialKind = SCANS.find((entry) => entry.id === searchParams.get('kind'))?.id || 'Person';
   const [kind, setKind] = useState(initialKind);
@@ -78,19 +80,19 @@ export function DuplicatesApp() {
         style={input}
       >
         {SCANS.map((s) => (
-          <option key={s.id} value={s.id}>{s.label}</option>
+          <option key={s.id} value={s.id}>{t(`duplicatesPage.entity.${s.id}`)}</option>
         ))}
       </select>
         <button onClick={onScan} disabled={scanning} style={{ ...input, background: 'hsl(var(--primary))', cursor: 'pointer' }}>
-          {scanning ? 'Scanning…' : 'Scan'}
+          {scanning ? t('duplicatesPage.scanning') : t('duplicatesPage.scan')}
         </button>
         {skippedCount > 0 && (
           <button onClick={onClearSkipped} disabled={scanning} style={input}>
-            Show {skippedCount} skipped
+            {t('duplicatesPage.showSkipped', { count: skippedCount })}
           </button>
         )}
         <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
-          {pairs.length > 0 && `${pairs.length} candidate pair${pairs.length === 1 ? '' : 's'}`}
+          {pairs.length > 0 && t('duplicatesPage.candidateCount', { count: pairs.length })}
         </span>
       </header>
 
@@ -98,8 +100,10 @@ export function DuplicatesApp() {
         {pairs.length === 0 && !scanning && (
           <div style={{ color: 'hsl(var(--muted-foreground))', textAlign: 'center', marginTop: 60 }}>
             {hasScanned
-              ? <>No duplicate candidates found{skippedCount > 0 ? ` (${skippedCount} skipped pair${skippedCount === 1 ? '' : 's'} hidden)` : ''}.</>
-              : <>Pick an entity type and click <strong>Scan</strong> to find potential duplicates.</>}
+              ? (skippedCount > 0
+                ? t('duplicatesPage.noneFoundSkipped', { count: skippedCount })
+                : t('duplicatesPage.noneFound'))
+              : t('duplicatesPage.emptyPrompt')}
           </div>
         )}
         {pairs.map((pair) => {

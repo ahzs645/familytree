@@ -1,4 +1,5 @@
 /**
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
  * Flat (2D SVG) Interactive Tree viewer — mirrors the MacFamilyTree
  * InteractiveTreeViewFlatViewer: horizontal full-width pink/purple generation bands
  * with person cards and orthogonal connectors.
@@ -48,6 +49,7 @@ export function FlatInteractiveTreeView({
   onShowInfo,
   onReturnToFamilyTree,
 }) {
+  const { t } = useTranslation();
   const [viewerOptions, setViewerOptions] = useState(readInitialViewerOptions);
   const layout = useMemo(
     () => buildInteractiveLayout(ancestorTree, descendantTree, activeId, familyGraph, {
@@ -156,16 +158,16 @@ export function FlatInteractiveTreeView({
     <div style={{ ...styles.shell, background: flatBackgroundCss(backgroundStyle, viewerOptions.flatBackgroundCustomColor) }}>
       <div style={styles.topBar}>
         <button type="button" style={styles.barButton} onClick={onReturnToFamilyTree}>
-          Return to Family Tree
+          {t('interactiveTree.returnToFamilyTree')}
         </button>
-        <span style={styles.viewerLabel}>Flat Interactive Tree</span>
+        <span style={styles.viewerLabel}>{t('interactiveTree.flatViewerLabel')}</span>
         <label style={styles.viewerLabel}>
-          Background{' '}
+          {t('interactiveTree.background')}{' '}
           <select
             value={backgroundStyle}
             onChange={(event) => setViewerOptions((current) => ({ ...current, flatBackgroundStyle: event.target.value }))}
             style={styles.backgroundSelect}
-            aria-label="Background style"
+            aria-label={t('interactiveTree.backgroundStyleAria')}
           >
             {FLAT_BACKGROUND_STYLES.map((option) => (
               <option key={option.id} value={option.id}>{option.label}</option>
@@ -177,7 +179,7 @@ export function FlatInteractiveTreeView({
             type="color"
             value={viewerOptions.flatBackgroundCustomColor || '#dce7f5'}
             onChange={(event) => setViewerOptions((current) => ({ ...current, flatBackgroundCustomColor: event.target.value }))}
-            aria-label="Custom background color"
+            aria-label={t('interactiveTree.customBackgroundColorAria')}
             style={{ width: 28, height: 24, padding: 0, border: '1px solid hsl(var(--border))', borderRadius: 4, background: 'transparent' }}
           />
         )}
