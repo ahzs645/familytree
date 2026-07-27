@@ -1,5 +1,10 @@
 # Live interface review — 2026-07-27
 
+> **Status:** §1, §2 (partly), §3.1–§3.4, §4, and §5 were fixed on this branch;
+> see [§8 What was fixed](#8-what-was-fixed) for the after-numbers and what is
+> deliberately still open. The findings below describe the state *before* those
+> changes.
+
 Target: the deployed build at
 `https://projects.ahmadjalil.com/familytree/?url=…/family_tree_arabic.mftpkg.zip`
 (836 persons, 282 families, 6,598 records, Arabic-language tree).
@@ -193,3 +198,50 @@ so with popups blocked the click does nothing and reports nothing.
 3. §2 — associate labels with inputs. Large but mechanical.
 4. §3.1 — finish or hide the Vietnamese locale.
 5. §3.4, §4, §5 — targeted fixes.
+
+---
+
+## 8. What was fixed
+
+Measured the same way as the findings above, against a production build of this
+branch serving the same Arabic dataset.
+
+| # | Finding | Before | After |
+|---|---|---|---|
+| 1.1 | Deep-link failures indistinguishable from a fresh visit | 404, wrong file type, and dismissed dialog all → "No tree yet" | each shows the message and the failing URL with **Try again**; cancelling leaves an **Import** banner |
+| 1.2 | Native `confirm()` over a blank page | fired at 753 ms, before React mounted | in-app sheet inside the app shell |
+| 1.3 | Nothing rendered until the import finished | 3,849 ms to first paint, 3,096 ms blank after clicking OK | ~150 ms to first paint, determinate progress bar throughout |
+| 1.4 | Size cap bypassable on a chunked response | header-only check | enforced as bytes arrive |
+| 2 | Unlabelled form fields | 128 of 1,608 | **79** |
+| 2 | Routes with nested `<main>` | 12 of 19 | **0 of 19** |
+| 3.1 | Vietnamese offered with no `vi.json` | silently English | marked "— English interface" in the picker |
+| 3.2 | Untranslated terms with Arabic selected | `/reports` 96, `/statistics` 45 | **19** and **13** |
+| 3.3 | Report bodies English-only | `Born:`, `Gender:`, `Father:`, `TYPE/DATE/DESCRIPTION` | translated; table headers had *never* been localized (the pass read `headers`, the AST emits `columns`) |
+| 3.4 | RTL report column clipped off-screen | `Description` at x=-178 | all columns at positive offsets |
+| 4 | PDF buttons promised a file | "Save as PDF Document…" / "PDF" | "Print / Save as PDF…" / "Print", and a blocked popup now reports itself |
+| 5 | `/person/new` wrote a record on navigation | crawling the route moved 836 → 837 | asks first unless the visit carries intent; count unchanged |
+| 5 | Unnamed persons sorted under **N** | wedged between real surnames | own group, sorted last |
+| 5 | `beforeunload` on leaving `/charts` | fired with nothing edited | fires only after a real edit |
+
+Regression check: all 91 routes crawled against the rebuilt app — no page
+errors, no empty routes, exactly one `<main>` each. 429 unit tests pass.
+Import → edit → save → reload verified end to end on the Arabic dataset.
+
+### Still open
+
+- **~79 unlabelled fields remain**, concentrated in Sources (24), Books (12),
+  Places (12), and the person editor (8). The shared `Field` components and
+  `MasterDetailList` are fixed, so what is left is per-screen bespoke markup.
+  (Some are `<input type="file" class="hidden">` behind styled buttons, which
+  `display: none` keeps out of the accessibility tree anyway.)
+- **Per-builder report `helpText` is still English in every locale.** The
+  lookup is wired (`reports.helpText.<builderId>`) and falls back to the
+  English literal; the ~30 sentences were left for a translator rather than
+  machine-translated.
+- **`/export` remains largely untranslated** (157 terms) — the largest single
+  remaining route.
+- **Event type and gender *values* inside reports** ("Birth", "Nationality",
+  "Male") are record data rendered verbatim; localizing them needs a
+  value-level catalog keyed off `ConclusionPersonEventType`.
+- **10 of 18 places still have no coordinates.** `BatchPlaceLookupSheet`
+  exists; `/places` just never prompts.
