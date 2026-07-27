@@ -51,6 +51,7 @@ import { PresentationSettingsControls } from '../presentation/PresentationSettin
 import { ReportPreview } from './ReportPreview.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { useIsMobile } from '../../lib/useIsMobile.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { localizeReportAst } from '../../lib/reports/localizeReport.js';
 import {
@@ -255,6 +256,7 @@ export function applyReportContentOptions(report, options = {}) {
 
 export function ReportsApp() {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const { recordName: activePersonId, setActivePerson } = useActivePerson();
   const modal = useModal();
   const [persons, setPersons] = useState([]);
@@ -280,7 +282,15 @@ export function ReportsApp() {
   const [authorInfo, setAuthorInfo] = useState(null);
   const [speaking, setSpeaking] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [libraryOpen, setLibraryOpen] = useState(true);
+  // The three-column workspace needs 480px before the preview gets a single
+  // pixel, so on a phone the library and inspector pushed the report itself off
+  // the right edge — along with the "Options" toggle, which landed at x=391 in
+  // a container that does not scroll. Below 768px the workspace is one column
+  // and the library starts closed, so the preview is what you land on.
+  const [libraryOpen, setLibraryOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return !window.matchMedia('(max-width: 767px)').matches;
+  });
   const [reportSearch, setReportSearch] = useState('');
   const generationRequestRef = useRef(0);
   const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -657,7 +667,16 @@ export function ReportsApp() {
         </div>
       </header>
 
-      <div style={{ ...workspace, gridTemplateColumns: libraryOpen ? workspace.gridTemplateColumns : 'minmax(260px, 330px) minmax(0, 1fr)' }}>
+      <div
+        style={{
+          ...workspace,
+          gridTemplateColumns: isMobile
+            ? 'minmax(0, 1fr)'
+            : libraryOpen
+              ? workspace.gridTemplateColumns
+              : 'minmax(260px, 330px) minmax(0, 1fr)',
+        }}
+      >
         {libraryOpen && (
           <aside style={libraryPanel}>
             <div style={searchBox}>
@@ -1025,6 +1044,10 @@ const shell = { display: 'flex', flexDirection: 'column', height: '100%', minHei
 const topbar = {
   display: 'flex',
   alignItems: 'center',
+  // Wraps so the report title and the Play/Export actions stop overlapping
+  // once the row runs out of width.
+  flexWrap: 'wrap',
+  rowGap: 8,
   gap: 12,
   minHeight: 64,
   padding: '10px 16px',
@@ -1034,6 +1057,7 @@ const topbar = {
 const topbarMeta = {
   display: 'flex',
   alignItems: 'center',
+  flexWrap: 'wrap',
   gap: 8,
   minWidth: 0,
   marginInlineStart: 'auto',
@@ -1041,7 +1065,7 @@ const topbarMeta = {
   fontSize: 12,
   whiteSpace: 'nowrap',
 };
-const topbarActions = { display: 'flex', alignItems: 'center', gap: 8 };
+const topbarActions = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', rowGap: 8, gap: 8 };
 const workspace = {
   flex: 1,
   minHeight: 0,
