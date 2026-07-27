@@ -9,7 +9,16 @@
     },
     "remoteImport": {
       "confirmReplace": "Importing {url} will replace the family tree currently stored in this browser. Continue?",
-      "confirmImport": "Import family tree data from {url}?"
+      "confirmImport": "Import family tree data from {url}?",
+      "title": "Import this family tree?",
+      "importBody": "The data is imported into this browser only — it is never uploaded anywhere.",
+      "replaceBody": "This will replace the family tree currently stored in this browser.",
+      "importAction": "Import",
+      "downloading": "Downloading family tree…",
+      "importing": "Importing records…",
+      "failedTitle": "Could not import that family tree",
+      "retry": "Try again",
+      "cancelledBody": "This link points at a family tree that has not been imported."
     }
   },
   "common": {
@@ -34,7 +43,8 @@
     "save": "Save",
     "search": "Search",
     "select": "Select",
-    "settings": "Settings"
+    "settings": "Settings",
+    "dismiss": "Dismiss"
   },
   "glossary": {
     "anniversary": "Anniversary",

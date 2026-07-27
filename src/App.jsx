@@ -18,6 +18,7 @@ import { getAppPreferences, applyDocumentAppearance, APP_PREFERENCES_EVENT } fro
 import { useObjectDeepLink } from './lib/deepLinks.js';
 import { getShareTokenFromHash } from './lib/shareRoute.js';
 import { SchemaMigrationSheet } from './components/SchemaMigrationSheet.jsx';
+import { RemoteDatasetProvider } from './components/RemoteDatasetLoader.jsx';
 import { ROUTE_MANIFEST, SHARE_PREVIEW_ROUTE, memoLazy } from './routes/manifest.js';
 
 function Fallback() {
@@ -122,6 +123,7 @@ export function App() {
        <ModalProvider>
        <DatabaseStatusProvider>
         <ActivePersonProvider>
+         <RemoteDatasetProvider>
           <DeepLinkHandler />
           <SchemaMigrationSheet />
           <SharePreviewGate>
@@ -134,6 +136,7 @@ export function App() {
             </Route>
           </Routes>
           </SharePreviewGate>
+         </RemoteDatasetProvider>
         </ActivePersonProvider>
        </DatabaseStatusProvider>
        </ModalProvider>
