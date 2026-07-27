@@ -259,23 +259,23 @@ export function validateHistoricalDate(raw, calendar = 'gregorian') {
   };
 }
 
-export function isValidGregorianDate({ year, month, day }) {
+function isValidGregorianDate({ year, month, day }) {
   return isValidCalendarDate({ year, month, day }, (candidateYear) => (
     candidateYear % 4 === 0 && (candidateYear % 100 !== 0 || candidateYear % 400 === 0)
   ));
 }
 
-export function isValidJulianDate({ year, month, day }) {
+function isValidJulianDate({ year, month, day }) {
   return isValidCalendarDate({ year, month, day }, (candidateYear) => candidateYear % 4 === 0);
 }
 
-export function isValidSwedishDate(parts) {
+function isValidSwedishDate(parts) {
   if (parts?.year === 1712 && parts?.month === 2 && parts?.day === 30) return true;
   if (parts?.year === 1700 && parts?.month === 2 && parts?.day === 29) return false;
   return isValidJulianDate(parts);
 }
 
-export function isValidFrenchRepublicanDate({ year, month, day }) {
+function isValidFrenchRepublicanDate({ year, month, day }) {
   if (!Number.isInteger(year) || year < 1) return false;
   if (!Number.isInteger(month) || month < 1 || month > 13) return false;
   if (!Number.isInteger(day) || day < 1) return false;

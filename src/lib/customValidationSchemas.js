@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { readField, readRef } from './schema.js';
 import { refToRecordName } from './recordRef.js';
 import { personDisplayName, yearOf } from './familyGraph.js';
@@ -11,30 +11,30 @@ function uuid(prefix) {
 }
 
 export async function listCustomValidationSchemas() {
-  const db = getLocalDatabase();
-  const list = await db.getMeta(META_KEY);
+  const db = getAppDataClient().meta;
+  const list = await db.get(META_KEY);
   return Array.isArray(list) ? list : [];
 }
 
 export async function saveCustomValidationSchema(schema) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const list = await listCustomValidationSchemas();
   const stamped = normalizeSchema({ ...schema, id: schema.id || uuid('rule') });
   const index = list.findIndex((item) => item.id === stamped.id);
   if (index >= 0) list[index] = stamped;
   else list.push(stamped);
-  await db.setMeta(META_KEY, list);
+  await db.set(META_KEY, list);
   return stamped;
 }
 
 export async function deleteCustomValidationSchema(id) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const list = await listCustomValidationSchemas();
-  await db.setMeta(META_KEY, list.filter((item) => item.id !== id));
+  await db.set(META_KEY, list.filter((item) => item.id !== id));
 }
 
 export async function runCustomValidationSchemas() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const schemas = (await listCustomValidationSchemas()).map(normalizeSchema).filter((schema) => schema.enabled !== false);
   const [{ records: persons }, { records: groups }, { records: groupRelations }, { records: places }] = await Promise.all([
     db.query('Person', { limit: 100000 }),
@@ -62,7 +62,7 @@ export async function runCustomValidationSchemas() {
   return issues;
 }
 
-export function normalizeSchema(schema = {}) {
+function normalizeSchema(schema = {}) {
   return {
     id: schema.id || uuid('rule'),
     name: schema.name || 'Custom Rule',

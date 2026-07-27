@@ -12,10 +12,10 @@ import {
   loadPersonIndex,
 } from './recordQueries.js';
 import { readField, readRef } from '../schema.js';
-import { getLocalDatabase } from '../LocalDatabase.js';
+import { getAppDataClient } from '../data/AppDataClient.js';
 import { isPublicRecord } from '../privacy.js';
 
-export function normalizeSociogramConfig(raw = {}) {
+function normalizeSociogramConfig(raw = {}) {
   return {
     rootPersonId: raw.rootPersonId || null,
     showParents: raw.showParents !== false,
@@ -72,7 +72,7 @@ async function collectAssociateEdges(personId, personIndex) {
 
 export async function buildSociogramData(config = {}) {
   const normalized = normalizeSociogramConfig(config);
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const personIndex = await loadPersonIndex();
   const rootId = normalized.rootPersonId;
 
@@ -103,7 +103,7 @@ export async function buildSociogramData(config = {}) {
   const parentIds = new Set();
 
   if (normalized.showParents) {
-    const parents = await db.getPersonsParents(rootId);
+    const parents = await db.personsParents(rootId);
     for (const fam of parents) {
       if (fam.man) { addNode(fam.man, 'parent'); parentIds.add(fam.man.recordName); edges.push(makeEdge(fam.man.recordName, rootId, 'parent-of')); }
       if (fam.woman) { addNode(fam.woman, 'parent'); parentIds.add(fam.woman.recordName); edges.push(makeEdge(fam.woman.recordName, rootId, 'parent-of')); }
@@ -112,7 +112,7 @@ export async function buildSociogramData(config = {}) {
 
   if (normalized.showGrandparents && parentIds.size > 0) {
     for (const parentId of parentIds) {
-      const grandparents = await db.getPersonsParents(parentId);
+      const grandparents = await db.personsParents(parentId);
       for (const fam of grandparents) {
         if (fam.man) { addNode(fam.man, 'grandparent'); edges.push(makeEdge(fam.man.recordName, parentId, 'parent-of')); }
         if (fam.woman) { addNode(fam.woman, 'grandparent'); edges.push(makeEdge(fam.woman.recordName, parentId, 'parent-of')); }
@@ -121,7 +121,7 @@ export async function buildSociogramData(config = {}) {
   }
 
   if (normalized.showPartners || normalized.showChildren) {
-    const families = await db.getPersonsChildrenInformation(rootId);
+    const families = await db.childrenInformation(rootId);
     for (const fam of families) {
       if (normalized.showPartners && fam.partner) {
         addNode(fam.partner, 'partner');

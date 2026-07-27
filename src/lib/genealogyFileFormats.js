@@ -1,4 +1,4 @@
-export const SUPPORTED_IMPORT_EXTENSIONS = [
+const SUPPORTED_IMPORT_EXTENSIONS = [
   '.mftpkg',
   '.mftsql',
   '.mft',
@@ -65,7 +65,7 @@ export function extractGedcomCharTag(bytes, limit = 4096) {
   }
 }
 
-export function gedcomEncodingFromCharTag(tag) {
+function gedcomEncodingFromCharTag(tag) {
   if (!tag) return null;
   const normalized = tag.toLowerCase().replace(/[\s_]/g, '-');
   if (/^utf-?8$/.test(normalized)) return 'utf-8';

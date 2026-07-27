@@ -5,20 +5,20 @@
  */
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { refValue } from './recordRef.js';
 import { NAME_FIELDS, loadPersonEditorModel } from './personEditorQuery.js';
 
 const PERSON_ID = 'person-editor-query-test';
 
 async function seed(records) {
-  const db = getLocalDatabase();
-  for (const record of records) await db.saveRecord(record);
+  const db = getAppDataClient().records;
+  for (const record of records) await db.save(record);
 }
 
 describe('loadPersonEditorModel', () => {
   beforeEach(async () => {
-    await getLocalDatabase().clearAll();
+    await getAppDataClient().records.clearAll();
   });
 
   it('returns null when the person record does not exist', async () => {

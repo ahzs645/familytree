@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { getAppPreferences } from '../lib/appPreferences.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import {
@@ -65,16 +65,16 @@ export default function Slideshow() {
     if (!settingsReady) return undefined;
     let cancel = false;
     (async () => {
-      const db = getLocalDatabase();
+      const data = getAppDataClient();
       const all = selectedIds.length
-        ? await db.getRecords(selectedIds)
-        : (await Promise.all(mediaTypesForFilter(filter).map((t) => db.query(t, { limit: 100000 })))).flatMap(({ records }) => records);
+        ? await data.records.getMany(selectedIds)
+        : (await Promise.all(mediaTypesForFilter(filter).map((t) => data.records.query(t, { limit: 100000 })))).flatMap(({ records }) => records);
       const filtered = eventFilter === 'all'
         ? all
         : all.filter((m) => String(m.fields?.eventType?.value || m.fields?.conclusionType?.value || '').toLowerCase().includes(eventFilter.toLowerCase()));
       const assetEntries = await Promise.all(filtered.map(async (record) => {
         const ids = record.fields?.assetIds?.value || [];
-        const assets = ids.length ? (await Promise.all(ids.map((id) => db.getAsset(id)))).filter(Boolean) : await db.listAssetsForRecord(record.recordName);
+        const assets = ids.length ? (await Promise.all(ids.map((id) => data.assets.get(id)))).filter(Boolean) : await data.assets.listForRecord(record.recordName);
         return [record.recordName, assets];
       }));
       if (cancel) return;

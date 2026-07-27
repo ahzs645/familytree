@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAppPreferences, saveAppPreferences } from '../lib/appPreferences.js';
 import { APP_FUNCTIONS, functionByRoute } from '../lib/functionCatalog.js';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { familySummary, personSummary, placeSummary, sourceSummary } from '../models/index.js';
 import { BdiText } from '../components/BdiText.jsx';
 
@@ -16,24 +16,31 @@ const BOOKMARK_TYPES = [
 export default function Favorites() {
   const navigate = useNavigate();
   const [prefs, setPrefs] = useState(null);
-  const [bookmarks, setBookmarks] = useState(null);
   const [status, setStatus] = useState('');
+  // Fixed hook order mirrors BOOKMARK_TYPES: Person, Family, Place, Source.
+  const personQuery = useRecords('Person');
+  const familyQuery = useRecords('Family');
+  const placeQuery = useRecords('Place');
+  const sourceQuery = useRecords('Source');
+  const bookmarkQueries = [personQuery, familyQuery, placeQuery, sourceQuery];
+  const bookmarksLoading = bookmarkQueries.some((query) => query.loading);
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const [nextPrefs, ...groups] = await Promise.all([
-      getAppPreferences(),
-      ...BOOKMARK_TYPES.map((type) => db.query(type.id, { limit: 100000 })),
-    ]);
+  const bookmarks = useMemo(() => {
     const grouped = {};
     BOOKMARK_TYPES.forEach((type, index) => {
-      grouped[type.id] = groups[index].records.filter((record) => record.fields?.isBookmarked?.value);
+      grouped[type.id] = bookmarkQueries[index].records.filter((record) => record.fields?.isBookmarked?.value);
     });
-    setPrefs(nextPrefs);
-    setBookmarks(grouped);
-  }, []);
+    return grouped;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personQuery.records, familyQuery.records, placeQuery.records, sourceQuery.records]);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    let cancelled = false;
+    getAppPreferences().then((nextPrefs) => {
+      if (!cancelled) setPrefs(nextPrefs);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const favoriteFunctions = useMemo(() => {
     if (!prefs) return [];
@@ -67,7 +74,7 @@ export default function Favorites() {
     setPrefs(next);
   }, [prefs]);
 
-  if (!prefs || !bookmarks) return <div className="p-10 text-muted-foreground">Loading favorites...</div>;
+  if (!prefs || bookmarksLoading) return <div className="p-10 text-muted-foreground">Loading favorites...</div>;
 
   const bookmarkTotal = Object.values(bookmarks).reduce((sum, records) => sum + records.length, 0);
   const availableToAdd = APP_FUNCTIONS.filter((item) => !item.unavailable && !prefs.functions.favorites.includes(item.to));

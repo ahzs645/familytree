@@ -1,4 +1,4 @@
-export const listToolbarControlClass =
+const listToolbarControlClass =
   'h-8 rounded-md border border-border bg-secondary text-sm text-foreground outline-none focus:border-primary disabled:opacity-60';
 
 export const listToolbarSelectTriggerClass =

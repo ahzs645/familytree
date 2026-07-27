@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { DEFAULT_FAVORITE_FUNCTIONS } from './functionCatalog.js';
 import {
   CALENDAR_OPTIONS,
@@ -31,7 +31,7 @@ import { privacyPolicyFromPreferences, DEFAULT_PRIVACY_POLICY } from './privacy.
 const META_KEY = 'appPreferences';
 export const APP_PREFERENCES_EVENT = 'cloudtreeweb:app-preferences-changed';
 
-export const DEFAULT_APP_PREFERENCES = {
+const DEFAULT_APP_PREFERENCES = {
   general: {
     startRoute: '/tree',
     confirmDeletes: true,
@@ -231,8 +231,8 @@ function hexToHslTriplet(hex) {
 }
 
 export async function getAppPreferences() {
-  const db = getLocalDatabase();
-  const prefs = normalizePreferences(await db.getMeta(META_KEY));
+  const db = getAppDataClient().meta;
+  const prefs = normalizePreferences(await db.get(META_KEY));
   setActiveNameFormats({
     display: prefs.formats.nameDisplayFormat,
     sort: prefs.formats.nameSortFormat,
@@ -248,9 +248,9 @@ export async function getAppPreferences() {
 }
 
 export async function saveAppPreferences(next) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const normalized = normalizePreferences(next);
-  await db.setMeta(META_KEY, normalized);
+  await db.set(META_KEY, normalized);
   announcePreferences(normalized);
   return normalized;
 }
@@ -265,7 +265,7 @@ export async function resetAppPreferences() {
   return saveAppPreferences(DEFAULT_APP_PREFERENCES);
 }
 
-export function normalizePreferences(value = {}) {
+function normalizePreferences(value = {}) {
   const merged = deepMerge(DEFAULT_APP_PREFERENCES, value || {});
   merged.functions.favorites = uniqueRoutes(merged.functions.favorites, DEFAULT_FAVORITE_FUNCTIONS);
   merged.functions.hidden = uniqueRoutes(merged.functions.hidden, []);

@@ -8,7 +8,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { refToRecordName } from '../lib/recordRef.js';
 import { readConclusionType } from '../lib/schema.js';
 import { Map as MapView } from '../components/ui/Map.jsx';
@@ -59,119 +59,115 @@ export default function Globe() {
   const navigate = useNavigate();
   const location = useLocation();
   const inViews = location.pathname.startsWith('/views/');
-  const [points, setPoints] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [overlay, setOverlay] = useState('all');
-  const [yearBounds, setYearBounds] = useState({ min: null, max: null });
   const [yearFrom, setYearFrom] = useState(null);
   const [yearTo, setYearTo] = useState(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [visualOptions, setVisualOptions] = useState(() => normalizeVisualViewOptions('globe'));
 
+  const { records: personEvents, loading: personEventsLoading } = useRecords('PersonEvent');
+  const { records: familyEvents, loading: familyEventsLoading } = useRecords('FamilyEvent');
+  const { records: placeRecords, loading: placesLoading } = useRecords('Place');
+  const { records: coordRecords, loading: coordsLoading } = useRecords('Coordinate');
+  const { records: personRecords, loading: personsLoading } = useRecords('Person');
+  const { records: familyRecords, loading: familiesLoading } = useRecords('Family');
+  const { records: childRelRecords, loading: childRelsLoading } = useRecords('ChildRelation');
+  const { records: groupRelRecords, loading: groupRelsLoading } = useRecords('PersonGroupRelation');
+  const loading = personEventsLoading || familyEventsLoading || placesLoading || coordsLoading
+    || personsLoading || familiesLoading || childRelsLoading || groupRelsLoading;
+
+  const { points, yearBounds } = useMemo(() => {
+    const groupByPerson = new Map();
+    for (const rel of groupRelRecords) {
+      const personId = refToRecordName(rel.fields?.person?.value);
+      const groupId = refToRecordName(rel.fields?.personGroup?.value);
+      if (personId && groupId && !groupByPerson.has(personId)) groupByPerson.set(personId, groupId);
+    }
+    const placeById = new Map(placeRecords.map((p) => [p.recordName, p]));
+    const coordByPlace = new Map();
+    for (const c of coordRecords) {
+      const placeId = refToRecordName(c.fields?.place?.value);
+      if (placeId) coordByPlace.set(placeId, c);
+    }
+    // Subject metadata so the "Person Groups" and "Smart Filter" option
+    // drawers actually filter the globe (parity with MapsDiagram).
+    const personById = new Map(personRecords.map((p) => [p.recordName, p]));
+    const familyById = new Map(familyRecords.map((f) => [f.recordName, f]));
+    const childrenByFamily = new Map();
+    for (const cr of childRelRecords) {
+      const fam = refToRecordName(cr.fields?.family?.value);
+      const childId = refToRecordName(cr.fields?.child?.value);
+      if (!fam || !childId) continue;
+      if (!childrenByFamily.has(fam)) childrenByFamily.set(fam, []);
+      childrenByFamily.get(fam).push(childId);
+    }
+    const startPerson = personRecords.find((p) => p.fields?.isStartPerson?.value);
+    const startFamilyIds = new Set();
+    if (startPerson) {
+      startFamilyIds.add(startPerson.recordName);
+      for (const fam of familyRecords) {
+        const members = [
+          refToRecordName(fam.fields?.man?.value),
+          refToRecordName(fam.fields?.woman?.value),
+          ...(childrenByFamily.get(fam.recordName) || []),
+        ].filter(Boolean);
+        if (members.includes(startPerson.recordName)) for (const m of members) startFamilyIds.add(m);
+      }
+    }
+    const subjectPersonForEvent = (ev) => {
+      const direct = refToRecordName(ev.fields?.person?.value);
+      if (direct) return direct;
+      const fam = familyById.get(refToRecordName(ev.fields?.family?.value));
+      return refToRecordName(fam?.fields?.man?.value) || refToRecordName(fam?.fields?.woman?.value) || '';
+    };
+    const events = [...personEvents, ...familyEvents];
+    const out = [];
+    let minYear = Number.POSITIVE_INFINITY;
+    let maxYear = Number.NEGATIVE_INFINITY;
+    for (const ev of events) {
+      const placeId = refToRecordName(ev.fields?.place?.value) || refToRecordName(ev.fields?.assignedPlace?.value);
+      if (!placeId) continue;
+      const place = placeById.get(placeId);
+      const coord = coordByPlace.get(placeId);
+      const lat = parseCoord(coord?.fields?.latitude?.value);
+      const lng = parseCoord(coord?.fields?.longitude?.value);
+      if (lat == null || lng == null) continue;
+      const conclusion = readConclusionType(ev) || ev.fields?.eventType?.value || 'Event';
+      const dateValue = ev.fields?.date?.value || '';
+      const year = yearFromDateValue(dateValue);
+      if (year !== null) {
+        if (year < minYear) minYear = year;
+        if (year > maxYear) maxYear = year;
+      }
+      const subjectId = subjectPersonForEvent(ev);
+      const subject = subjectId ? personById.get(subjectId) : null;
+      out.push({
+        id: ev.recordName,
+        lat,
+        lng,
+        year,
+        overlayType: classifyOverlay(conclusion),
+        conclusion,
+        subjectDeathYear: yearFromDateValue(subject?.fields?.cached_deathDate?.value || subject?.fields?.deathDate?.value),
+        subjectBookmarked: !!subject?.fields?.isBookmarked?.value,
+        inStartFamily: !!subjectId && startFamilyIds.has(subjectId),
+        personGroupId: subjectId ? groupByPerson.get(subjectId) || null : null,
+        popup: `${conclusion}${dateValue ? ' · ' + dateValue : ''} — ${place?.fields?.cached_normallocationString?.value || place?.fields?.placeName?.value || placeId}`,
+      });
+    }
+    const bounds = Number.isFinite(minYear) && Number.isFinite(maxYear)
+      ? { min: minYear, max: maxYear }
+      : { min: null, max: null };
+    return { points: out, yearBounds: bounds };
+  }, [personEvents, familyEvents, placeRecords, coordRecords, personRecords, familyRecords, childRelRecords, groupRelRecords]);
+
+  // Initialize the year sliders once real bounds are known (mirrors the old
+  // one-shot load); user adjustments afterwards are preserved.
   useEffect(() => {
-    let cancel = false;
-    (async () => {
-      const db = getLocalDatabase();
-      const [pe, fe, places, coords, personsQ, familiesQ, childRelsQ, groupRelsQ] = await Promise.all([
-        db.query('PersonEvent', { limit: 100000 }),
-        db.query('FamilyEvent', { limit: 100000 }),
-        db.query('Place', { limit: 100000 }),
-        db.query('Coordinate', { limit: 100000 }),
-        db.query('Person', { limit: 100000 }),
-        db.query('Family', { limit: 100000 }),
-        db.query('ChildRelation', { limit: 100000 }),
-        db.query('PersonGroupRelation', { limit: 100000 }),
-      ]);
-      const groupByPerson = new Map();
-      for (const rel of groupRelsQ.records) {
-        const personId = refToRecordName(rel.fields?.person?.value);
-        const groupId = refToRecordName(rel.fields?.personGroup?.value);
-        if (personId && groupId && !groupByPerson.has(personId)) groupByPerson.set(personId, groupId);
-      }
-      const placeById = new Map(places.records.map((p) => [p.recordName, p]));
-      const coordByPlace = new Map();
-      for (const c of coords.records) {
-        const placeId = refToRecordName(c.fields?.place?.value);
-        if (placeId) coordByPlace.set(placeId, c);
-      }
-      // Subject metadata so the "Person Groups" and "Smart Filter" option
-      // drawers actually filter the globe (parity with MapsDiagram).
-      const personById = new Map(personsQ.records.map((p) => [p.recordName, p]));
-      const familyById = new Map(familiesQ.records.map((f) => [f.recordName, f]));
-      const childrenByFamily = new Map();
-      for (const cr of childRelsQ.records) {
-        const fam = refToRecordName(cr.fields?.family?.value);
-        const childId = refToRecordName(cr.fields?.child?.value);
-        if (!fam || !childId) continue;
-        if (!childrenByFamily.has(fam)) childrenByFamily.set(fam, []);
-        childrenByFamily.get(fam).push(childId);
-      }
-      const startPerson = personsQ.records.find((p) => p.fields?.isStartPerson?.value);
-      const startFamilyIds = new Set();
-      if (startPerson) {
-        startFamilyIds.add(startPerson.recordName);
-        for (const fam of familiesQ.records) {
-          const members = [
-            refToRecordName(fam.fields?.man?.value),
-            refToRecordName(fam.fields?.woman?.value),
-            ...(childrenByFamily.get(fam.recordName) || []),
-          ].filter(Boolean);
-          if (members.includes(startPerson.recordName)) for (const m of members) startFamilyIds.add(m);
-        }
-      }
-      const subjectPersonForEvent = (ev) => {
-        const direct = refToRecordName(ev.fields?.person?.value);
-        if (direct) return direct;
-        const fam = familyById.get(refToRecordName(ev.fields?.family?.value));
-        return refToRecordName(fam?.fields?.man?.value) || refToRecordName(fam?.fields?.woman?.value) || '';
-      };
-      const events = [...pe.records, ...fe.records];
-      const out = [];
-      let minYear = Number.POSITIVE_INFINITY;
-      let maxYear = Number.NEGATIVE_INFINITY;
-      for (const ev of events) {
-        const placeId = refToRecordName(ev.fields?.place?.value) || refToRecordName(ev.fields?.assignedPlace?.value);
-        if (!placeId) continue;
-        const place = placeById.get(placeId);
-        const coord = coordByPlace.get(placeId);
-        const lat = parseCoord(coord?.fields?.latitude?.value);
-        const lng = parseCoord(coord?.fields?.longitude?.value);
-        if (lat == null || lng == null) continue;
-        const conclusion = readConclusionType(ev) || ev.fields?.eventType?.value || 'Event';
-        const dateValue = ev.fields?.date?.value || '';
-        const year = yearFromDateValue(dateValue);
-        if (year !== null) {
-          if (year < minYear) minYear = year;
-          if (year > maxYear) maxYear = year;
-        }
-        const subjectId = subjectPersonForEvent(ev);
-        const subject = subjectId ? personById.get(subjectId) : null;
-        out.push({
-          id: ev.recordName,
-          lat,
-          lng,
-          year,
-          overlayType: classifyOverlay(conclusion),
-          conclusion,
-          subjectDeathYear: yearFromDateValue(subject?.fields?.cached_deathDate?.value || subject?.fields?.deathDate?.value),
-          subjectBookmarked: !!subject?.fields?.isBookmarked?.value,
-          inStartFamily: !!subjectId && startFamilyIds.has(subjectId),
-          personGroupId: subjectId ? groupByPerson.get(subjectId) || null : null,
-          popup: `${conclusion}${dateValue ? ' · ' + dateValue : ''} — ${place?.fields?.cached_normallocationString?.value || place?.fields?.placeName?.value || placeId}`,
-        });
-      }
-      if (!cancel) {
-        setPoints(out);
-        if (Number.isFinite(minYear) && Number.isFinite(maxYear)) {
-          setYearBounds({ min: minYear, max: maxYear });
-          setYearFrom(minYear);
-          setYearTo(maxYear);
-        }
-        setLoading(false);
-      }
-    })();
-    return () => { cancel = true; };
-  }, []);
+    if (yearBounds.min === null || yearBounds.max === null) return;
+    setYearFrom((value) => (value === null ? yearBounds.min : value));
+    setYearTo((value) => (value === null ? yearBounds.max : value));
+  }, [yearBounds]);
 
   const filtered = useMemo(() => {
     const smartFilter = visualOptions.smartFilterMode;

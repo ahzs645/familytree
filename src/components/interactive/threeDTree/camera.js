@@ -23,9 +23,9 @@ const MODE_ANGLES = {
   tilted: { elevation: 49.5, yaw: 0 },
 };
 
-export const CAMERA_DISTANCE = 1700;
+const CAMERA_DISTANCE = 1700;
 
-export function cameraAnglesForMode(cameraMode) {
+function cameraAnglesForMode(cameraMode) {
   return MODE_ANGLES[cameraMode] || MODE_ANGLES.topDownSlight;
 }
 

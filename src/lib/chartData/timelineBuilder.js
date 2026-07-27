@@ -36,7 +36,7 @@ const GROUPING_MODES = new Set([
   'gender',
 ]);
 
-export function normalizeTimelineConfig(raw = {}) {
+function normalizeTimelineConfig(raw = {}) {
   return {
     grouping: GROUPING_MODES.has(raw.grouping) ? raw.grouping : 'none',
     collapseForBestFit: raw.collapseForBestFit !== false,

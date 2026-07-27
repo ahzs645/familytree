@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { generateId } from '../lib/ids.js';
 import { logRecordDeleted } from '../lib/changeLog.js';
 import { readRef, writeRef } from '../lib/schema.js';
@@ -122,7 +122,7 @@ export default function ToDos() {
   const bulkDeleteTodos = async (ids) => {
     const idSet = new Set(ids);
     const ownedRelations = relations.filter((relation) => idSet.has(readRef(relation.fields?.todo)));
-    await getLocalDatabase().applyRecordTransaction({
+    await getAppDataClient().records.transaction({
       deleteRecordNames: [...ids, ...ownedRelations.map((relation) => relation.recordName)],
     });
     for (const id of ids) await logRecordDeleted(id, 'ToDo');
@@ -169,7 +169,7 @@ export default function ToDos() {
     }))) return;
     const completedIds = new Set(completed.map((todo) => todo.recordName));
     const completedRelations = relations.filter((relation) => completedIds.has(readRef(relation.fields?.todo)));
-    await getLocalDatabase().applyRecordTransaction({
+    await getAppDataClient().records.transaction({
       deleteRecordNames: [...completedIds, ...completedRelations.map((relation) => relation.recordName)],
     });
     for (const todo of completed) await logRecordDeleted(todo.recordName, 'ToDo');
@@ -183,7 +183,7 @@ export default function ToDos() {
       return;
     }
     if (!(await modal.confirm(t('todosPage.deleteConfirm'), { title: t('todosPage.deleteTitle'), okLabel: t('todosPage.deleteOk'), destructive: true }))) return;
-    await getLocalDatabase().applyRecordTransaction({
+    await getAppDataClient().records.transaction({
       deleteRecordNames: [active.recordName, ...activeRelations.map((r) => r.recordName)],
     });
     await logRecordDeleted(active.recordName, 'ToDo');

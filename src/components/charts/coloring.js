@@ -23,12 +23,6 @@ export const CHART_COLORING_MODES = [
   { id: 'uniform', label: 'Uniform' },
 ];
 
-const COLORING_MODE_IDS = new Set(CHART_COLORING_MODES.map((mode) => mode.id));
-
-export function isChartColoringMode(value) {
-  return COLORING_MODE_IDS.has(value);
-}
-
 function clamp01(t) {
   return t < 0 ? 0 : t > 1 ? 1 : t;
 }

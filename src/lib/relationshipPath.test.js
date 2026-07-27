@@ -3,8 +3,8 @@ import { buildRelationshipMatrix, findRelationshipPath, findRelationshipPaths, r
 
 const mockState = vi.hoisted(() => ({ db: null }));
 
-vi.mock('./LocalDatabase.js', () => ({
-  getLocalDatabase: () => mockState.db,
+vi.mock('./data/AppDataClient.js', () => ({
+  getAppDataClient: () => ({ records: mockState.db }),
 }));
 
 describe('relationship path discovery', () => {
@@ -182,15 +182,15 @@ describe('relationshipLabel', () => {
 function createMockDb(records) {
   const byId = new Map(records.map((record) => [record.recordName, record]));
   return {
-    getRecord: vi.fn(async (recordName) => byId.get(recordName) || null),
-    getPersonsParents: vi.fn(async (personRecordName) => {
+    get: vi.fn(async (recordName) => byId.get(recordName) || null),
+    personsParents: vi.fn(async (personRecordName) => {
       const childRelations = records.filter((record) => record.recordType === 'ChildRelation' && refId(record.fields?.child) === personRecordName);
       return childRelations.map((relation) => {
         const fam = byId.get(refId(relation.fields?.family));
         return hydrateFamily(fam, byId);
       });
     }),
-    getPersonsChildrenInformation: vi.fn(async (personRecordName) => {
+    childrenInformation: vi.fn(async (personRecordName) => {
       const families = records.filter((record) => {
         if (record.recordType !== 'Family') return false;
         return refId(record.fields?.man) === personRecordName || refId(record.fields?.woman) === personRecordName;

@@ -14,12 +14,12 @@ export function hasMessageCatalog(locale) {
   return Object.prototype.hasOwnProperty.call(MESSAGE_CATALOGS, languageCode(locale || ''));
 }
 
-export function catalogForLocale(locale) {
+function catalogForLocale(locale) {
   const lang = languageCode(locale || DEFAULT_LOCALIZATION.locale);
   return MESSAGE_CATALOGS[lang] || MESSAGE_CATALOGS.en;
 }
 
-export function getMessage(catalog, key) {
+function getMessage(catalog, key) {
   return String(key || '').split('.').reduce((cursor, part) => (
     cursor && Object.prototype.hasOwnProperty.call(cursor, part) ? cursor[part] : undefined
   ), catalog);

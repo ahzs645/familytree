@@ -4,7 +4,7 @@
  * shape MFT11 uses so the Change Log viewer can display native + new edits
  * side by side.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { refValue } from './recordRef.js';
 
 let _seq = 0;
@@ -37,11 +37,11 @@ function nowIso() {
  * but no log entries are written.
  */
 export async function saveWithChangeLog(updatedRecord, { author = 'You', changeKind = 'Change', lineage = null } = {}) {
-  const db = getLocalDatabase();
-  const prev = await db.getRecord(updatedRecord.recordName);
+  const db = getAppDataClient().records;
+  const prev = await db.get(updatedRecord.recordName);
   const changes = diffFields(prev?.fields, updatedRecord.fields);
 
-  await db.saveRecord(updatedRecord);
+  await db.save(updatedRecord);
 
   if (changes.length === 0) return updatedRecord;
 
@@ -77,8 +77,8 @@ export async function saveWithChangeLog(updatedRecord, { author = 'You', changeK
     },
   };
 
-  await db.saveRecord(entry);
-  for (const sub of subEntries) await db.saveRecord(sub);
+  await db.save(entry);
+  for (const sub of subEntries) await db.save(sub);
   return updatedRecord;
 }
 
@@ -101,7 +101,7 @@ function summarize(changes) {
  * Append a creation or deletion entry without diffing fields.
  */
 export async function logRecordCreated(record, { author = 'You', lineage = null } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const entry = {
     recordName: uuid('cle'),
     recordType: 'ChangeLogEntry',
@@ -116,12 +116,12 @@ export async function logRecordCreated(record, { author = 'You', lineage = null 
       ...lineageFields(lineage),
     },
   };
-  await db.saveRecord(entry);
+  await db.save(entry);
   return entry;
 }
 
 export async function logRecordDeleted(recordName, recordType, { author = 'You', lineage = null } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const entry = {
     recordName: uuid('cle'),
     recordType: 'ChangeLogEntry',
@@ -136,7 +136,7 @@ export async function logRecordDeleted(recordName, recordType, { author = 'You',
       ...lineageFields(lineage),
     },
   };
-  await db.saveRecord(entry);
+  await db.save(entry);
   return entry;
 }
 
@@ -170,7 +170,7 @@ export const PURGE_WINDOWS = [
 ];
 
 export async function purgeChangeLogOlderThan(windowMs) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const cutoff = Date.now() - Number(windowMs || 0);
   const { records: entries } = await db.query('ChangeLogEntry', { limit: 1000000 });
   const doomed = entries.filter((record) => {
@@ -181,13 +181,13 @@ export async function purgeChangeLogOlderThan(windowMs) {
 }
 
 export async function purgeChangeLogForDeletedRecords() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records: entries } = await db.query('ChangeLogEntry', { limit: 1000000 });
   const checks = await Promise.all(entries.map(async (entry) => {
     const targetRef = entry?.fields?.target?.value;
     if (!targetRef || typeof targetRef !== 'string') return null;
     const targetName = targetRef.split('---')[0];
-    const target = targetName ? await db.getRecord(targetName) : null;
+    const target = targetName ? await db.get(targetName) : null;
     return target ? null : entry;
   }));
   const doomed = checks.filter(Boolean);
@@ -203,7 +203,7 @@ async function deleteChangeLogEntries(db, entries) {
     if (!ref || typeof ref !== 'string') return false;
     return entryNames.has(ref.split('---')[0]);
   });
-  for (const sub of doomedSubs) await db.deleteRecord(sub.recordName);
-  for (const entry of entries) await db.deleteRecord(entry.recordName);
+  for (const sub of doomedSubs) await db.delete(sub.recordName);
+  for (const entry of entries) await db.delete(entry.recordName);
   return { removedEntries: entries.length, removedSubEntries: doomedSubs.length };
 }

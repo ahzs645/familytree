@@ -8,7 +8,7 @@ import { block, emptyReport } from '../ast.js';
 import {
   appendTextParagraphs,
   eventOwnerLabel,
-  getLocalDatabase,
+  getAppDataClient,
   isRecordVisibleInReport,
   loadVisiblePersonIds,
   placeLabel,
@@ -31,8 +31,8 @@ import {
  * STORY REPORT — metadata, narrative sections, and related records.
  */
 export async function buildStoryReport(recordName, options = {}) {
-  const db = getLocalDatabase();
-  const story = recordName ? await db.getRecord(recordName) : null;
+  const db = getAppDataClient().records;
+  const story = recordName ? await db.get(recordName) : null;
   if (!story || story.recordType !== 'Story') return emptyReport('Story not found');
 
   const title = storyTitle(story);
@@ -116,7 +116,7 @@ export async function buildStoryReport(recordName, options = {}) {
   if (options.showWorldHistory) {
     const targetIds = [...new Set(relationRows.map((row) => row[3]).filter(Boolean))];
     for (const targetId of targetIds) {
-      const target = await db.getRecord(targetId);
+      const target = await db.get(targetId);
       const date = readField(target, ['date', 'cached_birthDate', 'birthDate', 'cached_deathDate', 'deathDate', 'dateString'], '');
       if (date) storyDates.push(date);
     }
@@ -131,7 +131,7 @@ export async function buildStoryReport(recordName, options = {}) {
 }
 
 export async function buildMediaGalleryReport(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const mediaTypes = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
   const fileField = (media) => readField(media, ['url', 'pictureFileIdentifier', 'thumbnailFileIdentifier', 'pdfFileIdentifier', 'audioFileIdentifier', 'videoFileIdentifier'], '');
   const byType = new Map();
@@ -163,7 +163,7 @@ export async function buildMediaGalleryReport(options = {}) {
 }
 
 export async function buildTimelineReport(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const policy = reportPrivacyPolicy();
   const [personEvents, familyEvents, families, visiblePersonIds] = await Promise.all([
     db.query('PersonEvent', { limit: 100000 }),

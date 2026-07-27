@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { readLabel, readRef } from '../lib/schema.js';
 import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.jsx';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
@@ -70,7 +70,7 @@ export default function Labels() {
 
   useEffect(() => {
     let cancelled = false;
-    getLocalDatabase().getAllRecords().then((records) => {
+    getAppDataClient().records.all().then((records) => {
       if (!cancelled) setTargets(new Map(records.map((record) => [record.recordName, record])));
     });
     return () => { cancelled = true; };

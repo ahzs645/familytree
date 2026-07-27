@@ -2,7 +2,7 @@ import { refToRecordName } from './recordRef.js';
 import { formatEventDate, parseEventDate } from '../utils/formatDate.js';
 import { personSummary, placeSummary } from '../models/index.js';
 
-export const QUIZ_STORAGE_KEY = 'cloudtreeweb.familyQuiz.stats';
+const QUIZ_STORAGE_KEY = 'cloudtreeweb.familyQuiz.stats';
 export const QUIZ_CATEGORY_DEFS = Object.freeze([
   { id: 'birthDate', label: 'Birth dates' },
   { id: 'birthPlace', label: 'Birth places' },
@@ -155,7 +155,7 @@ function makeQuestion({ id, category, type, prompt, correct, distractors, subjec
   };
 }
 
-export function buildQuizContext({ persons = [], families = [], childRelations = [], places = [] } = {}) {
+function buildQuizContext({ persons = [], families = [], childRelations = [], places = [] } = {}) {
   const personById = new Map(persons.map((p) => [p.recordName, p]));
   const placeById = new Map(places.map((p) => [p.recordName, p]));
   const childFamily = new Map();
@@ -248,7 +248,7 @@ export function buildQuizQuestionsFromRecords(records, options = {}) {
   return { questions, counts: categoryCounts(ctx, settings), available: candidates.length };
 }
 
-export function categoryCounts(ctx, settings = DEFAULT_QUIZ_SETTINGS) {
+function categoryCounts(ctx, settings = DEFAULT_QUIZ_SETTINGS) {
   const normalized = normalizeQuizSettings(settings);
   const counts = Object.fromEntries(QUIZ_CATEGORY_DEFS.map((category) => [category.id, 0]));
   const result = buildQuizQuestionsFromRecordsWithoutCounts(ctx, normalized);
@@ -266,7 +266,7 @@ function buildQuizQuestionsFromRecordsWithoutCounts(ctx, settings) {
   return result.questions || [];
 }
 
-export async function loadQuizData(db) {
+async function loadQuizData(db) {
   const [personResult, familyResult, childRelResult, placeResult] = await Promise.all([
     db.query('Person', { limit: 100000 }),
     db.query('Family', { limit: 100000 }),

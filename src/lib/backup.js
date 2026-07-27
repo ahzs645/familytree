@@ -127,7 +127,7 @@ export const BACKUP_INTERVALS = [
   { id: '6h', label: 'Every 6 h', ms: 6 * 60 * 60 * 1000 },
 ];
 
-export const DEFAULT_BACKUP_SETTINGS = Object.freeze({
+const DEFAULT_BACKUP_SETTINGS = Object.freeze({
   intervalId: 'off',
   backupOnSave: false,
   retention: 10,

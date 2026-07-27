@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Sheet } from '../ui/Sheet.jsx';
-import { getLocalDatabase } from '../../lib/LocalDatabase.js';
+import { getAppDataClient } from '../../lib/data/AppDataClient.js';
 import { sourceSummary } from '../../models/index.js';
 import { BdiText } from '../BdiText.jsx';
 import { attachSourceRelation, attachedSourceIdsForTarget, createQuickSource } from '../../lib/citationLinks.js';
@@ -31,9 +31,8 @@ export function SourcePickerSheet({ target, onClose, onLinked, onManageAll }) {
   const reload = useCallback(async () => {
     if (!target?.recordName) return;
     setLoading(true);
-    const db = getLocalDatabase();
     const [rows, attached] = await Promise.all([
-      db.query('Source', { limit: 100000 }),
+      getAppDataClient().records.query('Source', { limit: 100000 }),
       attachedSourceIdsForTarget(target.recordName),
     ]);
     setSources(rows.records.map((r) => sourceSummary(r)).filter(Boolean));

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, HelpCircle, ImageIcon, RotateCcw, Settings2, Trophy, XCircle } from 'lucide-react';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import {
   DEFAULT_QUIZ_SETTINGS,
   DIFFICULTY_OPTIONS,
@@ -262,7 +262,7 @@ export default function Quiz() {
     async function loadCounts() {
       setLoading(true);
       try {
-        const result = await buildQuizQuestions(getLocalDatabase(), { ...settings, questionCount: 100000 });
+        const result = await buildQuizQuestions(getAppDataClient().records, { ...settings, questionCount: 100000 });
         if (alive) setCounts(result.counts);
       } catch (err) {
         console.error(err);
@@ -290,7 +290,7 @@ export default function Quiz() {
     setPicked(null);
     setAnswers([]);
     try {
-      const result = await buildQuizQuestions(getLocalDatabase(), settings);
+      const result = await buildQuizQuestions(getAppDataClient().records, settings);
       setCounts(result.counts);
       if (!result.questions.length) {
         setQuestions([]);

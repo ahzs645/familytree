@@ -11,7 +11,7 @@
  * `catalogs.js` so pickers stay consistent across the app.
  */
 
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 
 // Built-in ToDo status / priority values. These mirror the fixed arrays the
 // ToDos route used before statuses/priorities became custom catalogs, so the
@@ -57,7 +57,7 @@ function slug(value) {
 export async function listCustomTypes(categoryId) {
   const category = categoryFor(categoryId);
   if (!category) return [];
-  const list = await getLocalDatabase().getMeta(category.metaKey);
+  const list = await getAppDataClient().meta.get(category.metaKey);
   return Array.isArray(list) ? list.map(normalize).filter(Boolean) : [];
 }
 
@@ -66,33 +66,33 @@ export async function saveCustomType(categoryId, entry) {
   if (!category) throw new Error(`Unknown type category: ${categoryId}`);
   const normalized = normalize(entry);
   if (!normalized) throw new Error('Custom type needs a label.');
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const current = await listCustomTypes(categoryId);
   const idx = current.findIndex((item) => item.id === normalized.id);
   if (idx >= 0) current[idx] = normalized;
   else current.push(normalized);
-  await db.setMeta(category.metaKey, current);
+  await db.set(category.metaKey, current);
   return normalized;
 }
 
 export async function deleteCustomType(categoryId, id) {
   const category = categoryFor(categoryId);
   if (!category) return;
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const current = await listCustomTypes(categoryId);
-  await db.setMeta(category.metaKey, current.filter((entry) => entry.id !== id));
+  await db.set(category.metaKey, current.filter((entry) => entry.id !== id));
 }
 
 export async function reorderCustomTypes(categoryId, orderedIds) {
   const category = categoryFor(categoryId);
   if (!category) return;
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const current = await listCustomTypes(categoryId);
   const byId = new Map(current.map((entry) => [entry.id, entry]));
   const reordered = orderedIds.map((id) => byId.get(id)).filter(Boolean);
   // Append any entries that weren't in the ordering list so nothing disappears.
   for (const entry of current) if (!orderedIds.includes(entry.id)) reordered.push(entry);
-  await db.setMeta(category.metaKey, reordered);
+  await db.set(category.metaKey, reordered);
 }
 
 /**

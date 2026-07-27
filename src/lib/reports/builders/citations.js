@@ -12,7 +12,7 @@ import { CITATION_MODE, formatCitation } from '../../citationFormat.js';
 import { block } from '../ast.js';
 import { compareStrings } from '../../i18n.js';
 import {
-  getLocalDatabase,
+  getAppDataClient,
   readRef,
   sourceSummary,
 } from './_helpers.js';
@@ -25,8 +25,8 @@ import {
  * @param {string[]} targetRecordNames
  * @returns {Promise<object[]>} ordered list of Source records
  */
-export async function collectCitedSources(targetRecordNames = []) {
-  const db = getLocalDatabase();
+async function collectCitedSources(targetRecordNames = []) {
+  const db = getAppDataClient().records;
   const wanted = new Set((targetRecordNames || []).filter(Boolean));
   if (wanted.size === 0) return [];
   const { records: relations } = await db.query('SourceRelation', { limit: 100000 });
@@ -38,7 +38,7 @@ export async function collectCitedSources(targetRecordNames = []) {
   )];
   const sources = [];
   for (const id of sourceIds) {
-    const source = await db.getRecord(id);
+    const source = await db.get(id);
     if (source) sources.push(source);
   }
   sources.sort((a, b) => compareStrings(

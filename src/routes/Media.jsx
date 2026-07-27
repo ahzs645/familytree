@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { saveWithChangeLog, logRecordDeleted } from '../lib/changeLog.js';
 import { deleteRecordsWithLog } from '../lib/bulkActions.js';
 import { BulkLabelMenu } from '../components/lists/BulkLabelMenu.jsx';
@@ -90,10 +90,10 @@ export default function Media() {
   const [loadSeq, setLoadSeq] = useState(0);
 
   const reload = useCallback(async () => {
-    const db = getLocalDatabase();
+    const data = getAppDataClient();
     const all = [];
     for (const t of MEDIA_TYPES.slice(1)) {
-      const { records } = await db.query(t.id, { limit: 100000 });
+      const { records } = await data.records.query(t.id, { limit: 100000 });
       all.push(...records);
     }
     setMedia(all);
@@ -126,10 +126,10 @@ export default function Media() {
         setSubject(null);
         return;
       }
-      const db = getLocalDatabase();
+      const data = getAppDataClient();
       const [rels, target] = await Promise.all([
-        db.query('MediaRelation', { referenceField: 'target', referenceValue: targetId, limit: 100000 }),
-        db.getRecord(targetId),
+        data.records.query('MediaRelation', { referenceField: 'target', referenceValue: targetId, limit: 100000 }),
+        data.records.get(targetId),
       ]);
       if (cancel) return;
       setRelatedMediaIds(new Set(rels.records.map((rel) => readRef(rel.fields?.media)).filter(Boolean)));
@@ -149,15 +149,15 @@ export default function Media() {
       filename: m.fields?.filename?.value || m.fields?.fileName?.value || '',
     });
     (async () => {
-      const db = getLocalDatabase();
+      const data = getAppDataClient();
       const ids = m.fields?.assetIds?.value || [];
-      const storedAssets = ids.length ? (await Promise.all(ids.map((id) => db.getAsset(id)))).filter(Boolean) : await db.listAssetsForRecord(m.recordName);
+      const storedAssets = ids.length ? (await Promise.all(ids.map((id) => data.assets.get(id)))).filter(Boolean) : await data.assets.listForRecord(m.recordName);
       setActiveAssets(storedAssets);
-      const rels = await db.query('MediaRelation', { limit: 100000 });
+      const rels = await data.records.query('MediaRelation', { limit: 100000 });
       const related = [];
       for (const rel of rels.records.filter((r) => readRef(r.fields?.media) === m.recordName)) {
         const targetId = readRef(rel.fields?.target);
-        const target = targetId ? await db.getRecord(targetId) : null;
+        const target = targetId ? await data.records.get(targetId) : null;
         related.push({ rel, target });
       }
       setActiveRelations(related);
@@ -195,8 +195,7 @@ export default function Media() {
       return;
     }
     if (!(await modal.confirm('Delete this media record?', { title: 'Delete media', okLabel: 'Delete', destructive: true }))) return;
-    const db = getLocalDatabase();
-    await db.deleteRecord(m.recordName);
+    await getAppDataClient().records.delete(m.recordName);
     await logRecordDeleted(m.recordName, m.recordType);
     await reload();
     setActiveId(null);

@@ -9,7 +9,8 @@
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
 import { createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
@@ -109,7 +110,6 @@ export default function FamilyEditor() {
   const [events, setEvents] = useState([]);
   const [notes, setNotes] = useState([]);
   const [labels, setLabels] = useState({});
-  const [labelDefs, setLabelDefs] = useState(LABELS);
   const [related, setRelated] = useState({ media: [], sources: [], todos: [], stories: [] });
   const [refNumbers, setRefNumbers] = useState({});
   const [bookmarked, setBookmarked] = useState(false);
@@ -121,6 +121,8 @@ export default function FamilyEditor() {
   const [notFound, setNotFound] = useState(false);
   const [loadSeq, setLoadSeq] = useState(0);
   const [familyEventTypes, setFamilyEventTypes] = useState(FAMILY_EVENT_TYPES);
+  const { records: labelRecords } = useRecords('Label');
+  const labelDefs = useMemo(() => resolveLabelDefinitions(labelRecords), [labelRecords]);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,8 +134,8 @@ export default function FamilyEditor() {
   }, []);
 
   const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const f = await db.getRecord(id);
+    const data = getAppDataClient();
+    const f = await data.records.get(id);
     if (!f) { setNotFound(true); return; }
     setFamily(f);
     setManId(refToRecordName(f.fields?.man?.value));
@@ -147,20 +149,18 @@ export default function FamilyEditor() {
     for (const fd of REFERENCE_NUMBER_FIELDS) refs[fd.id] = f.fields?.[fd.id]?.value ?? '';
     setRefNumbers(refs);
 
-    const [cr, ev, note, lbl, labelRows] = await Promise.all([
-      db.query('ChildRelation', { referenceField: 'family', referenceValue: id, limit: 500 }),
-      db.query('FamilyEvent', { referenceField: 'family', referenceValue: id, limit: 500 }),
-      db.query('Note', { referenceField: 'family', referenceValue: id, limit: 500 }),
-      db.query('LabelRelation', { referenceField: 'targetFamily', referenceValue: id, limit: 500 }),
-      db.query('Label', { limit: 100000 }),
+    const [cr, ev, note, lbl] = await Promise.all([
+      data.records.query('ChildRelation', { referenceField: 'family', referenceValue: id, limit: 500 }),
+      data.records.query('FamilyEvent', { referenceField: 'family', referenceValue: id, limit: 500 }),
+      data.records.query('Note', { referenceField: 'family', referenceValue: id, limit: 500 }),
+      data.records.query('LabelRelation', { referenceField: 'targetFamily', referenceValue: id, limit: 500 }),
     ]);
-    setLabelDefs(resolveLabelDefinitions(labelRows.records));
 
     const hydrated = [];
     for (const rel of cr.records) {
       const childRef = refToRecordName(rel.fields?.child?.value);
       if (!childRef) continue;
-      const c = await db.getRecord(childRef);
+      const c = await data.records.get(childRef);
       hydrated.push({
         childRelationName: rel.recordName,
         childRecordName: childRef,
@@ -181,16 +181,16 @@ export default function FamilyEditor() {
     setLabels(lblState);
 
     const [mediaRels, sourceRels, todoRels, storyRels] = await Promise.all([
-      db.query('MediaRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
-      db.query('SourceRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
-      db.query('ToDoRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
-      db.query('StoryRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+      data.records.query('MediaRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+      data.records.query('SourceRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+      data.records.query('ToDoRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
+      data.records.query('StoryRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
     ]);
     async function hydrate(rels, fieldName, fallbackType) {
       const out = [];
       for (const rel of rels.records) {
         const targetId = readRef(rel.fields?.[fieldName]);
-        const target = targetId ? await db.getRecord(targetId) : null;
+        const target = targetId ? await data.records.get(targetId) : null;
         out.push({ rel, target, type: target?.recordType || fallbackType });
       }
       return out;
@@ -245,7 +245,7 @@ export default function FamilyEditor() {
       return;
     }
     setSaving(true);
-    const db = getLocalDatabase();
+    const data = getAppDataClient();
 
     // Family record
     const nextFields = { ...family.fields };
@@ -266,7 +266,7 @@ export default function FamilyEditor() {
     await saveWithChangeLog({ ...family, fields: nextFields });
 
     // Children reconcile
-    const existingRels = (await db.query('ChildRelation', { referenceField: 'family', referenceValue: id, limit: 500 })).records;
+    const existingRels = (await data.records.query('ChildRelation', { referenceField: 'family', referenceValue: id, limit: 500 })).records;
     const existingByChild = new Map(existingRels.map((r) => [refToRecordName(r.fields?.child?.value), r]));
     const keep = new Set();
     for (let i = 0; i < children.length; i++) {
@@ -303,7 +303,7 @@ export default function FamilyEditor() {
     }
 
     // Notes reconcile
-    const existingNotes = (await db.query('Note', { referenceField: 'family', referenceValue: id, limit: 500 })).records;
+    const existingNotes = (await data.records.query('Note', { referenceField: 'family', referenceValue: id, limit: 500 })).records;
     const keepN = new Set();
     for (const n of notes) {
       if (!n.text) continue;
@@ -333,7 +333,7 @@ export default function FamilyEditor() {
     }
 
     // Labels reconcile
-    const existingLbl = (await db.query('LabelRelation', { referenceField: 'targetFamily', referenceValue: id, limit: 500 })).records;
+    const existingLbl = (await data.records.query('LabelRelation', { referenceField: 'targetFamily', referenceValue: id, limit: 500 })).records;
     const existingByLabel = new Map(existingLbl.map((r) => [refToRecordName(r.fields?.label?.value), r]));
     for (const def of LABELS) {
       const want = !!labels[def.id];

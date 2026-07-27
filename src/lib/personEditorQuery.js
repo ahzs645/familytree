@@ -7,7 +7,7 @@
  * raw records into the plain viewmodels the route's setState calls expect.
  * Returns null when the person record does not exist.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { buildPersonContext } from './personContext.js';
 import { refToRecordName } from './recordRef.js';
 import { readRef } from './schema.js';
@@ -30,8 +30,8 @@ export const NAME_FIELDS = [
 
 export async function loadPersonEditorModel(personRecordName) {
   const id = personRecordName;
-  const db = getLocalDatabase();
-  const record = await db.getRecord(id);
+  const db = getAppDataClient().records;
+  const record = await db.get(id);
   if (!record) return null;
   const context = await buildPersonContext(id);
 
@@ -110,7 +110,7 @@ export async function loadPersonEditorModel(personRecordName) {
     const out = [];
     for (const rel of rels.records) {
       const targetId = readRef(rel.fields?.[fieldName]);
-      const target = targetId ? await db.getRecord(targetId) : null;
+      const target = targetId ? await db.get(targetId) : null;
       out.push({ rel, target, type: target?.recordType || fallbackType });
     }
     return out;

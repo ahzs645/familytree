@@ -4,7 +4,7 @@
  * preference (Formats panel) picks which variant renders; the tree/chart
  * builders load the map once per build and append the suffix to each label.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { refToRecordName } from './recordRef.js';
 import { ADDITIONAL_NAME_DISPLAY, getActiveAdditionalNameDisplay } from './nameFormat.js';
 
@@ -31,7 +31,7 @@ function normalizedTypeId(record) {
  */
 export async function loadAdditionalNameSuffixes(preference = getActiveAdditionalNameDisplay()) {
   if (!preference || preference === ADDITIONAL_NAME_DISPLAY.NONE) return null;
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('AdditionalName', { limit: 100000 });
   const filter = TYPE_FILTERS[preference] || null;
   const byPerson = new Map();

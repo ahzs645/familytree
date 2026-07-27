@@ -3,14 +3,14 @@
  * records the furthest ancestor reached together with whichever birth year it
  * (or its descendants along the same line) carries.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { personSummary } from '../models/index.js';
 
 const MAX_GENERATIONS = 20;
 
 export async function findOldestAncestors(recordName, { limit = 6 } = {}) {
   if (!recordName) return [];
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const visited = new Set();
   const leaves = [];
 
@@ -20,7 +20,7 @@ export async function findOldestAncestors(recordName, { limit = 6 } = {}) {
       return;
     }
     visited.add(id);
-    const parents = await db.getPersonsParents(id);
+    const parents = await db.personsParents(id);
     const parentIds = [];
     for (const fam of parents || []) {
       for (const side of ['man', 'woman']) {
@@ -47,7 +47,7 @@ export async function findOldestAncestors(recordName, { limit = 6 } = {}) {
   for (const leaf of leaves.sort((a, b) => b.generations - a.generations)) {
     if (seen.has(leaf.recordName)) continue;
     seen.add(leaf.recordName);
-    const record = await db.getRecord(leaf.recordName);
+    const record = await db.get(leaf.recordName);
     const summary = personSummary(record);
     if (!summary) continue;
     const birthYear = extractYear(summary.birthDate);

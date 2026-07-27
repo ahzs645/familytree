@@ -13,14 +13,14 @@
 
 import { loadPersonIndex } from './recordQueries.js';
 import { readField } from '../schema.js';
-import { getLocalDatabase } from '../LocalDatabase.js';
+import { getAppDataClient } from '../data/AppDataClient.js';
 import { isPublicRecord } from '../privacy.js';
 
 const COLLECT_MODES = new Set(['ancestor', 'descendant', 'hourglass']);
 const SYMBOL_MODES = new Set(['sphere', 'rounded', 'circle', 'photo']);
 const COLOR_MODES = new Set(['gender', 'generation', 'lastName', 'uniform']);
 
-export function normalizeVirtualTreeConfig(raw = {}) {
+function normalizeVirtualTreeConfig(raw = {}) {
   return {
     rootPersonId: raw.rootPersonId || null,
     collectMode: COLLECT_MODES.has(raw.collectMode) ? raw.collectMode : 'descendant',
@@ -56,7 +56,7 @@ async function walkDescendants(rootId, generations, personIndex, db) {
   while (queue.length) {
     const { id, depth } = queue.shift();
     if (depth >= generations) continue;
-    const families = await db.getPersonsChildrenInformation(id);
+    const families = await db.childrenInformation(id);
     for (const fam of families) {
       if (fam.partner && isPublicRecord(fam.partner) && !nodes.has(fam.partner.recordName)) {
         nodes.set(fam.partner.recordName, nodeForPerson(fam.partner, depth, 'partner'));
@@ -86,7 +86,7 @@ async function walkAncestors(rootId, generations, personIndex, db) {
   while (queue.length) {
     const { id, depth } = queue.shift();
     if (depth >= generations) continue;
-    const parents = await db.getPersonsParents(id);
+    const parents = await db.personsParents(id);
     for (const fam of parents) {
       for (const parent of [fam.man, fam.woman]) {
         if (!parent || !isPublicRecord(parent)) continue;
@@ -103,7 +103,7 @@ async function walkAncestors(rootId, generations, personIndex, db) {
 
 export async function buildVirtualTreeData(config = {}) {
   const normalized = normalizeVirtualTreeConfig(config);
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const personIndex = await loadPersonIndex();
 
   if (!normalized.rootPersonId || !personIndex.has(normalized.rootPersonId)) {

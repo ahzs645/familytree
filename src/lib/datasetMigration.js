@@ -23,7 +23,7 @@ export async function getStoredDatasetSchemaVersion() {
   return DATASET_SCHEMA_VERSION;
 }
 
-export async function markDatasetSchemaVersion(version = DATASET_SCHEMA_VERSION) {
+async function markDatasetSchemaVersion(version = DATASET_SCHEMA_VERSION) {
   const client = getAppDataClient();
   await client.meta.set(DATASET_SCHEMA_VERSION_META_KEY, normalizeDatasetSchemaVersion(version));
 }

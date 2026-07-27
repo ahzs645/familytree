@@ -2,9 +2,9 @@
  * MapView — every Place with coordinates plotted on an interactive basemap.
  * Click a marker to jump to its record in the Places editor.
  */
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { refToRecordName } from '../lib/recordRef.js';
 import { placeSummary } from '../models/index.js';
 import { Map as BaseMap } from '../components/ui/Map.jsx';
@@ -19,9 +19,9 @@ function parseCoord(v) {
 export default function MapView() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [places, setPlaces] = useState([]);
-  const [coordinates, setCoordinates] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { records: places, loading: placesLoading } = useRecords('Place');
+  const { records: coordinates, loading: coordinatesLoading } = useRecords('Coordinate');
+  const loading = placesLoading || coordinatesLoading;
   const inViews = location.pathname.startsWith('/views/');
 
   const navigateMapMode = (mode) => {
@@ -30,19 +30,6 @@ export default function MapView() {
       : { map: '/map', globe: '/globe', statistics: '/maps-diagram' };
     navigate(targets[mode] || targets.map);
   };
-
-  useEffect(() => {
-    (async () => {
-      const db = getLocalDatabase();
-      const [placeResult, coordinateResult] = await Promise.all([
-        db.query('Place', { limit: 100000 }),
-        db.query('Coordinate', { limit: 100000 }),
-      ]);
-      setPlaces(placeResult.records);
-      setCoordinates(coordinateResult.records);
-      setLoading(false);
-    })();
-  }, []);
 
   const markers = useMemo(() => {
     const coordByPlace = new Map();

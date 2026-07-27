@@ -4,7 +4,7 @@
  * chart having to thread the props down.
  */
 import React, { createContext, useContext } from 'react';
-import { getLocalDatabase } from '../../lib/LocalDatabase.js';
+import { getAppDataClient } from '../../lib/data/AppDataClient.js';
 import { readRef } from '../../lib/schema.js';
 
 export const DEFAULT_CHART_CONTENT = Object.freeze({
@@ -35,10 +35,10 @@ export async function loadChartPortraits(personIds) {
   const ids = new Set((personIds || []).filter(Boolean));
   const out = new Map();
   if (ids.size === 0) return out;
-  const db = getLocalDatabase();
+  const client = getAppDataClient();
   const [rels, pictures] = await Promise.all([
-    db.query('MediaRelation', { limit: 100000 }),
-    db.query('MediaPicture', { limit: 100000 }),
+    client.records.query('MediaRelation', { limit: 100000 }),
+    client.records.query('MediaPicture', { limit: 100000 }),
   ]);
   const pictureById = new Map(pictures.records.map((p) => [p.recordName, p]));
   const pictureForPerson = new Map();
@@ -50,9 +50,9 @@ export async function loadChartPortraits(personIds) {
   }
   for (const [personId, picture] of pictureForPerson) {
     const assetIds = picture.fields?.assetIds?.value || [];
-    let asset = assetIds.length ? await db.getAsset(assetIds[0]) : null;
-    if (!asset && db.listAssetsForRecord) {
-      const assets = await db.listAssetsForRecord(picture.recordName);
+    let asset = assetIds.length ? await client.assets.get(assetIds[0]) : null;
+    if (!asset) {
+      const assets = await client.assets.listForRecord(picture.recordName);
       asset = (assets || [])[0] || null;
     }
     if (asset?.dataBase64) out.set(personId, `data:${asset.mimeType || 'image/png'};base64,${asset.dataBase64}`);

@@ -2,7 +2,7 @@
  * Find kinship paths between two persons over the Family graph.
  * Each step is either "parent" (up), "child" (down), or "spouse" (sideways).
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { isPublicRecord } from './privacy.js';
 import { personSummary } from '../models/index.js';
 import { evidenceStateForRecord, loadResearchCompleteness } from './researchCompleteness.js';
@@ -26,10 +26,10 @@ export async function findRelationshipPaths(startRecordName, endRecordName, opti
     excludeNonBiological = false,
     localization = getCurrentLocalization(),
   } = options;
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [start, end, analysis] = await Promise.all([
-    db.getRecord(startRecordName),
-    db.getRecord(endRecordName),
+    db.get(startRecordName),
+    db.get(endRecordName),
     typeof db.query === 'function' ? loadResearchCompleteness() : Promise.resolve(null),
   ]);
   if (!isPublicRecord(start) || !isPublicRecord(end)) return { paths: [], selectedPathId: null };
@@ -84,10 +84,10 @@ export async function buildRelationshipMatrix(personIds = [], options = {}) {
     localization = getCurrentLocalization(),
   } = options;
   const ids = [...new Set((personIds || []).filter(Boolean))].slice(0, maxPeople);
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const people = new Map();
   for (const id of ids) {
-    const record = await db.getRecord(id);
+    const record = await db.get(id);
     if (isPublicRecord(record)) people.set(id, personSummary(record));
   }
   const visibleIds = ids.filter((id) => people.has(id));
@@ -128,10 +128,10 @@ export async function computeKinshipCoefficient(recordA, recordB, options = {}) 
     includePrivate = false,
   } = options;
   if (!recordA || !recordB) return null;
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [personA, personB, familiesResult, relationsResult, personsResult] = await Promise.all([
-    db.getRecord(recordA),
-    db.getRecord(recordB),
+    db.get(recordA),
+    db.get(recordB),
     db.query('Family', { limit: 100000 }),
     db.query('ChildRelation', { limit: 100000 }),
     db.query('Person', { limit: 100000 }),
@@ -192,8 +192,8 @@ export async function computeKinshipCoefficient(recordA, recordB, options = {}) 
  * so callers can `relationshipLabel(steps)` to build a kinship roster.
  */
 export async function collectRelatives(rootId, { maxDepth = 12, includeSpouses = true } = {}) {
-  const db = getLocalDatabase();
-  const root = rootId ? await db.getRecord(rootId) : null;
+  const db = getAppDataClient().records;
+  const root = rootId ? await db.get(rootId) : null;
   if (!root || !isPublicRecord(root)) return [];
   const rootStep = { recordName: rootId, edgeFromPrev: null, person: personSummary(root) };
   const best = new Map();
@@ -228,7 +228,7 @@ async function getNeighbors(db, recordName, options = {}) {
   };
 
   // Parents (up)
-  const parents = await db.getPersonsParents(recordName);
+  const parents = await db.personsParents(recordName);
   for (const fam of parents) {
     if (!isPublicRecord(fam.family)) continue;
     if (excludeNonBiological && !isBiologicalChildLink(fam)) continue;
@@ -236,7 +236,7 @@ async function getNeighbors(db, recordName, options = {}) {
     push(fam.woman, 'parent', fam.family?.recordName);
   }
   // Children + spouses (down + sideways)
-  const families = await db.getPersonsChildrenInformation(recordName);
+  const families = await db.childrenInformation(recordName);
   for (const fam of families) {
     if (!isPublicRecord(fam.family)) continue;
     if (includeSpouses) push(fam.partner, 'spouse', fam.family?.recordName);

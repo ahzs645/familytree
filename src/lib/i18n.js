@@ -1,4 +1,4 @@
-export const APP_LOCALIZATION_STORAGE_KEY = 'cloudtreeweb:localization';
+const APP_LOCALIZATION_STORAGE_KEY = 'cloudtreeweb:localization';
 
 export const DEFAULT_LOCALIZATION = {
   locale: 'en',
@@ -184,7 +184,7 @@ export function persistLocalization(value = {}) {
   }
 }
 
-export function readStoredLocalization() {
+function readStoredLocalization() {
   if (typeof localStorage === 'undefined') return DEFAULT_LOCALIZATION;
   try {
     return resolveLocalization(JSON.parse(localStorage.getItem(APP_LOCALIZATION_STORAGE_KEY) || 'null') || {});
@@ -212,7 +212,7 @@ export function getCurrentLocalization() {
   });
 }
 
-export function createCollator(value = {}, options = {}) {
+function createCollator(value = {}, options = {}) {
   const localization = resolveLocalization(value);
   return new Intl.Collator(localization.locale, {
     numeric: true,
@@ -225,7 +225,7 @@ export function compareStrings(a, b, value = {}, options = {}) {
   return createCollator(value, options).compare(String(a || ''), String(b || ''));
 }
 
-export function formatNumber(value, localization = getCurrentLocalization(), options = {}) {
+function formatNumber(value, localization = getCurrentLocalization(), options = {}) {
   const n = Number(value);
   if (!Number.isFinite(n)) return String(value ?? '');
   return new Intl.NumberFormat(localeWithExtensions(localization), options).format(n);
@@ -262,7 +262,7 @@ export function normalizeSearchText(value, localization = getCurrentLocalization
   return stripHonorifics ? stripArabicHonorificTokens(normalized) : normalized;
 }
 
-export function stripArabicHonorificTokens(value) {
+function stripArabicHonorificTokens(value) {
   const tokens = String(value ?? '').split(/(\s+)/);
   let sawArabicHonorific = false;
   const stripped = tokens.filter((token) => {
@@ -432,7 +432,7 @@ export function graphemes(value) {
   return Array.from(text);
 }
 
-export function truncateGraphemes(value, maxLength) {
+function truncateGraphemes(value, maxLength) {
   const parts = graphemes(value);
   if (parts.length <= maxLength) return String(value ?? '');
   return `${parts.slice(0, Math.max(0, maxLength - 1)).join('')}…`;

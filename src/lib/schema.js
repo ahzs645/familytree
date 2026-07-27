@@ -77,13 +77,6 @@ export function readField(record, aliases, fallback = undefined) {
   return fallback;
 }
 
-export function writeField(record, fieldName, value, type = 'STRING') {
-  if (!record.fields) record.fields = {};
-  if (value === undefined || value === null || value === '') delete record.fields[fieldName];
-  else record.fields[fieldName] = { value, type };
-  return record;
-}
-
 export function readBoolean(record, aliases, fallback = false) {
   const value = readField(record, aliases, undefined);
   if (value === undefined) return fallback;
@@ -135,11 +128,6 @@ export function readConclusionType(record, family = null) {
   return direct || splitIdentifier(ref || raw) || raw || '';
 }
 
-export function writeConclusionTypeRef(id, familyRecordType) {
-  if (!id) return undefined;
-  return writeRef(id, familyRecordType);
-}
-
 export function normalizeColor(color) {
   if (!color) return '';
   const raw = String(color).trim();
@@ -161,16 +149,4 @@ export function readLabel(record) {
     color: normalizeColor(rawColor),
     rawColor,
   };
-}
-
-export function collectRecordReferences(record) {
-  const refs = [];
-  for (const [fieldName, field] of Object.entries(record?.fields || {})) {
-    if (!field) continue;
-    if (field.type === 'REFERENCE' || readRef(field)) {
-      const recordName = readRef(field);
-      if (recordName) refs.push({ recordName, fieldName, field });
-    }
-  }
-  return refs;
 }

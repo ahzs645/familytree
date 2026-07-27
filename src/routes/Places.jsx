@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { generateId } from '../lib/ids.js';
 import { formClasses } from '../components/ui/formClasses.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
@@ -105,7 +105,7 @@ function sortPlaces(a, b) {
  * main-record save; every write goes through the change-logged helpers.
  */
 async function reconcilePlaceSideRecords(placeId, vals, coordPlan, setCoordinate) {
-  const db = getLocalDatabase();
+  const data = getAppDataClient();
 
   if (coordPlan?.save) {
     const { existing, recordName, latitude, longitude } = coordPlan.save;
@@ -126,7 +126,7 @@ async function reconcilePlaceSideRecords(placeId, vals, coordPlan, setCoordinate
     setCoordinate(null);
   }
 
-  const existing = (await db.query('PlaceDetail', { referenceField: 'place', referenceValue: placeId, limit: 500 })).records;
+  const existing = (await data.records.query('PlaceDetail', { referenceField: 'place', referenceValue: placeId, limit: 500 })).records;
   const keep = new Set();
   for (const d of vals.details) {
     if (!d.name) continue;
@@ -153,7 +153,7 @@ async function reconcilePlaceSideRecords(placeId, vals, coordPlan, setCoordinate
     if (!keep.has(prev.recordName)) await deleteWithChangeLog(prev.recordName, 'PlaceDetail');
   }
 
-  const existingLbl = (await db.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: placeId, limit: 500 })).records;
+  const existingLbl = (await data.records.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: placeId, limit: 500 })).records;
   const existingByLabel = new Map(existingLbl.map((r) => [refToRecordName(r.fields?.label?.value), r]));
   for (const def of LABELS) {
     const want = !!vals.labels[def.id];
@@ -402,13 +402,13 @@ export default function Places() {
     let cancelled = false;
     (async () => {
       await sideSave.current;
-      const db = getLocalDatabase();
-      const record = await db.getRecord(activeId);
+      const data = getAppDataClient();
+      const record = await data.records.get(activeId);
       if (!record || cancelled) return;
 
       const [pd, lbl] = await Promise.all([
-        db.query('PlaceDetail', { referenceField: 'place', referenceValue: activeId, limit: 500 }),
-        db.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: activeId, limit: 500 }),
+        data.records.query('PlaceDetail', { referenceField: 'place', referenceValue: activeId, limit: 500 }),
+        data.records.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: activeId, limit: 500 }),
       ]);
       const details = pd.records.map((r) => ({
         recordName: r.recordName,
@@ -421,9 +421,9 @@ export default function Places() {
       // Load the Coordinate record: either the direct ref on Place, or a Coordinate
       // whose `place` ref points back here.
       const coordRef = refToRecordName(record.fields?.coordinate?.value);
-      let coord = coordRef ? await db.getRecord(coordRef) : null;
+      let coord = coordRef ? await data.records.get(coordRef) : null;
       if (!coord) {
-        const { records } = await db.query('Coordinate', {
+        const { records } = await data.records.query('Coordinate', {
           referenceField: 'place', referenceValue: activeId, limit: 5,
         });
         coord = records[0] || null;

@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { logRecordCreated, saveWithChangeLog } from './changeLog.js';
 import { refToRecordName, refValue } from './recordRef.js';
 import { Gender } from '../models/index.js';
@@ -10,8 +10,8 @@ function uuid(prefix) {
 
 export async function linkExistingRelative(personId, relativeId, relationType) {
   if (!personId || !relativeId || personId === relativeId) throw new Error('Pick two different people.');
-  const db = getLocalDatabase();
-  const [person, relative] = await Promise.all([db.getRecord(personId), db.getRecord(relativeId)]);
+  const db = getAppDataClient().records;
+  const [person, relative] = await Promise.all([db.get(personId), db.get(relativeId)]);
   if (!person || !relative) throw new Error('Person not found.');
 
   if (relationType === 'spouse') return linkSpouse(db, person, relative);
@@ -26,7 +26,7 @@ async function linkSpouse(db, person, spouse) {
   if (existing) return { family: existing, created: false, relation: 'spouse' };
   const fields = parentFieldsForCouple(person, spouse);
   const family = { recordName: uuid('family'), recordType: 'Family', fields };
-  await db.saveRecord(family);
+  await db.save(family);
   await logRecordCreated(family);
   return { family, created: true, relation: 'spouse' };
 }
@@ -39,7 +39,7 @@ async function linkChild(db, parent, child) {
       recordType: 'Family',
       fields: parentFieldFor(parent),
     };
-    await db.saveRecord(family);
+    await db.save(family);
     await logRecordCreated(family);
   }
   await ensureChildRelation(db, family.recordName, child.recordName);
@@ -54,7 +54,7 @@ async function linkParent(db, child, parent) {
       recordType: 'Family',
       fields: parentFieldFor(parent),
     };
-    await db.saveRecord(family);
+    await db.save(family);
     await logRecordCreated(family);
   } else {
     const fields = { ...(family.fields || {}) };
@@ -70,7 +70,7 @@ async function linkSibling(db, person, sibling) {
   let family = await findFamilyForChild(db, person.recordName);
   if (!family) {
     family = { recordName: uuid('family'), recordType: 'Family', fields: {} };
-    await db.saveRecord(family);
+    await db.save(family);
     await logRecordCreated(family);
     await ensureChildRelation(db, family.recordName, person.recordName);
   }
@@ -98,7 +98,7 @@ async function findFamilyWithParent(db, parentId) {
 async function findFamilyForChild(db, childId) {
   const { records } = await db.query('ChildRelation', { referenceField: 'child', referenceValue: childId, limit: 100000 });
   const familyId = refToRecordName(records[0]?.fields?.family?.value);
-  return familyId ? db.getRecord(familyId) : null;
+  return familyId ? db.get(familyId) : null;
 }
 
 async function ensureChildRelation(db, familyId, childId) {
@@ -113,7 +113,7 @@ async function ensureChildRelation(db, familyId, childId) {
       order: { value: existing.records.length, type: 'NUMBER' },
     },
   };
-  await db.saveRecord(rec);
+  await db.save(rec);
   await logRecordCreated(rec);
   return rec;
 }

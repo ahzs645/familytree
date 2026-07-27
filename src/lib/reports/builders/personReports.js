@@ -23,7 +23,7 @@ import {
   eventReportRow,
   eventTypeLabel as eventTypeLabelOf,
   genderLabel,
-  getLocalDatabase,
+  getAppDataClient,
   lifeSpanLabel,
   nameOf,
   nameOrFallback,
@@ -184,7 +184,7 @@ export async function buildPersonEventsReport(recordName, options = {}) {
   const ctx = await buildPersonContext(recordName);
   if (!ctx) return emptyReport('Person not found');
 
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const rows = [];
   const seenEvents = new Set();
 
@@ -253,8 +253,8 @@ export async function buildPersonEventsReport(recordName, options = {}) {
  * Mirrors MFT's KinshipReport (single-root relatives roster).
  */
 export async function buildKinshipRosterReport(recordName, options = {}) {
-  const db = getLocalDatabase();
-  const root = recordName ? await db.getRecord(recordName) : null;
+  const db = getAppDataClient().records;
+  const root = recordName ? await db.get(recordName) : null;
   if (!root) return emptyReport('Person not found');
   const rootName = nameOf(personSummary(root));
   const relatives = await collectRelatives(recordName, { maxDepth: options.maxDepth || 12 });
@@ -276,10 +276,10 @@ export async function buildKinshipRosterReport(recordName, options = {}) {
 }
 
 export async function buildKinshipReport(recordA, recordB, options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [personA, personB] = await Promise.all([
-    recordA ? db.getRecord(recordA) : null,
-    recordB ? db.getRecord(recordB) : null,
+    recordA ? db.get(recordA) : null,
+    recordB ? db.get(recordB) : null,
   ]);
   const summaryA = personSummary(personA);
   const summaryB = personSummary(personB);
@@ -465,7 +465,7 @@ export async function buildDescendancyReport(recordName, generations = 5, option
 
   const birthPlaceByPerson = new Map();
   if (showPlaces) {
-    const db = getLocalDatabase();
+    const db = getAppDataClient().records;
     const [{ records: persons }, { records: places }] = await Promise.all([
       db.query('Person', { limit: 100000 }),
       db.query('Place', { limit: 100000 }),
@@ -520,7 +520,7 @@ async function firstEventOfType(db, events, typeMatcher) {
 export async function buildNarrativeReport(recordName, generations = 4, options = {}) {
   const ctx = await buildPersonContext(recordName);
   if (!ctx) return emptyReport('Person not found');
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const report = emptyReport(`Narrative Report — ${nameOf(ctx.selfSummary)}`);
   report.blocks.push(block.title(report.title, 1));
   const self = ctx.selfSummary;

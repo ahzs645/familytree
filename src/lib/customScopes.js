@@ -23,7 +23,7 @@
  *   }
  */
 
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { equalsSearchText, matchesSearchText } from './i18n.js';
 import { refToRecordName } from './recordRef.js';
 import { generateId } from './ids.js';
@@ -67,25 +67,25 @@ function fieldValue(record, field) {
  */
 const PERSON_PATH_STEPS = {
   father: async (person, db) => {
-    const parents = await db.getPersonsParents(person.recordName);
+    const parents = await db.personsParents(person.recordName);
     return parents.map((fam) => fam.man).filter(Boolean);
   },
   mother: async (person, db) => {
-    const parents = await db.getPersonsParents(person.recordName);
+    const parents = await db.personsParents(person.recordName);
     return parents.map((fam) => fam.woman).filter(Boolean);
   },
   partner: async (person, db) => {
-    const families = await db.getPersonsChildrenInformation(person.recordName);
+    const families = await db.childrenInformation(person.recordName);
     return families.map((fam) => fam.partner).filter(Boolean);
   },
   child: async (person, db) => {
-    const families = await db.getPersonsChildrenInformation(person.recordName);
+    const families = await db.childrenInformation(person.recordName);
     const children = [];
     for (const fam of families) for (const c of fam.children || []) children.push(c);
     return children;
   },
   sibling: async (person, db) => {
-    const parents = await db.getPersonsParents(person.recordName);
+    const parents = await db.personsParents(person.recordName);
     const siblings = [];
     for (const fam of parents) {
       if (!fam.family) continue;
@@ -97,7 +97,7 @@ const PERSON_PATH_STEPS = {
         const childRef = cr.fields?.child?.value;
         const childId = refToRecordName(childRef);
         if (!childId || childId === person.recordName) continue;
-        const child = await db.getRecord(childId);
+        const child = await db.get(childId);
         if (child) siblings.push(child);
       }
     }
@@ -106,23 +106,23 @@ const PERSON_PATH_STEPS = {
   birthPlace: async (person, db) => {
     const ref = person.fields?.birthPlace?.value;
     const id = refToRecordName(ref);
-    return id ? [await db.getRecord(id)].filter(Boolean) : [];
+    return id ? [await db.get(id)].filter(Boolean) : [];
   },
   deathPlace: async (person, db) => {
     const ref = person.fields?.deathPlace?.value;
     const id = refToRecordName(ref);
-    return id ? [await db.getRecord(id)].filter(Boolean) : [];
+    return id ? [await db.get(id)].filter(Boolean) : [];
   },
 };
 
 const FAMILY_PATH_STEPS = {
   man: async (family, db) => {
     const id = refToRecordName(family.fields?.man?.value);
-    return id ? [await db.getRecord(id)].filter(Boolean) : [];
+    return id ? [await db.get(id)].filter(Boolean) : [];
   },
   woman: async (family, db) => {
     const id = refToRecordName(family.fields?.woman?.value);
-    return id ? [await db.getRecord(id)].filter(Boolean) : [];
+    return id ? [await db.get(id)].filter(Boolean) : [];
   },
 };
 
@@ -224,7 +224,7 @@ async function ruleMatchesWithPath(rule, record, db, entityType) {
  * Synchronous evaluator — only works for rules without a path. Kept for
  * callers that already have a record in hand and don't need hop traversal.
  */
-export function evaluateFilter(filter, record) {
+function evaluateFilter(filter, record) {
   const rules = Array.isArray(filter?.rules) ? filter.rules.filter((r) => isGroup(r) || r?.field) : [];
   if (rules.length === 0) return true;
   const check = (rule) => {
@@ -238,7 +238,7 @@ export function evaluateFilter(filter, record) {
  * Async evaluator with multi-hop support. Used by runCustomFilter when any
  * rule has a path. Mirrors Mac's `ScopesEditSheet` path-navigating filters.
  */
-export async function evaluateFilterAsync(filter, record, db) {
+async function evaluateFilterAsync(filter, record, db) {
   const rules = Array.isArray(filter?.rules) ? filter.rules.filter((r) => isGroup(r) || r?.field) : [];
   if (rules.length === 0) return true;
   if (filter.match === 'any') {
@@ -254,7 +254,7 @@ export async function evaluateFilterAsync(filter, record, db) {
 }
 
 export async function listCustomFilters(entityType) {
-  const list = await getLocalDatabase().getMeta(META_KEY);
+  const list = await getAppDataClient().meta.get(META_KEY);
   const all = Array.isArray(list) ? list : [];
   if (!entityType) return all;
   return all.filter((filter) => filter.entityType === entityType);
@@ -262,7 +262,7 @@ export async function listCustomFilters(entityType) {
 
 export async function saveCustomFilter(filter) {
   if (!filter?.name || !filter?.entityType) throw new Error('Filter requires a name and entityType.');
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const all = await listCustomFilters();
   const now = Date.now();
   const stamped = {
@@ -276,14 +276,14 @@ export async function saveCustomFilter(filter) {
   const idx = all.findIndex((item) => item.id === stamped.id);
   if (idx >= 0) all[idx] = stamped;
   else all.push(stamped);
-  await db.setMeta(META_KEY, all);
+  await db.set(META_KEY, all);
   return stamped;
 }
 
 export async function deleteCustomFilter(id) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const all = await listCustomFilters();
-  await db.setMeta(META_KEY, all.filter((filter) => filter.id !== id));
+  await db.set(META_KEY, all.filter((filter) => filter.id !== id));
 }
 
 function filterUsesAsyncPath(rules) {
@@ -299,7 +299,7 @@ function filterUsesAsyncPath(rules) {
 
 export async function runCustomFilter(filter) {
   if (!filter?.entityType) return { records: [], total: 0 };
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query(filter.entityType, { limit: 100000 });
   const hasPathRule = filterUsesAsyncPath(filter.rules);
   if (!hasPathRule) {

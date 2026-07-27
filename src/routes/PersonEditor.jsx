@@ -18,7 +18,7 @@
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { generateId } from '../lib/ids.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
 import { createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
@@ -288,7 +288,14 @@ export default function PersonEditor() {
   const onSave = useCallback(async () => {
     if (!record) return;
     setSaving(true);
-    const db = getLocalDatabase();
+    const data = getAppDataClient();
+    // reconcileSubRecords/reconcileMilkKinships still speak the raw database
+    // dialect (query/saveRecord/deleteRecord); adapt the facade for them.
+    const db = {
+      query: (type, options) => data.records.query(type, options),
+      saveRecord: (rec) => data.records.save(rec),
+      deleteRecord: (recordName) => data.records.delete(recordName),
+    };
 
     // ── Person record itself
     const next = { ...record, fields: { ...record.fields } };
@@ -333,7 +340,7 @@ export default function PersonEditor() {
     await reconcileMilkKinships(db, id, milkKinships);
 
     // ── Labels — LabelRelation rows keyed by label id (1:1 per person/label)
-    const existingLbl = (await db.query('LabelRelation', { referenceField: 'targetPerson', referenceValue: id, limit: 500 })).records;
+    const existingLbl = (await data.records.query('LabelRelation', { referenceField: 'targetPerson', referenceValue: id, limit: 500 })).records;
     const existingByLabel = new Map(existingLbl.map((r) => [refToRecordName(r.fields?.label?.value), r]));
     for (const def of LABELS) {
       const want = !!labels[def.id];

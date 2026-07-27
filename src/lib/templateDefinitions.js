@@ -19,7 +19,7 @@ export const TEMPLATE_TABS = [
   { id: 'ConclusionAdditionalNameType', label: 'Additional Name Types', uuidPrefix: 'cant' },
 ];
 
-export const BASE_TEMPLATE_FIELDS = [
+const BASE_TEMPLATE_FIELDS = [
   { id: 'name', label: 'Name' },
   { id: 'typeName', label: 'Type name' },
   { id: 'title', label: 'Display title' },
@@ -80,7 +80,7 @@ const PLACE_RELATION_FIELDS = [
   },
 ];
 
-export const TEMPLATE_FIELDS_BY_TYPE = {
+const TEMPLATE_FIELDS_BY_TYPE = {
   PlaceTemplate: [
     ...BASE_TEMPLATE_FIELDS,
     { id: 'countryIdentifier', label: 'Country (ISO)' },

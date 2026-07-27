@@ -9,7 +9,7 @@ import {
   addAnniversary,
   eventOwnerLabel,
   genderLabel,
-  getLocalDatabase,
+  getAppDataClient,
   isRecordVisibleInReport,
   lifeSpanLabel,
   loadVisiblePersonIds,
@@ -26,7 +26,7 @@ import {
 } from './_helpers.js';
 
 export async function buildPersonsList(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Person', { limit: 100000 });
   const visibleRecords = visibleReportRecords(records);
   let people = visibleRecords.map(personSummary).filter(Boolean);
@@ -108,7 +108,7 @@ function personGroupLabel(person, groupBy) {
 }
 
 export async function buildPlacesList(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Place', { limit: 100000 });
   let places = visibleReportRecords(records).map(placeSummary).filter(Boolean);
   if (options.onlyMissingGeoname) places = places.filter((p) => !p.geonameID);
@@ -125,7 +125,7 @@ export async function buildPlacesList(options = {}) {
 }
 
 export async function buildSourcesList(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Source', { limit: 100000 });
   const sources = visibleReportRecords(records).map(sourceSummary).filter(Boolean);
   const sortBy = options.sortBy || 'title';
@@ -145,15 +145,15 @@ export async function buildSourcesList(options = {}) {
 }
 
 export async function buildSourceCitationAuditReport() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('SourceRelation', { limit: 100000 });
   const rows = [];
   for (const rel of records) {
     const sourceId = readRef(rel.fields?.source);
     const targetId = readRef(rel.fields?.target);
     const [source, target] = await Promise.all([
-      sourceId ? db.getRecord(sourceId) : null,
-      targetId ? db.getRecord(targetId) : null,
+      sourceId ? db.get(sourceId) : null,
+      targetId ? db.get(targetId) : null,
     ]);
     rows.push([
       sourceSummary(source)?.title || sourceId || '',
@@ -188,7 +188,7 @@ function timeOfDate(value) {
 }
 
 export async function buildEventsList(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const policy = reportPrivacyPolicy();
   // Per-column info chooser for the Events list. The Age column needs the
   // subject's birth date, so only load the Person index when it is requested.
@@ -272,7 +272,7 @@ export async function buildEventsList(options = {}) {
 }
 
 export async function buildAnniversaryList(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Person', { limit: 100000 });
   const typeFilter = options.type && options.type !== 'all' ? options.type : null;
   const rows = [];
@@ -291,7 +291,7 @@ export async function buildAnniversaryList(options = {}) {
 }
 
 export async function buildToDoListReport(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('ToDo', { limit: 100000 });
   const includeCompleted = options.includeCompleted !== false;
   const showText = options.showText !== false;
@@ -319,7 +319,7 @@ export async function buildToDoListReport(options = {}) {
 }
 
 export async function buildChangesListReport() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('ChangeLogEntry', { limit: 100000 });
   const rows = records
     .map((entry) => [
@@ -336,7 +336,7 @@ export async function buildChangesListReport() {
 }
 
 export async function buildFactsListReport() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const policy = reportPrivacyPolicy();
   const [{ records }, visiblePersonIds] = await Promise.all([
     db.query('PersonFact', { limit: 100000 }),
@@ -346,7 +346,7 @@ export async function buildFactsListReport() {
   for (const fact of records) {
     const personId = readRef(fact.fields?.person);
     if (personId && !visiblePersonIds.has(personId)) continue;
-    const person = personId ? await db.getRecord(personId) : null;
+    const person = personId ? await db.get(personId) : null;
     rows.push([
       personSummary(person)?.fullName || personId || '',
       readConclusionType(fact) || readField(fact, ['factType', 'type'], 'Fact'),
@@ -361,7 +361,7 @@ export async function buildFactsListReport() {
 }
 
 export async function buildMarriageListReport(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const policy = reportPrivacyPolicy();
   const [{ records: families }, visiblePersonIds] = await Promise.all([
     db.query('Family', { limit: 100000 }),
@@ -374,8 +374,8 @@ export async function buildMarriageListReport(options = {}) {
     const womanId = readRef(family.fields?.woman);
     if (manId && !visiblePersonIds.has(manId)) continue;
     if (womanId && !visiblePersonIds.has(womanId)) continue;
-    const man = await db.getRecord(manId);
-    const woman = await db.getRecord(womanId);
+    const man = await db.get(manId);
+    const woman = await db.get(womanId);
     rows.push([
       personSummary(man)?.fullName || '',
       personSummary(woman)?.fullName || '',

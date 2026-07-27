@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { runPlausibilityChecks } from './plausibility.js';
 import { readConclusionType, readField, readRef } from './schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary, genderLabel, NO_NAME } from '../models/index.js';
@@ -25,19 +25,14 @@ export function yearOf(raw) {
   return match ? parseInt(match[1], 10) : null;
 }
 
-export function formatYear(raw) {
-  const year = yearOf(raw);
-  return year == null ? 'Year unknown' : String(year);
-}
-
-export function formatMonthDay(month, day) {
+function formatMonthDay(month, day) {
   if (!month || !day) return '';
   const date = new Date(2000, month - 1, day);
   if (Number.isNaN(date.getTime())) return `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   return new Intl.DateTimeFormat(localeWithExtensions(getCurrentLocalization()), { month: 'short', day: 'numeric' }).format(date);
 }
 
-export function anniversaryParts(raw) {
+function anniversaryParts(raw) {
   const parsed = parseEventDate(raw);
   if (!parsed?.month || !parsed?.day) return null;
   return {
@@ -50,7 +45,7 @@ export function anniversaryParts(raw) {
 }
 
 export async function loadPersonRows() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [{ records }, { records: families }, { records: childRelations }] = await Promise.all([
     db.query('Person', { limit: 100000 }),
     db.query('Family', { limit: 100000 }),
@@ -94,7 +89,7 @@ export async function loadPersonRows() {
 }
 
 export async function loadMarriageRows() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [{ records: families }, { records: persons }] = await Promise.all([
     db.query('Family', { limit: 100000 }),
     db.query('Person', { limit: 100000 }),
@@ -122,7 +117,7 @@ export async function loadMarriageRows() {
 }
 
 export async function loadFactRows() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [{ records: facts }, { records: persons }, { records: factTypes }] = await Promise.all([
     db.query('PersonFact', { limit: 100000 }),
     db.query('Person', { limit: 100000 }),
@@ -185,9 +180,9 @@ function addAnniversary(rows, person, type, rawDate) {
 }
 
 export async function loadListCounts() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [summary, anniversaries, warnings] = await Promise.all([
-    db.getSummary(),
+    db.summary(),
     loadAnniversaryRows(),
     runPlausibilityChecks(),
   ]);
@@ -208,7 +203,7 @@ export async function loadListCounts() {
   };
 }
 
-export function distinctiveMarkerFor(record) {
+function distinctiveMarkerFor(record) {
   for (const [key, field] of Object.entries(record?.fields || {})) {
     if (!/distinctive|distinguish/i.test(key)) continue;
     const value = field?.value ?? field;
@@ -218,7 +213,7 @@ export function distinctiveMarkerFor(record) {
   return '';
 }
 
-export function distinctiveTags(row) {
+function distinctiveTags(row) {
   const tags = [];
   if (row.markerField) tags.push(`Marked: ${row.markerField}`);
   if (row.startPerson) tags.push('Start person');
@@ -233,7 +228,7 @@ export function distinctiveTags(row) {
 
 export async function loadDistinctivePersonRows() {
   const rows = await loadPersonRows();
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [{ records: families }, { records: childRels }] = await Promise.all([
     db.query('Family', { limit: 100000 }),
     db.query('ChildRelation', { limit: 100000 }),
@@ -330,8 +325,8 @@ function ldsFieldKey(record, aliases) {
 }
 
 export async function loadLdsOrdinanceRows() {
-  const db = getLocalDatabase();
-  const records = await db.getAllRecords();
+  const db = getAppDataClient().records;
+  const records = await db.all();
   const persons = records.filter((record) => record.recordType === 'Person');
   const families = records.filter((record) => record.recordType === 'Family');
   const personsById = new Map(persons.map((person) => [person.recordName, person]));

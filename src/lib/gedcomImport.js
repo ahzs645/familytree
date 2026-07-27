@@ -12,7 +12,7 @@
  * buildGedcomDataset). Public exports are re-exported from here so the
  * existing import surface keeps working.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { refValue } from './recordRef.js';
 import { DATASET_SCHEMA_VERSION } from './datasetSchemaVersion.js';
 import {
@@ -766,7 +766,7 @@ function stubRepository(id, repo) {
 }
 
 export async function importGedcomText(text, { replace = false, sourceName = 'GEDCOM import', mediaFiles = [], resourceFiles = [] } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   if (replace) {
     const dataset = buildGedcomDataset(text, { sourceName, mediaFiles, resourceFiles });
     return db.importDataset(dataset);
@@ -778,7 +778,7 @@ export async function importGedcomText(text, { replace = false, sourceName = 'GE
     summary: `GEDCOM import from ${sourceName}`,
     importMeta: { sourceName },
   });
-  await db.applyRecordTransaction({ saveRecords: records, saveAssets: assets });
+  await db.transaction({ saveRecords: records, saveAssets: assets });
   return records.length;
 }
 

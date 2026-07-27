@@ -30,7 +30,7 @@ import {
   VIEWER_OPTIONS_VERSION,
 } from './constants.js';
 
-export function defaultViewerOptions() {
+function defaultViewerOptions() {
   return {
     version: VIEWER_OPTIONS_VERSION,
     appearanceMode: 'macLight',

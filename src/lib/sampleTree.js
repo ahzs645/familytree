@@ -50,7 +50,7 @@ function childRel(familyId, childId) {
   };
 }
 
-export function buildSampleTreeRecords() {
+function buildSampleTreeRecords() {
   // Grandparents
   const granddadA = person('Ahmad', 'Al-Ahmad', 0, '1920', '1998');
   const grandmaA = person('Fatima', 'Al-Hasan', 1, 'ABT 1925', '2001');

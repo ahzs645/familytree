@@ -3,8 +3,8 @@ import { buildGiaPhaLineageReport, buildKinshipReport, buildPersonEventsReport, 
 
 const mockState = vi.hoisted(() => ({ db: null }));
 
-vi.mock('../LocalDatabase.js', () => ({
-  getLocalDatabase: () => mockState.db,
+vi.mock('../data/AppDataClient.js', () => ({
+  getAppDataClient: () => ({ records: mockState.db }),
 }));
 
 describe('report builders', () => {
@@ -132,7 +132,7 @@ describe('report builders', () => {
 function createMockDb(records) {
   const byId = new Map(records.map((record) => [record.recordName, record]));
   return {
-    getRecord: vi.fn(async (recordName) => byId.get(recordName) || null),
+    get: vi.fn(async (recordName) => byId.get(recordName) || null),
     query: vi.fn(async (recordType, options = {}) => {
       let found = records.filter((record) => record.recordType === recordType);
       if (options.referenceField && options.referenceValue) {
@@ -140,14 +140,14 @@ function createMockDb(records) {
       }
       return { records: found.slice(0, options.limit || 500), hasMore: found.length > (options.limit || 500) };
     }),
-    getPersonsParents: vi.fn(async (personRecordName) => {
+    personsParents: vi.fn(async (personRecordName) => {
       const childRelations = records.filter((record) => record.recordType === 'ChildRelation' && refId(record.fields?.child) === personRecordName);
       return Promise.all(childRelations.map(async (relation) => {
         const fam = byId.get(refId(relation.fields?.family));
         return hydrateFamily(fam, byId);
       }));
     }),
-    getPersonsChildrenInformation: vi.fn(async (personRecordName) => {
+    childrenInformation: vi.fn(async (personRecordName) => {
       const families = records.filter((record) => {
         if (record.recordType !== 'Family') return false;
         return refId(record.fields?.man) === personRecordName || refId(record.fields?.woman) === personRecordName;

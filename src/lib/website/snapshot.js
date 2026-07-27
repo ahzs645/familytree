@@ -8,14 +8,15 @@
  * validateSnapshot() walks references to surface broken pointers and
  * privacy conflicts before the user commits to the export.
  */
-import { getLocalDatabase } from '../LocalDatabase.js';
+import { getAppDataClient } from '../data/AppDataClient.js';
 import { readRef } from '../schema.js';
 import { isPrivateRecord, isPublicRecord } from '../privacy.js';
 import { formatInteger } from '../i18n.js';
 import { MEDIA_TYPES, normalizeOptions } from './utilities.js';
 
 export async function loadSnapshot() {
-  const db = getLocalDatabase();
+  const client = getAppDataClient();
+  const db = client.records;
   const [
     rawPersons,
     rawFamilies,
@@ -52,7 +53,7 @@ export async function loadSnapshot() {
     db.query('PersonGroup', { limit: 100000 }).catch(() => ({ records: [] })),
     db.query('PersonGroupRelation', { limit: 100000 }).catch(() => ({ records: [] })),
     db.query('SavedChart', { limit: 100000 }).catch(() => ({ records: [] })),
-    db.listAllAssets(),
+    client.assets.listAll(),
     ...MEDIA_TYPES.map((type) => db.query(type, { limit: 100000 })),
   ]);
 

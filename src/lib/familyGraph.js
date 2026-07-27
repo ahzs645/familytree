@@ -1,11 +1,11 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { readField } from './schema.js';
 import { refToRecordName } from './recordRef.js';
 import { isPublicRecord } from './privacy.js';
 import { personSummary } from '../models/index.js';
 
 export async function loadFamilyGraph({ includePrivate = false } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [{ records: people }, { records: families }, { records: childRelations }, { records: groupRelations }, { records: groups }] = await Promise.all([
     db.query('Person', { limit: 100000 }),
     db.query('Family', { limit: 100000 }),
@@ -99,7 +99,7 @@ export function yearOf(value) {
   return match ? Number(match[1]) : null;
 }
 
-export function birthYearOf(record) {
+function birthYearOf(record) {
   return yearOf(readField(record, ['cached_birthDate', 'birthDate', 'born', 'dateOfBirth'], ''));
 }
 

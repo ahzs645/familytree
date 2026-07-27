@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { saveWithChangeLog } from './changeLog.js';
 import { createWithChangeLog } from './recordWrite.js';
 import { refValue } from './recordRef.js';
@@ -39,14 +39,12 @@ function announceMapPreferences(prefs) {
 }
 
 export async function getMapPreferences() {
-  const db = getLocalDatabase();
-  return normalizeMapPreferences(await db.getMeta(MAP_PREFS_KEY));
+  return normalizeMapPreferences(await getAppDataClient().meta.get(MAP_PREFS_KEY));
 }
 
 export async function saveMapPreferences(prefs) {
-  const db = getLocalDatabase();
   const next = normalizeMapPreferences({ ...(await getMapPreferences()), ...prefs });
-  await db.setMeta(MAP_PREFS_KEY, next);
+  await getAppDataClient().meta.set(MAP_PREFS_KEY, next);
   announceMapPreferences(next);
   return next;
 }
@@ -96,7 +94,7 @@ export async function lookupGeoNameId(geoNameID) {
 }
 
 // Search GeoNames by free-text name and return the top match's id (or null).
-export async function searchGeoNameIdForName(name) {
+async function searchGeoNameIdForName(name) {
   const q = String(name || '').trim();
   if (!q) return null;
   const url = new URL('https://secure.geonames.org/searchJSON');
@@ -114,7 +112,7 @@ export async function searchGeoNameIdForName(name) {
 // Tree-wide "Find GeoName IDs for Places" (#35): fills in geonameID on places
 // that don't have one yet, matched by their display name.
 export async function batchLookupMissingGeoNames({ limit = 10 } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records: places } = await db.query('Place', { limit: 100000 });
   const changed = [];
   for (const place of places) {
@@ -139,7 +137,7 @@ export async function batchLookupMissingGeoNames({ limit = 10 } = {}) {
 }
 
 export async function batchLookupMissingCoordinates({ limit = 10 } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [places, coords] = await Promise.all([
     db.query('Place', { limit: 100000 }),
     db.query('Coordinate', { limit: 100000 }),

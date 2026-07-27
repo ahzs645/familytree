@@ -21,7 +21,7 @@ export const CERTAINTY = Object.freeze({
   DIRECT: 'Direct',
 });
 
-export const CERTAINTY_ORDER = Object.freeze({
+const CERTAINTY_ORDER = Object.freeze({
   [CERTAINTY.DONT_KNOW]: 0,
   [CERTAINTY.DERIVATIVE]: 1,
   [CERTAINTY.ORIGINAL]: 2,

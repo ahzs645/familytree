@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { readField } from './schema.js';
 import { personSummary } from '../models/index.js';
 
@@ -29,8 +29,8 @@ export const FAMILYSEARCH_ENVIRONMENTS = {
 // exposed as a configurable override (config.tokenEndpoint) because in a backend-less
 // browser build the FamilySearch token endpoint usually cannot be reached directly
 // (CORS + client-secret), so a deployment may point this at a same-origin proxy.
-export const FAMILYSEARCH_OAUTH_AUTHORIZE_PATH = '/cis-web/oauth2/v3/authorization';
-export const FAMILYSEARCH_OAUTH_TOKEN_PATH = '/cis-web/oauth2/v3/token';
+const FAMILYSEARCH_OAUTH_AUTHORIZE_PATH = '/cis-web/oauth2/v3/authorization';
+const FAMILYSEARCH_OAUTH_TOKEN_PATH = '/cis-web/oauth2/v3/token';
 
 export const DEFAULT_FAMILYSEARCH_CONFIG = {
   environment: 'beta',
@@ -45,11 +45,11 @@ export const DEFAULT_FAMILYSEARCH_CONFIG = {
 };
 
 export async function getFamilySearchConfig() {
-  const config = await getLocalDatabase().getMeta(META_KEY);
+  const config = await getAppDataClient().meta.get(META_KEY);
   const normalized = normalizeFamilySearchConfig(config || DEFAULT_FAMILYSEARCH_CONFIG);
   if (normalized.accessToken && readSessionValue(SESSION_ACCESS_TOKEN_KEY) !== normalized.accessToken) {
     writeSessionValue(SESSION_ACCESS_TOKEN_KEY, normalized.accessToken);
-    await getLocalDatabase().setMeta(META_KEY, persistedFamilySearchConfig(normalized));
+    await getAppDataClient().meta.set(META_KEY, persistedFamilySearchConfig(normalized));
   }
   return {
     ...normalized,
@@ -60,14 +60,14 @@ export async function getFamilySearchConfig() {
 export async function saveFamilySearchConfig(config) {
   const normalized = normalizeFamilySearchConfig(config);
   writeSessionValue(SESSION_ACCESS_TOKEN_KEY, normalized.accessToken);
-  await getLocalDatabase().setMeta(META_KEY, persistedFamilySearchConfig(normalized));
+  await getAppDataClient().meta.set(META_KEY, persistedFamilySearchConfig(normalized));
   return {
     ...normalized,
     accessToken: readSessionValue(SESSION_ACCESS_TOKEN_KEY),
   };
 }
 
-export function normalizeFamilySearchConfig(config = {}) {
+function normalizeFamilySearchConfig(config = {}) {
   const environment = FAMILYSEARCH_ENVIRONMENTS[config.environment] ? config.environment : DEFAULT_FAMILYSEARCH_CONFIG.environment;
   return {
     ...DEFAULT_FAMILYSEARCH_CONFIG,
@@ -101,21 +101,6 @@ function writeSessionValue(key, value) {
   } catch {
     /* sessionStorage can be unavailable */
   }
-}
-
-export function buildFamilySearchAuthorizationUrl(config, state = '') {
-  const normalized = normalizeFamilySearchConfig(config);
-  if (!normalized.clientId) throw new Error('FamilySearch client ID is required.');
-  if (!normalized.redirectUri) throw new Error('FamilySearch redirect URI is required.');
-  const env = FAMILYSEARCH_ENVIRONMENTS[normalized.environment];
-  const params = new URLSearchParams({
-    client_id: normalized.clientId,
-    redirect_uri: normalized.redirectUri,
-    response_type: 'code',
-    scope: 'openid',
-  });
-  if (state) params.set('state', state);
-  return `${env.identBase}${FAMILYSEARCH_OAUTH_AUTHORIZE_PATH}?${params.toString()}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,11 +158,7 @@ export async function beginFamilySearchPkceAuthorization(config, { state = '' } 
   };
 }
 
-export function readStoredPkceState() {
-  return readSessionValue(SESSION_PKCE_STATE_KEY);
-}
-
-export function clearFamilySearchPkceState() {
+function clearFamilySearchPkceState() {
   writeSessionValue(SESSION_PKCE_VERIFIER_KEY, '');
   writeSessionValue(SESSION_PKCE_STATE_KEY, '');
 }
@@ -240,7 +221,7 @@ export async function exchangeFamilySearchAuthorizationCode(config, code, { stat
   return { accessToken, raw };
 }
 
-export async function familySearchRequest(config, path, {
+async function familySearchRequest(config, path, {
   method = 'GET',
   headers = {},
   body = null,
@@ -481,22 +462,6 @@ function extractCreatedMemoryId(result) {
   return match ? match[1] : '';
 }
 
-/** List memories attached to a FamilySearch person. */
-export async function listFamilySearchPersonMemories(config, personId) {
-  if (!personId) throw new Error('FamilySearch person ID is required.');
-  return familySearchRequest(config, `/platform/tree/persons/${encodeURIComponent(personId)}/memories`, {
-    accept: 'application/x-fs-v1+json',
-  });
-}
-
-/** Fetch the portrait memory URL for a FamilySearch person (302 to the image). */
-export async function readFamilySearchPortrait(config, personId) {
-  if (!personId) throw new Error('FamilySearch person ID is required.');
-  return familySearchRequest(config, `/platform/tree/persons/${encodeURIComponent(personId)}/portrait`, {
-    accept: 'application/x-fs-v1+json',
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Record matches / hints (/platform/tree/persons/{id}/matches).
 // ---------------------------------------------------------------------------
@@ -565,14 +530,6 @@ export function normalizeRecordMatchFeed(feed) {
 export async function listFamilySearchDiscussions(config, personId) {
   if (!personId) throw new Error('FamilySearch person ID is required.');
   return familySearchRequest(config, `/platform/tree/persons/${encodeURIComponent(personId)}/discussion-references`, {
-    accept: 'application/x-fs-v1+json',
-  });
-}
-
-/** Read the comments on a discussion. */
-export async function listFamilySearchDiscussionComments(config, discussionId) {
-  if (!discussionId) throw new Error('Discussion ID is required.');
-  return familySearchRequest(config, `/platform/discussions/discussions/${encodeURIComponent(discussionId)}/comments`, {
     accept: 'application/x-fs-v1+json',
   });
 }

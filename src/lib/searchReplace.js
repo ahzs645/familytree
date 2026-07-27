@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { SEARCH_FIELDS, runSearch } from './search.js';
 import { refValue } from './recordRef.js';
 
@@ -92,14 +92,15 @@ export async function applySearchReplace(params) {
   const preview = params?.changes ? params : await previewSearchReplace(params);
   if (!preview.changes?.length) return { changed: 0 };
 
-  const db = getLocalDatabase();
+  const client = getAppDataClient();
+  const db = client.records;
   const savedRecords = [];
   const undoRecords = [];
   const logRecords = [];
   const nowIso = new Date().toISOString();
 
   for (const change of preview.changes) {
-    const record = await db.getRecord(change.recordName);
+    const record = await db.get(change.recordName);
     if (!record?.fields?.[change.fieldName]) continue;
     undoRecords.push(structuredCloneSafe(record));
     const next = structuredCloneSafe(record);
@@ -111,8 +112,8 @@ export async function applySearchReplace(params) {
     logRecords.push(...buildChangeLogRecords(next, change, nowIso, 'Search Replace'));
   }
 
-  await db.applyRecordTransaction({ saveRecords: [...savedRecords, ...logRecords] });
-  await db.setMeta('lastSearchReplaceUndo', {
+  await db.transaction({ saveRecords: [...savedRecords, ...logRecords] });
+  await client.meta.set('lastSearchReplaceUndo', {
     appliedAt: Date.now(),
     params: preview.params,
     records: undoRecords,
@@ -121,16 +122,17 @@ export async function applySearchReplace(params) {
 }
 
 export async function undoLastSearchReplace() {
-  const db = getLocalDatabase();
-  const snapshot = await db.getMeta('lastSearchReplaceUndo');
+  const client = getAppDataClient();
+  const db = client.records;
+  const snapshot = await client.meta.get('lastSearchReplaceUndo');
   if (!snapshot?.records?.length) throw new Error('No Search and Replace operation is available to undo.');
   const logRecords = [];
   const nowIso = new Date().toISOString();
   for (const record of snapshot.records) {
     logRecords.push(...buildUndoLogRecords(record, nowIso));
   }
-  await db.applyRecordTransaction({ saveRecords: [...snapshot.records, ...logRecords] });
-  await db.setMeta('lastSearchReplaceUndo', null);
+  await db.transaction({ saveRecords: [...snapshot.records, ...logRecords] });
+  await client.meta.set('lastSearchReplaceUndo', null);
   return { restored: snapshot.records.length };
 }
 

@@ -5,7 +5,7 @@
  * tries to infer the equivalent web chart document shape.
  */
 
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { normalizeChartDocument } from './chartDocumentSchema.js';
 
 const DEFAULT_GENERATIONS = 5;
@@ -385,9 +385,9 @@ function normalizeSource(raw) {
   return undefined;
 }
 
-export async function findSavedChartRecordById(recordName) {
-  const db = getLocalDatabase();
-  const record = await db.getRecord(recordName);
+async function findSavedChartRecordById(recordName) {
+  const db = getAppDataClient().records;
+  const record = await db.get(recordName);
   if (record && isSavedChartRecord(record)) return record;
 
   const fallbackQuery = await db.query('SavedChart', { limit: 100000 });
@@ -407,11 +407,11 @@ export async function loadSavedChartDocument(recordName) {
   return mapSavedChartRecordToDocument(record);
 }
 
-export function isSavedChartRecord(record) {
+function isSavedChartRecord(record) {
   return record?.recordType === 'SavedChart' || record?.recordType === 'SavedView';
 }
 
-export function mapSavedChartRecordToDocument(record) {
+function mapSavedChartRecordToDocument(record) {
   if (!record || !record.fields) return null;
   const decoded = parseMaybeJson(record.fields.chartObjectsContainerDataDecoded?.value)
     || parseMaybeJson(record.fields.chartObjectsContainerDataDecoded);

@@ -16,7 +16,7 @@ export function buildGeneWeb(recordsOrDataset = []) {
   });
 }
 
-export function exportGeneWebRecords({
+function exportGeneWebRecords({
   persons = [],
   families = [],
   childRelations = [],

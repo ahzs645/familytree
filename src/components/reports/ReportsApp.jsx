@@ -6,7 +6,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { Link } from 'react-router-dom';
 import { Download, FileText, PanelLeftClose, PanelLeftOpen, Play, RotateCcw, RotateCw, Save, Search, Square, Trash2 } from 'lucide-react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
-import { getLocalDatabase } from '../../lib/LocalDatabase.js';
+import { getAppDataClient } from '../../lib/data/AppDataClient.js';
 import { compareStrings } from '../../lib/i18n.js';
 import { readField } from '../../lib/schema.js';
 import {
@@ -788,8 +788,7 @@ function getSubjectItemsForBuilder(builder, { persons, stories }) {
 }
 
 async function listAllStories() {
-  const db = getLocalDatabase();
-  const { records } = await db.query('Story', { limit: 100000 });
+  const { records } = await getAppDataClient().records.query('Story', { limit: 100000 });
   return records
     .map(storySubject)
     .filter(Boolean)

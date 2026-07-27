@@ -1,4 +1,4 @@
-export const MAP_VISUAL_OPTION_PRESETS = Object.freeze({
+const MAP_VISUAL_OPTION_PRESETS = Object.freeze({
   mapStory: {
     markerMode: 'pins',
     markerSize: 14,

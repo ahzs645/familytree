@@ -63,7 +63,7 @@ export function buildPersonLineage(records = [], families = [], childRelations =
   return lineageById;
 }
 
-export function buildArabicPatrilinealName(personId, helpers = {}) {
+function buildArabicPatrilinealName(personId, helpers = {}) {
   const { firstName, gender, parentIdsFor, maxGenerations = 12 } = helpers;
   if (!personId || typeof firstName !== 'function' || typeof parentIdsFor !== 'function') return '';
   const ownName = firstName(personId);
@@ -132,7 +132,7 @@ export function matchesPersonLineageSearch(person, query, localization) {
   return matchesSearchText(personSearchHaystack(person), query, localization);
 }
 
-export function scorePersonLineageSearch(person, query, localization) {
+function scorePersonLineageSearch(person, query, localization) {
   const words = normalizeSearchText(query, localization).split(/[^\p{L}\p{N}@_-]+/u).filter(Boolean);
   if (!words.length) return 0;
   const fields = [

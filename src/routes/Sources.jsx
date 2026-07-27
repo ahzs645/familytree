@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { generateId } from '../lib/ids.js';
 import { formClasses } from '../components/ui/formClasses.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
@@ -116,9 +116,9 @@ function sourceToValues(record) {
  * the change-logged helpers.
  */
 async function reconcileSourceSideRecords(sourceId, vals, templateFields) {
-  const db = getLocalDatabase();
+  const data = getAppDataClient();
 
-  const existingKeyValues = (await db.query('SourceKeyValue', { referenceField: 'source', referenceValue: sourceId, limit: 1000 })).records;
+  const existingKeyValues = (await data.records.query('SourceKeyValue', { referenceField: 'source', referenceValue: sourceId, limit: 1000 })).records;
   const existingByKey = new Map(existingKeyValues.map((kv) => [refToRecordName(kv.fields?.templateKey?.value), kv]));
   for (const fieldDef of templateFields) {
     const value = vals.templateValues[fieldDef.keyId] || '';
@@ -141,7 +141,7 @@ async function reconcileSourceSideRecords(sourceId, vals, templateFields) {
   }
 
   // Labels reconcile
-  const existingLbl = (await db.query('LabelRelation', { referenceField: 'targetSource', referenceValue: sourceId, limit: 500 })).records;
+  const existingLbl = (await data.records.query('LabelRelation', { referenceField: 'targetSource', referenceValue: sourceId, limit: 500 })).records;
   const existingByLabel = new Map(existingLbl.map((rec) => [refToRecordName(rec.fields?.label?.value), rec]));
   for (const def of LABELS) {
     const want = !!vals.labels[def.id];
@@ -259,11 +259,11 @@ export default function Sources() {
     let cancelled = false;
     (async () => {
       await sideSave.current;
-      const db = getLocalDatabase();
-      const record = await db.getRecord(activeId);
+      const data = getAppDataClient();
+      const record = await data.records.get(activeId);
       if (!record || cancelled) return;
 
-      const lbl = await db.query('LabelRelation', { referenceField: 'targetSource', referenceValue: activeId, limit: 500 });
+      const lbl = await data.records.query('LabelRelation', { referenceField: 'targetSource', referenceValue: activeId, limit: 500 });
       const labelled = new Set(lbl.records.map((rec) => refToRecordName(rec.fields?.label?.value)));
       const labels = {};
       for (const def of LABELS) labels[def.id] = labelled.has(def.id);
@@ -273,9 +273,9 @@ export default function Sources() {
       let templateValues = {};
       if (selectedTemplateId) {
         const [relations, keys, keyValues] = await Promise.all([
-          db.query('SourceTemplateKeyRelation', { referenceField: 'template', referenceValue: selectedTemplateId, limit: 1000 }),
-          db.query('SourceTemplateKey', { limit: 10000 }),
-          db.query('SourceKeyValue', { referenceField: 'source', referenceValue: activeId, limit: 1000 }),
+          data.records.query('SourceTemplateKeyRelation', { referenceField: 'template', referenceValue: selectedTemplateId, limit: 1000 }),
+          data.records.query('SourceTemplateKey', { limit: 10000 }),
+          data.records.query('SourceKeyValue', { referenceField: 'source', referenceValue: activeId, limit: 1000 }),
         ]);
         const keyById = new Map(keys.records.map((key) => [key.recordName, key]));
         const valueByKey = new Map(keyValues.records.map((value) => [refToRecordName(value.fields?.templateKey?.value), value]));

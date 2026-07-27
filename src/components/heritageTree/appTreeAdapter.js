@@ -1,5 +1,5 @@
 import calcTree from 'relatives-tree';
-import { getLocalDatabase } from '../../lib/LocalDatabase.js';
+import { getAppDataClient } from '../../lib/data/AppDataClient.js';
 import { getAppPreferences } from '../../lib/appPreferences.js';
 import { isPublicRecord } from '../../lib/privacy.js';
 import { refToRecordName } from '../../lib/recordRef.js';
@@ -13,12 +13,12 @@ const PY = 80;
 
 export async function loadHeritageTreeData() {
   await getAppPreferences();
-  const db = getLocalDatabase();
+  const client = getAppDataClient();
   const [{ records: personRecords }, { records: familyRecords }, { records: childRelations }, { records: placeRecords }] = await Promise.all([
-    db.query('Person', { limit: 100000 }),
-    db.query('Family', { limit: 100000 }),
-    db.query('ChildRelation', { limit: 100000 }),
-    db.query('Place', { limit: 100000 }),
+    client.records.query('Person', { limit: 100000 }),
+    client.records.query('Family', { limit: 100000 }),
+    client.records.query('ChildRelation', { limit: 100000 }),
+    client.records.query('Place', { limit: 100000 }),
   ]);
 
   const places = new Map(placeRecords.filter(isPublicRecord).map((record) => [record.recordName, placeLabel(record)]));
@@ -30,7 +30,7 @@ export async function loadHeritageTreeData() {
     const thumbnailId = summary?.thumbnail;
     let photoUrl = null;
     if (thumbnailId) {
-      const asset = await db.getAsset(thumbnailId);
+      const asset = await client.assets.get(thumbnailId);
       photoUrl = mediaAssetSrc(asset) || (String(thumbnailId).startsWith('data:') ? thumbnailId : null);
     }
     const birthPlace = placeFromField(record, ['birthPlace', 'cached_birthPlace', 'cached_birthPlaceString'], places);

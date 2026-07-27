@@ -7,7 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ENTITY_TYPES, SEARCH_FIELDS, FILTER_OPS, runGenealogyAdvancedSearch, runSearch } from '../../lib/search.js';
 import { listAllScopes, runScope } from '../../lib/smartScopes.js';
 import { applySearchReplace, previewSearchReplace, replaceableFields, undoLastSearchReplace } from '../../lib/searchReplace.js';
-import { getLocalDatabase } from '../../lib/LocalDatabase.js';
+import { getAppDataClient } from '../../lib/data/AppDataClient.js';
 import { generateId } from '../../lib/ids.js';
 import { FilterRow } from './FilterRow.jsx';
 import { SearchResults } from './SearchResults.jsx';
@@ -94,7 +94,7 @@ export function SearchApp() {
   const isSearchReplaceRoute = location.pathname === '/search-and-replace';
 
   const loadSaved = useCallback(async () => {
-    const list = await getLocalDatabase().getMeta(SAVED_SEARCHES_KEY);
+    const list = await getAppDataClient().meta.get(SAVED_SEARCHES_KEY);
     setSavedSearches(Array.isArray(list) ? list : []);
   }, []);
   useEffect(() => { loadSaved(); }, [loadSaved]);
@@ -102,8 +102,8 @@ export function SearchApp() {
   const onSaveSearch = useCallback(async () => {
     const name = await modal.prompt('Save this search as:', '', { title: 'Save search' });
     if (!name) return;
-    const db = getLocalDatabase();
-    const list = Array.isArray(await db.getMeta(SAVED_SEARCHES_KEY)) ? await db.getMeta(SAVED_SEARCHES_KEY) : [];
+    const client = getAppDataClient();
+    const list = Array.isArray(await client.meta.get(SAVED_SEARCHES_KEY)) ? await client.meta.get(SAVED_SEARCHES_KEY) : [];
     const entry = {
       id: generateId('ss', { randomLength: 4 }),
       name,
@@ -113,7 +113,7 @@ export function SearchApp() {
       savedAt: new Date().toISOString(),
     };
     const next = [...list, entry];
-    await db.setMeta(SAVED_SEARCHES_KEY, next);
+    await client.meta.set(SAVED_SEARCHES_KEY, next);
     setSavedSearches(next);
   }, [entityType, textQuery, filters, modal]);
 
@@ -128,10 +128,10 @@ export function SearchApp() {
 
   const onDeleteSearch = useCallback(async (id) => {
     if (!(await modal.confirm('Delete saved search?', { title: 'Delete saved search', okLabel: 'Delete', destructive: true }))) return;
-    const db = getLocalDatabase();
-    const list = Array.isArray(await db.getMeta(SAVED_SEARCHES_KEY)) ? await db.getMeta(SAVED_SEARCHES_KEY) : [];
+    const client = getAppDataClient();
+    const list = Array.isArray(await client.meta.get(SAVED_SEARCHES_KEY)) ? await client.meta.get(SAVED_SEARCHES_KEY) : [];
     const next = list.filter((s) => s.id !== id);
-    await db.setMeta(SAVED_SEARCHES_KEY, next);
+    await client.meta.set(SAVED_SEARCHES_KEY, next);
     setSavedSearches(next);
   }, [modal]);
 

@@ -165,7 +165,7 @@ function parseDoubleLink(text, start) {
   return parsePerson(text, start, end, linkBody, explicitText);
 }
 
-export function parseGeneWebWikiLinkAt(text, start = 0) {
+function parseGeneWebWikiLinkAt(text, start = 0) {
   const value = String(text ?? '');
   if (start < value.length - 2 && value[start] === '[' && value[start + 1] === '[') {
     if (value[start + 2] === '[') return parsePage(value, start);
@@ -187,11 +187,3 @@ export function parseGeneWebWikiLinks(text) {
 
   return tokens;
 }
-
-export const geneWebWikiTokenTypes = {
-  none: TOKEN_NONE,
-  page: TOKEN_PAGE,
-  person: TOKEN_PERSON,
-  wizard: TOKEN_WIZARD,
-  image: TOKEN_IMAGE,
-};

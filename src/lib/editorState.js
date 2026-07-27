@@ -2,9 +2,9 @@ import { useBeforeUnload, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useModal } from '../contexts/ModalContext.jsx';
 
-export const UNSAVED_CHANGES_MESSAGE = 'You have unsaved changes. Leave this editor without saving?';
+const UNSAVED_CHANGES_MESSAGE = 'You have unsaved changes. Leave this editor without saving?';
 
-export function stableStringify(value) {
+function stableStringify(value) {
   return JSON.stringify(normalizeForStringify(value));
 }
 
@@ -17,7 +17,7 @@ function normalizeForStringify(value) {
   }, {});
 }
 
-export function useDirtySnapshot(current, baseline, enabled = true) {
+function useDirtySnapshot(current, baseline, enabled = true) {
   return useMemo(() => {
     if (!enabled || baseline == null) return false;
     const baselineSnapshot = typeof baseline === 'string' ? baseline : stableStringify(baseline);
@@ -89,7 +89,7 @@ export function useDirtyBaseline(snapshot, { recordKey = null, reloadKey = 0, en
   return dirty;
 }
 
-export function useUnsavedChanges(when, message = UNSAVED_CHANGES_MESSAGE) {
+function useUnsavedChanges(when, message = UNSAVED_CHANGES_MESSAGE) {
   const modal = useModal();
   const navigate = useNavigate();
   const disabled = typeof window !== 'undefined' && window.localStorage?.getItem('cloudtreeweb:disable-unsaved-guard') === '1';

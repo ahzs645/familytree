@@ -3,7 +3,6 @@
  * Subset focus: INDI / FAM / EVENT / PLAC / SOUR / NOTE.
  */
 import { getAppDataClient } from './data/index.js';
-import { getLocalDatabase } from './LocalDatabase.js';
 import { refToRecordName } from './recordRef.js';
 import { isPublicRecord, isLiving, maskLivingDetails, DEFAULT_PRIVACY_POLICY } from './privacy.js';
 import { getActivePrivacyPolicy } from './appPreferences.js';
@@ -131,12 +130,13 @@ function gedcomFormFromMime(mimeType, filename) {
  */
 async function collectGedcomMedia(allowedRecordNames) {
   const empty = { byRecord: new Map(), objects: [], files: [] };
-  let db;
+  let client;
   try {
-    db = getLocalDatabase();
+    client = getAppDataClient();
   } catch {
     return empty;
   }
+  const db = client?.records;
   if (!db || typeof db.query !== 'function') return empty;
 
   let rels;
@@ -178,9 +178,9 @@ async function collectGedcomMedia(allowedRecordNames) {
         let asset = null;
         try {
           const assetIds = picture.fields?.assetIds?.value || [];
-          asset = assetIds.length ? await db.getAsset(assetIds[0]) : null;
-          if (!asset && typeof db.listAssetsForRecord === 'function') {
-            asset = (await db.listAssetsForRecord(picture.recordName) || [])[0] || null;
+          asset = assetIds.length ? await client.assets.get(assetIds[0]) : null;
+          if (!asset && typeof client.assets?.listForRecord === 'function') {
+            asset = (await client.assets.listForRecord(picture.recordName) || [])[0] || null;
           }
         } catch {
           asset = null;
@@ -541,7 +541,7 @@ export async function downloadGedcom(overrides = {}) {
  * GedZip (GEDCOM 7) requires the GEDCOM file to be named `gedcom.ged` at the
  * archive root, with media stored at the paths referenced by the document.
  */
-export async function buildGedZipBlob(overrides = {}) {
+async function buildGedZipBlob(overrides = {}) {
   const policy = getActivePrivacyPolicy();
   const files = [];
   const text = await buildGedcom({

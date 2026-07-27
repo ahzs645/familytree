@@ -14,7 +14,7 @@
  *   - { kind: 'toc', tocStyle }                    — placeholder; materialized on compile
  */
 import JSZip from 'jszip';
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { readField, readRef } from './schema.js';
 import { block, emptyReport } from './reports/ast.js';
 import {
@@ -92,7 +92,7 @@ export const TITLE_PAGE_PRESETS = [
   { id: 'crest-title-subtitle-author-date', label: 'Family Crest · Title · Subtitle · Author · Date' },
 ];
 
-export const DEFAULT_TITLE_PAGE_PRESET = TITLE_PAGE_PRESETS[0].id;
+const DEFAULT_TITLE_PAGE_PRESET = TITLE_PAGE_PRESETS[0].id;
 
 export const SECTION_KINDS = [
   { id: 'cover', label: 'Cover Page' },
@@ -181,12 +181,12 @@ export async function validateBook(book) {
     return { errors, warnings };
   }
 
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const existsCache = new Map();
   const exists = async (recordName) => {
     if (!recordName) return false;
     if (existsCache.has(recordName)) return existsCache.get(recordName);
-    const record = await db.getRecord(recordName);
+    const record = await db.get(recordName);
     const value = !!record;
     existsCache.set(recordName, value);
     return value;
@@ -251,26 +251,26 @@ export function newBookId() {
 }
 
 export async function listBooks() {
-  const db = getLocalDatabase();
-  const list = await db.getMeta(META_KEY);
+  const db = getAppDataClient().meta;
+  const list = await db.get(META_KEY);
   return Array.isArray(list) ? list : [];
 }
 
 export async function saveBook(book) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const list = await listBooks();
   const idx = list.findIndex((b) => b.id === book.id);
   const stamped = { ...book, savedAt: Date.now() };
   if (idx >= 0) list[idx] = stamped;
   else list.push(stamped);
-  await db.setMeta(META_KEY, list);
+  await db.set(META_KEY, list);
   return stamped;
 }
 
 export async function deleteBook(id) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const list = await listBooks();
-  await db.setMeta(META_KEY, list.filter((b) => b.id !== id));
+  await db.set(META_KEY, list.filter((b) => b.id !== id));
 }
 
 /**
@@ -481,13 +481,13 @@ async function buildSavedChartInsert(savedChartId) {
 }
 
 async function buildPersonGroupInsert(groupRecordName) {
-  const db = getLocalDatabase();
-  const group = groupRecordName ? await db.getRecord(groupRecordName) : null;
+  const db = getAppDataClient().records;
+  const group = groupRecordName ? await db.get(groupRecordName) : null;
   if (!group) return [block.title('Person Group', 2), block.paragraph('No group selected.')];
   const rels = await db.query('PersonGroupRelation', { referenceField: 'personGroup', referenceValue: group.recordName, limit: 100000 });
   const people = [];
   for (const rel of rels.records) {
-    const person = await db.getRecord(readRef(rel.fields?.person));
+    const person = await db.get(readRef(rel.fields?.person));
     const summary = personSummary(person);
     if (summary) people.push(summary);
   }
@@ -556,7 +556,7 @@ function buildTitlePage(section, author) {
 }
 
 async function buildBibliographyInsert(config) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Source', { limit: 100000 });
   const sorted = [...records].sort((a, b) => compareStrings(
     readField(a, ['author', 'title'], ''),
@@ -576,7 +576,7 @@ async function buildBibliographyInsert(config) {
 }
 
 async function buildFootnotesInsert(config) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Source', { limit: 100000 });
   const sorted = [...records].sort((a, b) => compareStrings(
     readField(a, ['title'], ''),
@@ -596,14 +596,14 @@ async function buildFootnotesInsert(config) {
 }
 
 async function buildMediaPageInsert(mediaRecordName, caption) {
-  const db = getLocalDatabase();
-  const media = mediaRecordName ? await db.getRecord(mediaRecordName) : null;
+  const { records: db, assets } = getAppDataClient();
+  const media = mediaRecordName ? await db.get(mediaRecordName) : null;
   if (!media) return [block.paragraph('Media not found.')];
   const ids = media.fields?.assetIds?.value || [];
-  let asset = ids.length ? await db.getAsset(ids[0]) : null;
-  if (!asset && db.listAssetsForRecord) {
-    const assets = await db.listAssetsForRecord(media.recordName);
-    asset = (assets || [])[0] || null;
+  let asset = ids.length ? await assets.get(ids[0]) : null;
+  if (!asset && assets.listForRecord) {
+    const list = await assets.listForRecord(media.recordName);
+    asset = (list || [])[0] || null;
   }
   const title = caption || media.fields?.caption?.value || media.fields?.filename?.value || media.fields?.fileName?.value || 'Media';
   const blocks = [block.title(title, 2)];
@@ -616,8 +616,8 @@ async function buildMediaPageInsert(mediaRecordName, caption) {
 }
 
 async function buildSourceInsert(sourceRecordName) {
-  const db = getLocalDatabase();
-  const source = sourceRecordName ? await db.getRecord(sourceRecordName) : null;
+  const db = getAppDataClient().records;
+  const source = sourceRecordName ? await db.get(sourceRecordName) : null;
   if (!source) return [block.title('Source', 2), block.paragraph('No source selected.')];
   const summary = sourceSummary(source);
   const rows = [
@@ -636,19 +636,6 @@ export async function downloadBookHTML(book, { filenameBase } = {}) {
   const compiled = await compileBook(book);
   const blob = new Blob([renderHTML(compiled)], { type: 'text/html' });
   downloadBlob(blob, `${safeFilename(filenameBase || book.title || compiled.title)}.html`);
-}
-
-export async function openBookPDF(book) {
-  const compiled = await compileBook(book);
-  const html = renderHTML(compiled);
-  const w = window.open('', '_blank');
-  if (!w) throw new Error('Popup blocked. Allow popups to export as PDF.');
-  w.document.write(html);
-  w.document.close();
-  w.onload = () => {
-    w.focus();
-    w.print();
-  };
 }
 
 export async function downloadBookBundle(book, { includeWebsite = true, siteOptions = {}, onProgress, signal } = {}) {

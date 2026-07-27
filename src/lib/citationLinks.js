@@ -7,7 +7,7 @@
  * fact/event row) without opening the full Source Citations editor, while still
  * recording the same change-log + lineage trail.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { writeRef, readRef } from './schema.js';
 import { generateId } from './ids.js';
 import { logRecordCreated } from './changeLog.js';
@@ -24,7 +24,7 @@ import {
  */
 export async function attachSourceRelation({ sourceId, targetId, targetType }) {
   if (!sourceId || !targetId || !targetType) return null;
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const rec = {
     recordName: generateId('sr'),
     recordType: 'SourceRelation',
@@ -56,7 +56,7 @@ export async function attachSourceRelation({ sourceId, targetId, targetType }) {
     targetRecord: targetId,
     createdByEvent: created.recordName,
   });
-  await db.saveRecord(next);
+  await db.save(next);
   await logRecordCreated(next, {
     lineage: { lineageBatch: batch.recordName, operation: 'manualEdit', lineageEvent: created.recordName },
   });
@@ -67,7 +67,7 @@ export async function attachSourceRelation({ sourceId, targetId, targetType }) {
 export async function createQuickSource(title) {
   const clean = String(title || '').trim();
   if (!clean) return null;
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const rec = {
     recordName: generateId('src'),
     recordType: 'Source',
@@ -76,7 +76,7 @@ export async function createQuickSource(title) {
       cached_title: { value: clean, type: 'STRING' },
     },
   };
-  await db.saveRecord(rec);
+  await db.save(rec);
   await logRecordCreated(rec);
   return rec;
 }
@@ -84,7 +84,7 @@ export async function createQuickSource(title) {
 /** Set of Source record-names already cited for a given target conclusion. */
 export async function attachedSourceIdsForTarget(targetRecordName) {
   if (!targetRecordName) return new Set();
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const rows = await db.query('SourceRelation', { referenceField: 'target', referenceValue: targetRecordName, limit: 100000 });
   return new Set(rows.records.map((rel) => readRef(rel.fields?.source)).filter(Boolean));
 }

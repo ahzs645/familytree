@@ -137,7 +137,6 @@ export function setActiveNameFormats({ display, sort, additionalNames } = {}) {
 }
 
 export function getActiveDisplayFormat() { return activeDisplay; }
-export function getActiveSortFormat() { return activeSort; }
 export function getActiveAdditionalNameDisplay() { return activeAdditionalNames; }
 
 export function formatDisplayName(record) {

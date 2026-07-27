@@ -20,13 +20,13 @@ import {
   readPlaceName,
 } from './recordQueries.js';
 import { readField, readRef } from '../schema.js';
-import { getLocalDatabase } from '../LocalDatabase.js';
+import { getAppDataClient } from '../data/AppDataClient.js';
 import { isPublicRecord } from '../privacy.js';
 
 const EVENT_POSITIONS = new Set(['right', 'below', 'left', 'above']);
 const EVENT_BACKGROUNDS = new Set(['none', 'filled']);
 
-export function normalizeGenogramConfig(raw = {}) {
+function normalizeGenogramConfig(raw = {}) {
   return {
     rootPersonId: raw.rootPersonId || null,
     showEvents: raw.showEvents !== false,
@@ -46,7 +46,7 @@ async function collectDescendantIds(rootId, generations, db) {
   while (queue.length) {
     const { id, depth } = queue.shift();
     if (depth >= generations) continue;
-    const children = await db.getPersonsChildrenInformation(id);
+    const children = await db.childrenInformation(id);
     for (const fam of children) {
       for (const child of fam.children || []) {
         if (!child?.recordName || ids.has(child.recordName)) continue;
@@ -61,7 +61,7 @@ async function collectDescendantIds(rootId, generations, db) {
 
 export async function buildGenogramData(config = {}) {
   const normalized = normalizeGenogramConfig(config);
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [personIndex, placeIndex] = await Promise.all([
     loadPersonIndex(),
     loadPlaceIndex(),

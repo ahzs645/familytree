@@ -7,7 +7,7 @@
  * (e.g. "childless" needs to know about ChildRelations) — those receive a
  * `ctx` cache built once per run.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { matchesSearchText } from './i18n.js';
 import { refToRecordName } from './recordRef.js';
 import { FIELD_ALIASES, readField, readRef } from './schema.js';
@@ -123,7 +123,7 @@ function parseYear(s) {
 }
 
 async function buildCtx(needs) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const ctx = {};
   if (needs.includes('parentIds') || needs.includes('marriedIds')) {
     const { records: families } = await db.query('Family', { limit: 100000 });
@@ -180,7 +180,7 @@ function hasCoordValue(value) {
 export async function runScope(scopeId) {
   if (String(scopeId || '').startsWith('custom:')) return runCustomScope(scopeId);
   const scope = BUILTIN_SCOPES.find((s) => s.id === scopeId);
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   if (!scope) return runImportedScope(scopeId, db);
   const { records } = await db.query(scope.entityType, { limit: 100000 });
   const ctx = scope.needsCtx ? await buildCtx(scope.needsCtx) : null;
@@ -213,7 +213,7 @@ async function runCustomScope(scopeId) {
   };
 }
 
-export function listScopes(entityType) {
+function listScopes(entityType) {
   if (!entityType) return BUILTIN_SCOPES;
   return BUILTIN_SCOPES.filter((s) => s.entityType === entityType);
 }
@@ -226,8 +226,8 @@ export async function listAllScopes(entityType) {
   return [...listScopes(entityType), ...custom.map(customScopeDescriptor), ...imported];
 }
 
-export async function listImportedScopes(entityType) {
-  const db = getLocalDatabase();
+async function listImportedScopes(entityType) {
+  const db = getAppDataClient().records;
   const { records } = await db.query('Scope', { limit: 100000 });
   return records
     .map(importedScopeDescriptor)
@@ -264,7 +264,7 @@ function parseDecoded(value) {
 
 async function runImportedScope(scopeId, db) {
   const recordName = String(scopeId || '').replace(/^imported:/, '');
-  const record = await db.getRecord(recordName);
+  const record = await db.get(recordName);
   if (!record || record.recordType !== 'Scope') throw new Error('Unknown scope: ' + scopeId);
   const scope = importedScopeDescriptor(record);
   const predicateFactory = importedPredicateFactory(scope?.decodedSummary?.identifier || scope?.label);
@@ -392,7 +392,7 @@ async function collectAncestorsByUniqueID(db, uniqueID, out) {
   const root = records.find((person) => readField(person, ['uniqueID']) === uniqueID);
   if (!root) return;
   async function visit(recordName) {
-    const parents = await db.getPersonsParents(recordName);
+    const parents = await db.personsParents(recordName);
     for (const family of parents) {
       for (const parent of [family.man, family.woman]) {
         if (!parent || out.has(parent.recordName)) continue;

@@ -6,7 +6,7 @@ export const DEFAULT_PAGE_STYLE = {
   margin: 48,
 };
 
-export const DEFAULT_PRESENTATION_SETTINGS = {
+const DEFAULT_PRESENTATION_SETTINGS = {
   pageStyle: DEFAULT_PAGE_STYLE,
   themeId: 'plain',
   language: 'system',
@@ -23,7 +23,7 @@ export const PRESENTATION_THEMES = [
   { id: 'sepia', label: 'Sepia' },
 ];
 
-export const PRESENTATION_LANGUAGES = [
+const PRESENTATION_LANGUAGES = [
   { id: 'system', label: 'System' },
   { id: 'en', label: 'English' },
   { id: 'de', label: 'German' },

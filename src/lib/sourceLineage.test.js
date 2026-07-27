@@ -7,8 +7,8 @@ import {
 
 const mockState = vi.hoisted(() => ({ db: null }));
 
-vi.mock('./LocalDatabase.js', () => ({
-  getLocalDatabase: () => mockState.db,
+vi.mock('./data/AppDataClient.js', () => ({
+  getAppDataClient: () => ({ records: mockState.db }),
 }));
 
 describe('sourceLineage', () => {
@@ -62,10 +62,10 @@ function createMockDb(records) {
   const map = new Map(records.map((record) => [record.recordName, record]));
   return {
     records: map,
-    async getRecord(recordName) {
+    async get(recordName) {
       return map.get(recordName) || null;
     },
-    async saveRecord(record) {
+    async save(record) {
       map.set(record.recordName, record);
       return record;
     },

@@ -40,13 +40,13 @@ export const SITE_SECTIONS = [
   ['savedCharts', 'Charts', 'savedCharts', savedChartIndexItem],
 ];
 
-export function hrefTo(recordName, model, fromFolder = '') {
+function hrefTo(recordName, model, fromFolder = '') {
   const path = model.pathById.get(recordName);
   if (!path) return null;
   return `${relativeRoot(fromFolder)}${path}`;
 }
 
-export function linkTo(recordName, label, model, fromFolder = '') {
+function linkTo(recordName, label, model, fromFolder = '') {
   const href = hrefTo(recordName, model, fromFolder);
   return href ? `<a href="${attr(href)}">${bdi(label || recordName)}</a>` : bdi(label || recordName);
 }

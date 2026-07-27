@@ -8,7 +8,7 @@
  * need the ad-hoc `window` event bus for record freshness.
  */
 import { useCallback, useEffect, useState } from 'react';
-import { getLocalDatabase } from '../LocalDatabase.js';
+import { getAppDataClient } from './AppDataClient.js';
 import { subscribeRecordChanges } from './recordEvents.js';
 
 const cache = new Map(); // recordType -> Promise<records[]>
@@ -17,8 +17,8 @@ const hookListeners = new Set();
 function fetchRecords(recordType) {
   let promise = cache.get(recordType);
   if (!promise) {
-    promise = getLocalDatabase()
-      .query(recordType, { limit: 100000 })
+    promise = getAppDataClient()
+      .records.query(recordType, { limit: 100000 })
       .then((result) => result.records);
     // Drop failed fetches so the next consumer retries instead of caching an error.
     promise.catch(() => {

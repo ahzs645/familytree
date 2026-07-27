@@ -9,7 +9,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { getLocalDatabase } from '../../lib/LocalDatabase.js';
+import { getAppDataClient } from '../../lib/data/AppDataClient.js';
 import { invalidateRecords } from '../../lib/data/useRecords.js';
 import { ModalProvider } from '../../contexts/ModalContext.jsx';
 import { useRecordEditor } from './useRecordEditor.js';
@@ -41,7 +41,7 @@ function renderEditor() {
 }
 
 async function seedLabel(recordName, title) {
-  await getLocalDatabase().saveRecord({
+  await getAppDataClient().records.save({
     recordName,
     recordType: 'Label',
     fields: { title: { value: title, type: 'STRING' } },
@@ -50,7 +50,7 @@ async function seedLabel(recordName, title) {
 
 describe('useRecordEditor', () => {
   beforeEach(async () => {
-    await getLocalDatabase().clearAll();
+    await getAppDataClient().records.clearAll();
     invalidateRecords('*');
   });
   afterEach(() => {
@@ -73,7 +73,7 @@ describe('useRecordEditor', () => {
     await act(() => editor.current.onCreate());
     await waitFor(() => expect(editor.current.rows).toHaveLength(1));
     expect(editor.current.activeId).toBe(editor.current.rows[0].recordName);
-    const log = await getLocalDatabase().query('ChangeLogEntry', { limit: 100 });
+    const log = await getAppDataClient().records.query('ChangeLogEntry', { limit: 100 });
     expect(log.records.length).toBeGreaterThan(0);
   });
 
@@ -89,12 +89,12 @@ describe('useRecordEditor', () => {
       expect(row?.fields?.title?.value).toBe('Renamed');
     });
     expect(editor.current.status).toBe('Saved');
-    const log = await getLocalDatabase().query('ChangeLogEntry', { limit: 100 });
+    const log = await getAppDataClient().records.query('ChangeLogEntry', { limit: 100 });
     expect(log.records.length).toBeGreaterThan(0);
   });
 
   it('refuses to save a locked record', async () => {
-    await getLocalDatabase().saveRecord({
+    await getAppDataClient().records.save({
       recordName: 'label-a',
       recordType: 'Label',
       fields: { title: { value: 'Alpha', type: 'STRING' }, locked: { value: 1, type: 'INT64' } },

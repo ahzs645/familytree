@@ -41,12 +41,19 @@ src/
 
 ## Data access
 
-`lib/LocalDatabase.js` is a Dexie/IndexedDB adapter and the intended boundary
-for all record storage: records are stored by `recordName`/`recordType` with
-meta and asset stores alongside. The rest of the app goes through this module
-(via `getLocalDatabase()`) rather than touching Dexie directly, so a future
-remote adapter can keep the same command surface. `lib/schema.js` and
-`models/` define record shapes; `lib/datasetSchemaVersion.js` +
+`lib/data/AppDataClient.js` is the single door to record storage:
+`getAppDataClient()` returns a façade with `records` / `assets` / `meta`
+namespaces. The local implementation (`LocalDexieDataClient`) wraps
+`lib/LocalDatabase.js`, a Dexie/IndexedDB adapter that is imported nowhere
+else — a remote backend slots in by implementing the same façade (see the
+`ConvexDataClient` stub). Reads in React components should prefer
+`lib/data/useRecords.js`, which caches full-table queries per recordType
+and invalidates off the change events every `LocalDatabase` write path
+emits (`lib/data/recordEvents.js`). Writes go through `saveWithChangeLog`
+(`lib/changeLog.js`) or the `lib/recordWrite.js` helpers so the change log
+stays complete — never raw `records.save`. Master-detail editor screens
+use `components/editors/useRecordEditor.js`. `lib/schema.js` and `models/`
+define record shapes; `lib/datasetSchemaVersion.js` +
 `components/SchemaMigrationSheet.jsx` handle dataset migrations.
 
 ## Styling conventions
@@ -87,3 +94,14 @@ package files.
 `vitest` (`npm test`). Coverage is concentrated in `lib/` as colocated
 `*.test.js` files next to the module under test — new domain logic should
 follow that pattern and stay out of route components so it stays testable.
+DOM tests (jsdom + @testing-library/react + fake-indexeddb) opt in per file
+with a `// @vitest-environment jsdom` pragma — see
+`components/editors/useRecordEditor.dom.test.jsx`.
+
+## Type checking
+
+`npm run typecheck` runs `tsc --noEmit` (strict, `allowJs`). Files opt in
+with a `// @ts-check` pragma + JSDoc types — the data-layer seams
+(`recordWrite.js`, `data/recordEvents.js`) are checked. Prefer adding
+`@ts-check` to new lib modules; whole-file `.ts` renames are avoided
+because imports use explicit `.js` extensions throughout.

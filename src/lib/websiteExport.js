@@ -56,7 +56,6 @@ import {
 } from './website/render.js';
 
 export { DEFAULT_SITE_OPTIONS, validateSiteExport };
-export const SITE_THEMES = SITE_THEME_PRESETS;
 
 export async function buildSite(options = {}) {
   const normalized = normalizeOptions(options);

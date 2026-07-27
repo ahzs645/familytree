@@ -4,20 +4,20 @@
  * Summaries go through models/wrap.js so Gender enum values and name formatting
  * stay consistent with the rest of the app.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { refToRecordName } from './recordRef.js';
 import { isPublicRecord } from './privacy.js';
 import { personSummary, familySummary, Gender } from '../models/index.js';
 import { MILK_KINSHIP_RECORD_TYPE, milkKinshipSummary } from './milkKinship.js';
 
 export async function buildPersonContext(recordName) {
-  const db = getLocalDatabase();
-  const self = await db.getRecord(recordName);
+  const db = getAppDataClient().records;
+  const self = await db.get(recordName);
   if (!isPublicRecord(self)) return null;
 
   const [parents, families, personEvents, personFacts, milkAsChild, milkAsMother, milkAsFather, persons] = await Promise.all([
-    db.getPersonsParents(recordName),
-    db.getPersonsChildrenInformation(recordName),
+    db.personsParents(recordName),
+    db.childrenInformation(recordName),
     db.query('PersonEvent', { referenceField: 'person', referenceValue: recordName, limit: 1000 }),
     db.query('PersonFact', { referenceField: 'person', referenceValue: recordName, limit: 1000 }),
     db.query(MILK_KINSHIP_RECORD_TYPE, { referenceField: 'child', referenceValue: recordName, limit: 1000 }),
@@ -54,8 +54,8 @@ export async function buildPersonContext(recordName) {
  * All siblings (children of any parent family, excluding self).
  */
 export async function getSiblings(recordName) {
-  const db = getLocalDatabase();
-  const parents = await db.getPersonsParents(recordName);
+  const db = getAppDataClient().records;
+  const parents = await db.personsParents(recordName);
   const siblings = [];
   const seen = new Set([recordName]);
   for (const fam of parents) {
@@ -68,7 +68,7 @@ export async function getSiblings(recordName) {
       const childRef = refToRecordName(cr.fields?.child?.value);
       if (!childRef || seen.has(childRef)) continue;
       seen.add(childRef);
-      const child = await db.getRecord(childRef);
+      const child = await db.get(childRef);
       if (isPublicRecord(child)) siblings.push(personSummary(child));
     }
   }
@@ -81,13 +81,13 @@ export async function getSiblings(recordName) {
  * subject, parents, siblings (with self injected), spouses, and children.
  */
 export async function buildFamilyTreeViewModel(recordName) {
-  const db = getLocalDatabase();
-  const subject = await db.getRecord(recordName);
+  const db = getAppDataClient().records;
+  const subject = await db.get(recordName);
   if (!isPublicRecord(subject)) return null;
 
   const [parentFamilies, spouseFamilies] = await Promise.all([
-    db.getPersonsParents(recordName),
-    db.getPersonsChildrenInformation(recordName),
+    db.personsParents(recordName),
+    db.childrenInformation(recordName),
   ]);
 
   const parentById = new Map();
@@ -114,7 +114,7 @@ export async function buildFamilyTreeViewModel(recordName) {
       if (!siblingParentGroups.has(childId)) siblingParentGroups.set(childId, []);
       if (parentIds.length) siblingParentGroups.get(childId).push(parentIds);
       if (siblingById.has(childId)) continue;
-      const child = await db.getRecord(childId);
+      const child = await db.get(childId);
       if (isPublicRecord(child)) siblingById.set(childId, personRelationModel(child, siblingRelation(child)));
     }
   }
@@ -157,7 +157,7 @@ export async function buildFamilyTreeViewModel(recordName) {
 }
 
 async function findFamilyDivorceDate(familyRecordName) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('FamilyEvent', {
     referenceField: 'family',
     referenceValue: familyRecordName,

@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { refToRecordName } from './recordRef.js';
 
 /**
@@ -6,12 +6,12 @@ import { refToRecordName } from './recordRef.js';
  * generation depth. Used by the subtree wizard's "Add Ancestors" button.
  */
 export async function collectAncestorIds(personId, maxDepth = 5) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const result = new Set();
   async function walk(id, depth) {
     if (!id || depth > maxDepth || result.has(id)) return;
     result.add(id);
-    const parents = await db.getPersonsParents(id);
+    const parents = await db.personsParents(id);
     for (const fam of parents) {
       if (fam.man?.recordName) await walk(fam.man.recordName, depth + 1);
       if (fam.woman?.recordName) await walk(fam.woman.recordName, depth + 1);
@@ -27,12 +27,12 @@ export async function collectAncestorIds(personId, maxDepth = 5) {
  * generation depth. Used by the subtree wizard's "Add Descendants" button.
  */
 export async function collectDescendantIds(personId, maxDepth = 5) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const result = new Set();
   async function walk(id, depth) {
     if (!id || depth > maxDepth || result.has(id)) return;
     result.add(id);
-    const families = await db.getPersonsChildrenInformation(id);
+    const families = await db.childrenInformation(id);
     for (const fam of families) {
       for (const child of fam.children) {
         await walk(child.recordName, depth + 1);
@@ -44,15 +44,15 @@ export async function collectDescendantIds(personId, maxDepth = 5) {
   return [...result];
 }
 
-export async function collectSubtreeRecordNames(rootPersonRecordName) {
-  const db = getLocalDatabase();
+async function collectSubtreeRecordNames(rootPersonRecordName) {
+  const db = getAppDataClient().records;
   const names = new Set();
-  const root = await db.getRecord(rootPersonRecordName);
+  const root = await db.get(rootPersonRecordName);
   if (!root) return names;
 
   async function visitPerson(personId) {
     if (!personId || names.has(personId)) return;
-    const person = await db.getRecord(personId);
+    const person = await db.get(personId);
     if (!person) return;
     names.add(personId);
     const relatedTypes = ['PersonEvent', 'PersonFact', 'AdditionalName', 'Note'];
@@ -60,7 +60,7 @@ export async function collectSubtreeRecordNames(rootPersonRecordName) {
       const { records } = await db.query(type, { referenceField: 'person', referenceValue: personId, limit: 100000 });
       for (const record of records) names.add(record.recordName);
     }
-    const families = await db.getPersonsChildrenInformation(personId);
+    const families = await db.childrenInformation(personId);
     for (const familyInfo of families) {
       names.add(familyInfo.family.recordName);
       for (const child of familyInfo.children) {
@@ -87,14 +87,15 @@ export async function collectSubtreeRecordNames(rootPersonRecordName) {
 }
 
 export async function exportSubtreeBackup(rootPersonRecordName) {
-  const db = getLocalDatabase();
+  const client = getAppDataClient();
+  const db = client.records;
   const names = await collectSubtreeRecordNames(rootPersonRecordName);
   const records = {};
   for (const name of names) {
-    const record = await db.getRecord(name);
+    const record = await db.get(name);
     if (record) records[name] = record;
   }
-  const allAssets = await db.listAllAssets();
+  const allAssets = await client.assets.listAll();
   const assets = allAssets.filter((asset) => names.has(asset.ownerRecordName));
   return {
     format: 'cloudtreeweb-backup',
@@ -122,8 +123,8 @@ export async function downloadSubtreeBackup(rootPersonRecordName) {
 
 export async function removeSubtree(rootPersonRecordName) {
   const names = await collectSubtreeRecordNames(rootPersonRecordName);
-  const db = getLocalDatabase();
-  await db.applyRecordTransaction({ deleteRecordNames: [...names] });
+  const db = getAppDataClient().records;
+  await db.transaction({ deleteRecordNames: [...names] });
   return names.size;
 }
 
@@ -136,8 +137,8 @@ export async function removeSubtree(rootPersonRecordName) {
  * no remaining parent and no children). Returns the count of deleted records.
  */
 export async function deletePerson(personRecordName) {
-  const db = getLocalDatabase();
-  const person = await db.getRecord(personRecordName);
+  const db = getAppDataClient().records;
+  const person = await db.get(personRecordName);
   if (!person) return 0;
 
   const deleteNames = new Set([personRecordName]);
@@ -173,7 +174,7 @@ export async function deletePerson(personRecordName) {
     for (const family of records) familyIds.add(family.recordName);
   }
   for (const familyId of familyIds) {
-    const family = await db.getRecord(familyId);
+    const family = await db.get(familyId);
     if (!family) continue;
     const fields = { ...(family.fields || {}) };
     const manId = refToRecordName(fields.man?.value);
@@ -190,7 +191,7 @@ export async function deletePerson(personRecordName) {
     }
   }
 
-  await db.applyRecordTransaction({
+  await db.transaction({
     saveRecords,
     deleteRecordNames: [...deleteNames],
   });
@@ -204,8 +205,8 @@ export async function deletePerson(personRecordName) {
  * family. Returns the count of deleted records.
  */
 export async function deleteFamily(familyRecordName) {
-  const db = getLocalDatabase();
-  const family = await db.getRecord(familyRecordName);
+  const db = getAppDataClient().records;
+  const family = await db.get(familyRecordName);
   if (!family) return 0;
 
   const deleteNames = new Set([familyRecordName]);
@@ -229,7 +230,7 @@ export async function deleteFamily(familyRecordName) {
     }
   }
 
-  await db.applyRecordTransaction({
+  await db.transaction({
     saveRecords: [],
     deleteRecordNames: [...deleteNames],
   });

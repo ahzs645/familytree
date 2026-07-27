@@ -3,20 +3,20 @@
  * templates. Documents preserve subject picks, page setup, overlays, and chart
  * options so they can be reopened as editable web chart documents.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { normalizeChartDocument } from './chartDocumentSchema.js';
 import { generateId } from './ids.js';
 
 const META_KEY = 'savedChartDocuments';
 
 export async function listChartDocuments() {
-  const db = getLocalDatabase();
-  const list = await db.getMeta(META_KEY);
+  const db = getAppDataClient().meta;
+  const list = await db.get(META_KEY);
   return Array.isArray(list) ? list.map(normalizeChartDocument) : [];
 }
 
 export async function saveChartDocument(document) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const list = await listChartDocuments();
   const now = Date.now();
   const normalized = normalizeChartDocument(document);
@@ -29,14 +29,14 @@ export async function saveChartDocument(document) {
   const idx = list.findIndex((item) => item.id === stamped.id);
   if (idx >= 0) list[idx] = stamped;
   else list.push(stamped);
-  await db.setMeta(META_KEY, list);
+  await db.set(META_KEY, list);
   return stamped;
 }
 
 export async function deleteChartDocument(id) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const list = await listChartDocuments();
-  await db.setMeta(META_KEY, list.filter((item) => item.id !== id));
+  await db.set(META_KEY, list.filter((item) => item.id !== id));
 }
 
 export function newChartDocumentId() {

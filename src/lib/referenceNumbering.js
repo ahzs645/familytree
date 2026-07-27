@@ -12,7 +12,7 @@ export async function calculateReferenceNumbers(rootPersonId, system = 'ahnentaf
   return calculateReferenceNumbersFromGraph(graph, rootPersonId, system);
 }
 
-export function calculateReferenceNumbersFromGraph(graph, rootPersonId, system = 'ahnentafel') {
+function calculateReferenceNumbersFromGraph(graph, rootPersonId, system = 'ahnentafel') {
   if (!graph.getPerson(rootPersonId)) return [];
   if (system === 'daboville') return descendantsWithDottedNumbers(graph, rootPersonId);
   if (system === 'henry') return descendantsWithHenryNumbers(graph, rootPersonId);

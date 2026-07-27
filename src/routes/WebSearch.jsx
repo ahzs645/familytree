@@ -6,7 +6,8 @@ import { formClasses } from '../components/ui/formClasses.js';
 import { generateId } from '../lib/ids.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
 import { createRecordEnvelope, createWithChangeLog } from '../lib/recordWrite.js';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { refValue } from '../lib/recordRef.js';
 import { readField, readRef } from '../lib/schema.js';
 import { listAllPersons } from '../lib/treeQuery.js';
@@ -42,24 +43,25 @@ export default function WebSearch() {
   const [insertValue, setInsertValue] = useState('');
   const [status, setStatus] = useState('');
   const [history, setHistory] = useState([]);
-  const [personFields, setPersonFields] = useState(new Map());
+  const { records: rawPeople } = useRecords('Person');
+  const personFields = useMemo(
+    () => new Map(rawPeople.map((record) => [record.recordName, record.fields || {}])),
+    [rawPeople],
+  );
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const db = getLocalDatabase();
-      const [list, prefs, rawPeople] = await Promise.all([
+      const [list, prefs] = await Promise.all([
         listAllPersons(),
         getAppPreferences(),
-        db.query('Person', { limit: 100000 }),
       ]);
       if (cancelled) return;
       setPersons(list);
       setProvider(searchParams.get('provider') || prefs.webSearch.provider || 'familysearch');
       setCustomUrl(prefs.webSearch.customUrl || '');
       setOpenInNewTab(prefs.webSearch.openInNewTab !== false);
-      setHistory((await db.getMeta('webSearchHistory')) || []);
-      setPersonFields(new Map(rawPeople.records.map((record) => [record.recordName, record.fields || {}])));
+      setHistory((await getAppDataClient().meta.get('webSearchHistory')) || []);
       setPersonId((current) => current || searchParams.get('personId') || list[0]?.recordName || '');
     })();
     return () => { cancelled = true; };
@@ -73,12 +75,11 @@ export default function WebSearch() {
   const openSearch = useCallback(async () => {
     if (!searchUrl || !selected) return;
     window.open(searchUrl, openInNewTab ? '_blank' : '_self', 'noopener,noreferrer');
-    const db = getLocalDatabase();
     const nextHistory = [
       { at: new Date().toISOString(), provider, personId, label: selected.fullName, url: searchUrl },
       ...history,
     ].slice(0, 25);
-    await db.setMeta('webSearchHistory', nextHistory);
+    await getAppDataClient().meta.set('webSearchHistory', nextHistory);
     setHistory(nextHistory);
   }, [history, openInNewTab, personId, provider, searchUrl, selected]);
 
@@ -192,8 +193,7 @@ export default function WebSearch() {
 }
 
 async function applyInsert(personId, action, value) {
-  const db = getLocalDatabase();
-  const person = await db.getRecord(personId);
+  const person = await getAppDataClient().records.get(personId);
   if (!person) throw new Error('Person not found.');
   if (['firstName', 'nameMiddle', 'lastName'].includes(action)) {
     const next = {
@@ -229,8 +229,7 @@ async function applyInsert(personId, action, value) {
 }
 
 async function upsertPersonEvent(personId, typeId, patch) {
-  const db = getLocalDatabase();
-  const { records } = await db.query('PersonEvent', { referenceField: 'person', referenceValue: personId, limit: 100000 });
+  const { records } = await getAppDataClient().records.query('PersonEvent', { referenceField: 'person', referenceValue: personId, limit: 100000 });
   let event = records.find((record) => (
     readRef(record.fields?.conclusionType) === typeId ||
     readField(record, ['eventType', 'type', 'conclusionType']) === typeId
@@ -261,8 +260,7 @@ async function upsertPersonEvent(personId, typeId, patch) {
 }
 
 async function findOrCreatePlace(name) {
-  const db = getLocalDatabase();
-  const { records } = await db.query('Place', { limit: 100000 });
+  const { records } = await getAppDataClient().records.query('Place', { limit: 100000 });
   const found = records.find((record) => {
     const label = readField(record, ['placeName', 'cached_standardizedLocationString', 'cached_displayName', 'name'], '');
     return label.toLowerCase() === name.toLowerCase();

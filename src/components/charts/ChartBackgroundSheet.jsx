@@ -14,7 +14,7 @@ const BG_TYPES = [
   { id: 'image', label: 'Image' },
 ];
 
-export function parseBackgroundSpec(value) {
+function parseBackgroundSpec(value) {
   if (!value) return { type: 'none' };
   if (typeof value === 'object') return { type: 'none', ...value };
   const trimmed = String(value).trim();
@@ -37,7 +37,7 @@ export function parseBackgroundSpec(value) {
   return { type: 'color', color: trimmed };
 }
 
-export function serializeBackgroundSpec(spec) {
+function serializeBackgroundSpec(spec) {
   if (!spec) return '';
   if (spec.type === 'color' && spec.color) return String(spec.color);
   if (spec.type === 'gradient' && spec.colorStart && spec.colorEnd) {

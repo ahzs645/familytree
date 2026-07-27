@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { readConclusionType, readField, readRef } from './schema.js';
 import { personSummary } from '../models/index.js';
 import { normalizeSearchText } from './i18n.js';
@@ -50,7 +50,7 @@ export const COMPLETENESS_LEGEND = {
 };
 
 export async function loadResearchCompleteness() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [
     personsResult,
     familiesResult,

@@ -8,8 +8,8 @@ import {
 
 const mockState = vi.hoisted(() => ({ db: null }));
 
-vi.mock('./LocalDatabase.js', () => ({
-  getLocalDatabase: () => mockState.db,
+vi.mock('./data/AppDataClient.js', () => ({
+  getAppDataClient: () => ({ records: mockState.db }),
 }));
 
 describe('list data helpers', () => {
@@ -181,7 +181,7 @@ describe('list data helpers', () => {
 
 function createMockDb(records) {
   return {
-    getAllRecords: vi.fn(async () => records),
+    all: vi.fn(async () => records),
     query: vi.fn(async (recordType, options = {}) => {
       let found = records.filter((record) => record.recordType === recordType);
       if (options.referenceField && options.referenceValue) {

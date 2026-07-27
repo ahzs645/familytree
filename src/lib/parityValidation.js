@@ -1,6 +1,6 @@
 import { readConclusionType, readField, readRef } from './schema.js';
 
-export const PARITY_CHART_TYPES = [
+const PARITY_CHART_TYPES = [
   'ancestor',
   'descendant',
   'hourglass',

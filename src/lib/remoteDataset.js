@@ -15,13 +15,13 @@
 import { getAppDataClient } from './data/index.js';
 import { getShareTokenFromHash } from './shareRoute.js';
 
-export const LOADED_URL_KEY = 'cloudtreeweb-loaded-url';
+const LOADED_URL_KEY = 'cloudtreeweb-loaded-url';
 export const REMOTE_IMPORT_ENABLED = import.meta.env.DEV
   || import.meta.env.VITE_ENABLE_REMOTE_IMPORT === 'true';
 export const MAX_REMOTE_IMPORT_BYTES = Number(import.meta.env.VITE_MAX_REMOTE_IMPORT_BYTES)
   || 50 * 1024 * 1024;
 
-export function currentRoutePath() {
+function currentRoutePath() {
   try {
     const basePath = new URL(import.meta.env?.BASE_URL || '/', window.location.origin)
       .pathname.replace(/\/?$/, '/');
@@ -49,7 +49,7 @@ export function getDatasetUrlFromQuery(search = window.location.search) {
   }
 }
 
-export function readLoadedUrl() {
+function readLoadedUrl() {
   try {
     return localStorage.getItem(LOADED_URL_KEY);
   } catch {

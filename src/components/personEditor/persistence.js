@@ -38,7 +38,7 @@ export async function queryMilkKinshipsForPerson(db, personId) {
   return [...byId.values()];
 }
 
-export function milkKinshipFields(item, currentPersonId) {
+function milkKinshipFields(item, currentPersonId) {
   const role = item.role || 'child';
   const childId = role === 'child' ? currentPersonId : item.childId;
   const nursingMotherId = role === 'nursingMother' ? currentPersonId : item.nursingMotherId;

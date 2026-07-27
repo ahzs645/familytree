@@ -6,7 +6,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listChartTemplates, deleteChartTemplate, saveChartTemplate, newTemplateId } from '../lib/chartTemplates.js';
 import { listChartDocuments, deleteChartDocument } from '../lib/chartDocuments.js';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 
 const CHART_LABELS = {
@@ -76,13 +76,10 @@ export default function SavedCharts() {
   const [documents, setDocuments] = useState([]);
   const navigate = useNavigate();
 
-  const [importedViews, setImportedViews] = useState([]);
+  const { records: importedViews } = useRecords('SavedChart');
   const reloadAll = useCallback(async () => {
     setTemplates(await listChartTemplates());
     setDocuments(await listChartDocuments());
-    const db = getLocalDatabase();
-    const { records } = await db.query('SavedChart', { limit: 100000 });
-    setImportedViews(records);
   }, []);
   useEffect(() => { reloadAll(); }, [reloadAll]);
 

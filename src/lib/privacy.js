@@ -25,7 +25,7 @@ export const DEFAULT_PRIVACY_POLICY = Object.freeze({
   livingPersonThresholdYears: DEFAULT_LIVING_THRESHOLD_YEARS,
 });
 
-export const PRIVACY_PROFILES = Object.freeze({
+const PRIVACY_PROFILES = Object.freeze({
   privateArchive: {
     id: 'privateArchive',
     label: 'Private archive',
@@ -80,10 +80,6 @@ export function isPrivateRecord(record) {
 
 export function isPublicRecord(record) {
   return !!record && !isMarkedPrivate(record);
-}
-
-export function filterPublicRecords(records) {
-  return (records || []).filter(isPublicRecord);
 }
 
 /**
