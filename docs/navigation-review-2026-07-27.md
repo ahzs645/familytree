@@ -55,6 +55,27 @@ scroller with an edge fade below that; the gradient follows writing direction.
 Closed on outside click only, unlike every other dropdown in the app. Now
 closes on Escape and returns focus to its trigger.
 
+### 6. The mobile tree hid its controls behind a four-screen swipe
+The bottom dock was a `nowrap` strip **1625px wide** at 390px — over four phone
+screens — so reaching Options meant a long blind swipe with no affordance. Three
+of its buttons could not do anything there in the first place: InteractiveTreeApp
+short-circuits `showPeople` / `showHeader` / `showInspector` on `isMobile`, so
+the **People, Inspector and Header toggles changed nothing** at that width.
+Camera duplicates "Camera Perspective" inside the Options panel.
+
+Those four are now desktop-only, and both the dock and the top bar wrap instead
+of scrolling. The dock's scroller is gone entirely; the top bar's 555px-in-240px
+strip — cut mid-word at "Optio" — wraps to three rows. **All 18 controls laid
+out without a scroller, 0 unreachable.** Desktop is untouched.
+
+### 7. The command palette was not a listbox, and did not follow its own cursor
+It is arrow-key navigable with Enter to jump, but the list was a plain `<ul>` of
+`<li><button>`: no `listbox` role, no `option` roles, no `aria-activedescendant`.
+It also never scrolled to track the cursor — with 49 entries (1772px) in a 540px
+box, arrowing past the fold moved a selection the user could no longer see, and
+Enter then jumped somewhere unexpected. Now a proper combobox + listbox, and the
+highlighted row scrolls into view.
+
 ## Checked and working — not changed
 
 - **Drawer**: 6 groups / 54 links, auto-opens the group containing the current
@@ -63,22 +84,30 @@ closes on Escape and returns focus to its trigger.
   navigate. Footer keeps record count, theme and language.
 - **Back paths**: Persons master→detail gives "Back to list"; the editor has
   "← Back"; the tree keeps the app header plus "Return to Family Tree".
-- **Command palette**: opens on ⌘/Ctrl+K, filters, closes on Escape.
+- **Command palette**: opens on ⌘/Ctrl+K, filters, closes on Escape (its
+  listbox semantics and cursor scrolling were added — see 7).
 - **Editor section nav** (22 chips, 1204px wider than a 1440px viewport): a
   deliberate scrolling strip — it has an edge mask and auto-scrolls the active
   chip into view as you move through the form.
 - **Zero unreachable controls** on every route tested at both 1440 and 390.
 - **No page-level horizontal overflow** anywhere.
 
+## Correction
+
+The first version of this review claimed the palette **listed duplicate rows**
+(`/marriages` vs `/marriage-list`). That was wrong — an artifact of a probe
+selector, `[role=option],[role=dialog] button,[role=dialog] li`, which matched
+both the `<li>` and its nested `<button>` and so counted every row twice. The
+palette renders one row per result. `APP_FUNCTIONS` has 49 entries with no
+duplicate target and no two rows that render identically.
+
+(The manifest *does* register `/marriages` and `/marriage-list` as two live
+routes rather than one plus a redirect, contrary to the comment at the top of
+`manifest.js`. Both render the same view, and only one is ever linked, so
+nothing surfaces twice — it is untidy, not a defect.)
+
 ## Still open
 
-- **The mobile tree toolbar is one ~1,600px scroller** (~15 controls across
-  roughly four viewport widths). Everything is reachable by swiping, but there
-  is no grouping and no affordance. Worth splitting into a compact toolbar plus
-  an overflow menu.
-- **The command palette lists duplicates** — `/marriages` and `/marriage-list`
-  are separate manifest entries pointing at the same view, so "Marriage list"
-  appears twice. Same for facts/facts-list and anniversaries/anniversary-list.
 - **16 routes have no drawer entry.** Most are aliases; the genuinely
   nav-less ones (`lists`, `chart-split`, `reference-numbering`,
   `custom-validation`) are reachable only through the Actions page or the
