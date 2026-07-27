@@ -6,6 +6,7 @@
  * can preserve the same application-level commands and record shapes.
  */
 import Dexie from 'dexie';
+import { emitRecordChanges } from './data/recordEvents.js';
 import { compareStrings, matchesSearchText, startsWithSearchText } from './i18n.js';
 import { refToRecordName } from './recordRef.js';
 import {
@@ -153,6 +154,7 @@ export class LocalDatabase {
     const db = await this.open();
     record.modified = { timestamp: Date.now() };
     await db[STORE_RECORDS].put(record);
+    emitRecordChanges(new Set([record.recordType]));
     return record;
   }
 
@@ -167,6 +169,7 @@ export class LocalDatabase {
     await db.transaction('rw', db[STORE_RECORDS], async () => {
       await db[STORE_RECORDS].bulkPut(next);
     });
+    emitRecordChanges(new Set(records.map((record) => record.recordType)));
     return records;
   }
 
@@ -185,12 +188,15 @@ export class LocalDatabase {
       if (assetsToSave.length) await db[STORE_ASSETS].bulkPut(assetsToSave);
       if (deleteAssetIds.length) await db[STORE_ASSETS].bulkDelete(deleteAssetIds.filter(Boolean));
     });
+    // Deletions are by name only, so the affected types aren't knowable here.
+    emitRecordChanges(deleteRecordNames.length ? '*' : new Set(saveRecords.filter(Boolean).map((record) => record.recordType)));
   }
 
   /** Delete a record by recordName. */
   async deleteRecord(recordName) {
     const db = await this.open();
     await db[STORE_RECORDS].delete(recordName);
+    emitRecordChanges('*');
   }
 
   // -- Bulk Import --
@@ -223,6 +229,7 @@ export class LocalDatabase {
       }
     });
 
+    emitRecordChanges('*');
     return records.length;
   }
 
@@ -234,6 +241,7 @@ export class LocalDatabase {
       await db[STORE_META].clear();
       await db[STORE_ASSETS].clear();
     });
+    emitRecordChanges('*');
   }
 
   // -- Assets --
