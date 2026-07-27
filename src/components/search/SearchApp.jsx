@@ -478,9 +478,9 @@ export function SearchApp() {
         </section>
       )}
 
-      <main style={main}>
+      <div style={main}>
         <SearchResults entityType={entityType} result={result} />
-      </main>
+      </div>
     </div>
   );
 }

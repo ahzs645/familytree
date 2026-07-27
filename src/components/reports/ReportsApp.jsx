@@ -868,11 +868,11 @@ export function ReportsApp() {
           </div>
         </aside>
 
-        <main style={main}>
+        <div style={main}>
           {reportLoading && <div style={statusText}>{t('reports.generating', { label: selectedBuilderLabel })}</div>}
           {generationError && <div style={errorText}>{generationError}</div>}
           <ReportPreview report={displayReport} />
-        </main>
+        </div>
       </div>
     </div>
   );

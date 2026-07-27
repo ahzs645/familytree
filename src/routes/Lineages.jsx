@@ -81,7 +81,7 @@ export default function Lineages() {
           </button>
         ))}
       </aside>
-      <main className="overflow-auto p-5">
+      <div className="overflow-auto p-5">
         <div className="max-w-4xl">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-xl font-bold">{activeId ? 'Edit lineage' : 'New lineage'}</h2>
@@ -103,7 +103,7 @@ export default function Lineages() {
             </div>
           </section>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

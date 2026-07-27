@@ -80,3 +80,16 @@ describe('i18n helpers', () => {
     expect(sorted).toEqual(expect.arrayContaining(names));
   });
 });
+
+describe('message catalog coverage', () => {
+  it('flags locales that are selectable but have no UI catalog', async () => {
+    const { hasMessageCatalog } = await import('./translate.js');
+    expect(hasMessageCatalog('en')).toBe(true);
+    expect(hasMessageCatalog('ar')).toBe(true);
+    expect(hasMessageCatalog('ar-IQ')).toBe(true);
+    // vi is a supported locale for dates/relationships/reports but ships no
+    // vi.json, so the picker must mark it rather than silently show English.
+    expect(hasMessageCatalog('vi')).toBe(false);
+    expect(SUPPORTED_LOCALES.some((l) => l.value === 'vi')).toBe(true);
+  });
+});

@@ -168,7 +168,7 @@ export default function LdsOrdinances() {
           <h1 className="text-base font-semibold">{t('ldsOrdinances.title')}</h1>
           <span className="ms-auto">{newButton}</span>
         </header>
-        <main className="flex-1 flex items-center justify-center p-8">
+        <div className="flex-1 flex items-center justify-center p-8">
           <div className="max-w-xl text-center">
             <h2 className="text-lg font-semibold mb-2">{t('ldsOrdinances.noSchemaTitle')}</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">{t('ldsOrdinances.noSchemaBody')}</p>
@@ -176,7 +176,7 @@ export default function LdsOrdinances() {
               {t('ldsOrdinances.bootstrapHint', { defaultValue: 'Or add the first ordinance record to start tracking them here.' })}
             </p>
           </div>
-        </main>
+        </div>
       </div>
     );
   }

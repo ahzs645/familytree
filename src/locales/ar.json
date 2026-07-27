@@ -1637,7 +1637,8 @@
     }
   },
   "settings": {
-    "language": "اللغة"
+    "language": "اللغة",
+    "englishInterface": "واجهة إنجليزية"
   },
   "onboarding": {
     "eyebrow": "ابدأ شجرة عائلة جديدة",

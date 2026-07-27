@@ -662,7 +662,7 @@ export default function FamilySearch() {
         </section>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
-          <main className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-lg border border-border bg-card overflow-hidden">
             <div className="px-4 py-3 border-b border-border text-sm font-semibold">
               {hasPanePersonRows ? (
                 <>
@@ -752,7 +752,7 @@ export default function FamilySearch() {
                 </div>
               </div>
             )}
-          </main>
+          </div>
 
           <aside className="space-y-5">
             <section className="rounded-lg border border-border bg-card p-4">

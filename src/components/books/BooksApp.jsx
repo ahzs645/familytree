@@ -449,7 +449,7 @@ export function BooksApp() {
             </select>
           </div>
         </aside>
-        <main ref={previewRef} style={main} className="min-h-[60vh] overflow-visible border-t border-border sm:min-h-0 sm:overflow-auto sm:border-t-0">
+        <div ref={previewRef} style={main} className="min-h-[60vh] overflow-visible border-t border-border sm:min-h-0 sm:overflow-auto sm:border-t-0">
           {(status || progress) && (
             <div style={statusBar}>
               <span>{progress?.message || status}</span>
@@ -457,7 +457,7 @@ export function BooksApp() {
             </div>
           )}
           <ReportPreview report={compiled} />
-        </main>
+        </div>
       </div>
       {issueSheet && (
         <BookHasErrorsSheet

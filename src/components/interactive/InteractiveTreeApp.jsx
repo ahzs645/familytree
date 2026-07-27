@@ -195,7 +195,7 @@ export function InteractiveTreeApp() {
   const onAddRelative = useCallback(({ relation, anchorId, partnerId }) => {
     if (!anchorId) {
       // No anchor → empty-tree "Add First Person" or generic new flow.
-      navigate('/person/new');
+      navigate('/person/new', { state: { intent: 'create' } });
       return;
     }
     const isExisting = relation?.startsWith?.('existing');

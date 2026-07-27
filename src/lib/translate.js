@@ -4,6 +4,16 @@ import { DEFAULT_LOCALIZATION, languageCode, resolveLocalization } from './i18n.
 
 export const MESSAGE_CATALOGS = { en, ar };
 
+/**
+ * Language codes with a UI message catalog. SUPPORTED_LOCALES is deliberately
+ * wider — `vi` gets Vietnamese dates, relationship labels, and the Gia phả
+ * report without a catalog — so anything selectable but absent here shows a
+ * translated interface only for the parts that are data-driven.
+ */
+export function hasMessageCatalog(locale) {
+  return Object.prototype.hasOwnProperty.call(MESSAGE_CATALOGS, languageCode(locale || ''));
+}
+
 export function catalogForLocale(locale) {
   const lang = languageCode(locale || DEFAULT_LOCALIZATION.locale);
   return MESSAGE_CATALOGS[lang] || MESSAGE_CATALOGS.en;

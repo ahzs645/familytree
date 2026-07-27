@@ -124,7 +124,7 @@ export function FamilySearchSourceFoldersSheet({ open, onClose }) {
               );
             })}
           </aside>
-          <main className="min-h-0 overflow-auto p-3">
+          <div className="min-h-0 overflow-auto p-3">
             <div className="text-xs text-muted-foreground uppercase tracking-wide mb-2">Sources</div>
             {sources.length === 0 && <div className="text-sm text-muted-foreground">No sources in this tree.</div>}
             <ul className="space-y-1">
@@ -157,7 +157,7 @@ export function FamilySearchSourceFoldersSheet({ open, onClose }) {
                 );
               })}
             </ul>
-          </main>
+          </div>
         </div>
     </Panel>
   );

@@ -4,9 +4,12 @@
  * On mobile (<768px) collapses to single pane; selecting an item pushes detail.
  */
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 
-export function MasterDetailList({ items, activeId, onPick, renderRow, placeholder = 'Search…', detail, detailHeader = null, emptyTitle, emptyHint, selection = null, bulkBar = null }) {
+export function MasterDetailList({ items, activeId, onPick, renderRow, placeholder, detail, detailHeader = null, emptyTitle, emptyHint, selection = null, bulkBar = null }) {
+  const { t } = useTranslation();
+  const searchLabel = placeholder ?? t('common.search');
   const [query, setQuery] = useState('');
   const [mobileView, setMobileView] = useState('list');
   const isMobile = useIsMobile();
@@ -34,9 +37,11 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
         <aside style={isMobile ? mobileFullPane : left}>
           <div style={{ padding: 10, borderBottom: '1px solid hsl(var(--border))' }}>
             <input
+              type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={placeholder}
+              placeholder={searchLabel}
+              aria-label={searchLabel}
               style={search}
             />
             <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginTop: 6 }}>
@@ -59,6 +64,13 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
             ) : (
               filtered.map((it) => {
                 const itemId = it.recordName || it.id;
+                // Name the row checkbox after the row's own rendered content.
+                // renderRow is caller-supplied and each caller derives its
+                // display name differently (placeSummary, sourceSummary, …), so
+                // pointing at the rendered node is both simpler and more
+                // accurate than guessing at field names — and it stays correct
+                // when a caller changes what it renders.
+                const rowLabelId = `mdl-row-${String(itemId).replace(/[^\w-]/g, '_')}`;
                 return (
                   <div
                     key={itemId}
@@ -85,10 +97,11 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
                         checked={selection.isSelected(itemId)}
                         onClick={(event) => event.stopPropagation()}
                         onChange={(event) => selection.toggle(itemId, { range: event.nativeEvent?.shiftKey })}
+                        aria-labelledby={rowLabelId}
                         style={{ marginTop: 3, flexShrink: 0 }}
                       />
                     ) : null}
-                    <div style={selection ? { minWidth: 0, flex: 1 } : undefined}>{renderRow(it)}</div>
+                    <div id={rowLabelId} style={selection ? { minWidth: 0, flex: 1 } : undefined}>{renderRow(it)}</div>
                   </div>
                 );
               })
@@ -97,7 +110,7 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
         </aside>
       )}
       {showDetail && (
-        <main style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {isMobile && (
             <div style={mobileBackBar}>
               <button type="button" onClick={() => setMobileView('list')} style={backButton}>
@@ -109,7 +122,7 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
               stays put while the detail body scrolls underneath it. */}
           {detailHeader && <div style={{ flexShrink: 0 }}>{detailHeader}</div>}
           <div style={{ flex: 1, overflow: 'auto' }}>{detail}</div>
-        </main>
+        </div>
       )}
     </div>
   );

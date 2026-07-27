@@ -1577,7 +1577,8 @@
     }
   },
   "settings": {
-    "language": "Language"
+    "language": "Language",
+    "englishInterface": "English interface"
   },
   "onboarding": {
     "eyebrow": "Start a new family tree",

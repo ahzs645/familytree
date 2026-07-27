@@ -509,7 +509,7 @@ export default function PersonEditor() {
       </header>
       <EditorSectionNavBar />
 
-      <main className="flex-1 overflow-auto bg-background">
+      <div className="flex-1 overflow-auto bg-background">
         <div className="max-w-6xl mx-auto p-5">
 
           {context && (
@@ -864,7 +864,7 @@ export default function PersonEditor() {
           )}
 
         </div>
-      </main>
+      </div>
     </div>
     {sourceTarget && (
       <SourcePickerSheet

@@ -95,7 +95,7 @@ export default function CustomValidationSchemas() {
           </button>
         ))}
       </aside>
-      <main className="overflow-auto p-5">
+      <div className="overflow-auto p-5">
         <div className="max-w-5xl">
           <div className="flex items-center gap-2 mb-4">
             <h2 className="text-xl font-bold">{activeId ? 'Edit rule' : 'New rule'}</h2>
@@ -124,7 +124,7 @@ export default function CustomValidationSchemas() {
             ))}
           </section>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

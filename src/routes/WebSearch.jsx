@@ -123,7 +123,7 @@ export default function WebSearch() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5">
-          <main className="space-y-5">
+          <div className="space-y-5">
             <section className="rounded-lg border border-border bg-card p-5">
               <h2 className="text-base font-semibold mb-4">Search Parameters</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -163,7 +163,7 @@ export default function WebSearch() {
               </div>
               <button onClick={insertIntoPerson} disabled={!insertValue.trim()} className={`${primaryButton} mt-4`}>Insert</button>
             </section>
-          </main>
+          </div>
 
           <aside className="rounded-lg border border-border bg-card p-5 h-fit">
             <h2 className="text-base font-semibold mb-3">{selected?.fullName || 'Selected Person'}</h2>

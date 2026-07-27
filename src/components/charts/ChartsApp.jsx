@@ -1648,7 +1648,7 @@ export function ChartsApp() {
       <ChartSelectionProvider openPerson={openPersonInPanel}>
       <ChartContentProvider content={chartContent} photosById={chartPhotos}>
       <div style={canvasRowStyle}>
-      <main style={mainStyle}>
+      <div style={mainStyle}>
         {chartType === 'ancestor' && (
           <AncestorChart
             chartCanvasRef={chartCanvasRef}
@@ -2056,7 +2056,7 @@ export function ChartsApp() {
             </div>
           </div>
         )}
-      </main>
+      </div>
         {personBrowserOpen && (
           <ChartPersonBrowser
             persons={chartPersonBrowserRows}
