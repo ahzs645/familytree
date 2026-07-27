@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Sheet } from '../ui/Sheet.jsx';
+import { Button } from '../ui/Button.jsx';
 import { getAppDataClient } from '../../lib/data/AppDataClient.js';
 import { sourceSummary } from '../../models/index.js';
 import { BdiText } from '../BdiText.jsx';
@@ -142,14 +143,14 @@ export function SourcePickerSheet({ target, onClose, onLinked, onManageAll }) {
           dir="auto"
           className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
         />
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="md"
           onClick={createAndLink}
           disabled={busy || !newTitle.trim()}
-          className="rounded-md bg-primary text-primary-foreground px-3 py-2 text-xs font-semibold disabled:opacity-50"
         >
           Create &amp; cite
-        </button>
+        </Button>
       </div>
     </Sheet>
   );

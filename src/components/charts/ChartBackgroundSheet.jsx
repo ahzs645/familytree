@@ -6,6 +6,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Panel } from '../ui/Panel.jsx';
+import { Button } from '../ui/Button.jsx';
 
 const BG_TYPES = [
   { id: 'none', label: 'None' },
@@ -144,9 +145,9 @@ export function ChartBackgroundSheet({ open, value, onApply, onClose }) {
         </div>
         <footer className="px-5 py-3 border-t border-border flex gap-2 justify-end">
           <button onClick={() => onApply('')} className="text-sm border border-border bg-secondary rounded-md px-3 py-1.5">Clear</button>
-          <button onClick={() => onApply(serializeBackgroundSpec(spec))} className="text-sm bg-primary text-primary-foreground rounded-md px-3 py-1.5">
+          <Button variant="primary" size="md" onClick={() => onApply(serializeBackgroundSpec(spec))}>
             Apply
-          </button>
+          </Button>
         </footer>
     </Panel>
   );

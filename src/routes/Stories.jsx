@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Button } from '../components/ui/Button.jsx';
 import { generateId } from '../lib/ids.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
 import { createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
@@ -160,7 +161,7 @@ export default function Stories() {
         <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
         <button onClick={onDelete} disabled={isRecordLocked(active)} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">{t('stories.delete')}</button>
-        <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? t('stories.saving') : t('stories.save')}</button>
+        <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">{saving ? t('stories.saving') : t('stories.save')}</Button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldRow label={t('stories.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} className={formClasses.input} /></FieldRow>
@@ -231,7 +232,7 @@ export default function Stories() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">{t('stories.title')}</h1>
         <span className="text-xs text-muted-foreground">{stories.length}</span>
-        <button onClick={onCreate} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">{t('stories.newButton')}</button>
+        <Button variant="primary" size="sm" onClick={onCreate} className="ms-auto">{t('stories.newButton')}</Button>
       </header>
       <div className="flex-1 min-h-0">
         <MasterDetailList items={stories} activeId={activeId} onPick={setActiveId} renderRow={(s) => <div className="text-sm">{storyTitle(s, t('stories.fallbackTitle'))}</div>} placeholder={t('stories.searchPlaceholder')} detail={detail} emptyTitle={t('stories.emptyTitle')} emptyHint={t('stories.emptyHint')} />

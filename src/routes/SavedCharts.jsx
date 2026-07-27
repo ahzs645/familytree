@@ -4,6 +4,7 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '../components/ui/Button.jsx';
 import { listChartTemplates, deleteChartTemplate, saveChartTemplate, newTemplateId } from '../lib/chartTemplates.js';
 import { listChartDocuments, deleteChartDocument } from '../lib/chartDocuments.js';
 import { useRecords } from '../lib/data/useRecords.js';
@@ -134,10 +135,9 @@ export default function SavedCharts() {
                     {doc.savedAt && ` · saved ${new Date(doc.savedAt).toLocaleDateString()}`}
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => navigate(`/charts?document=${doc.id}`)}
-                      className="flex-1 bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">
+                    <Button variant="primary" size="sm" onClick={() => navigate(`/charts?document=${doc.id}`)} className="flex-1">
                       Open
-                    </button>
+                    </Button>
                     <button onClick={() => onDeleteDocument(doc.id)}
                       className="border border-border text-destructive rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">
                       ×
@@ -167,10 +167,9 @@ export default function SavedCharts() {
                   {t.savedAt && ` · saved ${new Date(t.savedAt).toLocaleDateString()}`}
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => navigate(`/charts?type=${t.chartType}&template=${t.id}`)}
-                    className="flex-1 bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">
+                  <Button variant="primary" size="sm" onClick={() => navigate(`/charts?type=${t.chartType}&template=${t.id}`)} className="flex-1">
                     Open
-                  </button>
+                  </Button>
                   <button onClick={() => onDuplicate(t)}
                     className="border border-border bg-secondary text-foreground rounded-md px-3 py-1.5 text-xs">
                     Copy
@@ -196,10 +195,9 @@ export default function SavedCharts() {
                     {view.fields?.author?.value || 'MacFamilyTree import'}
                     {' · '}{importedLayoutStatus(view)}
                   </div>
-                  <button onClick={() => navigate(`/charts?imported=${encodeURIComponent(view.recordName)}`)}
-                    className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">
+                  <Button variant="primary" size="sm" onClick={() => navigate(`/charts?imported=${encodeURIComponent(view.recordName)}`)}>
                     Open Web Chart
-                  </button>
+                  </Button>
                 </div>
               ))}
             </div>

@@ -6,6 +6,7 @@
  * persisted) so users never lose data to a silent upgrade.
  */
 import React, { useEffect, useState } from 'react';
+import { Button } from './ui/Button.jsx';
 import {
   DATASET_SCHEMA_VERSION,
   describeMigrationPlan,
@@ -116,13 +117,14 @@ export function SchemaMigrationSheet() {
           >
             Migrate without backup
           </button>
-          <button
+          <Button
+            variant="primary"
+            size="md"
             onClick={onBackupThenMigrate}
-            className="text-sm bg-primary text-primary-foreground rounded-md px-3 py-1.5"
             disabled={busy}
           >
             {busy ? 'Working…' : 'Backup then migrate'}
-          </button>
+          </Button>
         </footer>
       </div>
     </div>

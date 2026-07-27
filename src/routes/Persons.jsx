@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SlidersHorizontal, UserPlus } from 'lucide-react';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
+import { buttonClasses } from '../components/ui/Button.jsx';
 import { PersonList } from '../components/interactive/PersonList.jsx';
 import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
 import { compareStrings, formatInteger, getCurrentLocalization } from '../lib/i18n.js';
@@ -427,7 +428,7 @@ export default function Persons() {
                 <button onClick={openTree} className="bg-secondary text-foreground border border-border rounded-md px-3 py-2 text-xs">
                   {t('persons.openTree')}
                 </button>
-                <Link to={`/person/${active.id}`} className="bg-primary text-primary-foreground rounded-md px-3 py-2 text-xs font-semibold">
+                <Link to={`/person/${active.id}`} className={buttonClasses({ variant: 'primary', size: 'md', className: 'text-xs' })}>
                   {t('persons.editor')}
                 </Link>
               </div>

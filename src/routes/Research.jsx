@@ -3,6 +3,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '../components/ui/Button.jsx';
 import { generateResearchSuggestions } from '../lib/researchSuggestions.js';
 import { generateId } from '../lib/ids.js';
 import { getAppDataClient } from '../lib/data/AppDataClient.js';
@@ -189,14 +190,14 @@ export default function Research() {
                 className="w-full min-h-20 bg-background border border-border rounded-md p-2 text-sm"
               />
               <div className="flex justify-end mt-2">
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="sm"
                   onClick={addJournalEntry}
                   disabled={!journalDraft.trim()}
-                  className="text-xs bg-primary text-primary-foreground rounded-md px-3 py-1.5 font-semibold disabled:opacity-60"
                 >
                   {t('research.addLogEntry')}
-                </button>
+                </Button>
               </div>
             </div>
             {journal.length === 0 ? (

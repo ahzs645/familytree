@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '../ui/Button.jsx';
 import { getAppDataClient } from '../../lib/data/AppDataClient.js';
 import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../../lib/changeLog.js';
 import { createWithChangeLog, deleteWithChangeLog } from '../../lib/recordWrite.js';
@@ -783,9 +784,9 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
       )}
       <div className="flex gap-2">
         <button onClick={() => setNotes((items) => [...items, { title: '', text: '' }])} className={primaryButtonClass}>Stage note</button>
-        <button onClick={saveNotes} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-60">
+        <Button variant="primary" size="sm" onClick={saveNotes} disabled={saving}>
           {saving ? 'Saving...' : 'Save notes'}
-        </button>
+        </Button>
       </div>
     </div>
   );

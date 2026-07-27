@@ -11,6 +11,7 @@
  *   const name = await modal.prompt('Rename:', existing);
  */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { buttonClasses } from '../components/ui/Button.jsx';
 
 const ModalContext = createContext(null);
 
@@ -192,9 +193,7 @@ function ModalView({ modal, onClose }) {
   const okLabel = modal.okLabel || (modal.kind === 'confirm' ? 'Continue' : 'OK');
   const cancelLabel = modal.cancelLabel || 'Cancel';
 
-  const okClass = modal.destructive
-    ? 'text-sm bg-destructive text-destructive-foreground rounded-md px-3 py-1.5'
-    : 'text-sm bg-primary text-primary-foreground rounded-md px-3 py-1.5';
+  const okClass = buttonClasses({ variant: modal.destructive ? 'destructive' : 'primary', size: 'md' });
 
   return (
     <div

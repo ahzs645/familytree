@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Sheet } from './ui/Sheet.jsx';
+import { Button } from './ui/Button.jsx';
 
 /**
  * ImageEditingSheet — modal canvas-based editor for a single image.
@@ -121,7 +122,7 @@ export function ImageEditingSheet({ src, onApply, onCancel, title = 'Edit image'
       footer={(
         <>
           <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
-          <button type="button" onClick={apply} disabled={!ready} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50">Apply</button>
+          <Button variant="primary" size="sm" onClick={apply} disabled={!ready}>Apply</Button>
         </>
       )}
     >

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sheet } from './ui/Sheet.jsx';
+import { Button } from './ui/Button.jsx';
 
 /**
  * FreeformPlaceLookupSheet — add a place manually without geocoding.
@@ -67,7 +68,7 @@ export function FreeformPlaceLookupSheet({ initial = {}, onApply, onCancel, titl
       footer={(
         <>
           <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
-          <button type="button" onClick={apply} disabled={!draft.name && !draft.locality && !draft.country} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90 disabled:opacity-50">Save place</button>
+          <Button variant="primary" size="sm" onClick={apply} disabled={!draft.name && !draft.locality && !draft.country}>Save place</Button>
         </>
       )}
     >

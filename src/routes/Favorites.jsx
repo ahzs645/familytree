@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { buttonClasses } from '../components/ui/Button.jsx';
 import { getAppPreferences, saveAppPreferences } from '../lib/appPreferences.js';
 import { APP_FUNCTIONS, functionByRoute } from '../lib/functionCatalog.js';
 import { useRecords } from '../lib/data/useRecords.js';
@@ -158,5 +159,5 @@ export default function Favorites() {
 }
 
 const inputClass = 'rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary';
-const primaryButton = 'rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold disabled:opacity-60';
+const primaryButton = buttonClasses({ variant: 'primary', size: 'sm' });
 const secondaryButton = 'rounded-md border border-border bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-60';

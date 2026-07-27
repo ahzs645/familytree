@@ -17,6 +17,7 @@ import { startBackupScheduler } from './lib/backup.js';
 import { getAppPreferences, applyDocumentAppearance, APP_PREFERENCES_EVENT } from './lib/appPreferences.js';
 import { useObjectDeepLink } from './lib/deepLinks.js';
 import { getShareTokenFromHash } from './lib/shareRoute.js';
+import { buttonClasses } from './components/ui/Button.jsx';
 import { SchemaMigrationSheet } from './components/SchemaMigrationSheet.jsx';
 import { RemoteDatasetProvider } from './components/RemoteDatasetLoader.jsx';
 import { ROUTE_MANIFEST, SHARE_PREVIEW_ROUTE, memoLazy } from './routes/manifest.js';
@@ -41,7 +42,7 @@ function NotFound() {
       </p>
       <Link
         to="/"
-        className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90"
+        className={buttonClasses({ variant: 'primary', size: 'md', className: 'gap-2' })}
       >
         {t('app.notFound.home')}
       </Link>

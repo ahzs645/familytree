@@ -14,6 +14,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Sheet } from './ui/Sheet.jsx';
+import { Button } from './ui/Button.jsx';
 import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { generateId } from '../lib/ids.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
@@ -118,14 +119,15 @@ export function PlaceConvertToDetailSheet({ placeRecordName, onClose, onConverte
       footer={(
         <>
           <button type="button" onClick={onClose} disabled={running} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             onClick={run}
             disabled={running || !parentId || !detailName.trim()}
-            className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-60"
+            className="ms-auto"
           >
             {running ? 'Converting…' : 'Convert'}
-          </button>
+          </Button>
         </>
       )}
     >

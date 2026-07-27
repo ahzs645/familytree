@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Button } from '../components/ui/Button.jsx';
 import { readRef } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
@@ -77,9 +78,9 @@ export default function DNAResults() {
         <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
         <button onClick={onDelete} disabled={isRecordLocked(active)} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
-        <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">
           {saving ? 'Saving...' : 'Save'}
-        </button>
+        </Button>
       </div>
 
       <section className="border border-border rounded-md bg-card p-3 mb-4">
@@ -176,7 +177,7 @@ export default function DNAResults() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">DNA Results</h1>
         <span className="text-xs text-muted-foreground">{results.length}</span>
-        <button onClick={onCreate} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        <Button variant="primary" size="sm" onClick={onCreate} className="ms-auto">+ New</Button>
       </header>
       <div className="flex-1 min-h-0">
         <MasterDetailList

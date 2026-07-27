@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Button } from '../components/ui/Button.jsx';
 import { buildSeedImportPlan, IRAQI_TRIBES_SEED } from '../lib/arabicTribesDataPackage.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
 import { applyValuesToRecord, createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
@@ -253,14 +254,15 @@ export default function TribalAffiliations() {
         {!active.virtual && (
           <button onClick={onDelete} disabled={isRecordLocked(activeRecord)} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
         )}
-        <button
+        <Button
+          variant="primary"
+          size="md"
           onClick={onSave}
           disabled={active.virtual ? saving : (saving || isRecordLocked(activeRecord) || !dirty)}
           title="Save (⌘/Ctrl+S)"
-          className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60"
         >
           {saving ? 'Saving...' : active.virtual ? 'Create & Save' : 'Save'}
-        </button>
+        </Button>
       </div>
 
       <section className="border border-border rounded-md bg-card p-3 mb-4">
@@ -368,7 +370,7 @@ export default function TribalAffiliations() {
         {status && <span className="text-xs text-emerald-500">{status}</span>}
         <div className="ms-auto flex flex-wrap items-center gap-2">
           <button onClick={importIraqiSeed} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Import Iraqi Seed</button>
-          <button onClick={onCreate} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+          <Button variant="primary" size="sm" onClick={onCreate}>+ New</Button>
         </div>
       </header>
       <div className="flex-1 min-h-0">

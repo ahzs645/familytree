@@ -7,6 +7,7 @@
 import React, { useState } from 'react';
 import { getFamilySearchConfig, readFamilySearchPerson } from '../lib/familySearchApi.js';
 import { Panel } from './ui/Panel.jsx';
+import { Button } from './ui/Button.jsx';
 
 export function FamilySearchBatchDownloadSheet({ open, onClose }) {
   const [rootId, setRootId] = useState('');
@@ -91,9 +92,9 @@ export function FamilySearchBatchDownloadSheet({ open, onClose }) {
         </div>
         <footer className="px-5 py-3 border-t border-border flex gap-2 justify-end">
           <button onClick={onClose} disabled={busy} className="text-sm border border-border bg-secondary rounded-md px-3 py-1.5">Close</button>
-          <button onClick={run} disabled={busy || !rootId} className="text-sm bg-primary text-primary-foreground rounded-md px-3 py-1.5">
+          <Button variant="primary" size="md" onClick={run} disabled={busy || !rootId}>
             {busy ? 'Running…' : 'Start'}
-          </button>
+          </Button>
         </footer>
     </Panel>
   );

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Sheet } from '../ui/Sheet.jsx';
+import { Button } from '../ui/Button.jsx';
 
 /**
  * BookHasErrorsSheet — modal listing a book's validation issues.
@@ -29,9 +30,9 @@ export function BookHasErrorsSheet({ errors = [], warnings = [], onProceedAnyway
         <>
           <button type="button" onClick={onClose} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Close</button>
           {!hasErrors && warnings.length > 0 && onProceedAnyway && (
-            <button type="button" onClick={onProceedAnyway} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90">
+            <Button variant="primary" size="sm" onClick={onProceedAnyway}>
               Export anyway
-            </button>
+            </Button>
           )}
         </>
       )}

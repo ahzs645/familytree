@@ -12,6 +12,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '../components/ui/Button.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
@@ -152,14 +153,14 @@ export default function Welcome() {
                 >
                   {t('common.cancel', { defaultValue: 'Cancel' })}
                 </button>
-                <button
-                  type="button"
+                <Button
+                  variant="primary"
+                  size="md"
                   disabled={!canNext}
                   onClick={() => setStep(2)}
-                  className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium disabled:opacity-50 hover:opacity-90"
                 >
                   {t('onboarding.next', { defaultValue: 'Next' })}
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -235,15 +236,16 @@ export default function Welcome() {
                 >
                   {t('onboarding.back', { defaultValue: 'Back' })}
                 </button>
-                <button
+                <Button
+                  variant="primary"
+                  size="md"
                   type="submit"
                   disabled={!canSubmit || busy}
-                  className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium disabled:opacity-50 hover:opacity-90"
                 >
                   {busy
                     ? t('onboarding.creating', { defaultValue: 'Creating…' })
                     : t('onboarding.create', { defaultValue: 'Create family tree' })}
-                </button>
+                </Button>
               </div>
             </div>
           )}

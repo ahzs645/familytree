@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Sheet } from './ui/Sheet.jsx';
+import { Button } from './ui/Button.jsx';
 
 /**
  * PageSetupSheet — modal that edits a pageSetup block
@@ -73,7 +74,7 @@ export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, t
       footer={(
         <>
           <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
-          <button type="button" onClick={apply} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90">Apply</button>
+          <Button variant="primary" size="sm" onClick={apply}>Apply</Button>
         </>
       )}
     >

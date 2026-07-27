@@ -4,6 +4,7 @@
  */
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { buttonClasses } from '../components/ui/Button.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import {
   auditUnreadableDates,
@@ -52,7 +53,7 @@ function ResultList({ items, columns }) {
   );
 }
 
-const btnPrimary = 'bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold disabled:opacity-60';
+const btnPrimary = buttonClasses({ variant: 'primary', size: 'sm' });
 const btnSecondary = 'bg-secondary border border-border text-foreground rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-60';
 const inputClass = 'bg-background text-foreground border border-border rounded-md px-2 py-1 text-xs';
 

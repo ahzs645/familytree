@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Button } from '../components/ui/Button.jsx';
 import { generateId } from '../lib/ids.js';
 import { createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
 import { readField, writeRef } from '../lib/schema.js';
@@ -165,9 +166,9 @@ export default function LdsOrdinances() {
   }, [active, activeRecord, modal, setStatus, t]);
 
   const newButton = (
-    <button onClick={onCreate} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">
+    <Button variant="primary" size="sm" onClick={onCreate}>
       {t('ldsOrdinances.addNew', { defaultValue: '+ New ordinance' })}
-    </button>
+    </Button>
   );
 
   if (loading) return <div className="p-10 text-muted-foreground">{t('ldsOrdinances.loading')}</div>;
@@ -204,9 +205,9 @@ export default function LdsOrdinances() {
         <button onClick={onDelete} disabled={isRecordLocked(activeRecord)} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">
           {t('ldsOrdinances.delete', { defaultValue: 'Delete' })}
         </button>
-        <button onClick={onSave} disabled={saving || isRecordLocked(activeRecord) || !dirty} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(activeRecord) || !dirty} title="Save (⌘/Ctrl+S)">
           {saving ? t('ldsOrdinances.saving', { defaultValue: 'Saving…' }) : t('ldsOrdinances.save', { defaultValue: 'Save' })}
-        </button>
+        </Button>
       </div>
 
       <section className="border border-border rounded-md bg-card p-3">

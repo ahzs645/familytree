@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { buttonClasses } from '../components/ui/Button.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
@@ -7,7 +8,7 @@ import { importContactsFile } from '../lib/contactImport.js';
 import { clearBackupHistory } from '../lib/backup.js';
 import { clearTreeSnapshots } from '../lib/treeLibrary.js';
 
-const btn = 'bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-60';
+const btn = buttonClasses({ variant: 'primary', size: 'md' });
 const btnSecondary = 'bg-secondary border border-border text-foreground rounded-md px-4 py-2 text-sm hover:bg-accent disabled:opacity-60';
 
 const HELP_LINKS = {

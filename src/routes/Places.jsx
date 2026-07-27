@@ -8,6 +8,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { generateId } from '../lib/ids.js';
 import { formClasses } from '../components/ui/formClasses.js';
+import { Button } from '../components/ui/Button.jsx';
 import { saveWithChangeLog } from '../lib/changeLog.js';
 import { createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
@@ -545,9 +546,9 @@ export default function Places() {
         </h2>
         <SaveStatus status={status} dirty={dirty} />
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-        <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">
           {saving ? 'Saving…' : 'Save'}
-        </button>
+        </Button>
       </div>
       <EditorSectionNavBar />
     </div>
@@ -618,7 +619,7 @@ export default function Places() {
           </Field>
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
-          <button onClick={() => setShowNewPlaceSheet(true)} className="text-xs bg-primary text-primary-foreground rounded-md px-2.5 py-1.5">+ New Place</button>
+          <Button variant="primary" size="sm" onClick={() => setShowNewPlaceSheet(true)}>+ New Place</Button>
           <button onClick={onLookupPlace} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Lookup Place</button>
           <button onClick={onLookupGeoName} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">GeoName ID</button>
           <button onClick={onBatchLookup} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title={`Quick lookup for up to ${Number(mapPrefs.batchLimit) || 10} places missing coordinates`}>Batch Missing</button>

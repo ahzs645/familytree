@@ -3,6 +3,7 @@
  */
 import React, { useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { buttonClasses } from '../components/ui/Button.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { listAllPersons, findStartPerson } from '../lib/treeQuery.js';
 import { downloadGedcom, downloadGedZip } from '../lib/gedcomExport.js';
@@ -40,7 +41,7 @@ function Card({ title, description, children }) {
   );
 }
 
-const btn = 'bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-60';
+const btn = buttonClasses({ variant: 'primary', size: 'md' });
 const btnSecondary = 'bg-secondary border border-border text-foreground rounded-md px-4 py-2 text-sm hover:bg-accent disabled:opacity-60';
 
 export default function Export() {
