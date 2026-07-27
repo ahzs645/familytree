@@ -9,7 +9,7 @@
  * Each candidate is { a, b, score, reasons[] } with score in [0..1].
  * Pairs with score >= threshold are returned.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { refToRecordName } from './recordRef.js';
 import { planReferenceRewrite, countReferencesTo } from './referenceGraph.js';
 import {
@@ -230,9 +230,9 @@ function findStructuralPersonCandidates(persons, context) {
 }
 
 export async function findDuplicatePersons(threshold = PERSON_THRESHOLD) {
-  const db = getLocalDatabase();
-  const all = typeof db.getAllRecords === 'function'
-    ? await db.getAllRecords()
+  const db = getAppDataClient().records;
+  const all = typeof db.all === 'function'
+    ? await db.all()
     : (await db.query('Person', { limit: 100000 })).records;
   return filterSkippedDuplicatePairs('Person', findDuplicatePersonCandidates(all, threshold));
 }
@@ -340,7 +340,7 @@ function isAncestorOf(ancestorId, descendantId, context, seen = new Set()) {
 }
 
 export async function findDuplicateFamilies() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Family', { limit: 100000 });
   const byPair = new Map();
   for (const r of records) {
@@ -369,7 +369,7 @@ export async function findDuplicateFamilies() {
 }
 
 export async function findDuplicateSources(threshold = SOURCE_THRESHOLD) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Source', { limit: 100000 });
   const blocks = new Map();
   for (const r of records) {
@@ -444,7 +444,7 @@ function findDuplicatePlaceCandidates(records = [], threshold = PLACE_THRESHOLD)
 }
 
 export async function findDuplicatePlaces(threshold = PLACE_THRESHOLD) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Place', { limit: 100000 });
   return filterSkippedDuplicatePairs('Place', findDuplicatePlaceCandidates(records, threshold));
 }
@@ -456,13 +456,13 @@ export function duplicatePairKey(kind, a, b) {
 }
 
 export async function getSkippedDuplicatePairs(kind = null) {
-  const stored = await getLocalDatabase().getMeta(SKIPPED_DUPLICATE_PAIRS_META);
+  const stored = await getAppDataClient().meta.get(SKIPPED_DUPLICATE_PAIRS_META);
   const list = Array.isArray(stored) ? stored : [];
   return kind ? list.filter((entry) => entry.kind === kind) : list;
 }
 
 export async function skipDuplicatePair(kind, a, b) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const list = await getSkippedDuplicatePairs();
   const key = duplicatePairKey(kind, a, b);
   if (list.some((entry) => entry.key === key)) return list;
@@ -475,18 +475,18 @@ export async function skipDuplicatePair(kind, a, b) {
       skippedAt: new Date().toISOString(),
     },
   ];
-  await db.setMeta(SKIPPED_DUPLICATE_PAIRS_META, next);
+  await db.set(SKIPPED_DUPLICATE_PAIRS_META, next);
   return next;
 }
 
 export async function clearSkippedDuplicatePairs(kind = null) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   if (!kind) {
-    await db.setMeta(SKIPPED_DUPLICATE_PAIRS_META, []);
+    await db.set(SKIPPED_DUPLICATE_PAIRS_META, []);
     return [];
   }
   const next = (await getSkippedDuplicatePairs()).filter((entry) => entry.kind !== kind);
-  await db.setMeta(SKIPPED_DUPLICATE_PAIRS_META, next);
+  await db.set(SKIPPED_DUPLICATE_PAIRS_META, next);
   return next;
 }
 
@@ -496,18 +496,10 @@ async function filterSkippedDuplicatePairs(kind, pairs) {
   return pairs.filter((pair) => !skippedKeys.has(duplicatePairKey(kind, pair.a, pair.b)));
 }
 
-/**
- * Merge record `source` into `target`: for each field missing on target,
- * copy from source; then delete source. Does NOT rewire references (caller
- * should handle relinking ChildRelations / Family refs etc. if needed).
- */
-export async function mergeRecords(targetName, sourceName) {
-  return mergeRecordsSafely(targetName, sourceName);
-}
 
 export async function previewMergeRecords(targetName, sourceName) {
-  const db = getLocalDatabase();
-  const all = await db.getAllRecords();
+  const db = getAppDataClient().records;
+  const all = await db.all();
   const source = all.find((r) => r.recordName === sourceName);
   if (!source) throw new Error('Record not found for merge preview');
   const rewrite = planReferenceRewrite(all, sourceName, targetName, source.recordType);
@@ -523,8 +515,8 @@ export async function previewMergeRecords(targetName, sourceName) {
 }
 
 export async function mergeRecordsSafely(targetName, sourceName, options = {}) {
-  const db = getLocalDatabase();
-  const all = await db.getAllRecords();
+  const { records: db, assets } = getAppDataClient();
+  const all = await db.all();
   const target = all.find((r) => r.recordName === targetName);
   const source = all.find((r) => r.recordName === sourceName);
   if (!target || !source) throw new Error('Record not found for merge');
@@ -546,7 +538,7 @@ export async function mergeRecordsSafely(targetName, sourceName, options = {}) {
     });
     lineageRecords.push(lineageBatch);
   }
-  const sourceAssets = await db.listAssetsForRecord(sourceName);
+  const sourceAssets = await assets.listForRecord(sourceName);
   const movedAssets = sourceAssets.map((asset) => ({ ...asset, ownerRecordName: targetName }));
   const saveByName = new Map(rewrite.saveRecords.map((r) => [r.recordName, r]));
   if (lineageBatch) {
@@ -593,7 +585,7 @@ export async function mergeRecordsSafely(targetName, sourceName, options = {}) {
   saveByName.set(mergedRecord.recordName, mergedRecord);
   const deleteRecordNames = [sourceName, ...rewrite.deleteRecordNames.filter((name) => name !== targetName)];
 
-  await db.applyRecordTransaction({
+  await db.transaction({
     saveRecords: [...saveByName.values(), ...lineageRecords],
     deleteRecordNames,
     saveAssets: movedAssets,

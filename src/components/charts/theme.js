@@ -2,7 +2,7 @@
  * Chart theme — colors, sizes, and node-rendering knobs shared by every chart type.
  *
  * Themes are plain objects so they can be saved per chart-template (see saved chart
- * templates feature). Pass a partial override to `mergeTheme(base, override)`.
+ * templates feature).
  */
 
 // Gender values follow src/models/constants.js: Male=0, Female=1, UnknownGender=2, Intersex=3
@@ -28,7 +28,7 @@ export const DEFAULT_THEME = {
   },
 };
 
-export const LIGHT_THEME = {
+const LIGHT_THEME = {
   ...DEFAULT_THEME,
   id: 'default-light',
   name: 'Default (Light)',
@@ -46,7 +46,7 @@ export const LIGHT_THEME = {
   },
 };
 
-export const SEPIA_THEME = {
+const SEPIA_THEME = {
   ...DEFAULT_THEME,
   id: 'sepia',
   name: 'Sepia',
@@ -66,7 +66,7 @@ export const SEPIA_THEME = {
 
 // Synthetic "auto" theme that tracks the app's light/dark toggle at resolution time.
 // Callers should resolve via getTheme(id) at render time so a toggle re-applies.
-export const AUTO_THEME = {
+const AUTO_THEME = {
   id: 'auto',
   name: 'Auto (follow app)',
 };
@@ -93,7 +93,7 @@ function namedStyle(id, name, palette) {
   };
 }
 
-export const NAMED_STYLES = [
+const NAMED_STYLES = [
   namedStyle('ocean', 'Ocean', { background: '#eef6fb', connector: '#4b86a8', text: '#0e2a3a', textMuted: '#4d6b7a', placeholderFill: '#f4fafe', placeholderStroke: '#bcd6e6', male: ['#d4e8f6', '#3f78a0'], female: ['#d2f0ec', '#319287'], neutral: ['#e3eef4', '#7a98a8'] }),
   namedStyle('forest', 'Forest', { background: '#eef6ee', connector: '#5a8a52', text: '#16301a', textMuted: '#4d6b48', placeholderFill: '#f4fbf3', placeholderStroke: '#c4ddbf', male: ['#d8ecd2', '#4f8a52'], female: ['#e6e7c5', '#8a8a32'], neutral: ['#e3efe0', '#7a987a'] }),
   namedStyle('slate', 'Slate', { background: '#f1f3f5', connector: '#64748b', text: '#1f2733', textMuted: '#5b6675', placeholderFill: '#f8fafc', placeholderStroke: '#cbd5e1', male: ['#dbe2ea', '#566173'], female: ['#e6dde8', '#7a6688'], neutral: ['#e3e7ec', '#7e8794'] }),
@@ -122,9 +122,4 @@ export function getTheme(id, appIsDark) {
     return dark ? DEFAULT_THEME : LIGHT_THEME;
   }
   return THEMES.find((t) => t.id === id) || DEFAULT_THEME;
-}
-
-export function mergeTheme(base, override) {
-  if (!override) return base;
-  return { ...base, ...override, gender: { ...base.gender, ...(override.gender || {}) } };
 }

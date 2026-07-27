@@ -7,16 +7,14 @@ export const GEN_STEP = 270;
 // look, which a flat coplanar board can't produce. Descendants (gen > 0) lift
 // toward the camera, ancestors (gen < 0) recede; root stays at 0. Applied to
 // bands, figures, and connectors together so each generation moves as a slab.
-export const GENERATION_DEPTH_STEP = 18;
+const GENERATION_DEPTH_STEP = 18;
 export function generationDepthZ(generation) {
   return (Number(generation) || 0) * GENERATION_DEPTH_STEP;
 }
 export const NODE_SPACING = 240;
 export const PARTNER_OFFSET = 178;
-export const AVATAR_RADIUS = 46;
 export const ROOT_CARD = { w: 230, h: 230 };
 export const SKIN = '#f4d3a5';
-export const SKIN_SHADOW = '#dcae7a';
 export const BAND_LABEL_GUTTER = 310;
 export const REFERENCE_MODEL_BASE = `${import.meta.env.BASE_URL}mft-models/`;
 export const VIEWER_OPTIONS_STORAGE_KEY = 'cloudtreeweb:interactive-tree-viewer-options';
@@ -169,8 +167,6 @@ export const CONNECTION_COLOR_MODES = [
   { id: 'customColor', label: 'Custom Color' },
 ];
 
-export const DEFAULT_CONNECTION_CUSTOM_COLOR = '#7b5af6';
-
 // Native: _ChildSortingMode_*.
 export const CHILD_SORTING_MODES = [
   { id: 'byBirthAsc', label: 'By Birth Date, Ascending' },
@@ -230,7 +226,6 @@ export const GENERATION_DIRECTIONS = [
 // Brother/Sister Generations: how many generations away from the focused person
 // still show collateral siblings. 4 ≈ the current native-style default.
 export const MAX_SIBLING_GENERATIONS = 6;
-export const DEFAULT_SIBLING_GENERATIONS = 4;
 
 // Scale Ancestors/Descendants at Generation: the generation at which person
 // figures begin shrinking (0 = never). Mirrors the native minification start.

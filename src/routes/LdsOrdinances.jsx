@@ -1,8 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { generateId } from '../lib/ids.js';
-import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../lib/changeLog.js';
+import { createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
 import { readField, writeRef } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import {
@@ -15,6 +14,10 @@ import { FieldRow } from '../components/editors/FieldRow.jsx';
 import { formClasses } from '../components/ui/formClasses.js';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { SaveStatus } from '../components/editors/SaveStatus.jsx';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useRecordEditor } from '../components/editors/useRecordEditor.js';
+import { useRecords } from '../lib/data/useRecords.js';
+import { subscribeRecordChanges } from '../lib/data/recordEvents.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
@@ -38,54 +41,88 @@ export default function LdsOrdinances() {
   const { t } = useTranslation();
   const modal = useModal();
   const [result, setResult] = useState(EMPTY_RESULT);
-  const [persons, setPersons] = useState([]);
-  const [activeId, setActiveId] = useState(null);
-  const [values, setValues] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pickedId, setPickedId] = useState(null);
+  const scanSeq = useRef(0);
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const [next, personRows] = await Promise.all([
-      loadLdsOrdinanceRows(),
-      db.query('Person', { limit: 100000 }),
-    ]);
+  // The ordinance list is a cross-type scan (dedicated ordinance records plus
+  // read-only rows found on Person/Family records), so it can't ride the
+  // per-type useRecords cache; refresh it from the same change events instead.
+  const reloadRows = useCallback(async () => {
+    const seq = ++scanSeq.current;
+    const next = await loadLdsOrdinanceRows();
+    if (seq !== scanSeq.current) return;
     setResult(next);
-    setPersons(personRows.records.sort((a, b) => personLabel(a).localeCompare(personLabel(b))));
-    setActiveId((current) => (current && next.rows.some((row) => row.id === current) ? current : next.rows[0]?.id || null));
     setLoading(false);
   }, []);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    reloadRows();
+    return subscribeRecordChanges(() => { reloadRows(); });
+  }, [reloadRows]);
 
-  const active = useMemo(() => result.rows.find((row) => row.id === activeId) || null, [result.rows, activeId]);
+  // The scan owns row selection: drop deleted rows, select the first initially.
+  useEffect(() => {
+    setPickedId((current) => (current && result.rows.some((row) => row.id === current) ? current : result.rows[0]?.id || null));
+  }, [result.rows]);
+
+  const active = useMemo(() => result.rows.find((row) => row.id === pickedId) || null, [result.rows, pickedId]);
 
   // Seed the editor from the persisted record so the ordinance field shows the
-  // raw stored value (the list label is humanized) and edits round-trip cleanly.
-  useEffect(() => {
-    if (!active || !active.editable) {
-      setValues({});
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const record = await getLocalDatabase().getRecord(active.id);
-      if (cancelled) return;
-      const keys = active.fieldKeys;
-      setValues({
-        ordinance: active.ordinanceIsConclusion ? active.ordinance : readField(record, keys.ordinance, ''),
-        date: readField(record, keys.date, ''),
-        status: readField(record, keys.status, ''),
-        temple: readField(record, keys.temple, ''),
-        owner: active.ownerType === 'Person' ? (active.ownerId || '') : '',
-      });
-    })();
-    return () => { cancelled = true; };
+  // raw stored value (the list label is humanized) and edits round-trip cleanly
+  // through the row's own field aliases.
+  const toValues = useCallback((record) => {
+    const keys = active?.fieldKeys || LDS_ORDINANCE_KEY_MAP;
+    return {
+      ordinance: active?.ordinanceIsConclusion ? active.ordinance : readField(record, [keys.ordinance], ''),
+      date: readField(record, [keys.date], ''),
+      status: readField(record, [keys.status], ''),
+      temple: readField(record, [keys.temple], ''),
+      owner: active?.ownerType === 'Person' ? (active.ownerId || '') : '',
+    };
   }, [active]);
 
+  const applyValues = useCallback((record, nextValues) => {
+    const keys = active?.fieldKeys || LDS_ORDINANCE_KEY_MAP;
+    const next = { ...record, fields: { ...record.fields } };
+    const setOrDelete = (key, value) => {
+      const trimmed = typeof value === 'string' ? value.trim() : value;
+      if (trimmed) next.fields[key] = { value: trimmed, type: 'STRING' };
+      else delete next.fields[key];
+    };
+    if (!active?.ordinanceIsConclusion) setOrDelete(keys.ordinance, nextValues.ordinance);
+    setOrDelete(keys.date, nextValues.date);
+    setOrDelete(keys.status, nextValues.status);
+    setOrDelete(keys.temple, nextValues.temple);
+    if (nextValues.owner) next.fields[keys.owner] = writeRef(nextValues.owner, 'Person');
+    else delete next.fields[keys.owner];
+    return next;
+  }, [active]);
+
+  // Editable rows can live on any dedicated ordinance record type, so the hook
+  // is keyed to the active row's type; the scan-owned selection is mirrored in.
+  const {
+    active: activeRecord, setActiveId, values, setValues,
+    dirty, saving, status, setStatus, flashStatus, onSave: saveActive, onToggleLock,
+  } = useRecordEditor({
+    recordType: active?.editable ? active.recordType : null,
+    noun: 'ordinance',
+    idPrefix: 'lds',
+    toValues,
+    applyValues,
+    selectFirst: false,
+    savedMessage: t('ldsOrdinances.saved', { defaultValue: 'Saved' }),
+  });
+
+  useEffect(() => { setActiveId(pickedId); }, [pickedId, setActiveId]);
+
+  const { records: personRecords } = useRecords('Person');
+  const persons = useMemo(
+    () => [...personRecords].sort((a, b) => personLabel(a).localeCompare(personLabel(b))),
+    [personRecords],
+  );
+
   const onCreate = useCallback(async () => {
-    const db = getLocalDatabase();
     const record = {
       recordName: generateId('lds'),
       recordType: LDS_ORDINANCE_RECORD_TYPE,
@@ -94,48 +131,24 @@ export default function LdsOrdinances() {
         [LDS_ORDINANCE_KEY_MAP.status]: { value: 'Submitted', type: 'STRING' },
       },
     };
-    await db.saveRecord(record);
-    await logRecordCreated(record);
-    await reload();
-    setActiveId(record.recordName);
-  }, [reload]);
+    await createWithChangeLog(record);
+    await reloadRows();
+    setPickedId(record.recordName);
+  }, [reloadRows]);
 
   const onSave = useCallback(async () => {
-    if (!active || !active.editable) return;
-    const db = getLocalDatabase();
-    const record = await db.getRecord(active.id);
-    if (!record) return;
-    if (isRecordLocked(record)) {
+    if (!activeRecord) return;
+    if (isRecordLocked(activeRecord)) {
       setStatus(t('ldsOrdinances.unlockSave', { defaultValue: 'Unlock this record before saving.' }));
       return;
     }
-    setSaving(true);
-    const keys = active.fieldKeys;
-    const next = { ...record, fields: { ...record.fields } };
-    const setOrDelete = (key, value) => {
-      const trimmed = typeof value === 'string' ? value.trim() : value;
-      if (trimmed) next.fields[key] = { value: trimmed, type: 'STRING' };
-      else delete next.fields[key];
-    };
-    if (!active.ordinanceIsConclusion) setOrDelete(keys.ordinance, values.ordinance);
-    setOrDelete(keys.date, values.date);
-    setOrDelete(keys.status, values.status);
-    setOrDelete(keys.temple, values.temple);
-    if (values.owner) next.fields[keys.owner] = writeRef(values.owner, 'Person');
-    else delete next.fields[keys.owner];
-    await saveWithChangeLog(next);
-    await reload();
-    setSaving(false);
-    setStatus(t('ldsOrdinances.saved', { defaultValue: 'Saved' }));
-    setTimeout(() => setStatus(null), 1500);
-  }, [active, values, reload, t]);
+    await saveActive();
+    flashStatus(t('ldsOrdinances.saved', { defaultValue: 'Saved' }));
+  }, [activeRecord, saveActive, setStatus, flashStatus, t]);
 
   const onDelete = useCallback(async () => {
-    if (!active || !active.editable) return;
-    const db = getLocalDatabase();
-    const record = await db.getRecord(active.id);
-    if (!record) return;
-    if (isRecordLocked(record)) {
+    if (!active?.editable || !activeRecord) return;
+    if (isRecordLocked(activeRecord)) {
       setStatus(t('ldsOrdinances.unlockDelete', { defaultValue: 'Unlock this record before deleting.' }));
       return;
     }
@@ -148,11 +161,8 @@ export default function LdsOrdinances() {
       },
     );
     if (!confirmed) return;
-    await db.deleteRecord(active.id);
-    await logRecordDeleted(active.id, record.recordType);
-    setActiveId(null);
-    await reload();
-  }, [active, modal, reload, t]);
+    await deleteWithChangeLog(active.id, active.recordType);
+  }, [active, activeRecord, modal, setStatus, t]);
 
   const newButton = (
     <button onClick={onCreate} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">
@@ -189,11 +199,12 @@ export default function LdsOrdinances() {
     <div className="p-5 max-w-3xl">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-semibold truncate">{active.ordinance || t('ldsOrdinances.ordinance')}</h2>
-        <span className="ms-auto"><SaveStatus status={status} dirty={false} /></span>
-        <button onClick={onDelete} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">
+        <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
+        <RecordLockButton record={activeRecord} saving={saving} onToggle={onToggleLock} />
+        <button onClick={onDelete} disabled={isRecordLocked(activeRecord)} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">
           {t('ldsOrdinances.delete', { defaultValue: 'Delete' })}
         </button>
-        <button onClick={onSave} disabled={saving} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <button onClick={onSave} disabled={saving || isRecordLocked(activeRecord) || !dirty} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
           {saving ? t('ldsOrdinances.saving', { defaultValue: 'Saving…' }) : t('ldsOrdinances.save', { defaultValue: 'Save' })}
         </button>
       </div>
@@ -282,8 +293,8 @@ export default function LdsOrdinances() {
       <div className="flex-1 min-h-0">
         <MasterDetailList
           items={result.rows}
-          activeId={activeId}
-          onPick={setActiveId}
+          activeId={pickedId}
+          onPick={setPickedId}
           renderRow={(row) => (
             <div>
               <div className="text-sm text-foreground truncate">{row.ordinance || t('ldsOrdinances.ordinance')}</div>

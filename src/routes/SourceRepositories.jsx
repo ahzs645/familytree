@@ -1,8 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
-import { generateId } from '../lib/ids.js';
-import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../lib/changeLog.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
 import { readRef } from '../lib/schema.js';
 import { sourceSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
@@ -10,11 +8,11 @@ import { FieldRow } from '../components/editors/FieldRow.jsx';
 import { formClasses } from '../components/ui/formClasses.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { useDirtyBaseline } from '../lib/editorState.js';
-import { useSaveShortcut } from '../lib/useSaveShortcut.js';
 import { SaveStatus } from '../components/editors/SaveStatus.jsx';
-import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useRecordEditor } from '../components/editors/useRecordEditor.js';
+import { useRecords } from '../lib/data/useRecords.js';
+import { deleteWithChangeLog } from '../lib/recordWrite.js';
 
 const REPOSITORY_FIELDS = [
   'name',
@@ -32,10 +30,6 @@ const REPOSITORY_FIELDS = [
   'note',
 ];
 
-function uuid(prefix) {
-  return generateId(prefix);
-}
-
 function repoName(record) {
   return record?.fields?.name?.value || record?.fields?.title?.value || record?.recordName || 'Repository';
 }
@@ -48,76 +42,31 @@ export default function SourceRepositories() {
   const modal = useModal();
   const [searchParams] = useSearchParams();
   const queryRepositoryId = searchParams.get('repositoryId');
-  const [repositories, setRepositories] = useState([]);
-  const [sources, setSources] = useState([]);
-  const [activeId, setActiveId] = useState(null);
-  const [values, setValues] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null);
-  const [loadSeq, setLoadSeq] = useState(0);
+  const {
+    rows: repositories, active, activeId, setActiveId, values, setValues,
+    dirty, saving, status, setStatus, onCreate, onSave, onToggleLock,
+  } = useRecordEditor({
+    recordType: 'SourceRepository',
+    noun: 'repository',
+    idPrefix: 'repo',
+    fields: REPOSITORY_FIELDS,
+    labelOf: repoName,
+    createValues: () => ({ name: 'New Repository' }),
+  });
+  const { records: sourceRecords } = useRecords('Source');
+  const sources = useMemo(
+    () => [...sourceRecords].sort((a, b) => sourceTitle(a).localeCompare(sourceTitle(b))),
+    [sourceRecords],
+  );
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const [repoRows, sourceRows] = await Promise.all([
-      db.query('SourceRepository', { limit: 100000 }),
-      db.query('Source', { limit: 100000 }),
-    ]);
-    const sorted = repoRows.records.sort((a, b) => repoName(a).localeCompare(repoName(b)));
-    setRepositories(sorted);
-    setSources(sourceRows.records.sort((a, b) => sourceTitle(a).localeCompare(sourceTitle(b))));
-    if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
-    setLoadSeq((n) => n + 1);
-  }, [activeId]);
-
-  useEffect(() => { reload(); }, [reload]);
   useEffect(() => {
     if (!queryRepositoryId || repositories.length === 0) return;
     if (repositories.some((repo) => repo.recordName === queryRepositoryId)) setActiveId(queryRepositoryId);
-  }, [queryRepositoryId, repositories]);
+  }, [queryRepositoryId, repositories, setActiveId]);
 
-  useEffect(() => {
-    const active = repositories.find((record) => record.recordName === activeId);
-    if (!active) return;
-    setValues(Object.fromEntries(REPOSITORY_FIELDS.map((field) => [field, active.fields?.[field]?.value || ''])));
-  }, [activeId, repositories]);
-
-  const active = repositories.find((record) => record.recordName === activeId);
   const linkedSources = useMemo(() => (
     sources.filter((source) => readRef(source.fields?.sourceRepository) === activeId)
   ), [activeId, sources]);
-
-  const onCreate = useCallback(async () => {
-    const db = getLocalDatabase();
-    const record = {
-      recordName: uuid('repo'),
-      recordType: 'SourceRepository',
-      fields: { name: { value: 'New Repository', type: 'STRING' } },
-    };
-    await db.saveRecord(record);
-    await logRecordCreated(record);
-    await reload();
-    setActiveId(record.recordName);
-  }, [reload]);
-
-  const onSave = useCallback(async () => {
-    if (!active) return;
-    if (isRecordLocked(active)) {
-      setStatus('Unlock this repository before saving.');
-      return;
-    }
-    setSaving(true);
-    const next = { ...active, fields: { ...active.fields } };
-    for (const field of REPOSITORY_FIELDS) {
-      const value = values[field];
-      if (value) next.fields[field] = { value, type: 'STRING' };
-      else delete next.fields[field];
-    }
-    await saveWithChangeLog(next);
-    await reload();
-    setSaving(false);
-    setStatus('Saved');
-    setTimeout(() => setStatus(null), 1500);
-  }, [active, values, reload]);
 
   const onDelete = useCallback(async () => {
     if (!active) return;
@@ -129,17 +78,13 @@ export default function SourceRepositories() {
       ? `Delete this repository and detach it from ${linkedSources.length} source record(s)?`
       : 'Delete this repository?';
     if (!(await modal.confirm(message, { title: 'Delete repository', okLabel: 'Delete', destructive: true }))) return;
-    const db = getLocalDatabase();
     for (const source of linkedSources) {
       const fields = { ...source.fields };
       delete fields.sourceRepository;
       await saveWithChangeLog({ ...source, fields });
     }
-    await db.deleteRecord(active.recordName);
-    await logRecordDeleted(active.recordName, 'SourceRepository');
-    setActiveId(null);
-    await reload();
-  }, [active, linkedSources, reload, modal]);
+    await deleteWithChangeLog(active.recordName, 'SourceRepository');
+  }, [active, linkedSources, modal, setStatus]);
 
   const renderRow = (record) => {
     const count = sources.filter((source) => readRef(source.fields?.sourceRepository) === record.recordName).length;
@@ -150,21 +95,6 @@ export default function SourceRepositories() {
       </div>
     );
   };
-
-  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  const dirty = useDirtyBaseline(editableSnapshot, {
-    recordKey: active?.recordName,
-    reloadKey: loadSeq,
-    enabled: !!active && !saving,
-  });
-  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && dirty });
-  const onToggleLock = useRecordLock({
-    record: active,
-    setRecord: (next) => setRepositories((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
-    setSaving,
-    setStatus,
-    reload,
-  });
 
   const detail = active ? (
     <div className="p-5 max-w-4xl">

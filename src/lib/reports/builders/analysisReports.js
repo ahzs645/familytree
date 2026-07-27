@@ -10,7 +10,7 @@ import { normalizeConclusionTypeId } from '../../catalogs.js';
 import { refToRecordName } from '../../recordRef.js';
 import {
   addTodayRow,
-  getLocalDatabase,
+  getAppDataClient,
   loadVisiblePersonIds,
   personSummary,
   placeSummary,
@@ -30,7 +30,7 @@ export async function buildPlausibilityReport() {
 }
 
 export async function buildStatusReport() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [persons, places, sources, media, todos] = await Promise.all([
     db.query('Person', { limit: 100000 }),
     db.query('Place', { limit: 100000 }),
@@ -85,7 +85,7 @@ export async function buildRichStatisticsReport() {
 }
 
 export async function buildTodayReport(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Person', { limit: 100000 });
   const forDate = options.forDate ? new Date(options.forDate) : new Date();
   const date = Number.isNaN(forDate.getTime()) ? new Date() : forDate;
@@ -123,7 +123,7 @@ const PERSON_ANALYSIS_FACT_CATEGORIES = [
 ];
 
 export async function buildPersonAnalysisReport(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const policy = reportPrivacyPolicy();
   const [personEvents, personFacts, labelRelations, labels, persons, visiblePersonIds] = await Promise.all([
     db.query('PersonEvent', { limit: 100000 }),
@@ -210,7 +210,7 @@ function addCountTable(report, title, columns, rows, key = 'name') {
 }
 
 export async function buildMapReport() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [places, coords] = await Promise.all([
     db.query('Place', { limit: 100000 }),
     db.query('Coordinate', { limit: 100000 }),

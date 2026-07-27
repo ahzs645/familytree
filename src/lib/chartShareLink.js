@@ -9,12 +9,11 @@
  * this payload into a read-only chart render without hitting IndexedDB.
  */
 import LZString from 'lz-string';
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { buildAncestorTree, buildDescendantTree } from './treeQuery.js';
 import { buildHashShareUrl } from './shareRoute.js';
 
 export const SHARE_PAYLOAD_VERSION = 1;
-export const SHARE_CODEC = 'lzstring';
 
 const BASE64_CHUNK_SIZE = 0x8000;
 
@@ -48,11 +47,11 @@ function decodeBase64Url(value) {
   return binaryToBytes(atob(base64));
 }
 
-export async function buildChartSharePayload(chartDoc, {
+async function buildChartSharePayload(chartDoc, {
   generationsUp = chartDoc?.builderConfig?.common?.generations ?? 5,
   generationsDown = chartDoc?.builderConfig?.common?.descendantGenerations ?? 3,
 } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const rootIds = [chartDoc?.roots?.primaryPersonId, chartDoc?.roots?.secondaryPersonId].filter(Boolean);
   if (rootIds.length === 0) throw new Error('Chart has no root person selected.');
 
@@ -61,12 +60,12 @@ export async function buildChartSharePayload(chartDoc, {
 
   const visitPerson = async (recordName, { depth = 0, direction = 'both' } = {}) => {
     if (!recordName || persons.has(recordName)) return;
-    const record = await db.getRecord(recordName);
+    const record = await db.get(recordName);
     if (!record || record.recordType !== 'Person') return;
     persons.set(recordName, true);
 
     if (direction !== 'down') {
-      const parents = await db.getPersonsParents(recordName);
+      const parents = await db.personsParents(recordName);
       for (const fam of parents || []) {
         if (fam?.family?.recordName) {
           families.set(fam.family.recordName, true);
@@ -78,7 +77,7 @@ export async function buildChartSharePayload(chartDoc, {
       }
     }
     if (direction !== 'up') {
-      const households = await db.getPersonsChildrenInformation(recordName);
+      const households = await db.childrenInformation(recordName);
       for (const fam of households || []) {
         if (fam?.family?.recordName) {
           families.set(fam.family.recordName, true);

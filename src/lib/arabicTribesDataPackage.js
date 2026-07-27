@@ -1,18 +1,6 @@
 import { readField } from './schema.js';
 import { makeAffiliationKey } from './tribalAffiliations.js';
 
-export const ARABIC_TRIBES_SOURCE_CATALOG = [
-  { id: 'nyu_aco001717' },
-  { id: 'columbia_aco002766' },
-  { id: 'princeton_aco002158' },
-  { id: 'princeton_aco002165' },
-  { id: 'princeton_aco002354' },
-  { id: 'columbia_aco000984' },
-  { id: 'cornell_aco000656' },
-  { id: 'aub_aco001670' },
-  { id: 'columbia_aco003356' },
-];
-
 export const IRAQI_TRIBES_SEED = [
   {
     id: 'iraq-tribe-shammar',
@@ -66,7 +54,7 @@ export const IRAQI_TRIBES_SEED = [
   },
 ];
 
-export function tribeDisplayName(record) {
+function tribeDisplayName(record) {
   const arabic = String(record?.arabicName || '').trim();
   const english = String(record?.englishName || '').trim();
   if (arabic && english) return `${arabic} / ${english}`;
@@ -122,7 +110,7 @@ export function createTribalSourcePageRecord(page) {
   };
 }
 
-export function createTribalAffiliationFromOcrEntity(entity, page) {
+function createTribalAffiliationFromOcrEntity(entity, page) {
   const arabicName = String(entity?.arabicName || '').trim();
   const englishName = String(entity?.englishName || '').trim();
   const level = entity?.type === 'house' ? 'house' : entity?.type === 'branch' ? 'branch' : entity?.type === 'clan' ? 'clan' : 'tribe';

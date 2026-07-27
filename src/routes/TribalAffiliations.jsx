@@ -1,12 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import React, { useEffect, useMemo, useState } from 'react';
 import { buildSeedImportPlan, IRAQI_TRIBES_SEED } from '../lib/arabicTribesDataPackage.js';
-import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../lib/changeLog.js';
-import { readField, writeRef } from '../lib/schema.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
+import { applyValuesToRecord, createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
+import { readField, readRef } from '../lib/schema.js';
 import {
   TRIBAL_AFFILIATION_LEVELS,
   TRIBAL_CONFIDENCE,
   affiliationConfidenceLabel,
+  affiliationLevel,
   affiliationLevelLabel,
   affiliationName,
   createAffiliationRecord,
@@ -18,50 +19,109 @@ import { FieldRow } from '../components/editors/FieldRow.jsx';
 import { formClasses } from '../components/ui/formClasses.js';
 import { SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
+import { isRecordLocked } from '../lib/recordLock.js';
+import { SaveStatus } from '../components/editors/SaveStatus.jsx';
+import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useRecordEditor } from '../components/editors/useRecordEditor.js';
+import { useRecords } from '../lib/data/useRecords.js';
+import { useModal } from '../contexts/ModalContext.jsx';
+
+const AFFILIATION_FIELDS = ['name', 'arabicName', 'englishName', 'level', 'confidence', 'notes', 'evidenceText'];
+const AFFILIATION_REF_FIELDS = { parentAffiliation: 'TribalAffiliation' };
+const EMPTY_MODEL = { affiliations: [], memberships: [], people: [] };
 
 function optionLabel(record) {
   if (!record) return '';
   return `${affiliationName(record)} (${affiliationLevelLabel(readField(record, ['level'], 'clan'))})`;
 }
 
+function toAffiliationValues(record) {
+  return {
+    name: affiliationName(record),
+    arabicName: readField(record, ['arabicName'], ''),
+    englishName: readField(record, ['englishName'], ''),
+    level: affiliationLevel(record),
+    parentAffiliation: readRef(record.fields?.parentAffiliation) || '',
+    confidence: readField(record, ['confidence'], 'unknown'),
+    notes: readField(record, ['notes', 'description'], ''),
+    evidenceText: readField(record, ['evidenceText'], ''),
+  };
+}
+
+// Mirrors the model's list ordering (level label, then name) for the hook's rows.
+function compareAffiliationRecords(a, b) {
+  return affiliationLevelLabel(affiliationLevel(a)).localeCompare(affiliationLevelLabel(affiliationLevel(b)))
+    || affiliationName(a).localeCompare(affiliationName(b));
+}
+
 export default function TribalAffiliations() {
-  const [model, setModel] = useState({ affiliations: [], memberships: [], people: [] });
-  const [activeId, setActiveId] = useState(null);
-  const [values, setValues] = useState({});
+  const modal = useModal();
+  const {
+    active: activeRecord, activeId, setActiveId, values, setValues,
+    dirty, saving, status, setStatus, flashStatus, onSave: onSaveRecord, onToggleLock,
+  } = useRecordEditor({
+    recordType: 'TribalAffiliation',
+    noun: 'tribal affiliation',
+    idPrefix: 'tribe',
+    fields: AFFILIATION_FIELDS,
+    refFields: AFFILIATION_REF_FIELDS,
+    labelOf: affiliationName,
+    sortRows: compareAffiliationRecords,
+    toValues: toAffiliationValues,
+  });
+  const { records: affiliationRecords } = useRecords('TribalAffiliation');
+  const { records: relationRecords } = useRecords('TribalAffiliationRelation');
+  const { records: factRecords } = useRecords('PersonFact');
+  const { records: personRecords } = useRecords('Person');
+  const [model, setModel] = useState(EMPTY_MODEL);
   const [personId, setPersonId] = useState('');
   const [memberDrafts, setMemberDrafts] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null);
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const next = await loadTribalAffiliationModel(db);
-    setModel(next);
-    if (!next.affiliations.some((item) => item.recordName === activeId)) {
-      setActiveId(next.affiliations[0]?.recordName || null);
-    }
-  }, [activeId]);
-
-  useEffect(() => { reload(); }, [reload]);
+  // The list mixes real records with affiliations derived from imported person
+  // facts, so rebuild the view model from the cached tables whenever they change.
+  // loadTribalAffiliationModel only issues `query` calls; feed it the caches.
+  useEffect(() => {
+    let cancelled = false;
+    const byType = {
+      TribalAffiliation: affiliationRecords,
+      TribalAffiliationRelation: relationRecords,
+      PersonFact: factRecords,
+      Person: personRecords,
+    };
+    loadTribalAffiliationModel({ query: async (type) => ({ records: byType[type] || [] }) })
+      .then((next) => { if (!cancelled) setModel(next); });
+    return () => { cancelled = true; };
+  }, [affiliationRecords, relationRecords, factRecords, personRecords]);
 
   const active = model.affiliations.find((item) => item.recordName === activeId);
   const realAffiliations = useMemo(() => model.affiliations.filter((item) => !item.virtual), [model.affiliations]);
   const members = useMemo(() => model.memberships.filter((item) => item.affiliationId === activeId), [model.memberships, activeId]);
 
+  // Keep the selection valid against the combined (real + derived) list — the
+  // hook only knows about real TribalAffiliation records.
   useEffect(() => {
-    if (!active) return;
+    if (model.affiliations.length === 0) return;
+    if (!activeId || !model.affiliations.some((item) => item.recordName === activeId)) {
+      setActiveId(model.affiliations[0].recordName);
+    }
+  }, [model.affiliations, activeId, setActiveId]);
+
+  // The hook seeds values for real records; derived (virtual) rows have no
+  // persisted record, so seed the editor from the view model instead.
+  useEffect(() => {
+    setPersonId('');
+    if (!active?.virtual) return;
     setValues({
       name: active.name || '',
       arabicName: active.arabicName || readField(active.record, ['arabicName'], ''),
       englishName: active.englishName || readField(active.record, ['englishName'], ''),
       level: active.level || 'clan',
-      parentId: active.parentId || '',
+      parentAffiliation: active.parentId || '',
       confidence: active.confidence || 'unknown',
       notes: active.notes || '',
       evidenceText: active.evidenceText || readField(active.record, ['evidenceText'], ''),
     });
-    setPersonId('');
-  }, [active]);
+  }, [active, setValues]);
 
   useEffect(() => {
     setMemberDrafts(Object.fromEntries(members.filter((member) => !member.virtual).map((member) => [
@@ -76,70 +136,67 @@ export default function TribalAffiliations() {
     ])));
   }, [members]);
 
-  const create = async () => {
-    const db = getLocalDatabase();
+  const onCreate = async () => {
     const record = createAffiliationRecord({ name: 'New affiliation', level: 'clan' });
-    await db.saveRecord(record);
-    await logRecordCreated(record);
-    await reload();
+    await createWithChangeLog(record);
     setActiveId(record.recordName);
   };
 
   const importIraqiSeed = async () => {
     const plan = buildSeedImportPlan(model.affiliations, IRAQI_TRIBES_SEED);
     if (plan.records.length === 0) {
-      setStatus('Iraqi seed already imported');
-      setTimeout(() => setStatus(null), 1800);
+      flashStatus('Iraqi seed already imported');
       return;
     }
-    const db = getLocalDatabase();
-    for (const record of plan.records) {
-      await db.saveRecord(record);
-      await logRecordCreated(record);
-    }
-    await reload();
+    for (const record of plan.records) await createWithChangeLog(record);
     setActiveId(plan.records[0].recordName);
-    setStatus(`Imported ${plan.records.length} Iraqi seed affiliations`);
-    setTimeout(() => setStatus(null), 2200);
+    flashStatus(`Imported ${plan.records.length} Iraqi seed affiliations`);
   };
 
   const materializeActive = async () => {
     if (!active?.virtual) return null;
-    const db = getLocalDatabase();
-    const record = createAffiliationRecord({
+    const base = createAffiliationRecord({
       name: active.name,
       level: active.level,
       confidence: active.confidence,
       notes: 'Created from imported person fact values.',
     });
-    await db.saveRecord(record);
-    await logRecordCreated(record);
-    await reload();
+    const record = applyValuesToRecord(
+      base,
+      { ...values, name: values.name || active.name },
+      { fields: AFFILIATION_FIELDS, refFields: AFFILIATION_REF_FIELDS },
+    );
+    await createWithChangeLog(record);
     setActiveId(record.recordName);
     return record;
   };
 
-  const save = async () => {
+  const onSave = async () => {
     if (!active) return;
-    setSaving(true);
-    let record = active.record;
     if (active.virtual) {
-      record = await materializeActive();
+      await materializeActive();
+      flashStatus('Saved');
+      return;
     }
-    if (!record) return;
-    const next = { ...record, fields: { ...record.fields } };
-    for (const key of ['name', 'arabicName', 'englishName', 'level', 'confidence', 'notes', 'evidenceText']) {
-      const value = values[key];
-      if (value) next.fields[key] = { value, type: 'STRING' };
-      else delete next.fields[key];
+    await onSaveRecord();
+  };
+
+  const onDelete = async () => {
+    if (!active || active.virtual || !activeRecord) return;
+    if (isRecordLocked(activeRecord)) {
+      setStatus('Unlock this tribal affiliation before deleting.');
+      return;
     }
-    if (values.parentId) next.fields.parentAffiliation = writeRef(values.parentId, 'TribalAffiliation');
-    else delete next.fields.parentAffiliation;
-    await saveWithChangeLog(next);
-    await reload();
-    setSaving(false);
-    setStatus('Saved');
-    setTimeout(() => setStatus(null), 1500);
+    const ok = await modal.confirm('Delete this tribal affiliation and its memberships?', {
+      title: 'Delete tribal affiliation',
+      okLabel: 'Delete',
+      destructive: true,
+    });
+    if (!ok) return;
+    for (const member of members) {
+      if (!member.virtual) await deleteWithChangeLog(member.relation.recordName, 'TribalAffiliationRelation');
+    }
+    await deleteWithChangeLog(activeRecord.recordName, 'TribalAffiliation');
   };
 
   const addMember = async () => {
@@ -150,12 +207,9 @@ export default function TribalAffiliations() {
       affiliationId = record?.recordName;
     }
     if (!affiliationId || members.some((member) => member.personId === personId)) return;
-    const db = getLocalDatabase();
     const relation = createAffiliationRelation({ affiliationId, personId, confidence: values.confidence || 'unknown' });
-    await db.saveRecord(relation);
-    await logRecordCreated(relation);
+    await createWithChangeLog(relation);
     setPersonId('');
-    await reload();
   };
 
   const saveMember = async (member) => {
@@ -167,15 +221,11 @@ export default function TribalAffiliations() {
       else delete fields[key];
     }
     await saveWithChangeLog({ ...member.relation, fields });
-    await reload();
   };
 
   const removeMember = async (member) => {
     if (member.virtual) return;
-    const db = getLocalDatabase();
-    await db.deleteRecord(member.relation.recordName);
-    await logRecordDeleted(member.relation.recordName, 'TribalAffiliationRelation');
-    await reload();
+    await deleteWithChangeLog(member.relation.recordName, 'TribalAffiliationRelation');
   };
 
   const renderRow = (item) => (
@@ -194,8 +244,21 @@ export default function TribalAffiliations() {
         <h2 className="text-base font-semibold">{active.name}</h2>
         <span className="text-xs text-muted-foreground">{affiliationLevelLabel(active.level)}</span>
         {active.virtual && <span className="text-xs rounded bg-secondary px-2 py-1">Derived from imported facts</span>}
-        {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
-        <button onClick={save} disabled={saving} className="ms-auto bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+        <span className="ms-auto">
+          {active.virtual
+            ? (status ? <span className="text-xs text-emerald-500">{status}</span> : null)
+            : <SaveStatus status={status} dirty={dirty} />}
+        </span>
+        {!active.virtual && <RecordLockButton record={activeRecord} saving={saving} onToggle={onToggleLock} />}
+        {!active.virtual && (
+          <button onClick={onDelete} disabled={isRecordLocked(activeRecord)} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
+        )}
+        <button
+          onClick={onSave}
+          disabled={active.virtual ? saving : (saving || isRecordLocked(activeRecord) || !dirty)}
+          title="Save (⌘/Ctrl+S)"
+          className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60"
+        >
           {saving ? 'Saving...' : active.virtual ? 'Create & Save' : 'Save'}
         </button>
       </div>
@@ -212,7 +275,7 @@ export default function TribalAffiliations() {
             </select>
           </FieldRow>
           <FieldRow label="Parent affiliation">
-            <select value={values.parentId || ''} onChange={(e) => setValues({ ...values, parentId: e.target.value })} className={formClasses.input}>
+            <select value={values.parentAffiliation || ''} onChange={(e) => setValues({ ...values, parentAffiliation: e.target.value })} className={formClasses.input}>
               <option value="">No parent</option>
               {realAffiliations.filter((item) => item.recordName !== active.recordName).map((item) => (
                 <option key={item.recordName} value={item.recordName}>{optionLabel(item.record)}</option>
@@ -291,7 +354,7 @@ export default function TribalAffiliations() {
       {!active.virtual && (
         <section className="border border-border rounded-md bg-card p-3">
           <h3 className="text-sm font-semibold mb-3">Sources</h3>
-          <SourceCitationsEditor ownerRecordName={active.recordName} ownerRecordType="TribalAffiliation" onChanged={reload} />
+          <SourceCitationsEditor ownerRecordName={active.recordName} ownerRecordType="TribalAffiliation" />
         </section>
       )}
     </div>
@@ -305,7 +368,7 @@ export default function TribalAffiliations() {
         {status && <span className="text-xs text-emerald-500">{status}</span>}
         <div className="ms-auto flex flex-wrap items-center gap-2">
           <button onClick={importIraqiSeed} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Import Iraqi Seed</button>
-          <button onClick={create} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+          <button onClick={onCreate} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
         </div>
       </header>
       <div className="flex-1 min-h-0">

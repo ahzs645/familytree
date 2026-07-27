@@ -1,9 +1,9 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { readField } from './schema.js';
 
 const META_KEY = 'familyTreeAuthorInfo';
 
-export const DEFAULT_AUTHOR_INFO = {
+const DEFAULT_AUTHOR_INFO = {
   treeName: '',
   subtitle: '',
   authorName: '',
@@ -23,26 +23,26 @@ export const DEFAULT_AUTHOR_INFO = {
 };
 
 export async function getAuthorInfo() {
-  const db = getLocalDatabase();
-  const saved = await db.getMeta(META_KEY);
+  const db = getAppDataClient().meta;
+  const saved = await db.get(META_KEY);
   if (saved) return normalizeAuthorInfo(saved);
   return normalizeAuthorInfo(await hydrateFromTreeInformation());
 }
 
 export async function saveAuthorInfo(info) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().meta;
   const normalized = normalizeAuthorInfo(info);
-  await db.setMeta(META_KEY, normalized);
+  await db.set(META_KEY, normalized);
   await saveTreeInformationRecord(normalized);
   return normalized;
 }
 
-export function normalizeAuthorInfo(info = {}) {
+function normalizeAuthorInfo(info = {}) {
   return { ...DEFAULT_AUTHOR_INFO, ...(info || {}) };
 }
 
 async function hydrateFromTreeInformation() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('FamilyTreeInformation', { limit: 100000 });
   const record = records[0];
   if (!record) return DEFAULT_AUTHOR_INFO;
@@ -67,7 +67,7 @@ async function hydrateFromTreeInformation() {
 }
 
 async function saveTreeInformationRecord(info) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('FamilyTreeInformation', { limit: 100000 });
   const record = records[0] || {
     recordName: 'treeinfo-local-author',
@@ -98,7 +98,7 @@ async function saveTreeInformationRecord(info) {
   for (const [key, value] of Object.entries(record.fields)) {
     if (!value?.value) delete record.fields[key];
   }
-  await db.saveRecord(record);
+  await db.save(record);
 }
 
 function field(value) {

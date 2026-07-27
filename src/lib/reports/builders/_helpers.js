@@ -6,7 +6,7 @@
  * IO in here, and no dependency on report AST shapes (that lives in
  * each builder).
  */
-import { getLocalDatabase } from '../../LocalDatabase.js';
+import { getAppDataClient } from '../../data/AppDataClient.js';
 import { readConclusionType, readField, readRef, refType } from '../../schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, genderLabel } from '../../../models/index.js';
 import { humanizeType } from '../../../utils/humanizeType.js';
@@ -72,12 +72,12 @@ export function relationNameAt(gen, path) {
 export async function eventOwnerLabel(db, eventRecord) {
   const personId = readRef(eventRecord.fields?.person);
   if (personId) {
-    const person = await db.getRecord(personId);
+    const person = await db.get(personId);
     return personSummary(person)?.fullName || personId;
   }
   const familyId = readRef(eventRecord.fields?.family);
   if (familyId) {
-    const family = await db.getRecord(familyId);
+    const family = await db.get(familyId);
     return familySummary(family)?.familyName || familyId;
   }
   return '';
@@ -85,12 +85,12 @@ export async function eventOwnerLabel(db, eventRecord) {
 
 export async function placeLabel(db, placeId) {
   if (!placeId) return '';
-  const place = await db.getRecord(placeId);
+  const place = await db.get(placeId);
   const summary = placeSummary(place);
   return summary?.displayName || summary?.name || placeId;
 }
 
-export function familyNameOf(summary) {
+function familyNameOf(summary) {
   return summary?.familyName || summary?.recordName || 'Family';
 }
 
@@ -162,7 +162,7 @@ export function appendTextParagraphs(report, text, fallback = '') {
 
 export async function storyRelationRow(db, relation, scope) {
   const targetId = readRef(relation.fields?.target);
-  const target = targetId ? await db.getRecord(targetId) : null;
+  const target = targetId ? await db.get(targetId) : null;
   const targetType = readField(relation, ['targetType'], target?.recordType || refType(relation.fields?.target) || 'Record');
   return [
     scope,
@@ -172,7 +172,7 @@ export async function storyRelationRow(db, relation, scope) {
   ];
 }
 
-export function targetTypeLabel(type) {
+function targetTypeLabel(type) {
   const labels = {
     Person: 'Person',
     Family: 'Family',
@@ -232,4 +232,4 @@ export function trimText(value, max) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
-export { getLocalDatabase, readField, readRef, refType, readConclusionType, personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, humanizeType };
+export { getAppDataClient, readField, readRef, refType, readConclusionType, personSummary, familySummary, placeSummary, sourceSummary, lifeSpanLabel, humanizeType };

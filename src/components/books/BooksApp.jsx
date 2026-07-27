@@ -2,7 +2,7 @@
  * BooksApp — compose a multi-section book, preview compiled output, save/load,
  * and export using the same report exporters.
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, BookOpen, FileDown, FileText, Printer, Save } from 'lucide-react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
@@ -20,7 +20,7 @@ import {
   validateBook,
   normalizeBookPresentationSettings,
 } from '../../lib/books.js';
-import { getLocalDatabase } from '../../lib/LocalDatabase.js';
+import { useRecords } from '../../lib/data/useRecords.js';
 import { readField } from '../../lib/schema.js';
 import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
 import { updatePageStyle } from '../../lib/presentationSettings.js';
@@ -69,8 +69,16 @@ export function BooksApp() {
   const modal = useModal();
   const { recordName: activePersonId, setActivePerson } = useActivePerson();
   const [persons, setPersons] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [sources, setSources] = useState([]);
+  const { records: groupRecords } = useRecords('PersonGroup');
+  const { records: sourceRecords } = useRecords('Source');
+  const groups = useMemo(() => groupRecords.map((group) => ({
+    recordName: group.recordName,
+    label: readField(group, ['name', 'title'], group.recordName),
+  })).sort((a, b) => compareStrings(a.label, b.label)), [groupRecords]);
+  const sources = useMemo(() => sourceRecords.map((source) => ({
+    recordName: source.recordName,
+    label: sourceSummary(source)?.title || source.recordName,
+  })).sort((a, b) => compareStrings(a.label, b.label)), [sourceRecords]);
   const [book, setBook] = useState(blankBook());
   const [compiled, setCompiled] = useState(null);
   const [savedBooks, setSavedBooks] = useState([]);
@@ -92,7 +100,6 @@ export function BooksApp() {
 
   useEffect(() => {
     (async () => {
-      const db = getLocalDatabase();
       const [list, startPerson, reports, charts] = await Promise.all([
         listAllPersons(),
         findStartPerson(),
@@ -107,18 +114,6 @@ export function BooksApp() {
         : startPerson?.recordName || list[0]?.recordName || null;
       if (initialPersonId) setActivePerson(initialPersonId);
       setSavedBooks(await listBooks());
-      const [groupRows, sourceRows] = await Promise.all([
-        db.query('PersonGroup', { limit: 100000 }),
-        db.query('Source', { limit: 100000 }),
-      ]);
-      setGroups(groupRows.records.map((group) => ({
-        recordName: group.recordName,
-        label: readField(group, ['name', 'title'], group.recordName),
-      })).sort((a, b) => compareStrings(a.label, b.label)));
-      setSources(sourceRows.records.map((source) => ({
-        recordName: source.recordName,
-        label: sourceSummary(source)?.title || source.recordName,
-      })).sort((a, b) => compareStrings(a.label, b.label)));
       setLoading(false);
       if (list.length === 0) setEmpty(true);
     })();

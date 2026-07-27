@@ -1,21 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
-import { generateId } from '../lib/ids.js';
-import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../lib/changeLog.js';
-import { readRef, writeRef } from '../lib/schema.js';
+import { readRef } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow } from '../components/editors/FieldRow.jsx';
 import { formClasses } from '../components/ui/formClasses.js';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
-import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { useDirtyBaseline } from '../lib/editorState.js';
-import { useSaveShortcut } from '../lib/useSaveShortcut.js';
 import { SaveStatus } from '../components/editors/SaveStatus.jsx';
-import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useRecordEditor } from '../components/editors/useRecordEditor.js';
+import { useRecords } from '../lib/data/useRecords.js';
 
 const TEST_TYPES = ['Autosomal', 'ATDNA', 'Y-DNA', 'MTDNA', 'mtDNA', 'X-DNA', 'Other'];
 const STATUS_VALUES = ['Ordered', 'Processing', 'Complete', 'Needs Review', 'Archived'];
@@ -24,10 +19,6 @@ const DNA_FIELDS = [
   'rawDataFileName', 'rawDataSource', 'centimorgans', 'segments', 'relationshipEstimate', 'mtdnaHVR1', 'mtdnaHVR2',
   'mtdnaCodingRegion', 'mtdnaSnpDifferences', 'ystrMarkerCount', 'ystrMarkers', 'terminalSNP',
 ];
-
-function uuid(prefix) {
-  return generateId(prefix);
-}
 
 function dnaLabel(record) {
   return record?.fields?.testName?.value || record?.fields?.lab?.value || record?.fields?.kitNumber?.value || record?.recordName || 'DNA result';
@@ -38,101 +29,32 @@ function personLabel(record) {
 }
 
 export default function DNAResults() {
-  const modal = useModal();
   const [searchParams] = useSearchParams();
   const queryDnaId = searchParams.get('dnaId');
-  const [results, setResults] = useState([]);
-  const [persons, setPersons] = useState([]);
-  const [activeId, setActiveId] = useState(null);
-  const [values, setValues] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null);
-  const [loadSeq, setLoadSeq] = useState(0);
+  const {
+    rows: results, active, activeId, setActiveId, values, setValues,
+    dirty, saving, status, onCreate, onSave, onDelete, onToggleLock,
+  } = useRecordEditor({
+    recordType: 'DNATestResult',
+    noun: 'DNA result',
+    idPrefix: 'dna',
+    fields: DNA_FIELDS,
+    refFields: { person: 'Person' },
+    labelOf: dnaLabel,
+    createValues: () => ({ testName: 'New DNA Test', testType: 'Autosomal', status: 'Complete' }),
+  });
+  const { records: personRecords } = useRecords('Person');
+  const persons = useMemo(
+    () => [...personRecords].sort((a, b) => personLabel(a).localeCompare(personLabel(b))),
+    [personRecords],
+  );
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const [resultRows, personRows] = await Promise.all([
-      db.query('DNATestResult', { limit: 100000 }),
-      db.query('Person', { limit: 100000 }),
-    ]);
-    const sortedResults = resultRows.records.sort((a, b) => dnaLabel(a).localeCompare(dnaLabel(b)));
-    const sortedPersons = personRows.records.sort((a, b) => personLabel(a).localeCompare(personLabel(b)));
-    setResults(sortedResults);
-    setPersons(sortedPersons);
-    if (!activeId && sortedResults.length > 0) setActiveId(sortedResults[0].recordName);
-    setLoadSeq((n) => n + 1);
-  }, [activeId]);
-
-  useEffect(() => { reload(); }, [reload]);
   useEffect(() => {
     if (!queryDnaId || results.length === 0) return;
     if (results.some((result) => result.recordName === queryDnaId)) setActiveId(queryDnaId);
-  }, [queryDnaId, results]);
+  }, [queryDnaId, results, setActiveId]);
 
-  useEffect(() => {
-    const active = results.find((record) => record.recordName === activeId);
-    if (!active) return;
-    setValues({
-      ...Object.fromEntries(DNA_FIELDS.map((field) => [field, active.fields?.[field]?.value || ''])),
-      person: readRef(active.fields?.person) || '',
-    });
-  }, [activeId, results]);
-
-  const active = results.find((record) => record.recordName === activeId);
   const personById = useMemo(() => new Map(persons.map((person) => [person.recordName, person])), [persons]);
-
-  const onCreate = useCallback(async () => {
-    const db = getLocalDatabase();
-    const record = {
-      recordName: uuid('dna'),
-      recordType: 'DNATestResult',
-      fields: {
-        testName: { value: 'New DNA Test', type: 'STRING' },
-        testType: { value: 'Autosomal', type: 'STRING' },
-        status: { value: 'Complete', type: 'STRING' },
-      },
-    };
-    await db.saveRecord(record);
-    await logRecordCreated(record);
-    await reload();
-    setActiveId(record.recordName);
-  }, [reload]);
-
-  const onSave = useCallback(async () => {
-    if (!active) return;
-    if (isRecordLocked(active)) {
-      setStatus('Unlock this DNA result before saving.');
-      return;
-    }
-    setSaving(true);
-    const next = { ...active, fields: { ...active.fields } };
-    for (const field of DNA_FIELDS) {
-      const value = values[field];
-      if (value) next.fields[field] = { value, type: 'STRING' };
-      else delete next.fields[field];
-    }
-    if (values.person) next.fields.person = writeRef(values.person, 'Person');
-    else delete next.fields.person;
-    await saveWithChangeLog(next);
-    await reload();
-    setSaving(false);
-    setStatus('Saved');
-    setTimeout(() => setStatus(null), 1500);
-  }, [active, reload, values]);
-
-  const onDelete = useCallback(async () => {
-    if (!active) return;
-    if (isRecordLocked(active)) {
-      setStatus('Unlock this DNA result before deleting.');
-      return;
-    }
-    if (!(await modal.confirm('Delete this DNA result?', { title: 'Delete DNA result', okLabel: 'Delete', destructive: true }))) return;
-    const db = getLocalDatabase();
-    await db.deleteRecord(active.recordName);
-    await logRecordDeleted(active.recordName, 'DNATestResult');
-    setActiveId(null);
-    await reload();
-  }, [active, reload, modal]);
 
   const renderRow = (record) => {
     const person = personById.get(readRef(record.fields?.person));
@@ -145,21 +67,6 @@ export default function DNAResults() {
       </div>
     );
   };
-
-  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  const dirty = useDirtyBaseline(editableSnapshot, {
-    recordKey: active?.recordName,
-    reloadKey: loadSeq,
-    enabled: !!active && !saving,
-  });
-  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && dirty });
-  const onToggleLock = useRecordLock({
-    record: active,
-    setRecord: (next) => setResults((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
-    setSaving,
-    setStatus,
-    reload,
-  });
 
   const activePerson = personById.get(values.person);
   const detailMode = dnaDetailMode(values.testType);

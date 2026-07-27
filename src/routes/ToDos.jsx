@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { generateId } from '../lib/ids.js';
-import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
+import { logRecordDeleted } from '../lib/changeLog.js';
 import { readRef, writeRef } from '../lib/schema.js';
+import { applyValuesToRecord, createWithChangeLog, deleteWithChangeLog, stringField } from '../lib/recordWrite.js';
 import { personSummary, sourceSummary, placeSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow } from '../components/editors/FieldRow.jsx';
@@ -14,15 +15,15 @@ import { useModal } from '../contexts/ModalContext.jsx';
 import { listCustomTypes, saveCustomType, mergeWithBuiltins, TODO_STATUS_BUILTINS, TODO_PRIORITY_BUILTINS } from '../lib/customTypes.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { useDirtyBaseline } from '../lib/editorState.js';
-import { useSaveShortcut } from '../lib/useSaveShortcut.js';
 import { SaveStatus } from '../components/editors/SaveStatus.jsx';
-import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useRecordEditor } from '../components/editors/useRecordEditor.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { useListSelection } from '../components/lists/useListSelection.js';
 import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
 
 const TARGET_TYPES = ['Person', 'Family', 'Source', 'Place', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
+const TODO_FIELDS = ['title', 'type', 'status', 'priority', 'dueDate'];
 const TODO_TYPE_BUILTINS = [
   { id: 'Research', label: 'Research' },
   { id: 'Verify', label: 'Verify' },
@@ -31,10 +32,6 @@ const TODO_TYPE_BUILTINS = [
   { id: 'Cleanup', label: 'Cleanup' },
 ];
 const COMPLETED_STATUSES = new Set(['done', 'completed', 'complete', 'closed']);
-
-function uuid(prefix) {
-  return generateId(prefix);
-}
 
 function todoTitle(record, fallback = 'ToDo') {
   return record?.fields?.title?.value || record?.fields?.name?.value || record?.recordName || fallback;
@@ -48,46 +45,76 @@ function targetLabel(record) {
   return record.fields?.title?.value || record.fields?.cached_familyName?.value || record.fields?.eventType?.value || record.recordName;
 }
 
+function toTodoValues(record) {
+  return {
+    title: record.fields?.title?.value || '',
+    type: record.fields?.type?.value || 'Research',
+    status: record.fields?.status?.value || 'Open',
+    priority: record.fields?.priority?.value || 'Normal',
+    dueDate: record.fields?.dueDate?.value || '',
+    description: record.fields?.description?.value || record.fields?.text?.value || '',
+  };
+}
+
+function applyTodoValues(record, values) {
+  const next = applyValuesToRecord(record, values, { fields: TODO_FIELDS });
+  const description = stringField(values.description);
+  if (description) {
+    next.fields.description = description;
+    next.fields.text = { ...description };
+  } else {
+    delete next.fields.description;
+    delete next.fields.text;
+  }
+  return next;
+}
+
 export default function ToDos() {
   const modal = useModal();
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const queryTodoId = searchParams.get('todoId');
-  const [todos, setTodos] = useState([]);
-  const [relations, setRelations] = useState([]);
-  const [targetsByType, setTargetsByType] = useState({});
-  const [activeId, setActiveId] = useState(null);
-  const [values, setValues] = useState({});
+  const {
+    rows: todos, active, activeId, setActiveId, values, setValues,
+    dirty, saving, status, setStatus, flashStatus, onCreate, onSave: saveTodo, onToggleLock,
+  } = useRecordEditor({
+    recordType: 'ToDo',
+    noun: 'ToDo',
+    idPrefix: 'todo',
+    fields: TODO_FIELDS,
+    labelOf: todoTitle,
+    createValues: () => ({ title: t('todosPage.newTitle'), type: 'Research', status: 'Open', priority: 'Normal' }),
+    toValues: toTodoValues,
+    applyValues: applyTodoValues,
+    savedMessage: t('todosPage.saved'),
+  });
+  const { records: relations } = useRecords('ToDoRelation');
   const [targetType, setTargetType] = useState('Person');
   const [targetId, setTargetId] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [todoTypes, setTodoTypes] = useState(TODO_TYPE_BUILTINS);
   const [todoStatuses, setTodoStatuses] = useState(TODO_STATUS_BUILTINS);
   const [todoPriorities, setTodoPriorities] = useState(TODO_PRIORITY_BUILTINS);
-  const [loadSeq, setLoadSeq] = useState(0);
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const [todoRows, relRows, ...targetRows] = await Promise.all([
-      db.query('ToDo', { limit: 100000 }),
-      db.query('ToDoRelation', { limit: 100000 }),
-      ...TARGET_TYPES.map((type) => db.query(type, { limit: 100000 })),
-    ]);
-    const sorted = todoRows.records.sort((a, b) => todoTitle(a).localeCompare(todoTitle(b)));
-    setTodos(sorted);
-    setRelations(relRows.records);
-    const nextTargets = {};
-    TARGET_TYPES.forEach((type, index) => {
-      nextTargets[type] = targetRows[index].records.sort((a, b) => targetLabel(a).localeCompare(targetLabel(b)));
-    });
-    setTargetsByType(nextTargets);
-    if (!sorted.some((record) => record.recordName === activeId)) setActiveId(sorted[0]?.recordName || null);
-    setLoadSeq((n) => n + 1);
-  }, [activeId]);
-
-  useEffect(() => { reload(); }, [reload]);
+  const targetRecords = {
+    Person: useRecords('Person').records,
+    Family: useRecords('Family').records,
+    Source: useRecords('Source').records,
+    Place: useRecords('Place').records,
+    PersonEvent: useRecords('PersonEvent').records,
+    FamilyEvent: useRecords('FamilyEvent').records,
+    MediaPicture: useRecords('MediaPicture').records,
+    MediaPDF: useRecords('MediaPDF').records,
+    MediaURL: useRecords('MediaURL').records,
+  };
+  const targetsByType = useMemo(() => {
+    const next = {};
+    for (const type of TARGET_TYPES) {
+      next[type] = [...targetRecords[type]].sort((a, b) => targetLabel(a).localeCompare(targetLabel(b)));
+    }
+    return next;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, TARGET_TYPES.map((type) => targetRecords[type]));
 
   const todoIds = useMemo(() => todos.map((todo) => todo.recordName), [todos]);
   const selection = useListSelection(todoIds);
@@ -95,8 +122,7 @@ export default function ToDos() {
   const bulkDeleteTodos = async (ids) => {
     const idSet = new Set(ids);
     const ownedRelations = relations.filter((relation) => idSet.has(readRef(relation.fields?.todo)));
-    const db = getLocalDatabase();
-    await db.applyRecordTransaction({
+    await getAppDataClient().records.transaction({
       deleteRecordNames: [...ids, ...ownedRelations.map((relation) => relation.recordName)],
     });
     for (const id of ids) await logRecordDeleted(id, 'ToDo');
@@ -105,7 +131,7 @@ export default function ToDos() {
   useEffect(() => {
     if (!queryTodoId || todos.length === 0) return;
     if (todos.some((todo) => todo.recordName === queryTodoId)) setActiveId(queryTodoId);
-  }, [queryTodoId, todos]);
+  }, [queryTodoId, todos, setActiveId]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -122,45 +148,18 @@ export default function ToDos() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    const todo = todos.find((r) => r.recordName === activeId);
-    if (!todo) return;
-    setValues({
-      title: todo.fields?.title?.value || '',
-      type: todo.fields?.type?.value || 'Research',
-      status: todo.fields?.status?.value || 'Open',
-      priority: todo.fields?.priority?.value || 'Normal',
-      dueDate: todo.fields?.dueDate?.value || '',
-      description: todo.fields?.description?.value || todo.fields?.text?.value || '',
-    });
-  }, [activeId, todos]);
-
-  const active = todos.find((r) => r.recordName === activeId);
   const activeRelations = useMemo(() => relations.filter((r) => readRef(r.fields?.todo) === activeId), [relations, activeId]);
 
-  const onCreate = async () => {
-    const db = getLocalDatabase();
-    const rec = {
-      recordName: uuid('todo'),
-      recordType: 'ToDo',
-      fields: {
-        title: { value: t('todosPage.newTitle'), type: 'STRING' },
-        type: { value: 'Research', type: 'STRING' },
-        status: { value: 'Open', type: 'STRING' },
-        priority: { value: 'Normal', type: 'STRING' },
-      },
-    };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
-    await reload();
-    setActiveId(rec.recordName);
-  };
+  const onSave = useCallback(async () => {
+    const savable = !!active && !isRecordLocked(active);
+    await saveTodo();
+    if (savable) flashStatus(t('todosPage.saved'));
+  }, [active, saveTodo, flashStatus, t]);
 
   const onDeleteCompleted = async () => {
     const completed = todos.filter((todo) => COMPLETED_STATUSES.has(String(todo.fields?.status?.value || '').toLowerCase()));
     if (completed.length === 0) {
-      setStatus(t('todosPage.noCompleted'));
-      setTimeout(() => setStatus(null), 1800);
+      flashStatus(t('todosPage.noCompleted'));
       return;
     }
     if (!(await modal.confirm(t('todosPage.deleteCompletedConfirm', { count: completed.length }), {
@@ -170,15 +169,11 @@ export default function ToDos() {
     }))) return;
     const completedIds = new Set(completed.map((todo) => todo.recordName));
     const completedRelations = relations.filter((relation) => completedIds.has(readRef(relation.fields?.todo)));
-    const db = getLocalDatabase();
-    await db.applyRecordTransaction({
+    await getAppDataClient().records.transaction({
       deleteRecordNames: [...completedIds, ...completedRelations.map((relation) => relation.recordName)],
     });
     for (const todo of completed) await logRecordDeleted(todo.recordName, 'ToDo');
-    setStatus(t('todosPage.deletedCompleted', { count: completed.length }));
-    if (completedIds.has(activeId)) setActiveId(null);
-    await reload();
-    setTimeout(() => setStatus(null), 1800);
+    flashStatus(t('todosPage.deletedCompleted', { count: completed.length }));
   };
 
   const onDelete = async () => {
@@ -188,39 +183,10 @@ export default function ToDos() {
       return;
     }
     if (!(await modal.confirm(t('todosPage.deleteConfirm'), { title: t('todosPage.deleteTitle'), okLabel: t('todosPage.deleteOk'), destructive: true }))) return;
-    const db = getLocalDatabase();
-    const deleteNames = [active.recordName, ...activeRelations.map((r) => r.recordName)];
-    await db.applyRecordTransaction({ deleteRecordNames: deleteNames });
+    await getAppDataClient().records.transaction({
+      deleteRecordNames: [active.recordName, ...activeRelations.map((r) => r.recordName)],
+    });
     await logRecordDeleted(active.recordName, 'ToDo');
-    setActiveId(null);
-    await reload();
-  };
-
-  const onSave = async () => {
-    if (!active) return;
-    if (isRecordLocked(active)) {
-      setStatus('Unlock this ToDo before saving.');
-      return;
-    }
-    setSaving(true);
-    const next = { ...active, fields: { ...active.fields } };
-    for (const key of ['title', 'type', 'status', 'priority', 'dueDate']) {
-      const value = values[key];
-      if (value) next.fields[key] = { value, type: 'STRING' };
-      else delete next.fields[key];
-    }
-    if (values.description) {
-      next.fields.description = { value: values.description, type: 'STRING' };
-      next.fields.text = { value: values.description, type: 'STRING' };
-    } else {
-      delete next.fields.description;
-      delete next.fields.text;
-    }
-    await saveWithChangeLog(next);
-    await reload();
-    setSaving(false);
-    setStatus(t('todosPage.saved'));
-    setTimeout(() => setStatus(null), 1500);
   };
 
   const addCustomTodoType = async () => {
@@ -255,27 +221,20 @@ export default function ToDos() {
 
   const addRelation = async () => {
     if (!activeId || !targetId) return;
-    const db = getLocalDatabase();
-    const rec = {
-      recordName: uuid('tdr'),
+    await createWithChangeLog({
+      recordName: generateId('tdr'),
       recordType: 'ToDoRelation',
       fields: {
         todo: writeRef(activeId, 'ToDo'),
         target: writeRef(targetId, targetType),
         targetType: { value: targetType, type: 'STRING' },
       },
-    };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
+    });
     setTargetId('');
-    await reload();
   };
 
   const removeRelation = async (relation) => {
-    const db = getLocalDatabase();
-    await db.deleteRecord(relation.recordName);
-    await logRecordDeleted(relation.recordName, 'ToDoRelation');
-    await reload();
+    await deleteWithChangeLog(relation.recordName, 'ToDoRelation');
   };
 
   const todoTypeLabel = (type) => t(`todosPage.todoType.${type.id || type.label}`, { defaultValue: type.label });
@@ -296,21 +255,6 @@ export default function ToDos() {
       <div className="text-xs text-muted-foreground">{statusLabel(record.fields?.status?.value || 'Open')} · {priorityLabel(record.fields?.priority?.value || 'Normal')}</div>
     </div>
   );
-
-  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  const dirty = useDirtyBaseline(editableSnapshot, {
-    recordKey: active?.recordName,
-    reloadKey: loadSeq,
-    enabled: !!active && !saving,
-  });
-  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && dirty });
-  const onToggleLock = useRecordLock({
-    record: active,
-    setRecord: (next) => setTodos((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
-    setSaving,
-    setStatus,
-    reload,
-  });
 
   const detail = active ? (
     <div className="p-5 max-w-3xl">
@@ -411,7 +355,6 @@ export default function ToDos() {
       <ToDoWizardSheet
         open={wizardOpen}
         onClose={() => setWizardOpen(false)}
-        onCreated={() => reload()}
       />
       <div className="flex-1 min-h-0">
         <MasterDetailList
@@ -427,10 +370,6 @@ export default function ToDos() {
               selection={selection}
               recordType="ToDo"
               onDelete={bulkDeleteTodos}
-              onDeleted={async (ids) => {
-                if (ids.includes(activeId)) setActiveId(null);
-                await reload();
-              }}
             />
           )}
         />

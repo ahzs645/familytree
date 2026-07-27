@@ -23,6 +23,9 @@ export class ConvexDataClient {
     transaction: () => this.unavailable(),
     importDataset: () => this.unavailable(),
     clearAll: () => this.unavailable(),
+    personBirthEvents: () => this.unavailable(),
+    personsParents: () => this.unavailable(),
+    childrenInformation: () => this.unavailable(),
   };
 
   assets = {

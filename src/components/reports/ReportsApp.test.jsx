@@ -6,9 +6,9 @@ import {
   defaultOptionsForBuilder,
   getReportBuilderCategories,
   stateFromSavedReport,
-} from './ReportsApp.jsx';
+} from '../../lib/reports/config.js';
 
-describe('ReportsApp report configuration', () => {
+describe('report configuration (src/lib/reports/config.js)', () => {
   it('registers the parity report builders with subject metadata', () => {
     const byId = new Map(REPORT_BUILDERS.map((builder) => [builder.id, builder]));
 

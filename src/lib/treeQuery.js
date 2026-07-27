@@ -3,7 +3,7 @@
  * All functions return plain objects (summaries) so chart layouts can stay pure.
  * Uses models/wrap.js for record-to-summary conversion — single source of truth.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { isPublicRecord } from './privacy.js';
 import { refToRecordName } from './recordRef.js';
 import { readField } from './schema.js';
@@ -26,8 +26,8 @@ import { childRelationKind, childRelationLabel } from './childRelationshipTypes.
  */
 export async function buildAncestorTree(rootRecordName, maxGenerations = 5, options = {}) {
   const branch = options?.branch || 'both';
-  const db = getLocalDatabase();
-  const root = await db.getRecord(rootRecordName);
+  const db = getAppDataClient().records;
+  const root = await db.get(rootRecordName);
   if (!isPublicRecord(root)) return null;
   const nameSuffixes = await loadAdditionalNameSuffixes();
 
@@ -53,7 +53,7 @@ export async function buildAncestorTree(rootRecordName, maxGenerations = 5, opti
     if (!isPublicRecord(record)) return null;
     const node = { person: decorateSummaryName(personSummary(record), nameSuffixes), father: null, mother: null, generation: gen };
     if (gen >= maxGenerations) return node;
-    const parents = await db.getPersonsParents(record.recordName);
+    const parents = await db.personsParents(record.recordName);
     if (parents.length > 0) {
       const fam = parents.find((p) => isPublicRecord(p.family));
       if (fam?.man && shouldIncludeFather(gen)) node.father = await recurse(fam.man, gen + 1);
@@ -70,8 +70,8 @@ export async function buildAncestorTree(rootRecordName, maxGenerations = 5, opti
  * Returns nested { person, unions: [{ partner, children }] }.
  */
 export async function buildDescendantTree(rootRecordName, maxGenerations = 4) {
-  const db = getLocalDatabase();
-  const root = await db.getRecord(rootRecordName);
+  const db = getAppDataClient().records;
+  const root = await db.get(rootRecordName);
   if (!isPublicRecord(root)) return null;
   const nameSuffixes = await loadAdditionalNameSuffixes();
 
@@ -79,7 +79,7 @@ export async function buildDescendantTree(rootRecordName, maxGenerations = 4) {
     if (!isPublicRecord(record)) return null;
     const node = { person: decorateSummaryName(personSummary(record), nameSuffixes), unions: [], generation: gen };
     if (gen >= maxGenerations) return node;
-    const families = await db.getPersonsChildrenInformation(record.recordName);
+    const families = await db.childrenInformation(record.recordName);
     for (const fam of families) {
       if (!isPublicRecord(fam.family)) continue;
       const union = {
@@ -124,8 +124,8 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
   // otherwise-hidden families (the "further persons" the down-pin points at),
   // mirroring the native viewer's click-to-expand on the further-persons mark.
   const expandedIds = new Set(options.expandedIds || []);
-  const db = getLocalDatabase();
-  const root = await db.getRecord(rootRecordName);
+  const db = getAppDataClient().records;
+  const root = await db.get(rootRecordName);
   if (!isPublicRecord(root)) return null;
   const nameSuffixes = await loadAdditionalNameSuffixes();
 
@@ -406,7 +406,7 @@ function extractDuplicateYear(value) {
  * Flat list of all persons (for picker UIs). Sorted by full name.
  */
 export async function listAllPersons({ includePrivate = false } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [{ records }, { records: families }, { records: childRelations }] = await Promise.all([
     db.query('Person', { limit: 100000 }),
     db.query('Family', { limit: 100000 }),
@@ -425,7 +425,7 @@ export async function listAllPersons({ includePrivate = false } = {}) {
  * Pick a sensible starting person — the one flagged as the start person, or the first.
  */
 export async function findStartPerson() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Person', { limit: 100000 });
   const visible = records.filter(isPublicRecord);
   const start = visible.find((r) => r.fields?.isStartPerson?.value);
@@ -437,7 +437,7 @@ export async function findStartPerson() {
  * ancestor/root person with the largest descendant tree.
  */
 export async function findLargestDescendantRoot() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const [{ records: personRecords }, { records: familyRecords }, { records: childRelationRecords }] = await Promise.all([
     db.query('Person', { limit: 100000 }),
     db.query('Family', { limit: 100000 }),

@@ -7,7 +7,7 @@
  */
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 
 const OBJECT_PARAM_ROUTES = [
   { param: 'person', path: (id) => `/person/${id}` },
@@ -17,7 +17,7 @@ const OBJECT_PARAM_ROUTES = [
   { param: 'media', path: () => '/media', recordType: 'BaseMedia' },
 ];
 
-export function resolveDeepLinkFromLocation(search) {
+function resolveDeepLinkFromLocation(search) {
   const params = new URLSearchParams(search);
   for (const entry of OBJECT_PARAM_ROUTES) {
     const id = params.get(entry.param);
@@ -37,9 +37,8 @@ export function useObjectDeepLink() {
     (async () => {
       if (hit.recordType) {
         try {
-          const db = getLocalDatabase();
-          await db.open();
-          const record = await db.getRecord(hit.id);
+          const db = getAppDataClient().records;
+          const record = await db.get(hit.id);
           if (cancelled) return;
           if (!record || record.recordType !== hit.recordType) {
             navigate(hit.path(hit.id), { replace: true });

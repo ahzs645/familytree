@@ -5,7 +5,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { generateResearchSuggestions } from '../lib/researchSuggestions.js';
 import { generateId } from '../lib/ids.js';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { matchesSearchText } from '../lib/i18n.js';
 import { readRef, writeRef } from '../lib/schema.js';
 import { logRecordCreated } from '../lib/changeLog.js';
@@ -32,23 +33,17 @@ export default function Research() {
   const [creatingKeys, setCreatingKeys] = useState({});
   const navigate = useNavigate();
 
+  const { records: questionRows } = useRecords('ResearchAssistantQuestionInfo');
+
   useEffect(() => {
     let cancel = false;
     (async () => {
       const list = await generateResearchSuggestions();
-      const db = getLocalDatabase();
-      const rows = await db.query('ResearchAssistantQuestionInfo', { limit: 100000 });
-      const savedState = await db.getMeta(STATE_KEY);
-      const savedJournal = await db.getMeta(JOURNAL_KEY);
-      const hydrated = [];
-      for (const row of rows.records) {
-        const targetId = readRef(row.fields?.target);
-        const target = targetId ? await db.getRecord(targetId) : null;
-        hydrated.push({ row, target });
-      }
+      const data = getAppDataClient();
+      const savedState = await data.meta.get(STATE_KEY);
+      const savedJournal = await data.meta.get(JOURNAL_KEY);
       if (!cancel) {
         setItems(list);
-        setImported(hydrated);
         setState(normalizeState(savedState));
         setJournal(Array.isArray(savedJournal) ? savedJournal : []);
       }
@@ -56,9 +51,26 @@ export default function Research() {
     return () => { cancel = true; };
   }, []);
 
+  // Hydrate each imported question's target record whenever the cached
+  // question list refreshes.
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      const data = getAppDataClient();
+      const hydrated = [];
+      for (const row of questionRows) {
+        const targetId = readRef(row.fields?.target);
+        const target = targetId ? await data.records.get(targetId) : null;
+        hydrated.push({ row, target });
+      }
+      if (!cancel) setImported(hydrated);
+    })();
+    return () => { cancel = true; };
+  }, [questionRows]);
+
   const persistJournal = async (next) => {
     setJournal(next);
-    await getLocalDatabase().setMeta(JOURNAL_KEY, next);
+    await getAppDataClient().meta.set(JOURNAL_KEY, next);
   };
   const addJournalEntry = async () => {
     const text = journalDraft.trim();
@@ -80,8 +92,7 @@ export default function Research() {
   const persistState = async (next) => {
     const normalized = normalizeState(typeof next === 'function' ? next(state) : next);
     setState(normalized);
-    const db = getLocalDatabase();
-    await db.setMeta(STATE_KEY, normalized);
+    await getAppDataClient().meta.set(STATE_KEY, normalized);
   };
   const mark = (key, field, value = true) => persistState((prev) => ({
     ...prev,
@@ -92,7 +103,7 @@ export default function Research() {
     setCreatingKeys((prev) => ({ ...prev, [key]: true }));
     setStatus(null);
     try {
-      const db = getLocalDatabase();
+      const data = getAppDataClient();
       const todo = {
         recordName: uuid('todo'),
         recordType: 'ToDo',
@@ -113,7 +124,7 @@ export default function Research() {
           targetType: { value: target.recordType || 'Person', type: 'STRING' },
         },
       };
-      await db.applyRecordTransaction({ saveRecords: [todo, relation] });
+      await data.records.transaction({ saveRecords: [todo, relation] });
       await logRecordCreated(todo);
       await mark(key, 'done');
       setStatus(t('research.todoCreated'));

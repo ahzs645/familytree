@@ -3,8 +3,8 @@ import { createSearchIndex, querySearchIndex, runGenealogyAdvancedSearch } from 
 
 const mockState = vi.hoisted(() => ({ db: null }));
 
-vi.mock('./LocalDatabase.js', () => ({
-  getLocalDatabase: () => mockState.db,
+vi.mock('./data/AppDataClient.js', () => ({
+  getAppDataClient: () => ({ records: mockState.db }),
 }));
 
 describe('offline search index', () => {
@@ -62,7 +62,7 @@ describe('offline search index', () => {
 describe('runGenealogyAdvancedSearch', () => {
   it('matches GeneWeb-style person criteria across names, events, places, and facts', async () => {
     mockState.db = {
-      getAllRecords: vi.fn(async () => [
+      all: vi.fn(async () => [
         person('p1', 'Jane', 'Doe', 1),
         person('p2', 'John', 'Doe', 0),
         place('pl1', 'Glasgow, Scotland'),

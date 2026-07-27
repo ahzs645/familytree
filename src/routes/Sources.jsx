@@ -5,12 +5,13 @@
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { generateId } from '../lib/ids.js';
 import { formClasses } from '../components/ui/formClasses.js';
-import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
+import { createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
-import { sourceSummary, personSummary } from '../models/index.js';
+import { sourceSummary } from '../models/index.js';
 import {
   LABELS,
   REFERENCE_NUMBER_FIELDS,
@@ -22,18 +23,13 @@ import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { MediaRelationsEditor, NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { useDirtyBaseline } from '../lib/editorState.js';
-import { useSaveShortcut } from '../lib/useSaveShortcut.js';
 import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { EditorSectionNavProvider, EditorSectionNavBar } from '../components/editors/EditorSectionNav.jsx';
-import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { useListSelection } from '../components/lists/useListSelection.js';
 import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
-
-function uuid(p) {
-  return generateId(p);
-}
+import { useRecordEditor } from '../components/editors/useRecordEditor.js';
+import { useRecords } from '../lib/data/useRecords.js';
 
 function humanizeTemplateName(recordName) {
   // "SourceTemplate_ChurchRecord_Books" → "Church Record - Books"
@@ -72,6 +68,8 @@ const INFO_FIELDS = [
   { id: 'sourceReferenceType', label: 'Reference Type' },
 ];
 
+const REF_NUMBER_FIELDS = REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID');
+
 function Field({ label, children }) {
   return (
     <div className="flex-1 min-w-0">
@@ -81,79 +79,169 @@ function Field({ label, children }) {
   );
 }
 
+function sourceSortKey(record) {
+  return (record.fields?.cached_title?.value || record.fields?.title?.value || '').toLowerCase();
+}
+
+function sortSources(a, b) {
+  return sourceSortKey(a).localeCompare(sourceSortKey(b));
+}
+
+const createSourceValues = () => ({ title: 'New Source', cached_title: 'New Source' });
+
+function sourceToValues(record) {
+  const info = {};
+  for (const f of INFO_FIELDS) info[f.id] = record.fields?.[f.id]?.value ?? '';
+  const refNumbers = {};
+  for (const fd of REF_NUMBER_FIELDS) refNumbers[fd.id] = record.fields?.[fd.id]?.value ?? '';
+  return {
+    // Real .mftpkg uses `template`; saveWithChangeLog writes `sourceTemplate`.
+    templateId: refToRecordName(record.fields?.template?.value) || refToRecordName(record.fields?.sourceTemplate?.value) || '',
+    repositoryId: refToRecordName(record.fields?.sourceRepository?.value) || '',
+    info,
+    text: record.fields?.text?.value || '',
+    bookmarked: !!record.fields?.isBookmarked?.value,
+    isPrivate: !!record.fields?.isPrivate?.value,
+    refNumbers,
+    // Hydrated asynchronously from LabelRelation / SourceKeyValue rows.
+    labels: {},
+    templateValues: {},
+  };
+}
+
+/**
+ * Reconcile the side records owned by the editor (SourceKeyValue rows for the
+ * template fields, LabelRelation rows for the label switches) against the
+ * saved values. Runs alongside the main-record save; every write goes through
+ * the change-logged helpers.
+ */
+async function reconcileSourceSideRecords(sourceId, vals, templateFields) {
+  const data = getAppDataClient();
+
+  const existingKeyValues = (await data.records.query('SourceKeyValue', { referenceField: 'source', referenceValue: sourceId, limit: 1000 })).records;
+  const existingByKey = new Map(existingKeyValues.map((kv) => [refToRecordName(kv.fields?.templateKey?.value), kv]));
+  for (const fieldDef of templateFields) {
+    const value = vals.templateValues[fieldDef.keyId] || '';
+    const existing = existingByKey.get(fieldDef.keyId);
+    if (value && existing) {
+      await saveWithChangeLog({ ...existing, fields: { ...existing.fields, value: { value, type: 'STRING' } } });
+    } else if (value && !existing) {
+      await createWithChangeLog({
+        recordName: generateId('skv'),
+        recordType: 'SourceKeyValue',
+        fields: {
+          source: { value: refValue(sourceId, 'Source'), type: 'REFERENCE' },
+          templateKey: { value: refValue(fieldDef.keyId, 'SourceTemplateKey'), type: 'REFERENCE' },
+          value: { value, type: 'STRING' },
+        },
+      });
+    } else if (!value && existing) {
+      await deleteWithChangeLog(existing.recordName, 'SourceKeyValue');
+    }
+  }
+
+  // Labels reconcile
+  const existingLbl = (await data.records.query('LabelRelation', { referenceField: 'targetSource', referenceValue: sourceId, limit: 500 })).records;
+  const existingByLabel = new Map(existingLbl.map((rec) => [refToRecordName(rec.fields?.label?.value), rec]));
+  for (const def of LABELS) {
+    const want = !!vals.labels[def.id];
+    const existing = existingByLabel.get(def.id);
+    if (want && !existing) {
+      await createWithChangeLog({
+        recordName: generateId('lbr'),
+        recordType: 'LabelRelation',
+        fields: {
+          label: { value: refValue(def.id, 'Label'), type: 'REFERENCE' },
+          targetSource: { value: refValue(sourceId, 'Source'), type: 'REFERENCE' },
+        },
+      });
+    } else if (!want && existing) {
+      await deleteWithChangeLog(existing.recordName, 'LabelRelation');
+    }
+  }
+}
+
 export default function Sources() {
   const [searchParams] = useSearchParams();
   const querySourceId = searchParams.get('sourceId');
-  const [sources, setSources] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [repositories, setRepositories] = useState([]);
-  const [activeId, setActiveId] = useState(null);
-  const [templateId, setTemplateId] = useState('');
-  const [repositoryId, setRepositoryId] = useState('');
-  const [info, setInfo] = useState({});
-  const [text, setText] = useState('');
   const [templateFields, setTemplateFields] = useState([]);
-  const [templateValues, setTemplateValues] = useState({});
-  const [labels, setLabels] = useState({});
-  const [labelDefs, setLabelDefs] = useState(LABELS);
-  const [refNumbers, setRefNumbers] = useState({});
-  const [bookmarked, setBookmarked] = useState(false);
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [referenced, setReferenced] = useState([]);
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null);
-  const [loadSeq, setLoadSeq] = useState(0);
+  const sideSave = useRef(Promise.resolve());
+  const statusRef = useRef(null);
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const { records } = await db.query('Source', { limit: 100000 });
-    const sorted = records.sort((a, b) => {
-      const an = (a.fields?.cached_title?.value || a.fields?.title?.value || '').toLowerCase();
-      const bn = (b.fields?.cached_title?.value || b.fields?.title?.value || '').toLowerCase();
-      return an.localeCompare(bn);
-    });
-    setSources(sorted);
-    const [tpls, repos] = await Promise.all([
-      db.query('SourceTemplate', { limit: 10000 }),
-      db.query('SourceRepository', { limit: 10000 }),
-    ]);
-    setTemplates(
-      tpls.records
-        .map((t) => ({
-          recordName: t.recordName,
-          name: t.fields?.name?.value || t.fields?.title?.value || humanizeTemplateName(t.recordName),
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-    );
-    setRepositories(
-      repos.records
-        .map((repo) => ({
-          recordName: repo.recordName,
-          name: repo.fields?.name?.value || repo.fields?.title?.value || repo.recordName,
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-    );
-    if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
-    setLoadSeq((n) => n + 1);
-  }, [activeId]);
+  const applyValues = useCallback((record, vals) => {
+    const next = { ...record, fields: { ...record.fields } };
 
-  useEffect(() => { reload(); }, [reload]);
+    if (vals.templateId) {
+      next.fields.template = { value: refValue(vals.templateId, 'SourceTemplate'), type: 'REFERENCE' };
+      delete next.fields.sourceTemplate;
+    } else {
+      delete next.fields.template;
+      delete next.fields.sourceTemplate;
+    }
+    if (vals.repositoryId) next.fields.sourceRepository = { value: refValue(vals.repositoryId, 'SourceRepository'), type: 'REFERENCE' };
+    else delete next.fields.sourceRepository;
 
-  const onCreate = useCallback(async () => {
-    const db = getLocalDatabase();
-    const record = {
-      recordName: uuid('src'),
-      recordType: 'Source',
-      fields: {
-        title: { value: 'New Source', type: 'STRING' },
-        cached_title: { value: 'New Source', type: 'STRING' },
-      },
-    };
-    await db.saveRecord(record);
-    await logRecordCreated(record);
-    await reload();
-    setActiveId(record.recordName);
-  }, [reload]);
+    for (const f of INFO_FIELDS) {
+      const v = vals.info[f.id];
+      if (v == null || v === '') delete next.fields[f.id];
+      else next.fields[f.id] = { value: v, type: 'STRING' };
+    }
+    if (vals.info.title) next.fields.cached_title = { value: vals.info.title, type: 'STRING' };
+    if (vals.text) next.fields.text = { value: vals.text, type: 'STRING' };
+    else delete next.fields.text;
+
+    next.fields.isBookmarked = { value: !!vals.bookmarked, type: 'BOOLEAN' };
+    next.fields.isPrivate = { value: !!vals.isPrivate, type: 'BOOLEAN' };
+    for (const f of REF_NUMBER_FIELDS) {
+      const v = vals.refNumbers[f.id];
+      if (v == null || v === '') delete next.fields[f.id];
+      else next.fields[f.id] = { value: v, type: 'STRING' };
+    }
+
+    // Side records save on the same chain the hydration effect awaits, so a
+    // reload never reads them mid-reconcile.
+    sideSave.current = sideSave.current
+      .then(() => reconcileSourceSideRecords(record.recordName, vals, templateFields))
+      .catch((error) => statusRef.current?.(error?.message || String(error)));
+    return next;
+  }, [templateFields]);
+
+  const {
+    rows: sources, active, activeId, setActiveId, values, setValues,
+    dirty, saving, status, setStatus, loadSeq, onCreate, onSave, onToggleLock,
+  } = useRecordEditor({
+    recordType: 'Source',
+    noun: 'source',
+    idPrefix: 'src',
+    sortRows: sortSources,
+    createValues: createSourceValues,
+    toValues: sourceToValues,
+    applyValues,
+  });
+  statusRef.current = setStatus;
+
+  const { records: templateRecords } = useRecords('SourceTemplate');
+  const templates = useMemo(
+    () => templateRecords
+      .map((t) => ({
+        recordName: t.recordName,
+        name: t.fields?.name?.value || t.fields?.title?.value || humanizeTemplateName(t.recordName),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [templateRecords],
+  );
+  const { records: repositoryRecords } = useRecords('SourceRepository');
+  const repositories = useMemo(
+    () => repositoryRecords
+      .map((repo) => ({
+        recordName: repo.recordName,
+        name: repo.fields?.name?.value || repo.fields?.title?.value || repo.recordName,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [repositoryRecords],
+  );
+  const { records: labelRecords } = useRecords('Label');
+  const labelDefs = useMemo(() => resolveLabelDefinitions(labelRecords), [labelRecords]);
 
   const sourceIds = useMemo(() => sources.map((record) => record.recordName), [sources]);
   const selection = useListSelection(sourceIds);
@@ -161,70 +249,37 @@ export default function Sources() {
   useEffect(() => {
     if (!querySourceId || sources.length === 0) return;
     if (sources.some((source) => source.recordName === querySourceId)) setActiveId(querySourceId);
-  }, [querySourceId, sources]);
+  }, [querySourceId, sources, setActiveId]);
 
+  // Hydrate the side-record values (labels, template key values) for the
+  // active source. Re-runs on every list refresh (loadSeq), which the write
+  // paths trigger automatically.
   useEffect(() => {
-    if (!activeId) return;
-    const r = sources.find((s) => s.recordName === activeId);
-    if (!r) return;
-    // Real .mftpkg uses `template`; saveWithChangeLog writes `sourceTemplate`.
-    setTemplateId(refToRecordName(r.fields?.template?.value) || refToRecordName(r.fields?.sourceTemplate?.value) || '');
-    setRepositoryId(refToRecordName(r.fields?.sourceRepository?.value) || '');
-    const v = {};
-    for (const f of INFO_FIELDS) v[f.id] = r.fields?.[f.id]?.value ?? '';
-    setInfo(v);
-    setText(r.fields?.text?.value || '');
-    setBookmarked(!!r.fields?.isBookmarked?.value);
-    setIsPrivate(!!r.fields?.isPrivate?.value);
-
-    const refs = {};
-    for (const fd of REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID')) {
-      refs[fd.id] = r.fields?.[fd.id]?.value ?? '';
-    }
-    setRefNumbers(refs);
-
+    if (!activeId) return undefined;
+    let cancelled = false;
     (async () => {
-      const db = getLocalDatabase();
-      // Find SourceRelation rows pointing at this source, plus events that reference it directly.
-      const [srcRels, lbl, labelRows] = await Promise.all([
-        db.query('SourceRelation', { referenceField: 'source', referenceValue: activeId, limit: 500 }),
-        db.query('LabelRelation', { referenceField: 'targetSource', referenceValue: activeId, limit: 500 }),
-        db.query('Label', { limit: 100000 }),
-      ]);
-      setLabelDefs(resolveLabelDefinitions(labelRows.records));
-      const refList = [];
-      for (const rel of srcRels.records) {
-        const targetType = rel.fields?.targetType?.value || '';
-        const targetRef = refToRecordName(rel.fields?.target?.value);
-        if (!targetRef) continue;
-        const target = await db.getRecord(targetRef);
-        if (!target) continue;
-        refList.push({
-          recordName: target.recordName,
-          recordType: target.recordType || targetType,
-          label:
-            target.recordType === 'Person'
-              ? personSummary(target)?.fullName
-              : target.fields?.cached_familyName?.value || target.recordName,
-        });
-      }
-      setReferenced(refList);
+      await sideSave.current;
+      const data = getAppDataClient();
+      const record = await data.records.get(activeId);
+      if (!record || cancelled) return;
 
-      const map = new Map(lbl.records.map((rec) => [refToRecordName(rec.fields?.label?.value), rec.recordName]));
-      const s = {};
-      for (const def of LABELS) s[def.id] = map.has(def.id);
-      setLabels(s);
+      const lbl = await data.records.query('LabelRelation', { referenceField: 'targetSource', referenceValue: activeId, limit: 500 });
+      const labelled = new Set(lbl.records.map((rec) => refToRecordName(rec.fields?.label?.value)));
+      const labels = {};
+      for (const def of LABELS) labels[def.id] = labelled.has(def.id);
 
-      const selectedTemplateId = refToRecordName(r.fields?.template?.value) || refToRecordName(r.fields?.sourceTemplate?.value) || '';
+      const selectedTemplateId = refToRecordName(record.fields?.template?.value) || refToRecordName(record.fields?.sourceTemplate?.value) || '';
+      let fields = [];
+      let templateValues = {};
       if (selectedTemplateId) {
-        const [relations, keys, values] = await Promise.all([
-          db.query('SourceTemplateKeyRelation', { referenceField: 'template', referenceValue: selectedTemplateId, limit: 1000 }),
-          db.query('SourceTemplateKey', { limit: 10000 }),
-          db.query('SourceKeyValue', { referenceField: 'source', referenceValue: activeId, limit: 1000 }),
+        const [relations, keys, keyValues] = await Promise.all([
+          data.records.query('SourceTemplateKeyRelation', { referenceField: 'template', referenceValue: selectedTemplateId, limit: 1000 }),
+          data.records.query('SourceTemplateKey', { limit: 10000 }),
+          data.records.query('SourceKeyValue', { referenceField: 'source', referenceValue: activeId, limit: 1000 }),
         ]);
         const keyById = new Map(keys.records.map((key) => [key.recordName, key]));
-        const valueByKey = new Map(values.records.map((value) => [refToRecordName(value.fields?.templateKey?.value), value]));
-        const fields = relations.records
+        const valueByKey = new Map(keyValues.records.map((value) => [refToRecordName(value.fields?.templateKey?.value), value]));
+        fields = relations.records
           .map((rel) => {
             const keyId = refToRecordName(rel.fields?.templateKey?.value);
             const key = keyById.get(keyId);
@@ -240,135 +295,14 @@ export default function Sources() {
           })
           .filter((item) => item.keyId)
           .sort((a, b) => a.order - b.order);
-        setTemplateFields(fields);
-        setTemplateValues(Object.fromEntries(fields.map((item) => [item.keyId, item.valueRecord?.fields?.value?.value || ''])));
-      } else {
-        setTemplateFields([]);
-        setTemplateValues({});
+        templateValues = Object.fromEntries(fields.map((item) => [item.keyId, item.valueRecord?.fields?.value?.value || '']));
       }
+      if (cancelled) return;
+      setTemplateFields(fields);
+      setValues((current) => ({ ...current, labels, templateValues }));
     })();
-  }, [activeId, sources]);
-
-  const onSave = useCallback(async () => {
-    const r = sources.find((s) => s.recordName === activeId);
-    if (!r) return;
-    if (isRecordLocked(r)) {
-      setStatus('Unlock this source before saving.');
-      return;
-    }
-    setSaving(true);
-    const db = getLocalDatabase();
-    const next = { ...r, fields: { ...r.fields } };
-
-    if (templateId) {
-      next.fields.template = { value: refValue(templateId, 'SourceTemplate'), type: 'REFERENCE' };
-      delete next.fields.sourceTemplate;
-    } else {
-      delete next.fields.template;
-      delete next.fields.sourceTemplate;
-    }
-    if (repositoryId) next.fields.sourceRepository = { value: refValue(repositoryId, 'SourceRepository'), type: 'REFERENCE' };
-    else delete next.fields.sourceRepository;
-
-    for (const f of INFO_FIELDS) {
-      const v = info[f.id];
-      if (v == null || v === '') delete next.fields[f.id];
-      else next.fields[f.id] = { value: v, type: 'STRING' };
-    }
-    if (info.title) next.fields.cached_title = { value: info.title, type: 'STRING' };
-    if (text) next.fields.text = { value: text, type: 'STRING' };
-    else delete next.fields.text;
-
-    next.fields.isBookmarked = { value: !!bookmarked, type: 'BOOLEAN' };
-    next.fields.isPrivate = { value: !!isPrivate, type: 'BOOLEAN' };
-    for (const f of REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID')) {
-      const v = refNumbers[f.id];
-      if (v == null || v === '') delete next.fields[f.id];
-      else next.fields[f.id] = { value: v, type: 'STRING' };
-    }
-
-    await saveWithChangeLog(next);
-
-    const existingKeyValues = (await db.query('SourceKeyValue', { referenceField: 'source', referenceValue: activeId, limit: 1000 })).records;
-    const existingByKey = new Map(existingKeyValues.map((kv) => [refToRecordName(kv.fields?.templateKey?.value), kv]));
-    for (const fieldDef of templateFields) {
-      const value = templateValues[fieldDef.keyId] || '';
-      const existing = existingByKey.get(fieldDef.keyId);
-      if (value && existing) {
-        await saveWithChangeLog({ ...existing, fields: { ...existing.fields, value: { value, type: 'STRING' } } });
-      } else if (value && !existing) {
-        const rec = {
-          recordName: uuid('skv'),
-          recordType: 'SourceKeyValue',
-          fields: {
-            source: { value: refValue(activeId, 'Source'), type: 'REFERENCE' },
-            templateKey: { value: refValue(fieldDef.keyId, 'SourceTemplateKey'), type: 'REFERENCE' },
-            value: { value, type: 'STRING' },
-          },
-        };
-        await db.saveRecord(rec);
-        await logRecordCreated(rec);
-      } else if (!value && existing) {
-        await db.deleteRecord(existing.recordName);
-        await logRecordDeleted(existing.recordName, 'SourceKeyValue');
-      }
-    }
-
-    // Labels reconcile
-    const existingLbl = (await db.query('LabelRelation', { referenceField: 'targetSource', referenceValue: activeId, limit: 500 })).records;
-    const existingByLabel = new Map(existingLbl.map((rec) => [refToRecordName(rec.fields?.label?.value), rec]));
-    for (const def of LABELS) {
-      const want = !!labels[def.id];
-      const existing = existingByLabel.get(def.id);
-      if (want && !existing) {
-        const rec = {
-          recordName: uuid('lbr'),
-          recordType: 'LabelRelation',
-          fields: {
-            label: { value: refValue(def.id, 'Label'), type: 'REFERENCE' },
-            targetSource: { value: refValue(activeId, 'Source'), type: 'REFERENCE' },
-          },
-        };
-        await db.saveRecord(rec);
-        await logRecordCreated(rec);
-      } else if (!want && existing) {
-        await db.deleteRecord(existing.recordName);
-        await logRecordDeleted(existing.recordName, 'LabelRelation');
-      }
-    }
-
-    await reload();
-    setSaving(false);
-    setStatus('Saved');
-    setTimeout(() => setStatus(null), 1500);
-  }, [activeId, sources, templateId, repositoryId, info, text, refNumbers, bookmarked, isPrivate, labels, templateFields, templateValues, reload]);
-
-  const active = sources.find((s) => s.recordName === activeId);
-  const editableSnapshot = useMemo(() => ({
-    activeFields: active?.fields || {},
-    templateId,
-    repositoryId,
-    info,
-    text,
-    templateValues,
-    labels,
-    refNumbers,
-    bookmarked,
-    isPrivate,
-  }), [active, templateId, repositoryId, info, text, templateValues, labels, refNumbers, bookmarked, isPrivate]);
-  const dirty = useDirtyBaseline(editableSnapshot, {
-    recordKey: active?.recordName,
-    reloadKey: loadSeq,
-    enabled: !!active && !saving,
-  });
-  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && dirty });
-  const onToggleLock = useRecordLock({
-    record: active,
-    setRecord: (next) => setSources((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
-    setSaving,
-    setStatus,
-    reload,
-  });
+    return () => { cancelled = true; };
+  }, [activeId, loadSeq, setValues]);
 
   const renderRow = (r) => {
     const s = sourceSummary(r);
@@ -402,14 +336,14 @@ export default function Sources() {
     <div className="p-5 max-w-4xl">
       <Section title="Source Information" accent={ACCENTS.info}>
         <Field label="Source Template">
-          <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className={inputClass}>
+          <select value={values.templateId || ''} onChange={(e) => setValues((v) => ({ ...v, templateId: e.target.value }))} className={inputClass}>
             <option value="">— no template —</option>
             {templates.map((t) => <option key={t.recordName} value={t.recordName}>{t.name}</option>)}
           </select>
         </Field>
         <div className="mt-3">
           <Field label="Repository">
-            <select value={repositoryId} onChange={(e) => setRepositoryId(e.target.value)} className={inputClass}>
+            <select value={values.repositoryId || ''} onChange={(e) => setValues((v) => ({ ...v, repositoryId: e.target.value }))} className={inputClass}>
               <option value="">— no repository —</option>
               {repositories.map((repo) => <option key={repo.recordName} value={repo.recordName}>{repo.name}</option>)}
             </select>
@@ -418,7 +352,7 @@ export default function Sources() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
           {INFO_FIELDS.map((f) => (
             <Field key={f.id} label={f.label}>
-              <input value={info[f.id] ?? ''} onChange={(e) => setInfo((s) => ({ ...s, [f.id]: e.target.value }))} className={inputClass} />
+              <input value={values.info?.[f.id] ?? ''} onChange={(e) => setValues((v) => ({ ...v, info: { ...v.info, [f.id]: e.target.value } }))} className={inputClass} />
             </Field>
           ))}
         </div>
@@ -430,8 +364,8 @@ export default function Sources() {
             {templateFields.map((fieldDef) => (
               <Field key={fieldDef.keyId} label={fieldDef.label}>
                 <input
-                  value={templateValues[fieldDef.keyId] ?? ''}
-                  onChange={(e) => setTemplateValues((state) => ({ ...state, [fieldDef.keyId]: e.target.value }))}
+                  value={values.templateValues?.[fieldDef.keyId] ?? ''}
+                  onChange={(e) => setValues((v) => ({ ...v, templateValues: { ...v.templateValues, [fieldDef.keyId]: e.target.value } }))}
                   className={inputClass}
                 />
               </Field>
@@ -441,21 +375,21 @@ export default function Sources() {
       )}
 
       <Section title="Source Text" accent={ACCENTS.text}>
-        <textarea value={text} onChange={(e) => setText(e.target.value)} rows={8} className={textareaClass}
+        <textarea value={values.text || ''} onChange={(e) => setValues((v) => ({ ...v, text: e.target.value }))} rows={8} className={textareaClass}
           placeholder="Type or paste the full source text here…" />
       </Section>
 
       <Section title="Referenced Entries" accent={ACCENTS.refs}>
-        <SourceCitationsEditor ownerRecordName={activeId} ownerRecordType="Source" ownerRole="source" onChanged={reload} />
+        <SourceCitationsEditor ownerRecordName={activeId} ownerRecordType="Source" ownerRole="source" />
       </Section>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-5">
         <div>
           <Section title="Media" accent={ACCENTS.media}>
-            <MediaRelationsEditor ownerRecordName={activeId} ownerRecordType="Source" onChanged={reload} />
+            <MediaRelationsEditor ownerRecordName={activeId} ownerRecordType="Source" />
           </Section>
           <Section title="Notes" accent={ACCENTS.notes}>
-            <NotesEditor ownerRecordName={activeId} ownerRecordType="Source" onChanged={reload} />
+            <NotesEditor ownerRecordName={activeId} ownerRecordType="Source" />
           </Section>
         </div>
         <div>
@@ -463,24 +397,24 @@ export default function Sources() {
             <div className="space-y-1">
               {labelDefs.map((def) => (
                 <EditSwitch key={def.id} label={def.label} color={def.color}
-                  checked={!!labels[def.id]} onChange={(v) => setLabels((s) => ({ ...s, [def.id]: v }))} />
+                  checked={!!values.labels?.[def.id]} onChange={(checked) => setValues((v) => ({ ...v, labels: { ...v.labels, [def.id]: checked } }))} />
               ))}
             </div>
           </Section>
           <Section title="Reference Numbers" accent={ACCENTS.ref}>
             <div className="grid grid-cols-1 gap-3">
-              {REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID').map((f) => (
+              {REF_NUMBER_FIELDS.map((f) => (
                 <Field key={f.id} label={f.label}>
-                  <input value={refNumbers[f.id] ?? ''} onChange={(e) => setRefNumbers((s) => ({ ...s, [f.id]: e.target.value }))} className={inputClass} />
+                  <input value={values.refNumbers?.[f.id] ?? ''} onChange={(e) => setValues((v) => ({ ...v, refNumbers: { ...v.refNumbers, [f.id]: e.target.value } }))} className={inputClass} />
                 </Field>
               ))}
             </div>
           </Section>
           <Section title="Bookmarks" accent={ACCENTS.bookmarks}>
-            <EditSwitch label="Bookmarked" checked={bookmarked} onChange={setBookmarked} />
+            <EditSwitch label="Bookmarked" checked={!!values.bookmarked} onChange={(checked) => setValues((v) => ({ ...v, bookmarked: checked }))} />
           </Section>
           <Section title="Private" accent={ACCENTS.private}>
-            <EditSwitch label="Marked as Private" checked={isPrivate} onChange={setIsPrivate} />
+            <EditSwitch label="Marked as Private" checked={!!values.isPrivate} onChange={(checked) => setValues((v) => ({ ...v, isPrivate: checked }))} />
           </Section>
           <Section title="Last Edited" accent={ACCENTS.edited}>
             <ReadOnly label="Change Date" value={formatTimestamp(active.fields?.mft_changeDate?.value || active.modified?.timestamp)} />
@@ -521,9 +455,8 @@ export default function Sources() {
                 <RecordBulkBar
                   selection={selection}
                   recordType="Source"
-                  onDeleted={async (ids) => {
+                  onDeleted={(ids) => {
                     if (ids.includes(activeId)) setActiveId(null);
-                    await reload();
                   }}
                 />
               )}
@@ -532,15 +465,6 @@ export default function Sources() {
         </div>
       </div>
     </EditorSectionNavProvider>
-  );
-}
-
-function Empty({ title, hint }) {
-  return (
-    <div className="text-center py-6">
-      <div className="text-sm text-foreground">{title}</div>
-      {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
-    </div>
   );
 }
 

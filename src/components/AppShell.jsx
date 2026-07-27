@@ -16,10 +16,13 @@ import { downloadBackup } from '../lib/backup.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { cn } from '../lib/utils.js';
 import { NavigationDrawer } from './NavigationDrawer.jsx';
-import { CommandPalette } from './CommandPalette.jsx';
 import { useKeyboardShortcuts } from '../lib/useKeyboardShortcuts.js';
 import { NAV_GROUPS, NAV_PINNED, findGroupForPath, isLinkActive } from '../lib/navigationConfig.js';
 import { LanguageSelect } from './LanguageSelect.jsx';
+
+// Loaded on demand: the palette indexes the whole nav tree, so keeping it out
+// of the entry chunk defers that cost until the user actually opens it.
+const CommandPalette = React.lazy(() => import('./CommandPalette.jsx'));
 
 const DRAWER_COLLAPSED_KEY = 'app.drawer.collapsed';
 const NAV_VISIBILITY_EVENT = 'cloudtreeweb:navigation-visibility';
@@ -322,6 +325,23 @@ export function AppShell() {
     try { localStorage.setItem(DRAWER_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch {}
   }, [collapsed]);
 
+  // ⌘K/Ctrl+K used to live inside CommandPalette, but the palette is now
+  // lazy-mounted only while open — so the shell owns the shortcut. Unlike
+  // useKeyboardShortcuts, this listener fires even when an input has focus,
+  // matching the palette's original behavior. While the palette is open its
+  // own listener also handles the key; both resolve to "closed", so the
+  // double-fire is harmless.
+  useEffect(() => {
+    const onKey = (event) => {
+      if ((event.metaKey || event.ctrlKey) && (event.key === 'k' || event.key === 'K')) {
+        event.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
   useEffect(() => {
     const onNavigationVisibility = (event) => {
       setNavigationHidden(Boolean(event.detail?.hidden));
@@ -340,7 +360,11 @@ export function AppShell() {
   const hiddenRoutes = new Set(preferences?.functions?.hidden || []);
   const emphasizedRoutes = new Set(preferences?.functions?.emphasized || []);
 
-  const palette = <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />;
+  const palette = paletteOpen ? (
+    <React.Suspense fallback={null}>
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+    </React.Suspense>
+  ) : null;
 
   if (isMobile) {
     return (

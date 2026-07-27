@@ -50,7 +50,7 @@ export function nextSosa(number) {
   return n == null ? null : n + 1;
 }
 
-export function normalizeSosaNumber(number) {
+function normalizeSosaNumber(number) {
   const n = Number(number);
   if (!Number.isInteger(n) || n < 1) return null;
   return n;

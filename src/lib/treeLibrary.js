@@ -1,7 +1,6 @@
 import Dexie from 'dexie';
 import { exportBackup } from './backup.js';
 import { getAppDataClient } from './data/index.js';
-import { getLocalDatabase } from './LocalDatabase.js';
 import {
   DATASET_SCHEMA_VERSION,
   DATASET_SCHEMA_VERSION_META_KEY,
@@ -260,7 +259,7 @@ export async function startNewTree(name) {
   // Stamp the current dataset schema version so the SchemaMigrationSheet
   // doesn't prompt the user on a freshly created tree (importDataset sets
   // this for imports; we have to set it explicitly for from-scratch trees).
-  await getLocalDatabase().setMeta(DATASET_SCHEMA_VERSION_META_KEY, DATASET_SCHEMA_VERSION);
+  await getAppDataClient().meta.set(DATASET_SCHEMA_VERSION_META_KEY, DATASET_SCHEMA_VERSION);
   const id = newTreeId();
   setActiveTreeId(id);
   await upsertActiveTreeSnapshot({ name: name || defaultTreeName() });

@@ -20,28 +20,6 @@ export function disposeObject(object) {
   });
 }
 
-export function wrapText(ctx, text, maxChars, maxLines) {
-  const words = String(text || '').split(/\s+/).filter(Boolean);
-  const lines = [];
-  let current = '';
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length > maxChars && current) {
-      lines.push(current);
-      current = word;
-      if (lines.length === maxLines - 1) break;
-    } else {
-      current = next;
-    }
-  }
-  if (current) lines.push(current);
-  const limited = lines.slice(0, maxLines);
-  if (words.join(' ').length > limited.join(' ').length && limited.length > 0) {
-    limited[limited.length - 1] = `${limited[limited.length - 1].replace(/\.*$/, '')}...`;
-  }
-  return limited.length ? limited : ['Unknown'];
-}
-
 export function makePlaneFromTexture(texture, width, height) {
   const material = new THREE.MeshBasicMaterial({
     map: texture,

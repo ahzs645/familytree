@@ -8,7 +8,7 @@
  *  - Records written by our editor (saveWithChangeLog): targetType, target,
  *    summary, timestamp (ISO string), sub-entries linked via `changeLogEntry`.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { refToRecordName } from './recordRef.js';
 
 function timestampOf(entry) {
@@ -54,7 +54,7 @@ export function authorOf(entry) {
 }
 
 export async function listChangeLogEntries({ entityType, lineageBatch, sourceRecord, targetRecord, limit = 500 } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('ChangeLogEntry', { limit: 100000 });
   let filtered = records;
   if (entityType) {
@@ -79,7 +79,7 @@ function numericTimestamp(v) {
 }
 
 export async function getSubEntriesForEntry(entryRecordName) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   // Legacy uses `superEntry`, our writer uses `changeLogEntry`. Try both.
   const [legacy, modern] = await Promise.all([
     db.query('ChangeLogSubEntry', { referenceField: 'superEntry', referenceValue: entryRecordName, limit: 500 }),
@@ -93,7 +93,7 @@ export async function getSubEntriesForEntry(entryRecordName) {
  * either the legacy MFT shape (changeKey + changeKeyValuesForFormatString
  * packed as "old#####new") or our writer's shape (oldValue / newValue).
  */
-export function subEntrySummary(sub) {
+function subEntrySummary(sub) {
   const f = sub.fields || {};
   const split = f.changeKeyValuesForFormatString?.value;
   const fieldName = humanizePropertyKey(
@@ -169,11 +169,4 @@ function humanizePropertyKey(raw) {
 
 export function timestampMillis(entry) {
   return numericTimestamp(timestampOf(entry));
-}
-
-export async function getTargetRecord(entry) {
-  const db = getLocalDatabase();
-  const ref = targetIdOf(entry);
-  if (!ref) return null;
-  return db.getRecord(ref);
 }

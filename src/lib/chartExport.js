@@ -99,7 +99,7 @@ function toPageSetup(page = {}) {
   };
 }
 
-export function getChartExportPageSize(page = {}) {
+function getChartExportPageSize(page = {}) {
   const dims = normalizePageDimensions(toPageSetup(page));
   return { width: dims.width, height: dims.height };
 }
@@ -115,7 +115,7 @@ function resolveExportSettings(options = {}) {
   };
 }
 
-export function resolveFileNameFromTemplate(template, context = {}) {
+function resolveFileNameFromTemplate(template, context = {}) {
   const isoDate = new Date().toISOString().slice(0, 10);
   const map = {
     '{title}': context.title || 'chart',
@@ -147,7 +147,7 @@ function cloneSvgNode(svgRef) {
   return clone;
 }
 
-export function chartSvgBlob(svgNode, { page = {}, filename = 'chart' } = {}) {
+function chartSvgBlob(svgNode, { page = {}, filename = 'chart' } = {}) {
   const size = getChartExportPageSize(page);
   const clone = cloneSvgNode(svgNode);
   if (!clone) throw new Error('No SVG node available for chart export.');

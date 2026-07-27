@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 
 const IDENTIFIER_FIELDS = [
   'audioFileIdentifier',
@@ -12,7 +12,7 @@ const IDENTIFIER_FIELDS = [
 ];
 
 export async function matchMediaFiles(files) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const allMedia = [];
   for (const type of ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo']) {
     const { records } = await db.query(type, { limit: 100000 });
@@ -49,12 +49,12 @@ export async function matchMediaFiles(files) {
       },
     });
   }
-  await db.applyRecordTransaction({ saveRecords, saveAssets: assets });
+  await db.transaction({ saveRecords, saveAssets: assets });
   return { matched: assets.length };
 }
 
 export async function createMediaRecordsFromFiles(files) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const saveRecords = [];
   const saveAssets = [];
   for (const file of files || []) {
@@ -85,7 +85,7 @@ export async function createMediaRecordsFromFiles(files) {
       dataBase64: await fileToBase64(file),
     });
   }
-  await db.applyRecordTransaction({ saveRecords, saveAssets });
+  await db.transaction({ saveRecords, saveAssets });
   return { created: saveRecords.length, records: saveRecords };
 }
 
@@ -98,7 +98,7 @@ export async function createMediaRecordFromBlob(blob, {
   const result = await createMediaRecordsFromFiles([file]);
   const record = result.records[0];
   if (record && (caption || recordType)) {
-    const db = getLocalDatabase();
+    const db = getAppDataClient().records;
     const next = {
       ...record,
       recordType: recordType || record.recordType,
@@ -107,7 +107,7 @@ export async function createMediaRecordFromBlob(blob, {
         ...(caption ? { caption: { value: caption, type: 'STRING' } } : {}),
       },
     };
-    await db.saveRecord(next);
+    await db.save(next);
     return next;
   }
   return record;
@@ -120,7 +120,7 @@ export async function replaceMediaRecordAsset(mediaRecord, fileOrBlob, {
 } = {}) {
   if (!mediaRecord?.recordName) throw new Error('Choose a media record before replacing its file.');
   if (mediaRecord.recordType === 'MediaURL') throw new Error('URL media records do not store replaceable local files.');
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const file = blobToNamedFile(fileOrBlob, filename || fileOrBlob?.name || mediaRecord.fields?.filename?.value || 'replacement');
   const nextType = recordType || mediaTypeForFile(file);
   const assetId = makeAssetId(mediaRecord.recordName);
@@ -142,7 +142,7 @@ export async function replaceMediaRecordAsset(mediaRecord, fileOrBlob, {
     recordType: nextType,
     fields: nextFields,
   };
-  await db.applyRecordTransaction({
+  await db.transaction({
     saveRecords: [nextRecord],
     saveAssets: [{
       assetId,
@@ -167,7 +167,7 @@ export async function replaceMediaRecordImageData(mediaRecord, {
   if (!mediaRecord?.recordName) throw new Error('Choose a picture record before editing its image.');
   if (mediaRecord.recordType !== 'MediaPicture') throw new Error('Image edits are only available for picture media.');
   if (!dataBase64) throw new Error('Edited image data is missing.');
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const assetId = makeAssetId(mediaRecord.recordName);
   const nextFileName = filename || mediaRecord.fields?.filename?.value || `${mediaRecord.recordName}.png`;
   const priorAssetIds = mediaRecord.fields?.assetIds?.value || [];
@@ -183,7 +183,7 @@ export async function replaceMediaRecordImageData(mediaRecord, {
       assetIds: { value: [assetId], type: 'LIST' },
     },
   };
-  await db.applyRecordTransaction({
+  await db.transaction({
     saveRecords: [nextRecord],
     saveAssets: [{
       assetId,
@@ -202,7 +202,7 @@ export async function replaceMediaRecordImageData(mediaRecord, {
 export async function createMediaURLRecord(url, { caption = '' } = {}) {
   const value = String(url || '').trim();
   if (!value) throw new Error('URL is required.');
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const record = {
     recordName: `mediaurl-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     recordType: 'MediaURL',
@@ -211,7 +211,7 @@ export async function createMediaURLRecord(url, { caption = '' } = {}) {
       caption: { value: caption || value, type: 'STRING' },
     },
   };
-  await db.saveRecord(record);
+  await db.save(record);
   return record;
 }
 

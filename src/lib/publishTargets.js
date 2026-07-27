@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { generateId } from './ids.js';
 
 const META_KEY = 'websitePublishTarget';
@@ -20,12 +20,12 @@ export const DEFAULT_PUBLISH_TARGET = {
 };
 
 export async function getPublishTarget() {
-  const target = await getLocalDatabase().getMeta(META_KEY);
+  const target = await getAppDataClient().meta.get(META_KEY);
   const normalized = normalizePublishTarget(target || DEFAULT_PUBLISH_TARGET);
   if (normalized.secret || normalized.webhookHeader) {
     writeSessionValue(SESSION_SECRET_KEY, normalized.secret);
     writeSessionValue(SESSION_WEBHOOK_HEADER_KEY, normalized.webhookHeader);
-    await getLocalDatabase().setMeta(META_KEY, persistedPublishTarget(normalized));
+    await getAppDataClient().meta.set(META_KEY, persistedPublishTarget(normalized));
   }
   return withSessionSecrets(normalized);
 }
@@ -34,11 +34,11 @@ export async function savePublishTarget(target) {
   const normalized = normalizePublishTarget(target);
   writeSessionValue(SESSION_SECRET_KEY, normalized.secret);
   writeSessionValue(SESSION_WEBHOOK_HEADER_KEY, normalized.webhookHeader);
-  await getLocalDatabase().setMeta(META_KEY, persistedPublishTarget(normalized));
+  await getAppDataClient().meta.set(META_KEY, persistedPublishTarget(normalized));
   return withSessionSecrets(normalized);
 }
 
-export function normalizePublishTarget(target = {}) {
+function normalizePublishTarget(target = {}) {
   const mode = ['download', 'ftp', 'sftp', 'webhook'].includes(target.mode) ? target.mode : 'download';
   return {
     ...DEFAULT_PUBLISH_TARGET,
@@ -120,12 +120,11 @@ export function publishTargetModeDescription(mode) {
  * are persisted in the local meta store so they survive reloads.
  */
 export async function listPublishHistory() {
-  const list = await getLocalDatabase().getMeta(HISTORY_META_KEY);
+  const list = await getAppDataClient().meta.get(HISTORY_META_KEY);
   return Array.isArray(list) ? list : [];
 }
 
 export async function recordPublishHistoryEntry(entry) {
-  const db = getLocalDatabase();
   const current = await listPublishHistory();
   const stamped = {
     id: generateId('publish', { randomLength: 4 }),
@@ -138,12 +137,12 @@ export async function recordPublishHistoryEntry(entry) {
     message: entry?.message || '',
   };
   const next = [stamped, ...current].slice(0, HISTORY_MAX_ENTRIES);
-  await db.setMeta(HISTORY_META_KEY, next);
+  await getAppDataClient().meta.set(HISTORY_META_KEY, next);
   return stamped;
 }
 
 export async function clearPublishHistory() {
-  await getLocalDatabase().setMeta(HISTORY_META_KEY, []);
+  await getAppDataClient().meta.set(HISTORY_META_KEY, []);
 }
 
 export async function postWebsiteToWebhook({ blob, target, siteTitle }) {

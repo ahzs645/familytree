@@ -9,7 +9,7 @@ import { listAllScopes } from '../lib/smartScopes.js';
 import { SUPPORTED_LOCALES, DIRECTION_OPTIONS } from '../lib/i18n.js';
 import { formClasses } from '../components/ui/formClasses.js';
 import { buttonClasses } from '../components/ui/Button.jsx';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { personSummary } from '../models/index.js';
 import {
   DEFAULT_SITE_OPTIONS,
@@ -51,21 +51,16 @@ export default function Websites() {
   const [publishTarget, setPublishTarget] = useState(DEFAULT_PUBLISH_TARGET);
   const [publishHistory, setPublishHistory] = useState([]);
   const [personScopes, setPersonScopes] = useState([]);
-  const [personOptions, setPersonOptions] = useState([]);
+  const { records: personRecords } = useRecords('Person');
+  const personOptions = useMemo(
+    () => personRecords
+      .map((rec) => ({ id: rec.recordName, label: personSummary(rec)?.fullName || rec.recordName }))
+      .sort((a, b) => a.label.localeCompare(b.label)),
+    [personRecords],
+  );
   useEffect(() => {
     let cancelled = false;
     listAllScopes('Person').then((scopes) => { if (!cancelled) setPersonScopes(scopes); }).catch(() => {});
-    (async () => {
-      try {
-        const { records } = await getLocalDatabase().query('Person', { limit: 100000 });
-        const list = records
-          .map((rec) => ({ id: rec.recordName, label: personSummary(rec)?.fullName || rec.recordName }))
-          .sort((a, b) => a.label.localeCompare(b.label));
-        if (!cancelled) setPersonOptions(list);
-      } catch {
-        if (!cancelled) setPersonOptions([]);
-      }
-    })();
     return () => { cancelled = true; };
   }, []);
   const controllerRef = useRef(null);

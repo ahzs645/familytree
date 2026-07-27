@@ -8,7 +8,9 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Sheet } from './ui/Sheet.jsx';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
+import { createWithChangeLog } from '../lib/recordWrite.js';
 import { refValue } from '../lib/recordRef.js';
 import { readRef } from '../lib/schema.js';
 import {
@@ -29,10 +31,10 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
     let cancelled = false;
     (async () => {
       try {
-        const db = getLocalDatabase();
+        const client = getAppDataClient();
         const [{ records: places }, { records: coords }] = await Promise.all([
-          db.query('Place', { limit: 100000 }),
-          db.query('Coordinate', { limit: 100000 }),
+          client.records.query('Place', { limit: 100000 }),
+          client.records.query('Coordinate', { limit: 100000 }),
         ]);
         const hasCoord = new Set();
         for (const coord of coords) {
@@ -88,7 +90,7 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
   const run = async () => {
     if (!rows) return;
     setRunning(true);
-    const db = getLocalDatabase();
+    const client = getAppDataClient();
     for (let i = 0; i < rows.length; i += 1) {
       if (!selected[rows[i].recordName]) continue;
       setRows((current) => updateRow(current, i, { status: STATUS.RUNNING, message: 'Looking up…' }));
@@ -99,14 +101,14 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
           setRows((current) => updateRow(current, i, { status: STATUS.NO_MATCH, message: 'No match found.' }));
           continue;
         }
-        const place = await db.getRecord(rows[i].recordName);
+        const place = await client.records.get(rows[i].recordName);
         if (!place) {
           setRows((current) => updateRow(current, i, { status: STATUS.ERROR, message: 'Place record missing.' }));
           continue;
         }
         const coordinate = buildCoordinateRecord(place.recordName, candidate);
-        await db.saveRecord(coordinate);
-        await db.saveRecord({
+        await createWithChangeLog(coordinate);
+        await saveWithChangeLog({
           ...place,
           fields: {
             ...place.fields,

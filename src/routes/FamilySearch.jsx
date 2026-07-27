@@ -31,7 +31,8 @@ import {
   uploadFamilySearchMemory,
   uploadFamilySearchPerson,
 } from '../lib/familySearchApi.js';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { matchesSearchText } from '../lib/i18n.js';
 import { readField } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
@@ -86,7 +87,15 @@ export default function FamilySearch() {
   const activePane = FAMILYSEARCH_PANES.find((entry) => entry.id === paneFromQuery)?.id || DEFAULT_PANE;
   const activePaneMeta = FAMILYSEARCH_PANES.find((entry) => entry.id === activePane) || FAMILYSEARCH_PANES[0];
 
-  const [people, setPeople] = useState([]);
+  const { records: personRecords } = useRecords('Person');
+  const people = useMemo(
+    () => personRecords.map((record) => ({
+      record,
+      summary: personSummary(record),
+      familySearchID: readField(record, ['familySearchID', 'familySearchId'], ''),
+    })).filter((entry) => entry.summary),
+    [personRecords],
+  );
   const [tasks, setTasks] = useState([]);
   const [filter, setFilter] = useState('unmatched');
   const defaultFilterApplied = useRef(false);
@@ -124,17 +133,10 @@ export default function FamilySearch() {
   }, [setSearchParams]);
 
   const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const [{ records }, savedTasks, prefs] = await Promise.all([
-      db.query('Person', { limit: 100000 }),
-      db.getMeta(TASK_META_KEY),
+    const [savedTasks, prefs] = await Promise.all([
+      getAppDataClient().meta.get(TASK_META_KEY),
       getAppPreferences(),
     ]);
-    setPeople(records.map((record) => ({
-      record,
-      summary: personSummary(record),
-      familySearchID: readField(record, ['familySearchID', 'familySearchId'], ''),
-    })).filter((entry) => entry.summary));
     setTasks(Array.isArray(savedTasks) ? savedTasks : []);
     setTaskType(prefs.familySearch?.defaultTaskType || 'match-review');
     if (!defaultFilterApplied.current) {
@@ -249,7 +251,7 @@ export default function FamilySearch() {
 
   const saveTasks = useCallback(async (next) => {
     setTasks(next);
-    await getLocalDatabase().setMeta(TASK_META_KEY, next);
+    await getAppDataClient().meta.set(TASK_META_KEY, next);
   }, []);
 
   const addTask = useCallback(async (personId, type = taskType) => {

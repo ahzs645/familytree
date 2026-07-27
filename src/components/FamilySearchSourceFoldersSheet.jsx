@@ -10,7 +10,7 @@ import {
   setFamilySearchSourceReferenceTags,
   upsertFamilySearchSourceFolder,
 } from '../lib/familySearchSourceFolders.js';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { sourceSummary } from '../models/index.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { Panel } from './ui/Panel.jsx';
@@ -30,7 +30,7 @@ export function FamilySearchSourceFoldersSheet({ open, onClose }) {
     const [foldersList, refList, sourcesQuery] = await Promise.all([
       listFamilySearchSourceFolders(),
       listFamilySearchSourceReferences(),
-      getLocalDatabase().query('Source', { limit: 100000 }),
+      getAppDataClient().records.query('Source', { limit: 100000 }),
     ]);
     setFolders(foldersList);
     setRefs(refList);

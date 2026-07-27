@@ -243,53 +243,6 @@ export const PLACE_TEMPLATE_FIELDS = {
 // Templates without an explicit field list fall back to a 4-tier generic.
 export const DEFAULT_PLACE_FIELDS = ['Place', 'Region', 'State', 'Country'];
 
-// All template choices (subset most common; complete set is dozens).
-export const PLACE_TEMPLATES = Object.keys({
-  ...PLACE_TEMPLATE_FIELDS,
-  Austria: 1, Belgium: 1, 'Bosnia and Herzegovina': 1, Bulgaria: 1, Croatia: 1,
-  Czechia: 1, Denmark: 1, Finland: 1, Greece: 1, Hungary: 1, Ireland: 1,
-  Netherlands: 1, Norway: 1, Poland: 1, Portugal: 1, Romania: 1, Serbia: 1,
-  Slovakia: 1, Slovenia: 1, Sweden: 1, Switzerland: 1,
-}).sort();
-
-export const SOURCE_TEMPLATES = [
-  'Generic', 'Address Book', 'Book', 'Business Organisational Record',
-  'CD-ROM', 'Cemetery Record (Digital)', 'Cemetery Record (Microfilm)',
-  'Cemetery Record (Physical Copy)',
-  'Census (Digital)', 'Census (Microfilm)', 'Census (Physical Copy)',
-  'Church Record (Books)', 'Church Record (Digital)', 'Church Record (Microfilm)',
-  'Corporate Record (Digital)', 'Corporate Record (Microfilm)', 'Corporate Record (Physical Copy)',
-  'Court Documents', 'Deed', 'Diary / Journal', 'Draft Registration',
-  'E-Mail Message',
-  'Emigration Record (Digital)', 'Emigration Record (Microfilm)', 'Emigration Record (Physical Copy)',
-  'Family Bible', 'Family Chart', 'Funeral Home Record', 'Grave Markers',
-  'Historical Letter (Digital)', 'Historical Letter (Microfilm)', 'Historical Letter (Physical Copy)',
-  'Historical Research',
-  'Immigration Record (Digital)', 'Immigration Record (Microfilm)', 'Immigration Record (Physical Copy)',
-  'Interview (Digital)', 'Interview (Microfilm)', 'Interview (Physical Copy)',
-  'Land Grant Register', 'Land Record (Digital)', 'Land Record (Microfilm)', 'Land Record (Physical Copy)',
-  'Legal Document (Digital)', 'Legal Document (Microfilm)', 'Legal Document (Physical Copy)',
-  'Legal Genetic Testing', 'Letter',
-  'Local and State Record (Digital)', 'Local and State Record (Microfilm)', 'Local and State Record (Physical Copy)',
-  'Manuscript Record', 'Map', 'Medical Record', 'Military Record',
-  'National Government Record (Digital)', 'National Government Record (Microfilm)', 'National Government Record (Physical Copy)',
-  'Native American Tribal Census', 'Naturalization Record', 'Newspaper',
-  'Non-Legal / Private Genetic Testing',
-  'Passenger List', 'Pension File', 'Periodical', 'Personal Bible', 'Personal Correspondence',
-  'Portrait', 'Preservation Film',
-  'Research Report (Digital)', 'Research Report (Microfilm)', 'Research Report (Physical Copy)',
-  'School Record (Digital)', 'School Record (Microfilm)', 'School Record (Physical Copy)',
-  'Tax List',
-  'US Congressional Record (Digital)', 'US Congressional Record (Microfilm)',
-  'Unpublished Narrative', 'Vertical File', 'Video',
-  'Vital Record',
-  'Vital Record – Birth Certificate',
-  'Vital Record – Death Certificate',
-  'Vital Record – Divorce Certificate',
-  'Vital Record – Marriage License',
-  'Website', 'Will',
-];
-
 export const REFERENCE_NUMBER_FIELDS = [
   { id: 'ownReferenceNumber', label: 'Own Reference Number' },
   { id: 'gedcomID', label: 'Gedcom ID' },

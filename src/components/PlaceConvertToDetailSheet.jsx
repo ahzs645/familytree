@@ -14,7 +14,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Sheet } from './ui/Sheet.jsx';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { generateId } from '../lib/ids.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { readField } from '../lib/schema.js';
@@ -32,10 +32,10 @@ export function PlaceConvertToDetailSheet({ placeRecordName, onClose, onConverte
     let cancelled = false;
     (async () => {
       try {
-        const db = getLocalDatabase();
+        const client = getAppDataClient();
         const [record, { records }] = await Promise.all([
-          db.getRecord(placeRecordName),
-          db.query('Place', { limit: 100000 }),
+          client.records.get(placeRecordName),
+          client.records.query('Place', { limit: 100000 }),
         ]);
         if (cancelled) return;
         if (!record) {
@@ -175,8 +175,7 @@ export function PlaceConvertToDetailSheet({ placeRecordName, onClose, onConverte
 }
 
 async function findReferencingRecords(placeRecordName) {
-  const db = getLocalDatabase();
-  const all = await db.getAllRecords();
+  const all = await getAppDataClient().records.all();
   const matched = [];
   for (const record of all) {
     if (!record || record.recordName === placeRecordName) continue;
@@ -194,8 +193,8 @@ function recordTouchesPlace(record, placeRecordName) {
 }
 
 async function convertPlaceToDetail({ placeRecordName, parentRecordName, detailName }) {
-  const db = getLocalDatabase();
-  const parent = await db.getRecord(parentRecordName);
+  const client = getAppDataClient();
+  const parent = await client.records.get(parentRecordName);
   if (!parent) throw new Error('Parent place not found.');
 
   const referencing = await findReferencingRecords(placeRecordName);
@@ -216,7 +215,7 @@ async function convertPlaceToDetail({ placeRecordName, parentRecordName, detailN
   };
   saveRecords.push(detail);
 
-  await db.applyRecordTransaction({
+  await client.records.transaction({
     saveRecords,
     deleteRecordNames: [placeRecordName],
   });

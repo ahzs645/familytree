@@ -2,7 +2,7 @@
  * Rule-based data quality checks. Each rule yields warnings of shape
  * { rule, severity, recordName, recordType, message }.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { refToRecordName } from './recordRef.js';
 import { compareIssues, makeValidationIssue } from './validationIssues.js';
 import { personSummary } from '../models/index.js';
@@ -30,7 +30,7 @@ export const PLAUSIBILITY_ANALYZERS = Object.freeze([
   { id: 'birth-order-mismatch', label: 'Children birth order vs dates', defaultEnabled: true },
 ]);
 
-export const DEFAULT_PLAUSIBILITY_CONFIG = Object.freeze({
+const DEFAULT_PLAUSIBILITY_CONFIG = Object.freeze({
   enabled: {
     'death-before-birth': true,
     'lifespan-over-120': true,
@@ -60,7 +60,7 @@ function resolveConfig(config) {
 
 export async function runPlausibilityChecks(config) {
   const { enabled, thresholds } = resolveConfig(config);
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const persons = (await db.query('Person', { limit: 100000 })).records;
   const families = (await db.query('Family', { limit: 100000 })).records;
   const childRels = (await db.query('ChildRelation', { limit: 100000 })).records;

@@ -2,12 +2,12 @@
  * Heuristic next-step research questions per person.
  * Generated from data gaps; intentionally not exhaustive.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { refToRecordName } from './recordRef.js';
 import { personSummary } from '../models/index.js';
 
 export async function generateResearchSuggestions() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const persons = (await db.query('Person', { limit: 100000 })).records;
   const families = (await db.query('Family', { limit: 100000 })).records;
   const childRels = (await db.query('ChildRelation', { limit: 100000 })).records;

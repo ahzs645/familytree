@@ -15,7 +15,7 @@
  *   - Place
  */
 
-import { getLocalDatabase } from '../LocalDatabase.js';
+import { getAppDataClient } from '../data/AppDataClient.js';
 import { readField, readRef, FIELD_ALIASES } from '../schema.js';
 import { isPublicRecord } from '../privacy.js';
 
@@ -34,13 +34,13 @@ function filterPublic(records, { includePrivate = false } = {}) {
 }
 
 async function queryAll(recordType, options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const result = await db.query(recordType, { limit: DEFAULT_LIMIT, ...options });
   return extractRecords(result);
 }
 
 async function queryByReference(recordType, referenceField, referenceValue, options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const result = await db.query(recordType, {
     referenceField,
     referenceValue,
@@ -60,7 +60,7 @@ export async function getAllFamilies(options = {}) {
   return filterPublic(records, options);
 }
 
-export async function getAllPlaces(options = {}) {
+async function getAllPlaces(options = {}) {
   return queryAll('Place', options);
 }
 
@@ -79,22 +79,6 @@ export async function getAllPersonFacts(options = {}) {
   return filterPublic(records, options);
 }
 
-export async function getAllChildRelations(options = {}) {
-  return queryAll('ChildRelation', options);
-}
-
-export async function getAllAssociateRelations(options = {}) {
-  return queryAll('AssociateRelation', options);
-}
-
-export async function getAllPersonGroupRelations(options = {}) {
-  return queryAll('PersonGroupRelation', options);
-}
-
-export async function getAllLabelRelations(options = {}) {
-  return queryAll('LabelRelation', options);
-}
-
 export async function getPersonEventsForPerson(personRecordName, options = {}) {
   if (!personRecordName) return [];
   const records = await queryByReference('PersonEvent', 'person', personRecordName, options);
@@ -107,44 +91,18 @@ export async function getPersonFactsForPerson(personRecordName, options = {}) {
   return filterPublic(records, options);
 }
 
-export async function getFamilyEventsForFamily(familyRecordName, options = {}) {
-  if (!familyRecordName) return [];
-  const records = await queryByReference('FamilyEvent', 'family', familyRecordName, options);
-  return filterPublic(records, options);
-}
-
-export async function getChildRelationsForFamily(familyRecordName, options = {}) {
-  if (!familyRecordName) return [];
-  return queryByReference('ChildRelation', 'family', familyRecordName, options);
-}
-
 export async function getAssociateRelationsForPerson(personRecordName, options = {}) {
   if (!personRecordName) return [];
   return queryByReference('AssociateRelation', 'person', personRecordName, options);
 }
 
-export async function getPersonGroupRelationsForPerson(personRecordName, options = {}) {
-  if (!personRecordName) return [];
-  return queryByReference('PersonGroupRelation', 'person', personRecordName, options);
-}
-
-export async function getLabelRelationsForPerson(personRecordName, options = {}) {
-  if (!personRecordName) return [];
-  return queryByReference('LabelRelation', 'person', personRecordName, options);
-}
-
 /**
  * Fetch a single record by name.
  */
-export async function getRecordByName(recordName) {
+async function getRecordByName(recordName) {
   if (!recordName) return null;
-  const db = getLocalDatabase();
-  return db.getRecord(recordName);
-}
-
-export async function getPlaceByRecordName(recordName) {
-  if (!recordName) return null;
-  return getRecordByName(recordName);
+  const db = getAppDataClient().records;
+  return db.get(recordName);
 }
 
 /**

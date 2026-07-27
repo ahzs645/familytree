@@ -16,9 +16,8 @@ import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { ImportDropZone } from '../components/ImportDropZone.jsx';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { generateId } from '../lib/ids.js';
-import { logRecordCreated } from '../lib/changeLog.js';
+import { createWithChangeLog } from '../lib/recordWrite.js';
 import { saveActiveTree, startNewTree, upsertActiveTreeSnapshot } from '../lib/treeLibrary.js';
 import { Gender } from '../models/index.js';
 
@@ -61,7 +60,6 @@ export default function Welcome() {
     setBusy(true);
     try {
       await startNewTree(treeName.trim());
-      const db = getLocalDatabase();
       const first = firstName.trim();
       const last = lastName.trim();
       const fullName = `${first} ${last}`.trim();
@@ -75,8 +73,7 @@ export default function Welcome() {
       const year = birthYear.trim();
       if (year) fields.cached_birthDate = { value: year, type: 'STRING' };
       const record = { recordName: uuid('person'), recordType: 'Person', fields };
-      await db.saveRecord(record);
-      await logRecordCreated(record);
+      await createWithChangeLog(record);
       await saveActiveTree();
       await refresh();
       modal.toast(t('onboarding.createdToast', { defaultValue: 'Family tree created.' }), { kind: 'success' });

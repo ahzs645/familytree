@@ -16,7 +16,7 @@ export const EXPORT_FORMATS = [
   { id: 'pdf', label: 'PDF (via print)', ext: 'pdf', mime: 'application/pdf' },
 ];
 
-export function renderTo(format, report, { theme } = {}) {
+function renderTo(format, report, { theme } = {}) {
   switch (format) {
     case 'html':
     case 'pdf':

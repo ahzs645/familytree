@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import {
   DEFAULT_LOCALIZATION,
   directionForLocale,
@@ -165,7 +165,7 @@ export const SITE_THEME_PRESETS = Object.freeze([
   },
 ]);
 
-export const DEFAULT_CONTENT_SECTIONS = Object.freeze({
+const DEFAULT_CONTENT_SECTIONS = Object.freeze({
   people: true,
   families: true,
   places: true,
@@ -184,7 +184,7 @@ export const DEFAULT_CONTENT_SECTIONS = Object.freeze({
 
 // Per-media-type include toggles (#62) — applied only when the `media` content
 // section is enabled. Keys are Media* record types.
-export const DEFAULT_MEDIA_TYPES = Object.freeze({
+const DEFAULT_MEDIA_TYPES = Object.freeze({
   MediaPicture: true,
   MediaPDF: true,
   MediaAudio: true,
@@ -223,13 +223,13 @@ export const DEFAULT_SITE_OPTIONS = Object.freeze({
 });
 
 export async function getWebsiteOptions() {
-  const saved = await getLocalDatabase().getMeta(META_KEY);
+  const saved = await getAppDataClient().meta.get(META_KEY);
   return normalizeWebsiteOptions(saved || DEFAULT_SITE_OPTIONS);
 }
 
 export async function saveWebsiteOptions(options) {
   const normalized = normalizeWebsiteOptions(options);
-  await getLocalDatabase().setMeta(META_KEY, normalized);
+  await getAppDataClient().meta.set(META_KEY, normalized);
   return normalized;
 }
 
@@ -297,7 +297,7 @@ export function normalizeContentSections(sections = {}) {
   );
 }
 
-export function normalizeMediaTypes(types = {}) {
+function normalizeMediaTypes(types = {}) {
   return Object.fromEntries(
     Object.entries(DEFAULT_MEDIA_TYPES).map(([key, defaultValue]) => [
       key,

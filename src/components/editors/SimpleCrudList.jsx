@@ -3,9 +3,10 @@
  * Caller supplies recordType, displayLabel, and a list of editable fields.
  * Save runs through saveWithChangeLog so edits land in the change log.
  */
-import React, { useEffect, useState, useCallback } from 'react';
-import { getLocalDatabase } from '../../lib/LocalDatabase.js';
-import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../../lib/changeLog.js';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useRecords } from '../../lib/data/useRecords.js';
+import { saveWithChangeLog } from '../../lib/changeLog.js';
+import { createWithChangeLog, deleteWithChangeLog } from '../../lib/recordWrite.js';
 import { MasterDetailList } from './MasterDetailList.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { readRef, refValue } from '../../lib/schema.js';
@@ -29,21 +30,21 @@ export function SimpleCrudList({
   extraDefaults = {},
 }) {
   const modal = useModal();
-  const [records, setRecords] = useState([]);
+  const { records: rawRecords } = useRecords(recordType);
   const [activeId, setActiveId] = useState(null);
   const [values, setValues] = useState({});
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const { records: list } = await db.query(recordType, { limit: 100000 });
+  const records = useMemo(() => {
+    const list = [...rawRecords];
     list.sort((a, b) => String(displayLabel(a)).localeCompare(String(displayLabel(b))));
-    setRecords(list);
-    if (!activeId && list.length > 0) setActiveId(list[0].recordName);
-  }, [recordType, activeId, displayLabel]);
+    return list;
+  }, [rawRecords, displayLabel]);
 
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => {
+    if (!activeId && records.length > 0) setActiveId(records[0].recordName);
+  }, [activeId, records]);
 
   useEffect(() => {
     if (!activeId) return;
@@ -57,27 +58,21 @@ export function SimpleCrudList({
   }, [activeId, records, fields]);
 
   const onCreate = useCallback(async () => {
-    const db = getLocalDatabase();
     const rec = {
       recordName: uuid(uuidPrefix),
       recordType,
       fields: { ...extraDefaults },
     };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
-    await reload();
+    await createWithChangeLog(rec);
     setActiveId(rec.recordName);
-  }, [recordType, uuidPrefix, extraDefaults, reload]);
+  }, [recordType, uuidPrefix, extraDefaults]);
 
   const onDelete = useCallback(async () => {
     if (!activeId) return;
     if (!(await modal.confirm('Delete this record?', { title: 'Delete record', okLabel: 'Delete', destructive: true }))) return;
-    const db = getLocalDatabase();
-    await db.deleteRecord(activeId);
-    await logRecordDeleted(activeId, recordType);
+    await deleteWithChangeLog(activeId, recordType);
     setActiveId(null);
-    await reload();
-  }, [activeId, recordType, reload, modal]);
+  }, [activeId, recordType, modal]);
 
   const onSave = useCallback(async () => {
     const r = records.find((x) => x.recordName === activeId);
@@ -91,11 +86,10 @@ export function SimpleCrudList({
       else next.fields[f.id] = { value: f.type === 'number' ? +v : v, type: f.type === 'number' ? 'NUMBER' : 'STRING' };
     }
     await saveWithChangeLog(next);
-    await reload();
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
-  }, [activeId, records, fields, values, reload]);
+  }, [activeId, records, fields, values]);
 
   const renderRow = (r) => (
     <div className="text-sm text-foreground truncate">{displayLabel(r)}</div>

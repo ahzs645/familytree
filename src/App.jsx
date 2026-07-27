@@ -24,7 +24,7 @@ import { ROUTE_MANIFEST, SHARE_PREVIEW_ROUTE, memoLazy } from './routes/manifest
 function Fallback() {
   const { t } = useTranslation();
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>
+    <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
       {t('app.loadingView')}
     </div>
   );

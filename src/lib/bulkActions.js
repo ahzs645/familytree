@@ -3,7 +3,7 @@
  * delete many records with change-log entries, and resolve which LabelRelation
  * target field a record type uses.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { generateId } from './ids.js';
 import { logRecordCreated, logRecordDeleted } from './changeLog.js';
 import { toCssHexColor } from './labelColors.js';
@@ -19,12 +19,12 @@ const LABEL_TARGET_FIELDS = {
   Source: 'targetSource',
 };
 
-export function labelTargetField(recordType) {
+function labelTargetField(recordType) {
   return LABEL_TARGET_FIELDS[recordType] || 'target';
 }
 
 export async function listLabels() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Label', { limit: 100000 });
   return records
     .map((record) => ({
@@ -44,7 +44,7 @@ export async function listLabels() {
  * lists always use the generic `target` ref field.
  */
 export async function assignLabelToRecords(labelId, targetIds, recordType) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const typeFor = typeof recordType === 'function' ? recordType : () => recordType;
   const field = typeof recordType === 'function' ? 'target' : labelTargetField(recordType);
   const { records: relations } = await db.query('LabelRelation', { limit: 100000 });
@@ -65,7 +65,7 @@ export async function assignLabelToRecords(labelId, targetIds, recordType) {
         [field]: { value: refValue(targetId, typeFor(targetId)), type: 'REFERENCE' },
       },
     };
-    await db.saveRecord(record);
+    await db.save(record);
     await logRecordCreated(record);
     created += 1;
   }
@@ -73,10 +73,10 @@ export async function assignLabelToRecords(labelId, targetIds, recordType) {
 }
 
 export async function deleteRecordsWithLog(ids, recordType) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const typeFor = typeof recordType === 'function' ? recordType : () => recordType;
   for (const id of ids) {
-    await db.deleteRecord(id);
+    await db.delete(id);
     await logRecordDeleted(id, typeFor(id));
   }
 }

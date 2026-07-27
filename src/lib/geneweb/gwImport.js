@@ -16,7 +16,7 @@ export function parseGeneWeb(text, options = {}) {
   return parseGeneWebParts(text, options).records;
 }
 
-export function parseGeneWebParts(text, { sourceName = '' } = {}) {
+function parseGeneWebParts(text, { sourceName = '' } = {}) {
   sequence = 0;
   const lines = String(text || '').replace(/\r\n?/g, '\n').split('\n');
   const state = {

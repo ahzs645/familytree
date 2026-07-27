@@ -1,7 +1,7 @@
 const SECONDARY_RELATION_RE = /adopt|step|foster|guardian|ward|sealing|other|unknown/i;
 const PRIMARY_RELATION_RE = /birth|biolog|natural|blood/i;
 
-export function childRelationMarker(record) {
+function childRelationMarker(record) {
   const fields = record?.fields || {};
   return [
     fields.childRelationType?.value,

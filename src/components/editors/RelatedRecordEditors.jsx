@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getLocalDatabase } from '../../lib/LocalDatabase.js';
+import { getAppDataClient } from '../../lib/data/AppDataClient.js';
 import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../../lib/changeLog.js';
+import { createWithChangeLog, deleteWithChangeLog } from '../../lib/recordWrite.js';
 import { readRef, writeRef } from '../../lib/schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary } from '../../models/index.js';
 import { affiliationLevelLabel, affiliationName } from '../../lib/tribalAffiliations.js';
@@ -82,8 +83,8 @@ export function recordDisplayLabel(record) {
 }
 
 async function loadRecordPool(types) {
-  const db = getLocalDatabase();
-  const rows = await Promise.all(types.map((type) => db.query(type, { limit: 100000 })));
+  const client = getAppDataClient();
+  const rows = await Promise.all(types.map((type) => client.records.query(type, { limit: 100000 })));
   const records = rows.flatMap((row) => row.records);
   records.sort((a, b) => recordDisplayLabel(a).localeCompare(recordDisplayLabel(b)));
   return records;
@@ -133,11 +134,11 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
 
   const reload = useCallback(async () => {
     if (!ownerRecordName) return;
-    const db = getLocalDatabase();
+    const client = getAppDataClient();
     const [relRows, pool, owner] = await Promise.all([
-      db.query('MediaRelation', { referenceField: 'target', referenceValue: ownerRecordName, limit: 100000 }),
+      client.records.query('MediaRelation', { referenceField: 'target', referenceValue: ownerRecordName, limit: 100000 }),
       loadRecordPool(MEDIA_TYPES),
-      db.getRecord(ownerRecordName),
+      client.records.get(ownerRecordName),
     ]);
     const byId = new Map(pool.map((record) => [record.recordName, record]));
     setMedia(pool);
@@ -152,8 +153,7 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
 
   const setEntryImage = useCallback(async (mediaRecord, makePrimary) => {
     if (!ownerRecordName) return;
-    const db = getLocalDatabase();
-    const owner = await db.getRecord(ownerRecordName);
+    const owner = await getAppDataClient().records.get(ownerRecordName);
     if (!owner) return;
     const fields = { ...owner.fields };
     if (makePrimary) fields.thumbnailFileIdentifier = { value: mediaPictureIdentifier(mediaRecord), type: 'STRING' };
@@ -168,7 +168,6 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
 
   const addRelation = useCallback(async () => {
     if (!ownerRecordName || !mediaId || attachedIds.has(mediaId)) return;
-    const db = getLocalDatabase();
     const rec = {
       recordName: uuid('mr'),
       recordType: 'MediaRelation',
@@ -179,17 +178,14 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
         order: { value: relations.length, type: 'DOUBLE' },
       },
     };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
+    await createWithChangeLog(rec);
     setMediaId('');
     await reload();
     onChanged?.();
   }, [attachedIds, mediaId, mediaType, onChanged, ownerRecordName, ownerRecordType, relations.length, reload]);
 
   const removeRelation = useCallback(async (rel) => {
-    const db = getLocalDatabase();
-    await db.deleteRecord(rel.recordName);
-    await logRecordDeleted(rel.recordName, 'MediaRelation');
+    await deleteWithChangeLog(rel.recordName, 'MediaRelation');
     await reload();
     onChanged?.();
   }, [onChanged, reload]);
@@ -258,9 +254,8 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
 
   const reload = useCallback(async () => {
     if (!ownerRecordName) return;
-    const db = getLocalDatabase();
     const [relRows, poolRecords] = await Promise.all([
-      db.query('SourceRelation', { referenceField: queryField, referenceValue: ownerRecordName, limit: 100000 }),
+      getAppDataClient().records.query('SourceRelation', { referenceField: queryField, referenceValue: ownerRecordName, limit: 100000 }),
       loadRecordPool(poolTypes),
     ]);
     const byId = new Map(poolRecords.map((record) => [record.recordName, record]));
@@ -287,7 +282,6 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
 
   const addRelation = useCallback(async () => {
     if (!ownerRecordName || !selectedId || attachedIds.has(selectedId)) return;
-    const db = getLocalDatabase();
     const sourceId = ownerRole === 'source' ? ownerRecordName : selectedId;
     const sourceType = 'Source';
     const targetId = ownerRole === 'source' ? selectedId : ownerRecordName;
@@ -319,7 +313,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
       targetRecord: targetId,
       createdByEvent: created.recordName,
     });
-    await db.saveRecord(next);
+    await getAppDataClient().records.save(next);
     await logRecordCreated(next, { lineage: { lineageBatch: batch.recordName, operation: 'manualEdit', lineageEvent: created.recordName } });
     setSelectedId('');
     await reload();
@@ -353,7 +347,6 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
   }, [drafts, onChanged, reload]);
 
   const removeRelation = useCallback(async (rel) => {
-    const db = getLocalDatabase();
     const batchId = readRef(rel.fields?.lineageBatch) || (await createLineageBatch({ kind: 'manualEdit', sourceName: 'Source citation detach', summary: 'Manual source citation detach' })).recordName;
     const event = await recordLineageEvent({
       eventType: 'detached',
@@ -362,7 +355,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
       lineageBatch: batchId,
       details: 'Source citation detached. Source record was not deleted.',
     });
-    await db.deleteRecord(rel.recordName);
+    await getAppDataClient().records.delete(rel.recordName);
     await logRecordDeleted(rel.recordName, 'SourceRelation', { lineage: { lineageBatch: batchId, operation: 'manualEdit', lineageEvent: event.recordName } });
     await reload();
     onChanged?.();
@@ -565,10 +558,10 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
 
   const reload = useCallback(async () => {
     if (!ownerRecordName) return;
-    const db = getLocalDatabase();
+    const client = getAppDataClient();
     const [relRows, personRows] = await Promise.all([
-      db.query('AssociateRelation', { referenceField: ownerField, referenceValue: ownerRecordName, limit: 100000 }),
-      db.query('Person', { limit: 100000 }),
+      client.records.query('AssociateRelation', { referenceField: ownerField, referenceValue: ownerRecordName, limit: 100000 }),
+      client.records.query('Person', { limit: 100000 }),
     ]);
     const sortedPersons = personRows.records.sort((a, b) => recordDisplayLabel(a).localeCompare(recordDisplayLabel(b)));
     const personsById = new Map(sortedPersons.map((person) => [person.recordName, person]));
@@ -594,7 +587,6 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
   const addRelation = useCallback(async () => {
     if (!ownerRecordName || !typeId || !personId) return;
     const targetPerson = persons.find((person) => person.recordName === personId);
-    const db = getLocalDatabase();
     const rec = {
       recordName: uuid('ar'),
       recordType: 'AssociateRelation',
@@ -607,8 +599,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
         ...(newDate ? { date: { value: newDate, type: 'STRING' } } : {}),
       },
     };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
+    await createWithChangeLog(rec);
     setPersonId('');
     setNewDate('');
     await reload();
@@ -634,9 +625,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
   }, [drafts, onChanged, ownerField, ownerRecordName, ownerRecordType, persons, reload]);
 
   const removeRelation = useCallback(async (rel) => {
-    const db = getLocalDatabase();
-    await db.deleteRecord(rel.recordName);
-    await logRecordDeleted(rel.recordName, 'AssociateRelation');
+    await deleteWithChangeLog(rel.recordName, 'AssociateRelation');
     await reload();
     onChanged?.();
   }, [onChanged, reload]);
@@ -713,8 +702,7 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
 
   const reload = useCallback(async () => {
     if (!ownerRecordName) return;
-    const db = getLocalDatabase();
-    const { records } = await db.query('Note', { referenceField: ownerField, referenceValue: ownerRecordName, limit: 100000 });
+    const { records } = await getAppDataClient().records.query('Note', { referenceField: ownerField, referenceValue: ownerRecordName, limit: 100000 });
     setNotes(records.map((record) => ({
       recordName: record.recordName,
       title: record.fields?.title?.value || '',
@@ -727,8 +715,7 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
   const saveNotes = useCallback(async () => {
     if (!ownerRecordName) return;
     setSaving(true);
-    const db = getLocalDatabase();
-    const existing = (await db.query('Note', { referenceField: ownerField, referenceValue: ownerRecordName, limit: 100000 })).records;
+    const existing = (await getAppDataClient().records.query('Note', { referenceField: ownerField, referenceValue: ownerRecordName, limit: 100000 })).records;
     const keep = new Set();
     for (const note of notes) {
       if (!note.title && !note.text) continue;
@@ -750,15 +737,13 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
         }
       } else {
         const record = { recordName: uuid('note'), recordType: 'Note', fields };
-        await db.saveRecord(record);
-        await logRecordCreated(record);
+        await createWithChangeLog(record);
         keep.add(record.recordName);
       }
     }
     for (const previous of existing) {
       if (!keep.has(previous.recordName)) {
-        await db.deleteRecord(previous.recordName);
-        await logRecordDeleted(previous.recordName, 'Note');
+        await deleteWithChangeLog(previous.recordName, 'Note');
       }
     }
     await reload();

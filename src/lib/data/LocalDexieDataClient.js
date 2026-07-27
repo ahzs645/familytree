@@ -19,6 +19,11 @@ export class LocalDexieDataClient {
       transaction: (mutation) => this.database.applyRecordTransaction(mutation),
       importDataset: (dataset) => this.database.importDataset(dataset),
       clearAll: () => this.database.clearAll(),
+      // Person-graph helpers — derived queries a remote adapter can serve
+      // from indexed lookups instead of the local N+1 implementation.
+      personBirthEvents: (personRecordName) => this.database.getPersonBirthEvents(personRecordName),
+      personsParents: (personRecordName) => this.database.getPersonsParents(personRecordName),
+      childrenInformation: (personRecordNames) => this.database.getPersonsChildrenInformation(personRecordNames),
     };
     this.assets = {
       save: (asset) => this.database.saveAsset(asset),

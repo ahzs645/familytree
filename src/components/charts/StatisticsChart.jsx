@@ -130,6 +130,4 @@ function trim(value, max) {
   return s.length > max ? `${s.slice(0, max - 1)}…` : s;
 }
 
-export const STATISTIC_TYPE_OPTIONS = SECTION_DEFS.map((s) => [s.id, s.label]);
-
 export default StatisticsChart;

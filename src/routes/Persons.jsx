@@ -17,7 +17,7 @@ import { BulkLabelMenu } from '../components/lists/BulkLabelMenu.jsx';
 import { ColumnChooser } from '../components/lists/ColumnChooser.jsx';
 import { listToolbarButtonClass } from '../components/lists/listToolbarClasses.js';
 import { ListReportPreview, ListReportToolbar, useListReportOptions } from '../components/lists/ListReportWorkbench.jsx';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { logRecordDeleted } from '../lib/changeLog.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
@@ -115,9 +115,9 @@ export default function Persons() {
   const bulkDelete = async () => {
     if (!selection.count) return;
     if (!(await modal.confirm(t('persons.deleteConfirm', { count: selection.count }), { title: t('persons.deleteTitle'), okLabel: t('persons.deleteOk'), destructive: true }))) return;
-    const db = getLocalDatabase();
+    const data = getAppDataClient();
     for (const id of selection.selectedIds) {
-      await db.deleteRecord(id);
+      await data.records.delete(id);
       await logRecordDeleted(id, 'Person');
     }
     selection.clear();

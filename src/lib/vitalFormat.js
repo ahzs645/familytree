@@ -23,10 +23,6 @@ export function setActiveVitalDisplay(value = {}) {
   activeVitalDisplay = normalizeVitalDisplay(value);
 }
 
-export function getActiveVitalDisplay() {
-  return activeVitalDisplay;
-}
-
 export function yearLabel(raw) {
   const parsed = parseEventDate(raw);
   return parsed?.year == null ? '' : String(parsed.year);
@@ -65,19 +61,6 @@ export function formatVitalDateParts({ birthDate, deathDate } = {}, display = ac
     return [birth ? `ميلاد ${birth}` : '', death ? `وفاة ${death}` : ''].filter(Boolean);
   }
   return [birth ? `b. ${birth}` : '', death ? `d. ${death}` : ''].filter(Boolean);
-}
-
-export function formatVitalPhraseParts(summary = {}, display = activeVitalDisplay) {
-  const normalized = normalizeVitalDisplay(display);
-  const birth = summary.birthDate ? String(summary.birthDate) : '';
-  const death = summary.deathDate ? String(summary.deathDate) : '';
-  if (normalized.markerStyle === 'symbols') {
-    return [birth ? `* ${birth}` : '', death ? `◆ ${death}` : ''].filter(Boolean);
-  }
-  if (normalized.markerStyle === 'arabic-labels') {
-    return [birth ? `ولد/ولدت ${birth}` : '', death ? `توفي/توفيت ${death}` : ''].filter(Boolean);
-  }
-  return [birth ? `born ${birth}` : '', death ? `died ${death}` : ''].filter(Boolean);
 }
 
 function formatVitalParts(parts) {

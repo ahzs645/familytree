@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 
 /**
  * Map a dataset produced by `extractMFTPKGDataset` (lib/mftpkgExtractor.js) to
@@ -120,13 +120,14 @@ export async function planMerge(json) {
   if (!json || json.format !== 'cloudtreeweb-backup' || !json.records) {
     throw new Error('File is not a CloudTreeWeb backup.');
   }
-  const db = getLocalDatabase();
+  const client = getAppDataClient();
+  const db = client.records;
   const incoming = Object.values(json.records);
   const conflicts = [];
   const newRecords = [];
 
   for (const record of incoming) {
-    const existing = await db.getRecord(record.recordName);
+    const existing = await db.get(record.recordName);
     if (!existing) {
       newRecords.push(record);
       continue;
@@ -157,7 +158,7 @@ export async function planMerge(json) {
   const assetCollisions = [];
   for (const asset of json.assets || []) {
     if (!asset?.assetId) continue;
-    const existing = await db.getAsset(asset.assetId);
+    const existing = await client.assets.get(asset.assetId);
     if (existing) assetCollisions.push(asset.assetId);
   }
 
@@ -179,13 +180,14 @@ function valuesEqual(a, b) {
  * Missing keys default to KEEP_EXISTING (safe).
  */
 export async function mergeBackupJSONWithResolutions(json, resolutions, options = {}) {
-  const db = getLocalDatabase();
+  const client = getAppDataClient();
+  const db = client.records;
   const incoming = Object.values(json.records || {});
   const nameMap = new Map();
   const saveRecords = [];
 
   for (const record of incoming) {
-    const existing = await db.getRecord(record.recordName);
+    const existing = await db.get(record.recordName);
     if (!existing) {
       saveRecords.push(structuredCloneSafe(record));
       continue;
@@ -207,7 +209,7 @@ export async function mergeBackupJSONWithResolutions(json, resolutions, options 
   const saveAssets = [];
   for (const asset of json.assets || []) {
     if (!asset?.assetId) continue;
-    const existing = await db.getAsset(asset.assetId);
+    const existing = await client.assets.get(asset.assetId);
     if (!existing) {
       saveAssets.push(structuredCloneSafe(asset));
       continue;
@@ -234,8 +236,8 @@ export async function mergeBackupJSONWithResolutions(json, resolutions, options 
     rollbackNote: options.rollbackNote || '',
     exportedAt: json.exportedAt || '',
   });
-  await db.applyRecordTransaction({ saveRecords: [...rewritten, logEntry], saveAssets });
-  await appendMergeHistory(db, {
+  await db.transaction({ saveRecords: [...rewritten, logEntry], saveAssets });
+  await appendMergeHistory(client, {
     importedAt: new Date().toISOString(),
     records: rewritten.length,
     assets: saveAssets.length,
@@ -258,14 +260,15 @@ export async function analyzeBackupMergeJSON(json) {
   if (!json || json.format !== 'cloudtreeweb-backup' || !json.records) {
     throw new Error('File is not a CloudTreeWeb backup.');
   }
-  const db = getLocalDatabase();
+  const client = getAppDataClient();
+  const db = client.records;
   const incoming = Object.values(json.records);
   const recordTypes = {};
   let collisions = 0;
   const collisionSamples = [];
   for (const record of incoming) {
     recordTypes[record.recordType] = (recordTypes[record.recordType] || 0) + 1;
-    const existing = await db.getRecord(record.recordName);
+    const existing = await db.get(record.recordName);
     if (existing) {
       collisions += 1;
       if (collisionSamples.length < 8) collisionSamples.push({ recordName: record.recordName, recordType: record.recordType });
@@ -276,7 +279,7 @@ export async function analyzeBackupMergeJSON(json) {
   const assetSamples = [];
   for (const asset of json.assets || []) {
     if (!asset?.assetId) continue;
-    const existing = await db.getAsset(asset.assetId);
+    const existing = await client.assets.get(asset.assetId);
     if (existing) {
       assetCollisions += 1;
       if (assetSamples.length < 8) assetSamples.push(asset.assetId);
@@ -300,18 +303,19 @@ export async function mergeBackupJSON(json, { rollbackNote = '' } = {}) {
   if (!json || json.format !== 'cloudtreeweb-backup' || !json.records) {
     throw new Error('File is not a CloudTreeWeb backup.');
   }
-  const db = getLocalDatabase();
+  const client = getAppDataClient();
+  const db = client.records;
   const incoming = Object.values(json.records);
   const nameMap = new Map();
   for (const record of incoming) {
-    const existing = await db.getRecord(record.recordName);
+    const existing = await db.get(record.recordName);
     if (existing) nameMap.set(record.recordName, uniqueRecordName(record.recordName));
   }
 
   const assetIdMap = new Map();
   for (const asset of json.assets || []) {
     if (!asset?.assetId) continue;
-    const existing = await db.getAsset(asset.assetId);
+    const existing = await client.assets.get(asset.assetId);
     if (existing) assetIdMap.set(asset.assetId, uniqueAssetId(asset.assetId));
   }
 
@@ -331,8 +335,8 @@ export async function mergeBackupJSON(json, { rollbackNote = '' } = {}) {
     exportedAt: json.exportedAt || '',
   });
 
-  await db.applyRecordTransaction({ saveRecords: [...rewrittenRecords, logEntry], saveAssets: rewrittenAssets });
-  await appendMergeHistory(db, {
+  await db.transaction({ saveRecords: [...rewrittenRecords, logEntry], saveAssets: rewrittenAssets });
+  await appendMergeHistory(client, {
     importedAt: new Date().toISOString(),
     records: rewrittenRecords.length,
     assets: rewrittenAssets.length,
@@ -400,9 +404,9 @@ function buildMergeLogEntry({ records, assets, renamed, assetRenamed, rollbackNo
   };
 }
 
-async function appendMergeHistory(db, entry) {
-  const history = await db.getMeta('mergeImportHistory');
+async function appendMergeHistory(client, entry) {
+  const history = await client.meta.get('mergeImportHistory');
   const next = Array.isArray(history) ? history.slice(-24) : [];
   next.push(entry);
-  await db.setMeta('mergeImportHistory', next);
+  await client.meta.set('mergeImportHistory', next);
 }

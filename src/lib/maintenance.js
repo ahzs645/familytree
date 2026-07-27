@@ -2,7 +2,7 @@
  * Read-only audits + targeted cleanup operations for the imported database.
  * Each function returns a report describing what was/would be changed.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { saveWithChangeLog, logRecordDeleted } from './changeLog.js';
 import { refToRecordName } from './recordRef.js';
 import { Gender } from '../models/index.js';
@@ -46,7 +46,7 @@ function formatDate(p, format) {
 }
 
 export async function auditUnreadableDates() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const out = [];
   for (const type of ['PersonEvent', 'FamilyEvent']) {
     const { records } = await db.query(type, { limit: 100000 });
@@ -59,7 +59,7 @@ export async function auditUnreadableDates() {
 }
 
 export async function reformatAllDates(format = 'YYYY-MM-DD', { dryRun = true } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const changes = [];
   for (const type of ['PersonEvent', 'FamilyEvent']) {
     const { records } = await db.query(type, { limit: 100000 });
@@ -81,7 +81,7 @@ export async function reformatAllDates(format = 'YYYY-MM-DD', { dryRun = true } 
 }
 
 export async function auditEmptyEntries() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const persons = (await db.query('Person', { limit: 100000 })).records;
   const families = (await db.query('Family', { limit: 100000 })).records;
   const out = [];
@@ -99,11 +99,11 @@ export async function auditEmptyEntries() {
 }
 
 export async function removeEmptyEntries({ dryRun = true } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const empties = await auditEmptyEntries();
   if (!dryRun) {
     for (const e of empties) {
-      await db.deleteRecord(e.recordName);
+      await db.delete(e.recordName);
       await logRecordDeleted(e.recordName, e.recordType);
     }
   }
@@ -111,7 +111,7 @@ export async function removeEmptyEntries({ dryRun = true } = {}) {
 }
 
 export async function auditFamilyGenderMismatch() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const persons = new Map((await db.query('Person', { limit: 100000 })).records.map((p) => [p.recordName, p]));
   const out = [];
   const { records: families } = await db.query('Family', { limit: 100000 });
@@ -132,7 +132,7 @@ export async function auditFamilyGenderMismatch() {
   return out;
 }
 
-export function reformatName(name, mode) {
+function reformatName(name, mode) {
   if (!name) return name;
   switch (mode) {
     case 'TITLE': return name.replace(/\w\S*/g, (w) => w[0].toUpperCase() + w.slice(1).toLowerCase());
@@ -144,7 +144,7 @@ export function reformatName(name, mode) {
 }
 
 export async function reformatNames({ field = 'lastName', mode = 'TITLE', dryRun = true } = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query('Person', { limit: 100000 });
   const changes = [];
   for (const p of records) {
@@ -168,7 +168,7 @@ export async function reformatNames({ field = 'lastName', mode = 'TITLE', dryRun
 }
 
 export async function mediaSizeReport() {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   let total = 0;
   let count = 0;
   for (const t of ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo']) {
@@ -190,8 +190,8 @@ const OPTIMIZABLE_IMAGE = /^image\/(jpe?g|png|webp)$/i;
  * Dry-run reports the potential saving without writing.
  */
 export async function optimizeMedia({ maxDimension = 2048, quality = 0.82, dryRun = true } = {}) {
-  const db = getLocalDatabase();
-  const assets = await db.listAllAssets();
+  const client = getAppDataClient();
+  const assets = await client.assets.listAll();
   const results = [];
   let savedBytes = 0;
   for (const asset of assets) {
@@ -209,7 +209,7 @@ export async function optimizeMedia({ maxDimension = 2048, quality = 0.82, dryRu
     savedBytes += originalBytes - newBytes;
     results.push({ assetId: asset.assetId, ownerRecordName: asset.ownerRecordName, originalBytes, newBytes });
     if (!dryRun) {
-      await db.saveAsset({ ...asset, dataBase64: optimized.dataBase64, mimeType: optimized.mimeType });
+      await client.assets.save({ ...asset, dataBase64: optimized.dataBase64, mimeType: optimized.mimeType });
     }
   }
   return { count: results.length, savedBytes, results };
@@ -334,7 +334,7 @@ export function findMaintenanceIssues(records = []) {
 
 export { findTextHygieneIssues };
 
-export function findBrokenParentRelationships(records = []) {
+function findBrokenParentRelationships(records = []) {
   const byId = new Map(records.map((record) => [record.recordName, record]));
   const issues = [];
   for (const relation of records.filter((record) => record.recordType === 'ChildRelation')) {
@@ -355,7 +355,7 @@ export function findBrokenParentRelationships(records = []) {
   return issues;
 }
 
-export function findDuplicateSpouseLinks(records = []) {
+function findDuplicateSpouseLinks(records = []) {
   const pairs = new Map();
   const issues = [];
   for (const family of records.filter((record) => record.recordType === 'Family')) {
@@ -373,14 +373,14 @@ export function findDuplicateSpouseLinks(records = []) {
   return issues;
 }
 
-export function findEmptySourceAndCitationRecords(records = []) {
+function findEmptySourceAndCitationRecords(records = []) {
   return records
     .filter((record) => ['Source', 'Citation', 'SourceRelation'].includes(record.recordType))
     .filter((record) => isEffectivelyEmpty(record))
     .map((record) => maintenanceIssue('empty-source-citation-record', 'warning', record, `${record.recordType} ${record.recordName} has no meaningful fields.`));
 }
 
-export function findEventOrderIssues(records = []) {
+function findEventOrderIssues(records = []) {
   const out = [];
   const eventsByOwner = new Map();
   for (const event of records.filter((record) => record.recordType === 'PersonEvent' || record.recordType === 'FamilyEvent')) {
@@ -405,7 +405,7 @@ export function findEventOrderIssues(records = []) {
   return out;
 }
 
-export function findInvalidVitalEventLinks(records = []) {
+function findInvalidVitalEventLinks(records = []) {
   const out = [];
   for (const person of records.filter((record) => record.recordType === 'Person')) {
     const birthId = refToRecordName(person.fields?.birthEvent?.value);
@@ -426,7 +426,7 @@ export function findInvalidVitalEventLinks(records = []) {
   return out;
 }
 
-export function findVitalCacheSyncIssues(records = []) {
+function findVitalCacheSyncIssues(records = []) {
   const out = [];
   const eventsByPerson = new Map();
   for (const event of records.filter((record) => record.recordType === 'PersonEvent')) {
@@ -459,7 +459,7 @@ export function findVitalCacheSyncIssues(records = []) {
   return out;
 }
 
-export function findMissingChildFamilyLinks(records = []) {
+function findMissingChildFamilyLinks(records = []) {
   const byId = new Map(records.map((record) => [record.recordName, record]));
   const childRelationKeys = new Set();
   const childRelationFamilies = new Set();
@@ -485,21 +485,6 @@ export function findMissingChildFamilyLinks(records = []) {
     }
   }
   return out;
-}
-
-export async function auditAncestryLoops() {
-  const db = getLocalDatabase();
-  return findAncestryLoops(await db.getAllRecords());
-}
-
-export async function auditMaintenanceIssues() {
-  const db = getLocalDatabase();
-  return findMaintenanceIssues(await db.getAllRecords());
-}
-
-export async function auditUnusedRecords(options) {
-  const db = getLocalDatabase();
-  return findUnusedRecords(await db.getAllRecords(), options);
 }
 
 function eventDateSortKey(record) {

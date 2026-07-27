@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { generateId } from './ids.js';
 import { refValue } from './recordRef.js';
 import { Gender } from '../models/index.js';
@@ -57,10 +57,10 @@ export async function importContactsViaPicker() {
  * we just imported plus those already in the tree.
  */
 async function saveContactEntries(entries) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const records = entries.map((entry) => entry.record);
   const relationships = await linkContactRelations(entries, db);
-  await db.saveRecords([...records, ...relationships]);
+  await db.saveMany([...records, ...relationships]);
   return { created: records.length, relationships: relationships.length, records };
 }
 
@@ -177,14 +177,6 @@ async function linkContactRelations(entries, db) {
   }
 
   return out;
-}
-
-export function parseCSVContacts(text) {
-  return buildCSVEntries(text).map((entry) => entry.record);
-}
-
-export function parseVCardContacts(text) {
-  return buildVCardEntries(text).map((entry) => entry.record);
 }
 
 function buildCSVEntries(text) {

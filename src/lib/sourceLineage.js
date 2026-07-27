@@ -1,4 +1,4 @@
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { readRef, refValue } from './schema.js';
 
 let _seq = 0;
@@ -32,9 +32,9 @@ export function createLineageBatchRecord({ kind = 'manualEdit', sourceName = '',
 }
 
 export async function createLineageBatch(draft = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const record = createLineageBatchRecord(draft);
-  await db.saveRecord(record);
+  await db.save(record);
   return record;
 }
 
@@ -79,9 +79,9 @@ export function createLineageEventRecord({
 }
 
 export async function recordLineageEvent(eventDraft = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const event = createLineageEventRecord(eventDraft);
-  await db.saveRecord(event);
+  await db.save(event);
   return event;
 }
 
@@ -123,37 +123,17 @@ async function hydrateRelation(db, relation) {
   const sourceId = readRef(relation.fields?.source);
   const targetId = readRef(relation.fields?.target);
   const [source, target, events] = await Promise.all([
-    sourceId ? db.getRecord(sourceId) : null,
-    targetId ? db.getRecord(targetId) : null,
+    sourceId ? db.get(sourceId) : null,
+    targetId ? db.get(targetId) : null,
     getEventsForRelation(db, relation.recordName),
   ]);
   const batchId = readRef(relation.fields?.lineageBatch) || readRef(events.at(-1)?.fields?.lineageBatch);
-  const batch = batchId ? await db.getRecord(batchId) : null;
+  const batch = batchId ? await db.get(batchId) : null;
   return { relation, source, target, events, batch };
 }
 
 export async function getCitationLineage(sourceRelationId) {
-  const db = getLocalDatabase();
-  const relation = await db.getRecord(sourceRelationId);
+  const db = getAppDataClient().records;
+  const relation = await db.get(sourceRelationId);
   return hydrateRelation(db, relation);
-}
-
-export async function getSourceLineage(sourceRecordName) {
-  const db = getLocalDatabase();
-  const { records } = await db.query('SourceRelation', { referenceField: 'source', referenceValue: sourceRecordName, limit: 100000 });
-  return Promise.all(records.map((record) => hydrateRelation(db, record)));
-}
-
-export async function getTargetCitationLineage(targetRecordName) {
-  const db = getLocalDatabase();
-  const { records } = await db.query('SourceRelation', { referenceField: 'target', referenceValue: targetRecordName, limit: 100000 });
-  return Promise.all(records.map((record) => hydrateRelation(db, record)));
-}
-
-export async function getLineageBatch(batchId) {
-  const db = getLocalDatabase();
-  const batch = await db.getRecord(batchId);
-  const { records: events } = await db.query('LineageEvent', { referenceField: 'lineageBatch', referenceValue: batchId, limit: 100000 });
-  events.sort((a, b) => String(a.fields?.timestamp?.value || '').localeCompare(String(b.fields?.timestamp?.value || '')));
-  return { batch, events };
 }

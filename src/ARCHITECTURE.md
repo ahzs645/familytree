@@ -1,171 +1,107 @@
-# CloudTreeWeb — Reconstructed Architecture
+# Architecture
 
-## Minified Name → Meaningful Name Reference
+CloudTreeWeb is a browser-local family-tree application (~95k lines of source).
+It began as a reconstruction of the original CloudTreeWeb bundle but has since
+grown into a full app with its own structure, described here.
 
-### Webpack Modules (npm replacements)
+## Entry and shell
 
-| Module | Minified | NPM Package | Status |
-|--------|----------|-------------|--------|
-| 313/306 | `t` | `react` ^18.x | Replaced via npm |
-| 417/918 | `re` | `react/jsx-runtime` (jsx, jsxs) | Replaced via npm |
-| 739/168 | `o` | `react-dom/client` (createRoot) | Replaced via npm |
-| 534 | — | `react-dom` ^18.x | Replaced via npm |
-| 95/224 | — | `scheduler` (React internal) | Replaced via npm |
-| 937/757 | — | `regenerator-runtime` | Replaced via npm |
-| 962 | `ga`/`ba` | CloudKit JS SDK | Replaced by shim |
-| 786/318/171 | `ne` | Custom GA4 wrapper | → `src/utils/analytics.js` |
-| 377 | — | Custom title-case | → `src/utils/titleCase.js` |
+- `main.jsx` → `App.jsx`: `BrowserRouter` wrapping the provider stack
+  (`ThemeProvider` → `LocalizationProvider` → `ModalProvider` →
+  `DatabaseStatusProvider` → `ActivePersonProvider` → `RemoteDatasetProvider`).
+- Routes are declared as **data** in `routes/manifest.js` and unrolled in
+  `App.jsx`; every leaf is `React.lazy()` so the landing route stays small
+  (Vite splits chunks per route — see the `Tree`/`HeritageTree` chunks).
+- `components/AppShell.jsx` renders the persistent chrome (navigation drawer,
+  command palette, tree switcher, status) around the route outlet.
 
-### Core Singletons & Globals
-
-| Minified | Meaningful | Type | Location |
-|----------|-----------|------|----------|
-| `ka` | `appController` | AppController instance | `src/lib/AppController.js` |
-| `_a` | `localize(key, table)` | Bound localizer function | `src/lib/Localizer.js` |
-| `ca` / `la` | `DatabasesController` | Class | `src/lib/DatabasesController.js` |
-| `va` | `DatabaseContext` | React.createContext | `src/contexts/DatabaseContext.js` |
-| `me` | `ModalContext` | React.createContext | `src/contexts/ModalContext.js` |
-| `sa` | `ZONE_SEPARATOR` | `"#####"` | `src/models/constants.js` |
-
-### Model Classes
-
-| Minified | Meaningful | Record Type | Location |
-|----------|-----------|-------------|----------|
-| `st`/`lt` | `BaseRecord` | (base class) | `src/models/BaseRecord.js` |
-| `ft`/`dt` | `PersonRecord` | Person | `src/models/PersonRecord.js` |
-| `ht`/`pt` | `FamilyRecord` | Family | `src/models/FamilyRecord.js` |
-| `_t`/`kt` | `PlaceRecord` | Place | `src/models/PlaceRecord.js` |
-| `Tt`/`Nt` | `SourceRecord` | Source | `src/models/SourceRecord.js` |
-| `no`/`ro` | `PersonEventRecord` | PersonEvent | `src/models/EventRecord.js` |
-| `oo`/`ao` | `FamilyEventRecord` | FamilyEvent | `src/models/EventRecord.js` |
-| `ct` | `Gender` | Enum | `src/models/constants.js` |
-
-### Record Type Class Map (047/049 files)
-
-These classes all extend BaseRecord and represent CloudKit record types:
-
-| Minified | Record Type |
-|----------|------------|
-| `Hr`/`Zr` | Person |
-| `Yr`/`$r` | Family |
-| `Jr`/`Xr` | PersonEvent |
-| `eo`/`to` | FamilyEvent |
-| `no`/`ro` | PersonFact |
-| `oo`/`ao` | Place |
-| `io`/`uo` | Source |
-| `so`/`lo` | MediaPicture |
-| `co`/`fo` | MediaPDF |
-| `po`/`ho` | MediaURL |
-| `mo`/`vo` | MediaAudio |
-| `yo`/`go` | MediaVideo |
-| `bo`/`Co` | Note |
-| `_o`/`xo` | DNATestResult |
-| `wo`/`No` | ChildRelation |
-| `To`/`So` | AdditionalName |
-| `jo`/`Eo` | AssociateRelation |
-| `Ro`/`Po` | Label |
-| `Io`/`Do` | LabelRelation |
-| `Oo`/`Fo` | PersonGroup |
-| `Ao`/`Lo` | PersonGroupRelation |
-| `Mo`/`zo` | Story |
-| `Vo`/`Ko` | StorySection |
-| `Uo`/`Bo` | ToDo |
-| `Qo`/`Wo` | ToDoRelation |
-| `Go`/`qo` | SourceRelation |
-| `Ho`/`Zo` | FamilyTreeInformation |
-| `Yo`/`$o` | ChangeLogEntry |
-| `Jo`/`Xo` | ChangeLogSubEntry |
-| `ea`/`ta` | MediaRelation |
-| `na`/`ra` | Coordinate |
-| `oa` | SourceRepository |
-
-### React Components
-
-| Minified | Meaningful | Description |
-|----------|-----------|-------------|
-| `oe` | `LoadingSpinner` | Animated spinner |
-| `ae` | `LoggedInUserPopover` | User menu popover with sign-out |
-| `ie` | `LoggedInUserButton` | Username + chevron in header |
-| `se` | `ActionsMenuButton` | "Actions" dropdown in footer |
-| `de`/`ve` | `HeaderBar`/`MainLayout` | App shell layout |
-| `fe` | `ImageComponent` | Image display from URL/base64 |
-| `he` | `ModalDialog` | Modal popup container |
-| `At` | `ObjectListComponent` | Search/filter list with pagination |
-| `Mt` | `EditSectionLayout` | Collapsible edit section with icon |
-| `zt` | `EditTitleComponent` | Page title with image and subtitle |
-| `Vt` | `EditContentBox` | Content container for edit views |
-
-### Page Components (Router)
-
-| Minified | Route | Description |
-|----------|-------|-------------|
-| `Ie` | `/databases` | Database picker (family tree list) |
-| `Oe` | `/edit-overview` | Edit overview with 5 module icons |
-| `ir` | `/editperson` | Edit person details |
-| `fr` | `/editfamily` | Edit family details |
-| `Or` | `/editplace` | Edit place details |
-| `vr` | `/editevent` | Edit event details |
-| `Vr` | `/editsource` | Edit source/citation |
-| `Ur` | `/editmedia` | Edit media attachment |
-| `Kt` | `/change-log` | Change log viewer |
-| `Wr` | `/login` | Login page |
-| `ha` | `/imprint` | Legal imprint page |
-| `ma` | `/instructions` | How-to instructions |
-
-### React Hooks (from React Router)
-
-| Minified | Meaningful | From Package |
-|----------|-----------|-------------|
-| `M()` | `useNavigate()` | react-router-dom |
-| `L()` | `useLocation()` | react-router-dom |
-| `V()` | `useOutletContext()` | react-router-dom |
-| `ee()` | `useSearchParams()` | react-router-dom |
-| `J` | `BrowserRouter` | react-router-dom |
-| `W` | `Route` | react-router-dom |
-| `q` | `Routes` | react-router-dom |
-| `B` | `Navigate` | react-router-dom |
-| `X` | `Link` | react-router-dom |
-
-### Utility Functions
-
-| Minified | Meaningful | Location |
-|----------|-----------|----------|
-| `s(arr,n)` | `arraySlice` | `src/utils/helpers.js` |
-| `u(iter)` | `createSafeIterator` | `src/utils/helpers.js` |
-| `ge(fn)` | `asyncGeneratorRunner` | `src/utils/helpers.js` |
-| `tt()` | `generateUUID` | `src/utils/helpers.js` |
-| `xe(a,b)` | `assertClassInstance` | `src/utils/helpers.js` |
-| `we(p,m)` | `defineClassMethods` | `src/utils/helpers.js` |
-| `Ne(C,p,s)` | `createClass` | `src/utils/helpers.js` |
-
-## Directory Structure
+## Layers
 
 ```
 src/
-├── main.jsx                    Entry point (loads alongside legacy bundle)
-├── ARCHITECTURE.md             This file
-├── lib/
-│   ├── AppController.js        Main app controller (ka/Ca)
-│   ├── DatabasesController.js  Database selection (ca/la)
-│   └── Localizer.js            String localization (Se/Te)
-├── models/
-│   ├── index.js                All model exports
-│   ├── constants.js            Enums (Gender, ChangeType, etc.)
-│   ├── BaseRecord.js           Base record class (st/lt)
-│   ├── PersonRecord.js         Person model (ft/dt)
-│   ├── FamilyRecord.js         Family model (ht/pt)
-│   ├── PlaceRecord.js          Place model (_t/kt)
-│   ├── EventRecord.js          Event models (PersonEvent, FamilyEvent)
-│   └── SourceRecord.js         Source model (Tt/Nt)
-├── components/
-│   ├── index.js                Component exports with name mapping
-│   ├── LoadingSpinner.jsx      Loading indicators (oe, da, pa)
-│   └── ImageComponent.jsx      Image display (fe)
-├── contexts/
-│   ├── DatabaseContext.js       Database context (va)
-│   └── ModalContext.js          Modal context (me)
-└── utils/
-    ├── helpers.js              Array/async/UUID utilities
-    ├── analytics.js            Google Analytics wrapper
-    └── titleCase.js            String formatting
+├── routes/       68 route components — thin screens; feature UIs live in components/
+├── components/   App chrome + one folder per feature area:
+│   │             books, charts, duplicates, editors, heritageTree, interactive,
+│   │             lists, media, personEditor, presentation, reports, search, settings
+│   └── ui/       Shared primitives: Button, Input/Textarea, Select, Sheet, Panel,
+│                 DatePicker, Map, formClasses (canonical class strings)
+├── lib/          ~170 plain-JS domain/service modules with colocated *.test.js.
+│   │             Data access, import/export (GEDCOM, MFTPKG, GeneWeb), family
+│   │             graph, duplicates, reports, website export, FamilySearch API…
+│   ├── chartData/  chart dataset builders (statistics, timeline, genogram, …)
+│   ├── gedcom/, geneweb/, reports/, website/, data/  format- and feature-specific
+│   └── LocalDatabase.js  ← THE data boundary (see below)
+├── models/       Record classes (BaseRecord + Person/Family/Place/Source/Event),
+│                 constants/enums, and wrap.js summary helpers
+├── contexts/     ActivePerson, DatabaseStatus, Localization, Modal, Theme
+├── locales/      i18n resources (the app is fully translatable and RTL-capable)
+├── data/         bundled sample data
+└── utils/        tiny generic helpers (formatDate, humanizeType)
 ```
+
+## Data access
+
+`lib/data/AppDataClient.js` is the single door to record storage:
+`getAppDataClient()` returns a façade with `records` / `assets` / `meta`
+namespaces. The local implementation (`LocalDexieDataClient`) wraps
+`lib/LocalDatabase.js`, a Dexie/IndexedDB adapter that is imported nowhere
+else — a remote backend slots in by implementing the same façade (see the
+`ConvexDataClient` stub). Reads in React components should prefer
+`lib/data/useRecords.js`, which caches full-table queries per recordType
+and invalidates off the change events every `LocalDatabase` write path
+emits (`lib/data/recordEvents.js`). Writes go through `saveWithChangeLog`
+(`lib/changeLog.js`) or the `lib/recordWrite.js` helpers so the change log
+stays complete — never raw `records.save`. Master-detail editor screens
+use `components/editors/useRecordEditor.js`. `lib/schema.js` and `models/`
+define record shapes; `lib/datasetSchemaVersion.js` +
+`components/SchemaMigrationSheet.jsx` handle dataset migrations.
+
+## Styling conventions
+
+- **Tailwind + design tokens.** Tokens are shadcn-style HSL CSS variables
+  defined in `src/index.css` (`:root` and `.dark`) and mapped in
+  `tailwind.config.js`: `background`, `foreground`, `card`, `popover`,
+  `primary`, `secondary`, `muted`, `accent`, `destructive`, `success`,
+  `warning`, `border`, `input`, `ring` (each color has a paired
+  `-foreground`).
+- **Use the primitives**, don't hand-roll controls: `ui/Button.jsx`
+  (variants primary/secondary/outline/ghost/destructive/destructiveOutline;
+  `buttonClasses()` for non-`<button>` elements), `ui/Input.jsx`,
+  `ui/Select.jsx`, `ui/formClasses.js`.
+- **Token pairing rule:** a token background always takes its paired
+  foreground (`bg-primary` + `text-primary-foreground`, etc.). Never hardcode
+  `#fff`/`#000` text on token backgrounds.
+- **No inline `style` for static styling.** Inline styles are reserved for
+  genuinely dynamic values (computed positions, transforms, data-driven
+  colors).
+- **RTL:** use logical utilities (`ps-`/`pe-`, `ms-`/`me-`, `start-`/`end-`,
+  `border-s`/`border-e`, `text-start`).
+- **Sanctioned exceptions:** canvas/WebGL/SVG-export code cannot read CSS
+  variables — chart palettes live in `components/charts/theme.js`, 3D-tree
+  palettes in `components/interactive/threeDTree/`, MapLibre paint colors in
+  `ui/Map.jsx`. `components/heritageTree/heritageTree.css` is an intentionally
+  self-contained decorative print theme.
+
+## Legacy artifacts
+
+`public/classic.html` is a redirect kept for old bookmarks; the SPA has no
+legacy-bundle runtime dependency. `scripts/validate-mft-parity.mjs`
+(`npm run parity`) validates MFTPKG import parity against MacFamilyTree
+package files.
+
+## Testing
+
+`vitest` (`npm test`). Coverage is concentrated in `lib/` as colocated
+`*.test.js` files next to the module under test — new domain logic should
+follow that pattern and stay out of route components so it stays testable.
+DOM tests (jsdom + @testing-library/react + fake-indexeddb) opt in per file
+with a `// @vitest-environment jsdom` pragma — see
+`components/editors/useRecordEditor.dom.test.jsx`.
+
+## Type checking
+
+`npm run typecheck` runs `tsc --noEmit` (strict, `allowJs`). Files opt in
+with a `// @ts-check` pragma + JSDoc types — the data-layer seams
+(`recordWrite.js`, `data/recordEvents.js`) are checked. Prefer adding
+`@ts-check` to new lib modules; whole-file `.ts` renames are avoided
+because imports use explicit `.js` extensions throughout.

@@ -8,7 +8,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { generateResearchSuggestions } from '../lib/researchSuggestions.js';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { logRecordCreated } from '../lib/changeLog.js';
 import { matchesSearchText } from '../lib/i18n.js';
 import { writeRef } from '../lib/schema.js';
@@ -174,7 +174,7 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
     setBusy(true);
     setMessage(null);
     try {
-      const db = getLocalDatabase();
+      const client = getAppDataClient();
       const title = creatorLabel(creator.id);
       const createdTodos = [];
       const createdRelations = [];
@@ -202,7 +202,7 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
           },
         });
       }
-      await db.applyRecordTransaction({ saveRecords: [...createdTodos, ...createdRelations] });
+      await client.records.transaction({ saveRecords: [...createdTodos, ...createdRelations] });
       for (const todo of createdTodos) await logRecordCreated(todo);
       // Drop the persons we just acted on so counts update and they leave the list.
       const usedIds = new Set(chosen.map((m) => m.recordName));

@@ -8,7 +8,7 @@
  *
  * Each entity type exposes its own searchable fields via `SEARCH_FIELDS`.
  */
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { Gender } from '../models/index.js';
 import { FIELD_ALIASES, readConclusionType, readField } from './schema.js';
 import { equalsSearchText, matchesSearchText, normalizeSearchText, searchTokenVariants, startsWithSearchText } from './i18n.js';
@@ -276,7 +276,7 @@ function cachedSearchIndex(entityType, records) {
 }
 
 export async function runSearch(query) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const { records } = await db.query(query.entityType, { limit: 100000 });
   let matched = records;
   const textQuery = query.textQuery?.trim();
@@ -294,9 +294,9 @@ export async function runSearch(query) {
 }
 
 export async function runGenealogyAdvancedSearch(criteria = {}) {
-  const db = getLocalDatabase();
-  const all = typeof db.getAllRecords === 'function'
-    ? await db.getAllRecords()
+  const db = getAppDataClient().records;
+  const all = typeof db.all === 'function'
+    ? await db.all()
     : await loadSearchUniverse(db);
   const people = all.filter((record) => record.recordType === 'Person');
   const context = buildGenealogySearchContext(all);

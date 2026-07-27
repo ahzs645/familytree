@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { refToRecordName } from '../lib/recordRef.js';
 import { readConclusionType } from '../lib/schema.js';
 import { Map as MapView } from '../components/ui/Map.jsx';
@@ -55,15 +55,12 @@ export default function MapsDiagram() {
   const navigate = useNavigate();
   const location = useLocation();
   const inViews = location.pathname.startsWith('/views/');
-  const [events, setEvents] = useState([]);
-  const [subjects, setSubjects] = useState([]);
   const [statisticSourceId, setStatisticSourceId] = useState('events-heat');
   const [subjectId, setSubjectId] = useState('');
   const [filterType, setFilterType] = useState('');
   const [yearRange, setYearRange] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
   const [hoveredId, setHoveredId] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [stepYears, setStepYears] = useState(5);
   const [allYears, setAllYears] = useState(false);
@@ -76,98 +73,95 @@ export default function MapsDiagram() {
     navigate(targets[mode] || targets.statistics);
   };
 
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      const db = getLocalDatabase();
-      const [pe, fe, places, coords, persons, familiesQ, childRelsQ, groupRelsQ] = await Promise.all([
-        db.query('PersonEvent', { limit: 100000 }),
-        db.query('FamilyEvent', { limit: 100000 }),
-        db.query('Place', { limit: 100000 }),
-        db.query('Coordinate', { limit: 100000 }),
-        db.query('Person', { limit: 100000 }),
-        db.query('Family', { limit: 100000 }),
-        db.query('ChildRelation', { limit: 100000 }),
-        db.query('PersonGroupRelation', { limit: 100000 }),
-      ]);
-      const personById = new Map(persons.records.map((person) => [person.recordName, person]));
-      // Person-group scoping inputs (parity with the Globe drawer).
-      const groupByPerson = new Map();
-      for (const rel of groupRelsQ.records) {
-        const pid = refToRecordName(rel.fields?.person?.value);
-        const gid = refToRecordName(rel.fields?.personGroup?.value);
-        if (pid && gid && !groupByPerson.has(pid)) groupByPerson.set(pid, gid);
+  const { records: personEvents, loading: personEventsLoading } = useRecords('PersonEvent');
+  const { records: familyEvents, loading: familyEventsLoading } = useRecords('FamilyEvent');
+  const { records: placeRecords, loading: placesLoading } = useRecords('Place');
+  const { records: coordRecords, loading: coordsLoading } = useRecords('Coordinate');
+  const { records: personRecords, loading: personsLoading } = useRecords('Person');
+  const { records: familyRecords, loading: familiesLoading } = useRecords('Family');
+  const { records: childRelRecords, loading: childRelsLoading } = useRecords('ChildRelation');
+  const { records: groupRelRecords, loading: groupRelsLoading } = useRecords('PersonGroupRelation');
+  const loading = personEventsLoading || familyEventsLoading || placesLoading || coordsLoading
+    || personsLoading || familiesLoading || childRelsLoading || groupRelsLoading;
+
+  const events = useMemo(() => {
+    const personById = new Map(personRecords.map((person) => [person.recordName, person]));
+    // Person-group scoping inputs (parity with the Globe drawer).
+    const groupByPerson = new Map();
+    for (const rel of groupRelRecords) {
+      const pid = refToRecordName(rel.fields?.person?.value);
+      const gid = refToRecordName(rel.fields?.personGroup?.value);
+      if (pid && gid && !groupByPerson.has(pid)) groupByPerson.set(pid, gid);
+    }
+    const childrenByFamily = new Map();
+    for (const rel of childRelRecords) {
+      const fam = refToRecordName(rel.fields?.family?.value);
+      const child = refToRecordName(rel.fields?.child?.value);
+      if (fam && child) { if (!childrenByFamily.has(fam)) childrenByFamily.set(fam, []); childrenByFamily.get(fam).push(child); }
+    }
+    const startPerson = personRecords.find((p) => p.fields?.isStartPerson?.value);
+    const startFamilyIds = new Set();
+    if (startPerson) {
+      startFamilyIds.add(startPerson.recordName);
+      for (const fam of familyRecords) {
+        const members = [refToRecordName(fam.fields?.man?.value), refToRecordName(fam.fields?.woman?.value), ...(childrenByFamily.get(fam.recordName) || [])].filter(Boolean);
+        if (members.includes(startPerson.recordName)) for (const m of members) startFamilyIds.add(m);
       }
-      const childrenByFamily = new Map();
-      for (const rel of childRelsQ.records) {
-        const fam = refToRecordName(rel.fields?.family?.value);
-        const child = refToRecordName(rel.fields?.child?.value);
-        if (fam && child) { if (!childrenByFamily.has(fam)) childrenByFamily.set(fam, []); childrenByFamily.get(fam).push(child); }
-      }
-      const startPerson = persons.records.find((p) => p.fields?.isStartPerson?.value);
-      const startFamilyIds = new Set();
-      if (startPerson) {
-        startFamilyIds.add(startPerson.recordName);
-        for (const fam of familiesQ.records) {
-          const members = [refToRecordName(fam.fields?.man?.value), refToRecordName(fam.fields?.woman?.value), ...(childrenByFamily.get(fam.recordName) || [])].filter(Boolean);
-          if (members.includes(startPerson.recordName)) for (const m of members) startFamilyIds.add(m);
-        }
-      }
-      const placeById = new Map(places.records.map((p) => [p.recordName, p]));
-      const coordById = new Map(coords.records.map((coord) => [coord.recordName, coord]));
-      const coordByPlace = new Map();
-      for (const c of coords.records) {
-        const placeId = refToRecordName(c.fields?.place?.value);
-        if (placeId) coordByPlace.set(placeId, c);
-      }
-      const all = [...pe.records, ...fe.records];
-      const out = [];
-      for (const ev of all) {
-        const placeId = refToRecordName(ev.fields?.place?.value) || refToRecordName(ev.fields?.assignedPlace?.value);
-        if (!placeId) continue;
-        const place = placeById.get(placeId);
-        const coordinateRef = refToRecordName(place?.fields?.coordinate?.value);
-        const coord = coordByPlace.get(placeId) || (coordinateRef ? coordById.get(coordinateRef) : null);
-        const lat = parseCoord(coord?.fields?.latitude?.value ?? place?.fields?.latitude?.value);
-        const lng = parseCoord(coord?.fields?.longitude?.value ?? place?.fields?.longitude?.value);
-        if (lat == null || lng == null) continue;
-        const subjectId = refToRecordName(ev.fields?.person?.value) || refToRecordName(ev.fields?.family?.value) || '';
-        out.push({
-          recordName: ev.recordName,
-          recordType: ev.recordType,
-          conclusionType: readConclusionType(ev) || 'Event',
-          date: ev.fields?.date?.value || '',
-          year: yearOf(ev.fields?.date?.value),
-          description: ev.fields?.description?.value || ev.fields?.userDescription?.value || '',
-          placeId,
-          placeName: place?.fields?.cached_normallocationString?.value || place?.fields?.placeName?.value || placeId,
-          subjectId,
-          subjectName: personSummary(personById.get(subjectId))?.fullName || subjectId,
-          subjectGender: personById.get(subjectId)?.fields?.gender?.value || personById.get(subjectId)?.fields?.sex?.value || '',
-          subjectBirthYear: yearOf(personById.get(subjectId)?.fields?.birthDate?.value || personById.get(subjectId)?.fields?.cached_birthDate?.value),
-          subjectDeathYear: yearOf(personById.get(subjectId)?.fields?.deathDate?.value || personById.get(subjectId)?.fields?.cached_deathDate?.value),
-          subjectBookmarked: !!personById.get(subjectId)?.fields?.isBookmarked?.value,
-          inStartFamily: !!subjectId && startFamilyIds.has(subjectId),
-          personGroupId: subjectId ? groupByPerson.get(subjectId) || null : null,
-          lat,
-          lng,
-        });
-      }
-      out.sort((a, b) => {
-        const ay = Number.isFinite(a.year) ? a.year : -Infinity;
-        const by = Number.isFinite(b.year) ? b.year : -Infinity;
-        return ay - by || a.conclusionType.localeCompare(b.conclusionType);
+    }
+    const placeById = new Map(placeRecords.map((p) => [p.recordName, p]));
+    const coordById = new Map(coordRecords.map((coord) => [coord.recordName, coord]));
+    const coordByPlace = new Map();
+    for (const c of coordRecords) {
+      const placeId = refToRecordName(c.fields?.place?.value);
+      if (placeId) coordByPlace.set(placeId, c);
+    }
+    const all = [...personEvents, ...familyEvents];
+    const out = [];
+    for (const ev of all) {
+      const placeId = refToRecordName(ev.fields?.place?.value) || refToRecordName(ev.fields?.assignedPlace?.value);
+      if (!placeId) continue;
+      const place = placeById.get(placeId);
+      const coordinateRef = refToRecordName(place?.fields?.coordinate?.value);
+      const coord = coordByPlace.get(placeId) || (coordinateRef ? coordById.get(coordinateRef) : null);
+      const lat = parseCoord(coord?.fields?.latitude?.value ?? place?.fields?.latitude?.value);
+      const lng = parseCoord(coord?.fields?.longitude?.value ?? place?.fields?.longitude?.value);
+      if (lat == null || lng == null) continue;
+      const subjectId = refToRecordName(ev.fields?.person?.value) || refToRecordName(ev.fields?.family?.value) || '';
+      out.push({
+        recordName: ev.recordName,
+        recordType: ev.recordType,
+        conclusionType: readConclusionType(ev) || 'Event',
+        date: ev.fields?.date?.value || '',
+        year: yearOf(ev.fields?.date?.value),
+        description: ev.fields?.description?.value || ev.fields?.userDescription?.value || '',
+        placeId,
+        placeName: place?.fields?.cached_normallocationString?.value || place?.fields?.placeName?.value || placeId,
+        subjectId,
+        subjectName: personSummary(personById.get(subjectId))?.fullName || subjectId,
+        subjectGender: personById.get(subjectId)?.fields?.gender?.value || personById.get(subjectId)?.fields?.sex?.value || '',
+        subjectBirthYear: yearOf(personById.get(subjectId)?.fields?.birthDate?.value || personById.get(subjectId)?.fields?.cached_birthDate?.value),
+        subjectDeathYear: yearOf(personById.get(subjectId)?.fields?.deathDate?.value || personById.get(subjectId)?.fields?.cached_deathDate?.value),
+        subjectBookmarked: !!personById.get(subjectId)?.fields?.isBookmarked?.value,
+        inStartFamily: !!subjectId && startFamilyIds.has(subjectId),
+        personGroupId: subjectId ? groupByPerson.get(subjectId) || null : null,
+        lat,
+        lng,
       });
-      if (!cancel) {
-        setEvents(out);
-        setSubjects([...new Map(out.filter((event) => event.subjectId).map((event) => [event.subjectId, event.subjectName])).entries()]
-          .map(([id, name]) => ({ id, name }))
-          .sort((a, b) => a.name.localeCompare(b.name)));
-        setLoading(false);
-      }
-    })();
-    return () => { cancel = true; };
-  }, []);
+    }
+    out.sort((a, b) => {
+      const ay = Number.isFinite(a.year) ? a.year : -Infinity;
+      const by = Number.isFinite(b.year) ? b.year : -Infinity;
+      return ay - by || a.conclusionType.localeCompare(b.conclusionType);
+    });
+    return out;
+  }, [personEvents, familyEvents, placeRecords, coordRecords, personRecords, familyRecords, childRelRecords, groupRelRecords]);
+
+  const subjects = useMemo(
+    () => [...new Map(events.filter((event) => event.subjectId).map((event) => [event.subjectId, event.subjectName])).entries()]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [events],
+  );
 
   const types = useMemo(() => {
     const set = new Set(events.map((e) => e.conclusionType).filter(Boolean));

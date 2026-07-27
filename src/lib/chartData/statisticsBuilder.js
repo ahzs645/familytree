@@ -1,6 +1,6 @@
 import { computeRichStatistics, loadGenealogyMetricRecords } from '../genealogyMetrics.js';
 
-export function normalizeStatisticsConfig(raw = {}) {
+function normalizeStatisticsConfig(raw = {}) {
   return {
     includeGender: raw.includeGender !== false,
     includeCenturies: raw.includeCenturies !== false,

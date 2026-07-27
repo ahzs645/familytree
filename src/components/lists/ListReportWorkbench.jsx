@@ -18,7 +18,7 @@ const INFO_COLUMN_DEFS = [
   { value: 'id', labelKey: 'lists.infoRecordId' },
 ];
 
-export const DEFAULT_LIST_REPORT_OPTIONS = Object.freeze({
+const DEFAULT_LIST_REPORT_OPTIONS = Object.freeze({
   previewMode: false,
   sorting: 'current',
   separateSections: true,

@@ -2,7 +2,7 @@ import { loadFamilyGraph, personDisplayName } from './familyGraph.js';
 import { refToRecordName } from './recordRef.js';
 import { childRelationKind, childRelationLabel } from './childRelationshipTypes.js';
 
-export async function buildGraphvizDot(options = {}) {
+async function buildGraphvizDot(options = {}) {
   const graph = await loadFamilyGraph({ includePrivate: !!options.includePrivate });
   const relationByFamilyChild = new Map();
   for (const relation of graph.childRelations || []) {

@@ -1,28 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getAuthorInfo, saveAuthorInfo } from '../lib/authorInfo.js';
 import { formClasses } from '../components/ui/formClasses.js';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { readField } from '../lib/schema.js';
 
 export default function AuthorInformation() {
   const [values, setValues] = useState(null);
-  const [media, setMedia] = useState([]);
+  const { records: media } = useRecords('MediaPicture');
   const [iconUrl, setIconUrl] = useState('');
   const [status, setStatus] = useState('');
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const db = getLocalDatabase();
-      const [info, pictures] = await Promise.all([
-        getAuthorInfo(),
-        db.query('MediaPicture', { limit: 100000 }),
-      ]);
-      if (!cancelled) {
-        setValues(info);
-        setMedia(pictures.records);
-      }
-    })();
+    getAuthorInfo().then((info) => {
+      if (!cancelled) setValues(info);
+    });
     return () => { cancelled = true; };
   }, []);
 
@@ -37,11 +30,11 @@ export default function AuthorInformation() {
     if (!recordName) { setIconUrl(''); return undefined; }
     (async () => {
       try {
-        const db = getLocalDatabase();
-        const picture = await db.getRecord(recordName);
+        const data = getAppDataClient();
+        const picture = await data.records.get(recordName);
         const assetIds = picture?.fields?.assetIds?.value || [];
-        let asset = assetIds.length ? await db.getAsset(assetIds[0]) : null;
-        if (!asset && db.listAssetsForRecord) asset = (await db.listAssetsForRecord(recordName) || [])[0] || null;
+        let asset = assetIds.length ? await data.assets.get(assetIds[0]) : null;
+        if (!asset) asset = (await data.assets.listForRecord(recordName) || [])[0] || null;
         if (!cancelled) setIconUrl(asset?.dataBase64 ? `data:${asset.mimeType || 'image/png'};base64,${asset.dataBase64}` : '');
       } catch {
         if (!cancelled) setIconUrl('');

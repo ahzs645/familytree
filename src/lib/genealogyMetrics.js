@@ -1,12 +1,12 @@
 import { Gender } from '../models/index.js';
-import { getLocalDatabase } from './LocalDatabase.js';
+import { getAppDataClient } from './data/AppDataClient.js';
 import { refToRecordName } from './recordRef.js';
 import { readField } from './schema.js';
 import { sosaGeneration, sosaRelation } from './sosa.js';
 
 const DEFAULT_LIMIT = 100000;
 
-export function parseMetricYear(value) {
+function parseMetricYear(value) {
   if (value == null) return null;
   const raw = typeof value === 'object' && 'value' in value ? value.value : value;
   const match = String(raw ?? '').match(/-?\d{1,4}/);
@@ -16,7 +16,7 @@ export function parseMetricYear(value) {
 }
 
 export async function loadGenealogyMetricRecords(options = {}) {
-  const db = getLocalDatabase();
+  const db = getAppDataClient().records;
   const query = (recordType) => db.query(recordType, { limit: DEFAULT_LIMIT }).then((r) => r.records || []);
   const [
     persons,

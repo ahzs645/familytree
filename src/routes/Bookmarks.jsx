@@ -3,9 +3,10 @@
  * grouped by record type. Supports per-group manual reordering persisted to
  * localStorage.
  */
-import React, { useEffect, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
 import { personSummary, familySummary, placeSummary, sourceSummary } from '../models/index.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
@@ -44,35 +45,34 @@ function applyOrder(records, savedOrder) {
 
 export default function Bookmarks() {
   const { t } = useTranslation();
-  const [groups, setGroups] = useState(null);
   const [order, setOrder] = useState(() => loadOrder());
   const [editMode, setEditMode] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    let cancel = false;
-    (async () => {
-      const db = getLocalDatabase();
-      const result = {};
-      for (const t of TYPE_DEFS) {
-        const { records } = await db.query(t.id, { limit: 100000 });
-        result[t.id] = records.filter((r) => r.fields?.isBookmarked?.value);
-      }
-      if (!cancel) setGroups(result);
-    })();
-    return () => { cancel = true; };
-  }, []);
+  // Fixed hook order mirrors TYPE_DEFS: Person, Family, Place, Source.
+  const personQuery = useRecords('Person');
+  const familyQuery = useRecords('Family');
+  const placeQuery = useRecords('Place');
+  const sourceQuery = useRecords('Source');
+  const typeQueries = [personQuery, familyQuery, placeQuery, sourceQuery];
+  const loading = typeQueries.some((query) => query.loading);
 
-  const removeBookmark = async (typeId, recordName) => {
-    const db = getLocalDatabase();
-    const record = await db.getRecord(recordName);
+  const groups = useMemo(() => {
+    const result = {};
+    TYPE_DEFS.forEach((def, index) => {
+      result[def.id] = typeQueries[index].records.filter((r) => r.fields?.isBookmarked?.value);
+    });
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personQuery.records, familyQuery.records, placeQuery.records, sourceQuery.records]);
+
+  const removeBookmark = async (recordName) => {
+    const record = await getAppDataClient().records.get(recordName);
     if (!record) return;
     const next = { ...record, fields: { ...record.fields, isBookmarked: { value: false, type: 'BOOLEAN' } } };
+    // saveWithChangeLog emits a record-change event, so the cached type list
+    // refreshes and the removed bookmark drops out of `groups`.
     await saveWithChangeLog(next);
-    setGroups((current) => ({
-      ...current,
-      [typeId]: (current[typeId] || []).filter((r) => r.recordName !== recordName),
-    }));
   };
 
   const move = (typeId, recordName, delta) => {
@@ -88,8 +88,8 @@ export default function Bookmarks() {
     saveOrder(nextOrder);
   };
 
-  if (!groups) return <div className="p-10 text-muted-foreground">{t('bookmarks.loading')}</div>;
   const total = Object.values(groups).reduce((n, list) => n + list.length, 0);
+  if (loading && total === 0) return <div className="p-10 text-muted-foreground">{t('bookmarks.loading')}</div>;
 
   return (
     <div className="h-full overflow-auto bg-background">
@@ -139,7 +139,7 @@ export default function Bookmarks() {
                       {!editMode ? (
                         <button
                           type="button"
-                          onClick={() => removeBookmark(typ.id, r.recordName)}
+                          onClick={() => removeBookmark(r.recordName)}
                           className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                           title={t('bookmarks.remove')}
                           aria-label={t('bookmarks.remove')}

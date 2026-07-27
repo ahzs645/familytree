@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { generateId } from '../lib/ids.js';
-import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
+import { createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
 import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
@@ -12,15 +12,13 @@ import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { useDirtyBaseline } from '../lib/editorState.js';
-import { useRecordLock } from '../lib/useRecordLock.js';
+import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useRecordEditor } from '../components/editors/useRecordEditor.js';
+import { useRecords } from '../lib/data/useRecords.js';
 
 const TARGET_TYPES = ['Person', 'Family', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
-
-function uuid(prefix) {
-  return generateId(prefix);
-}
+const STORY_FIELDS = ['title', 'subtitle', 'author', 'date', 'text'];
 
 function storyTitle(record, fallback = 'Story') {
   return record?.fields?.title?.value || record?.fields?.name?.value || record?.recordName || fallback;
@@ -32,114 +30,65 @@ function targetLabel(record) {
   return record.fields?.title?.value || record.fields?.cached_familyName?.value || record.fields?.eventType?.value || record.recordName;
 }
 
+function useSortedTargets(type) {
+  const { records } = useRecords(type);
+  return useMemo(() => [...records].sort((a, b) => targetLabel(a).localeCompare(targetLabel(b))), [records]);
+}
+
 export default function Stories() {
   const { t } = useTranslation();
   const modal = useModal();
   const [searchParams] = useSearchParams();
   const queryStoryId = searchParams.get('storyId');
-  const [stories, setStories] = useState([]);
-  const [sections, setSections] = useState([]);
-  const [relations, setRelations] = useState([]);
-  const [targetsByType, setTargetsByType] = useState({});
-  const [activeId, setActiveId] = useState(null);
-  const [values, setValues] = useState({});
+  const {
+    rows: stories, active, activeId, setActiveId, values, setValues,
+    dirty, saving, status, setStatus, onCreate, onSave, onToggleLock,
+  } = useRecordEditor({
+    recordType: 'Story',
+    noun: 'story',
+    idPrefix: 'story',
+    fields: STORY_FIELDS,
+    labelOf: storyTitle,
+    createValues: () => ({ title: t('stories.newTitle') }),
+  });
+  const { records: sectionRecords } = useRecords('StorySection');
+  const { records: relationRecords } = useRecords('StoryRelation');
+  const targetsByType = {
+    Person: useSortedTargets('Person'),
+    Family: useSortedTargets('Family'),
+    PersonEvent: useSortedTargets('PersonEvent'),
+    FamilyEvent: useSortedTargets('FamilyEvent'),
+    MediaPicture: useSortedTargets('MediaPicture'),
+    MediaPDF: useSortedTargets('MediaPDF'),
+    MediaURL: useSortedTargets('MediaURL'),
+  };
   const [targetType, setTargetType] = useState('Person');
   const [targetId, setTargetId] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null);
-  const [loadSeq, setLoadSeq] = useState(0);
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const [storyRows, sectionRows, relationRows, ...targetRows] = await Promise.all([
-      db.query('Story', { limit: 100000 }),
-      db.query('StorySection', { limit: 100000 }),
-      db.query('StoryRelation', { limit: 100000 }),
-      ...TARGET_TYPES.map((type) => db.query(type, { limit: 100000 })),
-    ]);
-    const sorted = storyRows.records.sort((a, b) => storyTitle(a).localeCompare(storyTitle(b)));
-    setStories(sorted);
-    setSections(sectionRows.records);
-    setRelations(relationRows.records);
-    const nextTargets = {};
-    TARGET_TYPES.forEach((type, index) => {
-      nextTargets[type] = targetRows[index].records.sort((a, b) => targetLabel(a).localeCompare(targetLabel(b)));
-    });
-    setTargetsByType(nextTargets);
-    if (!activeId && sorted.length) setActiveId(sorted[0].recordName);
-    setLoadSeq((n) => n + 1);
-  }, [activeId]);
-
-  useEffect(() => { reload(); }, [reload]);
   useEffect(() => {
     if (!queryStoryId || stories.length === 0) return;
     if (stories.some((story) => story.recordName === queryStoryId)) setActiveId(queryStoryId);
-  }, [queryStoryId, stories]);
-  useEffect(() => {
-    const story = stories.find((s) => s.recordName === activeId);
-    if (!story) return;
-    setValues({
-      title: story.fields?.title?.value || '',
-      subtitle: story.fields?.subtitle?.value || '',
-      author: story.fields?.author?.value || '',
-      date: story.fields?.date?.value || '',
-      text: story.fields?.text?.value || '',
-    });
-  }, [stories, activeId]);
+  }, [queryStoryId, stories, setActiveId]);
 
-  const active = stories.find((s) => s.recordName === activeId);
-  const storySections = useMemo(() => sections.filter((s) => readRef(s.fields?.story) === activeId).sort((a, b) => (a.fields?.order?.value || 0) - (b.fields?.order?.value || 0)), [sections, activeId]);
-  const storyRelations = useMemo(() => relations.filter((r) => readRef(r.fields?.story) === activeId), [relations, activeId]);
+  const storySections = useMemo(
+    () => sectionRecords.filter((s) => readRef(s.fields?.story) === activeId).sort((a, b) => (a.fields?.order?.value || 0) - (b.fields?.order?.value || 0)),
+    [sectionRecords, activeId],
+  );
+  const storyRelations = useMemo(
+    () => relationRecords.filter((r) => readRef(r.fields?.story) === activeId),
+    [relationRecords, activeId],
+  );
 
-  const create = async () => {
-    const db = getLocalDatabase();
-    const rec = { recordName: uuid('story'), recordType: 'Story', fields: { title: { value: t('stories.newTitle'), type: 'STRING' } } };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
-    await reload();
-    setActiveId(rec.recordName);
-  };
-
-  const save = async () => {
-    if (!active) return;
-    if (isRecordLocked(active)) {
-      setStatus('Unlock this story before saving.');
-      return;
-    }
-    setSaving(true);
-    const next = { ...active, fields: { ...active.fields } };
-    for (const key of ['title', 'subtitle', 'author', 'date', 'text']) {
-      const value = values[key];
-      if (value) next.fields[key] = { value, type: 'STRING' };
-      else delete next.fields[key];
-    }
-    await saveWithChangeLog(next);
-    await reload();
-    setSaving(false);
-    setStatus('Saved');
-    setTimeout(() => setStatus(null), 1500);
-  };
-
-  const remove = async () => {
+  const onDelete = async () => {
     if (!active) return;
     if (isRecordLocked(active)) {
       setStatus('Unlock this story before deleting.');
       return;
     }
     if (!(await modal.confirm(t('stories.deleteConfirm'), { title: t('stories.deleteTitle'), okLabel: t('stories.deleteOk'), destructive: true }))) return;
-    const db = getLocalDatabase();
-    for (const section of storySections) {
-      await db.deleteRecord(section.recordName);
-      await logRecordDeleted(section.recordName, 'StorySection');
-    }
-    for (const relation of storyRelations) {
-      await db.deleteRecord(relation.recordName);
-      await logRecordDeleted(relation.recordName, 'StoryRelation');
-    }
-    await db.deleteRecord(active.recordName);
-    await logRecordDeleted(active.recordName, 'Story');
-    setActiveId(null);
-    await reload();
+    for (const section of storySections) await deleteWithChangeLog(section.recordName, 'StorySection');
+    for (const relation of storyRelations) await deleteWithChangeLog(relation.recordName, 'StoryRelation');
+    await deleteWithChangeLog(active.recordName, 'Story');
   };
 
   const addSection = async () => {
@@ -148,9 +97,8 @@ export default function Stories() {
       return;
     }
     if (!activeId) return;
-    const db = getLocalDatabase();
-    const rec = {
-      recordName: uuid('section'),
+    await createWithChangeLog({
+      recordName: generateId('section'),
       recordType: 'StorySection',
       fields: {
         story: writeRef(activeId, 'Story'),
@@ -158,10 +106,7 @@ export default function Stories() {
         text: { value: '', type: 'STRING' },
         order: { value: storySections.length, type: 'NUMBER' },
       },
-    };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
-    await reload();
+    });
   };
 
   const updateSection = async (section, patch) => {
@@ -172,7 +117,6 @@ export default function Stories() {
     const next = { ...section, fields: { ...section.fields } };
     for (const [key, value] of Object.entries(patch)) next.fields[key] = { value, type: key === 'order' ? 'NUMBER' : 'STRING' };
     await saveWithChangeLog(next);
-    await reload();
   };
 
   const deleteSection = async (section) => {
@@ -180,10 +124,7 @@ export default function Stories() {
       setStatus('Unlock this story before editing sections.');
       return;
     }
-    const db = getLocalDatabase();
-    await db.deleteRecord(section.recordName);
-    await logRecordDeleted(section.recordName, 'StorySection');
-    await reload();
+    await deleteWithChangeLog(section.recordName, 'StorySection');
   };
 
   const addRelation = async () => {
@@ -192,20 +133,16 @@ export default function Stories() {
       return;
     }
     if (!activeId || !targetId) return;
-    const db = getLocalDatabase();
-    const rec = {
-      recordName: uuid('str'),
+    await createWithChangeLog({
+      recordName: generateId('str'),
       recordType: 'StoryRelation',
       fields: {
         story: writeRef(activeId, 'Story'),
         target: writeRef(targetId, targetType),
         targetType: { value: targetType, type: 'STRING' },
       },
-    };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
+    });
     setTargetId('');
-    await reload();
   };
 
   const removeRelation = async (relation) => {
@@ -213,34 +150,17 @@ export default function Stories() {
       setStatus('Unlock this story before editing relations.');
       return;
     }
-    const db = getLocalDatabase();
-    await db.deleteRecord(relation.recordName);
-    await logRecordDeleted(relation.recordName, 'StoryRelation');
-    await reload();
+    await deleteWithChangeLog(relation.recordName, 'StoryRelation');
   };
-
-  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  const dirty = useDirtyBaseline(editableSnapshot, {
-    recordKey: active?.recordName,
-    reloadKey: loadSeq,
-    enabled: !!active && !saving,
-  });
-  const onToggleLock = useRecordLock({
-    record: active,
-    setRecord: (next) => setStories((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
-    setSaving,
-    setStatus,
-    reload,
-  });
 
   const detail = active ? (
     <div className="p-5 max-w-4xl">
       <div className="flex items-center gap-2 mb-4">
         <h2 className="text-base font-semibold">{storyTitle(active, t('stories.fallbackTitle'))}</h2>
-        {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
+        <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-        <button onClick={remove} disabled={saving || isRecordLocked(active)} className="text-destructive border border-border rounded-md px-3 py-2 text-xs hover:bg-destructive/10 disabled:opacity-50">{t('stories.delete')}</button>
-        <button onClick={save} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? t('stories.saving') : t('stories.save')}</button>
+        <button onClick={onDelete} disabled={isRecordLocked(active)} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">{t('stories.delete')}</button>
+        <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? t('stories.saving') : t('stories.save')}</button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <FieldRow label={t('stories.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} className={formClasses.input} /></FieldRow>
@@ -311,7 +231,7 @@ export default function Stories() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">{t('stories.title')}</h1>
         <span className="text-xs text-muted-foreground">{stories.length}</span>
-        <button onClick={create} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">{t('stories.newButton')}</button>
+        <button onClick={onCreate} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">{t('stories.newButton')}</button>
       </header>
       <div className="flex-1 min-h-0">
         <MasterDetailList items={stories} activeId={activeId} onPick={setActiveId} renderRow={(s) => <div className="text-sm">{storyTitle(s, t('stories.fallbackTitle'))}</div>} placeholder={t('stories.searchPlaceholder')} detail={detail} emptyTitle={t('stories.emptyTitle')} emptyHint={t('stories.emptyHint')} />
