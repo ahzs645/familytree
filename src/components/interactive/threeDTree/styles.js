@@ -30,6 +30,14 @@ export const styles = {
     maxWidth: 'calc(100% - 148px)',
     overflowX: 'auto',
   },
+  // Mobile: wrap rather than scroll. At 390px the bar has ~240px of room (the
+  // rest is reserved for the zoom cluster), so five buttons became a 555px
+  // strip cut off mid-word with no affordance.
+  macTopBarMobile: {
+    flexWrap: 'wrap',
+    rowGap: 6,
+    overflowX: 'visible',
+  },
   macBarButton: {
     height: 31,
     flexShrink: 0,
@@ -122,18 +130,22 @@ export const styles = {
     pointerEvents: 'none',
     transform: 'translateX(-50%) translateY(8px)',
   },
-  // Mobile: tighten the dock so it covers less of the canvas; cap its height and
-  // let the contents scroll instead of wrapping into many tall rows.
+  // Mobile: tighten the dock so it covers less of the canvas.
   bottomDockMobile: {
     left: 8,
     right: 8,
     transform: 'none',
     maxWidth: 'none',
-    flexWrap: 'nowrap',
+    // Wrap rather than scroll. As a nowrap strip the dock ran ~1600px — over
+    // four phone screens — so reaching Options meant a long blind swipe with
+    // no affordance. Wrapped, the same groups occupy two or three short rows
+    // and every control is on screen at once.
+    flexWrap: 'wrap',
     justifyContent: 'flex-start',
+    rowGap: 6,
     gap: 8,
     padding: '6px 8px',
-    overflowX: 'auto',
+    overflowX: 'hidden',
     overflowY: 'hidden',
   },
   bottomDockHiddenMobile: {
@@ -150,8 +162,13 @@ export const styles = {
   navDockGroup: {
     display: 'flex',
     alignItems: 'center',
+    // Wraps so the Navigate select drops to its own row rather than running off
+    // the edge when Parent/Partner/Child have already used up the width.
+    flexWrap: 'wrap',
+    rowGap: 6,
     gap: 6,
-    flexShrink: 0,
+    flexShrink: 1,
+    minWidth: 0,
     paddingInlineStart: 2,
   },
   dockLabel: {
@@ -225,8 +242,9 @@ export const styles = {
   },
   navigationSelect: {
     height: 30,
-    minWidth: 150,
-    maxWidth: 230,
+    minWidth: 0,
+    flex: '1 1 150px',
+    maxWidth: 'min(230px, 100%)',
     borderRadius: 6,
     border: '1px solid hsl(var(--border))',
     background: 'hsl(var(--secondary))',
