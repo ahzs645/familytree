@@ -1488,7 +1488,153 @@
     "speak": "قراءة",
     "theme": "السمة",
     "title": "العنوان",
-    "type": "النوع"
+    "type": "النوع",
+    "terms": {
+      "age": "العمر",
+      "burial": "الدفن",
+      "citation": "الاستشهاد",
+      "description": "الوصف",
+      "generation": "الجيل",
+      "label": "التسمية",
+      "lifeSpan": "مدة الحياة",
+      "line": "الخط",
+      "lineage": "النسب",
+      "marriageDate": "تاريخ الزواج",
+      "name": "الاسم",
+      "note": "ملاحظة",
+      "occupation": "المهنة",
+      "partner1": "الشريك ١",
+      "partner2": "الشريك ٢",
+      "personA": "الشخص أ",
+      "personB": "الشخص ب",
+      "persons": "الأشخاص",
+      "relationship": "صلة القرابة",
+      "residence": "الإقامة",
+      "scope": "النطاق",
+      "summary": "ملخص",
+      "value": "القيمة",
+      "year": "السنة"
+    },
+    "categories": {
+      "person": "تقارير الأشخاص",
+      "lineage": "تقارير النسب",
+      "family": "تقارير العائلة",
+      "storyMedia": "القصص والوسائط",
+      "analysis": "التحليل",
+      "list": "تقارير القوائم",
+      "default": "التقارير"
+    },
+    "options": {
+      "enabled": "مُفعَّل",
+      "showParents": {
+        "label": "الوالدان",
+        "checkbox": "إظهار الوالدين"
+      },
+      "showFamilies": {
+        "label": "العائلات",
+        "checkbox": "إظهار العائلات والأبناء"
+      },
+      "showEvents": {
+        "label": "الأحداث",
+        "checkbox": "إظهار جدول الأحداث"
+      },
+      "appendCitations": {
+        "label": "الاستشهادات",
+        "checkbox": "إلحاق استشهادات المصادر"
+      },
+      "includeFamilyEvents": {
+        "label": "أحداث العائلة",
+        "checkbox": "تضمين أحداث العائلة المرتبطة"
+      },
+      "showWorldHistory": {
+        "label": "تاريخ العالم",
+        "checkbox": "إظهار أحداث تاريخ العالم"
+      },
+      "includeChristening": {
+        "label": "التعميد",
+        "checkbox": "سرد التعميد"
+      },
+      "includeBurial": {
+        "label": "الدفن",
+        "checkbox": "سرد الدفن"
+      },
+      "includeEducation": {
+        "label": "التعليم",
+        "checkbox": "سرد التعليم"
+      },
+      "includeResidence": {
+        "label": "الإقامة",
+        "checkbox": "سرد الإقامة"
+      },
+      "includeOccupation": {
+        "label": "المهنة",
+        "checkbox": "سرد المهنة"
+      },
+      "includeSiblings": {
+        "label": "الإخوة",
+        "checkbox": "سرد الإخوة"
+      },
+      "lineType": {
+        "label": "خطوط القرابة",
+        "checkbox": ""
+      },
+      "maxDepth": {
+        "label": "أقصى عمق",
+        "checkbox": ""
+      },
+      "showLifeSpan": {
+        "label": "عمود مدة الحياة",
+        "checkbox": "إظهار عمود مدة الحياة"
+      },
+      "showCoefficients": {
+        "label": "المعاملات",
+        "checkbox": "إظهار معاملات القرابة"
+      }
+    },
+    "exportAs": {
+      "html": "حفظ كملف HTML…",
+      "csv": "حفظ كملف CSV…",
+      "txt": "حفظ كنص عادي…",
+      "rtf": "حفظ كنص RTF…",
+      "pdf": "طباعة / حفظ كملف PDF…",
+      "other": "حفظ كـ {format}…"
+    },
+    "ui": {
+      "reportsEyebrow": "التقارير",
+      "reportEyebrow": "تقرير",
+      "findReport": "البحث عن تقرير",
+      "noMatches": "لا توجد تقارير تطابق بحثك.",
+      "blocksCount": "{count} كتلة",
+      "tablesCount": "{count} جدول",
+      "options": "خيارات",
+      "edit": "تحرير",
+      "stylePage": "النمط والصفحة",
+      "renameReport": "إعادة تسمية تقرير…",
+      "deleteReport": "حذف تقرير…",
+      "saveHint": "احفظ تقريرًا لإعادة استخدام نوعه وموضوعاته ونمطه وإعدادات صفحته.",
+      "reportEditing": "تحرير التقرير",
+      "editReport": "تحرير التقرير",
+      "finish": "إنهاء",
+      "discard": "تجاهل",
+      "undo": "تراجع",
+      "redo": "إعادة",
+      "deleteBlock": "حذف الكتلة",
+      "books": "الكتب",
+      "addToBook": "إضافة إلى كتاب",
+      "subject": "الموضوع",
+      "play": "تشغيل",
+      "stop": "إيقاف",
+      "saveReport": "حفظ التقرير",
+      "secondSubject": "الموضوع الثاني",
+      "editHint": "تؤثر التعديلات على المعاينة والتصدير الحاليين. أما وصفات التقارير المحفوظة فتُولَّد من جديد من البيانات الحية.",
+      "addToBookHint": "يضيف هذا التقرير كقسم تقرير محفوظ ليتمكن قسم الكتب من تجميعه مع فصول ومخططات أخرى."
+    },
+    "subjects": {
+      "story": "قصة",
+      "proband": "الشخص المرجعي",
+      "rootPerson": "الشخص الجذر",
+      "lineageSubject": "موضوع النسب"
+    }
   },
   "settings": {
     "language": "اللغة"
@@ -1647,5 +1793,52 @@
     "matchesFamilySearch": "التطابقات على FamilySearch",
     "deletePerson": "حذف الشخص…",
     "deleteFamily": "حذف العائلة…"
+  },
+  "presentation": {
+    "page": "الصفحة",
+    "breaks": "فواصل",
+    "pageSize": "حجم الصفحة",
+    "letter": "Letter",
+    "legal": "Legal",
+    "orientation": "الاتجاه",
+    "portrait": "طولي",
+    "landscape": "عرضي",
+    "background": "الخلفية",
+    "white": "أبيض",
+    "soft": "فاتح",
+    "sepia": "بني داكن",
+    "margin": "الهامش",
+    "theme": {
+      "plain": "بسيط",
+      "soft": "فاتح",
+      "sepia": "بني داكن"
+    }
+  },
+  "statistics": {
+    "computing": "جارٍ الحساب…",
+    "title": "الإحصاءات",
+    "subtitle": "لمحة عمّا تحتويه شجرتك الآن.",
+    "records": "السجلات",
+    "people": "الأشخاص",
+    "missingData": "بيانات ناقصة",
+    "genderSplit": "توزيع الجنس",
+    "birthsByCentury": "المواليد حسب القرن",
+    "topSurnames": "أكثر ألقاب العائلة",
+    "placesByCountry": "الأماكن حسب البلد",
+    "totalPersons": "إجمالي الأشخاص",
+    "withDeathDate": "لديهم تاريخ وفاة",
+    "probablyLiving": "على الأرجح أحياء",
+    "probablyLivingHint": "أقل من ١١٠ سنة منذ الميلاد، دون وفاة",
+    "averageLifespan": "متوسط العمر",
+    "years": "{count} سنة",
+    "noBirthDate": "بلا تاريخ ميلاد",
+    "noDeathDate": "بلا تاريخ وفاة",
+    "noPhoto": "بلا صورة",
+    "genderUnknown": "غير معروف",
+    "genderIntersex": "ثنائي الجنس",
+    "noBirthDates": "لا توجد تواريخ ميلاد بعد.",
+    "noSurnames": "لا توجد ألقاب مسجّلة.",
+    "noCountries": "لا توجد بلدان مسجّلة للأماكن.",
+    "century": "القرن {century}"
   }
 }

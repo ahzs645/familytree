@@ -78,11 +78,17 @@ const td = { padding: '6px 8px', borderBottom: '1px solid #e5e7ed' };
 const pageBreak = { textAlign: 'center', color: '#aab', fontSize: 11, padding: '10px 0', borderTop: '1px dashed #aab', borderBottom: '1px dashed #aab', margin: '18px 0' };
 
 function styleFor(pageStyle = {}) {
+  // maxWidth is bounded by the preview pane, not the viewport. With
+  // `calc(100vw - 48px)` the page could be wider than the pane it sits in, and
+  // because the page is centred with `margin: auto` the overflow lands outside
+  // the scrollable range — in RTL that put the last table column at a negative
+  // offset, clipped and unreachable.
+  const maxWidth = '100%';
   const size = pageStyle.pageSize === 'a4'
-    ? { width: 794, maxWidth: 'calc(100vw - 48px)' }
+    ? { width: 794, maxWidth }
     : pageStyle.pageSize === 'legal'
-      ? { width: pageStyle.orientation === 'landscape' ? 1344 : 816, maxWidth: 'calc(100vw - 48px)' }
-      : { width: pageStyle.orientation === 'landscape' ? 1056 : 816, maxWidth: 'calc(100vw - 48px)' };
+      ? { width: pageStyle.orientation === 'landscape' ? 1344 : 816, maxWidth }
+      : { width: pageStyle.orientation === 'landscape' ? 1056 : 816, maxWidth };
   const background = pageStyle.background === 'sepia'
     ? '#fbf6e8'
     : pageStyle.background === 'soft'

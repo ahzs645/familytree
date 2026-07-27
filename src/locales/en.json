@@ -1428,7 +1428,153 @@
     "speak": "Speak",
     "theme": "Theme",
     "title": "Title",
-    "type": "Type"
+    "type": "Type",
+    "terms": {
+      "age": "Age",
+      "burial": "Burial",
+      "citation": "Citation",
+      "description": "Description",
+      "generation": "Generation",
+      "label": "Label",
+      "lifeSpan": "Life span",
+      "line": "Line",
+      "lineage": "Lineage",
+      "marriageDate": "Marriage date",
+      "name": "Name",
+      "note": "Note",
+      "occupation": "Occupation",
+      "partner1": "Partner 1",
+      "partner2": "Partner 2",
+      "personA": "Person A",
+      "personB": "Person B",
+      "persons": "Persons",
+      "relationship": "Relationship",
+      "residence": "Residence",
+      "scope": "Scope",
+      "summary": "Summary",
+      "value": "Value",
+      "year": "Year"
+    },
+    "categories": {
+      "person": "Person Reports",
+      "lineage": "Lineage Reports",
+      "family": "Family Reports",
+      "storyMedia": "Story & Media",
+      "analysis": "Analysis",
+      "list": "List Reports",
+      "default": "Reports"
+    },
+    "options": {
+      "enabled": "Enabled",
+      "showParents": {
+        "label": "Parents",
+        "checkbox": "Show parents"
+      },
+      "showFamilies": {
+        "label": "Families",
+        "checkbox": "Show families & children"
+      },
+      "showEvents": {
+        "label": "Events",
+        "checkbox": "Show events table"
+      },
+      "appendCitations": {
+        "label": "Citations",
+        "checkbox": "Append source citations"
+      },
+      "includeFamilyEvents": {
+        "label": "Family events",
+        "checkbox": "Include linked family events"
+      },
+      "showWorldHistory": {
+        "label": "World history",
+        "checkbox": "Show world history events"
+      },
+      "includeChristening": {
+        "label": "Christening",
+        "checkbox": "Narrate christening / baptism"
+      },
+      "includeBurial": {
+        "label": "Burial",
+        "checkbox": "Narrate burial"
+      },
+      "includeEducation": {
+        "label": "Education",
+        "checkbox": "Narrate education"
+      },
+      "includeResidence": {
+        "label": "Residence",
+        "checkbox": "Narrate residence"
+      },
+      "includeOccupation": {
+        "label": "Occupation",
+        "checkbox": "Narrate occupation"
+      },
+      "includeSiblings": {
+        "label": "Siblings",
+        "checkbox": "Narrate siblings"
+      },
+      "lineType": {
+        "label": "Relationship lines",
+        "checkbox": ""
+      },
+      "maxDepth": {
+        "label": "Maximum depth",
+        "checkbox": ""
+      },
+      "showLifeSpan": {
+        "label": "Life span column",
+        "checkbox": "Show life span column"
+      },
+      "showCoefficients": {
+        "label": "Coefficients",
+        "checkbox": "Show relationship coefficients"
+      }
+    },
+    "exportAs": {
+      "html": "Save as HTML File…",
+      "csv": "Save as CSV File…",
+      "txt": "Save as Plain Text…",
+      "rtf": "Save as RTF Text…",
+      "pdf": "Print / Save as PDF…",
+      "other": "Save as {format}…"
+    },
+    "ui": {
+      "reportsEyebrow": "Reports",
+      "reportEyebrow": "Report",
+      "findReport": "Find report",
+      "noMatches": "No reports match your search.",
+      "blocksCount": "{count} blocks",
+      "tablesCount": "{count} tables",
+      "options": "Options",
+      "edit": "Edit",
+      "stylePage": "Style & Page",
+      "renameReport": "Rename Report…",
+      "deleteReport": "Delete Report…",
+      "saveHint": "Save a report to reuse its type, subjects, style, and page settings.",
+      "reportEditing": "Report Editing",
+      "editReport": "Edit Report",
+      "finish": "Finish",
+      "discard": "Discard",
+      "undo": "Undo",
+      "redo": "Redo",
+      "deleteBlock": "Delete block",
+      "books": "Books",
+      "addToBook": "Add to Book",
+      "subject": "Subject",
+      "play": "Play",
+      "stop": "Stop",
+      "saveReport": "Save Report",
+      "secondSubject": "Second subject",
+      "editHint": "Edits affect the current generated preview and export. Saved report recipes still regenerate from live data.",
+      "addToBookHint": "Adds this report as a saved-report section so Books can compile it with other chapters and charts."
+    },
+    "subjects": {
+      "story": "Story",
+      "proband": "Proband",
+      "rootPerson": "Root person",
+      "lineageSubject": "Lineage subject"
+    }
   },
   "settings": {
     "language": "Language"
@@ -1584,5 +1730,52 @@
     "matchesFamilySearch": "Matches on FamilySearch",
     "deletePerson": "Delete Person…",
     "deleteFamily": "Delete Family…"
+  },
+  "presentation": {
+    "page": "Page",
+    "breaks": "Breaks",
+    "pageSize": "Page size",
+    "letter": "Letter",
+    "legal": "Legal",
+    "orientation": "Orientation",
+    "portrait": "Portrait",
+    "landscape": "Landscape",
+    "background": "Background",
+    "white": "White",
+    "soft": "Soft",
+    "sepia": "Sepia",
+    "margin": "Margin",
+    "theme": {
+      "plain": "Plain",
+      "soft": "Soft",
+      "sepia": "Sepia"
+    }
+  },
+  "statistics": {
+    "computing": "Computing…",
+    "title": "Statistics",
+    "subtitle": "A snapshot of what's in your tree right now.",
+    "records": "Records",
+    "people": "People",
+    "missingData": "Missing data",
+    "genderSplit": "Gender split",
+    "birthsByCentury": "Births by century",
+    "topSurnames": "Top surnames",
+    "placesByCountry": "Places by country",
+    "totalPersons": "Total persons",
+    "withDeathDate": "With death date",
+    "probablyLiving": "Probably living",
+    "probablyLivingHint": "<110 yrs since birth, no death",
+    "averageLifespan": "Average lifespan",
+    "years": "{count} yrs",
+    "noBirthDate": "No birth date",
+    "noDeathDate": "No death date",
+    "noPhoto": "No photo",
+    "genderUnknown": "Unknown",
+    "genderIntersex": "Intersex",
+    "noBirthDates": "No birth dates yet.",
+    "noSurnames": "No surnames recorded.",
+    "noCountries": "No place countries recorded.",
+    "century": "{century}th c."
   }
 }

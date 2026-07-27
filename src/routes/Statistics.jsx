@@ -4,6 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { computeStatistics } from '../lib/statistics.js';
 import { humanizeType } from '../utils/humanizeType.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 function Card({ title, children }) {
   return (
@@ -38,6 +39,7 @@ function HBar({ value, max, label }) {
 }
 
 export default function Statistics() {
+  const { t } = useTranslation();
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export default function Statistics() {
     return () => { cancel = true; };
   }, []);
 
-  if (!stats) return <div className="p-10 text-muted-foreground">Computing…</div>;
+  if (!stats) return <div className="p-10 text-muted-foreground">{t('statistics.computing')}</div>;
 
   const totalGender = stats.genderCounts.male + stats.genderCounts.female + stats.genderCounts.unknown + stats.genderCounts.intersex;
   const maxBirthCentury = Math.max(0, ...stats.birthsByCentury.map(([_, v]) => v));
@@ -59,59 +61,59 @@ export default function Statistics() {
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-6xl mx-auto p-5">
-        <h1 className="text-xl font-bold mb-1">Statistics</h1>
-        <p className="text-sm text-muted-foreground mb-5">A snapshot of what's in your tree right now.</p>
+        <h1 className="text-xl font-bold mb-1">{t('statistics.title')}</h1>
+        <p className="text-sm text-muted-foreground mb-5">{t('statistics.subtitle')}</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
-          <Card title="Records">
+          <Card title={t('statistics.records')}>
             {Object.entries(stats.counts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([type, n]) => (
               <StatLine key={type} label={humanizeType(type)} value={n.toLocaleString()} />
             ))}
           </Card>
 
-          <Card title="People">
-            <StatLine label="Total persons" value={stats.persons.toLocaleString()} />
-            <StatLine label="With death date" value={stats.withDeath.toLocaleString()} />
-            <StatLine label="Probably living" value={stats.probablyLiving.toLocaleString()} hint="<110 yrs since birth, no death" />
-            <StatLine label="Average lifespan" value={stats.avgLifespan ? `${stats.avgLifespan} yrs` : '—'} hint={`n=${stats.lifespanSampleSize}`} />
+          <Card title={t('statistics.people')}>
+            <StatLine label={t('statistics.totalPersons')} value={stats.persons.toLocaleString()} />
+            <StatLine label={t('statistics.withDeathDate')} value={stats.withDeath.toLocaleString()} />
+            <StatLine label={t('statistics.probablyLiving')} value={stats.probablyLiving.toLocaleString()} hint={t('statistics.probablyLivingHint')} />
+            <StatLine label={t('statistics.averageLifespan')} value={stats.avgLifespan ? t('statistics.years', { count: stats.avgLifespan }) : '—'} hint={`n=${stats.lifespanSampleSize}`} />
           </Card>
 
-          <Card title="Missing data">
-            <StatLine label="No birth date" value={stats.noBirthDate.toLocaleString()} />
-            <StatLine label="No death date" value={stats.noDeathDate.toLocaleString()} />
-            <StatLine label="No photo" value={stats.noPhoto.toLocaleString()} />
+          <Card title={t('statistics.missingData')}>
+            <StatLine label={t('statistics.noBirthDate')} value={stats.noBirthDate.toLocaleString()} />
+            <StatLine label={t('statistics.noDeathDate')} value={stats.noDeathDate.toLocaleString()} />
+            <StatLine label={t('statistics.noPhoto')} value={stats.noPhoto.toLocaleString()} />
           </Card>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-          <Card title="Gender split">
-            <HBar label="Male" value={stats.genderCounts.male} max={totalGender} />
-            <HBar label="Female" value={stats.genderCounts.female} max={totalGender} />
-            {stats.genderCounts.unknown > 0 && <HBar label="Unknown" value={stats.genderCounts.unknown} max={totalGender} />}
-            {stats.genderCounts.intersex > 0 && <HBar label="Intersex" value={stats.genderCounts.intersex} max={totalGender} />}
+          <Card title={t('statistics.genderSplit')}>
+            <HBar label={t('onboarding.genderMale')} value={stats.genderCounts.male} max={totalGender} />
+            <HBar label={t('onboarding.genderFemale')} value={stats.genderCounts.female} max={totalGender} />
+            {stats.genderCounts.unknown > 0 && <HBar label={t('statistics.genderUnknown')} value={stats.genderCounts.unknown} max={totalGender} />}
+            {stats.genderCounts.intersex > 0 && <HBar label={t('statistics.genderIntersex')} value={stats.genderCounts.intersex} max={totalGender} />}
           </Card>
 
-          <Card title="Births by century">
+          <Card title={t('statistics.birthsByCentury')}>
             {stats.birthsByCentury.length === 0 ? (
-              <div className="text-sm text-muted-foreground italic">No birth dates yet.</div>
+              <div className="text-sm text-muted-foreground italic">{t('statistics.noBirthDates')}</div>
             ) : stats.birthsByCentury.map(([c, v]) => (
-              <HBar key={c} label={`${c}th c.`} value={v} max={maxBirthCentury} />
+              <HBar key={c} label={t('statistics.century', { century: c })} value={v} max={maxBirthCentury} />
             ))}
           </Card>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card title="Top surnames">
+          <Card title={t('statistics.topSurnames')}>
             {stats.topSurnames.length === 0 ? (
-              <div className="text-sm text-muted-foreground italic">No surnames recorded.</div>
+              <div className="text-sm text-muted-foreground italic">{t('statistics.noSurnames')}</div>
             ) : stats.topSurnames.map(([name, n]) => (
               <HBar key={name} label={name} value={n} max={maxSurname} />
             ))}
           </Card>
 
-          <Card title="Places by country">
+          <Card title={t('statistics.placesByCountry')}>
             {stats.countriesByCount.length === 0 ? (
-              <div className="text-sm text-muted-foreground italic">No place countries recorded.</div>
+              <div className="text-sm text-muted-foreground italic">{t('statistics.noCountries')}</div>
             ) : stats.countriesByCount.slice(0, 12).map(([name, n]) => (
               <HBar key={name} label={name} value={n} max={maxCountry} />
             ))}
