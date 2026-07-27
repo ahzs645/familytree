@@ -4,7 +4,8 @@ import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { getAppPreferences, saveAppPreferences } from '../lib/appPreferences.js';
 import { formClasses } from '../components/ui/formClasses.js';
 import { generateId } from '../lib/ids.js';
-import { logRecordCreated, saveWithChangeLog } from '../lib/changeLog.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
+import { createRecordEnvelope, createWithChangeLog } from '../lib/recordWrite.js';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { refValue } from '../lib/recordRef.js';
 import { readField, readRef } from '../lib/schema.js';
@@ -218,8 +219,7 @@ async function applyInsert(personId, action, value) {
         note: { value, type: 'STRING' },
       },
     };
-    await db.saveRecord(record);
-    await logRecordCreated(record);
+    await createWithChangeLog(record);
     return;
   }
   if (action === 'birthDate') return upsertPersonEvent(personId, 'Birth', { date: value });
@@ -254,8 +254,7 @@ async function upsertPersonEvent(personId, typeId, patch) {
   }
   const next = { ...event, fields };
   if (creating) {
-    await db.saveRecord(next);
-    await logRecordCreated(next);
+    await createWithChangeLog(next);
   } else {
     await saveWithChangeLog(next);
   }
@@ -269,16 +268,11 @@ async function findOrCreatePlace(name) {
     return label.toLowerCase() === name.toLowerCase();
   });
   if (found) return found;
-  const record = {
-    recordName: uuid('place'),
-    recordType: 'Place',
-    fields: {
-      placeName: { value: name, type: 'STRING' },
-      cached_standardizedLocationString: { value: name, type: 'STRING' },
-    },
-  };
-  await db.saveRecord(record);
-  await logRecordCreated(record);
+  const record = createRecordEnvelope('Place', 'place', {
+    placeName: name,
+    cached_standardizedLocationString: name,
+  });
+  await createWithChangeLog(record);
   return record;
 }
 

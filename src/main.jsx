@@ -13,35 +13,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
-import { getLocalDatabase } from './lib/LocalDatabase.js';
 import { autoLoadDemoDataIfEmpty } from './lib/remoteDataset.js';
-
-if (import.meta.env.DEV) {
-  exposeDebugHandles();
-}
-
-async function exposeDebugHandles() {
-  const [
-    { AppController },
-    { DatabasesController },
-    { Localizer },
-    Models,
-  ] = await Promise.all([
-    import('./lib/AppController.js'),
-    import('./lib/DatabasesController.js'),
-    import('./lib/Localizer.js'),
-    import('./models/index.js'),
-  ]);
-  window.__cloudtreeweb = {
-    ...Models,
-    AppController,
-    DatabasesController,
-    Localizer,
-    LocalDatabase: getLocalDatabase(),
-    importMFTPKG: () => import('./lib/MFTPKGImporter.js'),
-    React,
-  };
-}
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

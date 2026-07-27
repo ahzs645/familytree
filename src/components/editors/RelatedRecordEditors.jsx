@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
 import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../../lib/changeLog.js';
+import { createWithChangeLog, deleteWithChangeLog } from '../../lib/recordWrite.js';
 import { readRef, writeRef } from '../../lib/schema.js';
 import { personSummary, familySummary, placeSummary, sourceSummary } from '../../models/index.js';
 import { affiliationLevelLabel, affiliationName } from '../../lib/tribalAffiliations.js';
@@ -168,7 +169,6 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
 
   const addRelation = useCallback(async () => {
     if (!ownerRecordName || !mediaId || attachedIds.has(mediaId)) return;
-    const db = getLocalDatabase();
     const rec = {
       recordName: uuid('mr'),
       recordType: 'MediaRelation',
@@ -179,17 +179,14 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
         order: { value: relations.length, type: 'DOUBLE' },
       },
     };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
+    await createWithChangeLog(rec);
     setMediaId('');
     await reload();
     onChanged?.();
   }, [attachedIds, mediaId, mediaType, onChanged, ownerRecordName, ownerRecordType, relations.length, reload]);
 
   const removeRelation = useCallback(async (rel) => {
-    const db = getLocalDatabase();
-    await db.deleteRecord(rel.recordName);
-    await logRecordDeleted(rel.recordName, 'MediaRelation');
+    await deleteWithChangeLog(rel.recordName, 'MediaRelation');
     await reload();
     onChanged?.();
   }, [onChanged, reload]);
@@ -594,7 +591,6 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
   const addRelation = useCallback(async () => {
     if (!ownerRecordName || !typeId || !personId) return;
     const targetPerson = persons.find((person) => person.recordName === personId);
-    const db = getLocalDatabase();
     const rec = {
       recordName: uuid('ar'),
       recordType: 'AssociateRelation',
@@ -607,8 +603,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
         ...(newDate ? { date: { value: newDate, type: 'STRING' } } : {}),
       },
     };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
+    await createWithChangeLog(rec);
     setPersonId('');
     setNewDate('');
     await reload();
@@ -634,9 +629,7 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
   }, [drafts, onChanged, ownerField, ownerRecordName, ownerRecordType, persons, reload]);
 
   const removeRelation = useCallback(async (rel) => {
-    const db = getLocalDatabase();
-    await db.deleteRecord(rel.recordName);
-    await logRecordDeleted(rel.recordName, 'AssociateRelation');
+    await deleteWithChangeLog(rel.recordName, 'AssociateRelation');
     await reload();
     onChanged?.();
   }, [onChanged, reload]);
@@ -750,15 +743,13 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
         }
       } else {
         const record = { recordName: uuid('note'), recordType: 'Note', fields };
-        await db.saveRecord(record);
-        await logRecordCreated(record);
+        await createWithChangeLog(record);
         keep.add(record.recordName);
       }
     }
     for (const previous of existing) {
       if (!keep.has(previous.recordName)) {
-        await db.deleteRecord(previous.recordName);
-        await logRecordDeleted(previous.recordName, 'Note');
+        await deleteWithChangeLog(previous.recordName, 'Note');
       }
     }
     await reload();

@@ -49,6 +49,7 @@ export function useRecordEditor({
   toValues,
   applyValues,
   selectFirst = true,
+  savedMessage = 'Saved',
 }) {
   const modal = useModal();
   const { records, loading, reload: invalidate } = useRecords(recordType);
@@ -117,12 +118,12 @@ export function useRecordEditor({
         ? applyValues(active, values)
         : applyValuesToRecord(active, values, { fields, refFields });
       await saveWithChangeLog(next);
-      flashStatus('Saved');
+      flashStatus(savedMessage);
     } finally {
       setSaving(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, values, noun, applyValues, flashStatus]);
+  }, [active, values, noun, applyValues, flashStatus, savedMessage]);
 
   const onDelete = useCallback(async () => {
     if (!active) return;

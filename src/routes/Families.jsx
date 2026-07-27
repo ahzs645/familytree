@@ -11,9 +11,7 @@ import { listToolbarButtonClass } from '../components/lists/listToolbarClasses.j
 import { deleteRecordsWithLog } from '../lib/bulkActions.js';
 import { downloadRowsAsCsv } from '../lib/listExport.js';
 import { loadMarriageRows } from '../lib/listData.js';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
-import { generateId } from '../lib/ids.js';
-import { logRecordCreated } from '../lib/changeLog.js';
+import { createRecordEnvelope, createWithChangeLog } from '../lib/recordWrite.js';
 import { cn } from '../lib/utils.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
@@ -31,10 +29,8 @@ export default function Families() {
   // no way to start one from this list. The editor lets the user set the
   // partners and children from there.
   const newFamily = useCallback(async () => {
-    const db = getLocalDatabase();
-    const record = { recordName: generateId('family'), recordType: 'Family', fields: {} };
-    await db.saveRecord(record);
-    await logRecordCreated(record);
+    const record = createRecordEnvelope('Family', 'family');
+    await createWithChangeLog(record);
     navigate(`/family/${record.recordName}`);
   }, [navigate]);
 

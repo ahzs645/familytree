@@ -1,14 +1,19 @@
 /**
  * Events editor — list PersonEvent + FamilyEvent records; edit conclusion type,
  * date, place, and description. Create new events or delete existing ones.
+ *
+ * This screen mixes two record types behind one kind filter, so it keeps a
+ * thin custom controller instead of useRecordEditor: useRecords supplies the
+ * cached data, the recordWrite helpers do all change-logged writes, and the
+ * dirty/lock/save-shortcut wiring mirrors the shared hook.
  */
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
-import { generateId } from '../lib/ids.js';
-import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
-import { refToRecordName, refValue } from '../lib/recordRef.js';
-import { readConclusionType, readRef } from '../lib/schema.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
+import { refToRecordName } from '../lib/recordRef.js';
+import { readConclusionType, readRef, writeRef } from '../lib/schema.js';
+import { applyValuesToRecord, createRecordEnvelope, createWithChangeLog, deleteWithChangeLog, stringField } from '../lib/recordWrite.js';
+import { useRecords } from '../lib/data/useRecords.js';
 import { personSummary, placeSummary } from '../models/index.js';
 import { buildPersonLineage, attachLineageToPersonSummaries } from '../lib/personLineage.js';
 import { personDisplayName } from '../lib/personDisplayName.js';
@@ -28,15 +33,6 @@ import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
 import { Button } from '../components/ui/Button.jsx';
 
-function uuid(prefix) {
-  return generateId(prefix);
-}
-
-const KIND_OPTIONS = [
-  { value: 'PersonEvent', label: 'Person Event' },
-  { value: 'FamilyEvent', label: 'Family Event' },
-];
-
 export default function Events({
   initialKindFilter = 'all',
   showKindFilter = true,
@@ -47,11 +43,15 @@ export default function Events({
   const modal = useModal();
   const [searchParams] = useSearchParams();
   const queryEventId = searchParams.get('eventId');
+  const { records: personEventRecords, loading: loadingPersonEvents, reload: reloadPersonEvents } = useRecords('PersonEvent');
+  const { records: familyEventRecords, loading: loadingFamilyEvents, reload: reloadFamilyEvents } = useRecords('FamilyEvent');
+  const { records: personRecords } = useRecords('Person');
+  const { records: familyRecords } = useRecords('Family');
+  const { records: childRelationRecords } = useRecords('ChildRelation');
+  const { records: placeRecords } = useRecords('Place');
+  const { records: personTypeRecords } = useRecords('ConclusionPersonEventType');
+  const { records: familyTypeRecords } = useRecords('ConclusionFamilyEventType');
   const [events, setEvents] = useState([]);
-  const [types, setTypes] = useState({ Person: [], Family: [] });
-  const [persons, setPersons] = useState([]);
-  const [families, setFamilies] = useState([]);
-  const [places, setPlaces] = useState([]);
   const [activeId, setActiveId] = useState(null);
   const [kindFilter, setKindFilter] = useState(initialKindFilter);
   const [values, setValues] = useState({});
@@ -60,41 +60,39 @@ export default function Events({
   const [queryMessage, setQueryMessage] = useState(null);
   const [loadSeq, setLoadSeq] = useState(0);
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const [pe, fe, personRecs, familyRecs, childRelations, placeRecs, personTypes, familyTypes] = await Promise.all([
-      db.query('PersonEvent', { limit: 100000 }),
-      db.query('FamilyEvent', { limit: 100000 }),
-      db.query('Person', { limit: 100000 }),
-      db.query('Family', { limit: 100000 }),
-      db.query('ChildRelation', { limit: 100000 }),
-      db.query('Place', { limit: 100000 }),
-      db.query('ConclusionPersonEventType', { limit: 1000 }),
-      db.query('ConclusionFamilyEventType', { limit: 1000 }),
-    ]);
-    const merged = [...pe.records, ...fe.records].sort((a, b) => {
+  // Attach Arabic-patrilineal lineage so events for name-less records show a
+  // readable descriptor instead of "No name recorded" (see personDisplayName).
+  const persons = useMemo(() => {
+    const lineage = buildPersonLineage(personRecords, familyRecords, childRelationRecords);
+    return attachLineageToPersonSummaries(personRecords.map(personSummary).filter(Boolean), lineage);
+  }, [personRecords, familyRecords, childRelationRecords]);
+  const families = familyRecords;
+  const places = placeRecords;
+  const types = useMemo(() => ({
+    Person: personTypeRecords.map((r) => ({ id: r.recordName, label: readConclusionType(r) })).filter((r) => r.label),
+    Family: familyTypeRecords.map((r) => ({ id: r.recordName, label: readConclusionType(r) })).filter((r) => r.label),
+  }), [personTypeRecords, familyTypeRecords]);
+
+  const loading = loadingPersonEvents || loadingFamilyEvents;
+  useEffect(() => {
+    if (loading) return;
+    const merged = [...personEventRecords, ...familyEventRecords].sort((a, b) => {
       const ad = a.fields?.date?.value || '';
       const bd = b.fields?.date?.value || '';
       return String(bd).localeCompare(String(ad));
     });
     setEvents(merged);
-    // Attach Arabic-patrilineal lineage so events for name-less records show a
-    // readable descriptor instead of "No name recorded" (see personDisplayName).
-    const lineage = buildPersonLineage(personRecs.records, familyRecs.records, childRelations.records);
-    setPersons(attachLineageToPersonSummaries(personRecs.records.map(personSummary).filter(Boolean), lineage));
-    setFamilies(familyRecs.records);
-    setPlaces(placeRecs.records);
-    setTypes({
-      Person: personTypes.records.map((r) => ({ id: r.recordName, label: readConclusionType(r) })).filter((r) => r.label),
-      Family: familyTypes.records.map((r) => ({ id: r.recordName, label: readConclusionType(r) })).filter((r) => r.label),
+    setActiveId((current) => {
+      if (current && merged.some((event) => event.recordName === current)) return current;
+      return merged.length > 0 ? merged[0].recordName : null;
     });
-    if (merged.length > 0 && !activeId) setActiveId(merged[0].recordName);
     setLoadSeq((n) => n + 1);
-  }, [activeId]);
+  }, [personEventRecords, familyEventRecords, loading]);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const reload = useCallback(() => {
+    reloadPersonEvents();
+    reloadFamilyEvents();
+  }, [reloadPersonEvents, reloadFamilyEvents]);
 
   useEffect(() => {
     if (!queryEventId) {
@@ -151,58 +149,43 @@ export default function Events({
       return;
     }
     setSaving(true);
-    const next = { ...ev, fields: { ...ev.fields } };
+    const refFields = { place: 'Place' };
+    if (ev.recordType === 'PersonEvent' && values.personRef) refFields.person = 'Person';
+    if (ev.recordType === 'FamilyEvent' && values.familyRef) refFields.family = 'Family';
+    const next = applyValuesToRecord(ev, {
+      date: values.date,
+      description: values.description,
+      placeDetail: values.placeDetail?.trim(),
+      place: values.placeRef,
+      person: values.personRef,
+      family: values.familyRef,
+    }, { fields: ['date', 'description', 'placeDetail'], refFields });
     const typeOptions = ev.recordType === 'FamilyEvent' ? types.Family : types.Person;
     const chosenType = typeOptions.find((t) => t.id === values.conclusionType || t.label === values.conclusionType);
     if (chosenType) {
-      next.fields.conclusionType = { value: refValue(chosenType.id, ev.recordType === 'FamilyEvent' ? 'ConclusionFamilyEventType' : 'ConclusionPersonEventType'), type: 'REFERENCE' };
-      next.fields.eventType = { value: chosenType.label, type: 'STRING' };
+      next.fields.conclusionType = writeRef(chosenType.id, ev.recordType === 'FamilyEvent' ? 'ConclusionFamilyEventType' : 'ConclusionPersonEventType');
+      next.fields.eventType = stringField(chosenType.label);
     } else if (values.conclusionType) {
       delete next.fields.conclusionType;
-      next.fields.eventType = { value: values.conclusionType, type: 'STRING' };
+      next.fields.eventType = stringField(values.conclusionType);
     } else {
       delete next.fields.conclusionType;
       delete next.fields.eventType;
     }
-    if (values.date) next.fields.date = { value: values.date, type: 'STRING' };
-    else delete next.fields.date;
-    if (values.description) next.fields.description = { value: values.description, type: 'STRING' };
-    else delete next.fields.description;
     if (values.isPrivate) next.fields.isPrivate = { value: true, type: 'BOOLEAN' };
     else delete next.fields.isPrivate;
-    if (ev.recordType === 'PersonEvent' && values.personRef) {
-      next.fields.person = { value: refValue(values.personRef, 'Person'), type: 'REFERENCE' };
-    }
-    if (ev.recordType === 'FamilyEvent' && values.familyRef) {
-      next.fields.family = { value: refValue(values.familyRef, 'Family'), type: 'REFERENCE' };
-    }
-    if (values.placeRef) next.fields.place = { value: refValue(values.placeRef, 'Place'), type: 'REFERENCE' };
-    else delete next.fields.place;
-    if (values.placeDetail?.trim()) next.fields.placeDetail = { value: values.placeDetail.trim(), type: 'STRING' };
-    else delete next.fields.placeDetail;
 
     await saveWithChangeLog(next);
-    await reload();
     setSaving(false);
     setStatus('Saved');
     setTimeout(() => setStatus(null), 1500);
-  }, [activeId, events, values, types, reload]);
+  }, [activeId, events, values, types]);
 
   const onCreate = useCallback(async (kind) => {
-    const db = getLocalDatabase();
-    const record = {
-      recordName: uuid(kind === 'PersonEvent' ? 'pe' : 'fe'),
-      recordType: kind,
-      fields: {
-        eventType: { value: '', type: 'STRING' },
-        date: { value: '', type: 'STRING' },
-      },
-    };
-    await db.saveRecord(record);
-    await logRecordCreated(record);
-    await reload();
+    const record = createRecordEnvelope(kind, kind === 'PersonEvent' ? 'pe' : 'fe');
+    await createWithChangeLog(record);
     setActiveId(record.recordName);
-  }, [reload]);
+  }, []);
 
   const onDelete = useCallback(async () => {
     const ev = events.find((e) => e.recordName === activeId);
@@ -212,12 +195,10 @@ export default function Events({
       return;
     }
     if (!(await modal.confirm('Delete this event?', { title: 'Delete event', okLabel: 'Delete', destructive: true }))) return;
-    const db = getLocalDatabase();
-    await db.deleteRecord(ev.recordName);
-    await logRecordDeleted(ev.recordName, ev.recordType);
-    await reload();
-    setActiveId(null);
-  }, [activeId, events, reload, modal]);
+    // No setActiveId here: the events-sync effect drops the deleted id and
+    // reselects the first remaining event once the cache refreshes.
+    await deleteWithChangeLog(ev.recordName, ev.recordType);
+  }, [activeId, events, modal]);
 
   const filtered = events.filter((e) => {
     if (kindFilter === 'all') return true;

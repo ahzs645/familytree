@@ -5,7 +5,8 @@
  */
 import React, { useEffect, useState, useCallback } from 'react';
 import { getLocalDatabase } from '../../lib/LocalDatabase.js';
-import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../../lib/changeLog.js';
+import { saveWithChangeLog } from '../../lib/changeLog.js';
+import { createWithChangeLog, deleteWithChangeLog } from '../../lib/recordWrite.js';
 import { MasterDetailList } from './MasterDetailList.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { readRef, refValue } from '../../lib/schema.js';
@@ -57,14 +58,12 @@ export function SimpleCrudList({
   }, [activeId, records, fields]);
 
   const onCreate = useCallback(async () => {
-    const db = getLocalDatabase();
     const rec = {
       recordName: uuid(uuidPrefix),
       recordType,
       fields: { ...extraDefaults },
     };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
+    await createWithChangeLog(rec);
     await reload();
     setActiveId(rec.recordName);
   }, [recordType, uuidPrefix, extraDefaults, reload]);
@@ -72,9 +71,7 @@ export function SimpleCrudList({
   const onDelete = useCallback(async () => {
     if (!activeId) return;
     if (!(await modal.confirm('Delete this record?', { title: 'Delete record', okLabel: 'Delete', destructive: true }))) return;
-    const db = getLocalDatabase();
-    await db.deleteRecord(activeId);
-    await logRecordDeleted(activeId, recordType);
+    await deleteWithChangeLog(activeId, recordType);
     setActiveId(null);
     await reload();
   }, [activeId, recordType, reload, modal]);

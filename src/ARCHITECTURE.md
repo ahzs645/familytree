@@ -77,11 +77,10 @@ remote adapter can keep the same command surface. `lib/schema.js` and
 
 ## Legacy artifacts
 
-The original minified bundle survives as `public/ftree` +
-`public/classic.html` (the "classic" build) with `scripts/patch-bundle.js`
-(`npm run legacy:patch`); the SPA does not use it at runtime.
-`scripts/validate-mft-parity.mjs` (`npm run parity`) validates MFTPKG import
-parity against MacFamilyTree package files.
+`public/classic.html` is a redirect kept for old bookmarks; the SPA has no
+legacy-bundle runtime dependency. `scripts/validate-mft-parity.mjs`
+(`npm run parity`) validates MFTPKG import parity against MacFamilyTree
+package files.
 
 ## Testing
 

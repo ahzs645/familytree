@@ -20,11 +20,11 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { generateId } from '../lib/ids.js';
-import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
+import { createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
-import { readConclusionType, readRef } from '../lib/schema.js';
-import { Gender, lifeSpanLabel, personSummary } from '../models/index.js';
-import { buildPersonContext } from '../lib/personContext.js';
+import { readConclusionType } from '../lib/schema.js';
+import { Gender, lifeSpanLabel } from '../models/index.js';
 import {
   ADDITIONAL_NAME_TYPES,
   PERSON_EVENT_TYPES,
@@ -34,9 +34,7 @@ import {
   REFERENCE_NUMBER_FIELDS,
   formatTimestamp,
   labelForCatalogType,
-  normalizeConclusionTypeId,
 } from '../lib/catalogs.js';
-import { resolveLabelDefinitions } from '../lib/labels.js';
 import { listCustomTypes, mergeWithBuiltins } from '../lib/customTypes.js';
 import { Section } from '../components/editors/Section.jsx';
 import { EditSwitch } from '../components/editors/EditSwitch.jsx';
@@ -50,12 +48,10 @@ import { useSaveShortcut } from '../lib/useSaveShortcut.js';
 import { EditorSectionNavProvider, EditorSectionNavBar } from '../components/editors/EditorSectionNav.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
-import { listAllPersons } from '../lib/treeQuery.js';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { linkExistingRelative } from '../lib/relativeLinks.js';
-import { evidenceStateForRecord, loadResearchCompleteness } from '../lib/researchCompleteness.js';
-import { MILK_KINSHIP_RECORD_TYPE, milkKinshipSummary, roleForMilkKinship } from '../lib/milkKinship.js';
-import { affiliationLevelLabel, loadTribalAffiliationModel } from '../lib/tribalAffiliations.js';
+import { affiliationLevelLabel } from '../lib/tribalAffiliations.js';
+import { NAME_FIELDS, loadPersonEditorModel } from '../lib/personEditorQuery.js';
 import {
   Field,
   Empty,
@@ -74,7 +70,6 @@ import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
 import {
-  queryMilkKinshipsForPerson,
   reconcileMilkKinships,
   reconcileSubRecords,
   writeOptionalStringField,
@@ -83,14 +78,6 @@ import {
 function uuid(prefix) {
   return generateId(prefix);
 }
-
-const NAME_FIELDS = [
-  { id: 'firstName', label: 'First Name' },
-  { id: 'lastName', label: 'Last Name' },
-  { id: 'nameMiddle', label: 'Middle Name' },
-  { id: 'namePrefix', label: 'Title' },
-  { id: 'nameSuffix', label: 'Suffix' },
-];
 
 const ACCENTS = {
   parents: 'rgb(128 128 230)',
@@ -201,123 +188,30 @@ export default function PersonEditor() {
   }, []);
 
   const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const r = await db.getRecord(id);
-    if (!r) { setNotFound(true); return; }
-    setRecord(r);
-    setContext(await buildPersonContext(id));
-
-    const v = {};
-    for (const f of NAME_FIELDS) v[f.id] = r.fields?.[f.id]?.value ?? '';
-    setValues(v);
-    setBookmarked(!!r.fields?.isBookmarked?.value);
-    setIsStartPerson(!!r.fields?.isStartPerson?.value);
-    setIsPrivate(!!r.fields?.isPrivate?.value);
-    setIsDeceased(!!r.fields?.isDeceased?.value);
-    setOutsideFamily(!!r.fields?.fromOutsideFamily?.value);
-    setGrave({
-      cemetery: r.fields?.cemetery?.value || '',
-      cemeteryLocation: r.fields?.cemeteryLocation?.value || '',
-      graveNumber: r.fields?.graveNumber?.value || '',
-    });
-
-    const refs = {};
-    for (const f of REFERENCE_NUMBER_FIELDS) refs[f.id] = r.fields?.[f.id]?.value ?? '';
-    setRefNumbers(refs);
-
-    const [an, fact, note, lbl, labelRows, ev, ar, analysis, allPersonRows] = await Promise.all([
-      db.query('AdditionalName', { referenceField: 'person', referenceValue: id, limit: 500 }),
-      db.query('PersonFact', { referenceField: 'person', referenceValue: id, limit: 500 }),
-      db.query('Note', { referenceField: 'person', referenceValue: id, limit: 500 }),
-      db.query('LabelRelation', { referenceField: 'targetPerson', referenceValue: id, limit: 500 }),
-      db.query('Label', { limit: 100000 }),
-      db.query('PersonEvent', { referenceField: 'person', referenceValue: id, limit: 500 }),
-      db.query('AssociateRelation', { referenceField: 'sourcePerson', referenceValue: id, limit: 500 }),
-      loadResearchCompleteness(),
-      db.query('Person', { limit: 100000 }),
-    ]);
-    setLabelDefs(resolveLabelDefinitions(labelRows.records));
-    const personEvidence = analysis.rowsByPerson.get(id);
-    setEvidence({
-      row: personEvidence,
-      byRecord: new Map([...ev.records, ...fact.records].map((item) => [item.recordName, evidenceStateForRecord(item.recordName, analysis)])),
-    });
-    setAllPersons(await listAllPersons({ includePrivate: true }));
-    const personById = new Map(allPersonRows.records.map((person) => [person.recordName, personSummary(person)]));
-    const milkRows = await queryMilkKinshipsForPerson(db, id);
-    setMilkKinships(milkRows.map((milk) => {
-      const summary = milkKinshipSummary(milk, personById);
-      return {
-        ...summary,
-        role: roleForMilkKinship(summary, id),
-      };
-    }));
-
-    setAdditionalNames(an.records.map((a) => ({
-      recordName: a.recordName,
-      type: normalizeConclusionTypeId(refToRecordName(a.fields?.conclusionType?.value) || a.fields?.type?.value || ''),
-      value: a.fields?.name?.value || a.fields?.value?.value || '',
-    })));
-    setFacts(fact.records.map((f) => ({
-      recordName: f.recordName,
-      type: normalizeConclusionTypeId(refToRecordName(f.fields?.conclusionType?.value) || ''),
-      // Canonical fact value lives in `description`; fall back to `value` so facts
-      // imported by older builds (which stored the value under `value`) still show.
-      value: f.fields?.description?.value || f.fields?.value?.value || '',
-      date: f.fields?.date?.value || '',
-    })));
-    setNotes(note.records.map((n) => ({
-      recordName: n.recordName,
-      text: n.fields?.text?.value || n.fields?.note?.value || '',
-    })));
-    setEvents(ev.records);
-    setAssociates(ar.records.map((a) => ({
-      recordName: a.recordName,
-      type: refToRecordName(a.fields?.relationType?.value) || a.fields?.type?.value || '',
-      targetPersonRef: refToRecordName(a.fields?.targetPerson?.value) || '',
-      targetName: a.fields?.cached_targetName?.value || '',
-    })));
-
-    const [mediaRels, sourceRels, todoRels, storyRels, groupRels] = await Promise.all([
-      db.query('MediaRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
-      db.query('SourceRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
-      db.query('ToDoRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
-      db.query('StoryRelation', { referenceField: 'target', referenceValue: id, limit: 500 }),
-      db.query('PersonGroupRelation', { referenceField: 'person', referenceValue: id, limit: 500 }),
-    ]);
-    async function hydrate(rels, fieldName, fallbackType) {
-      const out = [];
-      for (const rel of rels.records) {
-        const targetId = readRef(rel.fields?.[fieldName]);
-        const target = targetId ? await db.getRecord(targetId) : null;
-        out.push({ rel, target, type: target?.recordType || fallbackType });
-      }
-      return out;
-    }
-    setRelated({
-      media: await hydrate(mediaRels, 'media', 'Media'),
-      sources: await hydrate(sourceRels, 'source', 'Source'),
-      todos: await hydrate(todoRels, 'todo', 'ToDo'),
-      stories: await hydrate(storyRels, 'story', 'Story'),
-      groups: await hydrate(groupRels, 'personGroup', 'PersonGroup'),
-    });
-    const tribalModel = await loadTribalAffiliationModel(db);
-    const affiliationsById = new Map(tribalModel.affiliations.map((affiliation) => [affiliation.recordName, affiliation]));
-    setTribalMemberships(
-      tribalModel.memberships
-        .filter((membership) => membership.personId === id)
-        .map((membership) => ({ ...membership, affiliation: affiliationsById.get(membership.affiliationId) }))
-        .filter((membership) => membership.affiliation)
-    );
-
-    const labelMap = {};
-    for (const lr of lbl.records) {
-      const labelRef = refToRecordName(lr.fields?.label?.value) || '';
-      labelMap[labelRef] = lr.recordName;
-    }
-    const lblState = {};
-    for (const def of LABELS) lblState[def.id] = !!labelMap[def.id];
-    setLabels(lblState);
+    const model = await loadPersonEditorModel(id);
+    if (!model) { setNotFound(true); return; }
+    setRecord(model.record);
+    setContext(model.context);
+    setValues(model.values);
+    setBookmarked(model.bookmarked);
+    setIsStartPerson(model.isStartPerson);
+    setIsPrivate(model.isPrivate);
+    setIsDeceased(model.isDeceased);
+    setOutsideFamily(model.outsideFamily);
+    setGrave(model.grave);
+    setRefNumbers(model.refNumbers);
+    setLabelDefs(model.labelDefs);
+    setEvidence(model.evidence);
+    setAllPersons(model.allPersons);
+    setMilkKinships(model.milkKinships);
+    setAdditionalNames(model.additionalNames);
+    setFacts(model.facts);
+    setNotes(model.notes);
+    setEvents(model.events);
+    setAssociates(model.associates);
+    setRelated(model.related);
+    setTribalMemberships(model.tribalMemberships);
+    setLabels(model.labels);
     // Signal that a full hydration finished so the dirty baseline can be
     // captured against the complete record (see the loadSeq effect below).
     setLoadSeq((n) => n + 1);
@@ -453,11 +347,9 @@ export default function PersonEditor() {
             targetPerson: { value: refValue(id, 'Person'), type: 'REFERENCE' },
           },
         };
-        await db.saveRecord(rec);
-        await logRecordCreated(rec);
+        await createWithChangeLog(rec);
       } else if (!want && existing) {
-        await db.deleteRecord(existing.recordName);
-        await logRecordDeleted(existing.recordName, 'LabelRelation');
+        await deleteWithChangeLog(existing.recordName, 'LabelRelation');
       }
     }
 
@@ -618,7 +510,6 @@ export default function PersonEditor() {
                 accent={ACCENTS.events}
                 controls={<TypePicker placeholder="Add Event" options={eventTypes}
                   onPick={async (t) => {
-                    const db = getLocalDatabase();
                     const rec = {
                       recordName: uuid('pe'),
                       recordType: 'PersonEvent',
@@ -627,8 +518,7 @@ export default function PersonEditor() {
                         conclusionType: { value: refValue(t, 'ConclusionPersonEventType'), type: 'REFERENCE' },
                       },
                     };
-                    await db.saveRecord(rec);
-                    await logRecordCreated(rec);
+                    await createWithChangeLog(rec);
                     await reload();
                   }} />}
               >

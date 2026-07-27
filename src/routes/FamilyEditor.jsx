@@ -10,7 +10,8 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
-import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
+import { createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { readConclusionType, readRef } from '../lib/schema.js';
 import { listAllPersons } from '../lib/treeQuery.js';
@@ -291,15 +292,13 @@ export default function FamilyEditor() {
         writeChildRelType(fields, 'fatherRelationType', c.fatherRelationType);
         writeChildRelType(fields, 'motherRelationType', c.motherRelationType);
         const rec = { recordName: uuid('cr'), recordType: 'ChildRelation', fields };
-        await db.saveRecord(rec);
-        await logRecordCreated(rec);
+        await createWithChangeLog(rec);
         keep.add(rec.recordName);
       }
     }
     for (const rel of existingRels) {
       if (!keep.has(rel.recordName)) {
-        await db.deleteRecord(rel.recordName);
-        await logRecordDeleted(rel.recordName, 'ChildRelation');
+        await deleteWithChangeLog(rel.recordName, 'ChildRelation');
       }
     }
 
@@ -323,15 +322,13 @@ export default function FamilyEditor() {
             text: { value: n.text, type: 'STRING' },
           },
         };
-        await db.saveRecord(rec);
-        await logRecordCreated(rec);
+        await createWithChangeLog(rec);
         keepN.add(rec.recordName);
       }
     }
     for (const prev of existingNotes) {
       if (!keepN.has(prev.recordName)) {
-        await db.deleteRecord(prev.recordName);
-        await logRecordDeleted(prev.recordName, 'Note');
+        await deleteWithChangeLog(prev.recordName, 'Note');
       }
     }
 
@@ -350,11 +347,9 @@ export default function FamilyEditor() {
             targetFamily: { value: refValue(id, 'Family'), type: 'REFERENCE' },
           },
         };
-        await db.saveRecord(rec);
-        await logRecordCreated(rec);
+        await createWithChangeLog(rec);
       } else if (!want && existing) {
-        await db.deleteRecord(existing.recordName);
-        await logRecordDeleted(existing.recordName, 'LabelRelation');
+        await deleteWithChangeLog(existing.recordName, 'LabelRelation');
       }
     }
 
@@ -532,7 +527,6 @@ export default function FamilyEditor() {
                 controls={<TypePicker placeholder="Add Event" options={familyEventTypes}
                   onPick={async (t) => {
                     if (isRecordLocked(family)) return;
-                    const db = getLocalDatabase();
                     const rec = {
                       recordName: uuid('fe'),
                       recordType: 'FamilyEvent',
@@ -541,8 +535,7 @@ export default function FamilyEditor() {
                         conclusionType: { value: refValue(t, 'ConclusionFamilyEventType'), type: 'REFERENCE' },
                       },
                     };
-                    await db.saveRecord(rec);
-                    await logRecordCreated(rec);
+                    await createWithChangeLog(rec);
                     await reload();
                   }} />}
               >

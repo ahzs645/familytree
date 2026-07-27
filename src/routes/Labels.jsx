@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
-import { generateId } from '../lib/ids.js';
-import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../lib/changeLog.js';
 import { readLabel, readRef } from '../lib/schema.js';
 import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.jsx';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
@@ -10,16 +8,12 @@ import { FieldRow } from '../components/editors/FieldRow.jsx';
 import { formClasses } from '../components/ui/formClasses.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { useDirtyBaseline } from '../lib/editorState.js';
-import { useSaveShortcut } from '../lib/useSaveShortcut.js';
 import { SaveStatus } from '../components/editors/SaveStatus.jsx';
-import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useRecordEditor } from '../components/editors/useRecordEditor.js';
+import { useRecords } from '../lib/data/useRecords.js';
+import { deleteWithChangeLog, stringField } from '../lib/recordWrite.js';
 import { toCssHexColor } from '../lib/labelColors.js';
-
-function uuid(prefix) {
-  return generateId(prefix);
-}
 
 function labelName(record) {
   return readLabel(record).name || record.recordName;
@@ -29,100 +23,65 @@ function normalizeCssColor(value) {
   return toCssHexColor(value) || '#2563eb';
 }
 
+function labelToValues(record) {
+  const display = readLabel(record);
+  return {
+    name: display.name || '',
+    color: toCssHexColor(display.rawColor || display.color) || '#2563eb',
+    description: record.fields?.description?.value || record.fields?.text?.value || '',
+  };
+}
+
+// Labels mirror name→title and description→text for legacy readers, so the
+// plain `fields` model does not fit; apply the mirrored pairs explicitly.
+function labelApplyValues(record, values) {
+  const next = { ...record, fields: { ...record.fields } };
+  const setOrClear = (name, value) => {
+    const field = stringField(value);
+    if (field) next.fields[name] = field;
+    else delete next.fields[name];
+  };
+  setOrClear('name', values.name);
+  setOrClear('title', values.name);
+  setOrClear('color', values.color);
+  setOrClear('description', values.description);
+  setOrClear('text', values.description);
+  return next;
+}
+
 export default function Labels() {
   const modal = useModal();
   const [searchParams] = useSearchParams();
   const queryLabelId = searchParams.get('labelId');
-  const [labels, setLabels] = useState([]);
-  const [relations, setRelations] = useState([]);
+  const {
+    rows: labels, active, activeId, setActiveId, values, setValues,
+    dirty, saving, status, setStatus, onCreate, onSave, onToggleLock,
+  } = useRecordEditor({
+    recordType: 'Label',
+    noun: 'label',
+    idPrefix: 'lbl',
+    labelOf: labelName,
+    createValues: () => ({ name: 'New Label', color: '#2563eb' }),
+    toValues: labelToValues,
+    applyValues: labelApplyValues,
+  });
+  const { records: relations } = useRecords('LabelRelation');
   const [targets, setTargets] = useState(new Map());
-  const [activeId, setActiveId] = useState(null);
-  const [values, setValues] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null);
-  const [loadSeq, setLoadSeq] = useState(0);
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const [labelRows, relationRows, allRecords] = await Promise.all([
-      db.query('Label', { limit: 100000 }),
-      db.query('LabelRelation', { limit: 100000 }),
-      db.getAllRecords(),
-    ]);
-    const sorted = labelRows.records.sort((a, b) => labelName(a).localeCompare(labelName(b)));
-    setLabels(sorted);
-    setRelations(relationRows.records);
-    setTargets(new Map(allRecords.map((record) => [record.recordName, record])));
-    if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
-    setLoadSeq((n) => n + 1);
-  }, [activeId]);
+  useEffect(() => {
+    let cancelled = false;
+    getLocalDatabase().getAllRecords().then((records) => {
+      if (!cancelled) setTargets(new Map(records.map((record) => [record.recordName, record])));
+    });
+    return () => { cancelled = true; };
+  }, [relations]);
 
-  useEffect(() => { reload(); }, [reload]);
   useEffect(() => {
     if (!queryLabelId || labels.length === 0) return;
     if (labels.some((label) => label.recordName === queryLabelId)) setActiveId(queryLabelId);
-  }, [queryLabelId, labels]);
+  }, [queryLabelId, labels, setActiveId]);
 
-  useEffect(() => {
-    const active = labels.find((record) => record.recordName === activeId);
-    if (!active) return;
-    const display = readLabel(active);
-    setValues({
-      name: display.name || '',
-      color: toCssHexColor(display.rawColor || display.color) || '#2563eb',
-      description: active.fields?.description?.value || active.fields?.text?.value || '',
-    });
-  }, [activeId, labels]);
-
-  const active = labels.find((record) => record.recordName === activeId);
   const activeRelations = useMemo(() => relations.filter((rel) => readRef(rel.fields?.label) === activeId), [activeId, relations]);
-
-  const onCreate = useCallback(async () => {
-    const db = getLocalDatabase();
-    const record = {
-      recordName: uuid('lbl'),
-      recordType: 'Label',
-      fields: {
-        name: { value: 'New Label', type: 'STRING' },
-        color: { value: '#2563eb', type: 'STRING' },
-      },
-    };
-    await db.saveRecord(record);
-    await logRecordCreated(record);
-    await reload();
-    setActiveId(record.recordName);
-  }, [reload]);
-
-  const onSave = useCallback(async () => {
-    if (!active) return;
-    if (isRecordLocked(active)) {
-      setStatus('Unlock this label before saving.');
-      return;
-    }
-    setSaving(true);
-    const next = { ...active, fields: { ...active.fields } };
-    if (values.name) {
-      next.fields.name = { value: values.name, type: 'STRING' };
-      next.fields.title = { value: values.name, type: 'STRING' };
-    } else {
-      delete next.fields.name;
-      delete next.fields.title;
-    }
-    if (values.color) next.fields.color = { value: values.color, type: 'STRING' };
-    else delete next.fields.color;
-    if (values.description) {
-      next.fields.description = { value: values.description, type: 'STRING' };
-      next.fields.text = { value: values.description, type: 'STRING' };
-    } else {
-      delete next.fields.description;
-      delete next.fields.text;
-    }
-    await saveWithChangeLog(next);
-    await reload();
-    setSaving(false);
-    setStatus('Saved');
-    setTimeout(() => setStatus(null), 1500);
-  }, [active, reload, values]);
 
   const onDelete = useCallback(async () => {
     if (!active) return;
@@ -134,14 +93,11 @@ export default function Labels() {
       ? `Delete this label and remove ${activeRelations.length} label assignment(s)?`
       : 'Delete this label?';
     if (!(await modal.confirm(message, { title: 'Delete label', okLabel: 'Delete', destructive: true }))) return;
-    const db = getLocalDatabase();
-    await db.applyRecordTransaction({
-      deleteRecordNames: [active.recordName, ...activeRelations.map((rel) => rel.recordName)],
-    });
-    await logRecordDeleted(active.recordName, 'Label');
-    setActiveId(null);
-    await reload();
-  }, [active, activeRelations, reload, modal]);
+    for (const relation of activeRelations) {
+      await deleteWithChangeLog(relation.recordName, 'LabelRelation');
+    }
+    await deleteWithChangeLog(active.recordName, 'Label');
+  }, [active, activeRelations, modal, setStatus]);
 
   const renderRow = (record) => {
     const display = readLabel(record);
@@ -156,21 +112,6 @@ export default function Labels() {
       </div>
     );
   };
-
-  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  const dirty = useDirtyBaseline(editableSnapshot, {
-    recordKey: active?.recordName,
-    reloadKey: loadSeq,
-    enabled: !!active && !saving,
-  });
-  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && dirty });
-  const onToggleLock = useRecordLock({
-    record: active,
-    setRecord: (next) => setLabels((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
-    setSaving,
-    setStatus,
-    reload,
-  });
 
   const detail = active ? (
     <div className="p-5 max-w-3xl">

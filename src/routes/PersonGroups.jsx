@@ -1,8 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
-import { generateId } from '../lib/ids.js';
-import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
 import { readRef, writeRef } from '../lib/schema.js';
 import { collectRelatives } from '../lib/relationshipPath.js';
 import { personSummary } from '../models/index.js';
@@ -11,114 +8,83 @@ import { FieldRow } from '../components/editors/FieldRow.jsx';
 import { formClasses } from '../components/ui/formClasses.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { useDirtyBaseline } from '../lib/editorState.js';
-import { useRecordLock } from '../lib/useRecordLock.js';
+import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useRecordEditor } from '../components/editors/useRecordEditor.js';
+import { useRecords } from '../lib/data/useRecords.js';
+import { createRecordEnvelope, createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
 
-function uuid(prefix) {
-  return generateId(prefix);
-}
+const GROUP_FIELDS = ['name', 'description', 'color'];
 
 function groupName(record) {
   return record?.fields?.name?.value || record?.fields?.title?.value || record?.recordName || 'Group';
+}
+
+function groupToValues(record) {
+  return {
+    name: record.fields?.name?.value || '',
+    description: record.fields?.description?.value || record.fields?.userDescription?.value || '',
+    color: record.fields?.color?.value || '',
+  };
+}
+
+function membershipRecord(groupId, personRecordName) {
+  const record = createRecordEnvelope('PersonGroupRelation', 'pgr');
+  record.fields.personGroup = writeRef(groupId, 'PersonGroup');
+  record.fields.person = writeRef(personRecordName, 'Person');
+  return record;
 }
 
 export default function PersonGroups() {
   const modal = useModal();
   const [searchParams] = useSearchParams();
   const queryGroupId = searchParams.get('groupId');
-  const [groups, setGroups] = useState([]);
-  const [relations, setRelations] = useState([]);
-  const [persons, setPersons] = useState([]);
-  const [activeId, setActiveId] = useState(null);
-  const [values, setValues] = useState({});
+  const {
+    rows: groups, active, activeId, setActiveId, values, setValues,
+    dirty, saving, status, setStatus, onCreate, onSave, onToggleLock,
+  } = useRecordEditor({
+    recordType: 'PersonGroup',
+    noun: 'group',
+    idPrefix: 'grp',
+    fields: GROUP_FIELDS,
+    labelOf: groupName,
+    createValues: () => ({ name: 'New Group' }),
+    toValues: groupToValues,
+  });
+  const { records: relations } = useRecords('PersonGroupRelation');
+  const { records: personRecords } = useRecords('Person');
+  const persons = useMemo(
+    () => personRecords
+      .map((rec) => ({ rec, summary: personSummary(rec) }))
+      .filter((x) => x.summary)
+      .sort((a, b) => a.summary.fullName.localeCompare(b.summary.fullName)),
+    [personRecords],
+  );
   const [personId, setPersonId] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null);
-  const [loadSeq, setLoadSeq] = useState(0);
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const [g, r, p] = await Promise.all([
-      db.query('PersonGroup', { limit: 100000 }),
-      db.query('PersonGroupRelation', { limit: 100000 }),
-      db.query('Person', { limit: 100000 }),
-    ]);
-    setGroups(g.records.sort((a, b) => groupName(a).localeCompare(groupName(b))));
-    setRelations(r.records);
-    setPersons(p.records.map((rec) => ({ rec, summary: personSummary(rec) })).filter((x) => x.summary).sort((a, b) => a.summary.fullName.localeCompare(b.summary.fullName)));
-    if (!activeId && g.records.length) setActiveId(g.records[0].recordName);
-    setLoadSeq((n) => n + 1);
-  }, [activeId]);
-
-  useEffect(() => { reload(); }, [reload]);
   useEffect(() => {
     if (!queryGroupId || groups.length === 0) return;
     if (groups.some((group) => group.recordName === queryGroupId)) setActiveId(queryGroupId);
-  }, [queryGroupId, groups]);
-  useEffect(() => {
-    const group = groups.find((g) => g.recordName === activeId);
-    if (!group) return;
-    setValues({
-      name: group.fields?.name?.value || '',
-      description: group.fields?.description?.value || group.fields?.userDescription?.value || '',
-      color: group.fields?.color?.value || '',
-    });
-  }, [groups, activeId]);
+  }, [queryGroupId, groups, setActiveId]);
 
-  const active = groups.find((g) => g.recordName === activeId);
   const memberRelations = useMemo(() => relations.filter((r) => readRef(r.fields?.personGroup) === activeId), [relations, activeId]);
   const members = memberRelations.map((rel) => {
     const id = readRef(rel.fields?.person);
     return { rel, person: persons.find((p) => p.rec.recordName === id) };
   });
 
-  const save = async () => {
-    if (!active) return;
-    if (isRecordLocked(active)) {
-      setStatus('Unlock this group before saving.');
-      return;
-    }
-    setSaving(true);
-    const next = { ...active, fields: { ...active.fields } };
-    for (const key of ['name', 'description', 'color']) {
-      const value = values[key];
-      if (value) next.fields[key] = { value, type: 'STRING' };
-      else delete next.fields[key];
-    }
-    await saveWithChangeLog(next);
-    await reload();
-    setSaving(false);
-    setStatus('Saved');
-    setTimeout(() => setStatus(null), 1500);
-  };
-
-  const create = async () => {
-    const db = getLocalDatabase();
-    const rec = { recordName: uuid('grp'), recordType: 'PersonGroup', fields: { name: { value: 'New Group', type: 'STRING' } } };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
-    await reload();
-    setActiveId(rec.recordName);
-  };
-
-  const remove = async () => {
+  const onDelete = useCallback(async () => {
     if (!active) return;
     if (isRecordLocked(active)) {
       setStatus('Unlock this group before deleting.');
       return;
     }
     if (!(await modal.confirm('Delete this group? Members keep their records — only the group and its memberships are removed.', { title: 'Delete group', okLabel: 'Delete', destructive: true }))) return;
-    const db = getLocalDatabase();
     for (const rel of memberRelations) {
-      await db.deleteRecord(rel.recordName);
-      await logRecordDeleted(rel.recordName, 'PersonGroupRelation');
+      await deleteWithChangeLog(rel.recordName, 'PersonGroupRelation');
     }
-    await db.deleteRecord(active.recordName);
-    await logRecordDeleted(active.recordName, 'PersonGroup');
-    setActiveId(null);
-    await reload();
-  };
+    await deleteWithChangeLog(active.recordName, 'PersonGroup');
+  }, [active, memberRelations, modal, setStatus]);
 
   const addRelatives = async (direction) => {
     if (isRecordLocked(active)) {
@@ -139,17 +105,13 @@ export default function PersonGroups() {
         if (edges.length === 0) return false;
         return direction === 'ancestors' ? edges.every((e) => e === 'parent') : edges.every((e) => e === 'child');
       });
-      const db = getLocalDatabase();
       let added = 0;
       for (const rel of wanted) {
         if (existing.has(rel.id)) continue;
         existing.add(rel.id);
-        const rec = { recordName: uuid('pgr'), recordType: 'PersonGroupRelation', fields: { personGroup: writeRef(activeId, 'PersonGroup'), person: writeRef(rel.id, 'Person') } };
-        await db.saveRecord(rec);
-        await logRecordCreated(rec);
+        await createWithChangeLog(membershipRecord(activeId, rel.id));
         added += 1;
       }
-      await reload();
       setStatus(`Added ${added} ${direction}.`);
     } catch (error) {
       setStatus(error.message);
@@ -162,19 +124,8 @@ export default function PersonGroups() {
       return;
     }
     if (!activeId || !personId || memberRelations.some((r) => readRef(r.fields?.person) === personId)) return;
-    const db = getLocalDatabase();
-    const rec = {
-      recordName: uuid('pgr'),
-      recordType: 'PersonGroupRelation',
-      fields: {
-        personGroup: writeRef(activeId, 'PersonGroup'),
-        person: writeRef(personId, 'Person'),
-      },
-    };
-    await db.saveRecord(rec);
-    await logRecordCreated(rec);
+    await createWithChangeLog(membershipRecord(activeId, personId));
     setPersonId('');
-    await reload();
   };
 
   const removeMember = async (rel) => {
@@ -182,34 +133,19 @@ export default function PersonGroups() {
       setStatus('Unlock this group before editing members.');
       return;
     }
-    const db = getLocalDatabase();
-    await db.deleteRecord(rel.recordName);
-    await logRecordDeleted(rel.recordName, 'PersonGroupRelation');
-    await reload();
+    await deleteWithChangeLog(rel.recordName, 'PersonGroupRelation');
   };
-
-  const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
-  const dirty = useDirtyBaseline(editableSnapshot, {
-    recordKey: active?.recordName,
-    reloadKey: loadSeq,
-    enabled: !!active && !saving,
-  });
-  const onToggleLock = useRecordLock({
-    record: active,
-    setRecord: (next) => setGroups((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
-    setSaving,
-    setStatus,
-    reload,
-  });
 
   const detail = active ? (
     <div className="p-5 max-w-3xl">
       <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-base font-semibold">{groupName(active)}</h2>
-        {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
+        <h2 className="text-base font-semibold truncate">{groupName(active)}</h2>
+        <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-        <button onClick={remove} disabled={saving || isRecordLocked(active)} className="text-destructive border border-border rounded-md px-3 py-2 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
-        <button onClick={save} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? 'Saving...' : 'Save'}</button>
+        <button onClick={onDelete} disabled={isRecordLocked(active)} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
+        <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+          {saving ? 'Saving...' : 'Save'}
+        </button>
       </div>
       <FieldRow label="Group name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} className={formClasses.input} /></FieldRow>
       <FieldRow label="Color"><input value={values.color || ''} onChange={(e) => setValues({ ...values, color: e.target.value })} className={formClasses.input} /></FieldRow>
@@ -245,7 +181,7 @@ export default function PersonGroups() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Person Groups</h1>
         <span className="text-xs text-muted-foreground">{groups.length}</span>
-        <button onClick={create} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
+        <button onClick={onCreate} className="ms-auto bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">+ New</button>
       </header>
       <div className="flex-1 min-h-0">
         <MasterDetailList items={groups} activeId={activeId} onPick={setActiveId} renderRow={(g) => <div className="text-sm">{groupName(g)}</div>} placeholder="Search groups..." detail={detail} emptyTitle="No groups yet" emptyHint="Tap + New to create a group." />

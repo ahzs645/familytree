@@ -1,4 +1,6 @@
 import { getLocalDatabase } from './LocalDatabase.js';
+import { saveWithChangeLog } from './changeLog.js';
+import { createWithChangeLog } from './recordWrite.js';
 import { refValue } from './recordRef.js';
 import { readField, readRef } from './schema.js';
 import { generateId } from './ids.js';
@@ -123,7 +125,7 @@ export async function batchLookupMissingGeoNames({ limit = 10 } = {}) {
     let geonameId = null;
     try { geonameId = await searchGeoNameIdForName(label); } catch { geonameId = null; }
     if (!geonameId) continue;
-    await db.saveRecord({
+    await saveWithChangeLog({
       ...place,
       fields: {
         ...place.fields,
@@ -158,8 +160,8 @@ export async function batchLookupMissingCoordinates({ limit = 10 } = {}) {
     const candidate = candidates[0];
     if (!candidate) continue;
     const coordinate = buildCoordinateRecord(place.recordName, candidate);
-    await db.saveRecord(coordinate);
-    await db.saveRecord({
+    await createWithChangeLog(coordinate);
+    await saveWithChangeLog({
       ...place,
       fields: {
         ...place.fields,

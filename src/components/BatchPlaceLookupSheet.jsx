@@ -9,6 +9,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Sheet } from './ui/Sheet.jsx';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
+import { createWithChangeLog } from '../lib/recordWrite.js';
 import { refValue } from '../lib/recordRef.js';
 import { readRef } from '../lib/schema.js';
 import {
@@ -105,8 +107,8 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
           continue;
         }
         const coordinate = buildCoordinateRecord(place.recordName, candidate);
-        await db.saveRecord(coordinate);
-        await db.saveRecord({
+        await createWithChangeLog(coordinate);
+        await saveWithChangeLog({
           ...place,
           fields: {
             ...place.fields,

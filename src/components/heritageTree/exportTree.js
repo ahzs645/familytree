@@ -1,9 +1,13 @@
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
-
 export async function exportTreeToPdf({ hideHeadshots = false } = {}) {
   const canvasElement = document.getElementById('canvas');
   if (!canvasElement) return;
+
+  // Lazy-load the heavy render/PDF libraries so they stay out of the route
+  // chunk and only download when the user actually exports.
+  const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+    import('html2canvas'),
+    import('jspdf'),
+  ]);
 
   // 1. Apply export-specific classes to the body
   document.body.classList.add('exporting-active');

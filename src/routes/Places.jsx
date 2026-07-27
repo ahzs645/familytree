@@ -8,7 +8,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { generateId } from '../lib/ids.js';
 import { formClasses } from '../components/ui/formClasses.js';
-import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/changeLog.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
+import { createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
 import { refToRecordName, refValue } from '../lib/recordRef.js';
 import { placeSummary } from '../models/index.js';
 import {
@@ -41,18 +42,13 @@ import {
 } from '../lib/placeGeocoding.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
-import { useDirtyBaseline } from '../lib/editorState.js';
-import { useSaveShortcut } from '../lib/useSaveShortcut.js';
 import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { EditorSectionNavProvider, EditorSectionNavBar } from '../components/editors/EditorSectionNav.jsx';
-import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { useListSelection } from '../components/lists/useListSelection.js';
 import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
-
-function uuid(p) {
-  return generateId(p);
-}
+import { useRecordEditor } from '../components/editors/useRecordEditor.js';
+import { useRecords } from '../lib/data/useRecords.js';
 
 const ACCENTS = {
   name: 'rgb(255 153 0)',
@@ -70,6 +66,8 @@ const ACCENTS = {
 };
 
 const inputClass = formClasses.input;
+
+const REF_NUMBER_FIELDS = REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID');
 
 function Field({ label, children }) {
   return (
@@ -92,65 +90,241 @@ function templateFieldsFor(templateId, templates) {
   return DEFAULT_PLACE_FIELDS;
 }
 
+function placeSortKey(record) {
+  return (record.fields?.placeName?.value || record.fields?.cached_normallocationString?.value || '').toLowerCase();
+}
+
+function sortPlaces(a, b) {
+  return placeSortKey(a).localeCompare(placeSortKey(b));
+}
+
+/**
+ * Reconcile the side records owned by the editor — the Coordinate record
+ * (created/updated/deleted per `coordPlan` planned in applyValues), the
+ * PlaceDetail rows, and the LabelRelation rows. Runs alongside the
+ * main-record save; every write goes through the change-logged helpers.
+ */
+async function reconcilePlaceSideRecords(placeId, vals, coordPlan, setCoordinate) {
+  const db = getLocalDatabase();
+
+  if (coordPlan?.save) {
+    const { existing, recordName, latitude, longitude } = coordPlan.save;
+    const next = {
+      ...(existing || { recordName, recordType: 'Coordinate' }),
+      fields: {
+        ...existing?.fields,
+        place: { value: refValue(placeId, 'Place'), type: 'REFERENCE' },
+        latitude: { value: latitude, type: 'DOUBLE' },
+        longitude: { value: longitude, type: 'DOUBLE' },
+      },
+    };
+    if (existing) await saveWithChangeLog(next);
+    else await createWithChangeLog(next);
+    setCoordinate(next);
+  } else if (coordPlan?.remove) {
+    await deleteWithChangeLog(coordPlan.remove, 'Coordinate');
+    setCoordinate(null);
+  }
+
+  const existing = (await db.query('PlaceDetail', { referenceField: 'place', referenceValue: placeId, limit: 500 })).records;
+  const keep = new Set();
+  for (const d of vals.details) {
+    if (!d.name) continue;
+    if (d.recordName) {
+      keep.add(d.recordName);
+      const prev = existing.find((r) => r.recordName === d.recordName);
+      if (prev) {
+        await saveWithChangeLog({ ...prev, fields: { ...prev.fields, name: { value: d.name, type: 'STRING' } } });
+      }
+    } else {
+      const rec = {
+        recordName: generateId('pd'),
+        recordType: 'PlaceDetail',
+        fields: {
+          place: { value: refValue(placeId, 'Place'), type: 'REFERENCE' },
+          name: { value: d.name, type: 'STRING' },
+        },
+      };
+      await createWithChangeLog(rec);
+      keep.add(rec.recordName);
+    }
+  }
+  for (const prev of existing) {
+    if (!keep.has(prev.recordName)) await deleteWithChangeLog(prev.recordName, 'PlaceDetail');
+  }
+
+  const existingLbl = (await db.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: placeId, limit: 500 })).records;
+  const existingByLabel = new Map(existingLbl.map((r) => [refToRecordName(r.fields?.label?.value), r]));
+  for (const def of LABELS) {
+    const want = !!vals.labels[def.id];
+    const existing2 = existingByLabel.get(def.id);
+    if (want && !existing2) {
+      await createWithChangeLog({
+        recordName: generateId('lbr'),
+        recordType: 'LabelRelation',
+        fields: {
+          label: { value: refValue(def.id, 'Label'), type: 'REFERENCE' },
+          targetPlace: { value: refValue(placeId, 'Place'), type: 'REFERENCE' },
+        },
+      });
+    } else if (!want && existing2) {
+      await deleteWithChangeLog(existing2.recordName, 'LabelRelation');
+    }
+  }
+}
+
 export default function Places() {
   const navigate = useNavigate();
   const modal = useModal();
   const [searchParams] = useSearchParams();
-  const [places, setPlaces] = useState([]);
-  const [templates, setTemplates] = useState([]);
-  const [activeId, setActiveId] = useState(null);
-  const [templateId, setTemplateId] = useState('');
-  const [components, setComponents] = useState({});
-  const [details, setDetails] = useState([]);
-  const [labels, setLabels] = useState({});
-  const [labelDefs, setLabelDefs] = useState(LABELS);
-  const [refNumbers, setRefNumbers] = useState({});
-  const [bookmarked, setBookmarked] = useState(false);
-  const [isPrivate, setIsPrivate] = useState(false);
-  const [nameType, setNameType] = useState('');
   // Coordinate record lives separate from Place, linked by Place.coordinate or Coordinate.place.
   const [coordinate, setCoordinate] = useState(null);
-  const [latitude, setLatitude] = useState('');
-  const [longitude, setLongitude] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState(null);
   const [mapPrefs, setMapPrefs] = useState({ defaultZoom: 9, batchLimit: 10 });
   const [placeQueryMessage, setPlaceQueryMessage] = useState(null);
   const [showBatchSheet, setShowBatchSheet] = useState(false);
   const [showConvertSheet, setShowConvertSheet] = useState(false);
   const [showNewPlaceSheet, setShowNewPlaceSheet] = useState(false);
+  const sideSave = useRef(Promise.resolve());
+  const statusRef = useRef(null);
 
-  const [loadSeq, setLoadSeq] = useState(0);
   const queryPlaceId = searchParams.get('placeId');
   const focus = searchParams.get('focus');
 
-  const reload = useCallback(async () => {
-    const db = getLocalDatabase();
-    const { records } = await db.query('Place', { limit: 100000 });
-    const sorted = records.sort((a, b) => {
-      const an = (a.fields?.placeName?.value || a.fields?.cached_normallocationString?.value || '').toLowerCase();
-      const bn = (b.fields?.placeName?.value || b.fields?.cached_normallocationString?.value || '').toLowerCase();
-      return an.localeCompare(bn);
-    });
-    setPlaces(sorted);
-    const tpls = await db.query('PlaceTemplate', { limit: 10000 });
-    setTemplates(
-      tpls.records
-        .map((t) => ({
-          recordName: t.recordName,
-          name: t.fields?.name?.value || t.fields?.title?.value || t.recordName,
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name))
-    );
-    if (!activeId && sorted.length > 0) setActiveId(sorted[0].recordName);
-    setLoadSeq((n) => n + 1);
-  }, [activeId]);
+  const { records: templateRecords } = useRecords('PlaceTemplate');
+  const templates = useMemo(
+    () => templateRecords
+      .map((t) => ({
+        recordName: t.recordName,
+        name: t.fields?.name?.value || t.fields?.title?.value || t.recordName,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    [templateRecords],
+  );
+  const { records: labelRecords } = useRecords('Label');
+  const labelDefs = useMemo(() => resolveLabelDefinitions(labelRecords), [labelRecords]);
+
+  const toValues = useCallback((record) => {
+    // Real mftpkg uses `template`, my editor writes `placeTemplate` — accept either.
+    const tplRef =
+      refToRecordName(record.fields?.template?.value) ||
+      refToRecordName(record.fields?.placeTemplate?.value) ||
+      '';
+    const fields = templateFieldsFor(tplRef, templates);
+    const comps = {};
+    // Real data stores component values directly as lowercase fields (place, county, state,
+    // province, country…). Fall back to `placeComponent_<slot>` for records we created.
+    for (const fname of fields) {
+      const slot = fname.toLowerCase();
+      comps[slot] = record.fields?.[slot]?.value || record.fields?.[`placeComponent_${slot}`]?.value || '';
+    }
+    if (!Object.values(comps).some((v) => v)) {
+      const first = fields[0]?.toLowerCase();
+      if (first) comps[first] = record.fields?.placeName?.value || '';
+    }
+    const refs = {};
+    for (const fd of REFERENCE_NUMBER_FIELDS) refs[fd.id] = record.fields?.[fd.id]?.value ?? '';
+    refs.geonameID = record.fields?.geonameID?.value || record.fields?.geoNameID?.value || '';
+    refs.lookupProviderId = record.fields?.lookupProviderId?.value || '';
+    return {
+      templateId: tplRef,
+      components: comps,
+      bookmarked: !!record.fields?.isBookmarked?.value,
+      isPrivate: !!record.fields?.isPrivate?.value,
+      nameType: record.fields?.nameType?.value || record.fields?.placeNameType?.value || '',
+      refNumbers: refs,
+      // Hydrated asynchronously from PlaceDetail / LabelRelation / Coordinate rows.
+      details: [],
+      labels: {},
+      latitude: '',
+      longitude: '',
+    };
+  }, [templates]);
+
+  const applyValues = useCallback((record, vals) => {
+    const nextFields = { ...record.fields };
+
+    if (vals.templateId) {
+      nextFields.template = { value: refValue(vals.templateId, 'PlaceTemplate'), type: 'REFERENCE' };
+      delete nextFields.placeTemplate;
+    } else {
+      delete nextFields.template;
+      delete nextFields.placeTemplate;
+    }
+
+    const fields = templateFieldsFor(vals.templateId, templates);
+    for (const fname of fields) {
+      const slot = fname.toLowerCase();
+      const v = vals.components[slot];
+      // Real data uses lowercase fields directly (place, county, state…); drop legacy
+      // placeComponent_ keys.
+      delete nextFields[`placeComponent_${slot}`];
+      if (v == null || v === '') delete nextFields[slot];
+      else nextFields[slot] = { value: v, type: 'STRING' };
+    }
+    const parts = fields.map((fname) => vals.components[fname.toLowerCase()]).filter(Boolean);
+    const display = parts.join(', ');
+    if (parts[0]) nextFields.placeName = { value: display || parts[0], type: 'STRING' };
+    if (display) {
+      nextFields.cached_shortLocationString = { value: display, type: 'STRING' };
+      nextFields.cached_standardizedLocationString = { value: parts.join(','), type: 'STRING' };
+    }
+
+    nextFields.isBookmarked = { value: !!vals.bookmarked, type: 'BOOLEAN' };
+    nextFields.isPrivate = { value: !!vals.isPrivate, type: 'BOOLEAN' };
+    if (vals.nameType) nextFields.nameType = { value: vals.nameType, type: 'STRING' };
+    else delete nextFields.nameType;
+    for (const f of REF_NUMBER_FIELDS) {
+      const v = vals.refNumbers[f.id];
+      if (v == null || v === '') delete nextFields[f.id];
+      else nextFields[f.id] = { value: v, type: 'STRING' };
+    }
+    if (vals.refNumbers.geonameID) {
+      nextFields.geonameID = { value: vals.refNumbers.geonameID, type: 'STRING' };
+      nextFields.geoNameID = { value: vals.refNumbers.geonameID, type: 'STRING' };
+    }
+    if (vals.refNumbers.lookupProviderId) nextFields.lookupProviderId = { value: vals.refNumbers.lookupProviderId, type: 'STRING' };
+
+    // Coordinate — separate Coordinate record. Plan the write here so a new
+    // record's name can be referenced from the Place fields synchronously;
+    // create if missing, delete if both inputs are blank.
+    const latNum = parseFloat(vals.latitude);
+    const lonNum = parseFloat(vals.longitude);
+    const hasCoord = Number.isFinite(latNum) && Number.isFinite(lonNum);
+    let coordPlan = null;
+    if (hasCoord) {
+      const recordName = coordinate?.recordName || generateId('coord');
+      if (!coordinate) nextFields.coordinate = { value: refValue(recordName, 'Coordinate'), type: 'REFERENCE' };
+      coordPlan = { save: { existing: coordinate, recordName, latitude: latNum, longitude: lonNum } };
+    } else if (coordinate) {
+      delete nextFields.coordinate;
+      coordPlan = { remove: coordinate.recordName };
+    }
+
+    // Side records save on the same chain the hydration effect awaits, so a
+    // reload never reads them mid-reconcile.
+    sideSave.current = sideSave.current
+      .then(() => reconcilePlaceSideRecords(record.recordName, vals, coordPlan, setCoordinate))
+      .catch((error) => statusRef.current?.(error?.message || String(error)));
+    return { ...record, fields: nextFields };
+  }, [templates, coordinate]);
+
+  const {
+    rows: places, active, activeId, setActiveId, values, setValues,
+    dirty, saving, status, setStatus, loadSeq, onSave, onToggleLock,
+  } = useRecordEditor({
+    recordType: 'Place',
+    noun: 'place',
+    idPrefix: 'place',
+    sortRows: sortPlaces,
+    toValues,
+    applyValues,
+  });
+  statusRef.current = setStatus;
 
   const onCreatePlace = useCallback(async (payload) => {
     setShowNewPlaceSheet(false);
-    const db = getLocalDatabase();
     const record = {
-      recordName: uuid('place'),
+      recordName: generateId('place'),
       recordType: 'Place',
       fields: {
         placeName: { value: payload.name || payload.displayName || 'New Place', type: 'STRING' },
@@ -161,8 +335,8 @@ export default function Places() {
       if (payload[key]) record.fields[field] = { value: String(payload[key]), type: 'STRING' };
     }
     if (Number.isFinite(payload.latitude) && Number.isFinite(payload.longitude)) {
-      const coordinate = {
-        recordName: uuid('coord'),
+      const coord = {
+        recordName: generateId('coord'),
         recordType: 'Coordinate',
         fields: {
           place: { value: refValue(record.recordName, 'Place'), type: 'REFERENCE' },
@@ -170,20 +344,16 @@ export default function Places() {
           longitude: { value: payload.longitude, type: 'DOUBLE' },
         },
       };
-      await db.saveRecord(coordinate);
-      await logRecordCreated(coordinate);
-      record.fields.coordinate = { value: refValue(coordinate.recordName, 'Coordinate'), type: 'REFERENCE' };
+      await createWithChangeLog(coord);
+      record.fields.coordinate = { value: refValue(coord.recordName, 'Coordinate'), type: 'REFERENCE' };
     }
-    await db.saveRecord(record);
-    await logRecordCreated(record);
-    await reload();
+    await createWithChangeLog(record);
     setActiveId(record.recordName);
-  }, [reload]);
+  }, [setActiveId]);
 
   useEffect(() => {
-    reload();
     getMapPreferences().then(setMapPrefs);
-  }, [reload]);
+  }, []);
 
   const placeIds = useMemo(() => places.map((record) => record.recordName), [places]);
   const selection = useListSelection(placeIds);
@@ -207,7 +377,7 @@ export default function Places() {
     } else {
       setPlaceQueryMessage(`The linked place record "${queryPlaceId}" was not found in the current Places list.`);
     }
-  }, [places, queryPlaceId]);
+  }, [places, queryPlaceId, setActiveId]);
 
   useEffect(() => {
     if (!focus) return;
@@ -224,58 +394,29 @@ export default function Places() {
     });
   }, [focus, places.length]);
 
+  // Hydrate the side-record values (place details, labels, coordinate) for
+  // the active place. Re-runs on every list refresh (loadSeq), which the
+  // write paths trigger automatically.
   useEffect(() => {
-    if (!activeId) return;
-    const record = places.find((p) => p.recordName === activeId);
-    if (!record) return;
-
-    // Real mftpkg uses `template`, my editor writes `placeTemplate` — accept either.
-    const tplRef =
-      refToRecordName(record.fields?.template?.value) ||
-      refToRecordName(record.fields?.placeTemplate?.value) ||
-      '';
-    setTemplateId(tplRef);
-
-    const fields = templateFieldsFor(tplRef, templates);
-    const comps = {};
-    // Real data stores component values directly as lowercase fields (place, county, state,
-    // province, country…). Fall back to `placeComponent_<slot>` for records we created.
-    for (const fname of fields) {
-      const slot = fname.toLowerCase();
-      comps[slot] = record.fields?.[slot]?.value || record.fields?.[`placeComponent_${slot}`]?.value || '';
-    }
-    if (!Object.values(comps).some((v) => v)) {
-      const first = fields[0]?.toLowerCase();
-      if (first) comps[first] = record.fields?.placeName?.value || '';
-    }
-    setComponents(comps);
-
-    setBookmarked(!!record.fields?.isBookmarked?.value);
-    setNameType(record.fields?.nameType?.value || record.fields?.placeNameType?.value || '');
-    setIsPrivate(!!record.fields?.isPrivate?.value);
-
-    const refs = {};
-    for (const fd of REFERENCE_NUMBER_FIELDS) refs[fd.id] = record.fields?.[fd.id]?.value ?? '';
-    refs.geonameID = record.fields?.geonameID?.value || record.fields?.geoNameID?.value || '';
-    refs.lookupProviderId = record.fields?.lookupProviderId?.value || '';
-    setRefNumbers(refs);
-
+    if (!activeId) return undefined;
+    let cancelled = false;
     (async () => {
+      await sideSave.current;
       const db = getLocalDatabase();
-      const pd = await db.query('PlaceDetail', { referenceField: 'place', referenceValue: activeId, limit: 500 });
-      setDetails(pd.records.map((r) => ({
+      const record = await db.getRecord(activeId);
+      if (!record || cancelled) return;
+
+      const [pd, lbl] = await Promise.all([
+        db.query('PlaceDetail', { referenceField: 'place', referenceValue: activeId, limit: 500 }),
+        db.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: activeId, limit: 500 }),
+      ]);
+      const details = pd.records.map((r) => ({
         recordName: r.recordName,
         name: r.fields?.name?.value || '',
-      })));
-      const [lbl, labelRows] = await Promise.all([
-        db.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: activeId, limit: 500 }),
-        db.query('Label', { limit: 100000 }),
-      ]);
-      setLabelDefs(resolveLabelDefinitions(labelRows.records));
-      const map = new Map(lbl.records.map((r) => [refToRecordName(r.fields?.label?.value), r.recordName]));
-      const s = {};
-      for (const def of LABELS) s[def.id] = map.has(def.id);
-      setLabels(s);
+      }));
+      const labelled = new Set(lbl.records.map((r) => refToRecordName(r.fields?.label?.value)));
+      const labels = {};
+      for (const def of LABELS) labels[def.id] = labelled.has(def.id);
 
       // Load the Coordinate record: either the direct ref on Place, or a Coordinate
       // whose `place` ref points back here.
@@ -287,164 +428,25 @@ export default function Places() {
         });
         coord = records[0] || null;
       }
+      if (cancelled) return;
       setCoordinate(coord);
       const roundCoord = (v) => (typeof v === 'number' ? Number(v.toFixed(6)).toString() : '');
-      setLatitude(roundCoord(coord?.fields?.latitude?.value));
-      setLongitude(roundCoord(coord?.fields?.longitude?.value));
+      setValues((current) => ({
+        ...current,
+        details,
+        labels,
+        latitude: roundCoord(coord?.fields?.latitude?.value),
+        longitude: roundCoord(coord?.fields?.longitude?.value),
+      }));
     })();
-  }, [activeId, places, templates]);
+    return () => { cancelled = true; };
+  }, [activeId, loadSeq, setValues]);
 
-  const templateFields = useMemo(() => templateFieldsFor(templateId, templates), [templateId, templates]);
-
-  const onSave = useCallback(async () => {
-    const record = places.find((p) => p.recordName === activeId);
-    if (!record) return;
-    if (isRecordLocked(record)) {
-      setStatus('Unlock this place before saving.');
-      return;
-    }
-    setSaving(true);
-    const db = getLocalDatabase();
-    const nextFields = { ...record.fields };
-
-    if (templateId) {
-      nextFields.template = { value: refValue(templateId, 'PlaceTemplate'), type: 'REFERENCE' };
-      delete nextFields.placeTemplate;
-    } else {
-      delete nextFields.template;
-      delete nextFields.placeTemplate;
-    }
-
-    for (const fname of templateFields) {
-      const slot = fname.toLowerCase();
-      const v = components[slot];
-      // Real data uses lowercase fields directly (place, county, state…); drop legacy
-      // placeComponent_ keys.
-      delete nextFields[`placeComponent_${slot}`];
-      if (v == null || v === '') delete nextFields[slot];
-      else nextFields[slot] = { value: v, type: 'STRING' };
-    }
-    const parts = templateFields.map((fname) => components[fname.toLowerCase()]).filter(Boolean);
-    const display = parts.join(', ');
-    if (parts[0]) nextFields.placeName = { value: display || parts[0], type: 'STRING' };
-    if (display) {
-      nextFields.cached_shortLocationString = { value: display, type: 'STRING' };
-      nextFields.cached_standardizedLocationString = { value: parts.join(','), type: 'STRING' };
-    }
-
-    nextFields.isBookmarked = { value: !!bookmarked, type: 'BOOLEAN' };
-    nextFields.isPrivate = { value: !!isPrivate, type: 'BOOLEAN' };
-    if (nameType) nextFields.nameType = { value: nameType, type: 'STRING' };
-    else delete nextFields.nameType;
-    for (const f of REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID')) {
-      const v = refNumbers[f.id];
-      if (v == null || v === '') delete nextFields[f.id];
-      else nextFields[f.id] = { value: v, type: 'STRING' };
-    }
-    if (refNumbers.geonameID) {
-      nextFields.geonameID = { value: refNumbers.geonameID, type: 'STRING' };
-      nextFields.geoNameID = { value: refNumbers.geonameID, type: 'STRING' };
-    }
-    if (refNumbers.lookupProviderId) nextFields.lookupProviderId = { value: refNumbers.lookupProviderId, type: 'STRING' };
-
-    // Coordinate — write to separate Coordinate record. Create if missing,
-    // delete if both inputs are blank.
-    const latNum = parseFloat(latitude);
-    const lonNum = parseFloat(longitude);
-    const hasCoord = Number.isFinite(latNum) && Number.isFinite(lonNum);
-    if (hasCoord) {
-      let coord = coordinate;
-      if (!coord) {
-        coord = {
-          recordName: uuid('coord'),
-          recordType: 'Coordinate',
-          fields: { place: { value: refValue(activeId, 'Place'), type: 'REFERENCE' } },
-        };
-        await db.saveRecord(coord);
-        await logRecordCreated(coord);
-        nextFields.coordinate = { value: refValue(coord.recordName, 'Coordinate'), type: 'REFERENCE' };
-      }
-      await saveWithChangeLog({
-        ...coord,
-        fields: {
-          ...coord.fields,
-          place: { value: refValue(activeId, 'Place'), type: 'REFERENCE' },
-          latitude: { value: latNum, type: 'DOUBLE' },
-          longitude: { value: lonNum, type: 'DOUBLE' },
-        },
-      });
-    } else if (coordinate) {
-      await db.deleteRecord(coordinate.recordName);
-      await logRecordDeleted(coordinate.recordName, 'Coordinate');
-      delete nextFields.coordinate;
-      setCoordinate(null);
-    }
-
-    await saveWithChangeLog({ ...record, fields: nextFields });
-
-    const existing = (await db.query('PlaceDetail', { referenceField: 'place', referenceValue: activeId, limit: 500 })).records;
-    const keep = new Set();
-    for (const d of details) {
-      if (!d.name) continue;
-      if (d.recordName) {
-        keep.add(d.recordName);
-        const prev = existing.find((r) => r.recordName === d.recordName);
-        if (prev) {
-          await saveWithChangeLog({ ...prev, fields: { ...prev.fields, name: { value: d.name, type: 'STRING' } } });
-        }
-      } else {
-        const rec = {
-          recordName: uuid('pd'),
-          recordType: 'PlaceDetail',
-          fields: {
-            place: { value: refValue(activeId, 'Place'), type: 'REFERENCE' },
-            name: { value: d.name, type: 'STRING' },
-          },
-        };
-        await db.saveRecord(rec);
-        await logRecordCreated(rec);
-        keep.add(rec.recordName);
-      }
-    }
-    for (const prev of existing) {
-      if (!keep.has(prev.recordName)) {
-        await db.deleteRecord(prev.recordName);
-        await logRecordDeleted(prev.recordName, 'PlaceDetail');
-      }
-    }
-
-    const existingLbl = (await db.query('LabelRelation', { referenceField: 'targetPlace', referenceValue: activeId, limit: 500 })).records;
-    const existingByLabel = new Map(existingLbl.map((r) => [refToRecordName(r.fields?.label?.value), r]));
-    for (const def of LABELS) {
-      const want = !!labels[def.id];
-      const existing2 = existingByLabel.get(def.id);
-      if (want && !existing2) {
-        const rec = {
-          recordName: uuid('lbr'),
-          recordType: 'LabelRelation',
-          fields: {
-            label: { value: refValue(def.id, 'Label'), type: 'REFERENCE' },
-            targetPlace: { value: refValue(activeId, 'Place'), type: 'REFERENCE' },
-          },
-        };
-        await db.saveRecord(rec);
-        await logRecordCreated(rec);
-      } else if (!want && existing2) {
-        await db.deleteRecord(existing2.recordName);
-        await logRecordDeleted(existing2.recordName, 'LabelRelation');
-      }
-    }
-
-    await reload();
-    setSaving(false);
-    setStatus('Saved');
-    setTimeout(() => setStatus(null), 1500);
-  }, [activeId, places, templateId, templateFields, components, details, labels, refNumbers, bookmarked, isPrivate, latitude, longitude, coordinate, reload]);
+  const templateFields = useMemo(() => templateFieldsFor(values.templateId, templates), [values.templateId, templates]);
 
   const onLookupPlace = useCallback(async () => {
-    const record = places.find((p) => p.recordName === activeId);
-    if (!record) return;
-    const query = Object.values(components).filter(Boolean).join(', ') || placeSummary(record)?.displayName || placeSummary(record)?.name;
+    if (!active) return;
+    const query = Object.values(values.components || {}).filter(Boolean).join(', ') || placeSummary(active)?.displayName || placeSummary(active)?.name;
     if (!query) return;
     setStatus('Looking up place…');
     try {
@@ -454,14 +456,17 @@ export default function Places() {
         setStatus('No lookup match');
         return;
       }
-      setLatitude(match.latitude.toFixed(6));
-      setLongitude(match.longitude.toFixed(6));
-      setRefNumbers((refs) => ({ ...refs, lookupProviderId: match.providerId }));
+      setValues((v) => ({
+        ...v,
+        latitude: match.latitude.toFixed(6),
+        longitude: match.longitude.toFixed(6),
+        refNumbers: { ...v.refNumbers, lookupProviderId: match.providerId },
+      }));
       setStatus(`Matched ${match.name}`);
     } catch (error) {
       setStatus(error.message);
     }
-  }, [activeId, places, components]);
+  }, [active, values.components, setValues, setStatus]);
 
   const onLookupGeoName = useCallback(async () => {
     const id = await modal.prompt('GeoName ID:', '', { title: 'Lookup GeoName', placeholder: 'e.g. 5128581' });
@@ -469,14 +474,17 @@ export default function Places() {
     setStatus('Looking up GeoName…');
     try {
       const match = await lookupGeoNameId(id);
-      setLatitude(match.latitude.toFixed(6));
-      setLongitude(match.longitude.toFixed(6));
-      setRefNumbers((refs) => ({ ...refs, geonameID: id, geoNameID: id }));
+      setValues((v) => ({
+        ...v,
+        latitude: match.latitude.toFixed(6),
+        longitude: match.longitude.toFixed(6),
+        refNumbers: { ...v.refNumbers, geonameID: id, geoNameID: id },
+      }));
       setStatus(`GeoName matched ${match.name}`);
     } catch (error) {
       setStatus(error.message);
     }
-  }, [modal]);
+  }, [modal, setValues, setStatus]);
 
   const onBatchLookup = useCallback(async () => {
     const limit = Number(mapPrefs.batchLimit) || 10;
@@ -484,12 +492,11 @@ export default function Places() {
     setStatus('Batch lookup running…');
     try {
       const changed = await batchLookupMissingCoordinates({ limit });
-      await reload();
       setStatus(`Batch lookup updated ${changed.length} places.`);
     } catch (error) {
       setStatus(error.message);
     }
-  }, [mapPrefs.batchLimit, reload, modal]);
+  }, [mapPrefs.batchLimit, modal, setStatus]);
 
   const onBatchGeoName = useCallback(async () => {
     const limit = Number(mapPrefs.batchLimit) || 10;
@@ -497,53 +504,27 @@ export default function Places() {
     setStatus('Matching GeoName IDs…');
     try {
       const changed = await batchLookupMissingGeoNames({ limit });
-      await reload();
       setStatus(`Matched GeoName IDs for ${changed.length} place${changed.length === 1 ? '' : 's'}.`);
     } catch (error) {
       setStatus(error.message);
     }
-  }, [mapPrefs.batchLimit, reload, modal]);
+  }, [mapPrefs.batchLimit, modal, setStatus]);
 
   const onConvertToDetails = useCallback(() => {
-    const generated = placeDetailsFromComponents(components);
+    const generated = placeDetailsFromComponents(values.components || {});
     if (!generated.length) return;
-    setDetails((existing) => [...existing, ...generated]);
+    setValues((v) => ({ ...v, details: [...(v.details || []), ...generated] }));
     setStatus(`Added ${generated.length} place detail rows.`);
-  }, [components]);
+  }, [values.components, setValues, setStatus]);
 
   const onPrefsChange = useCallback(async (next) => {
     const saved = await saveMapPreferences(next);
     setMapPrefs(saved);
   }, []);
 
-  const active = places.find((p) => p.recordName === activeId);
-  const editableSnapshot = useMemo(() => ({
-    activeFields: active?.fields || {},
-    templateId,
-    components,
-    details,
-    labels,
-    refNumbers,
-    bookmarked,
-    isPrivate,
-    latitude,
-    longitude,
-  }), [active, templateId, components, details, labels, refNumbers, bookmarked, isPrivate, latitude, longitude]);
-  const dirty = useDirtyBaseline(editableSnapshot, {
-    recordKey: active?.recordName,
-    reloadKey: loadSeq,
-    enabled: !!active && !saving,
-  });
-  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && dirty });
-  const onToggleLock = useRecordLock({
-    record: active,
-    setRecord: (next) => setPlaces((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
-    setSaving,
-    setStatus,
-    reload,
-  });
-  const lat = parseFloat(latitude);
-  const lng = parseFloat(longitude);
+  const details = values.details || [];
+  const lat = parseFloat(values.latitude);
+  const lng = parseFloat(values.longitude);
   const hasPoint = Number.isFinite(lat) && Number.isFinite(lng);
 
   const renderRow = (r) => {
@@ -582,7 +563,7 @@ export default function Places() {
 
       <Section title="Place Name" accent={ACCENTS.name}>
         <Field label="Place Template">
-          <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className={inputClass}>
+          <select value={values.templateId || ''} onChange={(e) => setValues((v) => ({ ...v, templateId: e.target.value }))} className={inputClass}>
             <option value="">— no template —</option>
             {templates.map((t) => <option key={t.recordName} value={t.recordName}>{t.name}</option>)}
           </select>
@@ -593,8 +574,8 @@ export default function Places() {
             return (
               <Field key={fname} label={fname}>
                 <input
-                  value={components[slot] || ''}
-                  onChange={(e) => setComponents((s) => ({ ...s, [slot]: e.target.value }))}
+                  value={values.components?.[slot] || ''}
+                  onChange={(e) => setValues((v) => ({ ...v, components: { ...v.components, [slot]: e.target.value } }))}
                   className={inputClass}
                 />
               </Field>
@@ -604,7 +585,7 @@ export default function Places() {
       </Section>
 
       <Section title={`Place Details · ${details.length}`} accent={ACCENTS.details}
-        controls={<button onClick={() => setDetails((a) => [...a, { name: '' }])}
+        controls={<button onClick={() => setValues((v) => ({ ...v, details: [...(v.details || []), { name: '' }] }))}
           className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Add Detail</button>}>
         {details.length === 0 ? (
           <Empty title="No place details" hint="Use the button above to add one." />
@@ -613,9 +594,9 @@ export default function Places() {
             {details.map((d, i) => (
               <div key={d.recordName || i} className="flex items-center gap-2">
                 <input value={d.name} placeholder="Place detail name"
-                  onChange={(e) => setDetails((a) => a.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                  onChange={(e) => setValues((v) => ({ ...v, details: (v.details || []).map((x, j) => j === i ? { ...x, name: e.target.value } : x) }))}
                   className={inputClass} />
-                <button onClick={() => setDetails((a) => a.filter((_, j) => j !== i))}
+                <button onClick={() => setValues((v) => ({ ...v, details: (v.details || []).filter((_, j) => j !== i) }))}
                   aria-label="Remove place detail"
                   className="text-destructive border border-border rounded-md inline-flex items-center justify-center shrink-0 min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 text-sm hover:bg-destructive/10">×</button>
               </div>
@@ -628,11 +609,11 @@ export default function Places() {
         <Section title="Coordinate" accent={ACCENTS.coord}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Latitude">
-            <input value={latitude} onChange={(e) => setLatitude(e.target.value)} className={inputClass} />
+            <input value={values.latitude || ''} onChange={(e) => setValues((v) => ({ ...v, latitude: e.target.value }))} className={inputClass} />
             {hasPoint && <div className="text-[11px] text-muted-foreground mt-1">{dmsLat(lat)}</div>}
           </Field>
           <Field label="Longitude">
-            <input value={longitude} onChange={(e) => setLongitude(e.target.value)} className={inputClass} />
+            <input value={values.longitude || ''} onChange={(e) => setValues((v) => ({ ...v, longitude: e.target.value }))} className={inputClass} />
             {hasPoint && <div className="text-[11px] text-muted-foreground mt-1">{dmsLon(lng)}</div>}
           </Field>
         </div>
@@ -657,13 +638,11 @@ export default function Places() {
             markers={hasPoint ? [{
               id: 'self', lat, lng, draggable: true,
               onDragEnd: ({ lng: nl, lat: nL }) => {
-                setLatitude(nL.toFixed(6));
-                setLongitude(nl.toFixed(6));
+                setValues((v) => ({ ...v, latitude: nL.toFixed(6), longitude: nl.toFixed(6) }));
               },
             }] : []}
             onClick={({ lng: nl, lat: nL }) => {
-              setLatitude(nL.toFixed(6));
-              setLongitude(nl.toFixed(6));
+              setValues((v) => ({ ...v, latitude: nL.toFixed(6), longitude: nl.toFixed(6) }));
             }}
             showControls={false}
           />
@@ -677,13 +656,13 @@ export default function Places() {
         <div>
           <Section title="Media" accent={ACCENTS.media}
             controls={<button onClick={() => navigate(`/views/media-gallery?targetId=${encodeURIComponent(activeId)}&targetType=Place`)} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Open Gallery</button>}>
-            <MediaRelationsEditor ownerRecordName={activeId} ownerRecordType="Place" onChanged={reload} />
+            <MediaRelationsEditor ownerRecordName={activeId} ownerRecordType="Place" />
           </Section>
           <Section title="Notes" accent={ACCENTS.notes}>
-            <NotesEditor ownerRecordName={activeId} ownerRecordType="Place" onChanged={reload} />
+            <NotesEditor ownerRecordName={activeId} ownerRecordType="Place" />
           </Section>
           <Section title="Source Citations" accent={ACCENTS.sources}>
-            <SourceCitationsEditor ownerRecordName={activeId} ownerRecordType="Place" ownerRole="target" onChanged={reload} />
+            <SourceCitationsEditor ownerRecordName={activeId} ownerRecordType="Place" ownerRole="target" />
           </Section>
         </div>
         <div>
@@ -691,22 +670,22 @@ export default function Places() {
             <div className="space-y-1">
               {labelDefs.map((def) => (
                 <EditSwitch key={def.id} label={def.label} color={def.color}
-                  checked={!!labels[def.id]} onChange={(v) => setLabels((s) => ({ ...s, [def.id]: v }))} />
+                  checked={!!values.labels?.[def.id]} onChange={(checked) => setValues((v) => ({ ...v, labels: { ...v.labels, [def.id]: checked } }))} />
               ))}
             </div>
           </Section>
           <Section title="Reference Numbers" accent={ACCENTS.ref}>
             <div className="grid grid-cols-1 gap-3">
-              {REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID').map((f) => (
+              {REF_NUMBER_FIELDS.map((f) => (
                 <Field key={f.id} label={f.label}>
-                  <input value={refNumbers[f.id] ?? ''} onChange={(e) => setRefNumbers((s) => ({ ...s, [f.id]: e.target.value }))} className={inputClass} />
+                  <input value={values.refNumbers?.[f.id] ?? ''} onChange={(e) => setValues((v) => ({ ...v, refNumbers: { ...v.refNumbers, [f.id]: e.target.value } }))} className={inputClass} />
                 </Field>
               ))}
               <Field label="GeoName ID">
-                <input value={refNumbers.geonameID ?? ''} onChange={(e) => setRefNumbers((s) => ({ ...s, geonameID: e.target.value }))} className={inputClass} />
+                <input value={values.refNumbers?.geonameID ?? ''} onChange={(e) => setValues((v) => ({ ...v, refNumbers: { ...v.refNumbers, geonameID: e.target.value } }))} className={inputClass} />
               </Field>
               <Field label="Name type">
-                <select value={nameType} onChange={(e) => setNameType(e.target.value)} className={inputClass}>
+                <select value={values.nameType || ''} onChange={(e) => setValues((v) => ({ ...v, nameType: e.target.value }))} className={inputClass}>
                   <option value="">Standard</option>
                   <option value="official">Official</option>
                   <option value="historical">Historical</option>
@@ -718,10 +697,10 @@ export default function Places() {
             </div>
           </Section>
           <Section title="Bookmarks" accent={ACCENTS.bookmarks}>
-            <EditSwitch label="Bookmarked" checked={bookmarked} onChange={setBookmarked} />
+            <EditSwitch label="Bookmarked" checked={!!values.bookmarked} onChange={(checked) => setValues((v) => ({ ...v, bookmarked: checked }))} />
           </Section>
           <Section title="Private" accent={ACCENTS.private}>
-            <EditSwitch label="Marked as Private" checked={isPrivate} onChange={setIsPrivate} />
+            <EditSwitch label="Marked as Private" checked={!!values.isPrivate} onChange={(checked) => setValues((v) => ({ ...v, isPrivate: checked }))} />
           </Section>
           <Section title="Last Edited" accent={ACCENTS.edited}>
             <ReadOnly label="Change Date" value={formatTimestamp(active.fields?.mft_changeDate?.value || active.modified?.timestamp)} />
@@ -753,9 +732,8 @@ export default function Places() {
           <RecordBulkBar
             selection={selection}
             recordType="Place"
-            onDeleted={async (ids) => {
+            onDeleted={(ids) => {
               if (ids.includes(activeId)) setActiveId(null);
-              await reload();
             }}
           />
         )}
@@ -763,17 +741,15 @@ export default function Places() {
       {showBatchSheet && (
         <BatchPlaceLookupSheet
           onClose={() => setShowBatchSheet(false)}
-          onDone={() => { reload(); }}
         />
       )}
       {showConvertSheet && activeId && (
         <PlaceConvertToDetailSheet
           placeRecordName={activeId}
           onClose={() => setShowConvertSheet(false)}
-          onConverted={async () => {
+          onConverted={() => {
             setShowConvertSheet(false);
             setActiveId(null);
-            await reload();
           }}
         />
       )}

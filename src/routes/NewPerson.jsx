@@ -11,9 +11,8 @@
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { generateId } from '../lib/ids.js';
-import { logRecordCreated } from '../lib/changeLog.js';
+import { createWithChangeLog } from '../lib/recordWrite.js';
 import { linkExistingRelative } from '../lib/relativeLinks.js';
 import { getAppPreferences } from '../lib/appPreferences.js';
 import { refValue } from '../lib/recordRef.js';
@@ -77,7 +76,6 @@ export default function NewPerson() {
         const anchorId = params.get('anchor') || '';
         const firstName = params.get('firstName') || '';
         const lastName = params.get('lastName') || '';
-        const db = getLocalDatabase();
         const newRecord = {
           recordName: uuid('person'),
           recordType: 'Person',
@@ -87,8 +85,7 @@ export default function NewPerson() {
             gender: { value: genderForRelation(relation), type: 'INT64' },
           },
         };
-        await db.saveRecord(newRecord);
-        await logRecordCreated(newRecord);
+        await createWithChangeLog(newRecord);
 
         // Default Values: optionally pre-add the configured default event.
         try {
@@ -103,8 +100,7 @@ export default function NewPerson() {
                 conclusionType: { value: refValue(defaultEvent, 'ConclusionPersonEventType'), type: 'REFERENCE' },
               },
             };
-            await db.saveRecord(eventRecord);
-            await logRecordCreated(eventRecord);
+            await createWithChangeLog(eventRecord);
           }
         } catch { /* default events are best-effort */ }
 
