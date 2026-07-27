@@ -17,7 +17,11 @@ const UNNAMED_GROUP = '\u0000unnamed';
 
 function initialFor(person, localization) {
   const firstGrapheme = graphemes(person.lastName || person.fullName || '#')[0] || '#';
-  const normalized = normalizeSearchText(firstGrapheme, localization);
+  // Honorific stripping must stay off here: it exists to drop title tokens from
+  // a full name, and a bare "ا" or "د" is one of those tokens, so it returned
+  // "" for every alef- and dal-initial name. The fallback then used the raw
+  // character, splitting أ / إ / آ / ا into four sections of the same letter.
+  const normalized = normalizeSearchText(firstGrapheme, localization, { stripHonorifics: false });
   return (normalized || firstGrapheme).toLocaleUpperCase(localization.locale);
 }
 

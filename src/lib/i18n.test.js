@@ -93,3 +93,30 @@ describe('message catalog coverage', () => {
     expect(SUPPORTED_LOCALES.some((l) => l.value === 'vi')).toBe(true);
   });
 });
+
+describe('normalizeSearchText honorific handling', () => {
+  it('folds hamza forms to a bare alef when honorific stripping is off', () => {
+    const opts = { stripHonorifics: false };
+    const alef = normalizeSearchText('ا', { locale: 'ar' }, opts);
+    for (const form of ['أ', 'إ', 'آ', 'ٱ']) {
+      expect(normalizeSearchText(form, { locale: 'ar' }, opts)).toBe(alef);
+    }
+    expect(alef).toBe('ا');
+  });
+
+  it('does not swallow single letters that double as title abbreviations', () => {
+    // "ا" and "د" are honorific tokens, so stripping them from a one-character
+    // string left "" — which sent alphabetical grouping back to the raw,
+    // unfolded character.
+    for (const letter of ['ا', 'د', 'أ']) {
+      // Stripping used to empty these, which made a one-letter query match
+      // everything and sent alphabetical grouping back to the raw character.
+      expect(normalizeSearchText(letter, { locale: 'ar' })).not.toBe('');
+      expect(normalizeSearchText(letter, { locale: 'ar' }, { stripHonorifics: false })).not.toBe('');
+    }
+  });
+
+  it('still strips honorifics from full names by default', () => {
+    expect(normalizeSearchText('د أحمد', { locale: 'ar' })).toBe(normalizeSearchText('أحمد', { locale: 'ar' }));
+  });
+});

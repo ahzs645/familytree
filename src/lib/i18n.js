@@ -235,7 +235,16 @@ export function formatInteger(value, localization = getCurrentLocalization()) {
   return formatNumber(value, localization, { maximumFractionDigits: 0 });
 }
 
-export function normalizeSearchText(value, localization = getCurrentLocalization()) {
+/**
+ * Fold Arabic orthographic variation (hamza forms, tatweel, diacritics, ta
+ * marbuta) so search and sorting treat أحمد / احمد / إحمد as one string.
+ *
+ * `stripHonorifics` drops leading title tokens ("د" for دكتور, "ا" for the
+ * definite-article style abbreviation) — right for matching a whole name,
+ * wrong for a single character, where the "honorific" IS the content. Pass
+ * false when normalizing something that is not a full name.
+ */
+export function normalizeSearchText(value, localization = getCurrentLocalization(), { stripHonorifics = true } = {}) {
   const locale = resolveLocalization(localization).locale;
   const normalized = String(value ?? '')
     .normalize('NFKD')
@@ -250,7 +259,7 @@ export function normalizeSearchText(value, localization = getCurrentLocalization
     .replace(/[\u200c\u200d]/g, '')
     .toLocaleLowerCase(locale)
     .trim();
-  return stripArabicHonorificTokens(normalized);
+  return stripHonorifics ? stripArabicHonorificTokens(normalized) : normalized;
 }
 
 export function stripArabicHonorificTokens(value) {
@@ -264,6 +273,10 @@ export function stripArabicHonorificTokens(value) {
     }
     return true;
   }).join('').replace(/\s+/g, ' ').trim();
+  // Stripping everything means the input *was* the honorific — "د" typed into
+  // a search box is someone looking for that letter, not an empty query. An
+  // empty result here silently matched every record.
+  if (!stripped) return String(value ?? '').trim();
   return sawArabicHonorific ? stripped : String(value ?? '').trim();
 }
 
