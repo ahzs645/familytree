@@ -51,8 +51,17 @@ import { PresentationSettingsControls } from '../presentation/PresentationSettin
 import { ReportPreview } from './ReportPreview.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { useIsMobile } from '../../lib/useIsMobile.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { localizeReportAst } from '../../lib/reports/localizeReport.js';
+import {
+  reportCategoryLabel,
+  reportExportLabel,
+  reportOptionCheckbox,
+  reportHelpText,
+  reportOptionLabel,
+  reportSubjectLabel,
+} from '../../lib/reports/reportLabels.js';
 
 export { normalizePageStyle };
 
@@ -247,6 +256,7 @@ export function applyReportContentOptions(report, options = {}) {
 
 export function ReportsApp() {
   const { t } = useTranslation();
+  const isMobile = useIsMobile();
   const { recordName: activePersonId, setActivePerson } = useActivePerson();
   const modal = useModal();
   const [persons, setPersons] = useState([]);
@@ -272,7 +282,15 @@ export function ReportsApp() {
   const [authorInfo, setAuthorInfo] = useState(null);
   const [speaking, setSpeaking] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const [libraryOpen, setLibraryOpen] = useState(true);
+  // The three-column workspace needs 480px before the preview gets a single
+  // pixel, so on a phone the library and inspector pushed the report itself off
+  // the right edge — along with the "Options" toggle, which landed at x=391 in
+  // a container that does not scroll. Below 768px the workspace is one column
+  // and the library starts closed, so the preview is what you land on.
+  const [libraryOpen, setLibraryOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return !window.matchMedia('(max-width: 767px)').matches;
+  });
   const [reportSearch, setReportSearch] = useState('');
   const generationRequestRef = useRef(0);
   const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -625,13 +643,13 @@ export function ReportsApp() {
           {libraryOpen ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}
         </button>
         <div style={{ minWidth: 0 }}>
-          <div style={eyebrow}>Reports</div>
+          <div style={eyebrow}>{t('reports.ui.reportsEyebrow')}</div>
           <h1 style={title}>{selectedBuilderLabel}</h1>
         </div>
         <div style={topbarMeta}>
-          <span>{builder.category || 'Reports'}</span>
-          {reportStats && <span>{reportStats.blocks} blocks</span>}
-          {reportStats && <span>{reportStats.tables} tables</span>}
+          <span>{reportCategoryLabel(t, builder.category || 'Reports')}</span>
+          {reportStats && <span>{t('reports.ui.blocksCount', { count: reportStats.blocks })}</span>}
+          {reportStats && <span>{t('reports.ui.tablesCount', { count: reportStats.tables })}</span>}
         </div>
         <div style={topbarActions}>
           {speechSupported && (
@@ -642,14 +660,23 @@ export function ReportsApp() {
               title={speaking ? 'Stop speaking' : 'Read this report aloud'}
             >
               {speaking ? <Square size={15} /> : <Play size={15} />}
-              <span>{speaking ? 'Stop' : 'Play'}</span>
+              <span>{speaking ? t('reports.ui.stop') : t('reports.ui.play')}</span>
             </button>
           )}
           <ExportSelect disabled={!displayReport || reportLoading} onExport={onExport} />
         </div>
       </header>
 
-      <div style={{ ...workspace, gridTemplateColumns: libraryOpen ? workspace.gridTemplateColumns : 'minmax(260px, 330px) minmax(0, 1fr)' }}>
+      <div
+        style={{
+          ...workspace,
+          gridTemplateColumns: isMobile
+            ? 'minmax(0, 1fr)'
+            : libraryOpen
+              ? workspace.gridTemplateColumns
+              : 'minmax(260px, 330px) minmax(0, 1fr)',
+        }}
+      >
         {libraryOpen && (
           <aside style={libraryPanel}>
             <div style={searchBox}>
@@ -657,14 +684,14 @@ export function ReportsApp() {
               <input
                 value={reportSearch}
                 onChange={(event) => setReportSearch(event.target.value)}
-                placeholder="Find report"
+                placeholder={t('reports.ui.findReport')}
                 style={searchInput}
               />
             </div>
             <div style={reportList}>
               {builderCategories.map((category) => (
                 <section key={category.name} style={categorySection}>
-                  <div style={categoryLabel}>{category.name}</div>
+                  <div style={categoryLabel}>{reportCategoryLabel(t, category.name)}</div>
                   {category.builders.map((entry) => (
                     <button
                       key={entry.id}
@@ -678,7 +705,7 @@ export function ReportsApp() {
                   ))}
                 </section>
               ))}
-              {builderCategories.length === 0 && <div style={emptyList}>No reports match your search.</div>}
+              {builderCategories.length === 0 && <div style={emptyList}>{t('reports.ui.noMatches')}</div>}
             </div>
           </aside>
         )}
@@ -686,7 +713,7 @@ export function ReportsApp() {
         <aside style={inspector}>
           <div style={inspectorHeader}>
             <div>
-              <div style={eyebrow}>Report</div>
+              <div style={eyebrow}>{t('reports.ui.reportEyebrow')}</div>
               <div style={inspectorTitle}>{selectedBuilderLabel}</div>
             </div>
             <button
@@ -696,15 +723,15 @@ export function ReportsApp() {
               className="lg:hidden"
               aria-expanded={optionsOpen}
             >
-              {optionsOpen ? t('common.close') : 'Options'}
+              {optionsOpen ? t('common.close') : t('reports.ui.options')}
             </button>
           </div>
-          <p style={helpText}>{builder.helpText}</p>
+          <p style={helpText}>{reportHelpText(t, builder)}</p>
 
           <div className={`${optionsOpen ? 'block' : 'hidden'} lg:block`} style={inspectorBody}>
-            <InspectorSection title="Edit">
+            <InspectorSection title={t('reports.ui.edit')}>
               {needsSubject && (
-                <Field label={builder.subjectLabel || 'Subject'}>
+                <Field label={reportSubjectLabel(t, builder.subjectLabel) || t('reports.ui.subject')}>
                   {builder.subjectType === 'Story' ? (
                     <RecordSelect items={stories} value={targetId} onChange={setTargetId} placeholder={t('reports.selectStory')} />
                   ) : (
@@ -714,7 +741,7 @@ export function ReportsApp() {
               )}
 
               {needsSecondSubject && (
-                <Field label={builder.secondSubjectLabel || 'Second subject'}>
+                <Field label={reportSubjectLabel(t, builder.secondSubjectLabel) || t('reports.ui.secondSubject')}>
                   <PersonPicker persons={persons} value={secondTargetId} onChange={setSecondTargetId} />
                 </Field>
               )}
@@ -736,16 +763,16 @@ export function ReportsApp() {
                 const current = options[option.key] ?? option.default;
                 if (option.type === 'boolean') {
                   return (
-                    <Field key={option.key} label={option.label}>
+                    <Field key={option.key} label={reportOptionLabel(t, option)} wrap={false}>
                       <label style={checkRow}>
-                        <input type="checkbox" checked={current !== false} onChange={(e) => updateOption(option.key, e.target.checked)} /> {option.checkboxLabel || 'Enabled'}
+                        <input type="checkbox" checked={current !== false} onChange={(e) => updateOption(option.key, e.target.checked)} /> {reportOptionCheckbox(t, option)}
                       </label>
                     </Field>
                   );
                 }
                 if (option.type === 'select') {
                   return (
-                    <Field key={option.key} label={option.label}>
+                    <Field key={option.key} label={reportOptionLabel(t, option)}>
                       <select value={current} onChange={(e) => updateOption(option.key, e.target.value)} style={input}>
                         {option.choices.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </select>
@@ -754,7 +781,7 @@ export function ReportsApp() {
                 }
                 if (option.type === 'number') {
                   return (
-                    <Field key={option.key} label={option.label}>
+                    <Field key={option.key} label={reportOptionLabel(t, option)}>
                       <input
                         type="number"
                         min={option.min}
@@ -768,7 +795,7 @@ export function ReportsApp() {
                 }
                 if (option.type === 'text') {
                   return (
-                    <Field key={option.key} label={option.label}>
+                    <Field key={option.key} label={reportOptionLabel(t, option)}>
                       <input
                         type="text"
                         value={current || ''}
@@ -789,56 +816,56 @@ export function ReportsApp() {
               </Field>
             </InspectorSection>
 
-            <InspectorSection title="Style & Page">
+            <InspectorSection title={t('reports.ui.stylePage')}>
               <PresentationSettingsControls value={pageStyle} onChange={setPageStyle} />
               <Field label={t('reports.theme')}>
                 <select value={themeId} onChange={(event) => setThemeId(event.target.value)} style={input}>
                   {PRESENTATION_THEMES.map((theme) => (
-                    <option key={theme.id} value={theme.id}>{theme.label}</option>
+                    <option key={theme.id} value={theme.id}>{t(`presentation.theme.${theme.id}`, { defaultValue: theme.label })}</option>
                   ))}
                 </select>
               </Field>
             </InspectorSection>
 
             <InspectorSection title={t('reports.saved')}>
-              <button onClick={onSave} style={primaryButton}><Save size={15} /> Save Report…</button>
+              <button onClick={onSave} style={primaryButton}><Save size={15} /> {t('reports.ui.saveReport')}…</button>
               <select value="" onChange={(e) => e.target.value && onApplySaved(e.target.value)} style={input}>
                 <option value="">{savedList.length ? t('reports.load') : 'No saved reports'}</option>
                 {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
               </select>
               {savedList.length > 0 && (
                 <select value="" onChange={(e) => { if (e.target.value) onRename(e.target.value); e.target.value = ''; }} style={input}>
-                  <option value="">Rename Report…</option>
+                  <option value="">{t('reports.ui.renameReport')}</option>
                   {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
                 </select>
               )}
               {savedList.length > 0 && (
                 <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} style={input}>
-                  <option value="">Delete Report…</option>
+                  <option value="">{t('reports.ui.deleteReport')}</option>
                   {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
                 </select>
               )}
-              {savedList.length === 0 && <div style={microcopy}>Save a report to reuse its type, subjects, style, and page settings.</div>}
+              {savedList.length === 0 && <div style={microcopy}>{t('reports.ui.saveHint')}</div>}
             </InspectorSection>
 
-            <InspectorSection title="Report Editing">
+            <InspectorSection title={t('reports.ui.reportEditing')}>
               {!customizing ? (
-                <button type="button" onClick={beginCustomize} disabled={!displayReport || reportLoading} style={actionButton}>Edit Report</button>
+                <button type="button" onClick={beginCustomize} disabled={!displayReport || reportLoading} style={actionButton}>{t('reports.ui.editReport')}</button>
               ) : (
                 <>
                   <div style={buttonRow}>
-                    <button type="button" onClick={finishCustomize} style={primaryButton}>Finish</button>
-                    <button type="button" onClick={discardCustomize} style={actionButton}>Discard</button>
+                    <button type="button" onClick={finishCustomize} style={primaryButton}>{t('reports.ui.finish')}</button>
+                    <button type="button" onClick={discardCustomize} style={actionButton}>{t('reports.ui.discard')}</button>
                   </div>
                   <div style={buttonRow}>
-                    <button type="button" onClick={onUndo} disabled={undoStack.length === 0} style={actionButton}><RotateCcw size={15} /> Undo</button>
-                    <button type="button" onClick={onRedo} disabled={redoStack.length === 0} style={actionButton}><RotateCw size={15} /> Redo</button>
+                    <button type="button" onClick={onUndo} disabled={undoStack.length === 0} style={actionButton}><RotateCcw size={15} /> {t('reports.ui.undo')}</button>
+                    <button type="button" onClick={onRedo} disabled={redoStack.length === 0} style={actionButton}><RotateCw size={15} /> {t('reports.ui.redo')}</button>
                   </div>
                   <div style={blockEditorList}>
                     {(customReport?.blocks || []).map((block, index) => (
                       <div key={`${block.kind}-${index}`} style={blockEditorRow}>
                         <span style={blockEditorText}>{blockLabel(block, index)}</span>
-                        <button type="button" onClick={() => deleteCustomBlock(index)} style={dangerIconButton} title="Delete block" aria-label="Delete report block">
+                        <button type="button" onClick={() => deleteCustomBlock(index)} style={dangerIconButton} title={t('reports.ui.deleteBlock')} aria-label={t('reports.ui.deleteBlock')}>
                           <Trash2 size={14} />
                         </button>
                       </div>
@@ -846,36 +873,44 @@ export function ReportsApp() {
                   </div>
                 </>
               )}
-              <div style={microcopy}>Edits affect the current generated preview and export. Saved report recipes still regenerate from live data.</div>
+              <div style={microcopy}>{t('reports.ui.editHint')}</div>
             </InspectorSection>
 
-            <InspectorSection title="Books">
+            <InspectorSection title={t('reports.ui.books')}>
               <select value={bookTargetId} onChange={(event) => setBookTargetId(event.target.value)} style={input}>
                 <option value="">New book: Family Reports</option>
                 {savedBooks.map((book) => <option key={book.id} value={book.id}>{book.title || 'Untitled Book'}</option>)}
               </select>
-              <button type="button" onClick={onAddToBook} style={actionButton}>Add to Book</button>
-              <div style={microcopy}>Adds this report as a saved-report section so Books can compile it with other chapters and charts.</div>
+              <button type="button" onClick={onAddToBook} style={actionButton}>{t('reports.ui.addToBook')}</button>
+              <div style={microcopy}>{t('reports.ui.addToBookHint')}</div>
             </InspectorSection>
           </div>
         </aside>
 
-        <main style={main}>
+        <div style={main}>
           {reportLoading && <div style={statusText}>{t('reports.generating', { label: selectedBuilderLabel })}</div>}
           {generationError && <div style={errorText}>{generationError}</div>}
           <ReportPreview report={displayReport} />
-        </main>
+        </div>
       </div>
     </div>
   );
 }
 
-function Field({ label, children }) {
+/**
+ * A real <label> wrapping the control, not a <span> beside it — otherwise the
+ * caption is visible but the input has no accessible name.
+ *
+ * `wrap={false}` for rows whose children already contain their own <label>
+ * (the checkbox options do), since nesting labels is invalid.
+ */
+function Field({ label, children, wrap = true }) {
+  const Tag = wrap ? 'label' : 'div';
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+    <Tag style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
       <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
       {children}
-    </div>
+    </Tag>
   );
 }
 
@@ -889,6 +924,7 @@ function InspectorSection({ title, children }) {
 }
 
 function ExportSelect({ disabled, onExport }) {
+  const { t } = useTranslation();
   return (
     <label style={exportSelectLabel}>
       <Download size={15} />
@@ -901,11 +937,11 @@ function ExportSelect({ disabled, onExport }) {
           event.target.value = '';
         }}
         style={exportSelect}
-        title="Export report"
+        title={t('reports.export')}
       >
-        <option value="">Export…</option>
+        <option value="">{t('reports.export')}</option>
         {EXPORT_FORMATS.map((format) => (
-          <option key={format.id} value={format.id}>{exportLabel(format)}</option>
+          <option key={format.id} value={format.id}>{reportExportLabel(t, format)}</option>
         ))}
       </select>
     </label>
@@ -995,15 +1031,6 @@ function blockLabel(block, index) {
   return `${block.kind || 'Block'} ${index + 1}`;
 }
 
-function exportLabel(format) {
-  const label = format.label || format.id.toUpperCase();
-  if (format.id === 'html') return 'Save as HTML File…';
-  if (format.id === 'pdf') return 'Save as PDF Document…';
-  if (format.id === 'csv') return 'Save as CSV File…';
-  if (format.id === 'txt') return 'Save as Plain Text…';
-  if (format.id === 'rtf') return 'Save as RTF Text…';
-  return `Save as ${label}…`;
-}
 
 function storySubject(record) {
   if (!record) return null;
@@ -1017,6 +1044,10 @@ const shell = { display: 'flex', flexDirection: 'column', height: '100%', minHei
 const topbar = {
   display: 'flex',
   alignItems: 'center',
+  // Wraps so the report title and the Play/Export actions stop overlapping
+  // once the row runs out of width.
+  flexWrap: 'wrap',
+  rowGap: 8,
   gap: 12,
   minHeight: 64,
   padding: '10px 16px',
@@ -1026,6 +1057,7 @@ const topbar = {
 const topbarMeta = {
   display: 'flex',
   alignItems: 'center',
+  flexWrap: 'wrap',
   gap: 8,
   minWidth: 0,
   marginInlineStart: 'auto',
@@ -1033,7 +1065,7 @@ const topbarMeta = {
   fontSize: 12,
   whiteSpace: 'nowrap',
 };
-const topbarActions = { display: 'flex', alignItems: 'center', gap: 8 };
+const topbarActions = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', rowGap: 8, gap: 8 };
 const workspace = {
   flex: 1,
   minHeight: 0,

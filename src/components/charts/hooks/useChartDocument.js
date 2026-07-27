@@ -15,7 +15,10 @@ export function useChartDocument() {
   const [currentDocumentName, setCurrentDocumentName] = useState('');
   const [isDirty, setIsDirty] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
-  const dirtyGuardRef = useRef(false);
+  // Holds the dirty baseline: `null` means "re-baseline on the next sweep"
+  // (fresh mount), `true` is the same request raised by an explicit load/save,
+  // and otherwise it is the signature of the last clean state.
+  const dirtyGuardRef = useRef(null);
 
   return {
     currentDocumentId,

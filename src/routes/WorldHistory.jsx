@@ -170,7 +170,7 @@ export default function WorldHistory() {
         </div>
       </header>
 
-      <main className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="border-b border-border bg-muted/30 p-4 lg:border-b-0 lg:border-e">
           <div className="space-y-4">
             <label className="relative block">
@@ -301,7 +301,7 @@ export default function WorldHistory() {
             )}
           </div>
         </section>
-      </main>
+      </div>
     </div>
   );
 }

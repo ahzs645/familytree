@@ -96,7 +96,7 @@ export function DuplicatesApp() {
         </span>
       </header>
 
-      <main style={main}>
+      <div style={main}>
         {pairs.length === 0 && !scanning && (
           <div style={{ color: 'hsl(var(--muted-foreground))', textAlign: 'center', marginTop: 60 }}>
             {hasScanned
@@ -118,7 +118,7 @@ export function DuplicatesApp() {
             />
           );
         })}
-      </main>
+      </div>
     </div>
   );
 }

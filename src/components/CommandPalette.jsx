@@ -26,6 +26,8 @@ export function CommandPalette({ commands = [], open: controlledOpen, onOpenChan
   const [query, setQuery] = useState('');
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef(null);
+  const listRef = useRef(null);
+  const listId = React.useId();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -64,6 +66,15 @@ export function CommandPalette({ commands = [], open: controlledOpen, onOpenChan
     }));
     return [...commands, ...routeEntries];
   }, [commands, navigate, t]);
+
+  // Keep the highlighted row visible. The list is ~1770px of results in a
+  // 540px box, so without this arrowing past the fold moved a selection the
+  // user could no longer see — and Enter then jumped somewhere unexpected.
+  useEffect(() => {
+    if (!open) return;
+    const row = listRef.current?.querySelector(`[data-index="${cursor}"]`);
+    row?.scrollIntoView({ block: 'nearest' });
+  }, [cursor, open]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -112,27 +123,35 @@ export function CommandPalette({ commands = [], open: controlledOpen, onOpenChan
           onChange={(event) => { setQuery(event.target.value); setCursor(0); }}
           onKeyDown={onKeyDown}
           placeholder={t('commandPalette.placeholder')}
+          aria-label={t('commandPalette.placeholder')}
+          role="combobox"
+          aria-expanded="true"
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={results[cursor] ? `${listId}-${cursor}` : undefined}
           className="w-full h-12 bg-transparent border-b border-border px-4 text-sm outline-none"
         />
-        <ul className="max-h-[60vh] overflow-y-auto py-1">
+        <ul ref={listRef} id={listId} role="listbox" aria-label={t('commandPalette.ariaLabel')} className="max-h-[60vh] overflow-y-auto py-1">
           {results.length === 0 ? (
             <li className="px-4 py-6 text-center text-sm text-muted-foreground">{t('commandPalette.empty')}</li>
           ) : (
             results.map((entry, index) => (
-              <li key={entry.id}>
-                <button
-                  type="button"
-                  onMouseEnter={() => setCursor(index)}
-                  onClick={() => { entry.action(); setOpen(false); }}
-                  className={cn(
-                    'w-full text-start px-4 py-2 flex items-center gap-3 text-sm',
-                    index === cursor ? 'bg-accent' : 'hover:bg-accent/50',
-                  )}
-                >
-                  <span className="flex-1 truncate">{entry.label}</span>
-                  {entry.section ? <span className="text-xs text-muted-foreground">{entry.section}</span> : null}
-                  {entry.shortcut ? <kbd className="text-[10px] font-semibold border border-border rounded px-1.5 py-0.5">{entry.shortcut}</kbd> : null}
-                </button>
+              <li
+                key={entry.id}
+                id={`${listId}-${index}`}
+                data-index={index}
+                role="option"
+                aria-selected={index === cursor}
+                onMouseEnter={() => setCursor(index)}
+                onClick={() => { entry.action(); setOpen(false); }}
+                className={cn(
+                  'cursor-pointer px-4 py-2 flex items-center gap-3 text-sm',
+                  index === cursor ? 'bg-accent' : 'hover:bg-accent/50',
+                )}
+              >
+                <span className="flex-1 truncate">{entry.label}</span>
+                {entry.section ? <span className="text-xs text-muted-foreground">{entry.section}</span> : null}
+                {entry.shortcut ? <kbd className="text-[10px] font-semibold border border-border rounded px-1.5 py-0.5">{entry.shortcut}</kbd> : null}
               </li>
             ))
           )}

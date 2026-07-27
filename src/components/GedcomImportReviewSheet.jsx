@@ -50,7 +50,7 @@ export function GedcomImportReviewSheet({ result, onClose }) {
             );
           })}
         </nav>
-        <main className="flex-1 overflow-auto p-5">
+        <div className="flex-1 overflow-auto p-5">
           {tab === 'summary' && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-2">
@@ -76,7 +76,7 @@ export function GedcomImportReviewSheet({ result, onClose }) {
           )}
           {tab === 'warnings' && <IssueList items={groups.warnings} empty="All GEDCOM tags and dates were interpreted." />}
           {tab === 'errors' && <IssueList items={groups.errors} empty="No blocking errors — every line was parsed." />}
-        </main>
+        </div>
         <footer className="px-5 py-3 border-t border-border text-xs text-muted-foreground">
           Source: {sourceLabel}
         </footer>

@@ -317,7 +317,7 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
                 </label>
               </div>
             </div>
-            <main className="flex-1 overflow-auto p-3 space-y-1">
+            <div className="flex-1 overflow-auto p-3 space-y-1">
               {!scopeAll && !scopePerson ? (
                 <div className="p-6 text-sm text-muted-foreground text-center">{t('todosPage.wizard.selectPerson')}</div>
               ) : filtered.length === 0 ? (
@@ -330,7 +330,7 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
                   </label>
                 ))
               )}
-            </main>
+            </div>
           </div>
         </div>
       )}

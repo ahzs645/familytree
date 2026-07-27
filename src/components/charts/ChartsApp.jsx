@@ -39,6 +39,7 @@ import { VirtualTreeDiagram } from './VirtualTreeDiagram.jsx';
 import { VirtualTree3D, SYMBOL_MODES, COLOR_MODES, DOF_DEFAULTS } from './VirtualTree3D.jsx';
 import { useChartObjectCommands } from './useChartObjectCommands.js';
 import { useModal } from '../../contexts/ModalContext.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import {
   CircularAncestorChart,
   DistributionChart,
@@ -105,6 +106,7 @@ const CHART_TYPES = [
 
 export function ChartsApp() {
   const modal = useModal();
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { recordName: sharedRootId, setActivePerson } = useActivePerson();
@@ -283,16 +285,16 @@ export function ChartsApp() {
   };
   const chartTitleOrDefault = chartTitle || 'chart';
 
-  // Dirty tracking — flip isDirty on any change to persisted chart state after
-  // initial mount, unless explicitly suppressed (on load/save). Watched values
-  // cover everything currentDocumentState reads.
-  useEffect(() => {
-    if (dirtyGuardRef.current) {
-      dirtyGuardRef.current = false;
-      return;
-    }
-    setIsDirty(true);
-  }, [
+  // Dirty tracking — flip isDirty when persisted chart state actually differs
+  // from the last loaded/saved baseline.
+  //
+  // Signature of everything currentDocumentState persists. Comparing against a
+  // baseline is what makes this reliable: a one-shot guard could only absorb
+  // the first sweep, but chart state settles asynchronously (the root person
+  // resolves from the tree after mount), so later settling writes marked a
+  // freshly opened chart dirty and produced a beforeunload prompt on a chart
+  // nobody had edited.
+  const dirtySignature = JSON.stringify([
     chartType, rootId, secondId, themeId, generations, descendantGenerations,
     hourglassAncestorGens, hourglassDescendantGens, doubleAncestorLeftGens,
     doubleAncestorRightGens, fanArcDegrees, ancestorBranch, virtualSource,
@@ -305,6 +307,19 @@ export function ChartsApp() {
     distributionFromYear, distributionToYear, sociogramConfig,
     timelineGrouping, timelineCollapse, timelineMarkerMode,
   ]);
+
+  useEffect(() => {
+    if (dirtyGuardRef.current === null || dirtyGuardRef.current === true) {
+      // Fresh mount, or an explicit load/save asked for a re-baseline. Hold off
+      // until the chart has a root person: on a cold load rootId starts null
+      // and resolves from the tree a tick later, and baselining before that
+      // recorded null as "clean", so the resolution itself looked like an edit.
+      if (dirtyGuardRef.current === null && !rootId) return;
+      dirtyGuardRef.current = dirtySignature;
+      return;
+    }
+    if (dirtyGuardRef.current !== dirtySignature) setIsDirty(true);
+  }, [dirtySignature, rootId, dirtyGuardRef, setIsDirty]);
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -350,10 +365,8 @@ export function ChartsApp() {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [moreOpen]);
 
-  // Edit lifecycle: mark the document dirty whenever any persisted state changes
-  // after the initial mount or after an explicit load/save. The dirtyGuardRef
-  // lets applyDocumentState/onSaveDocument temporarily suppress the next dirty
-  // sweep so loading or saving doesn't instantly flip the flag back on.
+  // Edit lifecycle: applyDocumentState/onSaveDocument ask for a re-baseline so
+  // loading or saving doesn't instantly flip the flag back on.
   const suppressDirtyOnce = useCallback(() => {
     dirtyGuardRef.current = true;
   }, []);
@@ -1617,7 +1630,7 @@ export function ChartsApp() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
                   <button onClick={exportSvg} style={optionSelect}>Save SVG</button>
                   <button onClick={exportPng} style={optionSelect}>Save {exportFormat === 'jpeg' ? 'JPEG' : 'PNG'}</button>
-                  <button onClick={exportPdf} style={optionSelect}>Save PDF</button>
+                  <button onClick={exportPdf} style={optionSelect} title={t('charts.printHint')}>{t('charts.print')}</button>
                 </div>
               </Section>
               </>)}
@@ -1648,7 +1661,7 @@ export function ChartsApp() {
       <ChartSelectionProvider openPerson={openPersonInPanel}>
       <ChartContentProvider content={chartContent} photosById={chartPhotos}>
       <div style={canvasRowStyle}>
-      <main style={mainStyle}>
+      <div style={mainStyle}>
         {chartType === 'ancestor' && (
           <AncestorChart
             chartCanvasRef={chartCanvasRef}
@@ -2056,7 +2069,7 @@ export function ChartsApp() {
             </div>
           </div>
         )}
-      </main>
+      </div>
         {personBrowserOpen && (
           <ChartPersonBrowser
             persons={chartPersonBrowserRows}

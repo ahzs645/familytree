@@ -234,7 +234,7 @@ export default function Persons() {
     <>
       <button
         type="button"
-        onClick={() => navigate('/person/new')}
+        onClick={() => navigate('/person/new', { state: { intent: 'create' } })}
         className={cn(listToolbarButtonClass, 'border-primary/60 text-primary')}
         title={t('persons.newPerson', { defaultValue: 'New person' })}
       >
@@ -382,11 +382,11 @@ export default function Persons() {
           </div>
         )}
         {report.options.previewMode ? (
-          <main className="flex-1 min-w-0 overflow-auto">
+          <div className="flex-1 min-w-0 overflow-auto">
             <ListReportPreview title={t('persons.listTitle')} rows={visiblePersons} columns={EXPORT_COLUMNS} options={report.options} />
-          </main>
+          </div>
         ) : (!isMobile || mobilePane === 'detail') && (
-        <main className="flex-1 min-w-0 overflow-auto">
+        <div className="flex-1 min-w-0 overflow-auto">
           {active ? (
             <div className="p-4 md:p-6 max-w-5xl">
               {isMobile && (
@@ -531,7 +531,7 @@ export default function Persons() {
           ) : (
             <div className="h-full flex items-center justify-center text-muted-foreground">{t('persons.detailEmpty')}</div>
           )}
-        </main>
+        </div>
         )}
       </div>
     </div>

@@ -1,5 +1,7 @@
 import React, { useMemo } from 'react';
 import { SUPPORTED_LOCALES } from '../lib/i18n.js';
+import { hasMessageCatalog } from '../lib/translate.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { Select } from './ui/Select.jsx';
 
 export function LanguageSelect({
@@ -11,10 +13,16 @@ export function LanguageSelect({
   align = 'end',
   id,
 }) {
+  const { t } = useTranslation();
+  // A locale with no message catalog still localizes dates, names, and
+  // relationship terms — but the interface itself stays English. Say so in the
+  // picker rather than letting the choice look like it did nothing.
   const options = useMemo(() => SUPPORTED_LOCALES.map((locale) => ({
     value: locale.value,
-    label: locale.nativeLabel,
-  })), []);
+    label: hasMessageCatalog(locale.value)
+      ? locale.nativeLabel
+      : `${locale.nativeLabel} — ${t('settings.englishInterface', { defaultValue: 'English interface' })}`,
+  })), [t]);
 
   return (
     <Select

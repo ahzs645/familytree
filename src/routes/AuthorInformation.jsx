@@ -84,7 +84,7 @@ export default function AuthorInformation() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
-          <main className="space-y-5">
+          <div className="space-y-5">
             <Panel title="Family Tree">
               <Grid>
                 <Field label="Tree Name"><input value={values.treeName} onChange={(event) => update('treeName', event.target.value)} className={inputClass} /></Field>
@@ -125,7 +125,7 @@ export default function AuthorInformation() {
             <Panel title="Notes">
               <textarea value={values.notes} onChange={(event) => update('notes', event.target.value)} rows={6} className={inputClass} />
             </Panel>
-          </main>
+          </div>
 
           <aside className="rounded-lg border border-border bg-card p-5 h-fit">
             {iconUrl && (

@@ -196,7 +196,7 @@ export function ThreeDTreeView({
         </div>
       )}
       {!presentationMode && (
-      <div style={styles.macTopBar}>
+      <div style={{ ...styles.macTopBar, ...(isMobile ? styles.macTopBarMobile : null) }}>
         <button type="button" onClick={() => onReturnToFamilyTree?.()} style={macBarButtonStyle}>
           {t('interactiveTree.returnToFamilyTree')}
         </button>
@@ -273,13 +273,23 @@ export function ThreeDTreeView({
           >
             {t('interactiveTree.options')}...
           </button>
-          <ViewerSelect
-            label={t('interactiveTree.camera')}
-            value={viewerOptions.cameraMode}
-            options={CAMERA_MODES}
-            onChange={(cameraMode) => setViewerOptions((current) => ({ ...current, cameraMode }))}
-          />
+          {/* Camera duplicates "Camera Perspective" inside the Options panel.
+              Keep it on the dock where there is room; on a phone the dock is
+              already several screens wide, so the panel is the only copy. */}
+          {!isMobile && (
+            <ViewerSelect
+              label={t('interactiveTree.camera')}
+              value={viewerOptions.cameraMode}
+              options={CAMERA_MODES}
+              onChange={(cameraMode) => setViewerOptions((current) => ({ ...current, cameraMode }))}
+            />
+          )}
         </div>
+        {/* Chrome toggles. Only `navigation` does anything on mobile —
+            InteractiveTreeApp forces the people list and header on, and hides
+            the inspector outright, at that width (showPeople/showHeader/
+            showInspector all short-circuit on isMobile). Rendering the other
+            three there gave the dock four buttons that changed nothing. */}
         <div style={styles.dockGroup}>
           <button
             type="button"
@@ -289,30 +299,34 @@ export function ThreeDTreeView({
           >
             {t('interactiveTree.nav')}
           </button>
-          <button
-            type="button"
-            style={dockToggleStyle(chrome.people, isMobile)}
-            onClick={() => onToggleChrome?.('people')}
-            aria-pressed={chrome.people}
-          >
-            {t('interactiveTree.people')}
-          </button>
-          <button
-            type="button"
-            style={dockToggleStyle(chrome.inspector, isMobile)}
-            onClick={() => onToggleChrome?.('inspector')}
-            aria-pressed={chrome.inspector}
-          >
-            {t('interactiveTree.inspector')}
-          </button>
-          <button
-            type="button"
-            style={dockToggleStyle(chrome.header, isMobile)}
-            onClick={() => onToggleChrome?.('header')}
-            aria-pressed={chrome.header}
-          >
-            {t('interactiveTree.header')}
-          </button>
+          {!isMobile && (
+            <>
+              <button
+                type="button"
+                style={dockToggleStyle(chrome.people, isMobile)}
+                onClick={() => onToggleChrome?.('people')}
+                aria-pressed={chrome.people}
+              >
+                {t('interactiveTree.people')}
+              </button>
+              <button
+                type="button"
+                style={dockToggleStyle(chrome.inspector, isMobile)}
+                onClick={() => onToggleChrome?.('inspector')}
+                aria-pressed={chrome.inspector}
+              >
+                {t('interactiveTree.inspector')}
+              </button>
+              <button
+                type="button"
+                style={dockToggleStyle(chrome.header, isMobile)}
+                onClick={() => onToggleChrome?.('header')}
+                aria-pressed={chrome.header}
+              >
+                {t('interactiveTree.header')}
+              </button>
+            </>
+          )}
         </div>
       </div>
       )}

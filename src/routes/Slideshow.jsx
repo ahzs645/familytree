@@ -188,7 +188,7 @@ export default function Slideshow() {
             className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">{playing ? '❚❚' : '▶'}</button>
         </div>
       </header>
-      <main className={`flex-1 flex flex-col items-center justify-center p-6 relative overflow-hidden ${backdropClass}`}>
+      <div className={`flex-1 flex flex-col items-center justify-center p-6 relative overflow-hidden ${backdropClass}`}>
         {src && current?.recordType === 'MediaAudio' ? (
           <audio controls autoPlay={playing} src={src} className="w-full max-w-2xl" />
         ) : src && current?.recordType === 'MediaVideo' ? (
@@ -215,7 +215,7 @@ export default function Slideshow() {
           className="absolute start-4 top-1/2 -translate-y-1/2 bg-card/80 backdrop-blur border border-border rounded-full w-10 h-10">{isRtl ? '›' : '‹'}</button>
         <button onClick={() => setIndex((i) => (i + 1) % order.length)}
           className="absolute end-4 top-1/2 -translate-y-1/2 bg-card/80 backdrop-blur border border-border rounded-full w-10 h-10">{isRtl ? '‹' : '›'}</button>
-      </main>
+      </div>
     </div>
   );
 }

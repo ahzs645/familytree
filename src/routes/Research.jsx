@@ -165,7 +165,7 @@ export default function Research() {
         <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('research.filterPlaceholder')}
           className="w-full bg-secondary border border-border rounded-md px-3 py-1.5 text-sm md:ms-auto md:w-64" />
       </header>
-      <main className="flex-1 overflow-auto p-5 bg-background">
+      <div className="flex-1 overflow-auto p-5 bg-background">
         <div className="max-w-3xl mx-auto space-y-2">
           <section className="mb-6">
             <h2 className="text-sm font-semibold mb-2">{t('research.researchLog', { count: journal.length })}</h2>
@@ -305,7 +305,7 @@ export default function Research() {
           ))}
           {visible.length > 200 && <div className="text-xs text-muted-foreground text-center">{t('research.moreSuggestions', { count: visible.length - 200 })}</div>}
         </div>
-      </main>
+      </div>
     </div>
   );
 }

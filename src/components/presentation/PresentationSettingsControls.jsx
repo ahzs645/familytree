@@ -1,29 +1,53 @@
 import React from 'react';
 import { normalizePageStyle } from '../../lib/presentationSettings.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
-export function PresentationSettingsControls({ value, onChange, label = 'Page' }) {
+export function PresentationSettingsControls({ value, onChange, label }) {
+  const { t } = useTranslation();
   const pageStyle = normalizePageStyle(value);
   const update = (patch) => onChange?.(normalizePageStyle({ ...pageStyle, ...patch }));
 
+  // Each control carries its own aria-label: the group caption names the row,
+  // not the individual selects, so without these they reach assistive tech as
+  // four unnamed combo boxes.
   return (
-    <Field label={label}>
+    <Field label={label ?? t('presentation.page')}>
       <div style={row}>
         <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-          <input type="checkbox" checked={pageStyle.paginate} onChange={(event) => update({ paginate: event.target.checked })} /> Breaks
+          <input
+            type="checkbox"
+            checked={pageStyle.paginate}
+            onChange={(event) => update({ paginate: event.target.checked })}
+          /> {t('presentation.breaks')}
         </label>
-        <select value={pageStyle.pageSize} onChange={(event) => update({ pageSize: event.target.value })} style={input}>
-          <option value="letter">Letter</option>
+        <select
+          value={pageStyle.pageSize}
+          onChange={(event) => update({ pageSize: event.target.value })}
+          style={input}
+          aria-label={t('presentation.pageSize')}
+        >
+          <option value="letter">{t('presentation.letter')}</option>
           <option value="a4">A4</option>
-          <option value="legal">Legal</option>
+          <option value="legal">{t('presentation.legal')}</option>
         </select>
-        <select value={pageStyle.orientation} onChange={(event) => update({ orientation: event.target.value })} style={input}>
-          <option value="portrait">Portrait</option>
-          <option value="landscape">Landscape</option>
+        <select
+          value={pageStyle.orientation}
+          onChange={(event) => update({ orientation: event.target.value })}
+          style={input}
+          aria-label={t('presentation.orientation')}
+        >
+          <option value="portrait">{t('presentation.portrait')}</option>
+          <option value="landscape">{t('presentation.landscape')}</option>
         </select>
-        <select value={pageStyle.background} onChange={(event) => update({ background: event.target.value })} style={input}>
-          <option value="none">White</option>
-          <option value="soft">Soft</option>
-          <option value="sepia">Sepia</option>
+        <select
+          value={pageStyle.background}
+          onChange={(event) => update({ background: event.target.value })}
+          style={input}
+          aria-label={t('presentation.background')}
+        >
+          <option value="none">{t('presentation.white')}</option>
+          <option value="soft">{t('presentation.soft')}</option>
+          <option value="sepia">{t('presentation.sepia')}</option>
         </select>
         <input
           type="number"
@@ -32,7 +56,8 @@ export function PresentationSettingsControls({ value, onChange, label = 'Page' }
           value={pageStyle.margin}
           onChange={(event) => update({ margin: event.target.value })}
           style={{ ...input, width: 64 }}
-          title="Margin"
+          title={t('presentation.margin')}
+          aria-label={t('presentation.margin')}
         />
       </div>
     </Field>

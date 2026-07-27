@@ -5,6 +5,8 @@
 import React, { useEffect, useRef, useState, useCallback, useImperativeHandle } from 'react';
 import { DEFAULT_THEME } from './theme.js';
 import { exportChartAsPng, exportChartAsSvg, printChartViaPdf } from '../../lib/chartExport.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { useModal } from '../../contexts/ModalContext.jsx';
 
 export const ChartCanvas = React.forwardRef(function ChartCanvas(
   {
@@ -26,6 +28,8 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
   },
   ref
 ) {
+  const { t } = useTranslation();
+  const modal = useModal();
   const svgRef = useRef(null);
   const contentRef = useRef(null);
   const [view, setView] = useState({ x: 0, y: 0, k: 1 });
@@ -195,7 +199,19 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
 
   const onExportSvg = () => exportChartAsSvg(svgRef.current, exportOptions);
   const onExportPng = () => exportChartAsPng(svgRef.current, exportOptions, background);
-  const onPrint = () => printChartViaPdf(svgRef.current, exportOptions);
+  // printChartViaPdf throws when the popup is blocked. Unhandled, the click
+  // did nothing and said nothing; surface it through onExportError so the
+  // caller can tell the user why.
+  // printChartViaPdf throws when the popup is blocked. Unhandled, the click did
+  // nothing and said nothing — tell the user instead.
+  const onPrint = () => {
+    try {
+      printChartViaPdf(svgRef.current, exportOptions);
+    } catch (error) {
+      console.error('[CloudTreeWeb] chart PDF export failed', error);
+      modal.alert(error?.message || t('charts.printFailed', { defaultValue: 'Could not open the print view.' }));
+    }
+  };
 
   useImperativeHandle(ref, () => ({
     focusRoot: () => onReset(),
@@ -250,7 +266,7 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
         <button onClick={onReset} style={btn}>Reset</button>
         <button onClick={onExportSvg} style={btn}>SVG</button>
         <button onClick={onExportPng} style={btn}>PNG</button>
-        <button onClick={onPrint} style={btn}>PDF</button>
+        <button onClick={onPrint} style={btn} title={t('charts.printHint')}>{t('charts.print')}</button>
       </div>
     </div>
   );

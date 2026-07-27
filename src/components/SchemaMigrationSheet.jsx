@@ -86,7 +86,7 @@ export function SchemaMigrationSheet() {
         <header className="px-5 py-3 border-b border-border">
           <h2 className="text-base font-semibold">Family Tree Migration</h2>
         </header>
-        <main className="px-5 py-4 space-y-3 text-sm">
+        <div className="px-5 py-4 space-y-3 text-sm">
           <p className="text-muted-foreground leading-relaxed">
             Your local data is at schema v{state.fromVersion}; this build expects v{DATASET_SCHEMA_VERSION}.
             A backup will be created automatically if you proceed.
@@ -100,7 +100,7 @@ export function SchemaMigrationSheet() {
             ))}
           </div>
           {error && <div className="text-xs text-destructive">Migration error: {String(error?.message || error)}</div>}
-        </main>
+        </div>
         <footer className="px-5 py-3 border-t border-border flex gap-2 justify-end flex-wrap">
           <button
             onClick={() => setReadOnly(true)}

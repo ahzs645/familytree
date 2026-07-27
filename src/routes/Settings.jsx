@@ -49,7 +49,11 @@ function SettingsLayout() {
           </div>
         </header>
 
-        <nav className="flex gap-2 overflow-x-auto whitespace-nowrap border-b border-border mb-5">
+        {/* 17 panels. Below sm the strip scrolls horizontally (with an edge
+            fade so the overflow is visible); from sm up it wraps, so every
+            panel is reachable without discovering a hidden scroll. */}
+        <div className="scroll-fade-inline-end sm:after:hidden mb-5">
+        <nav className="flex gap-2 overflow-x-auto whitespace-nowrap border-b border-border sm:flex-wrap sm:overflow-x-visible sm:whitespace-normal">
           {tabs.map((tab) => (
             <NavLink
               key={tab.id}
@@ -62,6 +66,7 @@ function SettingsLayout() {
             </NavLink>
           ))}
         </nav>
+        </div>
 
         <Outlet />
       </div>

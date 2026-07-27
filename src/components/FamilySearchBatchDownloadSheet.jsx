@@ -58,7 +58,7 @@ export function FamilySearchBatchDownloadSheet({ open, onClose }) {
 
   return (
     <Panel title="Auto-Download Relatives" onClose={onClose} maxWidth="max-w-lg" maxHeight="max-h-[85vh]">
-        <main className="p-5 space-y-3 text-sm">
+        <div className="p-5 space-y-3 text-sm">
           <label className="block">
             <span className="text-xs text-muted-foreground">FamilySearch Person ID</span>
             <input
@@ -88,7 +88,7 @@ export function FamilySearchBatchDownloadSheet({ open, onClose }) {
               <div key={idx}>{line}</div>
             ))}
           </div>
-        </main>
+        </div>
         <footer className="px-5 py-3 border-t border-border flex gap-2 justify-end">
           <button onClick={onClose} disabled={busy} className="text-sm border border-border bg-secondary rounded-md px-3 py-1.5">Close</button>
           <button onClick={run} disabled={busy || !rootId} className="text-sm bg-primary text-primary-foreground rounded-md px-3 py-1.5">

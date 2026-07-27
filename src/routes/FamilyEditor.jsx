@@ -439,7 +439,7 @@ export default function FamilyEditor() {
       </header>
       <EditorSectionNavBar />
 
-      <main className="flex-1 overflow-auto bg-background">
+      <div className="flex-1 overflow-auto bg-background">
         <div className="max-w-6xl mx-auto p-5">
 
           {deepLinkTarget && (
@@ -650,7 +650,7 @@ export default function FamilyEditor() {
           </div>
 
         </div>
-      </main>
+      </div>
     </div>
     </EditorSectionNavProvider>
   );

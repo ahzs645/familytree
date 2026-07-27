@@ -16,6 +16,7 @@ import { ImportDropZone } from '../components/ImportDropZone.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { useRemoteDataset } from '../components/RemoteDatasetLoader.jsx';
 import { loadSampleTree } from '../lib/sampleTree.js';
 import {
   ACTIVE_TREE_CHANGED_EVENT,
@@ -34,6 +35,7 @@ export function Home() {
   const navigate = useNavigate();
   const { t, localization } = useTranslation();
   const { hasData, summary, loading, refresh, clear } = useDatabaseStatus();
+  const remoteDataset = useRemoteDataset();
   const modal = useModal();
 
   const [sortBy, setSortBy] = useState(() => {
@@ -122,8 +124,11 @@ export function Home() {
 
   // First-run: no data, no library, no active pointer → guide the user
   // straight into onboarding. Wait until both status and library list
-  // settled so we don't bounce mid-load.
-  if (!loading && snapshotsLoaded && !hasData && snapshots.length === 0 && !activeTreeId) {
+  // settled so we don't bounce mid-load, and never while a `?url=` deep link
+  // is still confirming, downloading, or offering a retry — a shared link
+  // should not flash the create-a-tree wizard on its way in.
+  if (!loading && snapshotsLoaded && !hasData && snapshots.length === 0 && !activeTreeId
+      && !remoteDataset.pending) {
     return <Navigate to="/welcome" replace />;
   }
 

@@ -18,13 +18,16 @@ export function inputClass() {
   return formClasses.input;
 }
 
+// The <label> wraps the control rather than sitting beside it. As a sibling it
+// named nothing, so every editor input reached assistive tech unnamed even
+// though the caption was on screen.
 export function Field({ label, children, hint }) {
   return (
-    <div className="flex-1 min-w-0">
-      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+    <label className="flex-1 min-w-0 block">
+      <span className="block text-xs font-medium text-muted-foreground mb-1">{label}</span>
       {children}
-      {hint && <div className="text-[11px] text-muted-foreground mt-1">{hint}</div>}
-    </div>
+      {hint && <span className="block text-[11px] text-muted-foreground mt-1">{hint}</span>}
+    </label>
   );
 }
 

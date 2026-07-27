@@ -69,7 +69,7 @@ export function ChartBackgroundSheet({ open, value, onApply, onClose }) {
 
   return (
     <Panel title="Edit Background" onClose={onClose} closeLabel="Cancel" maxWidth="max-w-md">
-        <main className="p-5 space-y-4 text-sm">
+        <div className="p-5 space-y-4 text-sm">
           <div className="flex gap-1">
             {BG_TYPES.map((t) => (
               <button
@@ -141,7 +141,7 @@ export function ChartBackgroundSheet({ open, value, onApply, onClose }) {
               </div>
             )}
           </div>
-        </main>
+        </div>
         <footer className="px-5 py-3 border-t border-border flex gap-2 justify-end">
           <button onClick={() => onApply('')} className="text-sm border border-border bg-secondary rounded-md px-3 py-1.5">Clear</button>
           <button onClick={() => onApply(serializeBackgroundSpec(spec))} className="text-sm bg-primary text-primary-foreground rounded-md px-3 py-1.5">

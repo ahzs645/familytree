@@ -171,7 +171,7 @@ export default function ChangeLog() {
         {purgeStatus && <span className="text-muted-foreground ms-2">{purgeStatus}</span>}
       </div>
 
-      <main className="flex-1 overflow-auto p-5 bg-background">
+      <div className="flex-1 overflow-auto p-5 bg-background">
         {!loading && entries.length === 0 && (
           <div className="text-center text-muted-foreground py-12">
             No change log entries{filter ? ` for ${filter}` : ''}.
@@ -214,7 +214,7 @@ export default function ChangeLog() {
             })}
           </section>
         ))}
-      </main>
+      </div>
     </div>
   );
 }

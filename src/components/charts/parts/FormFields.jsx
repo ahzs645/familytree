@@ -8,15 +8,17 @@ import React from 'react';
 import { Select } from '../../ui/Select.jsx';
 import { optionSelect } from './styles.js';
 
+// A real <label> around the control — as a bare <span> the caption was visible
+// but named nothing.
 export function Field({ label, children, hideOnNarrow }) {
   return (
-    <div
+    <label
       className={hideOnNarrow ? 'hidden sm:flex' : 'flex'}
       style={{ flexDirection: 'column', marginInlineEnd: 12 }}
     >
       <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 

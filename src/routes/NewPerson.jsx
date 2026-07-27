@@ -9,8 +9,8 @@
  *             through a specific union)
  *   firstName / lastName: optional prefills
  */
-import React, { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { generateId } from '../lib/ids.js';
 import { logRecordCreated } from '../lib/changeLog.js';
@@ -49,11 +49,25 @@ function relationType(relation) {
 export default function NewPerson() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [status, setStatus] = useState('Creating new person…');
   const [error, setError] = useState(null);
   const ranRef = useRef(false);
 
-  useEffect(() => {
+  // This route creates a record as a side effect of being visited. That is what
+  // the in-app "add relative" and "New person" buttons want, but it also means
+  // a bookmark, a typed URL, or a back-navigation silently leaves a blank
+  // orphan person in the tree. Create straight away only when the visit
+  // carries intent: relation/anchor params, a name prefill, or the marker the
+  // in-app buttons pass through navigation state.
+  const hasIntent = Boolean(
+    params.get('relation') || params.get('anchor') || params.get('partner')
+    || params.get('firstName') || params.get('lastName')
+    || location.state?.intent === 'create',
+  );
+  const [confirmed, setConfirmed] = useState(false);
+
+  const create = useCallback(() => {
     if (ranRef.current) return;
     ranRef.current = true;
     (async () => {
@@ -121,10 +135,23 @@ export default function NewPerson() {
     })();
   }, [navigate, params]);
 
+  useEffect(() => {
+    if (hasIntent || confirmed) create();
+  }, [hasIntent, confirmed, create]);
+
   return (
     <div style={shellStyle}>
       <div style={cardStyle}>
-        {error ? (
+        {!error && !hasIntent && !confirmed ? (
+          <>
+            <div style={titleStyle}>Add a new person?</div>
+            <div style={messageStyle}>
+              This creates an empty person record in your tree, ready to edit.
+            </div>
+            <button type="button" style={buttonStyle} onClick={() => setConfirmed(true)}>Create person</button>
+            <button type="button" style={buttonStyle} onClick={() => navigate(-1)}>Cancel</button>
+          </>
+        ) : error ? (
           <>
             <div style={titleStyle}>Could not create person</div>
             <div style={messageStyle}>{error}</div>

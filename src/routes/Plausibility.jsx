@@ -45,7 +45,7 @@ export default function Plausibility() {
           ))}
         </div>
       </header>
-      <main className="flex-1 overflow-auto p-5 bg-background">
+      <div className="flex-1 overflow-auto p-5 bg-background">
         {filtered.length === 0 ? (
           <div className="text-center text-muted-foreground py-12">
             {warnings.length === 0 ? 'No plausibility issues found 🎉' : 'No warnings at this severity.'}
@@ -73,7 +73,7 @@ export default function Plausibility() {
             ))}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

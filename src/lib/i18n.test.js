@@ -80,3 +80,43 @@ describe('i18n helpers', () => {
     expect(sorted).toEqual(expect.arrayContaining(names));
   });
 });
+
+describe('message catalog coverage', () => {
+  it('flags locales that are selectable but have no UI catalog', async () => {
+    const { hasMessageCatalog } = await import('./translate.js');
+    expect(hasMessageCatalog('en')).toBe(true);
+    expect(hasMessageCatalog('ar')).toBe(true);
+    expect(hasMessageCatalog('ar-IQ')).toBe(true);
+    // vi is a supported locale for dates/relationships/reports but ships no
+    // vi.json, so the picker must mark it rather than silently show English.
+    expect(hasMessageCatalog('vi')).toBe(false);
+    expect(SUPPORTED_LOCALES.some((l) => l.value === 'vi')).toBe(true);
+  });
+});
+
+describe('normalizeSearchText honorific handling', () => {
+  it('folds hamza forms to a bare alef when honorific stripping is off', () => {
+    const opts = { stripHonorifics: false };
+    const alef = normalizeSearchText('ا', { locale: 'ar' }, opts);
+    for (const form of ['أ', 'إ', 'آ', 'ٱ']) {
+      expect(normalizeSearchText(form, { locale: 'ar' }, opts)).toBe(alef);
+    }
+    expect(alef).toBe('ا');
+  });
+
+  it('does not swallow single letters that double as title abbreviations', () => {
+    // "ا" and "د" are honorific tokens, so stripping them from a one-character
+    // string left "" — which sent alphabetical grouping back to the raw,
+    // unfolded character.
+    for (const letter of ['ا', 'د', 'أ']) {
+      // Stripping used to empty these, which made a one-letter query match
+      // everything and sent alphabetical grouping back to the raw character.
+      expect(normalizeSearchText(letter, { locale: 'ar' })).not.toBe('');
+      expect(normalizeSearchText(letter, { locale: 'ar' }, { stripHonorifics: false })).not.toBe('');
+    }
+  });
+
+  it('still strips honorifics from full names by default', () => {
+    expect(normalizeSearchText('د أحمد', { locale: 'ar' })).toBe(normalizeSearchText('أحمد', { locale: 'ar' }));
+  });
+});

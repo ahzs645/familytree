@@ -213,7 +213,7 @@ function ModalView({ modal, onClose }) {
         <header className="px-5 py-3 border-b border-border">
           <h2 className="text-base font-semibold">{title}</h2>
         </header>
-        <main className="px-5 py-4 space-y-3 text-sm">
+        <div className="px-5 py-4 space-y-3 text-sm">
           <p className="text-foreground whitespace-pre-wrap leading-relaxed">{modal.message}</p>
           {modal.kind === 'prompt' && (
             modal.multiline ? (
@@ -236,7 +236,7 @@ function ModalView({ modal, onClose }) {
               />
             )
           )}
-        </main>
+        </div>
         <footer className="px-5 py-3 border-t border-border flex gap-2 justify-end">
           {modal.kind !== 'alert' && (
             <button
