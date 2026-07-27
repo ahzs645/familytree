@@ -4,6 +4,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useSearchParams } from 'react-router-dom';
+import { Button } from '../components/ui/Button.jsx';
 import {
   downloadBackup,
   restoreBackup,
@@ -154,10 +155,9 @@ export default function Backup() {
           <p className="text-xs text-muted-foreground mb-4">
             {summary ? `${summary.total.toLocaleString()} records and any imported media assets will be packaged.` : 'No data loaded.'}
           </p>
-          <button onClick={onExport} disabled={busy || !summary}
-            className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm font-semibold disabled:opacity-60">
+          <Button variant="primary" size="md" onClick={onExport} disabled={busy || !summary}>
             Download backup file
-          </button>
+          </Button>
         </div>
 
         <div id="restore-backup" className="rounded-lg border border-border bg-card p-5 mb-4">

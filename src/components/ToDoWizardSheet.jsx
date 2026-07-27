@@ -10,6 +10,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { generateResearchSuggestions } from '../lib/researchSuggestions.js';
 import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { logRecordCreated } from '../lib/changeLog.js';
+import { Button } from './ui/Button.jsx';
 import { matchesSearchText } from '../lib/i18n.js';
 import { writeRef } from '../lib/schema.js';
 import { generateId } from '../lib/ids.js';
@@ -340,9 +341,9 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
         <button onClick={onClose} disabled={busy} className="ms-auto text-sm border border-border bg-secondary rounded-md px-3 py-1.5">
           {t('todosPage.wizard.cancel')}
         </button>
-        <button onClick={onCreate} disabled={busy || selectedCount === 0} className="text-sm bg-primary text-primary-foreground rounded-md px-3 py-1.5 disabled:opacity-60">
+        <Button variant="primary" size="md" onClick={onCreate} disabled={busy || selectedCount === 0}>
           {busy ? t('todosPage.wizard.creating') : t('todosPage.wizard.create', { count: selectedCount })}
-        </button>
+        </Button>
       </footer>
     </Panel>
   );

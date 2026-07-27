@@ -37,8 +37,10 @@
     --card-foreground: 220 14% 90%;
     --popover: 225 22% 11%;
     --popover-foreground: 220 14% 90%;
-    --primary: 224 76% 65%;
-    --primary-foreground: 224 24% 7%;
+    /* Kept dark enough for white text (≈4.6:1) — the old 65%-lightness blue
+       paired with near-black text, which read as unreadable in practice. */
+    --primary: 224 76% 58%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 224 18% 17%;
     --secondary-foreground: 220 14% 90%;
     --muted: 224 18% 17%;
@@ -83,6 +85,34 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+  }
+
+  /* Scrollbars — thin and token-colored so they stay quiet in dark mode
+     (the browser default renders a glaring light track on dark panels).
+     Modern Chromium/Firefox use the standard properties; Safari uses the
+     -webkit rules. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.5);
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
   }
 }
 

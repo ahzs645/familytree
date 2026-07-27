@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PersonPicker } from '../components/charts/PersonPicker.jsx';
 import { getAppPreferences, saveAppPreferences } from '../lib/appPreferences.js';
 import { formClasses } from '../components/ui/formClasses.js';
+import { buttonClasses } from '../components/ui/Button.jsx';
 import { generateId } from '../lib/ids.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
 import { createRecordEnvelope, createWithChangeLog } from '../lib/recordWrite.js';
@@ -341,5 +342,5 @@ function Info({ label, value }) {
 }
 
 const inputClass = formClasses.input;
-const primaryButton = 'rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold disabled:opacity-60';
+const primaryButton = buttonClasses({ variant: 'primary', size: 'md' });
 const secondaryButton = 'rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-60';

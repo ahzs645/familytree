@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { formatInteger, getCurrentLocalization, localeWithExtensions } from '../../lib/i18n.js';
 import { cn } from '../../lib/utils.js';
 import { Select } from './Select.jsx';
+import { buttonClasses } from './Button.jsx';
 import {
   PREFIX,
   PREFIX_LABELS,
@@ -326,7 +327,7 @@ export function DatePicker({
               <button
                 type="button"
                 onClick={() => { setOpen(false); buttonRef.current?.focus(); }}
-                className="h-9 flex-1 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+                className={buttonClasses({ variant: 'primary', size: 'md', className: 'h-9 flex-1' })}
               >
                 Done
               </button>

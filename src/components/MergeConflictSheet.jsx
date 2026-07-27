@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { CONFLICT_RESOLUTION } from '../lib/mergeImport.js';
 import { Sheet } from './ui/Sheet.jsx';
+import { Button } from './ui/Button.jsx';
 
 const RESOLUTION_LABELS = {
   [CONFLICT_RESOLUTION.KEEP_EXISTING]: 'Keep current',
@@ -70,7 +71,7 @@ export function MergeConflictSheet({ plan, onApply, onCancel }) {
             Kept current: {summary.existing} · Used incoming: {summary.incoming} · Kept both: {summary.rename}
           </div>
           <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
-          <button type="button" onClick={() => onApply(resolutions)} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold hover:opacity-90">Apply merge</button>
+          <Button variant="primary" size="sm" onClick={() => onApply(resolutions)}>Apply merge</Button>
         </>
       )}
     >

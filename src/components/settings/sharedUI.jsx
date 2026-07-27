@@ -13,6 +13,7 @@ import React from 'react';
 import { formatName } from '../../lib/nameFormat.js';
 import { Select } from '../ui/Select.jsx';
 import { formClasses } from '../ui/formClasses.js';
+import { buttonClasses } from '../ui/Button.jsx';
 
 export function Panel({ title, children }) {
   return (
@@ -86,5 +87,5 @@ export function vitalPreview(markerStyle = 'range') {
 }
 
 export const inputClass = formClasses.input;
-export const primaryButton = 'rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold disabled:opacity-60';
+export const primaryButton = buttonClasses({ variant: 'primary', size: 'md' });
 export const secondaryButton = 'rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-60';

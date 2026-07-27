@@ -12,6 +12,7 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { Button } from '../components/ui/Button.jsx';
 import { ImportDropZone } from '../components/ImportDropZone.jsx';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
@@ -144,13 +145,13 @@ export function Home() {
       <section className="mb-8">
         {!hasData && (
           <div className="mb-4 flex flex-wrap items-center justify-center gap-3 text-sm">
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="md"
               onClick={() => navigate('/welcome')}
-              className="rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90"
             >
               {t('home.createTree', { defaultValue: 'Create a new family tree' })}
-            </button>
+            </Button>
             <span className="text-xs text-muted-foreground">
               {t('home.createTreeHint', { defaultValue: 'Start from scratch — add yourself, then your relatives.' })}
             </span>
@@ -295,7 +296,7 @@ export function Home() {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-3">
-                  <button onClick={() => onRestore(snapshot)} disabled={busy || isActive} className="text-xs bg-primary text-primary-foreground rounded-md px-2.5 py-1 font-medium disabled:opacity-60">{isActive ? t('home.treeCurrentBtn', { defaultValue: 'Open' }) : t('home.treeOpen')}</button>
+                  <Button variant="primary" size="sm" onClick={() => onRestore(snapshot)} disabled={busy || isActive} className="py-1">{isActive ? t('home.treeCurrentBtn', { defaultValue: 'Open' }) : t('home.treeOpen')}</Button>
                   <button onClick={() => onRename(snapshot)} disabled={busy} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1 hover:bg-accent">{t('home.treeRename')}</button>
                   <button onClick={() => onLabel(snapshot)} disabled={busy} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1 hover:bg-accent">{t('home.treeLabel')}</button>
                   <button onClick={() => onDelete(snapshot)} disabled={busy} className="text-xs border border-border bg-transparent text-destructive rounded-md px-2.5 py-1 hover:bg-destructive/10 ms-auto">{t('home.treeDelete')}</button>

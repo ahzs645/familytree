@@ -9,6 +9,7 @@
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { Button } from '../components/ui/Button.jsx';
 import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
@@ -427,9 +428,9 @@ export default function FamilyEditor() {
             <span className="text-xs text-muted-foreground">All changes saved</span>
           )}
           <RecordLockButton record={family} saving={saving} onToggle={onToggleLock} />
-          <button disabled={saving || locked || !dirty} onClick={onSave} title="Save (⌘/Ctrl+S)" className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">
+          <Button variant="primary" size="md" disabled={saving || locked || !dirty} onClick={onSave} title="Save (⌘/Ctrl+S)">
             {saving ? 'Saving…' : 'Save changes'}
-          </button>
+          </Button>
         </div>
       </header>
       <EditorSectionNavBar />

@@ -10,6 +10,7 @@
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Button } from '../components/ui/Button.jsx';
 import { listAllPersons } from '../lib/treeQuery.js';
 import {
   exportSubtreeBackup,
@@ -178,9 +179,9 @@ export default function SubtreeWizard() {
             className="w-16 h-8 rounded-md border border-border bg-secondary px-2"
           />
         </label>
-        <button onClick={exportWorkingSet} disabled={busy || working.size === 0} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 font-semibold disabled:opacity-50">
+        <Button variant="primary" size="sm" onClick={exportWorkingSet} disabled={busy || working.size === 0}>
           Export subtree ({working.size})
-        </button>
+        </Button>
         <button onClick={removeWorkingSet} disabled={busy || working.size === 0} className="border border-destructive text-destructive rounded-md px-3 py-1.5 hover:bg-destructive/10 disabled:opacity-50">
           Remove subtree
         </button>

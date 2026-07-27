@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { buttonClasses } from '../components/ui/Button.jsx';
 import { getAppPreferences } from '../lib/appPreferences.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
 import { generateId } from '../lib/ids.js';
@@ -1040,5 +1041,5 @@ function Field({ label, children }) {
 }
 
 const inputClass = `${formClasses.input} min-w-[180px]`;
-const primaryButton = 'rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold disabled:opacity-60';
+const primaryButton = buttonClasses({ variant: 'primary', size: 'sm' });
 const secondaryButton = 'rounded-md border border-border bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-60';

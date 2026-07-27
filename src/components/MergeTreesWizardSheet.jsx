@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { planMerge, mergeBackupJSONWithResolutions, loadMergeFileToBackupJSON, CONFLICT_RESOLUTION } from '../lib/mergeImport.js';
 import { MergeConflictSheet } from './MergeConflictSheet.jsx';
 import { Sheet } from './ui/Sheet.jsx';
+import { Button } from './ui/Button.jsx';
 
 /**
  * MergeTreesWizardSheet — multi-step wizard for merging two family trees.
@@ -130,8 +131,8 @@ export function MergeTreesWizardSheet({ onClose, onComplete }) {
             {step === 'done' ? 'Close' : 'Cancel'}
           </button>
           <div className="flex items-center gap-2">
-            {step === 'mode' && <button onClick={goToPlan} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">Analyze</button>}
-            {step === 'plan' && <button onClick={proceedFromPlan} className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold">Apply merge</button>}
+            {step === 'mode' && <Button variant="primary" size="sm" onClick={goToPlan}>Analyze</Button>}
+            {step === 'plan' && <Button variant="primary" size="sm" onClick={proceedFromPlan}>Apply merge</Button>}
           </div>
         </>
       )}

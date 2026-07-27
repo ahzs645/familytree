@@ -8,6 +8,7 @@
 import React, { useMemo, useState } from 'react';
 import { Sheet } from './ui/Sheet.jsx';
 import { Select } from './ui/Select.jsx';
+import { Button } from './ui/Button.jsx';
 import { GEDCOM_ENCODINGS, decodeGedcomBytes } from '../lib/genealogyFileFormats.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
@@ -57,13 +58,9 @@ export function GedcomEncodingSheet({ fileName, bytes, charTag, onConfirm, onCan
           >
             {t('common.cancel')}
           </button>
-          <button
-            type="button"
-            onClick={() => onConfirm(encoding)}
-            className="bg-primary text-primary-foreground rounded-md px-3 py-1.5 text-xs font-semibold"
-          >
+          <Button variant="primary" size="sm" onClick={() => onConfirm(encoding)}>
             {t('import.encodingConfirm')}
-          </button>
+          </Button>
         </div>
       </div>
     </Sheet>
