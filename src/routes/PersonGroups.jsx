@@ -7,7 +7,8 @@ import { readRef, writeRef } from '../lib/schema.js';
 import { collectRelatives } from '../lib/relationshipPath.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
-import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { FieldRow } from '../components/editors/FieldRow.jsx';
+import { formClasses } from '../components/ui/formClasses.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { useDirtyBaseline } from '../lib/editorState.js';
@@ -210,9 +211,9 @@ export default function PersonGroups() {
         <button onClick={remove} disabled={saving || isRecordLocked(active)} className="text-destructive border border-border rounded-md px-3 py-2 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
         <button onClick={save} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? 'Saving...' : 'Save'}</button>
       </div>
-      <FieldRow label="Group name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} style={editorInput} /></FieldRow>
-      <FieldRow label="Color"><input value={values.color || ''} onChange={(e) => setValues({ ...values, color: e.target.value })} style={editorInput} /></FieldRow>
-      <FieldRow label="Description"><textarea rows={4} value={values.description || ''} onChange={(e) => setValues({ ...values, description: e.target.value })} style={editorTextarea} /></FieldRow>
+      <FieldRow label="Group name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} className={formClasses.input} /></FieldRow>
+      <FieldRow label="Color"><input value={values.color || ''} onChange={(e) => setValues({ ...values, color: e.target.value })} className={formClasses.input} /></FieldRow>
+      <FieldRow label="Description"><textarea rows={4} value={values.description || ''} onChange={(e) => setValues({ ...values, description: e.target.value })} className={formClasses.textarea} /></FieldRow>
 
       <section className="mt-6 border border-border rounded-md p-3 bg-card">
         <h3 className="text-sm font-semibold mb-3">Members · {members.length}</h3>

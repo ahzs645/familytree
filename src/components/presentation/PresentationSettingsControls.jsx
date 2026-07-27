@@ -1,6 +1,14 @@
 import React from 'react';
+import { cn } from '../../lib/utils.js';
 import { normalizePageStyle } from '../../lib/presentationSettings.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+
+/**
+ * Shared toolbar control chrome. Native <select> elements are kept (instead of
+ * ui/Select) because these live in width-sensitive flex-wrap toolbars and rely
+ * on the browser auto-sizing to translated option labels.
+ */
+const controlClass = 'cursor-pointer rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 py-2 text-sm outline-none';
 
 export function PresentationSettingsControls({ value, onChange, label }) {
   const { t } = useTranslation();
@@ -12,8 +20,8 @@ export function PresentationSettingsControls({ value, onChange, label }) {
   // four unnamed combo boxes.
   return (
     <Field label={label ?? t('presentation.page')}>
-      <div style={row}>
-        <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+      <div className="flex flex-wrap gap-1.5">
+        <label className={cn(controlClass, 'flex items-center gap-1.5')}>
           <input
             type="checkbox"
             checked={pageStyle.paginate}
@@ -23,7 +31,7 @@ export function PresentationSettingsControls({ value, onChange, label }) {
         <select
           value={pageStyle.pageSize}
           onChange={(event) => update({ pageSize: event.target.value })}
-          style={input}
+          className={controlClass}
           aria-label={t('presentation.pageSize')}
         >
           <option value="letter">{t('presentation.letter')}</option>
@@ -33,7 +41,7 @@ export function PresentationSettingsControls({ value, onChange, label }) {
         <select
           value={pageStyle.orientation}
           onChange={(event) => update({ orientation: event.target.value })}
-          style={input}
+          className={controlClass}
           aria-label={t('presentation.orientation')}
         >
           <option value="portrait">{t('presentation.portrait')}</option>
@@ -42,7 +50,7 @@ export function PresentationSettingsControls({ value, onChange, label }) {
         <select
           value={pageStyle.background}
           onChange={(event) => update({ background: event.target.value })}
-          style={input}
+          className={controlClass}
           aria-label={t('presentation.background')}
         >
           <option value="none">{t('presentation.white')}</option>
@@ -55,7 +63,7 @@ export function PresentationSettingsControls({ value, onChange, label }) {
           max={96}
           value={pageStyle.margin}
           onChange={(event) => update({ margin: event.target.value })}
-          style={{ ...input, width: 64 }}
+          className={cn(controlClass, 'w-16 cursor-auto')}
           title={t('presentation.margin')}
           aria-label={t('presentation.margin')}
         />
@@ -66,14 +74,11 @@ export function PresentationSettingsControls({ value, onChange, label }) {
 
 function Field({ label, children }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', marginInlineEnd: 12 }}>
-      <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
+    <div className="me-3 flex flex-col">
+      <span className="mb-1 text-xs text-muted-foreground">{label}</span>
       {children}
     </div>
   );
 }
-
-const row = { display: 'flex', flexWrap: 'wrap', gap: 6 };
-const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer' };
 
 export default PresentationSettingsControls;

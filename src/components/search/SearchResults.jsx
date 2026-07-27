@@ -6,29 +6,29 @@ import { SEARCH_FIELDS } from '../../lib/search.js';
 import { BdiText, LtrText } from '../BdiText.jsx';
 
 export function SearchResults({ entityType, result }) {
-  if (!result) return <div style={{ padding: 24, color: 'hsl(var(--muted-foreground))' }}>Run a search to see results.</div>;
-  if (result.records.length === 0) return <div style={{ padding: 24, color: 'hsl(var(--muted-foreground))' }}>No matches.</div>;
+  if (!result) return <div className="p-6 text-muted-foreground">Run a search to see results.</div>;
+  if (result.records.length === 0) return <div className="p-6 text-muted-foreground">No matches.</div>;
 
   const cols = (SEARCH_FIELDS[entityType] || []).slice(0, 5);
 
   return (
-    <div style={{ overflow: 'auto', height: '100%' }}>
-      <div style={{ padding: '8px 16px', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+    <div className="h-full overflow-auto">
+      <div className="px-4 py-2 text-xs text-muted-foreground">
         {result.total} match{result.total === 1 ? '' : 'es'}{result.hasMore ? ` (showing first ${result.records.length})` : ''}
       </div>
-      <table style={{ width: '100%', minWidth: 'max-content', borderCollapse: 'collapse', fontSize: 13 }}>
+      <table className="w-full min-w-max border-collapse text-sm">
         <thead>
-          <tr style={{ background: 'hsl(var(--card))', position: 'sticky', top: 0 }}>
+          <tr className="sticky top-0 bg-card">
             {cols.map((c) => (
-              <th key={c.id} style={th}>{c.label}</th>
+              <th key={c.id} className="border-b border-border px-3.5 py-2.5 text-start font-semibold text-muted-foreground">{c.label}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {result.records.map((r) => (
-            <tr key={r.recordName} style={{ borderBottom: '1px solid hsl(var(--border))' }}>
+            <tr key={r.recordName} className="border-b border-border">
               {cols.map((c) => (
-                <td key={c.id} style={td}>
+                <td key={c.id} className="px-3.5 py-2 text-foreground">
                   {formatVal(r.fields?.[c.id]?.value, c)}
                 </td>
               ))}
@@ -41,7 +41,7 @@ export function SearchResults({ entityType, result }) {
 }
 
 function formatVal(v, col) {
-  if (v == null || v === '') return <span style={{ color: 'hsl(var(--muted-foreground))' }}>—</span>;
+  if (v == null || v === '') return <span className="text-muted-foreground">—</span>;
   if (col.type === 'enum') {
     const opt = col.options.find((o) => o.value === v);
     return opt ? opt.label : String(v);
@@ -50,8 +50,5 @@ function formatVal(v, col) {
   if (/date|year/i.test(col.id || '')) return <LtrText>{String(v)}</LtrText>;
   return <BdiText>{String(v)}</BdiText>;
 }
-
-const th = { textAlign: 'left', padding: '10px 14px', color: 'hsl(var(--muted-foreground))', fontWeight: 600, borderBottom: '1px solid hsl(var(--border))' };
-const td = { padding: '8px 14px', color: 'hsl(var(--foreground))' };
 
 export default SearchResults;

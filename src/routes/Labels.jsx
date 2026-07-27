@@ -6,7 +6,8 @@ import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../lib/ch
 import { readLabel, readRef } from '../lib/schema.js';
 import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.jsx';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
-import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { FieldRow } from '../components/editors/FieldRow.jsx';
+import { formClasses } from '../components/ui/formClasses.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { useDirtyBaseline } from '../lib/editorState.js';
@@ -187,7 +188,7 @@ export default function Labels() {
       <section className="border border-border rounded-md bg-card p-3 mb-4">
         <h3 className="text-sm font-semibold mb-3">Label</h3>
         <div className="grid grid-cols-1 sm:grid-cols-[1fr_150px] gap-3">
-          <FieldRow label="Name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} style={editorInput} /></FieldRow>
+          <FieldRow label="Name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} className={formClasses.input} /></FieldRow>
           <FieldRow label="Color">
             <div className="flex items-center gap-2">
               <input
@@ -201,7 +202,7 @@ export default function Labels() {
           </FieldRow>
         </div>
         <FieldRow label="Description">
-          <textarea value={values.description || ''} rows={3} onChange={(e) => setValues({ ...values, description: e.target.value })} style={editorTextarea} />
+          <textarea value={values.description || ''} rows={3} onChange={(e) => setValues({ ...values, description: e.target.value })} className={formClasses.textarea} />
         </FieldRow>
       </section>
 

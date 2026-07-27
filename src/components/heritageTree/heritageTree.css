@@ -1,3 +1,15 @@
+/*
+ * Self-contained decorative theme for the Heritage Tree print/display view.
+ * Intentionally uses its own palette (--bg, --ink, --ink-light, --accent,
+ * --accent2, --gold, --line, --card-bg, --card-border, --shadow,
+ * --shadow-selected, --header-bg-1, --header-bg-2, --header-sub,
+ * --marriage-line, --blood-line, --legend-bg, --badge-bg, --badge-border,
+ * --btn-bg, --btn-hover, --label-bg, --label-border, --band-line,
+ * --tooltip-bg, --tooltip-text) instead of the app design tokens; it must
+ * render identically regardless of app theme. Also embeds the Crimson Text
+ * font.
+ */
+
 /* vietnamese */
 @font-face {
   font-family: 'Crimson Text';

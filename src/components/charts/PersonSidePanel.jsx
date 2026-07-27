@@ -13,6 +13,8 @@ import { lifeSpanLabel, Gender } from '../../models/index.js';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { useChartSelection } from './ChartSelectionContext.jsx';
 import { BdiText, LtrText } from '../BdiText.jsx';
+import { Button } from '../ui/Button.jsx';
+import { cn } from '../../lib/utils.js';
 
 const GENDER_LABEL = {
   [Gender?.Male ?? 0]: 'Male',
@@ -55,36 +57,30 @@ export function PersonSidePanel({
   return (
     <aside
       aria-hidden={!open}
-      style={{
-        width: open ? effectiveWidth : 0,
-        transition: 'width 220ms ease',
-        overflow: 'hidden',
-        borderInlineStart: open ? '1px solid hsl(var(--border))' : 'none',
-        background: 'hsl(var(--card))',
-        color: 'hsl(var(--foreground))',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        ...(isMobile && open
-          ? { position: 'absolute', insetInlineEnd: 0, top: 0, height: '100%', zIndex: 25, boxShadow: '-8px 0 24px rgb(0 0 0 / 0.2)' }
-          : null),
-      }}
+      className={cn(
+        'flex shrink-0 flex-col overflow-hidden bg-card text-card-foreground',
+        open && 'border-s border-border',
+        isMobile && open && 'absolute end-0 top-0 z-[25] h-full shadow-xl',
+      )}
+      // Width animates open/closed and depends on the `width` prop, so it
+      // stays inline.
+      style={{ width: open ? effectiveWidth : 0, transition: 'width 220ms ease' }}
     >
-      <div style={{ width: effectiveWidth, display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <header style={headerStyle}>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', letterSpacing: 0.4 }}>PERSON</div>
-            <div style={{ fontSize: 15, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+      <div className="flex h-full flex-col" style={{ width: effectiveWidth }}>
+        <header className="flex items-center gap-2 border-b border-border px-4 py-3.5">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs tracking-wide text-muted-foreground">PERSON</div>
+            <div className="truncate text-[15px] font-semibold">
               <BdiText>{self?.fullName || (loading ? 'Loading…' : 'No person')}</BdiText>
             </div>
-            {span && <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}><LtrText>{span}</LtrText></div>}
+            {span && <div className="text-xs text-muted-foreground"><LtrText>{span}</LtrText></div>}
           </div>
-          <button onClick={onClose} style={closeBtnStyle} aria-label="Close panel">✕</button>
+          <Button variant="outline" size="icon" onClick={onClose} className="h-7 w-7 text-muted-foreground" aria-label="Close panel">✕</Button>
         </header>
 
-        <div style={bodyStyle}>
+        <div className="flex-1 overflow-y-auto px-4 py-3.5">
           {!self && !loading && (
-            <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>Person not found.</div>
+            <div className="text-sm text-muted-foreground">Person not found.</div>
           )}
 
           {self && (
@@ -98,7 +94,7 @@ export function PersonSidePanel({
               {context.parents.length > 0 && (
                 <Section label="Parents">
                   {context.parents.map((fam) => (
-                    <div key={fam.family.recordName} style={{ marginBottom: 4 }}>
+                    <div key={fam.family.recordName} className="mb-1">
                       {fam.man && <PersonLine person={fam.man} onOpen={openById} />}
                       {fam.woman && <PersonLine person={fam.woman} onOpen={openById} />}
                     </div>
@@ -109,10 +105,10 @@ export function PersonSidePanel({
               {context.families.length > 0 && (
                 <Section label={context.families.length > 1 ? 'Spouses & children' : 'Spouse & children'}>
                   {context.families.map((fam) => (
-                    <div key={fam.family.recordName} style={{ marginBottom: 10 }}>
+                    <div key={fam.family.recordName} className="mb-2.5">
                       {fam.partner && <PersonLine person={fam.partner} onOpen={openById} bold />}
                       {fam.children.length > 0 && (
-                        <div style={{ marginInlineStart: 14, marginTop: 2 }}>
+                        <div className="ms-3.5 mt-0.5">
                           {fam.children.map((child) => (
                             <PersonLine key={child.recordName} person={child} onOpen={openById} muted />
                           ))}
@@ -151,11 +147,11 @@ export function PersonSidePanel({
         </div>
 
         {self && (
-          <footer style={footerStyle}>
-            <button onClick={() => onReroot && onReroot(self.recordName)} style={primaryBtn}>
+          <footer className="flex flex-col gap-2 border-t border-border px-4 py-3">
+            <Button variant="primary" size="md" onClick={() => onReroot && onReroot(self.recordName)}>
               Re-root chart here
-            </button>
-            <Link to={`/person/${encodeURIComponent(self.recordName)}`} style={linkBtn}>
+            </Button>
+            <Link to={`/person/${encodeURIComponent(self.recordName)}`} className="px-3 py-1.5 text-center text-sm text-primary no-underline">
               Open full editor →
             </Link>
           </footer>
@@ -167,14 +163,8 @@ export function PersonSidePanel({
 
 function Section({ label, children }) {
   return (
-    <div style={{ marginBottom: 14 }}>
-      <div style={{
-        fontSize: 11,
-        letterSpacing: 0.4,
-        color: 'hsl(var(--muted-foreground))',
-        marginBottom: 6,
-        textTransform: 'uppercase',
-      }}>{label}</div>
+    <div className="mb-3.5">
+      <div className="mb-1.5 text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
       {children}
     </div>
   );
@@ -182,9 +172,9 @@ function Section({ label, children }) {
 
 function Row({ label, value }) {
   return (
-    <div style={{ display: 'flex', gap: 8, fontSize: 13, paddingBlock: 2, minWidth: 0 }}>
-      <div style={{ color: 'hsl(var(--muted-foreground))', width: 80, flexShrink: 0 }}>{label}</div>
-      <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+    <div className="flex min-w-0 gap-2 py-0.5 text-sm">
+      <div className="w-20 shrink-0 text-muted-foreground">{label}</div>
+      <div className="min-w-0 flex-1 truncate">
         <BdiText>{value}</BdiText>
       </div>
     </div>
@@ -199,30 +189,16 @@ function PersonLine({ person, bold, muted, onOpen }) {
     <Tag
       type={clickable ? 'button' : undefined}
       onClick={clickable ? () => onOpen(person.recordName) : undefined}
-      style={{
-        display: 'block',
-        width: '100%',
-        textAlign: 'start',
-        background: 'transparent',
-        border: 'none',
-        padding: 0,
-        margin: 0,
-        font: 'inherit',
-        cursor: clickable ? 'pointer' : 'default',
-        fontSize: 13,
-        fontWeight: bold ? 600 : 400,
-        color: muted ? 'hsl(var(--muted-foreground))' : 'hsl(var(--foreground))',
-        paddingBlock: 2,
-        whiteSpace: 'nowrap',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-      }}
-      onMouseEnter={clickable ? (e) => { e.currentTarget.style.textDecoration = 'underline'; } : undefined}
-      onMouseLeave={clickable ? (e) => { e.currentTarget.style.textDecoration = 'none'; } : undefined}
+      className={cn(
+        'block w-full truncate bg-transparent p-0 py-0.5 text-start text-sm',
+        bold ? 'font-semibold' : 'font-normal',
+        muted ? 'text-muted-foreground' : 'text-foreground',
+        clickable ? 'cursor-pointer hover:underline' : 'cursor-default',
+      )}
     >
       <BdiText>{person.fullName}</BdiText>
       {span && (
-        <span style={{ color: 'hsl(var(--muted-foreground))', marginInlineStart: 6 }}>
+        <span className="ms-1.5 text-muted-foreground">
           <LtrText>{span}</LtrText>
         </span>
       )}
@@ -244,52 +220,5 @@ function readField(record, name) {
   if (v.value != null) return String(v.value);
   return '';
 }
-
-const headerStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  padding: '14px 16px',
-  borderBottom: '1px solid hsl(var(--border))',
-};
-const bodyStyle = {
-  flex: 1,
-  overflowY: 'auto',
-  padding: '14px 16px',
-};
-const footerStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 8,
-  padding: '12px 16px',
-  borderTop: '1px solid hsl(var(--border))',
-};
-const closeBtnStyle = {
-  background: 'transparent',
-  color: 'hsl(var(--muted-foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 6,
-  width: 28,
-  height: 28,
-  cursor: 'pointer',
-  font: '13px -apple-system, system-ui, sans-serif',
-};
-const primaryBtn = {
-  background: 'hsl(var(--primary))',
-  color: 'hsl(var(--primary-foreground))',
-  border: 'none',
-  borderRadius: 6,
-  padding: '8px 12px',
-  font: '13px -apple-system, system-ui, sans-serif',
-  cursor: 'pointer',
-  fontWeight: 500,
-};
-const linkBtn = {
-  textAlign: 'center',
-  color: 'hsl(var(--primary))',
-  font: '13px -apple-system, system-ui, sans-serif',
-  textDecoration: 'none',
-  padding: '6px 12px',
-};
 
 export default PersonSidePanel;

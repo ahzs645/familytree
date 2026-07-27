@@ -14,7 +14,8 @@ import { buildPersonLineage, attachLineageToPersonSummaries } from '../lib/perso
 import { personDisplayName } from '../lib/personDisplayName.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
-import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { FieldRow } from '../components/editors/FieldRow.jsx';
+import { formClasses } from '../components/ui/formClasses.js';
 import { formatEventDate } from '../utils/formatDate.js';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
@@ -25,6 +26,7 @@ import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
+import { Button } from '../components/ui/Button.jsx';
 
 function uuid(prefix) {
   return generateId(prefix);
@@ -256,10 +258,10 @@ export default function Events({
     }
     return (
       <div>
-        <div style={{ color: 'hsl(var(--foreground))', fontSize: 13 }}>
-          {t}{d && <span style={{ color: 'hsl(var(--muted-foreground))' }}> · <LtrText>{d}</LtrText></span>}
+        <div className="text-sm text-foreground">
+          {t}{d && <span className="text-muted-foreground"> · <LtrText>{d}</LtrText></span>}
         </div>
-        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
+        <div className="text-xs text-muted-foreground">
           {e.recordType === 'PersonEvent' ? 'Person' : 'Family'} {subjectLabel && <>· {subjectLabel}</>}
         </div>
       </div>
@@ -284,37 +286,36 @@ export default function Events({
   const availableTypes = active?.recordType === 'FamilyEvent' ? types.Family : types.Person;
 
   const detail = active ? (
-    <div style={detailStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 18 }}>
-        <h2 style={{ fontSize: 16, color: 'hsl(var(--foreground))', margin: 0, fontWeight: 600 }}>
+    <div className="p-7 max-w-[860px]">
+      <div className="flex items-center mb-4">
+        <h2 className="text-base font-semibold text-foreground m-0">
           {active.recordType === 'PersonEvent' ? 'Person event' : 'Family event'}
         </h2>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="ms-auto flex items-center gap-2">
           <SaveStatus status={status} dirty={dirty} />
-          <button
+          <Button
             onClick={() => navigate(`/views/media-gallery?targetId=${encodeURIComponent(active.recordName)}&targetType=${active.recordType}`)}
-            style={smallBtn}
           >
             Related media
-          </button>
+          </Button>
           <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-          <button onClick={onDelete} disabled={isRecordLocked(active)} style={deleteBtn}>Delete</button>
-          <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
+          <Button variant="destructiveOutline" size="md" onClick={onDelete} disabled={isRecordLocked(active)}>Delete</Button>
+          <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">{saving ? 'Saving…' : 'Save'}</Button>
         </div>
       </div>
       {queryMessage && (
-        <div style={warningBox}>
+        <div className={`${warningBoxClass} mb-3.5`}>
           {queryMessage}
         </div>
       )}
 
-      <div style={grid}>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 mb-3">
         <FieldRow label="Type" hint="Matches your ConclusionType library. Free-text is accepted.">
           <input
             list="event-types"
             value={values.conclusionTypeLabel || values.conclusionType || ''}
             onChange={(e) => setValues({ ...values, conclusionType: e.target.value, conclusionTypeLabel: '' })}
-            style={editorInput}
+            className={formClasses.input}
           />
           <datalist id="event-types">
             {availableTypes.map((t) => <option key={t.id} value={t.label} />)}
@@ -332,7 +333,7 @@ export default function Events({
             <select
               value={values.personRef ?? ''}
               onChange={(e) => setValues({ ...values, personRef: e.target.value })}
-              style={editorInput}
+              className={formClasses.input}
               dir="auto"
             >
               <option value="">—</option>
@@ -346,7 +347,7 @@ export default function Events({
             <select
               value={values.familyRef ?? ''}
               onChange={(e) => setValues({ ...values, familyRef: e.target.value })}
-              style={editorInput}
+              className={formClasses.input}
               dir="auto"
             >
               <option value="">—</option>
@@ -362,7 +363,7 @@ export default function Events({
           <select
             value={values.placeRef ?? ''}
             onChange={(e) => setValues({ ...values, placeRef: e.target.value })}
-            style={editorInput}
+            className={formClasses.input}
           >
             <option value="">—</option>
             {places.map((p) => {
@@ -375,7 +376,7 @@ export default function Events({
           <input
             value={values.placeDetail ?? ''}
             onChange={(e) => setValues({ ...values, placeDetail: e.target.value })}
-            style={editorInput}
+            className={formClasses.input}
             placeholder="e.g. St Mary's Church, Plot 14"
           />
         </FieldRow>
@@ -384,20 +385,20 @@ export default function Events({
         <textarea
           value={values.description ?? ''}
           onChange={(e) => setValues({ ...values, description: e.target.value })}
-          style={editorTextarea}
+          className={formClasses.textarea}
           rows={4}
         />
       </FieldRow>
       <FieldRow label="Privacy">
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'hsl(var(--foreground))' }}>
+        <label className="flex items-center gap-2 text-sm text-foreground">
           <input type="checkbox" checked={!!values.isPrivate} onChange={(e) => setValues({ ...values, isPrivate: e.target.checked })} />
           Mark this event as private (hidden from charts and reports)
         </label>
       </FieldRow>
 
-      <div style={{ marginTop: 24, display: 'grid', gap: 22 }}>
+      <div className="mt-6 grid gap-5">
         <section>
-          <h3 style={sectionHeading}>Source Citations</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-2.5">Source Citations</h3>
           <SourceCitationsEditor
             key={`sources-${active.recordName}`}
             ownerRecordName={active.recordName}
@@ -407,7 +408,7 @@ export default function Events({
           />
         </section>
         <section>
-          <h3 style={sectionHeading}>Notes</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-2.5">Notes</h3>
           <NotesEditor
             key={`notes-${active.recordName}`}
             ownerRecordName={active.recordName}
@@ -418,39 +419,39 @@ export default function Events({
       </div>
     </div>
   ) : (
-    <div style={{ color: 'hsl(var(--muted-foreground))', padding: 40 }}>No event selected. Create one from the toolbar.</div>
+    <div className="text-muted-foreground p-10">No event selected. Create one from the toolbar.</div>
   );
 
   const toolbar = (
-    <div style={toolbarStyle}>
-      <h1 style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))', marginInlineEnd: 4 }}>Events</h1>
+    <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-border bg-card">
+      <h1 className="text-sm font-bold text-foreground me-1">Events</h1>
       {showKindFilter ? (
-        <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} style={smallSelect}>
+        <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} className="rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 py-1.5 text-xs cursor-pointer">
           <option value="all">All events</option>
           <option value="PersonEvent">Person events</option>
           <option value="FamilyEvent">Family events</option>
         </select>
       ) : (
-        <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+        <span className="text-muted-foreground text-xs">
           {kindFilter === 'FamilyEvent' ? 'Family events' : kindFilter === 'PersonEvent' ? 'Person events' : 'All events'}
         </span>
       )}
-      <div style={{ marginInlineStart: 'auto', display: 'flex', gap: 6 }}>
-        {showPersonEventCreate ? <button onClick={() => onCreate('PersonEvent')} style={smallBtn}>+ Person event</button> : null}
-        {showFamilyEventCreate ? <button onClick={() => onCreate('FamilyEvent')} style={smallBtn}>+ Family event</button> : null}
+      <div className="ms-auto flex gap-1.5">
+        {showPersonEventCreate ? <Button onClick={() => onCreate('PersonEvent')}>+ Person event</Button> : null}
+        {showFamilyEventCreate ? <Button onClick={() => onCreate('FamilyEvent')}>+ Family event</Button> : null}
       </div>
     </div>
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div className="flex flex-col h-full">
       {toolbar}
       {queryMessage && !active && (
-        <div style={{ ...warningBox, margin: 12 }}>
+        <div className={`${warningBoxClass} m-3`}>
           {queryMessage}
         </div>
       )}
-      <div style={{ flex: 1, minHeight: 0 }}>
+      <div className="flex-1 min-h-0">
         <MasterDetailList
           items={filtered}
           activeId={activeId}
@@ -464,12 +465,4 @@ export default function Events({
   );
 }
 
-const detailStyle = { padding: 28, maxWidth: 860 };
-const sectionHeading = { fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))', margin: '0 0 10px' };
-const grid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 12 };
-const saveBtn = { background: 'hsl(var(--primary))', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 16px', fontSize: 13, cursor: 'pointer', fontWeight: 600 };
-const deleteBtn = { background: 'transparent', color: 'hsl(var(--destructive))', border: '1px solid #3a2d30', borderRadius: 6, padding: '8px 12px', fontSize: 12, cursor: 'pointer' };
-const toolbarStyle = { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: '10px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
-const smallSelect = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 10px', fontSize: 12 };
-const smallBtn = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };
-const warningBox = { border: '1px solid hsl(var(--destructive) / 0.4)', background: 'hsl(var(--destructive) / 0.1)', color: 'hsl(var(--destructive))', borderRadius: 6, padding: '8px 10px', fontSize: 12, marginBottom: 14 };
+const warningBoxClass = 'border border-destructive/40 bg-destructive/10 text-destructive rounded-md px-2.5 py-2 text-xs';

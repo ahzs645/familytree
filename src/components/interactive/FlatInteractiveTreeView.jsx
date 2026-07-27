@@ -1,11 +1,13 @@
 /**
-import { useTranslation } from '../../contexts/LocalizationContext.jsx';
  * Flat (2D SVG) Interactive Tree viewer — mirrors the MacFamilyTree
  * InteractiveTreeViewFlatViewer: horizontal full-width pink/purple generation bands
  * with person cards and orthogonal connectors.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { lifeSpanLabel } from '../../models/index.js';
+import { Button } from '../ui/Button.jsx';
+import { cn } from '../../lib/utils.js';
 import { buildInteractiveLayout } from './threeDTree/layout.js';
 import { readInitialViewerOptions } from './threeDTree/viewerOptions.js';
 import { FLAT_BACKGROUND_STYLES, VIEWER_OPTIONS_STORAGE_KEY } from './threeDTree/constants.js';
@@ -155,18 +157,23 @@ export function FlatInteractiveTreeView({
   const showCustomColor = backgroundStyle.startsWith('custom');
 
   return (
-    <div style={{ ...styles.shell, background: flatBackgroundCss(backgroundStyle, viewerOptions.flatBackgroundCustomColor) }}>
-      <div style={styles.topBar}>
-        <button type="button" style={styles.barButton} onClick={onReturnToFamilyTree}>
+    <div
+      className="relative h-full min-h-0 w-full overflow-hidden bg-background"
+      style={{ background: flatBackgroundCss(backgroundStyle, viewerOptions.flatBackgroundCustomColor) }}
+    >
+      {/* Reserve room for the zoom cluster (+/−/Fit ≈ 110px wide at inset 12px)
+          so the two bars never overlap on narrow screens. */}
+      <div className="absolute start-3 top-3 z-[22] flex max-w-[calc(100%-148px)] items-center gap-2 overflow-x-auto rounded-md border border-border bg-card/[0.88] p-1.5 shadow-[0_10px_24px_rgb(0_0_0/0.12)] backdrop-blur-md">
+        <Button className="font-bold" onClick={onReturnToFamilyTree}>
           {t('interactiveTree.returnToFamilyTree')}
-        </button>
-        <span style={styles.viewerLabel}>{t('interactiveTree.flatViewerLabel')}</span>
-        <label style={styles.viewerLabel}>
+        </Button>
+        <span className={viewerLabelClass}>{t('interactiveTree.flatViewerLabel')}</span>
+        <label className={viewerLabelClass}>
           {t('interactiveTree.background')}{' '}
           <select
             value={backgroundStyle}
             onChange={(event) => setViewerOptions((current) => ({ ...current, flatBackgroundStyle: event.target.value }))}
-            style={styles.backgroundSelect}
+            className="h-6 rounded-md border border-border bg-background text-xs font-semibold text-foreground"
             aria-label={t('interactiveTree.backgroundStyleAria')}
           >
             {FLAT_BACKGROUND_STYLES.map((option) => (
@@ -180,20 +187,25 @@ export function FlatInteractiveTreeView({
             value={viewerOptions.flatBackgroundCustomColor || '#dce7f5'}
             onChange={(event) => setViewerOptions((current) => ({ ...current, flatBackgroundCustomColor: event.target.value }))}
             aria-label={t('interactiveTree.customBackgroundColorAria')}
-            style={{ width: 28, height: 24, padding: 0, border: '1px solid hsl(var(--border))', borderRadius: 4, background: 'transparent' }}
+            className="h-6 w-7 rounded border border-border bg-transparent p-0"
           />
         )}
       </div>
       <div
         ref={containerRef}
-        style={backgroundStyle === 'none' ? styles.canvas : { ...styles.canvas, background: 'transparent', backgroundImage: 'none' }}
+        className="absolute inset-0 touch-none overflow-hidden"
+        style={backgroundStyle === 'none' ? canvasDotsBackground : undefined}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        <svg width={viewport.width} height={viewport.height} style={{ display: 'block', cursor: dragRef.current ? 'grabbing' : 'grab' }}>
+        <svg
+          width={viewport.width}
+          height={viewport.height}
+          className={cn('block', dragRef.current ? 'cursor-grabbing' : 'cursor-grab')}
+        >
           <g transform={`translate(${transform.x}, ${transform.y}) scale(${transform.scale})`}>
             {showBands && bands.map((band) => (
               <BandRow
@@ -218,7 +230,7 @@ export function FlatInteractiveTreeView({
           </g>
         </svg>
         {(loading || !hasTree) && (
-          <div style={styles.overlay}>
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-bold text-muted-foreground">
             {loading ? 'Loading tree...' : 'Pick a person from the list.'}
           </div>
         )}
@@ -275,7 +287,7 @@ function PersonCard({ node, viewerOptions, active, onClick, onDoubleClick }) {
   const showAvatar = (viewerOptions?.personImageStyle || 'round') !== 'none';
   const textInsetX = showAvatar ? 44 : 14;
   return (
-    <g transform={`translate(${x}, ${y})`} style={{ cursor: 'pointer' }} onClick={onClick} onDoubleClick={onDoubleClick}>
+    <g transform={`translate(${x}, ${y})`} className="cursor-pointer" onClick={onClick} onDoubleClick={onDoubleClick}>
       <rect
         width={CARD_W}
         height={CARD_H}
@@ -509,78 +521,15 @@ function truncate(value, max) {
   return `${text.slice(0, max - 1)}…`;
 }
 
-const styles = {
-  shell: {
-    position: 'relative',
-    width: '100%',
-    height: '100%',
-    minHeight: 0,
-    overflow: 'hidden',
-    background: 'hsl(var(--background))',
-  },
-  topBar: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    zIndex: 22,
-    display: 'flex',
-    alignItems: 'center',
-    gap: 7,
-    padding: 6,
-    borderRadius: 8,
-    background: 'hsl(var(--card) / 0.88)',
-    border: '1px solid hsl(var(--border))',
-    boxShadow: '0 10px 24px rgb(0 0 0 / 0.12)',
-    backdropFilter: 'blur(14px)',
-    // Reserve room for the zoom cluster (+/−/Fit ≈ 110px wide at inset 12px)
-    // so the two bars never overlap on narrow screens.
-    maxWidth: 'calc(100% - 148px)',
-    overflowX: 'auto',
-  },
-  barButton: {
-    height: 31,
-    borderRadius: 6,
-    border: '1px solid hsl(var(--border))',
-    background: 'hsl(var(--secondary))',
-    color: 'hsl(var(--foreground))',
-    font: '750 12px -apple-system, system-ui, sans-serif',
-    padding: '0 10px',
-    cursor: 'pointer',
-  },
-  viewerLabel: {
-    paddingInlineStart: 10,
-    paddingInlineEnd: 6,
-    color: 'hsl(var(--muted-foreground))',
-    font: '650 12px -apple-system, system-ui, sans-serif',
-  },
-  backgroundSelect: {
-    height: 24,
-    borderRadius: 6,
-    border: '1px solid hsl(var(--border))',
-    background: 'hsl(var(--background))',
-    color: 'hsl(var(--foreground))',
-    font: '600 11px -apple-system, system-ui, sans-serif',
-  },
-  canvas: {
-    position: 'absolute',
-    inset: 0,
-    overflow: 'hidden',
-    touchAction: 'none',
-    background: '#f4f3ee',
-    backgroundImage: 'radial-gradient(rgba(0,0,0,0.045) 1px, transparent 1px)',
-    backgroundSize: '12px 12px',
-    backgroundPosition: '0 0',
-  },
-  overlay: {
-    position: 'absolute',
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'none',
-    color: 'hsl(var(--muted-foreground))',
-    font: '700 13px -apple-system, system-ui, sans-serif',
-  },
+const viewerLabelClass = 'ps-2.5 pe-1.5 text-xs font-semibold text-muted-foreground';
+
+// Paper-dot texture shown when no BackgroundStyle preset is active (the preset
+// backgrounds render on the shell instead, so the canvas stays transparent).
+const canvasDotsBackground = {
+  background: '#f4f3ee',
+  backgroundImage: 'radial-gradient(rgba(0,0,0,0.045) 1px, transparent 1px)',
+  backgroundSize: '12px 12px',
+  backgroundPosition: '0 0',
 };
 
 export default FlatInteractiveTreeView;

@@ -181,11 +181,10 @@ export function Section({
         {collapsible && (
           <ChevronRight
             size={16}
-            className="text-muted-foreground flex-shrink-0"
-            style={{
-              transform: collapsed ? 'none' : 'rotate(90deg)',
-              transition: 'transform 150ms ease',
-            }}
+            className={cn(
+              'text-muted-foreground flex-shrink-0 transition-transform duration-150',
+              !collapsed && 'rotate-90'
+            )}
             aria-hidden="true"
           />
         )}

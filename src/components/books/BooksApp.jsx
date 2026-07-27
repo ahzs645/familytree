@@ -34,6 +34,16 @@ import { PresentationSettingsControls } from '../presentation/PresentationSettin
 import { ReportPreview } from '../reports/ReportPreview.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
+import { Button } from '../ui/Button.jsx';
+import { cn } from '../../lib/utils.js';
+
+/**
+ * Toolbar select/input chrome. Native <select> elements are kept (instead of
+ * ui/Select) because these are action selects (Load…, Delete…, template picker,
+ * "Add Book Elements…" with optgroups) that reset to an empty value on use —
+ * semantics the custom Select doesn't model.
+ */
+const controlClass = 'cursor-pointer rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 py-2 text-sm outline-none';
 
 function blankBook() {
   return {
@@ -293,57 +303,55 @@ export function BooksApp() {
     }
   }, [book, includeWebsite, validation]);
 
-  if (loading) return <div style={loadingStyle}>Loading…</div>;
+  if (loading) return <div className={loadingClass}>Loading…</div>;
   if (empty) {
     return (
-      <div style={loadingStyle}>
-        No family data. <Link to="/" style={{ color: 'hsl(var(--primary))', marginInlineStart: 6 }}>Import a .mftpkg</Link> first.
+      <div className={loadingClass}>
+        No family data. <Link to="/" className="ms-1.5 text-primary">Import a .mftpkg</Link> first.
       </div>
     );
   }
 
   return (
-    <div style={shell}>
-      <header style={header}>
+    <div className="flex h-full flex-col bg-background">
+      <header className="flex flex-wrap items-center gap-1.5 border-b border-border bg-card px-4 py-3">
         <input
           value={book.title}
           onChange={(e) => setBook({ ...book, title: e.target.value })}
-          style={{ ...input, minWidth: 220, fontSize: 14, fontWeight: 600, flex: '1 1 160px' }}
+          className={cn(controlClass, 'min-w-[220px] flex-[1_1_160px] cursor-text font-semibold')}
         />
-        <button
-          type="button"
+        <Button
+          size="md"
           onClick={() => setOptionsOpen((open) => !open)}
-          style={input}
           className="sm:hidden"
           aria-expanded={optionsOpen}
         >
           {optionsOpen ? 'Close' : 'Book Settings'}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          size="md"
           onClick={() => previewRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-          style={input}
           className="sm:hidden"
         >
           Preview
-        </button>
+        </Button>
         <div className={`${optionsOpen ? 'contents' : 'hidden'} sm:contents`}>
-        <button onClick={onSave} style={input}><Save size={14} /> Save</button>
+        <Button size="md" onClick={onSave}><Save size={14} /> Save</Button>
         <select
           value=""
           onChange={(e) => { if (e.target.value) setBook(bookFromTemplate(e.target.value)); }}
-          style={{ ...input, minWidth: 150 }}
+          className={cn(controlClass, 'min-w-[150px]')}
           title="Start a new book from a template"
         >
           <option value="">New from template…</option>
           {BOOK_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
         </select>
-        <select value="" onChange={(e) => e.target.value && onLoad(e.target.value)} style={{ ...input, minWidth: 140 }}>
+        <select value="" onChange={(e) => e.target.value && onLoad(e.target.value)} className={cn(controlClass, 'min-w-[140px]')}>
           <option value="">Load saved…</option>
           {savedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
         </select>
         {savedBooks.length > 0 && (
-          <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} style={{ ...input, width: 70 }}>
+          <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} className={cn(controlClass, 'w-[70px]')}>
             <option value="">Delete…</option>
             {savedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
           </select>
@@ -352,16 +360,16 @@ export function BooksApp() {
           value={normalizeBookPresentationSettings(book.presentationSettings).pageStyle}
           onChange={updateBookPageStyle}
         />
-        <span style={{ marginInlineStart: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+        <span className="ms-auto text-xs text-muted-foreground">
           Export:
         </span>
         {EXPORT_FORMATS.map((f) => (
-          <button key={f.id} onClick={() => onExport(f.id)} style={input}><FileText size={14} /> {f.label}</button>
+          <Button size="md" key={f.id} onClick={() => onExport(f.id)}><FileText size={14} /> {f.label}</Button>
         ))}
-        <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, marginInlineStart: 8 }}>
+        <span className="ms-2 text-xs text-muted-foreground">
           Publish:
         </span>
-        <label style={toggleLabel}>
+        <label className="inline-flex items-center gap-1.5 px-1 text-xs text-muted-foreground">
           <input
             type="checkbox"
             checked={includeWebsite}
@@ -369,27 +377,19 @@ export function BooksApp() {
           />
           Include website
         </label>
-        <button onClick={onWebHTML} disabled={busy} style={input}><FileDown size={14} /> Web HTML</button>
-        <button onClick={onPDF} disabled={busy} style={input}><Printer size={14} /> Save as PDF…</button>
-        <button onClick={onBundle} disabled={busy} style={input}><BookOpen size={14} /> {includeWebsite ? 'Website/book bundle' : 'Book bundle'}</button>
-        {busy && controllerRef.current && <button onClick={() => controllerRef.current?.abort()} style={input}>Cancel</button>}
+        <Button size="md" onClick={onWebHTML} disabled={busy}><FileDown size={14} /> Web HTML</Button>
+        <Button size="md" onClick={onPDF} disabled={busy}><Printer size={14} /> Save as PDF…</Button>
+        <Button size="md" onClick={onBundle} disabled={busy}><BookOpen size={14} /> {includeWebsite ? 'Website/book bundle' : 'Book bundle'}</Button>
+        {busy && controllerRef.current && <Button size="md" onClick={() => controllerRef.current?.abort()}>Cancel</Button>}
         </div>
       </header>
 
       {(validation.errors.length > 0 || validation.warnings.length > 0) && (
-        <button type="button" onClick={() => { setPendingExport(null); setIssueSheet(validation); }} style={{
-          padding: '8px 16px',
-          borderBottom: '1px solid hsl(var(--border))',
-          borderInline: 0,
-          borderTop: 0,
-          width: '100%',
-          textAlign: 'start',
-          background: validation.errors.length > 0 ? 'hsl(var(--destructive) / 0.08)' : 'hsl(var(--secondary))',
-          fontSize: 12,
-          color: validation.errors.length > 0 ? 'hsl(var(--destructive))' : 'hsl(var(--muted-foreground))',
-          cursor: 'pointer',
-        }}>
-          <AlertTriangle size={14} style={{ display: 'inline', marginInlineEnd: 6, verticalAlign: -2 }} />
+        <button type="button" onClick={() => { setPendingExport(null); setIssueSheet(validation); }} className={cn(
+          'w-full cursor-pointer border-b border-border px-4 py-2 text-start text-xs',
+          validation.errors.length > 0 ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-muted-foreground',
+        )}>
+          <AlertTriangle size={14} className="me-1.5 inline align-[-2px]" />
           <strong>
             {validation.errors.length > 0
               ? `Please verify ${validation.errors.length} section${validation.errors.length === 1 ? '' : 's'}`
@@ -401,16 +401,16 @@ export function BooksApp() {
         </button>
       )}
 
-      <div style={body} className="flex-col overflow-auto sm:flex-row sm:overflow-hidden">
-        <aside style={leftPane} className="w-full sm:w-[360px]">
-          <div style={paneHead}>
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto sm:flex-row sm:overflow-hidden">
+        <aside className="flex w-full flex-col border-e border-border bg-card sm:w-[360px]">
+          <div className="flex items-center justify-between gap-3 px-3.5 pb-2.5 pt-3.5">
             <div>
-              <div style={paneEyebrow}>YOUR BOOKS</div>
-              <div style={paneTitle}>Chapters and Sections</div>
+              <div className="text-[10px] font-bold tracking-wider text-muted-foreground">YOUR BOOKS</div>
+              <div className="mt-0.5 text-[15px] font-bold text-foreground">Chapters and Sections</div>
             </div>
-            <span style={sectionCount}>{formatInteger(book.sections.length)}</span>
+            <span className="inline-flex h-6 min-w-[28px] items-center justify-center rounded-full bg-secondary text-xs font-bold text-muted-foreground">{formatInteger(book.sections.length)}</span>
           </div>
-          <div style={{ flex: 1, padding: '0 14px' }} className="overflow-visible sm:overflow-auto">
+          <div className="flex-1 overflow-visible px-3.5 sm:overflow-auto">
             {book.sections.map((s, i) => (
               <div key={i} ref={(node) => { sectionRefs.current[i] = node; }}>
                 <SectionEditor
@@ -431,11 +431,11 @@ export function BooksApp() {
               </div>
             ))}
           </div>
-          <div style={{ padding: 14, borderTop: '1px solid hsl(var(--border))' }}>
+          <div className="border-t border-border p-3.5">
             <select
               value=""
               onChange={(e) => { if (e.target.value) { addSection(e.target.value); e.target.value = ''; } }}
-              style={{ ...input, width: '100%' }}
+              className={cn(controlClass, 'w-full')}
             >
               <option value="">Add Book Elements…</option>
               {SECTION_GROUPS.map((group) => (
@@ -449,9 +449,9 @@ export function BooksApp() {
             </select>
           </div>
         </aside>
-        <div ref={previewRef} style={main} className="min-h-[60vh] overflow-visible border-t border-border sm:min-h-0 sm:overflow-auto sm:border-t-0">
+        <div ref={previewRef} className="min-h-[60vh] flex-1 overflow-visible border-t border-border sm:min-h-0 sm:overflow-auto sm:border-t-0">
           {(status || progress) && (
-            <div style={statusBar}>
+            <div className="flex justify-between gap-3 border-b border-border bg-secondary px-3.5 py-2 text-xs text-muted-foreground">
               <span>{progress?.message || status}</span>
               {progress?.total ? <span>{Math.round((progress.completed / progress.total) * 100)}%</span> : null}
             </div>
@@ -481,18 +481,6 @@ export function BooksApp() {
   );
 }
 
-const shell = { display: 'flex', flexDirection: 'column', height: '100%', background: 'hsl(var(--background))' };
-const header = { display: 'flex', gap: 6, alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', flexWrap: 'wrap' };
-const body = { flex: 1, display: 'flex', minHeight: 0 };
-const leftPane = { display: 'flex', flexDirection: 'column', borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
-const main = { flex: 1, minHeight: 0 };
-const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 10px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 };
-const toggleLabel = { display: 'inline-flex', alignItems: 'center', gap: 6, color: 'hsl(var(--muted-foreground))', fontSize: 12, padding: '0 4px' };
-const paneHead = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '14px 14px 10px' };
-const paneEyebrow = { color: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700, letterSpacing: 0.4 };
-const paneTitle = { color: 'hsl(var(--foreground))', fontSize: 15, fontWeight: 700, marginTop: 2 };
-const sectionCount = { minWidth: 28, height: 24, borderRadius: 999, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))', fontSize: 12, fontWeight: 700 };
-const statusBar = { display: 'flex', justifyContent: 'space-between', gap: 12, padding: '8px 14px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--secondary))', color: 'hsl(var(--muted-foreground))', fontSize: 12 };
-const loadingStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--background))' };
+const loadingClass = 'flex h-screen items-center justify-center bg-background text-muted-foreground';
 
 export default BooksApp;

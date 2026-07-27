@@ -7,6 +7,7 @@ import { DEFAULT_THEME } from './theme.js';
 import { exportChartAsPng, exportChartAsSvg, printChartViaPdf } from '../../lib/chartExport.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
+import { Button } from '../ui/Button.jsx';
 
 export const ChartCanvas = React.forwardRef(function ChartCanvas(
   {
@@ -223,12 +224,15 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
   }), [onReset, onExportSvg, onExportPng, onPrint]);
 
   return (
-    <div style={{ position: 'relative', width, height, background, overflow: 'hidden' }}>
+    // width/height are props and background comes from the chart theme, so
+    // they stay inline.
+    <div className="relative overflow-hidden" style={{ width, height, background }}>
       <svg
         ref={svgRef}
         width="100%"
         height="100%"
-        style={{ cursor: drag.current ? 'grabbing' : 'grab', display: 'block', touchAction: 'none' }}
+        className="block touch-none"
+        style={{ cursor: drag.current ? 'grabbing' : 'grab' }}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -260,13 +264,13 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
           }}
         />
       </svg>
-      <div style={{ position: 'absolute', top: 12, insetInlineEnd: 12, display: 'flex', gap: 6 }}>
-        <button onClick={() => setView((v) => ({ ...v, k: Math.min(maxZoom, v.k * 1.2) }))} style={btn}>＋</button>
-        <button onClick={() => setView((v) => ({ ...v, k: Math.max(minZoom, v.k / 1.2) }))} style={btn}>－</button>
-        <button onClick={onReset} style={btn}>Reset</button>
-        <button onClick={onExportSvg} style={btn}>SVG</button>
-        <button onClick={onExportPng} style={btn}>PNG</button>
-        <button onClick={onPrint} style={btn} title={t('charts.printHint')}>{t('charts.print')}</button>
+      <div className="absolute end-3 top-3 flex gap-1.5">
+        <Button onClick={() => setView((v) => ({ ...v, k: Math.min(maxZoom, v.k * 1.2) }))}>＋</Button>
+        <Button onClick={() => setView((v) => ({ ...v, k: Math.max(minZoom, v.k / 1.2) }))}>－</Button>
+        <Button onClick={onReset}>Reset</Button>
+        <Button onClick={onExportSvg}>SVG</Button>
+        <Button onClick={onExportPng}>PNG</Button>
+        <Button onClick={onPrint} title={t('charts.printHint')}>{t('charts.print')}</Button>
       </div>
     </div>
   );
@@ -391,16 +395,6 @@ function moveOverlay(overlay, dx, dy) {
   }
   return { ...overlay, x: overlay.x + dx, y: overlay.y + dy };
 }
-
-const btn = {
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 6,
-  padding: '6px 10px',
-  font: '13px -apple-system, system-ui, sans-serif',
-  cursor: 'pointer',
-};
 
 ChartCanvas.displayName = 'ChartCanvas';
 

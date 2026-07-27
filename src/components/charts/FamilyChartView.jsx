@@ -79,17 +79,24 @@ export function FamilyChartView({
         ))}
       </g>
       <foreignObject x={18} y={18} width={320} height={52}>
-        <div xmlns="http://www.w3.org/1999/xhtml" style={floatingToolbar}>
+        <div
+          xmlns="http://www.w3.org/1999/xhtml"
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card p-1.5 text-xs text-card-foreground shadow-lg"
+        >
           <button
             type="button"
             onClick={() => setDuplicatesCollapsed((value) => !value)}
-            style={toolbarButton}
+            className="inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent px-1 py-0.5 text-inherit"
             title="Collapse repeated spouse branches"
           >
             <GitMerge size={14} />
             <span>{duplicatesCollapsed ? 'Duplicates collapsed' : 'Duplicates expanded'}</span>
           </button>
-          {layout.duplicateCount > 0 && <span style={toolbarMeta}>{layout.duplicateCount}</span>}
+          {layout.duplicateCount > 0 && (
+            <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-secondary text-xs text-muted-foreground">
+              {layout.duplicateCount}
+            </span>
+          )}
         </div>
       </foreignObject>
     </ChartCanvas>
@@ -260,43 +267,5 @@ function IconAction({ title, onClick, theme, children }) {
     </foreignObject>
   );
 }
-
-const floatingToolbar = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: 6,
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
-  background: 'hsl(var(--card))',
-  color: 'hsl(var(--foreground))',
-  boxShadow: '0 10px 22px rgba(0,0,0,0.22)',
-  fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
-  fontSize: 12,
-};
-
-const toolbarButton = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  border: 0,
-  background: 'transparent',
-  color: 'inherit',
-  padding: '2px 4px',
-  cursor: 'pointer',
-  font: 'inherit',
-};
-
-const toolbarMeta = {
-  minWidth: 18,
-  height: 18,
-  borderRadius: 9,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--muted-foreground))',
-  fontSize: 11,
-};
 
 export default FamilyChartView;

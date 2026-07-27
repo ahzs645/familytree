@@ -7,6 +7,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { buildStatisticsData } from '../../lib/chartData/statisticsBuilder.js';
 import { DEFAULT_THEME } from './theme.js';
+import { formClasses } from '../ui/formClasses.js';
+import { cn } from '../../lib/utils.js';
 
 const SECTION_DEFS = [
   { id: 'gender', label: 'Persons by gender', pick: (d) => mapPairs(d.gender) },
@@ -51,12 +53,13 @@ export function StatisticsChart({ chartCanvasRef, theme = DEFAULT_THEME }) {
   if (error) return <div className="p-10 text-sm text-destructive">{error}</div>;
   if (!data) return <div className="p-10 text-sm text-muted-foreground">Computing statistics…</div>;
 
+  const selectClasses = cn(formClasses.input, 'w-auto bg-secondary px-2 py-1 text-xs');
   const controls = (
-    <div style={{ display: 'flex', gap: 8, padding: 10, flexWrap: 'wrap' }}>
-      <select value={statisticType} onChange={(e) => setStatisticType(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid hsl(var(--border))', background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))' }}>
+    <div className="flex flex-wrap gap-2 p-2.5">
+      <select value={statisticType} onChange={(e) => setStatisticType(e.target.value)} className={selectClasses}>
         {SECTION_DEFS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
       </select>
-      <select value={graphType} onChange={(e) => setGraphType(e.target.value)} style={{ fontSize: 12, padding: '4px 8px', borderRadius: 6, border: '1px solid hsl(var(--border))', background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))' }}>
+      <select value={graphType} onChange={(e) => setGraphType(e.target.value)} className={selectClasses}>
         <option value="bars">Bars</option>
         <option value="lines">Lines</option>
       </select>
@@ -72,7 +75,7 @@ export function StatisticsChart({ chartCanvasRef, theme = DEFAULT_THEME }) {
   const height = top + Math.max(1, rows.length) * rowH + 24;
 
   return (
-    <div style={{ overflow: 'auto', height: '100%' }}>
+    <div className="h-full overflow-auto">
       {controls}
       <svg ref={chartCanvasRef} width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ background: theme.background || '#fff', fontFamily: theme.fontFamily }}>
       <text x={20} y={28} fontSize={18} fontWeight={700} fill={theme.text || '#111'}>Statistics — {section.label}</text>

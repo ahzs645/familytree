@@ -6,7 +6,8 @@ import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/ch
 import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary, sourceSummary, placeSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
-import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { FieldRow } from '../components/editors/FieldRow.jsx';
+import { formClasses } from '../components/ui/formClasses.js';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { ToDoWizardSheet } from '../components/ToDoWizardSheet.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
@@ -324,7 +325,7 @@ export default function ToDos() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FieldRow label={t('todosPage.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>
+        <FieldRow label={t('todosPage.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} className={formClasses.input} /></FieldRow>
         <FieldRow label={t('todosPage.field.dueDate')}>
           <DatePicker
             value={values.dueDate || ''}
@@ -334,7 +335,7 @@ export default function ToDos() {
         </FieldRow>
         <FieldRow label={t('todosPage.field.type')}>
           <div className="flex gap-2">
-            <select value={values.type || 'Research'} onChange={(e) => setValues({ ...values, type: e.target.value })} style={editorInput}>
+            <select value={values.type || 'Research'} onChange={(e) => setValues({ ...values, type: e.target.value })} className={formClasses.input}>
               {todoTypes.map((type) => <option key={type.id || type.label} value={type.label}>{todoTypeLabel(type)}</option>)}
             </select>
             <button type="button" onClick={addCustomTodoType} className="bg-secondary border border-border rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap">{t('todosPage.addType')}</button>
@@ -342,7 +343,7 @@ export default function ToDos() {
         </FieldRow>
         <FieldRow label={t('todosPage.field.status')}>
           <div className="flex gap-2">
-            <select value={values.status || 'Open'} onChange={(e) => setValues({ ...values, status: e.target.value })} style={editorInput}>
+            <select value={values.status || 'Open'} onChange={(e) => setValues({ ...values, status: e.target.value })} className={formClasses.input}>
               {todoStatuses.map((s) => <option key={s.id || s.label} value={s.id || s.label}>{statusLabel(s)}</option>)}
             </select>
             <button type="button" onClick={addCustomTodoStatus} className="bg-secondary border border-border rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap">{t('todosPage.addType')}</button>
@@ -350,7 +351,7 @@ export default function ToDos() {
         </FieldRow>
         <FieldRow label={t('todosPage.field.priority')}>
           <div className="flex gap-2">
-            <select value={values.priority || 'Normal'} onChange={(e) => setValues({ ...values, priority: e.target.value })} style={editorInput}>
+            <select value={values.priority || 'Normal'} onChange={(e) => setValues({ ...values, priority: e.target.value })} className={formClasses.input}>
               {todoPriorities.map((s) => <option key={s.id || s.label} value={s.id || s.label}>{priorityLabel(s)}</option>)}
             </select>
             <button type="button" onClick={addCustomTodoPriority} className="bg-secondary border border-border rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap">{t('todosPage.addType')}</button>
@@ -358,7 +359,7 @@ export default function ToDos() {
         </FieldRow>
       </div>
       <FieldRow label={t('todosPage.field.description')}>
-        <textarea value={values.description || ''} rows={6} onChange={(e) => setValues({ ...values, description: e.target.value })} style={editorTextarea} />
+        <textarea value={values.description || ''} rows={6} onChange={(e) => setValues({ ...values, description: e.target.value })} className={formClasses.textarea} />
       </FieldRow>
 
       <section className="mt-6 border border-border rounded-md p-3 bg-card">

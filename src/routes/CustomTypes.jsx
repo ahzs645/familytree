@@ -7,6 +7,7 @@
  * don't need four routes.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { buttonClasses } from '../components/ui/Button.jsx';
 import {
   CUSTOM_TYPE_CATEGORIES,
   listCustomTypes,
@@ -50,7 +51,7 @@ function builtinsForCategory(category) {
 
 const input = 'w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm';
 const button = 'rounded-md border border-border bg-secondary px-3 py-1.5 text-sm font-medium hover:bg-accent';
-const buttonPrimary = 'rounded-md bg-primary text-primary-foreground px-3 py-1.5 text-sm font-semibold';
+const buttonPrimary = buttonClasses({ variant: 'primary', size: 'md' });
 
 export default function CustomTypes() {
   const modal = useModal();

@@ -27,7 +27,10 @@ import {
   PERSON_IMAGE_STYLES,
   PERSON_STYLES,
 } from './constants.js';
-import { panelStyles } from './optionsPanelStyles.js';
+import { Button } from '../../ui/Button.jsx';
+import { Select } from '../../ui/Select.jsx';
+
+const ROW_LABEL_CLASS = 'text-xs font-semibold text-card-foreground';
 
 const DEFAULT_OPEN_GROUPS = {
   general: true,
@@ -73,25 +76,37 @@ export function OptionsPanel({ viewerOptions, onChange, onClose }) {
   const set = (patch) => onChange((current) => ({ ...current, ...patch }));
 
   return (
-    <div style={panelStyles.panel} role="dialog" aria-label="Interactive Tree options">
-      <div style={panelStyles.header}>
-        <span style={panelStyles.title}>Options</span>
-        <button type="button" style={panelStyles.closeButton} onClick={onClose} aria-label="Close options">×</button>
+    <div
+      className="absolute top-3 end-3 bottom-3 z-[26] flex w-80 flex-col overflow-hidden rounded-lg border border-border bg-card/95 text-card-foreground shadow-xl backdrop-blur-lg"
+      role="dialog"
+      aria-label="Interactive Tree options"
+    >
+      <div className="flex items-center justify-between border-b border-border bg-secondary/60 px-3.5 py-2.5">
+        <span className="text-sm font-extrabold text-secondary-foreground">Options</span>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-6 w-6 text-base text-muted-foreground"
+          onClick={onClose}
+          aria-label="Close options"
+        >
+          ×
+        </Button>
       </div>
-      <div style={panelStyles.scroll}>
+      <div className="flex-1 overflow-y-auto p-2">
         {OPTION_GROUPS.map((group) => (
-          <section key={group.id} style={panelStyles.section}>
+          <section key={group.id} className="mb-1 border-b border-border/50 pb-1">
             <button
               type="button"
-              style={panelStyles.sectionHeader}
+              className="flex w-full cursor-pointer items-center gap-2 px-1.5 py-2 text-start text-xs font-bold text-card-foreground"
               onClick={() => toggle(group.id)}
               aria-expanded={open[group.id]}
             >
-              <span style={panelStyles.disclosure}>{open[group.id] ? '▾' : '▸'}</span>
+              <span className="inline-block w-3 text-[10px] font-bold text-muted-foreground">{open[group.id] ? '▾' : '▸'}</span>
               {group.label}
             </button>
             {open[group.id] && (
-              <div style={panelStyles.sectionBody}>{renderGroup(group.id, viewerOptions, set)}</div>
+              <div className="flex flex-col gap-2.5 px-1.5 pb-2 pt-1">{renderGroup(group.id, viewerOptions, set)}</div>
             )}
           </section>
         ))}
@@ -406,23 +421,25 @@ function renderGroup(groupId, options, set) {
 
 function SelectRow({ label, value, options, onChange }) {
   return (
-    <label style={panelStyles.row}>
-      <span style={panelStyles.rowLabel}>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} style={panelStyles.select}>
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>{option.label}</option>
-        ))}
-      </select>
-    </label>
+    <div className="flex flex-col gap-1">
+      <span className={ROW_LABEL_CLASS}>{label}</span>
+      <Select
+        value={value}
+        onChange={onChange}
+        options={options.map((option) => ({ value: option.id, label: option.label }))}
+        ariaLabel={label}
+        triggerClassName="h-7 text-xs"
+      />
+    </div>
   );
 }
 
 function SliderRow({ label, min, max, step, value, onChange, valueFormatter }) {
   return (
-    <div style={panelStyles.row}>
-      <div style={panelStyles.sliderHeader}>
-        <span style={panelStyles.rowLabel}>{label}</span>
-        <span style={panelStyles.sliderValue}>{valueFormatter ? valueFormatter(value) : value}</span>
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <span className={ROW_LABEL_CLASS}>{label}</span>
+        <span className="font-mono text-[10px] font-semibold text-muted-foreground">{valueFormatter ? valueFormatter(value) : value}</span>
       </div>
       <input
         type="range"
@@ -431,7 +448,7 @@ function SliderRow({ label, min, max, step, value, onChange, valueFormatter }) {
         step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        style={panelStyles.slider}
+        className="w-full"
       />
     </div>
   );
@@ -439,16 +456,16 @@ function SliderRow({ label, min, max, step, value, onChange, valueFormatter }) {
 
 function ColorRow({ label, value, onChange }) {
   return (
-    <div style={panelStyles.row}>
-      <span style={panelStyles.rowLabel}>{label}</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <div className="flex flex-col gap-1">
+      <span className={ROW_LABEL_CLASS}>{label}</span>
+      <div className="flex items-center gap-2">
         <input
           type="color"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          style={{ width: 36, height: 28, border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 0, background: 'transparent', cursor: 'pointer' }}
+          className="h-7 w-9 cursor-pointer rounded-md border border-border bg-transparent p-0"
         />
-        <code style={{ font: '600 11px ui-monospace, SFMono-Regular, Menlo, monospace', color: 'hsl(var(--muted-foreground))' }}>{value}</code>
+        <code className="font-mono text-xs font-semibold text-muted-foreground">{value}</code>
       </div>
     </div>
   );
@@ -456,9 +473,9 @@ function ColorRow({ label, value, onChange }) {
 
 function ToggleRow({ label, value, onChange }) {
   return (
-    <label style={panelStyles.toggleRow}>
-      <input type="checkbox" checked={!!value} onChange={(event) => onChange(event.target.checked)} style={panelStyles.checkbox} />
-      <span style={panelStyles.rowLabel}>{label}</span>
+    <label className="flex cursor-pointer items-center gap-2">
+      <input type="checkbox" checked={!!value} onChange={(event) => onChange(event.target.checked)} className="m-0" />
+      <span className={ROW_LABEL_CLASS}>{label}</span>
     </label>
   );
 }

@@ -11,6 +11,8 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
+import { cn } from '../../lib/utils.js';
+import { Button } from './Button.jsx';
 import {
   DEFAULT_MAP_PREFERENCES,
   MAP_PREFERENCES_EVENT,
@@ -873,8 +875,8 @@ export function Map({
   };
 
   return (
-    <div className={className} style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+    <div className={cn('relative h-full w-full', className)}>
+      <div ref={containerRef} className="absolute inset-0" />
       {emptyMessage && markers.length === 0 ? (
         <div className="pointer-events-none absolute inset-x-4 top-1/2 z-10 mx-auto max-w-md -translate-y-1/2 rounded-md border border-border bg-card/95 p-4 text-center text-sm text-muted-foreground shadow-lg backdrop-blur">
           {emptyMessage}
@@ -916,23 +918,23 @@ export function Map({
               Cluster
             </label>
           ) : null}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={resetView}
-            className="h-9 sm:h-8 rounded-md border border-border bg-secondary px-2 text-foreground hover:bg-accent"
+            className="h-9 sm:h-8 px-2 py-0"
             title="Reset zoom and center"
           >
             Reset
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="secondary"
             onClick={recenterNearMarker}
             disabled={markers.length === 0}
-            className="h-9 sm:h-8 rounded-md border border-border bg-secondary px-2 text-foreground hover:bg-accent disabled:opacity-50"
+            className="h-9 sm:h-8 px-2 py-0"
             title="Recenter to the marker nearest the current map center"
           >
             Near center
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

@@ -68,7 +68,7 @@ export function DoubleAncestorChart({
   }, [leftTree, rightTree, leftCount, rightCount, theme]);
 
   if (!leftTree || !rightTree) {
-    return <div style={{ padding: 24, color: theme.textMuted }}>Pick two persons (a couple) to chart.</div>;
+    return <div className="p-6" style={{ color: theme.textMuted }}>Pick two persons (a couple) to chart.</div>;
   }
 
   return (

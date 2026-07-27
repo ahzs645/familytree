@@ -12,10 +12,12 @@ export const formClasses = {
   input: 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary',
   /** Compact input for dense rows (e.g. related-record editors). */
   inputCompact: 'w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:border-primary',
+  /** Standard textarea — input styling plus a sane min height and vertical resize. */
+  textarea: 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary min-h-20 resize-y',
   /** Neutral / secondary button. */
   buttonSecondary: 'border border-border rounded-md px-2.5 py-1.5 text-xs hover:bg-accent disabled:opacity-50',
   /** Filled neutral button used as the primary action in related-record editors. */
-  buttonPrimary: 'bg-secondary border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50',
+  buttonFilled: 'bg-secondary border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50',
 };
 
 export default formClasses;

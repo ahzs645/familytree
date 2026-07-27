@@ -6,17 +6,14 @@
  */
 import React from 'react';
 import { Select } from '../../ui/Select.jsx';
-import { optionSelect } from './styles.js';
+import { cn } from '../../../lib/utils.js';
 
 // A real <label> around the control — as a bare <span> the caption was visible
 // but named nothing.
 export function Field({ label, children, hideOnNarrow }) {
   return (
-    <label
-      className={hideOnNarrow ? 'hidden sm:flex' : 'flex'}
-      style={{ flexDirection: 'column', marginInlineEnd: 12 }}
-    >
-      <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
+    <label className={cn(hideOnNarrow ? 'hidden sm:flex' : 'flex', 'flex-col me-3')}>
+      <span className="text-xs text-muted-foreground mb-1">{label}</span>
       {children}
     </label>
   );
@@ -24,8 +21,8 @@ export function Field({ label, children, hideOnNarrow }) {
 
 export function RangeField({ label, value, min, max, onChange }) {
   return (
-    <label style={{ display: 'grid', gap: 4, fontSize: 12 }}>
-      <span style={{ display: 'flex', justifyContent: 'space-between', color: 'hsl(var(--muted-foreground))' }}>
+    <label className="grid gap-1 text-xs">
+      <span className="flex justify-between text-muted-foreground">
         <span>{label}</span>
         <span>{value}</span>
       </span>
@@ -36,7 +33,7 @@ export function RangeField({ label, value, min, max, onChange }) {
 
 export function CheckOption({ label, checked, onChange }) {
   return (
-    <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
+    <label className="flex items-center gap-2 text-xs">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
       {label}
     </label>
@@ -45,13 +42,13 @@ export function CheckOption({ label, checked, onChange }) {
 
 export function SelectOption({ label, value, onChange, options }) {
   return (
-    <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+    <label className="grid gap-1 text-xs text-muted-foreground">
       <span>{label}</span>
       <Select
         value={value}
         onChange={onChange}
         options={options.map(([optionValue, optionLabel]) => ({ value: optionValue, label: optionLabel }))}
-        triggerStyle={{ ...optionSelect, paddingInlineEnd: 30 }}
+        triggerClassName="h-8 ps-2 text-xs"
       />
     </label>
   );
@@ -59,8 +56,8 @@ export function SelectOption({ label, value, onChange, options }) {
 
 export function Section({ label, children }) {
   return (
-    <div style={{ marginBottom: 12 }}>
-      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 4, letterSpacing: 0.3 }}>{label}</div>
+    <div className="mb-3">
+      <div className="text-xs text-muted-foreground mb-1 tracking-wide">{label}</div>
       {children}
     </div>
   );

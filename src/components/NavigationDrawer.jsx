@@ -207,7 +207,7 @@ export function NavigationDrawer({
           <span
             className={cn(
               'inline-block w-2 h-2 rounded-full flex-shrink-0',
-              statusState === 'loading' ? 'bg-muted-foreground' : statusState === 'ok' ? 'bg-emerald-500' : 'bg-destructive'
+              statusState === 'loading' ? 'bg-muted-foreground' : statusState === 'ok' ? 'bg-success' : 'bg-destructive'
             )}
             title={recordCountLabel}
           />
@@ -227,7 +227,7 @@ export function NavigationDrawer({
             <span
               className={cn(
                 'inline-block w-2 h-2 rounded-full flex-shrink-0',
-                statusState === 'loading' ? 'bg-muted-foreground' : statusState === 'ok' ? 'bg-emerald-500' : 'bg-destructive'
+                statusState === 'loading' ? 'bg-muted-foreground' : statusState === 'ok' ? 'bg-success' : 'bg-destructive'
               )}
             />
             <span className="text-xs text-muted-foreground truncate">{recordCountLabel}</span>

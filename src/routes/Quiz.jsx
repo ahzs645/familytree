@@ -168,12 +168,12 @@ function FinishedScreen({ answers, questions, stats, onRestart, onMissed }) {
           {answers.map((answer, answerIndex) => (
             <div key={answer.question.id} className="rounded-md border border-border bg-card p-4">
               <div className="flex items-start gap-3">
-                {answer.correct ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-500" /> : <XCircle className="mt-0.5 h-5 w-5 text-destructive" />}
+                {answer.correct ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-success" /> : <XCircle className="mt-0.5 h-5 w-5 text-destructive" />}
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium text-muted-foreground">Question {answerIndex + 1} · {answer.question.type}</div>
                   <div className="mt-1 text-sm font-semibold">{answer.question.prompt}</div>
                   <div className="mt-2 text-sm text-muted-foreground">
-                    Your answer: <span className={answer.correct ? 'text-emerald-600' : 'text-destructive'}>{answer.picked}</span>
+                    Your answer: <span className={answer.correct ? 'text-success' : 'text-destructive'}>{answer.picked}</span>
                     {!answer.correct ? <> · Correct: <span className="text-foreground">{answer.question.correct}</span></> : null}
                   </div>
                 </div>
@@ -220,7 +220,7 @@ function QuestionScreen({ q, index, total, picked, score, choose, next }) {
                   disabled={!!picked}
                   onClick={() => choose(choice)}
                   className={`flex min-h-12 w-full items-center justify-between rounded-md border px-3 py-3 text-left text-sm transition-colors ${
-                    isCorrect ? 'border-emerald-500 bg-emerald-500/10 text-emerald-700' :
+                    isCorrect ? 'border-success bg-success/10 text-success' :
                     isWrong ? 'border-destructive bg-destructive/10 text-destructive' :
                     'border-border bg-background hover:bg-secondary/50'
                   }`}

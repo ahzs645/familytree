@@ -89,18 +89,26 @@ export function PersonPicker({ persons, value, onChange, triggerClassName }) {
         </svg>
       </button>
       {open && rect && createPortal(
-        <div ref={popoverRef} style={popoverStyle(rect)}>
+        // Fixed-position popover anchored to the trigger's viewport rect
+        // (which is why top/left/width stay inline). Rendered in a body
+        // portal, so it overlays the whole page rather than living inside
+        // (and being clipped by) the trigger's section.
+        <div
+          ref={popoverRef}
+          className="fixed z-[1000] overflow-hidden rounded-md border border-border bg-muted shadow-xl"
+          style={{ top: rect.bottom + 6, left: rect.left, width: rect.width }}
+        >
           <input
             autoFocus
             dir="auto"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('persons.search')}
-            style={inputStyle}
+            className="w-full border-0 border-b border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none"
           />
-          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+          <div className="max-h-80 overflow-y-auto">
             {filtered.length === 0 && (
-              <div style={{ padding: 12, color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>{t('common.noMatches')}</div>
+              <div className="p-3 text-sm text-muted-foreground">{t('common.noMatches')}</div>
             )}
             {filtered.map((p) => (
               <div
@@ -110,25 +118,19 @@ export function PersonPicker({ persons, value, onChange, triggerClassName }) {
                   setOpen(false);
                   setQuery('');
                 }}
-                style={{
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid hsl(var(--border))',
-                  background: p.recordName === value ? 'hsl(var(--secondary))' : 'transparent',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'hsl(var(--secondary))')}
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = p.recordName === value ? 'hsl(var(--secondary))' : 'transparent')
-                }
+                className={cn(
+                  'cursor-pointer border-b border-border px-3 py-2 hover:bg-secondary',
+                  p.recordName === value && 'bg-secondary'
+                )}
               >
-                <div style={{ color: 'hsl(var(--foreground))', fontSize: 14 }}><BdiText>{personDisplayName(p)}</BdiText></div>
+                <div className="text-sm text-foreground"><BdiText>{personDisplayName(p)}</BdiText></div>
                 {(p.birthDate || p.deathDate) && (
-                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
+                  <div className="text-xs text-muted-foreground">
                     <LtrText>{lifeSpanLabel(p)}</LtrText>
                   </div>
                 )}
                 {query.trim() && p.lineageSearchText ? (
-                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, marginTop: 2 }}>
+                  <div className="mt-0.5 text-[10px] text-muted-foreground">
                     <BdiText>{p.lineageSearchText}</BdiText>
                   </div>
                 ) : null}
@@ -141,30 +143,5 @@ export function PersonPicker({ persons, value, onChange, triggerClassName }) {
     </div>
   );
 }
-
-// Fixed-position popover anchored to the trigger's viewport rect. Rendered in
-// a body portal, so it overlays the whole page rather than living inside (and
-// being clipped by) the trigger's section.
-const popoverStyle = (rect) => ({
-  position: 'fixed',
-  top: rect.bottom + 6,
-  left: rect.left,
-  width: rect.width,
-  background: 'hsl(var(--muted))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 6,
-  zIndex: 1000,
-  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-});
-
-const inputStyle = {
-  width: '100%',
-  background: 'hsl(var(--background))',
-  color: 'hsl(var(--foreground))',
-  border: 'none',
-  borderBottom: '1px solid hsl(var(--border))',
-  padding: '10px 12px',
-  font: '13px -apple-system, system-ui, sans-serif',
-};
 
 export default PersonPicker;

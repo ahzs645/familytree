@@ -6,7 +6,9 @@ import React from 'react';
  * muted-text styling that was repeated across the chart components.
  */
 export function ChartEmptyState({ theme, children = 'No person selected.' }) {
-  return <div style={{ padding: 24, color: theme.textMuted }}>{children}</div>;
+  // Text color follows the active chart theme (not the app theme), so it
+  // stays inline.
+  return <div className="p-6" style={{ color: theme.textMuted }}>{children}</div>;
 }
 
 export default ChartEmptyState;

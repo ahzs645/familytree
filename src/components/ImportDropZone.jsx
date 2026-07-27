@@ -264,7 +264,7 @@ export function ImportDropZone({ onImported }) {
             <div
               className={cn(
                 'h-full transition-[width] duration-300',
-                error ? 'bg-destructive' : isDone ? 'bg-emerald-500' : 'bg-primary'
+                error ? 'bg-destructive' : isDone ? 'bg-success' : 'bg-primary'
               )}
               style={{ width: `${progress.pct}%` }}
             />

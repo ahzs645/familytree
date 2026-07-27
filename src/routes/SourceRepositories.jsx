@@ -6,7 +6,8 @@ import { logRecordCreated, logRecordDeleted, saveWithChangeLog } from '../lib/ch
 import { readRef } from '../lib/schema.js';
 import { sourceSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
-import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { FieldRow } from '../components/editors/FieldRow.jsx';
+import { formClasses } from '../components/ui/formClasses.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { useDirtyBaseline } from '../lib/editorState.js';
@@ -180,24 +181,24 @@ export default function SourceRepositories() {
       <section className="border border-border rounded-md bg-card p-3 mb-4">
         <h3 className="text-sm font-semibold mb-3">Repository Identity</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FieldRow label="Name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="Website"><input value={values.website || ''} onChange={(e) => setValues({ ...values, website: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="Phone"><input value={values.phone || ''} onChange={(e) => setValues({ ...values, phone: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="Email"><input value={values.email || ''} onChange={(e) => setValues({ ...values, email: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="Fax"><input value={values.fax || ''} onChange={(e) => setValues({ ...values, fax: e.target.value })} style={editorInput} /></FieldRow>
+          <FieldRow label="Name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} className={formClasses.input} /></FieldRow>
+          <FieldRow label="Website"><input value={values.website || ''} onChange={(e) => setValues({ ...values, website: e.target.value })} className={formClasses.input} /></FieldRow>
+          <FieldRow label="Phone"><input value={values.phone || ''} onChange={(e) => setValues({ ...values, phone: e.target.value })} className={formClasses.input} /></FieldRow>
+          <FieldRow label="Email"><input value={values.email || ''} onChange={(e) => setValues({ ...values, email: e.target.value })} className={formClasses.input} /></FieldRow>
+          <FieldRow label="Fax"><input value={values.fax || ''} onChange={(e) => setValues({ ...values, fax: e.target.value })} className={formClasses.input} /></FieldRow>
         </div>
       </section>
 
       <section className="border border-border rounded-md bg-card p-3 mb-4">
         <h3 className="text-sm font-semibold mb-3">Address</h3>
-        <FieldRow label="Full address"><textarea value={values.address || ''} rows={3} onChange={(e) => setValues({ ...values, address: e.target.value })} style={editorTextarea} /></FieldRow>
+        <FieldRow label="Full address"><textarea value={values.address || ''} rows={3} onChange={(e) => setValues({ ...values, address: e.target.value })} className={formClasses.textarea} /></FieldRow>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FieldRow label="Address line 1"><input value={values.addressLine1 || ''} onChange={(e) => setValues({ ...values, addressLine1: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="Address line 2"><input value={values.addressLine2 || ''} onChange={(e) => setValues({ ...values, addressLine2: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="City"><input value={values.city || ''} onChange={(e) => setValues({ ...values, city: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="State / Province"><input value={values.state || ''} onChange={(e) => setValues({ ...values, state: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="Postal Code"><input value={values.postalCode || ''} onChange={(e) => setValues({ ...values, postalCode: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="Country"><input value={values.country || ''} onChange={(e) => setValues({ ...values, country: e.target.value })} style={editorInput} /></FieldRow>
+          <FieldRow label="Address line 1"><input value={values.addressLine1 || ''} onChange={(e) => setValues({ ...values, addressLine1: e.target.value })} className={formClasses.input} /></FieldRow>
+          <FieldRow label="Address line 2"><input value={values.addressLine2 || ''} onChange={(e) => setValues({ ...values, addressLine2: e.target.value })} className={formClasses.input} /></FieldRow>
+          <FieldRow label="City"><input value={values.city || ''} onChange={(e) => setValues({ ...values, city: e.target.value })} className={formClasses.input} /></FieldRow>
+          <FieldRow label="State / Province"><input value={values.state || ''} onChange={(e) => setValues({ ...values, state: e.target.value })} className={formClasses.input} /></FieldRow>
+          <FieldRow label="Postal Code"><input value={values.postalCode || ''} onChange={(e) => setValues({ ...values, postalCode: e.target.value })} className={formClasses.input} /></FieldRow>
+          <FieldRow label="Country"><input value={values.country || ''} onChange={(e) => setValues({ ...values, country: e.target.value })} className={formClasses.input} /></FieldRow>
         </div>
       </section>
 
@@ -219,7 +220,7 @@ export default function SourceRepositories() {
 
       <section className="border border-border rounded-md bg-card p-3">
         <h3 className="text-sm font-semibold mb-3">Notes</h3>
-        <textarea value={values.note || ''} rows={5} onChange={(e) => setValues({ ...values, note: e.target.value })} style={editorTextarea} />
+        <textarea value={values.note || ''} rows={5} onChange={(e) => setValues({ ...values, note: e.target.value })} className={formClasses.textarea} />
       </section>
     </div>
   ) : <div className="p-10 text-muted-foreground">No repository selected.</div>;

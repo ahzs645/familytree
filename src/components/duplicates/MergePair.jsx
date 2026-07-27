@@ -7,6 +7,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { mergeRecordsSafely, previewMergeRecords } from '../../lib/duplicates.js';
 import { readRef } from '../../lib/schema.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { Button } from '../ui/Button.jsx';
+import { cn } from '../../lib/utils.js';
 
 const SKIP_FIELDS = new Set(['modified', 'created']);
 
@@ -62,49 +64,67 @@ export function MergePair({ pair, onMerged, onSkip }) {
   };
 
   return (
-    <div style={card}>
-      <div style={header}>
+    <div className="bg-card text-card-foreground border border-border rounded-lg p-4 mb-4">
+      <div className="flex justify-between items-start mb-3">
         <div>
-          <div style={{ fontSize: 14, color: 'hsl(var(--foreground))', fontWeight: 600 }}>
+          <div className="text-sm text-foreground font-semibold">
             {t('duplicatesPage.pairTitle', { type: t(`duplicatesPage.entity.${a.recordType}`, { defaultValue: a.recordType }), score: (score * 100).toFixed(0) })}
           </div>
-          <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', marginTop: 2 }}>
+          <div className="text-xs text-muted-foreground mt-0.5">
             {reasons.map((reason) => t(`duplicatesPage.reason.${reason}`, { defaultValue: reason })).join(' · ') || t('duplicatesPage.heuristicMatch')}
           </div>
           {preview && (
-            <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 5 }}>
+            <div className="text-xs text-muted-foreground mt-1">
               {t('duplicatesPage.previewSummary', { refs: preview.rewrittenReferenceCount, kept: preview.preservedRecordCount, removed: preview.deletedRecordNames.length })}
               {preview.dedupedRelationCount ? t('duplicatesPage.previewDedupe', { count: preview.dedupedRelationCount }) : ''}
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <button onClick={onSkip} style={btnSecondary}>{t('duplicatesPage.skip')}</button>
-          <button onClick={onMergeClick} disabled={busy} style={btnPrimary}>{busy ? t('duplicatesPage.merging') : t('duplicatesPage.merge')}</button>
+        <div className="flex gap-1.5">
+          <Button size="md" onClick={onSkip}>{t('duplicatesPage.skip')}</Button>
+          <Button variant="primary" size="md" onClick={onMergeClick} disabled={busy}>
+            {busy ? t('duplicatesPage.merging') : t('duplicatesPage.merge')}
+          </Button>
         </div>
       </div>
-      <div style={grid}>
-        <div style={colHeader}>{t('duplicatesPage.keepA')} · {a.recordName}</div>
-        <div style={colHeader}>{t('duplicatesPage.discardB')} · {b.recordName}</div>
+      <div className="grid grid-cols-2 gap-2 mb-1.5">
+        <div className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">{t('duplicatesPage.keepA')} · {a.recordName}</div>
+        <div className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">{t('duplicatesPage.discardB')} · {b.recordName}</div>
       </div>
       {fields.map((k) => {
         const av = a.fields?.[k]?.value;
         const bv = b.fields?.[k]?.value;
         const different = JSON.stringify(av) !== JSON.stringify(bv);
         return (
-          <div key={k} style={row}>
-            <div style={{ ...cell, border: choices[k] === 'a' ? '1px solid hsl(var(--primary))' : '1px solid hsl(var(--border))', background: different && av != null ? 'hsl(var(--accent))' : 'hsl(var(--muted))' }}>
-              <div style={fieldLabel}>{k}</div>
-              <div style={fieldValue}>{displayValue(av)}</div>
+          <div key={k} className="grid grid-cols-2 gap-2 mb-1.5">
+            <div
+              className={cn(
+                'p-2.5 rounded-md border',
+                choices[k] === 'a' ? 'border-primary' : 'border-border',
+                different && av != null ? 'bg-accent' : 'bg-muted'
+              )}
+            >
+              <div className="text-xs text-muted-foreground mb-0.5">{k}</div>
+              <div className="text-sm text-foreground break-words">{displayValue(av)}</div>
               {different && (
-                <button onClick={() => setChoices({ ...choices, [k]: 'a' })} style={tinyBtn}>{t('duplicatesPage.useA')}</button>
+                <Button variant="outline" className="mt-1.5 text-primary" onClick={() => setChoices({ ...choices, [k]: 'a' })}>
+                  {t('duplicatesPage.useA')}
+                </Button>
               )}
             </div>
-            <div style={{ ...cell, border: choices[k] === 'b' ? '1px solid #b8417a' : '1px solid hsl(var(--border))', background: different && bv != null ? 'hsl(var(--accent))' : 'hsl(var(--muted))' }}>
-              <div style={fieldLabel}>{k}</div>
-              <div style={fieldValue}>{displayValue(bv)}</div>
+            <div
+              className={cn(
+                'p-2.5 rounded-md border',
+                choices[k] === 'b' ? 'border-destructive' : 'border-border',
+                different && bv != null ? 'bg-accent' : 'bg-muted'
+              )}
+            >
+              <div className="text-xs text-muted-foreground mb-0.5">{k}</div>
+              <div className="text-sm text-foreground break-words">{displayValue(bv)}</div>
               {different && (
-                <button onClick={() => setChoices({ ...choices, [k]: 'b' })} style={tinyBtn}>{t('duplicatesPage.useB')}</button>
+                <Button variant="outline" className="mt-1.5 text-primary" onClick={() => setChoices({ ...choices, [k]: 'b' })}>
+                  {t('duplicatesPage.useB')}
+                </Button>
               )}
             </div>
           </div>
@@ -113,48 +133,5 @@ export function MergePair({ pair, onMerged, onSkip }) {
     </div>
   );
 }
-
-const card = {
-  background: 'hsl(var(--card))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 10,
-  padding: 16,
-  marginBottom: 18,
-};
-const header = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 };
-const grid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 };
-const colHeader = { color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.3 };
-const row = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 6 };
-const cell = { padding: 10, borderRadius: 6 };
-const fieldLabel = { color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 };
-const fieldValue = { color: 'hsl(var(--foreground))', fontSize: 13, wordBreak: 'break-word' };
-const tinyBtn = {
-  marginTop: 6,
-  background: 'transparent',
-  color: 'hsl(var(--primary))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 4,
-  padding: '3px 8px',
-  fontSize: 11,
-  cursor: 'pointer',
-};
-const btnPrimary = {
-  background: 'hsl(var(--primary))',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 6,
-  padding: '7px 14px',
-  fontSize: 13,
-  cursor: 'pointer',
-};
-const btnSecondary = {
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 6,
-  padding: '7px 14px',
-  fontSize: 13,
-  cursor: 'pointer',
-};
 
 export default MergePair;

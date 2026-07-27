@@ -7,10 +7,11 @@ import { buildInteractiveLayout } from './threeDTree/layout.js';
 import { calculateReferenceNumbers } from '../../lib/referenceNumbering.js';
 import { makePalette } from './threeDTree/palette.js';
 import { readInitialViewerOptions } from './threeDTree/viewerOptions.js';
-import { Metric, PersonContextMenu, PersonHoverCard, TreeNavigationControls, ViewerSelect, dockToggleStyle } from './threeDTree/overlays.jsx';
+import { Metric, PersonContextMenu, PersonHoverCard, TreeNavigationControls, ViewerSelect } from './threeDTree/overlays.jsx';
 import { OptionsPanel } from './threeDTree/OptionsPanel.jsx';
-import { styles } from './threeDTree/styles.js';
 import { useThreeTreeScene } from './threeDTree/useThreeTreeScene.js';
+import { Button } from '../ui/Button.jsx';
+import { cn } from '../../lib/utils.js';
 
 export function ThreeDTreeView({
   ancestorTree,
@@ -40,8 +41,9 @@ export function ThreeDTreeView({
   const appDark = theme === 'dark';
   const isMobile = useIsMobile();
   const { t } = useTranslation();
-  const macBarButtonStyle = isMobile ? { ...styles.macBarButton, ...styles.macBarButtonMobile } : styles.macBarButton;
-  const dockButtonStyle = isMobile ? { ...styles.dockButton, ...styles.dockButtonMobile } : styles.dockButton;
+  // Mobile touch-target bump for the top-bar and dock buttons.
+  const macBarButtonClass = cn('shrink-0 whitespace-nowrap font-bold', isMobile && 'h-10 px-3.5');
+  const dockButtonClass = cn('font-bold', isMobile && 'h-[38px] min-h-[38px] shrink-0 px-3');
   const [viewerOptions, setViewerOptions] = useState(readInitialViewerOptions);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -185,94 +187,118 @@ export function ThreeDTreeView({
 
   return (
     <div
-      style={styles.shell}
+      className="relative h-full min-h-0 w-full overflow-hidden bg-background"
       onPointerMove={() => setControlsVisible(true)}
       onPointerLeave={() => setControlsVisible(true)}
     >
-      <div ref={containerRef} style={styles.canvas} />
+      <div ref={containerRef} className="h-full w-full" />
       {presentationMode && (
-        <div style={styles.presentationBadge}>
+        <div className="absolute left-1/2 top-[18px] z-[28] -translate-x-1/2 rounded-full bg-[rgba(20,20,20,0.72)] px-3.5 py-[7px] text-xs font-semibold tracking-[0.2px] text-[#f4f5f7] shadow-[0_10px_28px_rgb(0_0_0/0.32)] backdrop-blur-[12px]">
           {t('interactiveTree.presentationBadge')}
         </div>
       )}
       {!presentationMode && (
-      <div style={{ ...styles.macTopBar, ...(isMobile ? styles.macTopBarMobile : null) }}>
-        <button type="button" onClick={() => onReturnToFamilyTree?.()} style={macBarButtonStyle}>
+      <div
+        className={cn(
+          // Reserve room for the zoom cluster (+/−/Fit ≈ 110px wide at inset 12px)
+          // so the two bars never overlap on narrow screens.
+          'absolute start-3 top-3 z-[22] flex max-w-[calc(100%-148px)] items-center gap-2 overflow-x-auto rounded-md border border-border bg-card/[0.88] p-1.5 shadow-[0_10px_24px_rgb(0_0_0/0.12)] backdrop-blur-md',
+          // Mobile: wrap rather than scroll. At 390px the bar has ~240px of room
+          // (the rest is reserved for the zoom cluster), so five buttons became
+          // a 555px strip cut off mid-word with no affordance.
+          isMobile && 'flex-wrap gap-y-1.5 overflow-x-visible'
+        )}
+      >
+        <Button onClick={() => onReturnToFamilyTree?.()} className={macBarButtonClass}>
           {t('interactiveTree.returnToFamilyTree')}
-        </button>
-        <button type="button" onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} style={macBarButtonStyle}>
+        </Button>
+        <Button onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} className={macBarButtonClass}>
           {t('interactiveTree.options')}
-        </button>
-        <button type="button" onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} style={macBarButtonStyle}>
+        </Button>
+        <Button onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }} className={macBarButtonClass}>
           {t('interactiveTree.style')}
-        </button>
-        <button type="button" onClick={() => actionsRef.current.fit()} style={macBarButtonStyle}>
+        </Button>
+        <Button onClick={() => actionsRef.current.fit()} className={macBarButtonClass}>
           {t('interactiveTree.sizeToFit')}
-        </button>
-        <div style={styles.macActionWrap}>
-          <button
-            type="button"
+        </Button>
+        <div className="relative shrink-0">
+          <Button
             onClick={() => {
               setActionsOpen((open) => !open);
               setControlsVisible(true);
             }}
-            style={macBarButtonStyle}
+            className={macBarButtonClass}
             aria-expanded={actionsOpen}
           >
             {t('interactiveTree.actions')}
-          </button>
+          </Button>
           {actionsOpen && (
-            <div style={styles.macActionMenu}>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onPick?.(activeId); actionsRef.current?.fit?.(); }}>{t('interactiveTree.focusOnPerson')}</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); setPresentationMode(true); }}>{t('interactiveTree.enterPresentation')}</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); actionsRef.current?.snapshot?.(); }}>{t('interactiveTree.saveAsImage')}</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onEditPerson?.(activeId); }}>{t('interactiveTree.editPerson')}</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onShowInfo?.(activeId); }}>{t('interactiveTree.showInfo')}</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onOpenAncestorChart?.(activeId); }}>{t('interactiveTree.ancestorChart')}</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onOpenDescendantChart?.(activeId); }}>{t('interactiveTree.descendantChart')}</button>
-              <button type="button" style={styles.macActionItem} onClick={() => { setActionsOpen(false); onToggleChrome?.('people'); }}>{t('interactiveTree.personList')}</button>
+            <div className="absolute start-0 top-[38px] z-30 w-[186px] rounded-md border border-border bg-card/[0.98] p-1.5 shadow-[0_18px_40px_rgb(0_0_0/0.22)] backdrop-blur-md">
+              <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); onPick?.(activeId); actionsRef.current?.fit?.(); }}>{t('interactiveTree.focusOnPerson')}</Button>
+              <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); setPresentationMode(true); }}>{t('interactiveTree.enterPresentation')}</Button>
+              <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); actionsRef.current?.snapshot?.(); }}>{t('interactiveTree.saveAsImage')}</Button>
+              <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); onEditPerson?.(activeId); }}>{t('interactiveTree.editPerson')}</Button>
+              <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); onShowInfo?.(activeId); }}>{t('interactiveTree.showInfo')}</Button>
+              <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); onOpenAncestorChart?.(activeId); }}>{t('interactiveTree.ancestorChart')}</Button>
+              <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); onOpenDescendantChart?.(activeId); }}>{t('interactiveTree.descendantChart')}</Button>
+              <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); onToggleChrome?.('people'); }}>{t('interactiveTree.personList')}</Button>
             </div>
           )}
         </div>
       </div>
       )}
       {!presentationMode && (
-      <div style={{ ...styles.controls, ...(!controlsVisible ? styles.controlsHidden : null) }}>
-        <button type="button" onClick={() => actionsRef.current.zoom(0.82)} style={styles.iconButton} title={t('interactiveTree.zoomIn')}>+</button>
-        <button type="button" onClick={() => actionsRef.current.zoom(1.18)} style={styles.iconButton} title={t('interactiveTree.zoomOut')}>-</button>
-        <button type="button" onClick={() => actionsRef.current.fit()} style={styles.fitButton} title={t('interactiveTree.sizeToFit')}>{t('interactiveTree.fit')}</button>
+      <div
+        className={cn(
+          'absolute end-3 top-3 flex gap-1.5 rounded-md border border-border bg-card/[0.82] p-1.5 shadow-[0_10px_24px_rgb(0_0_0/0.12)] backdrop-blur-[12px] transition-[opacity,transform] duration-150',
+          !controlsVisible && 'pointer-events-none -translate-y-[5px] opacity-0'
+        )}
+      >
+        <Button size="icon" onClick={() => actionsRef.current.zoom(0.82)} className="h-[31px] w-[31px] text-[15px] font-bold" title={t('interactiveTree.zoomIn')}>+</Button>
+        <Button size="icon" onClick={() => actionsRef.current.zoom(1.18)} className="h-[31px] w-[31px] text-[15px] font-bold" title={t('interactiveTree.zoomOut')}>-</Button>
+        <Button onClick={() => actionsRef.current.fit()} className="font-bold" title={t('interactiveTree.sizeToFit')}>{t('interactiveTree.fit')}</Button>
       </div>
       )}
       {!presentationMode && (
-      <div style={{ ...styles.bottomDock, ...(isMobile ? styles.bottomDockMobile : null), ...(!controlsVisible ? (isMobile ? styles.bottomDockHiddenMobile : styles.bottomDockHidden) : null) }}>
-        <div style={styles.dockGroup}>
-          <span style={styles.dockLabel}>{t('interactiveTree.sizeToFit')}</span>
+      <div
+        className={cn(
+          'absolute bottom-3.5 left-1/2 flex max-w-[calc(100%-32px)] -translate-x-1/2 flex-wrap items-center justify-center gap-3 overflow-auto rounded-md border border-border bg-card/[0.86] px-2.5 py-2 text-foreground shadow-[0_14px_34px_rgb(0_0_0/0.16)] backdrop-blur-md transition-[opacity,transform] duration-150',
+          // Mobile: pin edge-to-edge and wrap rather than scroll. As a nowrap
+          // strip the dock ran ~1600px — over four phone screens — so reaching
+          // Options meant a long blind swipe with no affordance. Wrapped, the
+          // same groups occupy two or three short rows and every control is on
+          // screen at once.
+          isMobile && 'left-2 right-2 max-w-none translate-x-0 justify-start gap-2 gap-y-1.5 overflow-hidden px-2 py-1.5',
+          !controlsVisible && 'pointer-events-none translate-y-2 opacity-0'
+        )}
+      >
+        <div className={dockGroupClass}>
+          <span className="whitespace-nowrap text-xs font-bold text-muted-foreground">{t('interactiveTree.sizeToFit')}</span>
           <input
             type="range"
             min="10"
             max="260"
             value={zoomPercent}
             onChange={(event) => actionsRef.current.zoomTo(Number(event.target.value))}
-            style={styles.zoomSlider}
+            className="w-[118px] accent-primary"
             aria-label={t('interactiveTree.treeZoomAria')}
           />
-          <span style={styles.zoomReadout}>{zoomPercent}%</span>
+          <span className="w-[42px] text-xs font-bold text-foreground">{zoomPercent}%</span>
         </div>
-        <div style={styles.dockGroup}>
+        <div className={dockGroupClass}>
           <Metric label={t('interactiveTree.parents')} value={relationshipCounts.parents} />
           <Metric label={t('interactiveTree.partners')} value={relationshipCounts.partners} />
           <Metric label={t('interactiveTree.children')} value={relationshipCounts.children} />
         </div>
         <TreeNavigationControls context={context} onPick={onPick} />
-        <div style={styles.dockGroup}>
-          <button
-            type="button"
-            style={dockButtonStyle}
+        <div className={dockGroupClass}>
+          <Button
+            className={dockButtonClass}
             onClick={() => { setOptionsPanelOpen(true); setControlsVisible(true); }}
             aria-pressed={optionsPanelOpen}
           >
             {t('interactiveTree.options')}...
-          </button>
+          </Button>
           {/* Camera duplicates "Camera Perspective" inside the Options panel.
               Keep it on the dock where there is room; on a phone the dock is
               already several screens wide, so the panel is the only copy. */}
@@ -290,41 +316,37 @@ export function ThreeDTreeView({
             the inspector outright, at that width (showPeople/showHeader/
             showInspector all short-circuit on isMobile). Rendering the other
             three there gave the dock four buttons that changed nothing. */}
-        <div style={styles.dockGroup}>
-          <button
-            type="button"
-            style={dockToggleStyle(chrome.navigation, isMobile)}
+        <div className={dockGroupClass}>
+          <Button
+            className={dockToggleClass(chrome.navigation, dockButtonClass)}
             onClick={() => onToggleChrome?.('navigation')}
             aria-pressed={chrome.navigation}
           >
             {t('interactiveTree.nav')}
-          </button>
+          </Button>
           {!isMobile && (
             <>
-              <button
-                type="button"
-                style={dockToggleStyle(chrome.people, isMobile)}
+              <Button
+                className={dockToggleClass(chrome.people, dockButtonClass)}
                 onClick={() => onToggleChrome?.('people')}
                 aria-pressed={chrome.people}
               >
                 {t('interactiveTree.people')}
-              </button>
-              <button
-                type="button"
-                style={dockToggleStyle(chrome.inspector, isMobile)}
+              </Button>
+              <Button
+                className={dockToggleClass(chrome.inspector, dockButtonClass)}
                 onClick={() => onToggleChrome?.('inspector')}
                 aria-pressed={chrome.inspector}
               >
                 {t('interactiveTree.inspector')}
-              </button>
-              <button
-                type="button"
-                style={dockToggleStyle(chrome.header, isMobile)}
+              </Button>
+              <Button
+                className={dockToggleClass(chrome.header, dockButtonClass)}
                 onClick={() => onToggleChrome?.('header')}
                 aria-pressed={chrome.header}
               >
                 {t('interactiveTree.header')}
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -338,17 +360,17 @@ export function ThreeDTreeView({
         />
       )}
       {loading && (
-        <div style={styles.overlay}>{t('interactiveTree.loading')}</div>
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-background/[0.45] text-sm text-muted-foreground">{t('interactiveTree.loading')}</div>
       )}
       {!loading && !hasTree && (
-        <div style={styles.emptyCta}>
-          <div style={styles.emptyCtaTitle}>{t('interactiveTree.emptyTitle')}</div>
-          <div style={styles.emptyCtaMessage}>
+        <div className="pointer-events-auto absolute inset-0 flex flex-col items-center justify-center gap-2.5 p-6 text-center text-foreground">
+          <div className="text-lg font-extrabold text-foreground">{t('interactiveTree.emptyTitle')}</div>
+          <div className="max-w-[420px] text-sm font-semibold leading-snug text-muted-foreground">
             {t('interactiveTree.emptyMessage')}
           </div>
           <button
             type="button"
-            style={styles.emptyCtaButton}
+            className="mt-1.5 h-9 cursor-pointer rounded-md border border-primary/40 bg-primary/[0.12] px-4 text-sm font-bold text-foreground"
             onClick={() => onAddRelative?.({ relation: 'new', anchorId: '' })}
           >
             {t('interactiveTree.addFirstPerson')}
@@ -380,6 +402,19 @@ export function ThreeDTreeView({
         />
       )}
     </div>
+  );
+}
+
+const macActionItemClass = 'w-full min-h-[30px] justify-start text-start font-bold';
+const dockGroupClass = 'flex shrink-0 items-center gap-2';
+
+// Dock chrome toggles: primary-tinted when the pane is shown, muted otherwise.
+function dockToggleClass(active, base) {
+  return cn(
+    base,
+    active
+      ? 'border-primary/[0.45] bg-primary/[0.14] text-foreground'
+      : 'text-muted-foreground'
   );
 }
 

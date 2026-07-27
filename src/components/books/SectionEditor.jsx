@@ -6,6 +6,15 @@ import { ChevronDown, ChevronUp, GripVertical, Trash2 } from 'lucide-react';
 import { SECTION_KINDS, TITLE_PAGE_PRESETS } from '../../lib/books.js';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
 import { DatePicker } from '../ui/DatePicker.jsx';
+import { Button } from '../ui/Button.jsx';
+import { cn } from '../../lib/utils.js';
+
+/**
+ * Compact control chrome for this dense editor row. Native inputs/selects are
+ * kept (instead of ui/Input and ui/Select) because these controls mix fixed
+ * widths and flex-1 inside a flex-wrap row, which the w-full primitives fight.
+ */
+const controlClass = 'rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 py-1.5 text-sm outline-none focus:border-primary';
 
 export function SectionEditor({
   section,
@@ -25,32 +34,32 @@ export function SectionEditor({
   const def = SECTION_KINDS.find((k) => k.id === section.kind);
   const sectionTitle = titleForSection(section, def);
   return (
-    <div style={card}>
-      <div style={head}>
-        <div style={titleBlock}>
-          <GripVertical size={16} aria-hidden="true" style={{ color: 'hsl(var(--muted-foreground))', flex: '0 0 auto' }} />
-          <div style={{ minWidth: 0 }}>
-            <div style={eyebrow}>SECTION {index + 1}</div>
-            <div style={sectionName} title={sectionTitle}>{sectionTitle}</div>
+    <div className="mb-2.5 rounded-md border border-border bg-card p-3 text-card-foreground">
+      <div className="mb-2.5 flex items-center justify-between gap-2.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <GripVertical size={16} aria-hidden="true" className="flex-none text-muted-foreground" />
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold tracking-wider text-muted-foreground">SECTION {index + 1}</div>
+            <div className="truncate text-sm font-semibold text-foreground" title={sectionTitle}>{sectionTitle}</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button type="button" disabled={index === 0} onClick={onMoveUp} style={iconBtn} title="Move up" aria-label="Move section up">
+        <div className="flex gap-1">
+          <Button size="icon" disabled={index === 0} onClick={onMoveUp} title="Move up" aria-label="Move section up">
             <ChevronUp size={15} />
-          </button>
-          <button type="button" disabled={index === total - 1} onClick={onMoveDown} style={iconBtn} title="Move down" aria-label="Move section down">
+          </Button>
+          <Button size="icon" disabled={index === total - 1} onClick={onMoveDown} title="Move down" aria-label="Move section down">
             <ChevronDown size={15} />
-          </button>
-          <button type="button" onClick={onRemove} style={{ ...iconBtn, color: 'hsl(var(--destructive))' }} title="Remove section" aria-label="Remove section">
+          </Button>
+          <Button size="icon" onClick={onRemove} className="text-destructive" title="Remove section" aria-label="Remove section">
             <Trash2 size={15} />
-          </button>
+          </Button>
         </div>
       </div>
-      <div style={row}>
+      <div className="flex flex-wrap items-center gap-1.5">
         <select
           value={section.kind}
           onChange={(e) => (onKindChange ? onKindChange(e.target.value) : onChange({ ...section, kind: e.target.value }))}
-          style={input}
+          className={controlClass}
           aria-label="Section type"
         >
           {SECTION_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
@@ -61,19 +70,19 @@ export function SectionEditor({
               value={section.text || ''}
               onChange={(e) => onChange({ ...section, text: e.target.value })}
               placeholder={section.kind === 'chapter' ? 'Chapter title' : 'Book title'}
-              style={{ ...input, flex: 1 }}
+              className={cn(controlClass, 'flex-1')}
             />
             <input
               value={section.subtitle || ''}
               onChange={(e) => onChange({ ...section, subtitle: e.target.value })}
               placeholder="Subtitle (optional)"
-              style={{ ...input, flex: 1 }}
+              className={cn(controlClass, 'flex-1')}
             />
             {(section.kind === 'title' || section.kind === 'cover') && (
               <select
                 value={section.titlePreset || ''}
                 onChange={(e) => onChange({ ...section, titlePreset: e.target.value || undefined })}
-                style={{ ...input, minWidth: 210 }}
+                className={cn(controlClass, 'min-w-[210px]')}
                 aria-label="Title page contents"
               >
                 <option value="">Default title page contents</option>
@@ -87,7 +96,7 @@ export function SectionEditor({
                 <select
                   value={section.chapterType || 'content'}
                   onChange={(e) => onChange({ ...section, chapterType: e.target.value })}
-                  style={{ ...input, minWidth: 150 }}
+                  className={cn(controlClass, 'min-w-[150px]')}
                   aria-label="Chapter type"
                 >
                   <option value="preface">Preface Chapter</option>
@@ -98,7 +107,7 @@ export function SectionEditor({
                   value={section.chapterNumber || ''}
                   onChange={(e) => onChange({ ...section, chapterNumber: e.target.value })}
                   placeholder="Chapter number"
-                  style={{ ...input, width: 140 }}
+                  className={cn(controlClass, 'w-[140px]')}
                 />
               </>
             )}
@@ -108,9 +117,9 @@ export function SectionEditor({
                   value={section.author || ''}
                   onChange={(e) => onChange({ ...section, author: e.target.value })}
                   placeholder="Author"
-                  style={{ ...input, flex: 1 }}
+                  className={cn(controlClass, 'flex-1')}
                 />
-                <div style={{ width: 180 }}>
+                <div className="w-[180px]">
                   <DatePicker
                     value={section.date || ''}
                     onChange={(value) => onChange({ ...section, date: value })}
@@ -121,7 +130,7 @@ export function SectionEditor({
                   value={section.publisher || ''}
                   onChange={(e) => onChange({ ...section, publisher: e.target.value })}
                   placeholder="Publisher"
-                  style={{ ...input, flex: 1 }}
+                  className={cn(controlClass, 'flex-1')}
                 />
               </>
             )}
@@ -131,13 +140,13 @@ export function SectionEditor({
                   value={section.imageCaption || ''}
                   onChange={(e) => onChange({ ...section, imageCaption: e.target.value })}
                   placeholder="Title Page Image"
-                  style={{ ...input, flex: 1 }}
+                  className={cn(controlClass, 'flex-1')}
                 />
                 <input
                   value={section.crestCaption || ''}
                   onChange={(e) => onChange({ ...section, crestCaption: e.target.value })}
                   placeholder="Family Crest"
-                  style={{ ...input, flex: 1 }}
+                  className={cn(controlClass, 'flex-1')}
                 />
               </>
             )}
@@ -145,13 +154,13 @@ export function SectionEditor({
               value={section.place || ''}
               onChange={(e) => onChange({ ...section, place: e.target.value })}
               placeholder="Place"
-              style={{ ...input, flex: 1 }}
+              className={cn(controlClass, 'flex-1')}
             />
             <input
               value={section.note || ''}
               onChange={(e) => onChange({ ...section, note: e.target.value })}
               placeholder="Note"
-              style={{ ...input, flex: 1 }}
+              className={cn(controlClass, 'flex-1')}
             />
           </>
         )}
@@ -159,7 +168,7 @@ export function SectionEditor({
           <select
             value={section.tocStyle || 'numbered'}
             onChange={(e) => onChange({ ...section, tocStyle: e.target.value })}
-            style={input}
+            className={controlClass}
           >
             <option value="numbered">Numbered</option>
             <option value="plain">Plain</option>
@@ -167,7 +176,7 @@ export function SectionEditor({
           </select>
         )}
         {def?.needsPerson && (
-          <div style={{ minWidth: 240 }}>
+          <div className="min-w-[240px]">
             <PersonPicker
               persons={persons}
               value={section.targetRecordName}
@@ -176,7 +185,7 @@ export function SectionEditor({
           </div>
         )}
         {def?.needsGenerations && (
-          <label style={fieldLabel}>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
             Generations
             <input
               type="number"
@@ -184,7 +193,7 @@ export function SectionEditor({
               max={12}
               value={section.generations || 5}
               onChange={(e) => onChange({ ...section, generations: +e.target.value || 5 })}
-              style={{ ...input, width: 84 }}
+              className={cn(controlClass, 'w-[84px]')}
             />
           </label>
         )}
@@ -192,7 +201,7 @@ export function SectionEditor({
           <select
             value={section.groupRecordName || ''}
             onChange={(e) => onChange({ ...section, groupRecordName: e.target.value })}
-            style={{ ...input, minWidth: 220 }}
+            className={cn(controlClass, 'min-w-[220px]')}
           >
             <option value="">Select group...</option>
             {groups.map((group) => (
@@ -204,7 +213,7 @@ export function SectionEditor({
           <select
             value={section.sourceRecordName || ''}
             onChange={(e) => onChange({ ...section, sourceRecordName: e.target.value })}
-            style={{ ...input, minWidth: 220 }}
+            className={cn(controlClass, 'min-w-[220px]')}
           >
             <option value="">Select source...</option>
             {sources.map((source) => (
@@ -216,7 +225,7 @@ export function SectionEditor({
           <select
             value={section.savedReportId || ''}
             onChange={(e) => onChange({ ...section, savedReportId: e.target.value })}
-            style={{ ...input, minWidth: 240 }}
+            className={cn(controlClass, 'min-w-[240px]')}
           >
             <option value="">Select saved report...</option>
             {savedReports.map((report) => (
@@ -228,7 +237,7 @@ export function SectionEditor({
           <select
             value={section.savedChartId || ''}
             onChange={(e) => onChange({ ...section, savedChartId: e.target.value })}
-            style={{ ...input, minWidth: 240 }}
+            className={cn(controlClass, 'min-w-[240px]')}
           >
             <option value="">Select saved chart...</option>
             {savedCharts.map((chart) => (
@@ -245,36 +254,5 @@ function titleForSection(section, def) {
   if (section.kind === 'cover' || section.kind === 'title' || section.kind === 'chapter') return section.text || def?.label || 'Untitled section';
   return def?.label || 'Section';
 }
-
-const card = { background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 12, marginBottom: 10 };
-const head = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 10 };
-const titleBlock = { display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 };
-const eyebrow = { color: 'hsl(var(--muted-foreground))', fontSize: 10, fontWeight: 700, letterSpacing: 0.4 };
-const sectionName = { color: 'hsl(var(--foreground))', fontSize: 13, fontWeight: 650, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
-const row = { display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' };
-const input = {
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 6,
-  padding: '6px 10px',
-  font: '13px -apple-system, system-ui, sans-serif',
-  outline: 'none',
-};
-const fieldLabel = { display: 'flex', alignItems: 'center', gap: 6, color: 'hsl(var(--muted-foreground))', fontSize: 12 };
-const iconBtn = {
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 4,
-  width: 30,
-  height: 28,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 0,
-  fontSize: 12,
-  cursor: 'pointer',
-};
 
 export default SectionEditor;

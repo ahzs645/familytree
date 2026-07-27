@@ -46,6 +46,11 @@ import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
 import { DEFAULT_PAGE_STYLE, PRESENTATION_THEMES, normalizePageStyle } from '../../lib/presentationSettings.js';
 import { getAuthorInfo } from '../../lib/authorInfo.js';
 import { listBooks, saveBook, newBookId, normalizeBookPresentationSettings } from '../../lib/books.js';
+import { Button } from '../ui/Button.jsx';
+import { Input } from '../ui/Input.jsx';
+import { Select } from '../ui/Select.jsx';
+import { formClasses } from '../ui/formClasses.js';
+import { cn } from '../../lib/utils.js';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
 import { PresentationSettingsControls } from '../presentation/PresentationSettingsControls.jsx';
 import { ReportPreview } from './ReportPreview.jsx';
@@ -621,114 +626,121 @@ export function ReportsApp() {
     setSpeaking(true);
   }, [displayReport, speaking, speechSupported]);
 
-  if (loading) return <div style={loadingStyle}>{t('common.loading')}</div>;
+  if (loading) return <div className={loadingClass}>{t('common.loading')}</div>;
   if (empty) {
     return (
-      <div style={loadingStyle}>
-        {t('reports.noFamilyData')} <Link to="/" style={{ color: 'hsl(var(--primary))', marginInlineStart: 6 }}>{t('common.import')}</Link>
+      <div className={loadingClass}>
+        {t('reports.noFamilyData')} <Link to="/" className="ms-1.5 text-primary">{t('common.import')}</Link>
       </div>
     );
   }
 
   return (
-    <div style={shell}>
-      <header style={topbar}>
-        <button
-          type="button"
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      {/* Topbar wraps so the report title and the Play/Export actions stop
+          overlapping once the row runs out of width. */}
+      <header className="flex min-h-16 flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-card px-4 py-2.5">
+        <Button
+          variant="secondary"
+          size="icon"
+          className="shrink-0"
           onClick={() => setLibraryOpen((open) => !open)}
-          style={iconButton}
           title={libraryOpen ? 'Hide report library' : 'Show report library'}
           aria-label={libraryOpen ? 'Hide report library' : 'Show report library'}
         >
           {libraryOpen ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}
-        </button>
-        <div style={{ minWidth: 0 }}>
-          <div style={eyebrow}>{t('reports.ui.reportsEyebrow')}</div>
-          <h1 style={title}>{selectedBuilderLabel}</h1>
+        </Button>
+        <div className="min-w-0">
+          <div className={eyebrowClass}>{t('reports.ui.reportsEyebrow')}</div>
+          <h1 className="m-0 max-w-[420px] truncate text-lg font-bold leading-tight text-foreground">{selectedBuilderLabel}</h1>
         </div>
-        <div style={topbarMeta}>
+        <div className="ms-auto flex min-w-0 flex-wrap items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
           <span>{reportCategoryLabel(t, builder.category || 'Reports')}</span>
           {reportStats && <span>{t('reports.ui.blocksCount', { count: reportStats.blocks })}</span>}
           {reportStats && <span>{t('reports.ui.tablesCount', { count: reportStats.tables })}</span>}
         </div>
-        <div style={topbarActions}>
+        <div className="flex flex-wrap items-center gap-2">
           {speechSupported && (
-            <button
+            <Button
+              variant="secondary"
               onClick={onSpeak}
               disabled={!displayReport || reportLoading}
-              style={actionButton}
               title={speaking ? 'Stop speaking' : 'Read this report aloud'}
             >
               {speaking ? <Square size={15} /> : <Play size={15} />}
               <span>{speaking ? t('reports.ui.stop') : t('reports.ui.play')}</span>
-            </button>
+            </Button>
           )}
           <ExportSelect disabled={!displayReport || reportLoading} onExport={onExport} />
         </div>
       </header>
 
       <div
+        className="grid min-h-0 flex-1 bg-secondary"
         style={{
-          ...workspace,
           gridTemplateColumns: isMobile
             ? 'minmax(0, 1fr)'
             : libraryOpen
-              ? workspace.gridTemplateColumns
+              ? 'minmax(220px, 280px) minmax(260px, 330px) minmax(0, 1fr)'
               : 'minmax(260px, 330px) minmax(0, 1fr)',
         }}
       >
         {libraryOpen && (
-          <aside style={libraryPanel}>
-            <div style={searchBox}>
+          <aside className="flex min-h-0 min-w-0 flex-col border-e border-border bg-background">
+            <div className="m-3 flex items-center gap-2 rounded-md border border-border bg-secondary px-2.5 py-2 text-muted-foreground">
               <Search size={15} />
               <input
                 value={reportSearch}
                 onChange={(event) => setReportSearch(event.target.value)}
                 placeholder={t('reports.ui.findReport')}
-                style={searchInput}
+                className="min-w-0 flex-1 border-0 bg-transparent text-sm text-foreground outline-none"
               />
             </div>
-            <div style={reportList}>
+            <div className="min-h-0 overflow-auto px-2 pb-4">
               {builderCategories.map((category) => (
-                <section key={category.name} style={categorySection}>
-                  <div style={categoryLabel}>{reportCategoryLabel(t, category.name)}</div>
+                <section key={category.name} className="mt-2.5">
+                  <div className={cn(eyebrowClass, 'px-2 pb-1 pt-1.5')}>{reportCategoryLabel(t, category.name)}</div>
                   {category.builders.map((entry) => (
                     <button
                       key={entry.id}
                       type="button"
                       onClick={() => onBuilderChange(entry.id)}
-                      style={entry.id === builderId ? activeReportButton : reportButton}
+                      className={cn(
+                        'flex min-h-[34px] w-full cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-start text-sm text-foreground',
+                        entry.id === builderId
+                          ? 'border-primary/30 bg-primary/10'
+                          : 'border-transparent bg-transparent hover:bg-accent',
+                      )}
                     >
                       <FileText size={15} />
-                      <span style={reportButtonText}>{builderLabel(entry)}</span>
+                      <span className="min-w-0 truncate">{builderLabel(entry)}</span>
                     </button>
                   ))}
                 </section>
               ))}
-              {builderCategories.length === 0 && <div style={emptyList}>{t('reports.ui.noMatches')}</div>}
+              {builderCategories.length === 0 && <div className="p-3 text-sm text-muted-foreground">{t('reports.ui.noMatches')}</div>}
             </div>
           </aside>
         )}
 
-        <aside style={inspector}>
-          <div style={inspectorHeader}>
+        <aside className="min-w-0 overflow-auto border-e border-border bg-card p-4 text-card-foreground">
+          <div className="mb-2 flex items-start justify-between gap-2.5">
             <div>
-              <div style={eyebrow}>{t('reports.ui.reportEyebrow')}</div>
-              <div style={inspectorTitle}>{selectedBuilderLabel}</div>
+              <div className={eyebrowClass}>{t('reports.ui.reportEyebrow')}</div>
+              <div className="text-base font-bold leading-tight text-foreground">{selectedBuilderLabel}</div>
             </div>
-            <button
-              type="button"
+            <Button
+              variant="secondary"
               onClick={() => setOptionsOpen((open) => !open)}
-              style={compactButton}
               className="lg:hidden"
               aria-expanded={optionsOpen}
             >
               {optionsOpen ? t('common.close') : t('reports.ui.options')}
-            </button>
+            </Button>
           </div>
-          <p style={helpText}>{reportHelpText(t, builder)}</p>
+          <p className="mb-2.5 mt-0 text-xs leading-snug text-muted-foreground">{reportHelpText(t, builder)}</p>
 
-          <div className={`${optionsOpen ? 'block' : 'hidden'} lg:block`} style={inspectorBody}>
+          <div className={`${optionsOpen ? 'block' : 'hidden'} lg:block`}>
             <InspectorSection title={t('reports.ui.edit')}>
               {needsSubject && (
                 <Field label={reportSubjectLabel(t, builder.subjectLabel) || t('reports.ui.subject')}>
@@ -748,13 +760,12 @@ export function ReportsApp() {
 
               {usesGenerations && (
                 <Field label={t('reports.generations')}>
-                  <input
+                  <Input
                     type="number"
                     min={2}
                     max={10}
                     value={generationValue}
                     onChange={(e) => updateOption('generations', Math.min(10, Math.max(2, +e.target.value || builder.defaultOptions.generations || 5)))}
-                    style={{ ...input, width: '100%' }}
                   />
                 </Field>
               )}
@@ -764,7 +775,7 @@ export function ReportsApp() {
                 if (option.type === 'boolean') {
                   return (
                     <Field key={option.key} label={reportOptionLabel(t, option)} wrap={false}>
-                      <label style={checkRow}>
+                      <label className={checkRowClass}>
                         <input type="checkbox" checked={current !== false} onChange={(e) => updateOption(option.key, e.target.checked)} /> {reportOptionCheckbox(t, option)}
                       </label>
                     </Field>
@@ -773,22 +784,23 @@ export function ReportsApp() {
                 if (option.type === 'select') {
                   return (
                     <Field key={option.key} label={reportOptionLabel(t, option)}>
-                      <select value={current} onChange={(e) => updateOption(option.key, e.target.value)} style={input}>
-                        {option.choices.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                      </select>
+                      <Select
+                        value={current}
+                        onChange={(next) => updateOption(option.key, next)}
+                        options={option.choices.map(([value, label]) => ({ value, label }))}
+                      />
                     </Field>
                   );
                 }
                 if (option.type === 'number') {
                   return (
                     <Field key={option.key} label={reportOptionLabel(t, option)}>
-                      <input
+                      <Input
                         type="number"
                         min={option.min}
                         max={option.max}
                         value={current}
                         onChange={(e) => updateOption(option.key, Math.max(option.min ?? -Infinity, Math.min(option.max ?? Infinity, +e.target.value || option.default)))}
-                        style={{ ...input, width: '100%' }}
                       />
                     </Field>
                   );
@@ -796,12 +808,11 @@ export function ReportsApp() {
                 if (option.type === 'text') {
                   return (
                     <Field key={option.key} label={reportOptionLabel(t, option)}>
-                      <input
+                      <Input
                         type="text"
                         value={current || ''}
                         placeholder={option.placeholder || ''}
                         onChange={(e) => updateOption(option.key, e.target.value)}
-                        style={{ ...input, width: '100%' }}
                       />
                     </Field>
                   );
@@ -810,7 +821,7 @@ export function ReportsApp() {
               })}
 
               <Field label={t('reports.header')}>
-                <label style={checkRow}>
+                <label className={checkRowClass}>
                   <input type="checkbox" checked={options.includeHeader !== false} onChange={(e) => updateOption('includeHeader', e.target.checked)} /> {t('reports.title')}
                 </label>
               </Field>
@@ -819,77 +830,84 @@ export function ReportsApp() {
             <InspectorSection title={t('reports.ui.stylePage')}>
               <PresentationSettingsControls value={pageStyle} onChange={setPageStyle} />
               <Field label={t('reports.theme')}>
-                <select value={themeId} onChange={(event) => setThemeId(event.target.value)} style={input}>
-                  {PRESENTATION_THEMES.map((theme) => (
-                    <option key={theme.id} value={theme.id}>{t(`presentation.theme.${theme.id}`, { defaultValue: theme.label })}</option>
-                  ))}
-                </select>
+                <Select
+                  value={themeId}
+                  onChange={setThemeId}
+                  options={PRESENTATION_THEMES.map((theme) => ({
+                    value: theme.id,
+                    label: t(`presentation.theme.${theme.id}`, { defaultValue: theme.label }),
+                  }))}
+                />
               </Field>
             </InspectorSection>
 
             <InspectorSection title={t('reports.saved')}>
-              <button onClick={onSave} style={primaryButton}><Save size={15} /> {t('reports.ui.saveReport')}…</button>
-              <select value="" onChange={(e) => e.target.value && onApplySaved(e.target.value)} style={input}>
+              <Button variant="primary" onClick={onSave} className="w-full"><Save size={15} /> {t('reports.ui.saveReport')}…</Button>
+              <select value="" onChange={(e) => e.target.value && onApplySaved(e.target.value)} className={selectClass}>
                 <option value="">{savedList.length ? t('reports.load') : 'No saved reports'}</option>
                 {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
               </select>
               {savedList.length > 0 && (
-                <select value="" onChange={(e) => { if (e.target.value) onRename(e.target.value); e.target.value = ''; }} style={input}>
+                <select value="" onChange={(e) => { if (e.target.value) onRename(e.target.value); e.target.value = ''; }} className={selectClass}>
                   <option value="">{t('reports.ui.renameReport')}</option>
                   {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
                 </select>
               )}
               {savedList.length > 0 && (
-                <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} style={input}>
+                <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} className={selectClass}>
                   <option value="">{t('reports.ui.deleteReport')}</option>
                   {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
                 </select>
               )}
-              {savedList.length === 0 && <div style={microcopy}>{t('reports.ui.saveHint')}</div>}
+              {savedList.length === 0 && <div className={microcopyClass}>{t('reports.ui.saveHint')}</div>}
             </InspectorSection>
 
             <InspectorSection title={t('reports.ui.reportEditing')}>
               {!customizing ? (
-                <button type="button" onClick={beginCustomize} disabled={!displayReport || reportLoading} style={actionButton}>{t('reports.ui.editReport')}</button>
+                <Button variant="secondary" onClick={beginCustomize} disabled={!displayReport || reportLoading}>{t('reports.ui.editReport')}</Button>
               ) : (
                 <>
-                  <div style={buttonRow}>
-                    <button type="button" onClick={finishCustomize} style={primaryButton}>{t('reports.ui.finish')}</button>
-                    <button type="button" onClick={discardCustomize} style={actionButton}>{t('reports.ui.discard')}</button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="primary" onClick={finishCustomize}>{t('reports.ui.finish')}</Button>
+                    <Button variant="secondary" onClick={discardCustomize}>{t('reports.ui.discard')}</Button>
                   </div>
-                  <div style={buttonRow}>
-                    <button type="button" onClick={onUndo} disabled={undoStack.length === 0} style={actionButton}><RotateCcw size={15} /> {t('reports.ui.undo')}</button>
-                    <button type="button" onClick={onRedo} disabled={redoStack.length === 0} style={actionButton}><RotateCw size={15} /> {t('reports.ui.redo')}</button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="secondary" onClick={onUndo} disabled={undoStack.length === 0}><RotateCcw size={15} /> {t('reports.ui.undo')}</Button>
+                    <Button variant="secondary" onClick={onRedo} disabled={redoStack.length === 0}><RotateCw size={15} /> {t('reports.ui.redo')}</Button>
                   </div>
-                  <div style={blockEditorList}>
+                  <div className="flex max-h-[220px] flex-col gap-1.5 overflow-auto">
                     {(customReport?.blocks || []).map((block, index) => (
-                      <div key={`${block.kind}-${index}`} style={blockEditorRow}>
-                        <span style={blockEditorText}>{blockLabel(block, index)}</span>
-                        <button type="button" onClick={() => deleteCustomBlock(index)} style={dangerIconButton} title={t('reports.ui.deleteBlock')} aria-label={t('reports.ui.deleteBlock')}>
+                      <div key={`${block.kind}-${index}`} className="flex items-center gap-2 rounded-md border border-border bg-background py-1.5 pe-2 ps-2.5">
+                        <span className="min-w-0 flex-1 truncate text-xs text-foreground">{blockLabel(block, index)}</span>
+                        <Button variant="destructiveOutline" size="icon" className="h-7 w-7 shrink-0" onClick={() => deleteCustomBlock(index)} title={t('reports.ui.deleteBlock')} aria-label={t('reports.ui.deleteBlock')}>
                           <Trash2 size={14} />
-                        </button>
+                        </Button>
                       </div>
                     ))}
                   </div>
                 </>
               )}
-              <div style={microcopy}>{t('reports.ui.editHint')}</div>
+              <div className={microcopyClass}>{t('reports.ui.editHint')}</div>
             </InspectorSection>
 
             <InspectorSection title={t('reports.ui.books')}>
-              <select value={bookTargetId} onChange={(event) => setBookTargetId(event.target.value)} style={input}>
-                <option value="">New book: Family Reports</option>
-                {savedBooks.map((book) => <option key={book.id} value={book.id}>{book.title || 'Untitled Book'}</option>)}
-              </select>
-              <button type="button" onClick={onAddToBook} style={actionButton}>{t('reports.ui.addToBook')}</button>
-              <div style={microcopy}>{t('reports.ui.addToBookHint')}</div>
+              <Select
+                value={bookTargetId}
+                onChange={setBookTargetId}
+                options={[
+                  { value: '', label: 'New book: Family Reports' },
+                  ...savedBooks.map((book) => ({ value: book.id, label: book.title || 'Untitled Book' })),
+                ]}
+              />
+              <Button variant="secondary" onClick={onAddToBook}>{t('reports.ui.addToBook')}</Button>
+              <div className={microcopyClass}>{t('reports.ui.addToBookHint')}</div>
             </InspectorSection>
           </div>
         </aside>
 
-        <div style={main}>
-          {reportLoading && <div style={statusText}>{t('reports.generating', { label: selectedBuilderLabel })}</div>}
-          {generationError && <div style={errorText}>{generationError}</div>}
+        <div className="relative min-w-0 overflow-auto bg-gradient-to-b from-secondary to-background">
+          {reportLoading && <div className="sticky top-0 z-10 border-b border-border bg-secondary px-5 py-2 text-xs text-foreground">{t('reports.generating', { label: selectedBuilderLabel })}</div>}
+          {generationError && <div className="bg-destructive px-5 py-2 text-xs text-destructive-foreground">{generationError}</div>}
           <ReportPreview report={displayReport} />
         </div>
       </div>
@@ -907,8 +925,8 @@ export function ReportsApp() {
 function Field({ label, children, wrap = true }) {
   const Tag = wrap ? 'label' : 'div';
   return (
-    <Tag style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-      <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
+    <Tag className="flex min-w-0 flex-col gap-1.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
       {children}
     </Tag>
   );
@@ -916,9 +934,9 @@ function Field({ label, children, wrap = true }) {
 
 function InspectorSection({ title, children }) {
   return (
-    <section style={inspectorSection}>
-      <h2 style={sectionTitle}>{title}</h2>
-      <div style={sectionBody}>{children}</div>
+    <section className="mt-3.5 border-t border-border pt-3.5">
+      <h2 className="mb-2.5 mt-0 text-xs font-bold text-foreground">{title}</h2>
+      <div className="flex flex-col gap-3">{children}</div>
     </section>
   );
 }
@@ -926,7 +944,7 @@ function InspectorSection({ title, children }) {
 function ExportSelect({ disabled, onExport }) {
   const { t } = useTranslation();
   return (
-    <label style={exportSelectLabel}>
+    <label className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border bg-secondary ps-2.5 text-secondary-foreground">
       <Download size={15} />
       <select
         value=""
@@ -936,7 +954,7 @@ function ExportSelect({ disabled, onExport }) {
           onExport(event.target.value);
           event.target.value = '';
         }}
-        style={exportSelect}
+        className="h-full cursor-pointer border-0 bg-transparent pe-1 text-xs text-inherit outline-none disabled:cursor-not-allowed disabled:opacity-50"
         title={t('reports.export')}
       >
         <option value="">{t('reports.export')}</option>
@@ -951,12 +969,14 @@ function ExportSelect({ disabled, onExport }) {
 function RecordSelect({ items, value, onChange, placeholder }) {
   const { t } = useTranslation();
   return (
-    <select value={value || ''} onChange={(event) => onChange(event.target.value || null)} style={input}>
-      <option value="">{placeholder || t('reports.selectRecord')}</option>
-      {items.map((item) => (
-        <option key={item.recordName} value={item.recordName}>{item.label}</option>
-      ))}
-    </select>
+    <Select
+      value={value || ''}
+      onChange={(next) => onChange(next || null)}
+      options={[
+        { value: '', label: placeholder || t('reports.selectRecord') },
+        ...items.map((item) => ({ value: item.recordName, label: item.label })),
+      ]}
+    />
   );
 }
 
@@ -1040,195 +1060,11 @@ function storySubject(record) {
   };
 }
 
-const shell = { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'hsl(var(--background))' };
-const topbar = {
-  display: 'flex',
-  alignItems: 'center',
-  // Wraps so the report title and the Play/Export actions stop overlapping
-  // once the row runs out of width.
-  flexWrap: 'wrap',
-  rowGap: 8,
-  gap: 12,
-  minHeight: 64,
-  padding: '10px 16px',
-  borderBottom: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--card))',
-};
-const topbarMeta = {
-  display: 'flex',
-  alignItems: 'center',
-  flexWrap: 'wrap',
-  gap: 8,
-  minWidth: 0,
-  marginInlineStart: 'auto',
-  color: 'hsl(var(--muted-foreground))',
-  fontSize: 12,
-  whiteSpace: 'nowrap',
-};
-const topbarActions = { display: 'flex', alignItems: 'center', flexWrap: 'wrap', rowGap: 8, gap: 8 };
-const workspace = {
-  flex: 1,
-  minHeight: 0,
-  display: 'grid',
-  gridTemplateColumns: 'minmax(220px, 280px) minmax(260px, 330px) minmax(0, 1fr)',
-  background: 'hsl(var(--secondary))',
-};
-const libraryPanel = {
-  minWidth: 0,
-  borderInlineEnd: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--background))',
-  display: 'flex',
-  flexDirection: 'column',
-  minHeight: 0,
-};
-const inspector = {
-  minWidth: 0,
-  borderInlineEnd: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--card))',
-  overflow: 'auto',
-  padding: 16,
-};
-const inspectorHeader = { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10, marginBottom: 8 };
-const inspectorTitle = { fontSize: 16, fontWeight: 700, lineHeight: 1.25, color: 'hsl(var(--foreground))' };
-const inspectorBody = {};
-const inspectorSection = { borderTop: '1px solid hsl(var(--border))', paddingTop: 14, marginTop: 14 };
-const sectionTitle = { margin: '0 0 10px', fontSize: 12, fontWeight: 700, color: 'hsl(var(--foreground))' };
-const sectionBody = { display: 'flex', flexDirection: 'column', gap: 12 };
-const main = { minWidth: 0, overflow: 'auto', position: 'relative', background: 'linear-gradient(180deg, hsl(var(--secondary)), hsl(var(--background)))' };
-const input = {
-  width: '100%',
-  minWidth: 0,
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
-  padding: '8px 10px',
-  font: '13px -apple-system, system-ui, sans-serif',
-  outline: 'none',
-  cursor: 'pointer',
-};
-const iconButton = {
-  width: 34,
-  height: 34,
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  cursor: 'pointer',
-  flex: '0 0 auto',
-};
-const actionButton = {
-  ...iconButton,
-  width: 'auto',
-  gap: 7,
-  padding: '0 11px',
-  font: '13px -apple-system, system-ui, sans-serif',
-};
-const compactButton = { ...actionButton, height: 30, padding: '0 10px' };
-const primaryButton = {
-  ...actionButton,
-  width: '100%',
-  justifyContent: 'center',
-  background: 'hsl(var(--primary))',
-  color: 'hsl(var(--primary-foreground))',
-  border: '1px solid hsl(var(--primary))',
-};
-const dangerIconButton = {
-  ...iconButton,
-  width: 28,
-  height: 28,
-  color: 'hsl(var(--destructive))',
-  background: 'hsl(var(--background))',
-};
-const exportSelectLabel = {
-  height: 34,
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  paddingInlineStart: 10,
-};
-const exportSelect = {
-  background: 'transparent',
-  color: 'inherit',
-  border: 0,
-  height: 32,
-  font: '13px -apple-system, system-ui, sans-serif',
-  cursor: 'pointer',
-};
-const title = {
-  margin: 0,
-  maxWidth: 420,
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  whiteSpace: 'nowrap',
-  fontSize: 18,
-  lineHeight: 1.2,
-  fontWeight: 700,
-  color: 'hsl(var(--foreground))',
-};
-const eyebrow = { color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0 };
-const searchBox = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  margin: 12,
-  padding: '8px 10px',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--muted-foreground))',
-};
-const searchInput = { minWidth: 0, flex: 1, border: 0, outline: 0, background: 'transparent', color: 'hsl(var(--foreground))', font: '13px -apple-system, system-ui, sans-serif' };
-const reportList = { overflow: 'auto', padding: '0 8px 16px', minHeight: 0 };
-const categorySection = { marginTop: 10 };
-const categoryLabel = { padding: '7px 8px 5px', color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0 };
-const reportButton = {
-  width: '100%',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  minHeight: 34,
-  padding: '7px 9px',
-  border: '1px solid transparent',
-  borderRadius: 8,
-  background: 'transparent',
-  color: 'hsl(var(--foreground))',
-  textAlign: 'start',
-  cursor: 'pointer',
-  font: '13px -apple-system, system-ui, sans-serif',
-};
-const activeReportButton = {
-  ...reportButton,
-  background: 'hsl(var(--primary) / 0.12)',
-  border: '1px solid hsl(var(--primary) / 0.35)',
-  color: 'hsl(var(--foreground))',
-};
-const reportButtonText = { minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' };
-const emptyList = { color: 'hsl(var(--muted-foreground))', fontSize: 13, padding: 12 };
-const checkRow = { ...input, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' };
-const buttonRow = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 };
-const blockEditorList = { display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflow: 'auto' };
-const blockEditorRow = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
-  background: 'hsl(var(--background))',
-  padding: '6px 7px 6px 10px',
-};
-const blockEditorText = { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12, color: 'hsl(var(--foreground))' };
-const microcopy = { color: 'hsl(var(--muted-foreground))', fontSize: 12, lineHeight: 1.35 };
-const loadingStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--background))', fontFamily: '-apple-system, system-ui, sans-serif' };
-const helpText = { color: 'hsl(var(--muted-foreground))', fontSize: 12, lineHeight: 1.4, margin: '0 0 10px' };
-const statusText = { position: 'sticky', top: 0, zIndex: 2, padding: '8px 20px', background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', borderBottom: '1px solid hsl(var(--border))', fontSize: 12 };
-const errorText = { padding: '8px 20px', background: 'hsl(var(--destructive))', color: 'hsl(var(--destructive-foreground))', fontSize: 12 };
+const eyebrowClass = 'text-xs font-bold uppercase text-muted-foreground';
+/** Native <select> styled like the shared input; kept native for the value-reset action menus. */
+const selectClass = cn(formClasses.input, 'cursor-pointer');
+const checkRowClass = cn(formClasses.input, 'flex cursor-pointer items-center gap-2');
+const microcopyClass = 'text-xs leading-snug text-muted-foreground';
+const loadingClass = 'flex h-screen items-center justify-center bg-background text-muted-foreground';
 
 export default ReportsApp;

@@ -18,6 +18,7 @@ import { linkExistingRelative } from '../lib/relativeLinks.js';
 import { getAppPreferences } from '../lib/appPreferences.js';
 import { refValue } from '../lib/recordRef.js';
 import { Gender } from '../models/index.js';
+import { Button } from '../components/ui/Button.jsx';
 
 function uuid(prefix) {
   return generateId(prefix);
@@ -139,71 +140,34 @@ export default function NewPerson() {
     if (hasIntent || confirmed) create();
   }, [hasIntent, confirmed, create]);
 
+  const title = 'text-base font-extrabold text-foreground';
+  const message = 'text-sm font-semibold text-muted-foreground';
+
   return (
-    <div style={shellStyle}>
-      <div style={cardStyle}>
+    <div className="flex items-center justify-center p-10 min-h-[60vh]">
+      <div className="flex flex-col items-center gap-2.5 rounded-xl border border-border bg-card text-card-foreground px-8 py-6 shadow-[0_18px_40px_rgb(0_0_0/0.08)]">
         {!error && !hasIntent && !confirmed ? (
           <>
-            <div style={titleStyle}>Add a new person?</div>
-            <div style={messageStyle}>
+            <div className={title}>Add a new person?</div>
+            <div className={message}>
               This creates an empty person record in your tree, ready to edit.
             </div>
-            <button type="button" style={buttonStyle} onClick={() => setConfirmed(true)}>Create person</button>
-            <button type="button" style={buttonStyle} onClick={() => navigate(-1)}>Cancel</button>
+            <Button variant="secondary" size="md" className="mt-2" onClick={() => setConfirmed(true)}>Create person</Button>
+            <Button variant="secondary" size="md" className="mt-2" onClick={() => navigate(-1)}>Cancel</Button>
           </>
         ) : error ? (
           <>
-            <div style={titleStyle}>Could not create person</div>
-            <div style={messageStyle}>{error}</div>
-            <button type="button" style={buttonStyle} onClick={() => navigate(-1)}>Back</button>
+            <div className={title}>Could not create person</div>
+            <div className={message}>{error}</div>
+            <Button variant="secondary" size="md" className="mt-2" onClick={() => navigate(-1)}>Back</Button>
           </>
         ) : (
           <>
-            <div style={titleStyle}>{status}</div>
-            <div style={messageStyle}>Hold on a moment…</div>
+            <div className={title}>{status}</div>
+            <div className={message}>Hold on a moment…</div>
           </>
         )}
       </div>
     </div>
   );
 }
-
-const shellStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 40,
-  minHeight: '60vh',
-};
-
-const cardStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 10,
-  alignItems: 'center',
-  padding: '24px 32px',
-  borderRadius: 12,
-  border: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--card))',
-  boxShadow: '0 18px 40px rgb(0 0 0 / 0.08)',
-};
-
-const titleStyle = {
-  font: '800 16px -apple-system, system-ui, sans-serif',
-  color: 'hsl(var(--foreground))',
-};
-
-const messageStyle = {
-  color: 'hsl(var(--muted-foreground))',
-  font: '600 13px -apple-system, system-ui, sans-serif',
-};
-
-const buttonStyle = {
-  marginTop: 8,
-  height: 32,
-  padding: '0 14px',
-  borderRadius: 6,
-  border: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--secondary))',
-  cursor: 'pointer',
-};

@@ -5,7 +5,8 @@
  */
 import React from 'react';
 import { Select } from '../../ui/Select.jsx';
-import { relationshipControlsStyle, relationshipToggleStyle, selectStyle } from './styles.js';
+import { Button } from '../../ui/Button.jsx';
+import { Input } from '../../ui/Input.jsx';
 
 export function RelationshipPathControls({
   bloodlineOnly,
@@ -23,8 +24,8 @@ export function RelationshipPathControls({
   disabled,
 }) {
   return (
-    <div style={relationshipControlsStyle}>
-      <label style={relationshipToggleStyle}>
+    <div className="flex items-end gap-2 me-3">
+      <label className="flex min-h-[34px] items-center gap-1.5 whitespace-nowrap text-sm text-foreground">
         <input
           type="checkbox"
           checked={bloodlineOnly}
@@ -33,7 +34,7 @@ export function RelationshipPathControls({
         />
         <span>Bloodlines only</span>
       </label>
-      <label style={relationshipToggleStyle} title="Skip paths that cross adopted or step relationships.">
+      <label className="flex min-h-[34px] items-center gap-1.5 whitespace-nowrap text-sm text-foreground" title="Skip paths that cross adopted or step relationships.">
         <input
           type="checkbox"
           checked={excludeNonBiological}
@@ -42,28 +43,28 @@ export function RelationshipPathControls({
         />
         <span>Full-blood only</span>
       </label>
-      <label style={{ display: 'flex', flexDirection: 'column', fontSize: 11 }}>
-        <span style={{ color: 'hsl(var(--muted-foreground))' }}>Max paths</span>
-        <input
+      <label className="flex flex-col text-xs">
+        <span className="text-muted-foreground">Max paths</span>
+        <Input
           type="number"
           min={1}
           max={40}
           value={maxPaths}
           onChange={(event) => onMaxPathsChange(Math.max(1, Math.min(40, Number(event.target.value) || 1)))}
           disabled={disabled}
-          style={{ ...selectStyle, width: 60 }}
+          className="w-[60px] px-2"
         />
       </label>
-      <label style={{ display: 'flex', flexDirection: 'column', fontSize: 11 }}>
-        <span style={{ color: 'hsl(var(--muted-foreground))' }}>Max depth</span>
-        <input
+      <label className="flex flex-col text-xs">
+        <span className="text-muted-foreground">Max depth</span>
+        <Input
           type="number"
           min={2}
           max={24}
           value={maxDepth}
           onChange={(event) => onMaxDepthChange(Math.max(2, Math.min(24, Number(event.target.value) || 2)))}
           disabled={disabled}
-          style={{ ...selectStyle, width: 60 }}
+          className="w-[60px] px-2"
         />
       </label>
       <Select
@@ -77,13 +78,12 @@ export function RelationshipPathControls({
             label: `${index + 1}. ${path.label} (${path.steps.length - 1} step${path.steps.length === 2 ? '' : 's'})`,
           })),
         ]}
-        style={{ minWidth: 180 }}
-        triggerStyle={{ ...selectStyle, paddingInlineEnd: 32 }}
+        className="min-w-[180px]"
         ariaLabel="Relationship path"
       />
-      <button type="button" onClick={onReset} disabled={disabled} style={selectStyle}>
+      <Button onClick={onReset} disabled={disabled}>
         Reset
-      </button>
+      </Button>
     </div>
   );
 }

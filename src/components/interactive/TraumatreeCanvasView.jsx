@@ -14,8 +14,8 @@ export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditP
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragRef = useRef(null);
 
-  if (loading) return <div style={emptyState}>Building family tree canvas...</div>;
-  if (!layout.nodes.length) return <div style={emptyState}>No connected family graph found for this person.</div>;
+  if (loading) return <div className={emptyStateClass}>Building family tree canvas...</div>;
+  if (!layout.nodes.length) return <div className={emptyStateClass}>No connected family graph found for this person.</div>;
 
   const viewBox = `${layout.bounds.minX - pan.x} ${layout.bounds.minY - pan.y} ${layout.bounds.width / zoom} ${layout.bounds.height / zoom}`;
 
@@ -25,12 +25,14 @@ export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditP
   };
 
   return (
-    <div style={shell}>
-      <div style={controls}>
+    <div className="relative h-full w-full overflow-hidden bg-[#f7f1e6]">
+      {/* The canvas is a fixed parchment scene; the overlay colors are chosen
+          to match the SVG artwork, not the app theme tokens. */}
+      <div className="absolute end-3.5 top-3.5 z-[2] flex items-center gap-1.5 rounded-md border border-[#d8d0c2] bg-[#fffaf2]/[0.92] p-1.5 shadow-[0_10px_24px_rgb(47_39_31/0.12)]">
         <IconButton label="Zoom out" onClick={() => setZoom((value) => Math.max(0.55, value - 0.15))}>
           <Minus size={16} />
         </IconButton>
-        <div style={zoomLabel}>{Math.round(zoom * 100)}%</div>
+        <div className="min-w-11 text-center text-xs tabular-nums text-[#6b6257]">{Math.round(zoom * 100)}%</div>
         <IconButton label="Zoom in" onClick={() => setZoom((value) => Math.min(2.4, value + 0.15))}>
           <Plus size={16} />
         </IconButton>
@@ -44,7 +46,7 @@ export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditP
       <svg
         role="img"
         aria-label="Traumatrees style family tree canvas"
-        style={svg}
+        className="block h-full w-full touch-none"
         viewBox={viewBox}
         onWheel={(event) => {
           event.preventDefault();
@@ -161,7 +163,7 @@ function CanvasPersonNode({ node, active, onPick, onEditPerson }) {
   return (
     <g
       transform={`translate(${node.x} ${node.y})`}
-      style={{ cursor: 'pointer' }}
+      className="cursor-pointer"
       onClick={(event) => {
         event.stopPropagation();
         onPick?.(node.id);
@@ -376,7 +378,13 @@ function defaultBounds() {
 
 function IconButton({ label, onClick, children }) {
   return (
-    <button type="button" aria-label={label} title={label} onClick={onClick} style={iconButton}>
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-[#d8d0c2] bg-[#fffaf2] text-[#3b3328]"
+    >
       {children}
     </button>
   );
@@ -406,36 +414,8 @@ function truncate(value, maxLength) {
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}...` : text;
 }
 
-const shell = { position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#f7f1e6' };
-const svg = { display: 'block', width: '100%', height: '100%', touchAction: 'none' };
-const controls = {
-  position: 'absolute',
-  zIndex: 2,
-  top: 14,
-  right: 14,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: 6,
-  borderRadius: 8,
-  border: '1px solid #d8d0c2',
-  background: 'rgb(255 250 242 / 0.92)',
-  boxShadow: '0 10px 24px rgb(47 39 31 / 0.12)',
-};
-const iconButton = {
-  width: 32,
-  height: 32,
-  borderRadius: 6,
-  border: '1px solid #d8d0c2',
-  background: '#fffaf2',
-  color: '#3b3328',
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-};
-const zoomLabel = { minWidth: 44, textAlign: 'center', color: '#6b6257', fontSize: 12, fontVariantNumeric: 'tabular-nums' };
-const emptyState = { height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'hsl(var(--muted-foreground))', fontSize: 13 };
+const emptyStateClass = 'h-full flex items-center justify-center text-sm text-muted-foreground';
+// SVG <text> styling below feeds the SVG scene renderer and intentionally stays inline.
 const generationLabel = { fontFamily: 'Arial, sans-serif', fontSize: 12, fontWeight: 700, letterSpacing: 0, textTransform: 'uppercase', userSelect: 'none' };
 const initialText = { fontFamily: 'Arial, sans-serif', fontSize: 10, fontWeight: 700, letterSpacing: 0, pointerEvents: 'none', userSelect: 'none' };
 const nameText = { fontFamily: 'Arial, sans-serif', fontSize: 13, fontWeight: 700, letterSpacing: 0, pointerEvents: 'none', userSelect: 'none' };

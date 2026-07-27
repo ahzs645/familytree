@@ -19,6 +19,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { LocateFixed, RotateCcw } from 'lucide-react';
 import { Select } from '../ui/Select.jsx';
+import { cn } from '../../lib/utils.js';
 import { VirtualTree3DScene } from './virtualTree3D/Scene.js';
 import { SYMBOL_MODES } from './virtualTree3D/symbolModes.js';
 import { COLOR_MODES } from './virtualTree3D/colorModes.js';
@@ -85,14 +86,17 @@ export function VirtualTree3D({
   }, [dof]);
 
   if (!virtualTreeData?.nodes?.length) {
-    return <div style={{ padding: 24, color: '#9ca3af' }}>No virtual-tree data yet.</div>;
+    return <div className="p-6 text-muted-foreground">No virtual-tree data yet.</div>;
   }
 
+  // The toolbar sits over the always-dark WebGL scene (bg #0b0f1a matches the
+  // Three.js clear color), so it keeps fixed dark glass colors instead of
+  // theme tokens.
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', minHeight: 400, background: '#0b0f1a' }}>
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
-      <div style={toolbarStyle}>
-        <button type="button" onClick={() => sceneRef.current?.fitToContent()} style={toolButtonStyle} title="Size to Fit">
+    <div className="relative h-full min-h-[400px] w-full bg-[#0b0f1a]">
+      <div ref={containerRef} className="h-full w-full" />
+      <div className="absolute start-3 top-3 flex items-center gap-2 rounded-md border border-slate-400/30 bg-slate-900/75 p-1.5 backdrop-blur-md">
+        <button type="button" onClick={() => sceneRef.current?.fitToContent()} className={TOOL_BUTTON_CLASSES} title="Size to Fit">
           <LocateFixed size={16} aria-hidden="true" />
           <span>Size to Fit</span>
         </button>
@@ -102,7 +106,7 @@ export function VirtualTree3D({
             setCameraMode('iso');
             sceneRef.current?.setCameraMode('iso');
           }}
-          style={iconButtonStyle}
+          className={cn(TOOL_BUTTON_CLASSES, 'w-8 justify-center px-0')}
           title="Reset view"
         >
           <RotateCcw size={16} aria-hidden="true" />
@@ -120,7 +124,7 @@ export function VirtualTree3D({
             { value: 'left', label: 'Left' },
             { value: 'right', label: 'Right' },
           ]}
-          triggerStyle={{ ...selectStyle, paddingInlineEnd: 32 }}
+          triggerClassName="h-8 border-slate-400/30 bg-slate-900/95 ps-2 text-xs text-slate-50 hover:bg-slate-800"
           ariaLabel="3D camera view"
         />
       </div>
@@ -130,47 +134,6 @@ export function VirtualTree3D({
 
 export default VirtualTree3D;
 
-const toolbarStyle = {
-  position: 'absolute',
-  top: 12,
-  left: 12,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-  padding: 6,
-  border: '1px solid rgba(148, 163, 184, 0.28)',
-  borderRadius: 8,
-  background: 'rgba(15, 23, 42, 0.76)',
-  backdropFilter: 'blur(12px)',
-};
-
-const toolButtonStyle = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  height: 32,
-  padding: '0 10px',
-  border: '1px solid rgba(148, 163, 184, 0.28)',
-  borderRadius: 6,
-  background: 'rgba(30, 41, 59, 0.92)',
-  color: '#f8fafc',
-  fontSize: 12,
-  cursor: 'pointer',
-};
-
-const iconButtonStyle = {
-  ...toolButtonStyle,
-  width: 32,
-  justifyContent: 'center',
-  padding: 0,
-};
-
-const selectStyle = {
-  height: 32,
-  border: '1px solid rgba(148, 163, 184, 0.28)',
-  borderRadius: 6,
-  background: 'rgba(15, 23, 42, 0.94)',
-  color: '#f8fafc',
-  fontSize: 12,
-  padding: '0 8px',
-};
+// Fixed dark glass button styling for the 3D toolbar (see note above).
+const TOOL_BUTTON_CLASSES =
+  'inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-slate-400/30 bg-slate-800/90 px-2.5 text-xs text-slate-50';

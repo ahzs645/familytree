@@ -33,7 +33,7 @@ const CITABLE_TARGET_TYPES = ['Person', 'Family', 'Place', 'PersonEvent', 'Famil
 
 const inputClass = formClasses.inputCompact;
 const buttonClass = formClasses.buttonSecondary;
-const primaryButtonClass = formClasses.buttonPrimary;
+const primaryButtonClass = formClasses.buttonFilled;
 
 function uuid(prefix) {
   return generateId(prefix);

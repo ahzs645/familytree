@@ -14,7 +14,8 @@ import {
   loadTribalAffiliationModel,
 } from '../lib/tribalAffiliations.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
-import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { FieldRow } from '../components/editors/FieldRow.jsx';
+import { formClasses } from '../components/ui/formClasses.js';
 import { SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 
@@ -202,16 +203,16 @@ export default function TribalAffiliations() {
       <section className="border border-border rounded-md bg-card p-3 mb-4">
         <h3 className="text-sm font-semibold mb-3">Affiliation</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <FieldRow label="Name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="Arabic name"><input dir="rtl" value={values.arabicName || ''} onChange={(e) => setValues({ ...values, arabicName: e.target.value })} style={editorInput} /></FieldRow>
-          <FieldRow label="English name"><input value={values.englishName || ''} onChange={(e) => setValues({ ...values, englishName: e.target.value })} style={editorInput} /></FieldRow>
+          <FieldRow label="Name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} className={formClasses.input} /></FieldRow>
+          <FieldRow label="Arabic name"><input dir="rtl" value={values.arabicName || ''} onChange={(e) => setValues({ ...values, arabicName: e.target.value })} className={formClasses.input} /></FieldRow>
+          <FieldRow label="English name"><input value={values.englishName || ''} onChange={(e) => setValues({ ...values, englishName: e.target.value })} className={formClasses.input} /></FieldRow>
           <FieldRow label="Level">
-            <select value={values.level || 'clan'} onChange={(e) => setValues({ ...values, level: e.target.value })} style={editorInput}>
+            <select value={values.level || 'clan'} onChange={(e) => setValues({ ...values, level: e.target.value })} className={formClasses.input}>
               {TRIBAL_AFFILIATION_LEVELS.map((level) => <option key={level.id} value={level.id}>{level.label}</option>)}
             </select>
           </FieldRow>
           <FieldRow label="Parent affiliation">
-            <select value={values.parentId || ''} onChange={(e) => setValues({ ...values, parentId: e.target.value })} style={editorInput}>
+            <select value={values.parentId || ''} onChange={(e) => setValues({ ...values, parentId: e.target.value })} className={formClasses.input}>
               <option value="">No parent</option>
               {realAffiliations.filter((item) => item.recordName !== active.recordName).map((item) => (
                 <option key={item.recordName} value={item.recordName}>{optionLabel(item.record)}</option>
@@ -219,7 +220,7 @@ export default function TribalAffiliations() {
             </select>
           </FieldRow>
           <FieldRow label="Confidence">
-            <select value={values.confidence || 'unknown'} onChange={(e) => setValues({ ...values, confidence: e.target.value })} style={editorInput}>
+            <select value={values.confidence || 'unknown'} onChange={(e) => setValues({ ...values, confidence: e.target.value })} className={formClasses.input}>
               {TRIBAL_CONFIDENCE.map((confidence) => <option key={confidence.id} value={confidence.id}>{confidence.label}</option>)}
             </select>
           </FieldRow>
@@ -233,10 +234,10 @@ export default function TribalAffiliations() {
                 {active.dataPackagePageIndex !== '' && active.dataPackagePageIndex !== undefined ? ` · page index ${active.dataPackagePageIndex}` : ''}
               </div>
             )}
-            <textarea rows={3} value={values.evidenceText || ''} onChange={(e) => setValues({ ...values, evidenceText: e.target.value })} style={editorTextarea} />
+            <textarea rows={3} value={values.evidenceText || ''} onChange={(e) => setValues({ ...values, evidenceText: e.target.value })} className={formClasses.textarea} />
           </div>
         )}
-        <FieldRow label="Notes"><textarea rows={4} value={values.notes || ''} onChange={(e) => setValues({ ...values, notes: e.target.value })} style={editorTextarea} /></FieldRow>
+        <FieldRow label="Notes"><textarea rows={4} value={values.notes || ''} onChange={(e) => setValues({ ...values, notes: e.target.value })} className={formClasses.textarea} /></FieldRow>
       </section>
 
       <section className="border border-border rounded-md bg-card p-3 mb-4">

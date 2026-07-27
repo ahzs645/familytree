@@ -6,23 +6,25 @@
  * search box is the practical way to find the right person.
  */
 import React from 'react';
-import { chartPersonBrowserStyle, optionSelect } from './styles.js';
 import { BdiText, LtrText } from '../../BdiText.jsx';
 import { Select } from '../../ui/Select.jsx';
+import { Button } from '../../ui/Button.jsx';
+import { Input } from '../../ui/Input.jsx';
+import { cn } from '../../../lib/utils.js';
 
 export function ChartPersonBrowser({ persons, rootId, query, onQueryChange, group, onGroupChange, onPick, onAllPersons, onSmartFilters }) {
   return (
-    <aside style={chartPersonBrowserStyle}>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-        <button type="button" onClick={onAllPersons} style={optionSelect}>All Persons</button>
-        <button type="button" onClick={onSmartFilters} style={optionSelect}>Smart Filters</button>
+    <aside className="flex w-[260px] shrink-0 flex-col min-h-0 border-s border-border bg-card p-3 text-card-foreground">
+      <div className="mb-2 flex gap-1.5">
+        <Button onClick={onAllPersons}>All Persons</Button>
+        <Button onClick={onSmartFilters}>Smart Filters</Button>
       </div>
-      <label style={{ display: 'block', marginBottom: 8 }}>
-        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Find</div>
-        <input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Find person" style={optionSelect} />
+      <label className="mb-2 block">
+        <div className="mb-1 text-xs text-muted-foreground">Find</div>
+        <Input compact value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Find person" />
       </label>
-      <label style={{ display: 'block', marginBottom: 10 }}>
-        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Group by</div>
+      <label className="mb-2.5 block">
+        <div className="mb-1 text-xs text-muted-foreground">Group by</div>
         <Select
           value={group}
           onChange={onGroupChange}
@@ -31,11 +33,11 @@ export function ChartPersonBrowser({ persons, rootId, query, onQueryChange, grou
             { value: 'firstName', label: 'First Name' },
             { value: 'birth', label: 'Birth Year' },
           ]}
-          triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+          triggerClassName="h-8 ps-2 text-xs"
         />
       </label>
-      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 6 }}>{persons.length.toLocaleString()} persons</div>
-      <div style={{ overflow: 'auto', minHeight: 0 }}>
+      <div className="mb-1.5 text-xs text-muted-foreground">{persons.length.toLocaleString()} persons</div>
+      <div className="min-h-0 overflow-auto">
         {persons.slice(0, 700).map((person) => {
           const active = person.recordName === rootId;
           return (
@@ -43,20 +45,13 @@ export function ChartPersonBrowser({ persons, rootId, query, onQueryChange, grou
               type="button"
               key={person.recordName}
               onClick={() => onPick(person.recordName)}
-              style={{
-                width: '100%',
-                textAlign: 'start',
-                padding: '7px 8px',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: 6,
-                marginBottom: 5,
-                background: active ? 'hsl(var(--accent))' : 'hsl(var(--background))',
-                color: 'hsl(var(--foreground))',
-                cursor: 'pointer',
-              }}
+              className={cn(
+                'mb-1 w-full cursor-pointer rounded-md border border-border px-2 py-1.5 text-start text-foreground',
+                active ? 'bg-accent' : 'bg-background hover:bg-accent'
+              )}
             >
-              <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><BdiText>{person.fullName || person.recordName}</BdiText></div>
-              <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}><LtrText>{person.birthDate || 'Birth unknown'}</LtrText></div>
+              <div className="truncate text-xs font-semibold"><BdiText>{person.fullName || person.recordName}</BdiText></div>
+              <div className="text-xs text-muted-foreground"><LtrText>{person.birthDate || 'Birth unknown'}</LtrText></div>
             </button>
           );
         })}

@@ -18,10 +18,10 @@ const EDGE_GLYPH = {
 
 export function RelationshipPathChart({ result, pathCount = 0, secondPicked, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   if (!secondPicked) {
-    return <div style={{ padding: 24, color: theme.textMuted }}>Pick a second person to compare against.</div>;
+    return <div className="p-6" style={{ color: theme.textMuted }}>Pick a second person to compare against.</div>;
   }
   if (!result || !result.steps || result.steps.length === 0) {
-    return <div style={{ padding: 24, color: theme.textMuted }}>No connection found between these persons in the tree.</div>;
+    return <div className="p-6" style={{ color: theme.textMuted }}>No connection found between these persons in the tree.</div>;
   }
 
   const stepWidth = theme.nodeWidth + STEP_GAP;

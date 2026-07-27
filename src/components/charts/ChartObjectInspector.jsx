@@ -10,39 +10,23 @@
  */
 import React from 'react';
 import { Select } from '../ui/Select.jsx';
+import { Input } from '../ui/Input.jsx';
 
-const row = { display: 'block', marginBottom: 8 };
-const label = { color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 };
-const input = {
-  width: '100%',
-  padding: '6px 8px',
-  border: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--background))',
-  color: 'hsl(var(--foreground))',
-  borderRadius: 4,
-  font: '13px -apple-system, system-ui, sans-serif',
-};
-const notice = {
-  padding: 12,
-  fontSize: 12,
-  color: 'hsl(var(--muted-foreground))',
-  background: 'hsl(var(--muted) / 0.2)',
-  border: '1px dashed hsl(var(--border))',
-  borderRadius: 6,
-  margin: 8,
-};
+const ROW_CLASSES = 'block mb-2';
+const LABEL_CLASSES = 'mb-1 text-xs text-muted-foreground';
+const NOTICE_CLASSES = 'm-2 rounded-md border border-dashed border-border bg-muted/20 p-3 text-xs text-muted-foreground';
 
 function NumberField({ value, onChange, label: labelText, min, step = 1 }) {
   return (
-    <label style={row}>
-      <div style={label}>{labelText}</div>
-      <input
+    <label className={ROW_CLASSES}>
+      <div className={LABEL_CLASSES}>{labelText}</div>
+      <Input
+        compact
         type="number"
         value={Number.isFinite(value) ? value : 0}
         min={min}
         step={step}
         onChange={(event) => onChange(Number(event.target.value))}
-        style={input}
       />
     </label>
   );
@@ -50,14 +34,14 @@ function NumberField({ value, onChange, label: labelText, min, step = 1 }) {
 
 function TextField({ value, onChange, label: labelText, type = 'text', placeholder }) {
   return (
-    <label style={row}>
-      <div style={label}>{labelText}</div>
-      <input
+    <label className={ROW_CLASSES}>
+      <div className={LABEL_CLASSES}>{labelText}</div>
+      <Input
+        compact
         type={type}
         value={value ?? ''}
         placeholder={placeholder}
         onChange={(event) => onChange(event.target.value)}
-        style={input}
       />
     </label>
   );
@@ -65,20 +49,21 @@ function TextField({ value, onChange, label: labelText, type = 'text', placehold
 
 function ColorField({ value, onChange, label: labelText }) {
   return (
-    <label style={row}>
-      <div style={label}>{labelText}</div>
-      <div style={{ display: 'flex', gap: 6 }}>
+    <label className={ROW_CLASSES}>
+      <div className={LABEL_CLASSES}>{labelText}</div>
+      <div className="flex gap-1.5">
         <input
           type="color"
           value={value || '#000000'}
           onChange={(event) => onChange(event.target.value)}
-          style={{ width: 36, height: 28, border: '1px solid hsl(var(--border))', background: 'transparent', padding: 0 }}
+          className="h-7 w-9 rounded-md border border-border bg-transparent p-0"
         />
-        <input
+        <Input
+          compact
           type="text"
           value={value || ''}
           onChange={(event) => onChange(event.target.value)}
-          style={{ ...input, flex: 1 }}
+          className="flex-1"
         />
       </div>
     </label>
@@ -87,13 +72,13 @@ function ColorField({ value, onChange, label: labelText }) {
 
 function SelectField({ value, onChange, label: labelText, options }) {
   return (
-    <label style={row}>
-      <div style={label}>{labelText}</div>
+    <label className={ROW_CLASSES}>
+      <div className={LABEL_CLASSES}>{labelText}</div>
       <Select
         value={value ?? ''}
         onChange={onChange}
         options={options}
-        triggerStyle={{ ...input, paddingInlineEnd: 32 }}
+        triggerClassName="h-8 ps-2 text-xs"
       />
     </label>
   );
@@ -109,7 +94,7 @@ function TextFields({ subject, patch, includeGeometry = true }) {
     <>
       {subject.text !== undefined && <TextField label="Text" value={subject.text} onChange={(value) => patch({ text: value })} />}
       {includeGeometry && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div className="grid grid-cols-2 gap-2">
           <NumberField label="X" value={subject.x} onChange={(value) => patch({ x: value })} />
           <NumberField label="Y" value={subject.y} onChange={(value) => patch({ y: value })} />
         </div>
@@ -131,7 +116,7 @@ function LineFields({ subject, patch, includeGeometry = true }) {
   return (
     <>
       {includeGeometry && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div className="grid grid-cols-2 gap-2">
           <NumberField label="X1" value={subject.x1} onChange={(value) => patch({ x1: value })} />
           <NumberField label="Y1" value={subject.y1} onChange={(value) => patch({ y1: value })} />
           <NumberField label="X2" value={subject.x2} onChange={(value) => patch({ x2: value })} />
@@ -160,7 +145,7 @@ function ImageFields({ subject, patch, includeGeometry = true }) {
     <>
       {subject.href !== undefined && <TextField label="Image URL" value={subject.href} onChange={(value) => patch({ href: value })} placeholder="https://… or data:image/…" />}
       {includeGeometry && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <div className="grid grid-cols-2 gap-2">
           <NumberField label="X" value={subject.x} onChange={(value) => patch({ x: value })} />
           <NumberField label="Y" value={subject.y} onChange={(value) => patch({ y: value })} />
           <NumberField label="Width" value={subject.width} min={4} onChange={(value) => patch({ width: Math.max(4, value) })} />
@@ -180,7 +165,7 @@ export function ChartObjectInspector({ overlays = [], selectedOverlayId, selecte
 
   if (!selection.length) {
     return (
-      <div style={{ padding: 12, color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+      <div className="p-3 text-xs text-muted-foreground">
         Please select persons or connections to edit their properties.
       </div>
     );
@@ -189,7 +174,7 @@ export function ChartObjectInspector({ overlays = [], selectedOverlayId, selecte
   const types = new Set(selection.map((item) => item.type));
   if (types.size > 1) {
     return (
-      <div style={notice}>
+      <div className={NOTICE_CLASSES}>
         You have selected multiple objects of different kinds. Select objects of the same type to edit shared properties.
       </div>
     );
@@ -218,15 +203,15 @@ export function ChartObjectInspector({ overlays = [], selectedOverlayId, selecte
 
   if (!['text', 'line', 'image'].includes(type)) {
     return (
-      <div style={notice}>
+      <div className={NOTICE_CLASSES}>
         The selected object has no editable properties.
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 12, fontSize: 12 }}>
-      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 8, letterSpacing: 0.4 }}>
+    <div className="p-3 text-xs">
+      <div className="mb-2 text-xs tracking-wide text-muted-foreground">
         OBJECT INSPECTOR — {(type || 'UNKNOWN').toUpperCase()}
         {isMulti ? ` (${selection.length} selected)` : ''}
       </div>

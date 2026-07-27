@@ -14,6 +14,8 @@ import {
 } from '../../lib/duplicates.js';
 import { MergePair } from './MergePair.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { Button } from '../ui/Button.jsx';
+import { Select } from '../ui/Select.jsx';
 
 const SCANS = [
   { id: 'Person', run: findDuplicatePersons },
@@ -64,41 +66,37 @@ export function DuplicatesApp() {
   }, [kind]);
 
   return (
-    <div style={shell}>
-      <header style={header}>
-      <select
-        value={kind}
-        onChange={(e) => {
-          const nextKind = e.target.value;
-          setKind(nextKind);
-          setPairs([]);
-          setHasScanned(false);
-          const next = new URLSearchParams(searchParams);
-          next.set('kind', nextKind);
-          setSearchParams(next, { replace: true });
-        }}
-        style={input}
-      >
-        {SCANS.map((s) => (
-          <option key={s.id} value={s.id}>{t(`duplicatesPage.entity.${s.id}`)}</option>
-        ))}
-      </select>
-        <button onClick={onScan} disabled={scanning} style={{ ...input, background: 'hsl(var(--primary))', cursor: 'pointer' }}>
+    <div className="flex flex-col h-full bg-background">
+      <header className="flex gap-2 items-center px-5 py-3.5 border-b border-border bg-card">
+        <Select
+          value={kind}
+          onChange={(nextKind) => {
+            setKind(nextKind);
+            setPairs([]);
+            setHasScanned(false);
+            const next = new URLSearchParams(searchParams);
+            next.set('kind', nextKind);
+            setSearchParams(next, { replace: true });
+          }}
+          options={SCANS.map((s) => ({ value: s.id, label: t(`duplicatesPage.entity.${s.id}`) }))}
+          className="w-44"
+        />
+        <Button variant="primary" size="md" onClick={onScan} disabled={scanning}>
           {scanning ? t('duplicatesPage.scanning') : t('duplicatesPage.scan')}
-        </button>
+        </Button>
         {skippedCount > 0 && (
-          <button onClick={onClearSkipped} disabled={scanning} style={input}>
+          <Button size="md" onClick={onClearSkipped} disabled={scanning}>
             {t('duplicatesPage.showSkipped', { count: skippedCount })}
-          </button>
+          </Button>
         )}
-        <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+        <span className="ms-auto text-muted-foreground text-xs">
           {pairs.length > 0 && t('duplicatesPage.candidateCount', { count: pairs.length })}
         </span>
       </header>
 
-      <div style={main}>
+      <div className="flex-1 overflow-auto p-5">
         {pairs.length === 0 && !scanning && (
-          <div style={{ color: 'hsl(var(--muted-foreground))', textAlign: 'center', marginTop: 60 }}>
+          <div className="text-muted-foreground text-center mt-16">
             {hasScanned
               ? (skippedCount > 0
                 ? t('duplicatesPage.noneFoundSkipped', { count: skippedCount })
@@ -122,10 +120,5 @@ export function DuplicatesApp() {
     </div>
   );
 }
-
-const shell = { display: 'flex', flexDirection: 'column', height: '100%', background: 'hsl(var(--background))' };
-const header = { display: 'flex', gap: 8, alignItems: 'center', padding: '14px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
-const main = { flex: 1, overflow: 'auto', padding: 20 };
-const input = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: '8px 12px', font: '13px -apple-system, system-ui, sans-serif', outline: 'none' };
 
 export default DuplicatesApp;

@@ -11,7 +11,8 @@ import {
   LDS_ORDINANCE_KEY_MAP,
 } from '../lib/listData.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
-import { FieldRow, editorInput } from '../components/editors/FieldRow.jsx';
+import { FieldRow } from '../components/editors/FieldRow.jsx';
+import { formClasses } from '../components/ui/formClasses.js';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
@@ -201,14 +202,14 @@ export default function LdsOrdinances() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <FieldRow label={t('ldsOrdinances.ordinance')}>
             {active.ordinanceIsConclusion ? (
-              <input value={values.ordinance || ''} readOnly style={{ ...editorInput, opacity: 0.7 }} />
+              <input value={values.ordinance || ''} readOnly className={` opacity-70`} />
             ) : (
               <>
                 <input
                   list="lds-ordinance-options"
                   value={values.ordinance || ''}
                   onChange={(e) => setValues({ ...values, ordinance: e.target.value })}
-                  style={editorInput}
+                  className={formClasses.input}
                 />
                 <datalist id="lds-ordinance-options">
                   {COMMON_ORDINANCES.map((o) => <option key={o} value={o} />)}
@@ -217,7 +218,7 @@ export default function LdsOrdinances() {
             )}
           </FieldRow>
           <FieldRow label={t('ldsOrdinances.owner')}>
-            <select value={values.owner || ''} onChange={(e) => setValues({ ...values, owner: e.target.value })} style={editorInput}>
+            <select value={values.owner || ''} onChange={(e) => setValues({ ...values, owner: e.target.value })} className={formClasses.input}>
               <option value="">{t('ldsOrdinances.noPerson', { defaultValue: 'No person linked' })}</option>
               {persons.map((person) => <option key={person.recordName} value={person.recordName}>{personLabel(person)}</option>)}
             </select>
@@ -234,14 +235,14 @@ export default function LdsOrdinances() {
               list="lds-status-options"
               value={values.status || ''}
               onChange={(e) => setValues({ ...values, status: e.target.value })}
-              style={editorInput}
+              className={formClasses.input}
             />
             <datalist id="lds-status-options">
               {COMMON_STATUSES.map((s) => <option key={s} value={s} />)}
             </datalist>
           </FieldRow>
           <FieldRow label={t('ldsOrdinances.templePlace')}>
-            <input value={values.temple || ''} onChange={(e) => setValues({ ...values, temple: e.target.value })} style={editorInput} />
+            <input value={values.temple || ''} onChange={(e) => setValues({ ...values, temple: e.target.value })} className={formClasses.input} />
           </FieldRow>
         </div>
         {active.ownerType === 'Person' && active.ownerId ? (

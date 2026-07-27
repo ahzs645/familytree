@@ -4,8 +4,10 @@
  * Spacing (Family Chart only), Coloring, Content, and Person Groups.
  */
 import React from 'react';
-import { chartOptionsPanelStyle, optionSelect } from './styles.js';
 import { RangeField, CheckOption, SelectOption } from './FormFields.jsx';
+import { Button } from '../../ui/Button.jsx';
+import { Input } from '../../ui/Input.jsx';
+import { cn } from '../../../lib/utils.js';
 import { CHART_COLORING_MODES } from '../coloring.js';
 import { DISTRIBUTION_TYPES } from '../../../lib/chartData/distributionBuilder.js';
 
@@ -71,18 +73,18 @@ export function ChartOptionsPanel({
     ['groups', 'Person Groups'],
   ];
   return (
-    <aside style={chartOptionsPanelStyle}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <strong style={{ fontSize: 13 }}>Chart Options</strong>
-        <button type="button" onClick={onClose} style={{ ...optionSelect, width: 'auto', marginInlineStart: 'auto' }}>Close</button>
+    <aside className="absolute bottom-[58px] end-[18px] z-30 w-[360px] max-w-[calc(100vw-2rem)] max-h-[min(620px,calc(100vh-8rem))] overflow-auto rounded-md border border-border bg-card p-3.5 text-card-foreground shadow-xl">
+      <div className="mb-2.5 flex items-center gap-2">
+        <strong className="text-sm">Chart Options</strong>
+        <Button onClick={onClose} className="ms-auto">Close</Button>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+      <div className="mb-3 flex flex-wrap gap-1.5">
         {tabs.map(([id, label]) => (
-          <button key={id} type="button" onClick={() => onTabChange(id)} style={{ ...optionSelect, width: 'auto', background: tab === id ? 'hsl(var(--accent))' : optionSelect.background }}>{label}</button>
+          <Button key={id} onClick={() => onTabChange(id)} className={cn(tab === id && 'bg-accent')}>{label}</Button>
         ))}
       </div>
       {tab === 'general' && (
-        <div style={{ display: 'grid', gap: 10 }}>
+        <div className="grid gap-2.5">
           <RangeField label="Parent Generations" value={generations} min={1} max={10} onChange={onGenerationsChange} />
           <RangeField label="Children Generations" value={descendantGenerations} min={1} max={10} onChange={onDescendantGenerationsChange} />
           <CheckOption label="Hide Information marked as Private" checked={hidePrivateChartInfo} onChange={onHidePrivateChartInfoChange} />
@@ -91,7 +93,7 @@ export function ChartOptionsPanel({
         </div>
       )}
       {tab === 'chart' && showChartTab && (
-        <div style={{ display: 'grid', gap: 10 }}>
+        <div className="grid gap-2.5">
           {chartType === 'distribution' && (
             <>
               <SelectOption
@@ -111,25 +113,25 @@ export function ChartOptionsPanel({
                 checked={Boolean(distributionRelativeValues)}
                 onChange={onDistributionRelativeValuesChange}
               />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="grid gap-1 text-xs text-muted-foreground">
                   <span>From Year</span>
-                  <input
+                  <Input
+                    compact
                     type="number"
                     value={distributionFromYear ?? ''}
                     onChange={(event) => onDistributionFromYearChange?.(event.target.value)}
                     placeholder="any"
-                    style={optionSelect}
                   />
                 </label>
-                <label style={{ display: 'grid', gap: 4, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                <label className="grid gap-1 text-xs text-muted-foreground">
                   <span>To Year</span>
-                  <input
+                  <Input
+                    compact
                     type="number"
                     value={distributionToYear ?? ''}
                     onChange={(event) => onDistributionToYearChange?.(event.target.value)}
                     placeholder="any"
-                    style={optionSelect}
                   />
                 </label>
               </div>
@@ -185,31 +187,31 @@ export function ChartOptionsPanel({
         </div>
       )}
       {tab === 'spacing' && showSpacingTab && (
-        <div style={{ display: 'grid', gap: 10 }}>
+        <div className="grid gap-2.5">
           <RangeField label="Horizontal Spacing" value={spacing.horizontal} min={8} max={120} onChange={(value) => onSpacingChange({ ...spacing, horizontal: value })} />
           <RangeField label="Vertical Spacing" value={spacing.vertical} min={50} max={220} onChange={(value) => onSpacingChange({ ...spacing, vertical: value })} />
           <RangeField label="Branch Spacing" value={spacing.branch} min={8} max={120} onChange={(value) => onSpacingChange({ ...spacing, branch: value })} />
         </div>
       )}
       {tab === 'coloring' && (
-        <div style={{ display: 'grid', gap: 10 }}>
+        <div className="grid gap-2.5">
           <SelectOption
             label="Coloring Mode"
             value={coloringMode || 'gender'}
             onChange={onColoringModeChange}
             options={CHART_COLORING_MODES.map((mode) => [mode.id, mode.label])}
           />
-          <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: 0 }}>
+          <p className="m-0 text-xs text-muted-foreground">
             Color person boxes by generation, paternal/maternal side, birth year, age at death, or a flat color. By Gender uses the chart theme.
           </p>
         </div>
       )}
       {tab === 'content' && (
-        <div style={{ display: 'grid', gap: 10 }}>
+        <div className="grid gap-2.5">
           <CheckOption label="Show portraits" checked={content.showPortraits} onChange={(v) => setContent('showPortraits', v)} />
           <CheckOption label="Show birth/death dates" checked={content.showLifespan} onChange={(v) => setContent('showLifespan', v)} />
           <CheckOption label="Show reference / GEDCOM / FS ID" checked={content.showIds} onChange={(v) => setContent('showIds', v)} />
-          <p style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', margin: 0 }}>Portraits load from each person's attached pictures.</p>
+          <p className="m-0 text-xs text-muted-foreground">Portraits load from each person's attached pictures.</p>
         </div>
       )}
       {tab === 'groups' && (

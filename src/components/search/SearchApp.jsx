@@ -13,6 +13,8 @@ import { FilterRow } from './FilterRow.jsx';
 import { SearchResults } from './SearchResults.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { Select } from '../ui/Select.jsx';
+import { Button } from '../ui/Button.jsx';
+import { Input } from '../ui/Input.jsx';
 
 const SAVED_SEARCHES_KEY = 'savedSearches';
 const EMPTY_GENEALOGY_SEARCH = Object.freeze({
@@ -300,24 +302,23 @@ export function SearchApp() {
   }, [onRun]);
 
   return (
-    <div style={shell}>
-      <header style={header}>
+    <div className="flex h-full flex-col bg-background">
+      <header className="flex flex-wrap items-end gap-2 border-b border-border bg-card px-5 py-3">
         <Field label="Entity">
           <Select
             value={entityType}
             onChange={(value) => { setEntityType(value); setFilters([]); setResult(null); }}
             options={entityTypeOptions}
-            triggerClassName="h-auto"
-            triggerStyle={input}
+            triggerClassName="h-auto py-2"
           />
         </Field>
 
         <Field label="Free text">
-          <input
+          <Input
             value={textQuery}
             onChange={(e) => setTextQuery(e.target.value)}
             placeholder="Match any field…"
-            style={{ ...input, width: '100%', minWidth: 0 }}
+            className="min-w-0"
             onKeyDown={(e) => e.key === 'Enter' && onRun()}
           />
         </Field>
@@ -327,54 +328,52 @@ export function SearchApp() {
             value=""
             onChange={onRunScope}
             options={scopeSelectOptions}
-            style={{ width: '100%', minWidth: 0 }}
-            triggerClassName="h-auto"
-            triggerStyle={{ ...input, cursor: 'pointer' }}
+            className="w-full min-w-0"
+            triggerClassName="h-auto py-2"
           />
         </Field>
 
-        <button onClick={onAddFilter} style={{ ...input, cursor: 'pointer', marginTop: 14 }}>+ Filter</button>
-        <button
+        <Button size="md" onClick={onAddFilter} className="mt-3.5">+ Filter</Button>
+        <Button
+          size="md"
           onClick={() => setShowGenealogySearch((value) => !value)}
-          style={{ ...input, cursor: 'pointer', marginTop: 14 }}
+          className="mt-3.5"
           title="Show genealogy-specific person criteria"
         >
           Genealogy
-        </button>
-        <button onClick={onRun} disabled={running} style={{ ...primaryButton, cursor: 'pointer', marginTop: 14 }}>
+        </Button>
+        <Button variant="primary" size="md" onClick={onRun} disabled={running} className="mt-3.5">
           {running ? 'Running…' : 'Search'}
-        </button>
+        </Button>
 
         <Field label="Saved searches">
-          <div style={{ display: 'flex', gap: 4 }}>
+          <div className="flex gap-1">
             <Select
               value=""
               onChange={(value) => value && onLoadSearch(value)}
               options={savedSearchOptions}
-              style={{ flex: '1 1 180px', minWidth: 0 }}
-              triggerClassName="h-auto"
-              triggerStyle={{ ...input, cursor: 'pointer' }}
+              className="min-w-0 flex-[1_1_180px]"
+              triggerClassName="h-auto py-2"
             />
-            <button onClick={onSaveSearch} style={{ ...input, cursor: 'pointer' }} title="Persist the current search">Save</button>
+            <Button size="md" onClick={onSaveSearch} title="Persist the current search">Save</Button>
             {savedSearches.length > 0 && (
               <Select
                 value=""
                 onChange={(value) => value && onDeleteSearch(value)}
                 options={deleteSavedSearchOptions}
-                style={{ width: 80 }}
-                triggerClassName="h-auto"
-                triggerStyle={{ ...input, cursor: 'pointer' }}
+                className="w-20"
+                triggerClassName="h-auto py-2"
               />
             )}
-            <button onClick={onSaveAsSmartFilter} style={{ ...input, cursor: 'pointer' }} title="Open this search in the Smart Filter editor">
+            <Button size="md" onClick={onSaveAsSmartFilter} title="Open this search in the Smart Filter editor">
               → Smart Filter
-            </button>
+            </Button>
           </div>
         </Field>
       </header>
 
-      <div style={filterPanel}>
-        {filters.length === 0 && <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>No filters. Type free text and click Search, or add field-specific filters with “+ Filter”.</div>}
+      <div className="border-b border-border bg-card px-5 py-3">
+        {filters.length === 0 && <div className="text-sm text-muted-foreground">No filters. Type free text and click Search, or add field-specific filters with “+ Filter”.</div>}
         {filters.map((f, i) => (
           <FilterRow
             key={i}
@@ -387,16 +386,15 @@ export function SearchApp() {
       </div>
 
       {showGenealogySearch && (
-        <section style={genealogyPanel}>
-          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Genealogy Advanced Search</div>
-          <div style={genealogyGrid}>
+        <section className="border-b border-border bg-card px-5 py-3">
+          <div className="mb-2 text-xs font-bold uppercase text-muted-foreground">Genealogy Advanced Search</div>
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] items-end gap-2">
             <Field label="Match">
               <Select
                 value={genealogySearch.matchMode}
                 onChange={(value) => updateGenealogySearch('matchMode', value)}
                 options={[{ value: 'all', label: 'All criteria' }, { value: 'any', label: 'Any criteria' }]}
-                triggerClassName="h-auto"
-                triggerStyle={input}
+                triggerClassName="h-auto py-2"
               />
             </Field>
             <TextField label="First name" value={genealogySearch.firstName} onChange={(value) => updateGenealogySearch('firstName', value)} />
@@ -409,8 +407,7 @@ export function SearchApp() {
                 value={genealogySearch.gender}
                 onChange={(value) => updateGenealogySearch('gender', value)}
                 options={genealogyGenderOptions}
-                triggerClassName="h-auto"
-                triggerStyle={input}
+                triggerClassName="h-auto py-2"
               />
             </Field>
             <TextField label="Occupation/fact" value={genealogySearch.occupation} onChange={(value) => updateGenealogySearch('occupation', value)} />
@@ -420,56 +417,55 @@ export function SearchApp() {
             <EventCriteria label="Baptism" prefix="baptism" values={genealogySearch} onChange={updateGenealogySearch} />
             <EventCriteria label="Burial" prefix="burial" values={genealogySearch} onChange={updateGenealogySearch} />
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-            <button onClick={onRunGenealogySearch} disabled={running} style={primaryButton}>{running ? 'Running…' : 'Run Genealogy Search'}</button>
-            <button onClick={() => setGenealogySearch(EMPTY_GENEALOGY_SEARCH)} disabled={running} style={input}>Reset</button>
+          <div className="mt-2.5 flex gap-2">
+            <Button variant="primary" size="md" onClick={onRunGenealogySearch} disabled={running}>{running ? 'Running…' : 'Run Genealogy Search'}</Button>
+            <Button size="md" onClick={() => setGenealogySearch(EMPTY_GENEALOGY_SEARCH)} disabled={running}>Reset</Button>
           </div>
         </section>
       )}
 
       {isSearchReplaceRoute && (
-        <section style={replacePanel}>
-          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>Search and Replace</div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <section className="border-b border-border bg-card px-5 py-3">
+          <div className="mb-2 text-xs font-bold uppercase text-muted-foreground">Search and Replace</div>
+          <div className="flex flex-wrap items-end gap-2">
             <Field label="Field">
               <Select
                 value={replaceField}
                 onChange={setReplaceField}
                 options={replaceFieldOptions}
-                style={{ width: '100%', minWidth: 0 }}
-                triggerClassName="h-auto"
-                triggerStyle={input}
+                className="w-full min-w-0"
+                triggerClassName="h-auto py-2"
               />
             </Field>
             <Field label="Find">
-              <input value={findText} onChange={(e) => setFindText(e.target.value)} style={{ ...input, width: '100%', minWidth: 0 }} />
+              <Input value={findText} onChange={(e) => setFindText(e.target.value)} className="min-w-0" />
             </Field>
             <Field label="Replace with">
-              <input value={replacementText} onChange={(e) => setReplacementText(e.target.value)} style={{ ...input, width: '100%', minWidth: 0 }} />
+              <Input value={replacementText} onChange={(e) => setReplacementText(e.target.value)} className="min-w-0" />
             </Field>
-            <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label className="flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-2 text-sm text-foreground">
               <input type="checkbox" checked={matchCase} onChange={(e) => setMatchCase(e.target.checked)} /> Match case
             </label>
-            <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label className="flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-2 text-sm text-foreground">
               <input type="checkbox" checked={wholeField} onChange={(e) => setWholeField(e.target.checked)} /> Whole field
             </label>
-            <button onClick={onPreviewReplace} disabled={running || !replaceField || !findText} style={input}>Preview</button>
-            <button onClick={onApplyReplace} disabled={running || !replacePreview?.changes?.length} style={primaryButton}>Apply</button>
-            <button onClick={onUndoReplace} disabled={running} style={input}>Undo Last</button>
+            <Button size="md" onClick={onPreviewReplace} disabled={running || !replaceField || !findText}>Preview</Button>
+            <Button variant="primary" size="md" onClick={onApplyReplace} disabled={running || !replacePreview?.changes?.length}>Apply</Button>
+            <Button size="md" onClick={onUndoReplace} disabled={running}>Undo Last</Button>
           </div>
-          {replaceStatus && <div style={{ marginTop: 8, color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>{replaceStatus}</div>}
+          {replaceStatus && <div className="mt-2 text-xs text-muted-foreground">{replaceStatus}</div>}
           {replacePreview?.changes?.length > 0 && (
-            <div style={previewBox}>
+            <div className="mt-2.5 max-h-[180px] overflow-auto rounded-md border border-border">
               {replacePreview.changes.slice(0, 20).map((change) => (
-                <div key={`${change.recordName}-${change.fieldName}`} style={previewRow}>
+                <div key={`${change.recordName}-${change.fieldName}`} className="grid grid-cols-[minmax(120px,1.2fr)_minmax(80px,0.8fr)_minmax(120px,1fr)_minmax(120px,1fr)] gap-2 border-b border-border px-2 py-1.5 text-xs [word-break:break-word]">
                   <strong>{change.label}</strong>
-                  <span style={{ color: 'hsl(var(--muted-foreground))' }}>{change.fieldName}</span>
+                  <span className="text-muted-foreground">{change.fieldName}</span>
                   <span>{String(change.before)}</span>
-                  <span style={{ color: 'hsl(var(--primary))' }}>{String(change.after)}</span>
+                  <span className="text-primary">{String(change.after)}</span>
                 </div>
               ))}
               {replacePreview.changes.length > 20 && (
-                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, padding: 6 }}>
+                <div className="p-1.5 text-xs text-muted-foreground">
                   {replacePreview.changes.length - 20} more replacement previews hidden.
                 </div>
               )}
@@ -478,7 +474,7 @@ export function SearchApp() {
         </section>
       )}
 
-      <div style={main}>
+      <div className="relative flex-1 overflow-hidden">
         <SearchResults entityType={entityType} result={result} />
       </div>
     </div>
@@ -487,8 +483,8 @@ export function SearchApp() {
 
 function Field({ label, children }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', marginRight: 12, minWidth: 0, flex: '1 1 auto' }}>
-      <span style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>{label}</span>
+    <div className="me-3 flex min-w-0 flex-[1_1_auto] flex-col">
+      <span className="mb-1 text-xs text-muted-foreground">{label}</span>
       {children}
     </div>
   );
@@ -497,14 +493,14 @@ function Field({ label, children }) {
 function TextField({ label, value, onChange }) {
   return (
     <Field label={label}>
-      <input value={value} onChange={(event) => onChange(event.target.value)} style={{ ...input, width: '100%', minWidth: 0 }} />
+      <Input value={value} onChange={(event) => onChange(event.target.value)} className="min-w-0" />
     </Field>
   );
 }
 
 function CheckField({ label, checked, onChange }) {
   return (
-    <label style={{ ...input, display: 'flex', alignItems: 'center', gap: 6, minHeight: 36 }}>
+    <label className="flex min-h-9 items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-2 text-sm text-foreground">
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /> {label}
     </label>
   );
@@ -519,42 +515,5 @@ function EventCriteria({ label, prefix, values, onChange }) {
     </>
   );
 }
-
-const shell = {
-  display: 'flex',
-  flexDirection: 'column',
-  height: '100%',
-  background: 'hsl(var(--background))',
-};
-const header = {
-  display: 'flex',
-  alignItems: 'flex-end',
-  gap: 8,
-  padding: '12px 20px',
-  borderBottom: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--card))',
-  flexWrap: 'wrap',
-};
-const filterPanel = { padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
-const genealogyPanel = { padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
-const genealogyGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8, alignItems: 'end' };
-const replacePanel = { padding: '12px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
-const main = { flex: 1, position: 'relative', overflow: 'hidden' };
-const input = {
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 8,
-  padding: '8px 10px',
-  font: '13px -apple-system, system-ui, sans-serif',
-  outline: 'none',
-};
-const primaryButton = {
-  ...input,
-  background: 'hsl(var(--primary))',
-  color: 'hsl(var(--primary-foreground))',
-};
-const previewBox = { marginTop: 10, maxHeight: 180, overflow: 'auto', border: '1px solid hsl(var(--border))', borderRadius: 8 };
-const previewRow = { display: 'grid', gridTemplateColumns: 'minmax(120px, 1.2fr) minmax(80px, 0.8fr) minmax(120px, 1fr) minmax(120px, 1fr)', gap: 8, padding: '6px 8px', borderBottom: '1px solid hsl(var(--border))', fontSize: 12, wordBreak: 'break-word' };
 
 export default SearchApp;

@@ -17,8 +17,12 @@ import {
   replaceMediaRecordAsset,
   replaceMediaRecordImageData,
 } from '../lib/mediaFolderMatch.js';
-import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { FieldRow } from '../components/editors/FieldRow.jsx';
 import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.jsx';
+import { Button } from '../components/ui/Button.jsx';
+import { Input, Textarea } from '../components/ui/Input.jsx';
+import { Select } from '../components/ui/Select.jsx';
+import { cn } from '../lib/utils.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { buildMediaSlideshowSearchParams } from '../lib/mediaPresentation.js';
 import { useIsMobile } from '../lib/useIsMobile.js';
@@ -442,26 +446,28 @@ export default function Media() {
   }, [activeId, filtered, mediaIdParam]);
 
   return (
-    <div style={shell}>
-      <header style={header}>
-        <div style={{ minWidth: 160 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--foreground))' }}>Media Gallery</div>
+    <div className="flex flex-col h-full">
+      <header className="flex items-center gap-2.5 px-5 py-2.5 border-b border-border bg-card text-card-foreground flex-wrap">
+        <div className="min-w-[160px]">
+          <div className="text-sm font-bold text-foreground">Media Gallery</div>
           {targetId ? (
-            <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
+            <div className="text-xs text-muted-foreground">
               {readOnlyGallery ? 'Read-only gallery' : 'Editor'} · filtered by {subjectLabel || targetId}
             </div>
           ) : (
-            <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
+            <div className="text-xs text-muted-foreground">
               {readOnlyGallery ? 'Read-only gallery report' : 'Browse and edit media records'}
             </div>
           )}
         </div>
-        <select value={filter} onChange={(e) => setFilter(e.target.value)} style={select}>
-          {MEDIA_TYPES.map((t) => (
-            <option key={t.id} value={t.id}>{t.label}</option>
-          ))}
-        </select>
-        <span style={{ marginLeft: 'auto', color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>
+        <Select
+          value={filter}
+          onChange={setFilter}
+          options={MEDIA_TYPES.map((t) => ({ value: t.id, label: t.label }))}
+          ariaLabel="Filter media by type"
+          className="w-32"
+        />
+        <span className="ms-auto text-muted-foreground text-xs">
           {filtered.length} item{filtered.length === 1 ? '' : 's'}
           {selectedIds.length ? ` · ${selectedVisibleCount}/${selectedIds.length} selected visible` : ''}
         </span>
@@ -482,10 +488,10 @@ export default function Media() {
           onChange={(e) => onReplaceFile(e.target.files)}
         />
         {targetId && (
-          <button onClick={clearSubject} style={select}>Clear subject</button>
+          <Button onClick={clearSubject}>Clear subject</Button>
         )}
-        <button onClick={selectVisible} disabled={!filtered.length} style={select}>Select visible</button>
-        <button onClick={clearSelection} disabled={!selectedIds.length} style={select}>Clear selection</button>
+        <Button onClick={selectVisible} disabled={!filtered.length}>Select visible</Button>
+        <Button onClick={clearSelection} disabled={!selectedIds.length}>Clear selection</Button>
         {!readOnlyGallery && selectedIds.length > 0 && (
           <>
             <BulkLabelMenu
@@ -493,12 +499,12 @@ export default function Media() {
               recordType={mediaTypeFor}
               onAssigned={clearSelection}
             />
-            <button onClick={onDeleteSelected} style={{ ...select, color: 'hsl(var(--destructive))' }}>
+            <Button variant="destructiveOutline" onClick={onDeleteSelected}>
               Delete selected
-            </button>
+            </Button>
           </>
         )}
-        {!readOnlyGallery && <button onClick={() => addFilesRef.current?.click()} style={select}>Add files</button>}
+        {!readOnlyGallery && <Button onClick={() => addFilesRef.current?.click()}>Add files</Button>}
         <MoreMenu
           items={[
             {
@@ -519,11 +525,18 @@ export default function Media() {
         />
       </header>
 
-      <div style={isMobile ? bodyMobile : body}>
+      <div className={cn('flex-1 flex overflow-hidden', isMobile && 'flex-col')}>
         {(!isMobile || !active) && (
-        <div style={readOnlyGallery ? galleryReport : gallery}>
+        <div
+          className={cn(
+            'flex-1 overflow-auto p-5 grid',
+            readOnlyGallery
+              ? 'grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3.5 content-start'
+              : 'grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3',
+          )}
+        >
           {filtered.length === 0 && (
-            <div style={{ color: 'hsl(var(--muted-foreground))', padding: 40, gridColumn: '1 / -1', textAlign: 'center' }}>
+            <div className="text-muted-foreground p-10 col-span-full text-center">
               {targetId
                 ? `No related media${filter !== 'all' ? ` of type "${filter}"` : ''} for ${subjectLabel || targetId}.`
                 : filter !== 'all' ? `No media of type "${filter}" in this tree.` : 'No media in this tree.'}
@@ -544,17 +557,16 @@ export default function Media() {
                 }}
                 role="button"
                 tabIndex={0}
-                style={{
-                  ...(readOnlyGallery ? reportTile : tile),
-                  borderColor: isActive ? 'hsl(var(--primary))' : 'hsl(var(--border))',
-                  background: isActive ? 'hsl(var(--accent))' : 'hsl(var(--card))',
-                  position: 'relative',
-                }}
+                className={cn(
+                  'relative p-3.5 border rounded-md cursor-pointer transition-colors',
+                  readOnlyGallery ? 'min-h-[150px] flex flex-col justify-center' : 'min-h-[110px]',
+                  isActive ? 'border-primary bg-accent' : 'border-border bg-card',
+                )}
               >
                 <label
                   aria-label={`Select ${m.fields?.caption?.value || m.recordName}`}
                   onClick={(event) => event.stopPropagation()}
-                  style={selectionControl}
+                  className="absolute top-2 end-2 grid place-items-center w-6 h-6 rounded-md bg-background/85 border border-border cursor-pointer"
                 >
                   <input
                     type="checkbox"
@@ -562,11 +574,11 @@ export default function Media() {
                     onChange={() => toggleSelected(m.recordName)}
                   />
                 </label>
-                <div style={{ fontSize: 38, lineHeight: 1, marginBottom: 6 }}>{iconFor(m.recordType)}</div>
-                <div style={{ fontSize: 12, color: 'hsl(var(--foreground))', fontWeight: 600, marginBottom: 2, wordBreak: 'break-word' }}>
+                <div className="text-[38px] leading-none mb-1.5">{iconFor(m.recordType)}</div>
+                <div className="text-xs text-foreground font-semibold mb-0.5 break-words">
                   {m.fields?.caption?.value || m.fields?.filename?.value || m.fields?.fileName?.value || m.fields?.url?.value || m.recordName}
                 </div>
-                <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>{m.recordType.replace('Media', '')}</div>
+                <div className="text-xs text-muted-foreground">{m.recordType.replace('Media', '')}</div>
               </div>
             );
           })}
@@ -586,45 +598,45 @@ export default function Media() {
             }}
           />
         ) : (
-          <aside style={isMobile ? detailMobile : detail}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
+          <aside className={cn('bg-card text-card-foreground overflow-auto', isMobile ? 'w-full flex-1 p-4' : 'w-[360px] border-s border-border p-5')}>
+            <div className="flex items-center mb-3 flex-wrap gap-1.5">
               {isMobile && (
-                <button onClick={() => setActiveId(null)} style={deleteBtn} aria-label="Back to gallery">← Back</button>
+                <Button variant="destructiveOutline" onClick={() => setActiveId(null)} aria-label="Back to gallery">← Back</Button>
               )}
-              <h2 style={{ fontSize: 14, color: 'hsl(var(--foreground))', margin: 0, fontWeight: 600 }}>
+              <h2 className="text-sm text-foreground m-0 font-semibold">
                 {iconFor(active.recordType)} {active.recordType.replace('Media', '')}
               </h2>
-              <div style={{ marginLeft: 'auto', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <div className="ms-auto flex gap-1.5 flex-wrap">
                 <SaveStatus status={status} dirty={dirty} />
                 <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-                {active.recordType !== 'MediaURL' && <button onClick={() => replaceFileRef.current?.click()} disabled={isRecordLocked(active)} style={deleteBtn}>Replace</button>}
-                {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('rotate')} disabled={isRecordLocked(active)} style={deleteBtn}>Rotate</button>}
-                {active.recordType === 'MediaPicture' && <button onClick={() => onEditImage('crop-square')} disabled={isRecordLocked(active)} style={deleteBtn}>Crop</button>}
-                {active.recordType === 'MediaPicture' && <button onClick={onOpenImageEditor} disabled={isRecordLocked(active)} style={deleteBtn}>Edit &amp; Enhance…</button>}
-                <button onClick={onDelete} disabled={isRecordLocked(active)} style={deleteBtn}>Delete</button>
-                <button onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)" style={saveBtn}>{saving ? 'Saving…' : 'Save'}</button>
+                {active.recordType !== 'MediaURL' && <Button variant="destructiveOutline" onClick={() => replaceFileRef.current?.click()} disabled={isRecordLocked(active)}>Replace</Button>}
+                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={() => onEditImage('rotate')} disabled={isRecordLocked(active)}>Rotate</Button>}
+                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={() => onEditImage('crop-square')} disabled={isRecordLocked(active)}>Crop</Button>}
+                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={onOpenImageEditor} disabled={isRecordLocked(active)}>Edit &amp; Enhance…</Button>}
+                <Button variant="destructiveOutline" onClick={onDelete} disabled={isRecordLocked(active)}>Delete</Button>
+                <Button variant="primary" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">{saving ? 'Saving…' : 'Save'}</Button>
               </div>
             </div>
             <FieldRow label="Caption">
-              <input value={values.caption ?? ''} onChange={(e) => setValues({ ...values, caption: e.target.value })} style={editorInput} />
+              <Input value={values.caption ?? ''} onChange={(e) => setValues({ ...values, caption: e.target.value })} />
             </FieldRow>
             {active.recordType === 'MediaURL' && (
               <FieldRow label="URL">
-                <input value={values.url ?? ''} onChange={(e) => setValues({ ...values, url: e.target.value })} style={editorInput} />
+                <Input value={values.url ?? ''} onChange={(e) => setValues({ ...values, url: e.target.value })} />
               </FieldRow>
             )}
             {values.filename && (
               <FieldRow label="Filename">
-                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12, fontFamily: '"SF Mono", Consolas, monospace' }}>
+                <div className="text-muted-foreground text-xs font-mono break-all">
                   {values.filename}
                 </div>
               </FieldRow>
             )}
             <FieldRow label="Description">
-              <textarea
+              <Textarea
                 value={values.description ?? ''}
                 onChange={(e) => setValues({ ...values, description: e.target.value })}
-                style={editorTextarea}
+                className="min-h-[80px] resize-y"
                 rows={6}
               />
             </FieldRow>
@@ -633,9 +645,9 @@ export default function Media() {
             </FieldRow>
             <FieldRow label="Related Entries">
               {activeRelations.length === 0 ? (
-                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>No related entries.</div>
+                <div className="text-muted-foreground text-xs">No related entries.</div>
               ) : (
-                <div style={{ display: 'grid', gap: 6 }}>
+                <div className="grid gap-1.5">
                   {activeRelations.map(({ rel, target }) => (
                     <button
                       key={rel.recordName}
@@ -644,9 +656,12 @@ export default function Media() {
                         const route = routeForRecord(target);
                         if (route) navigate(route);
                       }}
-                      style={{ fontSize: 12, color: 'hsl(var(--foreground))', background: 'hsl(var(--secondary))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: 8, textAlign: 'left', cursor: routeForRecord(target) ? 'pointer' : 'default' }}
+                      className={cn(
+                        'text-xs bg-secondary text-secondary-foreground border border-border rounded-md p-2 text-start',
+                        routeForRecord(target) ? 'cursor-pointer hover:bg-accent' : 'cursor-default',
+                      )}
                     >
-                      <span style={{ color: 'hsl(var(--muted-foreground))', marginRight: 6 }}>{rel.fields?.targetType?.value || target?.recordType || 'Record'}</span>
+                      <span className="text-muted-foreground me-1.5">{rel.fields?.targetType?.value || target?.recordType || 'Record'}</span>
                       {target?.fields?.cached_fullName?.value || target?.fields?.title?.value || target?.fields?.cached_familyName?.value || target?.recordName || readRef(rel.fields?.target)}
                     </button>
                   ))}
@@ -658,42 +673,42 @@ export default function Media() {
       </div>
 
       {captureMode && (
-        <div style={modalBackdrop}>
-          <div style={modal}>
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-              <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>
+        <div className="fixed inset-0 z-40 bg-black/60 grid place-items-center p-5">
+          <div className="w-[min(720px,94vw)] bg-card text-card-foreground border border-border rounded-md p-4 shadow-xl">
+            <div className="flex items-center mb-3">
+              <h2 className="text-base font-bold m-0">
                 {captureMode === 'camera' ? 'Camera capture' : captureMode === 'video' ? 'Video recording' : 'Audio recording'}
               </h2>
-              <button onClick={onCancelCapture} style={{ ...deleteBtn, marginLeft: 'auto' }}>Cancel</button>
+              <Button variant="destructiveOutline" onClick={onCancelCapture} className="ms-auto">Cancel</Button>
             </div>
             {captureMode === 'camera' ? (
               <>
-                <video ref={videoRef} muted playsInline style={videoPreview} />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-                  <button onClick={onCapturePhoto} style={saveBtn}>Capture photo</button>
+                <video ref={videoRef} muted playsInline className="w-full max-h-[62vh] bg-black rounded-md border border-border" />
+                <div className="flex justify-end gap-2 mt-3">
+                  <Button variant="primary" onClick={onCapturePhoto}>Capture photo</Button>
                 </div>
               </>
             ) : captureMode === 'video' ? (
               <>
-                <video ref={videoRef} muted playsInline style={videoPreview} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
-                  <div style={recordingDot} />
-                  <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                <video ref={videoRef} muted playsInline className="w-full max-h-[62vh] bg-black rounded-md border border-border" />
+                <div className="flex items-center gap-2.5 mt-3">
+                  <div className="w-5 h-5 rounded-full bg-destructive ring-8 ring-destructive/15" />
+                  <span className="text-xs text-muted-foreground">
                     {recording ? 'Recording video and audio…' : 'Preparing recorder…'}
                   </span>
-                  <button onClick={onStopVideoRecording} disabled={!recording} style={{ ...saveBtn, marginLeft: 'auto' }}>Stop and save</button>
+                  <Button variant="primary" onClick={onStopVideoRecording} disabled={!recording} className="ms-auto">Stop and save</Button>
                 </div>
               </>
             ) : (
               <>
-                <div style={audioCapturePanel}>
-                  <div style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                <div className="min-h-[160px] border border-border rounded-md bg-background grid place-items-center gap-3 p-5">
+                  <div className="text-xs text-muted-foreground">
                     {recording ? 'Recording from the selected microphone.' : 'Audio recorder is ready.'}
                   </div>
-                  <div style={recordingDot} />
+                  <div className="w-5 h-5 rounded-full bg-destructive ring-8 ring-destructive/15" />
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-                  <button onClick={onStopAudioRecording} disabled={!recording} style={saveBtn}>Stop and save</button>
+                <div className="flex justify-end gap-2 mt-3">
+                  <Button variant="primary" onClick={onStopAudioRecording} disabled={!recording}>Stop and save</Button>
                 </div>
               </>
             )}
@@ -735,18 +750,16 @@ function MoreMenu({ items }) {
   if (!visible.length) return null;
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        type="button"
+    <div ref={ref} className="relative">
+      <Button
         onClick={() => setOpen((v) => !v)}
-        style={select}
         aria-haspopup="menu"
         aria-expanded={open}
       >
         More <span aria-hidden="true">▾</span>
-      </button>
+      </Button>
       {open ? (
-        <div role="menu" style={moreMenuPanel}>
+        <div role="menu" className="absolute end-0 top-full z-20 mt-1 min-w-[180px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg p-1 flex flex-col">
           {visible.map((item) => (
             <button
               key={item.label}
@@ -754,7 +767,7 @@ function MoreMenu({ items }) {
               role="menuitem"
               disabled={item.disabled}
               onClick={() => { setOpen(false); item.onClick(); }}
-              style={moreMenuItem}
+              className="w-full text-start bg-transparent rounded-md px-2.5 py-2 text-sm cursor-pointer hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent"
             >
               {item.label}
             </button>
@@ -764,25 +777,3 @@ function MoreMenu({ items }) {
     </div>
   );
 }
-
-const shell = { display: 'flex', flexDirection: 'column', height: '100%' };
-const header = { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 20px', borderBottom: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', flexWrap: 'wrap' };
-const select = { background: 'hsl(var(--secondary))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 6, padding: '6px 10px', fontSize: 12 };
-const moreMenuPanel = { position: 'absolute', insetInlineEnd: 0, top: '100%', zIndex: 20, marginTop: 4, minWidth: 180, background: 'hsl(var(--popover, var(--card)))', color: 'hsl(var(--popover-foreground, var(--foreground)))', border: '1px solid hsl(var(--border))', borderRadius: 8, boxShadow: '0 10px 30px rgba(0,0,0,0.35)', padding: 4, display: 'flex', flexDirection: 'column' };
-const moreMenuItem = { width: '100%', textAlign: 'start', background: 'transparent', color: 'inherit', border: 'none', borderRadius: 6, padding: '8px 10px', fontSize: 13, cursor: 'pointer' };
-const body = { flex: 1, display: 'flex', overflow: 'hidden' };
-const bodyMobile = { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' };
-const gallery = { flex: 1, overflow: 'auto', padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 };
-const galleryReport = { flex: 1, overflow: 'auto', padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 14, alignContent: 'start' };
-const tile = { padding: 14, border: '1px solid hsl(var(--border))', borderRadius: 8, cursor: 'pointer', minHeight: 110, transition: 'border-color 0.15s, background 0.15s' };
-const reportTile = { ...tile, minHeight: 150, display: 'flex', flexDirection: 'column', justifyContent: 'center' };
-const selectionControl = { position: 'absolute', top: 8, right: 8, display: 'grid', placeItems: 'center', width: 24, height: 24, borderRadius: 6, background: 'hsl(var(--background) / 0.86)', border: '1px solid hsl(var(--border))', cursor: 'pointer' };
-const detail = { width: 360, borderInlineStart: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', padding: 20, overflow: 'auto' };
-const detailMobile = { width: '100%', flex: 1, background: 'hsl(var(--card))', padding: 16, overflow: 'auto' };
-const saveBtn = { background: 'hsl(var(--primary))', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 12, cursor: 'pointer', fontWeight: 600 };
-const deleteBtn = { background: 'transparent', color: 'hsl(var(--destructive))', border: '1px solid #3a2d30', borderRadius: 6, padding: '6px 10px', fontSize: 12, cursor: 'pointer' };
-const modalBackdrop = { position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.62)', display: 'grid', placeItems: 'center', padding: 20 };
-const modal = { width: 'min(720px, 94vw)', background: 'hsl(var(--card))', color: 'hsl(var(--foreground))', border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.45)' };
-const videoPreview = { width: '100%', maxHeight: '62vh', background: '#000', borderRadius: 8, border: '1px solid hsl(var(--border))' };
-const audioCapturePanel = { minHeight: 160, border: '1px solid hsl(var(--border))', borderRadius: 8, background: 'hsl(var(--background))', display: 'grid', placeItems: 'center', gap: 12, padding: 20 };
-const recordingDot = { width: 22, height: 22, borderRadius: 999, background: '#ef4444', boxShadow: '0 0 0 8px rgba(239,68,68,0.16)' };

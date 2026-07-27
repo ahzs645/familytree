@@ -11,6 +11,8 @@ import { useIsMobile } from '../../lib/useIsMobile.js';
 import { lifeSpanLabel } from '../../models/index.js';
 import { Gender } from '../../models/constants.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { Input } from '../ui/Input.jsx';
+import { cn } from '../../lib/utils.js';
 
 // Sentinel group key — not a letter, so it can never collide with an initial.
 const UNNAMED_GROUP = '\u0000unnamed';
@@ -94,24 +96,25 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
   }, [persons, indexedPersons, normalizedQuery, queryWords, queryVariantGroups, localizationKey]);
 
   return (
-    <div style={shell}>
-      <div style={searchBar}>
-        <input
+    <div className="flex h-full flex-col border-e border-border bg-card">
+      <div className="border-b border-border p-2.5">
+        <Input
           dir="auto"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('persons.searchPlaceholder')}
-          style={search}
+          className="h-10"
         />
       </div>
-      <div style={list}>
+      <div className="flex-1 overflow-auto">
         {sections.map(([letter, group]) => (
           <div key={letter}>
-            <div style={sectionHeader}>
+            <div className="sticky top-0 border-b border-border bg-muted px-3 py-1.5 text-xs font-semibold tracking-wide text-muted-foreground">
               {letter === UNNAMED_GROUP ? t('persons.unnamedGroup', { defaultValue: 'No name recorded' }) : letter}
             </div>
             {group.map((p) => {
               const isSelected = selection?.has(p.recordName);
+              const isActive = p.recordName === activeId;
               return (
                 <div
                   key={p.recordName}
@@ -122,21 +125,16 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                     }
                     onPick(p.recordName);
                   }}
-                  style={{
-                    ...row,
-                    ...(isMobile ? { minHeight: 44 } : null),
-                    background: p.recordName === activeId ? 'hsl(var(--secondary))' : isSelected ? 'hsl(var(--primary) / 0.08)' : 'transparent',
-                    borderInlineStart: p.recordName === activeId ? '3px solid hsl(var(--primary))' : isSelected ? '3px solid hsl(var(--primary) / 0.5)' : '3px solid transparent',
-                    display: onToggleSelect ? 'flex' : 'block',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (p.recordName !== activeId && !isSelected) e.currentTarget.style.background = 'hsl(var(--muted))';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (p.recordName !== activeId && !isSelected) e.currentTarget.style.background = 'transparent';
-                  }}
+                  className={cn(
+                    'cursor-pointer border-b border-border border-s-[3px] px-3 py-2',
+                    isActive
+                      ? 'border-s-primary bg-secondary'
+                      : isSelected
+                        ? 'border-s-primary/50 bg-primary/[0.08]'
+                        : 'border-s-transparent bg-transparent hover:bg-muted',
+                    isMobile && 'min-h-11',
+                    onToggleSelect ? 'flex items-center gap-2' : 'block'
+                  )}
                 >
                   {onToggleSelect ? (
                     <input
@@ -145,18 +143,18 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                       onClick={(event) => event.stopPropagation()}
                       onChange={(event) => onToggleSelect(p.recordName, { range: event.nativeEvent?.shiftKey })}
                       aria-label={`${t('common.select')} ${p.fullName}`}
-                      style={{ width: 18, height: 18, flexShrink: 0 }}
+                      className="h-[18px] w-[18px] shrink-0"
                     />
                   ) : null}
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="min-w-0 flex-1">
                     {showColumn('fullName') ? (
-                      <div style={{ color: 'hsl(var(--foreground))', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}><BdiText>{p.fullName}</BdiText></span>
+                      <div className="flex min-w-0 items-center gap-1.5 text-sm text-foreground">
+                        <span className="min-w-0 overflow-hidden text-ellipsis"><BdiText>{p.fullName}</BdiText></span>
                         {renderBadge ? renderBadge(p) : null}
                       </div>
                     ) : null}
                     {showColumn('lifespan') && (p.birthDate || p.deathDate) ? (
-                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
+                      <div className="text-xs text-muted-foreground">
                         <LtrText>{lifeSpanLabel(p)}</LtrText>
                       </div>
                     ) : null}
@@ -164,26 +162,26 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                         no real name, no dates, and no patrilineal tail to show,
                         surface the record id so 800+ rows aren't indistinguishable. */}
                     {!hasRealName(p) && !(p.birthDate || p.deathDate) && !p.arabicPatrilinealName ? (
-                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11 }}>
+                      <div className="text-xs text-muted-foreground">
                         {shortPersonId(p.recordName)}
                       </div>
                     ) : null}
                     {showColumn('arabicPatrilinealName') && p.arabicPatrilinealName && !p.nameIsPatrilineal ? (
-                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, direction: 'rtl', textAlign: 'start' }}>
+                      <div className="text-xs text-muted-foreground [direction:rtl] text-start">
                         <BdiText>{p.arabicPatrilinealTail || p.arabicPatrilinealName}</BdiText>
                       </div>
                     ) : null}
                     {showColumn('outsideFamily') && p.outsideFamily ? (
-                      <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>Outside main family</div>
+                      <div className="text-[10px] font-semibold text-primary">Outside main family</div>
                     ) : null}
                     {showColumn('bookmarked') && p.bookmarked ? (
-                      <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>★ {t('persons.bookmarked')}</div>
+                      <div className="text-[10px] font-semibold text-primary">★ {t('persons.bookmarked')}</div>
                     ) : null}
                     {showColumn('startPerson') && p.startPerson ? (
-                      <div style={{ color: 'hsl(var(--primary))', fontSize: 10, fontWeight: 600 }}>✓ {t('persons.startPerson')}</div>
+                      <div className="text-[10px] font-semibold text-primary">✓ {t('persons.startPerson')}</div>
                     ) : null}
                     {queryText && !p.nameIsPatrilineal && (p.arabicPatrilinealTail || p.arabicPatrilinealName) ? (
-                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 10, marginTop: 2, direction: 'rtl', textAlign: 'start' }}>
+                      <div className="mt-0.5 text-[10px] text-muted-foreground [direction:rtl] text-start">
                         <BdiText>{p.arabicPatrilinealTail || p.arabicPatrilinealName}</BdiText>
                       </div>
                     ) : null}
@@ -194,39 +192,12 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
           </div>
         ))}
         {sections.length === 0 && (
-          <div style={{ padding: 20, color: 'hsl(var(--muted-foreground))', fontSize: 13 }}>{t('common.noMatches')}</div>
+          <div className="p-5 text-sm text-muted-foreground">{t('common.noMatches')}</div>
         )}
       </div>
     </div>
   );
 }
-
-const shell = { display: 'flex', flexDirection: 'column', height: '100%', borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))' };
-const searchBar = { padding: 10, borderBottom: '1px solid hsl(var(--border))' };
-const search = {
-  width: '100%',
-  height: 40,
-  background: 'hsl(var(--background))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 6,
-  padding: '0 12px',
-  font: '14px -apple-system, system-ui, sans-serif',
-  boxSizing: 'border-box',
-};
-const list = { flex: 1, overflow: 'auto' };
-const sectionHeader = {
-  background: 'hsl(var(--muted))',
-  color: 'hsl(var(--muted-foreground))',
-  fontSize: 11,
-  fontWeight: 600,
-  padding: '6px 12px',
-  letterSpacing: 0.5,
-  borderBottom: '1px solid hsl(var(--border))',
-  position: 'sticky',
-  top: 0,
-};
-const row = { padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid hsl(var(--border))' };
 
 export default PersonList;
 

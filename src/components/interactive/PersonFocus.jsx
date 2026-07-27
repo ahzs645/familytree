@@ -9,29 +9,44 @@ import { Gender, genderLabel, lifeSpanLabel } from '../../models/index.js';
 import { eventTypeLabel } from '../../lib/catalogs.js';
 import { MiniTimeline } from '../MiniTimeline.jsx';
 import { BdiText, LtrText } from '../BdiText.jsx';
+import { Button } from '../ui/Button.jsx';
 
 const humanizeConclusionLabel = (raw) => eventTypeLabel(raw);
 
+// Semi-transparent fills work on both light and dark backgrounds.
+const CHIP_COLORS = {
+  [Gender.Male]: ['hsl(215 80% 55% / 0.18)', 'hsl(215 80% 55% / 0.6)'],
+  [Gender.Female]: ['hsl(330 70% 55% / 0.18)', 'hsl(330 70% 55% / 0.6)'],
+  [Gender.UnknownGender]: ['hsl(var(--muted))', 'hsl(var(--border))'],
+  [Gender.Intersex]: ['hsl(280 60% 55% / 0.18)', 'hsl(280 60% 55% / 0.6)'],
+};
+
 function Chip({ person, onPick }) {
-  if (!person) return <div style={chipStyles(true)}>Unknown</div>;
+  if (!person) {
+    return (
+      <div className="min-w-[160px] rounded-md border border-dashed border-border bg-muted px-3.5 py-2.5 text-muted-foreground">
+        Unknown
+      </div>
+    );
+  }
+  const [fill, stroke] = CHIP_COLORS[person.gender] || CHIP_COLORS[Gender.UnknownGender];
   return (
     <div
       onClick={() => onPick(person.recordName)}
-      style={chipStyles(false, person.gender)}
-      onMouseEnter={(e) => (e.currentTarget.style.filter = 'brightness(1.15)')}
-      onMouseLeave={(e) => (e.currentTarget.style.filter = 'none')}
+      className="min-w-[160px] cursor-pointer rounded-md border px-3.5 py-2.5 text-foreground transition-[filter] hover:brightness-[1.15]"
+      style={{ background: fill, borderColor: stroke }}
     >
-      <div style={{ fontSize: 13, color: 'hsl(var(--foreground))', fontWeight: 600 }}><BdiText>{person.fullName}</BdiText></div>
-      <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}><LtrText>{lifeSpanLabel(person)}</LtrText></div>
+      <div className="text-sm font-semibold text-foreground"><BdiText>{person.fullName}</BdiText></div>
+      <div className="text-xs text-muted-foreground"><LtrText>{lifeSpanLabel(person)}</LtrText></div>
     </div>
   );
 }
 
 function Section({ title, children, count }) {
   return (
-    <div style={{ marginBottom: 22 }}>
-      <div style={sectionHead}>
-        {title} {count != null && <span style={{ color: 'hsl(var(--muted-foreground))', fontWeight: 400 }}>· {count}</span>}
+    <div className="mb-6">
+      <div className="mb-2.5 text-sm font-semibold uppercase tracking-wide text-foreground">
+        {title} {count != null && <span className="font-normal text-muted-foreground">· {count}</span>}
       </div>
       {children}
     </div>
@@ -41,7 +56,7 @@ function Section({ title, children, count }) {
 export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescendantChart }) {
   const navigate = useNavigate();
   if (!context) {
-    return <div style={{ padding: 40, color: 'hsl(var(--muted-foreground))' }}>Pick a person from the list.</div>;
+    return <div className="p-10 text-muted-foreground">Pick a person from the list.</div>;
   }
   const self = context.selfSummary;
   const parents = context.parents.flatMap((fam) => [fam.man, fam.woman]).filter(Boolean);
@@ -49,43 +64,44 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
   const children = context.families.flatMap((f) => f.children).filter(Boolean);
 
   return (
-    <div style={scroll}>
-      <div style={headerBlock}>
-        <div style={{ fontSize: 22, color: 'hsl(var(--foreground))', fontWeight: 700 }}><BdiText>{self.fullName}</BdiText></div>
-        <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+    <div className="h-full overflow-auto p-7">
+      <div className="mb-6 border-b border-border pb-5">
+        <div className="text-[22px] font-bold text-foreground"><BdiText>{self.fullName}</BdiText></div>
+        <div className="mt-1 text-sm text-muted-foreground">
           <LtrText>{lifeSpanLabel(self) || 'No life dates'}</LtrText> · {genderLabel(self.gender)}
         </div>
-        <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-          <button style={primaryBtn} onClick={() => navigate(`/person/${self.recordName}`)}>Edit person</button>
-          <button style={actionBtn} onClick={() => onOpenAncestorChart(self.recordName)}>Ancestor chart</button>
-          <button style={actionBtn} onClick={() => onOpenDescendantChart(self.recordName)}>Descendant chart</button>
+        <div className="mt-3.5 flex flex-wrap gap-2">
+          <Button variant="primary" onClick={() => navigate(`/person/${self.recordName}`)}>Edit person</Button>
+          <Button onClick={() => onOpenAncestorChart(self.recordName)}>Ancestor chart</Button>
+          <Button onClick={() => onOpenDescendantChart(self.recordName)}>Descendant chart</Button>
         </div>
       </div>
 
       <Section title="Parents" count={parents.length}>
         {parents.length === 0 ? (
-          <div style={empty}>No parents recorded.</div>
+          <div className="text-sm italic text-muted-foreground">No parents recorded.</div>
         ) : (
-          <div style={chipGrid}>{parents.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} />)}</div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">{parents.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} />)}</div>
         )}
       </Section>
 
       <Section title="Partners" count={partners.length}>
         {partners.length === 0 ? (
-          <div style={empty}>No partners recorded.</div>
+          <div className="text-sm italic text-muted-foreground">No partners recorded.</div>
         ) : (
-          <div style={chipGrid}>{partners.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} />)}</div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">{partners.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} />)}</div>
         )}
         {context.families.length > 0 && (
-          <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div className="mt-2 flex flex-wrap gap-1.5">
             {context.families.map((fam) => (
-              <button
+              <Button
                 key={fam.family.recordName}
+                variant="outline"
+                className="text-primary"
                 onClick={() => navigate(`/family/${fam.family.recordName}`)}
-                style={editPill}
               >
                 Edit family with {fam.partner?.fullName ? <BdiText>{fam.partner.fullName}</BdiText> : '?'}
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -93,18 +109,18 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
 
       <Section title="Children" count={children.length}>
         {children.length === 0 ? (
-          <div style={empty}>No children recorded.</div>
+          <div className="text-sm italic text-muted-foreground">No children recorded.</div>
         ) : (
-          <div style={chipGrid}>{children.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} />)}</div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">{children.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} />)}</div>
         )}
       </Section>
 
       <Section title="Events" count={context.events.length}>
         {context.events.length === 0 ? (
-          <div style={empty}>No events recorded.</div>
+          <div className="text-sm italic text-muted-foreground">No events recorded.</div>
         ) : (
           <>
-            <div style={{ marginBottom: 12 }}>
+            <div className="mb-3">
               <MiniTimeline
                 events={context.events.map((e) => ({
                   label: humanizeConclusionLabel(e.fields?.conclusionType?.value || e.fields?.eventType?.value),
@@ -112,13 +128,13 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
                 }))}
               />
             </div>
-            <table style={eventsTable}>
+            <table className="w-full border-collapse text-sm">
               <tbody>
                 {context.events.map((e) => (
                   <tr key={e.recordName}>
-                    <td style={eventTypeCell}>{humanizeConclusionLabel(e.fields?.conclusionType?.value || e.fields?.eventType?.value)}</td>
-                    <td style={eventDateCell}>{e.fields?.date?.value || '—'}</td>
-                    <td style={eventDescCell}>{e.fields?.description?.value || ''}</td>
+                    <td className="w-[28%] py-1.5 text-foreground">{humanizeConclusionLabel(e.fields?.conclusionType?.value || e.fields?.eventType?.value)}</td>
+                    <td className="w-[18%] px-2 py-1.5 text-muted-foreground">{e.fields?.date?.value || '—'}</td>
+                    <td className="py-1.5 text-muted-foreground">{e.fields?.description?.value || ''}</td>
                   </tr>
                 ))}
               </tbody>
@@ -129,64 +145,5 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
     </div>
   );
 }
-
-function chipStyles(placeholder, gender) {
-  const base = {
-    padding: '10px 14px',
-    borderRadius: 8,
-    cursor: placeholder ? 'default' : 'pointer',
-    minWidth: 160,
-    transition: 'filter 0.15s',
-  };
-  if (placeholder)
-    return { ...base, background: 'hsl(var(--muted))', border: '1px dashed hsl(var(--border))', color: 'hsl(var(--muted-foreground))' };
-  // Semi-transparent fills work on both light and dark backgrounds.
-  const colors = {
-    [Gender.Male]: ['hsl(215 80% 55% / 0.18)', 'hsl(215 80% 55% / 0.6)'],
-    [Gender.Female]: ['hsl(330 70% 55% / 0.18)', 'hsl(330 70% 55% / 0.6)'],
-    [Gender.UnknownGender]: ['hsl(var(--muted))', 'hsl(var(--border))'],
-    [Gender.Intersex]: ['hsl(280 60% 55% / 0.18)', 'hsl(280 60% 55% / 0.6)'],
-  };
-  const [fill, stroke] = colors[gender] || colors[Gender.UnknownGender];
-  return { ...base, background: fill, border: `1px solid ${stroke}`, color: 'hsl(var(--foreground))' };
-}
-
-const scroll = { height: '100%', overflow: 'auto', padding: 28 };
-const headerBlock = { paddingBottom: 20, borderBottom: '1px solid hsl(var(--border))', marginBottom: 24 };
-const sectionHead = { color: 'hsl(var(--foreground))', fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 10 };
-const chipGrid = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 };
-const empty = { color: 'hsl(var(--muted-foreground))', fontSize: 13, fontStyle: 'italic' };
-const actionBtn = {
-  background: 'hsl(var(--secondary))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 6,
-  padding: '6px 12px',
-  fontSize: 12,
-  cursor: 'pointer',
-};
-const primaryBtn = {
-  background: 'hsl(var(--primary))',
-  color: '#fff',
-  border: 'none',
-  borderRadius: 6,
-  padding: '6px 12px',
-  fontSize: 12,
-  cursor: 'pointer',
-  fontWeight: 600,
-};
-const editPill = {
-  background: 'transparent',
-  color: 'hsl(var(--primary))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 4,
-  padding: '4px 10px',
-  fontSize: 11,
-  cursor: 'pointer',
-};
-const eventsTable = { width: '100%', borderCollapse: 'collapse', fontSize: 13 };
-const eventTypeCell = { padding: '6px 0', color: 'hsl(var(--foreground))', width: '28%' };
-const eventDateCell = { padding: '6px 8px', color: 'hsl(var(--muted-foreground))', width: '18%' };
-const eventDescCell = { padding: '6px 0', color: 'hsl(var(--muted-foreground))' };
 
 export default PersonFocus;

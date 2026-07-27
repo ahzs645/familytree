@@ -6,7 +6,8 @@ import { saveWithChangeLog, logRecordCreated, logRecordDeleted } from '../lib/ch
 import { readRef, writeRef } from '../lib/schema.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
-import { FieldRow, editorInput, editorTextarea } from '../components/editors/FieldRow.jsx';
+import { FieldRow } from '../components/editors/FieldRow.jsx';
+import { formClasses } from '../components/ui/formClasses.js';
 import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
@@ -242,9 +243,9 @@ export default function Stories() {
         <button onClick={save} disabled={saving || isRecordLocked(active)} className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-xs font-semibold disabled:opacity-60">{saving ? t('stories.saving') : t('stories.save')}</button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <FieldRow label={t('stories.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} style={editorInput} /></FieldRow>
-        <FieldRow label={t('stories.field.subtitle')}><input value={values.subtitle || ''} onChange={(e) => setValues({ ...values, subtitle: e.target.value })} style={editorInput} /></FieldRow>
-        <FieldRow label={t('stories.field.author')}><input value={values.author || ''} onChange={(e) => setValues({ ...values, author: e.target.value })} style={editorInput} /></FieldRow>
+        <FieldRow label={t('stories.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} className={formClasses.input} /></FieldRow>
+        <FieldRow label={t('stories.field.subtitle')}><input value={values.subtitle || ''} onChange={(e) => setValues({ ...values, subtitle: e.target.value })} className={formClasses.input} /></FieldRow>
+        <FieldRow label={t('stories.field.author')}><input value={values.author || ''} onChange={(e) => setValues({ ...values, author: e.target.value })} className={formClasses.input} /></FieldRow>
         <FieldRow label={t('stories.field.date')}>
           <DatePicker
             value={values.date || ''}
@@ -253,7 +254,7 @@ export default function Stories() {
           />
         </FieldRow>
       </div>
-      <FieldRow label={t('stories.field.text')}><textarea rows={10} value={values.text || ''} onChange={(e) => setValues({ ...values, text: e.target.value })} style={editorTextarea} /></FieldRow>
+      <FieldRow label={t('stories.field.text')}><textarea rows={10} value={values.text || ''} onChange={(e) => setValues({ ...values, text: e.target.value })} className={formClasses.textarea} /></FieldRow>
 
       <section className="mt-6 border border-border rounded-md p-3 bg-card">
         <div className="flex items-center mb-3">

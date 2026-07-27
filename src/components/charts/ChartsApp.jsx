@@ -61,24 +61,33 @@ import { ChartPersonBrowser } from './parts/ChartPersonBrowser.jsx';
 import { ChartBottomToolbar } from './parts/ChartBottomToolbar.jsx';
 import { ChartOptionsPanel } from './parts/ChartOptionsPanel.jsx';
 import { buildGenerationIndex, chartColorForPerson } from './coloring.js';
-import {
-  shellStyle,
-  headerStyle,
-  mainStyle,
-  canvasRowStyle,
-  popoverStyle,
-  optionSelect,
-  selectStyle,
-  loadingStyle,
-  morePopoverTabs,
-  morePopoverTab as morePopoverTabStyle,
-} from './parts/styles.js';
+import { Button } from '../ui/Button.jsx';
+import { Input } from '../ui/Input.jsx';
+import { cn } from '../../lib/utils.js';
 import { useExportSettings } from './hooks/useExportSettings.js';
 import { usePageSetup } from './hooks/usePageSetup.js';
 import { useVirtualTreeOptions } from './hooks/useVirtualTreeOptions.js';
 import { useRelationshipPaths } from './hooks/useRelationshipPaths.js';
 import { useChartDocument } from './hooks/useChartDocument.js';
 import { copyTextToClipboard } from '../../lib/clipboard.js';
+
+// Compact trigger override for ui/Select when it sits in the dense option
+// panels/popovers (matches the compact Input size).
+const COMPACT_SELECT_TRIGGER = 'h-8 ps-2 text-xs';
+
+const LOADING_CLASSES = 'flex h-full items-center justify-center bg-background text-muted-foreground';
+
+// Tab strip inside the chart "More" popover. Switches which option group is
+// visible so 14+ sections don't pile up in one column. Bottom-border tab style
+// keeps the active state visible while taking less horizontal room than pills,
+// so all six labels fit inside the popover at desktop width and degrade to a
+// horizontal scroll only on the narrowest phones.
+function morePopoverTabClasses(active) {
+  return cn(
+    'flex-none cursor-pointer whitespace-nowrap border-b-2 bg-transparent px-2 pb-2 pt-1.5 -mb-px text-xs font-semibold',
+    active ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground',
+  );
+}
 
 const CHART_TYPES = [
   { id: 'ancestor', label: 'Ancestor', needsSecond: false },
@@ -1112,18 +1121,18 @@ export function ChartsApp() {
     [onOverlaysChange, setOverlaysCommit, setOverlaysPreview, selectedOverlayId, selectOverlay, chartTitleOrDefault, exportSettings]
   );
 
-  if (loading) return <div style={loadingStyle}>Loading family data…</div>;
+  if (loading) return <div className={LOADING_CLASSES}>Loading family data…</div>;
   if (empty) {
     return (
-      <div style={loadingStyle}>
-        No family data found. <Link to="/" style={{ color: 'hsl(var(--primary))', marginLeft: 6 }}>Import a .mftpkg</Link> first.
+      <div className={LOADING_CLASSES}>
+        No family data found. <Link to="/" className="ms-1.5 text-primary">Import a .mftpkg</Link> first.
       </div>
     );
   }
 
   return (
-    <div style={shellStyle}>
-      <header style={headerStyle}>
+    <div className="flex h-full flex-col bg-background">
+      <header className="flex flex-wrap items-end gap-2 border-b border-border bg-card px-5 py-3">
         <Field label="Person">
           <PersonPicker persons={chartPersons} value={rootId} onChange={onRootChange} />
         </Field>
@@ -1161,33 +1170,28 @@ export function ChartsApp() {
             value={chartType}
             onChange={setChartType}
             options={CHART_TYPES.map((type) => ({ value: type.id, label: type.label }))}
-            triggerStyle={{ ...selectStyle, paddingInlineEnd: 32 }}
             align="start"
           />
         </Field>
 
         <Field label="Gen" hideOnNarrow>
-          <input
+          <Input
             type="number"
             min={2}
             max={8}
             value={generations}
             onChange={(e) => setGenerations(Math.min(8, Math.max(2, +e.target.value || 5)))}
-            style={{ ...selectStyle, width: 60 }}
+            className="w-[60px]"
           />
         </Field>
 
-        <div ref={moreRef} style={{ position: 'relative', marginInlineStart: 'auto' }}>
-          <button
-            onClick={() => setMoreOpen((v) => !v)}
-            style={{ ...selectStyle, padding: '8px 12px' }}
-            aria-expanded={moreOpen}
-          >
+        <div ref={moreRef} className="relative ms-auto">
+          <Button size="md" onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}>
             More ▾
-          </button>
+          </Button>
           {moreOpen && (
-            <div style={popoverStyle}>
-              <div className="no-scrollbar" style={morePopoverTabs} role="tablist" aria-label="Chart options">
+            <div className="absolute end-0 top-[calc(100%+6px)] z-20 w-[380px] max-w-[calc(100vw-24px)] max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-card p-3.5 text-card-foreground shadow-lg">
+              <div className="no-scrollbar -mx-0.5 mb-2.5 flex gap-0.5 overflow-x-auto border-b border-border" role="tablist" aria-label="Chart options">
                 {[
                   ['view', 'View'],
                   ['layout', 'Layout'],
@@ -1202,7 +1206,7 @@ export function ChartsApp() {
                     role="tab"
                     aria-selected={morePopoverTab === id}
                     onClick={() => setMorePopoverTab(id)}
-                    style={morePopoverTabStyle(morePopoverTab === id)}
+                    className={morePopoverTabClasses(morePopoverTab === id)}
                   >
                     {label}
                   </button>
@@ -1214,7 +1218,7 @@ export function ChartsApp() {
                   value={themeId}
                   onChange={setThemeId}
                   options={THEMES.map((themeOption) => ({ value: themeOption.id, label: themeOption.name }))}
-                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  triggerClassName={COMPACT_SELECT_TRIGGER}
                 />
               </Section>
               <Section label="Research overlay">
@@ -1222,13 +1226,13 @@ export function ChartsApp() {
                   value={completenessColorMode}
                   onChange={setCompletenessColorMode}
                   options={COMPLETENESS_COLOR_MODES.map((mode) => ({ value: mode.id, label: mode.label }))}
-                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  triggerClassName={COMPACT_SELECT_TRIGGER}
                 />
                 {COMPLETENESS_LEGEND[completenessColorMode] && (
-                  <div style={{ display: 'grid', gap: 5, marginTop: 8 }}>
+                  <div className="mt-2 grid gap-1">
                     {COMPLETENESS_LEGEND[completenessColorMode].map(([color, label]) => (
-                      <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
-                        <span style={{ width: 10, height: 10, borderRadius: 2, background: color, display: 'inline-block' }} />
+                      <div key={label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: color }} />
                         {label}
                       </div>
                     ))}
@@ -1244,59 +1248,59 @@ export function ChartsApp() {
                     { value: 'reroot', label: 'Click person to re-root' },
                     { value: 'panel', label: 'Click person to inspect' },
                   ]}
-                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  triggerClassName={COMPACT_SELECT_TRIGGER}
                 />
               </Section>
               </>)}
 
               {morePopoverTab === 'layout' && (<>
               <Section label="Generations">
-                <input
+                <Input
+                  compact
                   type="number"
                   min={2}
                   max={8}
                   value={generations}
                   onChange={(e) => setGenerations(Math.min(8, Math.max(2, +e.target.value || 5)))}
-                  style={optionSelect}
                 />
               </Section>
 
               {(chartType === 'descendant' || chartType === 'tree' || chartType === 'symmetrical' || chartType === 'family-chart' || chartType === 'radial-descendant' || chartType === 'lifespan' || chartType === 'genogram' || chartType === 'sociogram') && (
                 <Section label="Descendant generations">
-                  <input
+                  <Input
+                    compact
                     type="number"
                     min={1}
                     max={8}
                     value={descendantGenerations}
                     onChange={(e) => setDescendantGenerations(Math.min(8, Math.max(1, +e.target.value || 5)))}
-                    style={optionSelect}
                   />
                 </Section>
               )}
 
               {chartType === 'hourglass' && (
                 <Section label="Hourglass generations">
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                    <label style={{ display: 'block' }}>
-                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Ancestors</div>
-                      <input
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <label className="block">
+                      <div className="mb-1 text-xs text-muted-foreground">Ancestors</div>
+                      <Input
+                        compact
                         type="number"
                         min={1}
                         max={8}
                         value={hourglassAncestorGens}
                         onChange={(e) => setHourglassAncestorGens(Math.min(8, Math.max(1, +e.target.value || 4)))}
-                        style={optionSelect}
                       />
                     </label>
-                    <label style={{ display: 'block' }}>
-                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Descendants</div>
-                      <input
+                    <label className="block">
+                      <div className="mb-1 text-xs text-muted-foreground">Descendants</div>
+                      <Input
+                        compact
                         type="number"
                         min={1}
                         max={8}
                         value={hourglassDescendantGens}
                         onChange={(e) => setHourglassDescendantGens(Math.min(8, Math.max(1, +e.target.value || 3)))}
-                        style={optionSelect}
                       />
                     </label>
                   </div>
@@ -1305,27 +1309,27 @@ export function ChartsApp() {
 
               {chartType === 'double-ancestor' && (
                 <Section label="Double ancestor generations">
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                    <label style={{ display: 'block' }}>
-                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Left / Father</div>
-                      <input
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <label className="block">
+                      <div className="mb-1 text-xs text-muted-foreground">Left / Father</div>
+                      <Input
+                        compact
                         type="number"
                         min={1}
                         max={8}
                         value={doubleAncestorLeftGens}
                         onChange={(e) => setDoubleAncestorLeftGens(Math.min(8, Math.max(1, +e.target.value || 4)))}
-                        style={optionSelect}
                       />
                     </label>
-                    <label style={{ display: 'block' }}>
-                      <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Right / Mother</div>
-                      <input
+                    <label className="block">
+                      <div className="mb-1 text-xs text-muted-foreground">Right / Mother</div>
+                      <Input
+                        compact
                         type="number"
                         min={1}
                         max={8}
                         value={doubleAncestorRightGens}
                         onChange={(e) => setDoubleAncestorRightGens(Math.min(8, Math.max(1, +e.target.value || 4)))}
-                        style={optionSelect}
                       />
                     </label>
                   </div>
@@ -1344,14 +1348,14 @@ export function ChartsApp() {
                       { value: 'paternal-from-start', label: 'Paternal from start person' },
                       { value: 'maternal-from-start', label: 'Maternal from start person' },
                     ]}
-                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                    triggerClassName={COMPACT_SELECT_TRIGGER}
                   />
                 </Section>
               )}
 
               {chartType === 'fan' && (
                 <Section label="Fan arc">
-                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Arc ({fanArcDegrees}°)</div>
+                  <div className="mb-1 text-xs text-muted-foreground">Arc ({fanArcDegrees}°)</div>
                   <input
                     type="range"
                     min={90}
@@ -1359,7 +1363,7 @@ export function ChartsApp() {
                     step={15}
                     value={fanArcDegrees}
                     onChange={(e) => setFanArcDegrees(+e.target.value)}
-                    style={{ width: '100%' }}
+                    className="w-full"
                   />
                 </Section>
               )}
@@ -1367,15 +1371,15 @@ export function ChartsApp() {
 
               {morePopoverTab === 'page' && (<>
               <Section label="Title">
-                <input value={chartTitle} onChange={(e) => setChartTitle(e.target.value)} placeholder="Optional title" style={optionSelect} />
+                <Input compact value={chartTitle} onChange={(e) => setChartTitle(e.target.value)} placeholder="Optional title" />
               </Section>
 
               <Section label="Note">
-                <input value={chartNote} onChange={(e) => setChartNote(e.target.value)} placeholder="Optional note" style={optionSelect} />
+                <Input compact value={chartNote} onChange={(e) => setChartNote(e.target.value)} placeholder="Optional note" />
               </Section>
 
               <Section label="Page">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                <div className="grid grid-cols-2 gap-1.5">
                   <Select
                     value={pageSize}
                     onChange={setPageSize}
@@ -1384,7 +1388,7 @@ export function ChartsApp() {
                       { value: 'a4', label: 'A4' },
                       { value: 'legal', label: 'Legal' },
                     ]}
-                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                    triggerClassName={COMPACT_SELECT_TRIGGER}
                   />
                   <Select
                     value={pageOrientation}
@@ -1393,14 +1397,14 @@ export function ChartsApp() {
                       { value: 'landscape', label: 'Landscape' },
                       { value: 'portrait', label: 'Portrait' },
                     ]}
-                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                    triggerClassName={COMPACT_SELECT_TRIGGER}
                   />
                 </div>
-                <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-                  <input value={chartBackground} onChange={(e) => setChartBackground(e.target.value)} placeholder="CSS value or click Edit…" style={{ ...optionSelect, flex: 1 }} title="CSS background color" />
-                  <button type="button" onClick={() => setBackgroundSheetOpen(true)} style={optionSelect} title="Color / gradient / image background editor">
+                <div className="mt-1.5 flex gap-1.5">
+                  <Input compact value={chartBackground} onChange={(e) => setChartBackground(e.target.value)} placeholder="CSS value or click Edit…" className="flex-1" title="CSS background color" />
+                  <Button onClick={() => setBackgroundSheetOpen(true)} title="Color / gradient / image background editor">
                     Edit…
-                  </button>
+                  </Button>
                 </div>
                 <ChartBackgroundSheet
                   open={backgroundSheetOpen}
@@ -1408,17 +1412,17 @@ export function ChartsApp() {
                   onApply={(value) => { setChartBackground(value); setBackgroundSheetOpen(false); }}
                   onClose={() => setBackgroundSheetOpen(false)}
                 />
-                <div style={{ marginTop: 6 }}>
-                  <button type="button" onClick={() => setPageSetupSheetOpen(true)} style={optionSelect} title="Margins, overlap, cut marks, page numbers, omit empty pages, export format/scale/quality">
+                <div className="mt-1.5">
+                  <Button onClick={() => setPageSetupSheetOpen(true)} className="w-full" title="Margins, overlap, cut marks, page numbers, omit empty pages, export format/scale/quality">
                     Page setup…
-                  </button>
+                  </Button>
                 </div>
               </Section>
               </>)}
 
               {morePopoverTab === 'library' && (<>
               <Section label="Templates">
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div className="flex gap-1.5">
                   <Select
                     value=""
                     onChange={(value) => value && onApplyTemplate(value)}
@@ -1426,10 +1430,10 @@ export function ChartsApp() {
                       { value: '', label: 'Load saved…' },
                       ...templates.map((template) => ({ value: template.id, label: template.name })),
                     ]}
-                    style={{ flex: 1 }}
-                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                    className="flex-1"
+                    triggerClassName={COMPACT_SELECT_TRIGGER}
                   />
-                  <button onClick={onSaveTemplate} style={optionSelect}>Save</button>
+                  <Button onClick={onSaveTemplate}>Save</Button>
                 </div>
                 {templates.length > 0 && (
                   <Select
@@ -1439,15 +1443,15 @@ export function ChartsApp() {
                       { value: '', label: 'Delete…' },
                       ...templates.map((template) => ({ value: template.id, label: template.name })),
                     ]}
-                    style={{ marginTop: 6 }}
-                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                    className="mt-1.5"
+                    triggerClassName={COMPACT_SELECT_TRIGGER}
                     ariaLabel="Delete a saved template"
                   />
                 )}
               </Section>
 
               <Section label={`Documents${currentDocumentName ? ` — ${currentDocumentName}${isDirty ? ' •' : ''}${isReadOnly ? ' (read-only)' : ''}` : ''}`}>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div className="flex gap-1.5">
                   <Select
                     value=""
                     onChange={(value) => value && onApplyDocument(value)}
@@ -1455,51 +1459,47 @@ export function ChartsApp() {
                       { value: '', label: 'Open…' },
                       ...documents.map((doc) => ({ value: doc.id, label: doc.name })),
                     ]}
-                    style={{ flex: 1 }}
-                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                    className="flex-1"
+                    triggerClassName={COMPACT_SELECT_TRIGGER}
                   />
-                  <button onClick={onSaveDocument} style={optionSelect} disabled={isReadOnly} title={isReadOnly ? 'Read-only — use Save as new' : currentDocumentId ? 'Overwrite existing document' : 'Save new document'}>
+                  <Button onClick={onSaveDocument} disabled={isReadOnly} title={isReadOnly ? 'Read-only — use Save as new' : currentDocumentId ? 'Overwrite existing document' : 'Save new document'}>
                     {currentDocumentId ? 'Save' : 'Save…'}
-                  </button>
-                  <button onClick={onSaveAsDocument} style={optionSelect} title="Save a new copy">Save as…</button>
+                  </Button>
+                  <Button onClick={onSaveAsDocument} title="Save a new copy">Save as…</Button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 6 }}>
-                  <button onClick={onNewChart} style={optionSelect} title="Start a new blank chart. Prompts if there are unsaved changes.">New chart</button>
-                  <button onClick={onFinishEditing} style={optionSelect} disabled={isReadOnly} title="Exit edit mode. Prompts to save unsaved changes, then locks the chart as read-only.">Finish editing</button>
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                  <Button onClick={onNewChart} title="Start a new blank chart. Prompts if there are unsaved changes.">New chart</Button>
+                  <Button onClick={onFinishEditing} disabled={isReadOnly} title="Exit edit mode. Prompts to save unsaved changes, then locks the chart as read-only.">Finish editing</Button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 6 }}>
-                  <button
+                <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+                  <Button
                     onClick={onCopyShareLink}
-                    style={optionSelect}
                     title="Copy a compressed read-only link to the clipboard."
                     disabled={!rootId}
                   >
                     Copy link
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={onShareChart}
-                    style={optionSelect}
                     title="Open the system share sheet (iOS/macOS/Android) or copy if unsupported."
                     disabled={!rootId}
                   >
                     Share…
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={onShareByEmail}
-                    style={optionSelect}
                     title="Open a new email with the share link."
                     disabled={!rootId}
                   >
                     Email
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     onClick={onShowShareQr}
-                    style={optionSelect}
                     title="Show a QR code for the chart share link."
                     disabled={!rootId}
                   >
                     QR
-                  </button>
+                  </Button>
                 </div>
                 {documents.length > 0 && (
                   <Select
@@ -1509,8 +1509,8 @@ export function ChartsApp() {
                       { value: '', label: 'Delete…' },
                       ...documents.map((doc) => ({ value: doc.id, label: doc.name })),
                     ]}
-                    style={{ marginTop: 6 }}
-                    triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                    className="mt-1.5"
+                    triggerClassName={COMPACT_SELECT_TRIGGER}
                   />
                 )}
               </Section>
@@ -1518,33 +1518,33 @@ export function ChartsApp() {
 
               {morePopoverTab === 'overlays' && (<>
               <Section label={`Overlays${isReadOnly ? ' (read-only)' : ''}`}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-                  <button onClick={addTextOverlay} style={optionSelect} disabled={isReadOnly}>Text</button>
-                  <button onClick={addLineOverlay} style={optionSelect} disabled={isReadOnly}>Line</button>
-                  <button onClick={addImageOverlay} style={optionSelect} disabled={isReadOnly}>Image</button>
-                  <button onClick={removeSelected} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Delete</button>
+                <div className="grid grid-cols-4 gap-1.5">
+                  <Button onClick={addTextOverlay} disabled={isReadOnly}>Text</Button>
+                  <Button onClick={addLineOverlay} disabled={isReadOnly}>Line</Button>
+                  <Button onClick={addImageOverlay} disabled={isReadOnly}>Image</Button>
+                  <Button onClick={removeSelected} disabled={!selectedOverlayId || isReadOnly}>Delete</Button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 6 }}>
-                  <button onClick={undo} disabled={!hasUndo || isReadOnly} style={optionSelect}>Undo</button>
-                  <button onClick={redo} disabled={!hasRedo || isReadOnly} style={optionSelect}>Redo</button>
-                  <button onClick={() => alignHorizontal('left')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Align left</button>
-                  <button onClick={() => alignHorizontal('center')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Align center</button>
+                <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+                  <Button onClick={undo} disabled={!hasUndo || isReadOnly}>Undo</Button>
+                  <Button onClick={redo} disabled={!hasRedo || isReadOnly}>Redo</Button>
+                  <Button onClick={() => alignHorizontal('left')} disabled={!selectedOverlayId || isReadOnly}>Align left</Button>
+                  <Button onClick={() => alignHorizontal('center')} disabled={!selectedOverlayId || isReadOnly}>Align center</Button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginTop: 6 }}>
-                  <button onClick={() => alignVertical('top')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Align top</button>
-                  <button onClick={() => alignVertical('middle')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Align middle</button>
-                  <button onClick={bringToFront} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Bring to front</button>
-                  <button onClick={sendToBack} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Send to back</button>
+                <div className="mt-1.5 grid grid-cols-4 gap-1.5">
+                  <Button onClick={() => alignVertical('top')} disabled={!selectedOverlayId || isReadOnly}>Align top</Button>
+                  <Button onClick={() => alignVertical('middle')} disabled={!selectedOverlayId || isReadOnly}>Align middle</Button>
+                  <Button onClick={bringToFront} disabled={!selectedOverlayId || isReadOnly}>Bring to front</Button>
+                  <Button onClick={sendToBack} disabled={!selectedOverlayId || isReadOnly}>Send to back</Button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 6 }}>
-                  <button onClick={() => distributeEvenly('horizontal')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Distribute H</button>
-                  <button onClick={() => distributeEvenly('vertical')} disabled={!selectedOverlayId || isReadOnly} style={optionSelect}>Distribute V</button>
-                  <button onClick={focusRootInCanvas} style={optionSelect}>Focus root</button>
+                <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                  <Button onClick={() => distributeEvenly('horizontal')} disabled={!selectedOverlayId || isReadOnly}>Distribute H</Button>
+                  <Button onClick={() => distributeEvenly('vertical')} disabled={!selectedOverlayId || isReadOnly}>Distribute V</Button>
+                  <Button onClick={focusRootInCanvas}>Focus root</Button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 6 }}>
-                  <button onClick={() => moveAwayFromPageCuts({ paperSize: pageSize, orientation: pageOrientation })} disabled={!overlays.length || isReadOnly} style={optionSelect} title="Shift objects that cross a page-tile boundary so they fit inside one page">Away from cuts</button>
-                  <button onClick={() => distributeBorderToBorder('horizontal', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2 || isReadOnly} style={optionSelect} title="Distribute objects evenly across the page content rect">Border-to-border H</button>
-                  <button onClick={() => distributeBorderToBorder('vertical', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2 || isReadOnly} style={optionSelect} title="Distribute objects evenly from top to bottom">Border-to-border V</button>
+                <div className="mt-1.5 grid grid-cols-3 gap-1.5">
+                  <Button className="whitespace-normal" onClick={() => moveAwayFromPageCuts({ paperSize: pageSize, orientation: pageOrientation })} disabled={!overlays.length || isReadOnly} title="Shift objects that cross a page-tile boundary so they fit inside one page">Away from cuts</Button>
+                  <Button className="whitespace-normal" onClick={() => distributeBorderToBorder('horizontal', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2 || isReadOnly} title="Distribute objects evenly across the page content rect">Border-to-border H</Button>
+                  <Button className="whitespace-normal" onClick={() => distributeBorderToBorder('vertical', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2 || isReadOnly} title="Distribute objects evenly from top to bottom">Border-to-border V</Button>
                 </div>
               </Section>
 
@@ -1561,18 +1561,18 @@ export function ChartsApp() {
 
               {morePopoverTab === 'export' && (<>
               <Section label="Find + Export">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 6, marginBottom: 6 }}>
-                  <input
+                <div className="mb-1.5 grid grid-cols-[1fr_auto] gap-1.5">
+                  <Input
+                    compact
                     value={findText}
                     onChange={(e) => setFindText(e.target.value)}
                     placeholder="Find person name/record"
-                    style={optionSelect}
                   />
-                  <button onClick={onFindPerson} style={optionSelect}>Find</button>
+                  <Button onClick={onFindPerson}>Find</Button>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 6 }}>
-                  <label style={{ display: 'block' }}>
-                    <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Format</div>
+                <div className="mb-1.5 grid grid-cols-2 gap-1.5">
+                  <label className="block">
+                    <div className="mb-1 text-xs text-muted-foreground">Format</div>
                     <Select
                       value={exportFormat}
                       onChange={setExportFormat}
@@ -1580,11 +1580,11 @@ export function ChartsApp() {
                         { value: 'png', label: 'PNG' },
                         { value: 'jpeg', label: 'JPEG' },
                       ]}
-                      triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                      triggerClassName={COMPACT_SELECT_TRIGGER}
                     />
                   </label>
-                  <label style={{ display: 'block' }}>
-                    <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Scale ({exportScale.toFixed(2)}×)</div>
+                  <label className="block">
+                    <div className="mb-1 text-xs text-muted-foreground">Scale ({exportScale.toFixed(2)}×)</div>
                     <input
                       type="range"
                       min={0.25}
@@ -1592,13 +1592,13 @@ export function ChartsApp() {
                       step={0.25}
                       value={exportScale}
                       onChange={(e) => setExportScale(+e.target.value)}
-                      style={{ width: '100%' }}
+                      className="w-full"
                     />
                   </label>
                 </div>
                 {exportFormat === 'jpeg' && (
-                  <label style={{ display: 'block', marginBottom: 6 }}>
-                    <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>JPEG quality ({Math.round(exportJpegQuality * 100)}%)</div>
+                  <label className="mb-1.5 block">
+                    <div className="mb-1 text-xs text-muted-foreground">JPEG quality ({Math.round(exportJpegQuality * 100)}%)</div>
                     <input
                       type="range"
                       min={0.1}
@@ -1606,11 +1606,11 @@ export function ChartsApp() {
                       step={0.05}
                       value={exportJpegQuality}
                       onChange={(e) => setExportJpegQuality(+e.target.value)}
-                      style={{ width: '100%' }}
+                      className="w-full"
                     />
                   </label>
                 )}
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6, fontSize: 12 }}>
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs">
                   <input
                     type="checkbox"
                     checked={exportIncludeBackground}
@@ -1618,19 +1618,19 @@ export function ChartsApp() {
                   />
                   Include background
                 </label>
-                <label style={{ display: 'block', marginBottom: 6 }}>
-                  <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>File name template</div>
-                  <input
+                <label className="mb-1.5 block">
+                  <div className="mb-1 text-xs text-muted-foreground">File name template</div>
+                  <Input
+                    compact
                     value={exportFileNameTemplate}
                     onChange={(e) => setExportFileNameTemplate(e.target.value)}
                     placeholder="{title}-{date}"
-                    style={optionSelect}
                   />
                 </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                  <button onClick={exportSvg} style={optionSelect}>Save SVG</button>
-                  <button onClick={exportPng} style={optionSelect}>Save {exportFormat === 'jpeg' ? 'JPEG' : 'PNG'}</button>
-                  <button onClick={exportPdf} style={optionSelect} title={t('charts.printHint')}>{t('charts.print')}</button>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Button onClick={exportSvg}>Save SVG</Button>
+                  <Button onClick={exportPng}>Save {exportFormat === 'jpeg' ? 'JPEG' : 'PNG'}</Button>
+                  <Button onClick={exportPdf} title={t('charts.printHint')}>{t('charts.print')}</Button>
                 </div>
               </Section>
               </>)}
@@ -1660,8 +1660,8 @@ export function ChartsApp() {
 
       <ChartSelectionProvider openPerson={openPersonInPanel}>
       <ChartContentProvider content={chartContent} photosById={chartPhotos}>
-      <div style={canvasRowStyle}>
-      <div style={mainStyle}>
+      <div className="flex min-h-0 min-w-0 flex-1">
+      <div className="relative min-w-0 flex-1 overflow-hidden">
         {chartType === 'ancestor' && (
           <AncestorChart
             chartCanvasRef={chartCanvasRef}
@@ -1912,11 +1912,11 @@ export function ChartsApp() {
           />
         )}
         {chartType === 'virtual' && (
-          <div style={{ display: 'flex', height: '100%', minWidth: 0 }}>
-            <aside style={{ width: 220, padding: 16, borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', color: 'hsl(var(--foreground))', fontSize: 13 }}>
-              <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 8, letterSpacing: 0.4 }}>VIRTUAL TREE OPTIONS</div>
-              <label style={{ display: 'block', marginBottom: 10 }}>
-                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Renderer</div>
+          <div className="flex h-full min-w-0">
+            <aside className="w-[220px] border-e border-border bg-card p-4 text-sm text-card-foreground">
+              <div className="mb-2 text-xs tracking-wide text-muted-foreground">VIRTUAL TREE OPTIONS</div>
+              <label className="mb-2.5 block">
+                <div className="mb-1 text-xs text-muted-foreground">Renderer</div>
                 <Select
                   value={virtualViewMode}
                   onChange={setVirtualViewMode}
@@ -1924,30 +1924,30 @@ export function ChartsApp() {
                     { value: '2d', label: '2D (SVG)' },
                     { value: '3d', label: '3D (Three.js)' },
                   ]}
-                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  triggerClassName={COMPACT_SELECT_TRIGGER}
                 />
               </label>
               {virtualViewMode === '3d' && (
                 <>
-                  <label style={{ display: 'block', marginBottom: 10 }}>
-                    <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Symbol mode</div>
+                  <label className="mb-2.5 block">
+                    <div className="mb-1 text-xs text-muted-foreground">Symbol mode</div>
                     <Select
                       value={virtualSymbolMode}
                       onChange={setVirtualSymbolMode}
                       options={SYMBOL_MODES.map((mode) => ({ value: mode, label: mode }))}
-                      triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                      triggerClassName={COMPACT_SELECT_TRIGGER}
                     />
                   </label>
-                  <label style={{ display: 'block', marginBottom: 10 }}>
-                    <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Color mode</div>
+                  <label className="mb-2.5 block">
+                    <div className="mb-1 text-xs text-muted-foreground">Color mode</div>
                     <Select
                       value={virtualColorMode}
                       onChange={setVirtualColorMode}
                       options={COLOR_MODES.map((mode) => ({ value: mode, label: mode }))}
-                      triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                      triggerClassName={COMPACT_SELECT_TRIGGER}
                     />
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12 }}>
+                  <label className="mb-2 flex items-center gap-1.5 text-xs">
                     <input
                       type="checkbox"
                       checked={virtualShowGenerationBands}
@@ -1955,7 +1955,7 @@ export function ChartsApp() {
                     />
                     Generation bands
                   </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, fontSize: 12 }}>
+                  <label className="mb-2 flex items-center gap-1.5 text-xs">
                     <input
                       type="checkbox"
                       checked={virtualDof.enabled}
@@ -1965,8 +1965,8 @@ export function ChartsApp() {
                   </label>
                   {virtualDof.enabled && (
                     <>
-                      <label style={{ display: 'block', marginBottom: 8 }}>
-                        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Focus ({Math.round(virtualDof.focus)})</div>
+                      <label className="mb-2 block">
+                        <div className="mb-1 text-xs text-muted-foreground">Focus ({Math.round(virtualDof.focus)})</div>
                         <input
                           type="range"
                           min={100}
@@ -1974,11 +1974,11 @@ export function ChartsApp() {
                           step={10}
                           value={virtualDof.focus}
                           onChange={(e) => setVirtualDof((d) => ({ ...d, focus: +e.target.value }))}
-                          style={{ width: '100%' }}
+                          className="w-full"
                         />
                       </label>
-                      <label style={{ display: 'block', marginBottom: 8 }}>
-                        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Aperture ({virtualDof.aperture.toFixed(5)})</div>
+                      <label className="mb-2 block">
+                        <div className="mb-1 text-xs text-muted-foreground">Aperture ({virtualDof.aperture.toFixed(5)})</div>
                         <input
                           type="range"
                           min={0}
@@ -1986,11 +1986,11 @@ export function ChartsApp() {
                           step={0.00005}
                           value={virtualDof.aperture}
                           onChange={(e) => setVirtualDof((d) => ({ ...d, aperture: +e.target.value }))}
-                          style={{ width: '100%' }}
+                          className="w-full"
                         />
                       </label>
-                      <label style={{ display: 'block', marginBottom: 10 }}>
-                        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Max blur ({virtualDof.maxblur.toFixed(3)})</div>
+                      <label className="mb-2.5 block">
+                        <div className="mb-1 text-xs text-muted-foreground">Max blur ({virtualDof.maxblur.toFixed(3)})</div>
                         <input
                           type="range"
                           min={0}
@@ -1998,15 +1998,15 @@ export function ChartsApp() {
                           step={0.001}
                           value={virtualDof.maxblur}
                           onChange={(e) => setVirtualDof((d) => ({ ...d, maxblur: +e.target.value }))}
-                          style={{ width: '100%' }}
+                          className="w-full"
                         />
                       </label>
                     </>
                   )}
                 </>
               )}
-              <label style={{ display: 'block', marginBottom: 10 }}>
-                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Source</div>
+              <label className="mb-2.5 block">
+                <div className="mb-1 text-xs text-muted-foreground">Source</div>
                 <Select
                   value={virtualSource}
                   onChange={setVirtualSource}
@@ -2015,11 +2015,11 @@ export function ChartsApp() {
                     { value: 'ancestor', label: 'Ancestors' },
                     { value: 'hourglass', label: 'Hourglass' },
                   ]}
-                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  triggerClassName={COMPACT_SELECT_TRIGGER}
                 />
               </label>
-              <label style={{ display: 'block', marginBottom: 10 }}>
-                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Orientation</div>
+              <label className="mb-2.5 block">
+                <div className="mb-1 text-xs text-muted-foreground">Orientation</div>
                 <Select
                   value={virtualOrientation}
                   onChange={setVirtualOrientation}
@@ -2027,19 +2027,19 @@ export function ChartsApp() {
                     { value: 'vertical', label: 'Vertical' },
                     { value: 'horizontal', label: 'Horizontal' },
                   ]}
-                  triggerStyle={{ ...optionSelect, paddingInlineEnd: 32 }}
+                  triggerClassName={COMPACT_SELECT_TRIGGER}
                 />
               </label>
-              <label style={{ display: 'block', marginBottom: 10 }}>
-                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Sibling spacing ({virtualHSpacing}px)</div>
-                <input type="range" min={8} max={80} value={virtualHSpacing} onChange={(e) => setVirtualHSpacing(+e.target.value)} style={{ width: '100%' }} />
+              <label className="mb-2.5 block">
+                <div className="mb-1 text-xs text-muted-foreground">Sibling spacing ({virtualHSpacing}px)</div>
+                <input type="range" min={8} max={80} value={virtualHSpacing} onChange={(e) => setVirtualHSpacing(+e.target.value)} className="w-full" />
               </label>
-              <label style={{ display: 'block', marginBottom: 10 }}>
-                <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginBottom: 3 }}>Generation spacing ({virtualVSpacing}px)</div>
-                <input type="range" min={50} max={200} value={virtualVSpacing} onChange={(e) => setVirtualVSpacing(+e.target.value)} style={{ width: '100%' }} />
+              <label className="mb-2.5 block">
+                <div className="mb-1 text-xs text-muted-foreground">Generation spacing ({virtualVSpacing}px)</div>
+                <input type="range" min={50} max={200} value={virtualVSpacing} onChange={(e) => setVirtualVSpacing(+e.target.value)} className="w-full" />
               </label>
             </aside>
-            <div style={{ flex: 1, position: 'relative' }}>
+            <div className="relative flex-1">
               {virtualViewMode === '3d' ? (
                 <VirtualTree3D
                   virtualTreeData={virtualTreeData}

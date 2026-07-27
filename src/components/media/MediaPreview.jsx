@@ -18,27 +18,27 @@ export function MediaPreview({ record, assets }) {
         href={record.fields.url.value}
         target="_blank"
         rel="noreferrer"
-        style={{ color: 'hsl(var(--primary))', fontSize: 12 }}
+        className="text-primary text-xs break-all hover:underline"
       >
         {record.fields.url.value}
       </a>
     );
   }
   if (!asset?.dataBase64) {
-    return <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>No local asset stored for this media record.</div>;
+    return <div className="text-muted-foreground text-xs">No local asset stored for this media record.</div>;
   }
   const src = `data:${asset.mimeType || 'application/octet-stream'};base64,${asset.dataBase64}`;
   if (record.recordType === 'MediaPicture') {
-    return <img src={src} alt="" style={{ maxWidth: '100%', borderRadius: 6, border: '1px solid hsl(var(--border))' }} />;
+    return <img src={src} alt="" className="max-w-full rounded-md border border-border" />;
   }
   if (record.recordType === 'MediaPDF') {
-    return <iframe title={asset.filename || record.recordName} src={src} style={{ width: '100%', height: 280, border: '1px solid hsl(var(--border))', borderRadius: 6 }} />;
+    return <iframe title={asset.filename || record.recordName} src={src} className="w-full h-72 border border-border rounded-md" />;
   }
   if (record.recordType === 'MediaAudio') {
-    return <audio controls src={src} style={{ width: '100%' }} />;
+    return <audio controls src={src} className="w-full" />;
   }
   if (record.recordType === 'MediaVideo') {
-    return <video controls src={src} style={{ width: '100%', borderRadius: 6 }} />;
+    return <video controls src={src} className="w-full rounded-md" />;
   }
-  return <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>{asset.filename || asset.assetId}</div>;
+  return <div className="text-muted-foreground text-xs">{asset.filename || asset.assetId}</div>;
 }

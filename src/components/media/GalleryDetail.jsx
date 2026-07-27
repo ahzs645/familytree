@@ -8,35 +8,10 @@
  */
 import React from 'react';
 import { readRef } from '../../lib/schema.js';
+import { cn } from '../../lib/utils.js';
+import { Button } from '../ui/Button.jsx';
 import { recordDisplayLabel } from '../editors/RelatedRecordEditors.jsx';
 import { MediaPreview } from './MediaPreview.jsx';
-
-const detailDesktop = {
-  width: 420,
-  borderInlineStart: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--card))',
-  padding: 20,
-  overflow: 'auto',
-};
-
-const detailMobile = {
-  width: '100%',
-  flex: 1,
-  background: 'hsl(var(--card))',
-  padding: 16,
-  overflow: 'auto',
-};
-
-const backBtn = {
-  background: 'transparent',
-  color: 'hsl(var(--destructive))',
-  border: '1px solid #3a2d30',
-  borderRadius: 6,
-  padding: '6px 10px',
-  fontSize: 12,
-  cursor: 'pointer',
-  marginBottom: 10,
-};
 
 function routeForRecord(record) {
   if (!record) return null;
@@ -63,54 +38,53 @@ export function GalleryDetail({ record, assets, relations, onOpenRelated, isMobi
     || '';
 
   return (
-    <aside style={isMobile ? detailMobile : detailDesktop}>
-      {isMobile && onClose && (
-        <button onClick={onClose} style={backBtn} aria-label="Back to gallery">← Back</button>
+    <aside
+      className={cn(
+        'bg-card text-card-foreground overflow-auto',
+        isMobile ? 'w-full flex-1 p-4' : 'w-[420px] border-s border-border p-5',
       )}
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+    >
+      {isMobile && onClose && (
+        <Button variant="destructiveOutline" onClick={onClose} className="mb-2.5" aria-label="Back to gallery">← Back</Button>
+      )}
+      <div className="mb-3.5">
+        <div className="text-muted-foreground text-xs uppercase tracking-wide">
           {record.recordType.replace('Media', '')}
         </div>
-        <h2 style={{ fontSize: 16, color: 'hsl(var(--foreground))', margin: '4px 0 0', fontWeight: 700, lineHeight: 1.25 }}>
+        <h2 className="text-base text-foreground mt-1 mb-0 font-bold leading-tight">
           {title}
         </h2>
       </div>
-      <div style={{ border: '1px solid hsl(var(--border))', borderRadius: 8, padding: 10, background: 'hsl(var(--background))', marginBottom: 14 }}>
+      <div className="border border-border rounded-md p-2.5 bg-background mb-3.5">
         <MediaPreview record={record} assets={assets} />
       </div>
       {description && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 5 }}>
+        <div className="mb-3.5">
+          <div className="text-muted-foreground text-xs uppercase tracking-wide mb-1">
             Description
           </div>
-          <div style={{ color: 'hsl(var(--foreground))', fontSize: 13, lineHeight: 1.55 }}>{description}</div>
+          <div className="text-foreground text-sm leading-relaxed">{description}</div>
         </div>
       )}
       <div>
-        <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 }}>
+        <div className="text-muted-foreground text-xs uppercase tracking-wide mb-1.5">
           Related Entries
         </div>
         {relations.length === 0 ? (
-          <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 12 }}>No related entries.</div>
+          <div className="text-muted-foreground text-xs">No related entries.</div>
         ) : (
-          <div style={{ display: 'grid', gap: 6 }}>
+          <div className="grid gap-1.5">
             {relations.map(({ rel, target }) => (
               <button
                 key={rel.recordName}
                 type="button"
                 onClick={() => onOpenRelated(target)}
-                style={{
-                  fontSize: 12,
-                  color: 'hsl(var(--foreground))',
-                  background: 'hsl(var(--secondary))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: 6,
-                  padding: 8,
-                  textAlign: 'left',
-                  cursor: routeForRecord(target) ? 'pointer' : 'default',
-                }}
+                className={cn(
+                  'text-xs bg-secondary text-secondary-foreground border border-border rounded-md p-2 text-start',
+                  routeForRecord(target) ? 'cursor-pointer hover:bg-accent' : 'cursor-default',
+                )}
               >
-                <span style={{ color: 'hsl(var(--muted-foreground))', marginRight: 6 }}>
+                <span className="text-muted-foreground me-1.5">
                   {rel.fields?.targetType?.value || target?.recordType || 'Record'}
                 </span>
                 {recordDisplayLabel(target) || target?.recordName || readRef(rel.fields?.target)}

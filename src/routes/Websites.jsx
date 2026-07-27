@@ -8,6 +8,7 @@ import { buildSite, downloadSite, validateSiteExport } from '../lib/websiteExpor
 import { listAllScopes } from '../lib/smartScopes.js';
 import { SUPPORTED_LOCALES, DIRECTION_OPTIONS } from '../lib/i18n.js';
 import { formClasses } from '../components/ui/formClasses.js';
+import { buttonClasses } from '../components/ui/Button.jsx';
 import { getLocalDatabase } from '../lib/LocalDatabase.js';
 import { personSummary } from '../models/index.js';
 import {
@@ -34,7 +35,7 @@ import {
 } from '../lib/publishTargets.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 
-const buttonPrimary = 'rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-semibold disabled:opacity-50';
+const buttonPrimary = buttonClasses({ variant: 'primary', size: 'md' });
 const buttonSecondary = 'rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50';
 const inputClass = formClasses.input;
 
@@ -809,7 +810,7 @@ export default function Websites() {
         )}
 
         {completedStats && (
-          <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm">
+          <div className="mt-4 rounded-lg border border-success/40 bg-success/10 p-4 text-sm">
             Completed: {completedStats.persons.toLocaleString()} people, {completedStats.families.toLocaleString()} families,{' '}
             {completedStats.places.toLocaleString()} places, {completedStats.sources.toLocaleString()} sources,{' '}
             {completedStats.media.toLocaleString()} media records, {completedStats.stories.toLocaleString()} stories.
@@ -863,9 +864,9 @@ export default function Websites() {
 }
 
 function statusBadgeClass(status) {
-  if (status === 'success') return 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200';
-  if (status === 'canceled') return 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200';
-  return 'bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-200';
+  if (status === 'success') return 'bg-success/15 text-success';
+  if (status === 'canceled') return 'bg-warning/15 text-warning';
+  return 'bg-destructive/15 text-destructive';
 }
 
 function Field({ label, children }) {

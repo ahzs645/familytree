@@ -6,6 +6,9 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
+import { Input } from '../ui/Input.jsx';
+import { Button } from '../ui/Button.jsx';
+import { cn } from '../../lib/utils.js';
 
 export function MasterDetailList({ items, activeId, onPick, renderRow, placeholder, detail, detailHeader = null, emptyTitle, emptyHint, selection = null, bulkBar = null }) {
   const { t } = useTranslation();
@@ -32,31 +35,35 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
   const showDetail = !isMobile || mobileView === 'detail';
 
   return (
-    <div style={shell}>
+    <div className="flex h-full">
       {showList && (
-        <aside style={isMobile ? mobileFullPane : left}>
-          <div style={{ padding: 10, borderBottom: '1px solid hsl(var(--border))' }}>
-            <input
+        <aside
+          className={cn(
+            'bg-card text-card-foreground flex flex-col',
+            isMobile ? 'w-full' : 'w-[300px] border-e border-border flex-shrink-0'
+          )}
+        >
+          <div className="p-2.5 border-b border-border">
+            <Input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={searchLabel}
               aria-label={searchLabel}
-              style={search}
             />
-            <div style={{ color: 'hsl(var(--muted-foreground))', fontSize: 11, marginTop: 6 }}>
+            <div className="text-muted-foreground text-xs mt-1.5">
               {filtered.length} of {items.length}
             </div>
           </div>
-          {bulkBar ? <div style={{ padding: '8px 10px', borderBottom: '1px solid hsl(var(--border))' }}>{bulkBar}</div> : null}
-          <div style={{ flex: 1, overflow: 'auto' }}>
+          {bulkBar ? <div className="px-2.5 py-2 border-b border-border">{bulkBar}</div> : null}
+          <div className="flex-1 overflow-auto">
             {filtered.length === 0 ? (
-              <div style={emptyState}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))' }}>
+              <div className="flex flex-col items-center justify-center text-center px-6 py-12">
+                <div className="text-sm font-semibold text-foreground">
                   {emptyTitle || 'Nothing here yet'}
                 </div>
                 {emptyHint && (
-                  <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginTop: 4 }}>
+                  <div className="text-xs text-muted-foreground mt-1">
                     {emptyHint}
                   </div>
                 )}
@@ -83,13 +90,14 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
                     }}
                     role="button"
                     tabIndex={0}
-                    style={{
-                      ...row,
-                      ...(isMobile ? { minHeight: 44 } : null),
-                      ...(selection ? { display: 'flex', alignItems: 'flex-start', gap: 8 } : null),
-                      background: itemId === activeId ? 'hsl(var(--secondary))' : selection?.isSelected(itemId) ? 'hsl(var(--primary) / 0.06)' : 'transparent',
-                      borderInlineStart: itemId === activeId ? '3px solid hsl(var(--primary))' : '3px solid transparent',
-                    }}
+                    className={cn(
+                      'px-3.5 py-2 cursor-pointer border-b border-border border-s-[3px]',
+                      isMobile && 'min-h-[44px]',
+                      selection && 'flex items-start gap-2',
+                      itemId === activeId
+                        ? 'bg-secondary border-s-primary'
+                        : cn('border-s-transparent', selection?.isSelected(itemId) && 'bg-primary/5')
+                    )}
                   >
                     {selection ? (
                       <input
@@ -98,10 +106,10 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
                         onClick={(event) => event.stopPropagation()}
                         onChange={(event) => selection.toggle(itemId, { range: event.nativeEvent?.shiftKey })}
                         aria-labelledby={rowLabelId}
-                        style={{ marginTop: 3, flexShrink: 0 }}
+                        className="mt-0.5 flex-shrink-0"
                       />
                     ) : null}
-                    <div id={rowLabelId} style={selection ? { minWidth: 0, flex: 1 } : undefined}>{renderRow(it)}</div>
+                    <div id={rowLabelId} className={selection ? 'min-w-0 flex-1' : undefined}>{renderRow(it)}</div>
                   </div>
                 );
               })
@@ -110,61 +118,27 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
         </aside>
       )}
       {showDetail && (
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div className="flex-1 overflow-hidden flex flex-col">
           {isMobile && (
-            <div style={mobileBackBar}>
-              <button type="button" onClick={() => setMobileView('list')} style={backButton}>
+            <div className="px-3 py-2 border-b border-border bg-card flex-shrink-0">
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={() => setMobileView('list')}
+                className="text-primary font-semibold min-h-[40px] px-1"
+              >
                 ← Back to list
-              </button>
+              </Button>
             </div>
           )}
           {/* Optional pinned header (e.g. title + save + section nav) that
               stays put while the detail body scrolls underneath it. */}
-          {detailHeader && <div style={{ flexShrink: 0 }}>{detailHeader}</div>}
-          <div style={{ flex: 1, overflow: 'auto' }}>{detail}</div>
+          {detailHeader && <div className="flex-shrink-0">{detailHeader}</div>}
+          <div className="flex-1 overflow-auto">{detail}</div>
         </div>
       )}
     </div>
   );
 }
-
-const shell = { display: 'flex', height: '100%' };
-const left = { width: 300, borderInlineEnd: '1px solid hsl(var(--border))', background: 'hsl(var(--card))', display: 'flex', flexDirection: 'column', flexShrink: 0 };
-const mobileFullPane = { width: '100%', background: 'hsl(var(--card))', display: 'flex', flexDirection: 'column' };
-const mobileBackBar = {
-  padding: '8px 12px',
-  borderBottom: '1px solid hsl(var(--border))',
-  background: 'hsl(var(--card))',
-  flexShrink: 0,
-};
-const backButton = {
-  background: 'transparent',
-  border: 'none',
-  color: 'hsl(var(--primary))',
-  font: '600 14px -apple-system, system-ui, sans-serif',
-  cursor: 'pointer',
-  padding: '6px 4px',
-  minHeight: 40,
-};
-const search = {
-  width: '100%',
-  background: 'hsl(var(--background))',
-  color: 'hsl(var(--foreground))',
-  border: '1px solid hsl(var(--border))',
-  borderRadius: 6,
-  padding: '7px 10px',
-  font: '13px -apple-system, system-ui, sans-serif',
-  outline: 'none',
-  boxSizing: 'border-box',
-};
-const row = { padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid hsl(var(--border))' };
-const emptyState = {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  textAlign: 'center',
-  padding: '48px 24px',
-};
 
 export default MasterDetailList;
