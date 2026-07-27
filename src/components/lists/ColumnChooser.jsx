@@ -11,20 +11,34 @@ export function ColumnChooser({ columns, isVisible, onToggle, onReset, label }) 
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
+  const buttonRef = useRef(null);
   const buttonLabel = label || t('lists.columns');
 
+  // Escape closes and returns focus to the trigger, matching the app's other
+  // dropdowns (BulkLabelMenu, Select, TreeSwitcher). Without it this menu could
+  // only be dismissed by clicking elsewhere, which strands keyboard users.
   useEffect(() => {
-    if (!open) return;
+    if (!open) return undefined;
     const onDoc = (event) => {
       if (!rootRef.current?.contains(event.target)) setOpen(false);
     };
+    const onKey = (event) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      buttonRef.current?.focus();
+    };
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
 
   return (
     <div ref={rootRef} className="relative inline-block">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={listToolbarButtonClass}

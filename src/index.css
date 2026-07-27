@@ -88,6 +88,26 @@
   display: none; /* Chrome/Safari */
 }
 
+/* Edge fade for horizontal tab strips that scroll. Without it a strip whose
+ * overflow is off-screen reads as "that's all there is" — the settings nav hid
+ * 7 of its 17 panels on a 1440px desktop with nothing to suggest otherwise.
+ * Applied on the wrapper; the gradient follows the writing direction. */
+.scroll-fade-inline-end {
+  position: relative;
+}
+.scroll-fade-inline-end::after {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 2rem;
+  pointer-events: none;
+  background: linear-gradient(to left, hsl(var(--background)), transparent);
+}
+[dir='rtl'] .scroll-fade-inline-end::after {
+  background: linear-gradient(to right, hsl(var(--background)), transparent);
+}
+
 /* Consistent native <select> styling across the interface. Replaces the
  * browser's default (OS-dependent) arrow with a themed chevron and reserves
  * room for it. Placed outside @layer base so the padding override beats
