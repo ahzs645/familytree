@@ -1330,7 +1330,8 @@
       "outsideFamilyMarker": "Outside-family marker",
       "bookmarkedMarker": "Bookmarked marker",
       "startPersonMarker": "Start-person marker"
-    }
+    },
+    "unnamedGroup": "No name recorded"
   },
   "heritageTree": {
     "title": "Heritage Tree",
@@ -1778,5 +1779,10 @@
     "noSurnames": "No surnames recorded.",
     "noCountries": "No place countries recorded.",
     "century": "{century}th c."
+  },
+  "charts": {
+    "print": "Print",
+    "printHint": "Opens a print view — choose “Save as PDF” there to get a file.",
+    "printFailed": "Could not open the print view."
   }
 }

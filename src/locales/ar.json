@@ -1386,7 +1386,8 @@
       "outsideFamilyMarker": "علامة خارج العائلة",
       "bookmarkedMarker": "علامة الإشارة",
       "startPersonMarker": "علامة شخص البداية"
-    }
+    },
+    "unnamedGroup": "بلا اسم مسجّل"
   },
   "heritageTree": {
     "title": "شجرة التراث",
@@ -1841,5 +1842,10 @@
     "noSurnames": "لا توجد ألقاب مسجّلة.",
     "noCountries": "لا توجد بلدان مسجّلة للأماكن.",
     "century": "القرن {century}"
+  },
+  "charts": {
+    "print": "طباعة",
+    "printHint": "يفتح معاينة طباعة — اختر «حفظ كملف PDF» هناك للحصول على ملف.",
+    "printFailed": "تعذّر فتح معاينة الطباعة."
   }
 }

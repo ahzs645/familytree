@@ -12,6 +12,15 @@ import { lifeSpanLabel } from '../../models/index.js';
 import { Gender } from '../../models/constants.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
+// Sentinel group key — not a letter, so it can never collide with an initial.
+const UNNAMED_GROUP = '\u0000unnamed';
+
+function initialFor(person, localization) {
+  const firstGrapheme = graphemes(person.lastName || person.fullName || '#')[0] || '#';
+  const normalized = normalizeSearchText(firstGrapheme, localization);
+  return (normalized || firstGrapheme).toLocaleUpperCase(localization.locale);
+}
+
 export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null, renderBadge = null }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
@@ -63,15 +72,21 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
       : persons;
     const groups = new Map();
     for (const p of filtered) {
-      const firstGrapheme = graphemes(p.lastName || p.fullName || '#')[0] || '#';
-      const normalized = normalizeSearchText(firstGrapheme, localization);
-      const initial = (normalized || firstGrapheme).toLocaleUpperCase(localization.locale);
+      // Persons with no recorded name display a placeholder ("No name
+      // recorded"), and keying off that string filed them all under N, wedged
+      // between real surnames. Give them their own bucket instead.
+      const initial = hasRealName(p) ? initialFor(p, localization) : UNNAMED_GROUP;
       if (!groups.has(initial)) groups.set(initial, []);
       groups.get(initial).push(p);
     }
     return [...groups.entries()]
       .map(([letter, group]) => [letter, queryWords.length ? group : group.sort((a, b) => compareStrings(a.fullName, b.fullName, localization))])
-      .sort(([a], [b]) => compareStrings(a, b, localization));
+      .sort(([a], [b]) => {
+        // The unnamed bucket always sorts last, whatever the locale.
+        if (a === UNNAMED_GROUP) return b === UNNAMED_GROUP ? 0 : 1;
+        if (b === UNNAMED_GROUP) return -1;
+        return compareStrings(a, b, localization);
+      });
   }, [persons, indexedPersons, normalizedQuery, queryWords, queryVariantGroups, localizationKey]);
 
   return (
@@ -88,7 +103,9 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
       <div style={list}>
         {sections.map(([letter, group]) => (
           <div key={letter}>
-            <div style={sectionHeader}>{letter}</div>
+            <div style={sectionHeader}>
+              {letter === UNNAMED_GROUP ? t('persons.unnamedGroup', { defaultValue: 'No name recorded' }) : letter}
+            </div>
             {group.map((p) => {
               const isSelected = selection?.has(p.recordName);
               return (
