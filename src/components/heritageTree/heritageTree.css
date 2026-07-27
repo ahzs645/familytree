@@ -261,7 +261,17 @@
   background: linear-gradient(180deg,var(--header-bg-1) 0%,var(--header-bg-2) 100%);
   padding: 14px 28px; display:flex; align-items:center; justify-content:space-between;
   border-bottom: 2px solid var(--gold); box-shadow: 0 2px 16px rgba(0,0,0,0.3);
-}.heritage-tree-view header h1{ font-family:'Playfair Display',serif; font-size:1.4rem; color:var(--gold); letter-spacing:.04em; font-weight:600; }.heritage-tree-view header p{ font-family:'Crimson Text',serif; font-style:italic; color:var(--header-sub); font-size:.95rem; max-width: 34ch; }.heritage-tree-view .controls{ display:flex; gap:10px; align-items:center; }.heritage-tree-view .btn{
+}.heritage-tree-view header h1{ font-family:'Playfair Display',serif; font-size:1.4rem; color:var(--gold); letter-spacing:.04em; font-weight:600; }.heritage-tree-view header p{ font-family:'Crimson Text',serif; font-style:italic; color:var(--header-sub); font-size:.95rem; max-width: 34ch; }.heritage-tree-view .controls{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+/* The view itself is overflow:hidden (it pans a canvas), so anything the
+ * header row pushes past the viewport is unreachable — on a 390px phone that
+ * hid Export PDF, Analytics, Reset and Reload entirely. Let the header and
+ * its controls wrap instead. */
+@media (max-width: 640px){
+  .heritage-tree-view header{ flex-wrap:wrap; row-gap:8px; }
+  .heritage-tree-view .controls{ flex-wrap:wrap; row-gap:8px; }
+  .heritage-tree-view header p{ max-width:100%; }
+}
+.heritage-tree-view .btn{
   background:var(--btn-bg); border:1px solid var(--gold); color:var(--gold);
   padding:5px 14px; border-radius:3px; font-family:'Crimson Text',serif; font-size:.9rem;
   cursor:pointer; transition:all .2s;
