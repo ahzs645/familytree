@@ -50,7 +50,7 @@ export function StatisticsChart({ chartCanvasRef, theme = DEFAULT_THEME }) {
   const section = useMemo(() => SECTION_DEFS.find((s) => s.id === statisticType) || SECTION_DEFS[0], [statisticType]);
   const rows = useMemo(() => (data ? section.pick(data) : []), [data, section]);
 
-  if (error) return <div className="p-10 text-sm text-destructive">{error}</div>;
+  if (error) return <div className="p-10 text-sm text-destructive-text">{error}</div>;
   if (!data) return <div className="p-10 text-sm text-muted-foreground">Computing statistics…</div>;
 
   const selectClasses = cn(formClasses.input, 'w-auto bg-secondary px-2 py-1 text-xs');

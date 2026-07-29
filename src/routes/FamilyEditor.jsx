@@ -419,9 +419,9 @@ export default function FamilyEditor() {
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto sm:ms-auto">
           {status ? (
-            <span className="text-emerald-500 text-xs">{status}</span>
+            <span className="text-success-text text-xs">{status}</span>
           ) : dirty ? (
-            <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <span className="inline-flex items-center gap-1.5 text-xs text-warning-text">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />Unsaved changes
             </span>
           ) : (
@@ -451,7 +451,7 @@ export default function FamilyEditor() {
               </Field>
               {man && <div className="mt-2 text-xs text-muted-foreground flex min-w-0 flex-wrap items-baseline gap-1.5"><BdiText>{man.fullName}</BdiText>{lifeSpanLabel(man) && <><span aria-hidden="true">·</span><LtrText>{lifeSpanLabel(man)}</LtrText></>}</div>}
               <button onClick={() => manId && guardedNavigate(`/person/${manId}`)} disabled={!manId}
-                className="mt-3 text-xs text-primary hover:underline disabled:opacity-50">
+                className="mt-3 text-xs text-interactive hover:underline disabled:opacity-50">
                 Open person editor →
               </button>
             </Section>
@@ -461,7 +461,7 @@ export default function FamilyEditor() {
               </Field>
               {woman && <div className="mt-2 text-xs text-muted-foreground flex min-w-0 flex-wrap items-baseline gap-1.5"><BdiText>{woman.fullName}</BdiText>{lifeSpanLabel(woman) && <><span aria-hidden="true">·</span><LtrText>{lifeSpanLabel(woman)}</LtrText></>}</div>}
               <button onClick={() => womanId && guardedNavigate(`/person/${womanId}`)} disabled={!womanId}
-                className="mt-3 text-xs text-primary hover:underline disabled:opacity-50">
+                className="mt-3 text-xs text-interactive hover:underline disabled:opacity-50">
                 Open person editor →
               </button>
             </Section>
@@ -496,8 +496,8 @@ export default function FamilyEditor() {
                           <div className="flex justify-end gap-1">
                             <button disabled={i === 0} onClick={() => moveChild(i, -1)} className="text-xs text-muted-foreground border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 hover:bg-accent disabled:opacity-30">↑</button>
                             <button disabled={i === children.length - 1} onClick={() => moveChild(i, 1)} className="text-xs text-muted-foreground border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 hover:bg-accent disabled:opacity-30">↓</button>
-                            <button onClick={() => guardedNavigate(`/person/${c.childRecordName}`)} className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent">edit</button>
-                            <button onClick={() => removeChild(i)} title="Stage child removal until Save changes" className="text-destructive border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 text-xs hover:bg-destructive/10 ms-1">×</button>
+                            <button onClick={() => guardedNavigate(`/person/${c.childRecordName}`)} className="text-xs text-interactive border border-border rounded-md px-2 py-1 hover:bg-accent">edit</button>
+                            <button onClick={() => removeChild(i)} title="Stage child removal until Save changes" className="text-destructive-text border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 text-xs hover:bg-destructive/10 ms-1">×</button>
                           </div>
                         </div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 ps-8 text-[11px] text-muted-foreground">
@@ -565,7 +565,7 @@ export default function FamilyEditor() {
                       return (
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
                           <span className="text-sm">{label}{date && <span className="text-muted-foreground"> · {date}</span>}</span>
-                          <button onClick={() => guardedNavigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-primary hover:underline">open in Events</button>
+                          <button onClick={() => guardedNavigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-interactive hover:underline">open in Events</button>
                         </div>
                       );
                     })}
@@ -590,7 +590,7 @@ export default function FamilyEditor() {
                       className={inputClass + ' resize-y'} />
                     <div className="text-end">
                       <button onClick={() => setNotes((a) => a.filter((_, j) => j !== i))}
-                        className="text-destructive border border-border rounded-md w-7 h-7 text-xs hover:bg-destructive/10 mt-1">×</button>
+                        className="text-destructive-text border border-border rounded-md w-7 h-7 text-xs hover:bg-destructive/10 mt-1">×</button>
                     </div>
                   </div>
                 ))}

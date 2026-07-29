@@ -606,7 +606,7 @@ export default function FamilySearch() {
             <h1 className="text-xl font-bold">FamilySearch</h1>
             <p className="text-sm text-muted-foreground mt-1">{activePaneMeta.description}</p>
           </div>
-          {status && <span className="text-xs text-emerald-500">{status}</span>}
+          {status && <span className="text-xs text-success-text">{status}</span>}
           <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:ms-auto">
             <button onClick={() => setSourceFoldersOpen(true)} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1.5">
               Manage Sources…
@@ -814,8 +814,8 @@ export default function FamilySearch() {
                     <div key={row.field} className="border-b border-border last:border-b-0 p-2">
                       <div className="grid grid-cols-[64px_1fr_1fr] gap-2">
                         <span className="font-medium">{row.field}</span>
-                        <span className={row.status === 'same' ? 'text-emerald-500' : 'text-muted-foreground'}>{row.local || '—'}</span>
-                        <span className={row.status === 'same' ? 'text-emerald-500' : row.status === 'different' ? 'text-amber-500' : 'text-muted-foreground'}>{row.remote || '—'}</span>
+                        <span className={row.status === 'same' ? 'text-success-text' : 'text-muted-foreground'}>{row.local || '—'}</span>
+                        <span className={row.status === 'same' ? 'text-success-text' : row.status === 'different' ? 'text-warning-text' : 'text-muted-foreground'}>{row.remote || '—'}</span>
                       </div>
                       {row.actions.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1.5">
@@ -843,8 +843,8 @@ export default function FamilySearch() {
                   {compareRows.map((row) => (
                     <div key={row.field} className="grid grid-cols-[72px_1fr_1fr] gap-2 border-b border-border last:border-b-0 p-2">
                       <span className="font-medium">{row.field}</span>
-                      <span className={row.status === 'same' ? 'text-emerald-500' : 'text-muted-foreground'}>{row.local || '—'}</span>
-                      <span className={row.status === 'same' ? 'text-emerald-500' : row.status === 'different' ? 'text-amber-500' : 'text-muted-foreground'}>{row.remote || '—'}</span>
+                      <span className={row.status === 'same' ? 'text-success-text' : 'text-muted-foreground'}>{row.local || '—'}</span>
+                      <span className={row.status === 'same' ? 'text-success-text' : row.status === 'different' ? 'text-warning-text' : 'text-muted-foreground'}>{row.remote || '—'}</span>
                     </div>
                   ))}
                 </div>

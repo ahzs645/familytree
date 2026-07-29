@@ -236,7 +236,7 @@ export default function Persons() {
       <button
         type="button"
         onClick={() => navigate('/person/new', { state: { intent: 'create' } })}
-        className={cn(listToolbarButtonClass, 'border-primary/60 text-primary')}
+        className={cn(listToolbarButtonClass, 'border-primary/60 text-interactive')}
         title={t('persons.newPerson', { defaultValue: 'New person' })}
       >
         <UserPlus size={15} className="flex-shrink-0" />
@@ -359,7 +359,7 @@ export default function Persons() {
                 <BulkActionBar count={selection.count} onClear={selection.clear}>
                   <BulkLabelMenu selectedIds={selection.selectedIds} recordType="Person" onAssigned={() => selection.clear()} />
                   <button type="button" onClick={bulkExport} className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent">{t('persons.exportCsv')}</button>
-                  <button type="button" onClick={bulkDelete} className="border border-destructive text-destructive rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10">{t('common.delete')}</button>
+                  <button type="button" onClick={bulkDelete} className="border border-destructive text-destructive-text rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10">{t('common.delete')}</button>
                 </BulkActionBar>
               </div>
             ) : null}
@@ -374,7 +374,7 @@ export default function Persons() {
                 const kinship = kinshipById.get(person.id);
                 if (!kinship) return null;
                 return (
-                  <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${kinship.self ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-primary/40 bg-primary/10 text-primary'}`}>
+                  <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${kinship.self ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-primary/40 bg-primary/10 text-interactive'}`}>
                     <BdiText>{kinship.label}</BdiText>
                   </span>
                 );
@@ -394,7 +394,7 @@ export default function Persons() {
                 <button
                   type="button"
                   onClick={() => setMobilePane('list')}
-                  className="mb-3 text-sm text-primary font-semibold py-2 px-1 min-h-10"
+                  className="mb-3 text-sm text-interactive font-semibold py-2 px-1 min-h-10"
                 >
                   {t('persons.backToList')}
                 </button>
@@ -410,7 +410,7 @@ export default function Persons() {
                     <LtrText>{active.deathDate || t('persons.deathUnknown')}</LtrText>
                   </div>
                   {kinshipById.get(active.id) ? (
-                    <div className="mt-2 inline-flex rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-xs font-semibold text-primary">
+                    <div className="mt-2 inline-flex rounded-full border border-primary/40 bg-primary/10 px-2 py-1 text-xs font-semibold text-interactive">
                       <BdiText>{kinshipById.get(active.id).label}</BdiText>
                     </div>
                   ) : null}
@@ -489,7 +489,7 @@ export default function Persons() {
                           {roles.map(({ person, label }) => (
                             <div key={person.recordName} className="flex flex-col gap-0.5">
                               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
-                              <Link to={`/person/${person.recordName}`} className="text-primary text-sm">
+                              <Link to={`/person/${person.recordName}`} className="text-interactive text-sm">
                                 <BdiText>{person.fullName}</BdiText>
                               </Link>
                             </div>
@@ -512,11 +512,11 @@ export default function Persons() {
                         <div className="flex flex-wrap items-center gap-2 text-sm">
                           <span className="text-muted-foreground">{t('persons.withPartner')}</span>
                           {family.partner ? (
-                            <Link to={`/person/${family.partner.recordName}`} className="text-primary"><BdiText>{family.partner.fullName}</BdiText></Link>
+                            <Link to={`/person/${family.partner.recordName}`} className="text-interactive"><BdiText>{family.partner.fullName}</BdiText></Link>
                           ) : (
                             <span>{t('persons.unknownPartner')}</span>
                           )}
-                          <Link to={`/family/${family.family.recordName}`} className="ms-auto text-xs text-primary">{t('persons.openFamily')}</Link>
+                          <Link to={`/family/${family.family.recordName}`} className="ms-auto text-xs text-interactive">{t('persons.openFamily')}</Link>
                         </div>
                         <div className="text-xs text-muted-foreground mt-2">
                           {family.children.length ? t('persons.children', { count: family.children.length }) : t('persons.noChildren')}

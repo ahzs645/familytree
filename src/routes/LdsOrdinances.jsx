@@ -202,7 +202,7 @@ export default function LdsOrdinances() {
         <h2 className="text-base font-semibold truncate">{active.ordinance || t('ldsOrdinances.ordinance')}</h2>
         <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
         <RecordLockButton record={activeRecord} saving={saving} onToggle={onToggleLock} />
-        <button onClick={onDelete} disabled={isRecordLocked(activeRecord)} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">
+        <button onClick={onDelete} disabled={isRecordLocked(activeRecord)} className="text-destructive-text border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">
           {t('ldsOrdinances.delete', { defaultValue: 'Delete' })}
         </button>
         <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(activeRecord) || !dirty} title="Save (⌘/Ctrl+S)">
@@ -259,7 +259,7 @@ export default function LdsOrdinances() {
         </div>
         {active.ownerType === 'Person' && active.ownerId ? (
           <div className="mt-3 text-xs text-muted-foreground">
-            <Link to={`/person/${active.ownerId}`} className="text-primary hover:underline">{active.ownerName}</Link>
+            <Link to={`/person/${active.ownerId}`} className="text-interactive hover:underline">{active.ownerName}</Link>
           </div>
         ) : null}
       </section>
@@ -270,7 +270,7 @@ export default function LdsOrdinances() {
       <div className="border border-border rounded-md bg-card p-4 text-sm grid gap-2">
         <ReadOnlyCell label={t('ldsOrdinances.owner')} value={
           ownerLinkHref
-            ? <Link to={ownerLinkHref} className="text-primary hover:underline">{active.ownerName}</Link>
+            ? <Link to={ownerLinkHref} className="text-interactive hover:underline">{active.ownerName}</Link>
             : active.ownerName
         } />
         <ReadOnlyCell label={t('ldsOrdinances.date')} value={active.date || '—'} />

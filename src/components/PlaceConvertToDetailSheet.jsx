@@ -131,7 +131,7 @@ export function PlaceConvertToDetailSheet({ placeRecordName, onClose, onConverte
         </>
       )}
     >
-          {error && <div className="text-sm text-destructive">{error}</div>}
+          {error && <div className="text-sm text-destructive-text">{error}</div>}
           <label className="block text-xs font-medium">
             Parent place
             <select

@@ -557,7 +557,7 @@ export default function Places() {
   const detail = active ? (
     <div className="p-5 max-w-4xl">
       {placeQueryMessage && (
-        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+        <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive-text">
           {placeQueryMessage}
         </div>
       )}
@@ -599,7 +599,7 @@ export default function Places() {
                   className={inputClass} />
                 <button onClick={() => setValues((v) => ({ ...v, details: (v.details || []).filter((_, j) => j !== i) }))}
                   aria-label="Remove place detail"
-                  className="text-destructive border border-border rounded-md inline-flex items-center justify-center shrink-0 min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 text-sm hover:bg-destructive/10">×</button>
+                  className="text-destructive-text border border-border rounded-md inline-flex items-center justify-center shrink-0 min-h-11 min-w-11 sm:min-h-0 sm:min-w-0 sm:w-8 sm:h-8 text-sm hover:bg-destructive/10">×</button>
               </div>
             ))}
           </div>

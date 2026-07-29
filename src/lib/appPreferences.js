@@ -160,10 +160,13 @@ const DEFAULT_APP_PREFERENCES = {
 };
 
 /**
- * Apply the appearance preferences to the live document. The accent colour is
- * converted to the HSL channel triplet the Tailwind theme expects so existing
- * `hsl(var(--primary))` usages pick it up. Called at boot (App.jsx) and on
- * every preferences change.
+ * Apply the appearance preferences to the live document.
+ *
+ * The chosen accent remains the solid `primary` fill, with a black or white
+ * foreground selected from its actual contrast. Text links and focus rings use
+ * separate, theme-specific `interactive` colors derived from the same hue.
+ * This avoids the impossible constraint of making one blue both dark enough
+ * for white button text and light enough for blue text on a dark card.
  */
 // Synchronous mirror of exportDefaults so pure export utilities (listExport.js)
 // can read the chosen CSV separator without an async preferences load. Kept up
@@ -194,23 +197,61 @@ export function applyDocumentAppearance(appearance = {}) {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
   const accent = String(appearance.accentColor || '').trim();
-  const triplet = hexToHslTriplet(accent);
-  if (triplet) {
-    root.style.setProperty('--primary', triplet);
-    root.style.setProperty('--ring', triplet);
+  const tokens = appearanceThemeTokens(accent);
+  if (tokens) {
+    root.style.setProperty('--primary', tokens.primary);
+    root.style.setProperty('--primary-foreground', tokens.primaryForeground);
+    root.style.setProperty('--interactive-light', tokens.interactiveLight);
+    root.style.setProperty('--interactive-dark', tokens.interactiveDark);
   } else {
     root.style.removeProperty('--primary');
-    root.style.removeProperty('--ring');
+    root.style.removeProperty('--primary-foreground');
+    root.style.removeProperty('--interactive-light');
+    root.style.removeProperty('--interactive-dark');
   }
 }
 
-function hexToHslTriplet(hex) {
+const LIGHT_INTERACTIVE_SURFACE = hslToRgb(220, 0.14, 0.96);
+const DARK_INTERACTIVE_SURFACE = hslToRgb(224, 0.18, 0.17);
+const MIN_TEXT_CONTRAST = 4.6;
+const BLACK = [0, 0, 0];
+const WHITE = [1, 1, 1];
+
+/**
+ * Pure token derivation used by applyDocumentAppearance and contrast tests.
+ * Returns null for invalid colors so the document falls back to CSS defaults.
+ */
+export function appearanceThemeTokens(accent) {
+  const rgb = hexToRgb(accent);
+  if (!rgb) return null;
+  const blackContrast = contrastRatio(rgb, BLACK);
+  const whiteContrast = contrastRatio(rgb, WHITE);
+  const primaryForeground = blackContrast >= whiteContrast ? BLACK : WHITE;
+  return {
+    primary: rgbToHslTriplet(rgb),
+    primaryForeground: rgbToHslTriplet(primaryForeground),
+    interactiveLight: rgbToHslTriplet(
+      ensureTextContrast(rgb, LIGHT_INTERACTIVE_SURFACE, 'darker')
+    ),
+    interactiveDark: rgbToHslTriplet(
+      ensureTextContrast(rgb, DARK_INTERACTIVE_SURFACE, 'lighter')
+    ),
+  };
+}
+
+function hexToRgb(hex) {
   const match = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
   if (!match) return null;
   const int = parseInt(match[1], 16);
-  const r = ((int >> 16) & 255) / 255;
-  const g = ((int >> 8) & 255) / 255;
-  const b = (int & 255) / 255;
+  return [
+    ((int >> 16) & 255) / 255,
+    ((int >> 8) & 255) / 255,
+    (int & 255) / 255,
+  ];
+}
+
+function rgbToHsl(rgb) {
+  const [r, g, b] = rgb;
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
   let h = 0;
@@ -227,7 +268,73 @@ function hexToHslTriplet(hex) {
     h *= 60;
     if (h < 0) h += 360;
   }
-  return `${Math.round(h)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+  return [h, s, l];
+}
+
+function hslToRgb(h, s, l) {
+  const hue = ((h % 360) + 360) % 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs((hue / 60) % 2 - 1));
+  const m = l - c / 2;
+  let rgb;
+  if (hue < 60) rgb = [c, x, 0];
+  else if (hue < 120) rgb = [x, c, 0];
+  else if (hue < 180) rgb = [0, c, x];
+  else if (hue < 240) rgb = [0, x, c];
+  else if (hue < 300) rgb = [x, 0, c];
+  else rgb = [c, 0, x];
+  return rgb.map((channel) => channel + m);
+}
+
+function rgbToHslTriplet(rgb) {
+  const [h, s, l] = rgbToHsl(rgb);
+  const round = (value) => Math.round(value * 10) / 10;
+  return `${round(h)} ${round(s * 100)}% ${round(l * 100)}%`;
+}
+
+function relativeLuminance(rgb) {
+  const [r, g, b] = rgb.map((channel) => (
+    channel <= 0.04045
+      ? channel / 12.92
+      : ((channel + 0.055) / 1.055) ** 2.4
+  ));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrastRatio(first, second) {
+  const a = relativeLuminance(first);
+  const b = relativeLuminance(second);
+  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+}
+
+function ensureTextContrast(rgb, surface, direction) {
+  if (contrastRatio(rgb, surface) >= MIN_TEXT_CONTRAST) return rgb;
+  const [h, s, initialLightness] = rgbToHsl(rgb);
+  if (direction === 'darker') {
+    let passing = 0;
+    let failing = initialLightness;
+    for (let i = 0; i < 24; i += 1) {
+      const candidate = (passing + failing) / 2;
+      if (contrastRatio(hslToRgb(h, s, candidate), surface) >= MIN_TEXT_CONTRAST) {
+        passing = candidate;
+      } else {
+        failing = candidate;
+      }
+    }
+    return hslToRgb(h, s, passing);
+  }
+
+  let failing = initialLightness;
+  let passing = 1;
+  for (let i = 0; i < 24; i += 1) {
+    const candidate = (failing + passing) / 2;
+    if (contrastRatio(hslToRgb(h, s, candidate), surface) >= MIN_TEXT_CONTRAST) {
+      passing = candidate;
+    } else {
+      failing = candidate;
+    }
+  }
+  return hslToRgb(h, s, passing);
 }
 
 export async function getAppPreferences() {

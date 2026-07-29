@@ -140,7 +140,7 @@ export default function Bookmarks() {
                         <button
                           type="button"
                           onClick={() => removeBookmark(r.recordName)}
-                          className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                          className="shrink-0 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive-text"
                           title={t('bookmarks.remove')}
                           aria-label={t('bookmarks.remove')}
                         >

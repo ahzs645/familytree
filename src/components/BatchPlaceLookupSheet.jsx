@@ -143,9 +143,9 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
       headerExtra={rows && (
         <div className="flex items-center gap-2 mt-2 text-xs flex-wrap">
           <span className="text-muted-foreground">{summary.total} place{summary.total === 1 ? '' : 's'} missing coordinates · {summary.selected} selected</span>
-          {summary.matched > 0 && <span className="text-emerald-500">{summary.matched} matched</span>}
+          {summary.matched > 0 && <span className="text-success-text">{summary.matched} matched</span>}
           {summary.noMatch > 0 && <span className="text-muted-foreground">{summary.noMatch} no match</span>}
-          {summary.errors > 0 && <span className="text-destructive">{summary.errors} errors</span>}
+          {summary.errors > 0 && <span className="text-destructive-text">{summary.errors} errors</span>}
           <div className="ms-auto flex gap-1">
             <button type="button" onClick={() => toggleAll(true)} disabled={running} className="border border-border rounded-md px-2 py-0.5 hover:bg-accent">Select all</button>
             <button type="button" onClick={() => toggleAll(false)} disabled={running} className="border border-border rounded-md px-2 py-0.5 hover:bg-accent">Select none</button>
@@ -168,7 +168,7 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
         </>
       )}
     >
-          {error && <div className="text-sm text-destructive mb-3">{error}</div>}
+          {error && <div className="text-sm text-destructive-text mb-3">{error}</div>}
           {!rows ? (
             <div className="text-sm text-muted-foreground">Loading places…</div>
           ) : rows.length === 0 ? (
@@ -214,9 +214,9 @@ function statusLabel(status) {
 }
 
 function statusTone(status) {
-  if (status === STATUS.MATCHED) return 'text-emerald-500';
-  if (status === STATUS.ERROR) return 'text-destructive';
-  if (status === STATUS.RUNNING) return 'text-primary';
+  if (status === STATUS.MATCHED) return 'text-success-text';
+  if (status === STATUS.ERROR) return 'text-destructive-text';
+  if (status === STATUS.RUNNING) return 'text-interactive';
   if (status === STATUS.NO_MATCH) return 'text-muted-foreground';
   return 'text-muted-foreground';
 }

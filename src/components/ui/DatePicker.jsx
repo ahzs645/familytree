@@ -299,7 +299,7 @@ export function DatePicker({
                     isSelected
                       ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
                       : isToday
-                        ? 'border border-primary text-primary font-medium hover:bg-accent'
+                        ? 'border border-primary text-interactive font-medium hover:bg-accent'
                         : 'text-foreground hover:bg-accent'
                   )}
                 >

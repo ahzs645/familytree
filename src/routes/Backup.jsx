@@ -265,7 +265,7 @@ export default function Backup() {
             <h3 className="text-base font-semibold mb-1">Replace your current tree?</h3>
             <p className="text-sm text-muted-foreground mb-4">
               Restoring <span className="font-medium text-foreground">{pendingFile.name}</span> will{' '}
-              <span className="font-semibold text-destructive">permanently delete</span> every record currently
+              <span className="font-semibold text-destructive-text">permanently delete</span> every record currently
               in this browser{summary ? ` (${summary.total.toLocaleString()} records)` : ''}.
               This action cannot be undone.
             </p>

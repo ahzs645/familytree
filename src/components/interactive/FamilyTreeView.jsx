@@ -61,7 +61,7 @@ export function FamilyTreeView({ model, activeId, loading, onPick, onEditPerson,
                       {person.familyRecordName ? (
                         <button
                           type="button"
-                          className="w-fit cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-primary"
+                          className="w-fit cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-interactive"
                           onClick={() => onOpenFamily(person.familyRecordName)}
                         >
                           Edit family

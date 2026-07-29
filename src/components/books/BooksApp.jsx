@@ -302,7 +302,7 @@ export function BooksApp() {
   if (empty) {
     return (
       <div className={loadingClass}>
-        No family data. <Link to="/" className="ms-1.5 text-primary">Import a .mftpkg</Link> first.
+        No family data. <Link to="/" className="ms-1.5 text-interactive">Import a .mftpkg</Link> first.
       </div>
     );
   }
@@ -382,7 +382,7 @@ export function BooksApp() {
       {(validation.errors.length > 0 || validation.warnings.length > 0) && (
         <button type="button" onClick={() => { setPendingExport(null); setIssueSheet(validation); }} className={cn(
           'w-full cursor-pointer border-b border-border px-4 py-2 text-start text-xs',
-          validation.errors.length > 0 ? 'bg-destructive/10 text-destructive' : 'bg-secondary text-muted-foreground',
+          validation.errors.length > 0 ? 'bg-destructive/10 text-destructive-text' : 'bg-secondary text-muted-foreground',
         )}>
           <AlertTriangle size={14} className="me-1.5 inline align-[-2px]" />
           <strong>

@@ -486,7 +486,7 @@ export function ChartsApp() {
   if (empty) {
     return (
       <div className={LOADING_CLASSES}>
-        No family data found. <Link to="/" className="ms-1.5 text-primary">Import a .mftpkg</Link> first.
+        No family data found. <Link to="/" className="ms-1.5 text-interactive">Import a .mftpkg</Link> first.
       </div>
     );
   }

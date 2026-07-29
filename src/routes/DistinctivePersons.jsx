@@ -67,7 +67,7 @@ export default function DistinctivePersons() {
     {
       key: 'fullName',
       label: t('distinctivePersons.name'),
-      render: (row) => <Link to={`/person/${row.id}`} className="text-primary hover:underline">{row.fullName}</Link>,
+      render: (row) => <Link to={`/person/${row.id}`} className="text-interactive hover:underline">{row.fullName}</Link>,
     },
     { key: 'genderLabel', label: t('distinctivePersons.gender') },
     {
@@ -98,7 +98,7 @@ export default function DistinctivePersons() {
       label: t('distinctivePersons.action'),
       sortable: false,
       export: false,
-      render: (row) => <Link to={`/person/${row.id}`} className="text-xs text-primary hover:underline">{t('distinctivePersons.openPerson')}</Link>,
+      render: (row) => <Link to={`/person/${row.id}`} className="text-xs text-interactive hover:underline">{t('distinctivePersons.openPerson')}</Link>,
     },
   ], [t]);
 

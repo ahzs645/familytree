@@ -38,7 +38,7 @@ export function RecordBulkBar({ selection, recordType, onDelete, onDeleted, chil
       <button
         type="button"
         onClick={handleDelete}
-        className="border border-destructive text-destructive rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10"
+        className="border border-destructive text-destructive-text rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10"
       >
         {t('common.delete')}
       </button>

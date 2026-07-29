@@ -224,7 +224,7 @@ export default function WorldHistory() {
                 ))}
               </div>
               {hiddenEvents.size > 0 && (
-                <button type="button" onClick={clearHiddenEvents} className="mt-2 text-xs text-primary hover:underline">
+                <button type="button" onClick={clearHiddenEvents} className="mt-2 text-xs text-interactive hover:underline">
                   Show {hiddenEvents.size} hidden event{hiddenEvents.size === 1 ? '' : 's'}
                 </button>
               )}
@@ -275,7 +275,7 @@ export default function WorldHistory() {
                         <div className="text-xs font-medium tabular-nums text-muted-foreground">{formatRange(it)}</div>
                         <div className="min-w-0">
                           <div className="flex items-start gap-2">
-                            <h2 className={`min-w-0 flex-1 text-sm leading-snug ${isPerson ? 'font-semibold text-primary' : 'font-semibold text-foreground'}`}>
+                            <h2 className={`min-w-0 flex-1 text-sm leading-snug ${isPerson ? 'font-semibold text-interactive' : 'font-semibold text-foreground'}`}>
                               {it.title}
                             </h2>
                             {href && (

@@ -30,7 +30,7 @@ export function useSettings() {
 export function SettingsProvider({ children }) {
   const modal = useModal();
   const { t } = useTranslation();
-  const { theme, setTheme } = useTheme();
+  const { themePreference, setTheme } = useTheme();
   const [prefs, setPrefs] = useState(null);
   const [mapPrefs, setMapPrefs] = useState(null);
   const [status, setStatus] = useState('');
@@ -108,7 +108,7 @@ export function SettingsProvider({ children }) {
     mapPrefs,
     update,
     updateMap,
-    theme,
+    theme: themePreference,
     setTheme,
     save,
     reset,

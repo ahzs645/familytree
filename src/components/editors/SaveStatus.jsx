@@ -7,10 +7,10 @@
 import React from 'react';
 
 export function SaveStatus({ status, dirty }) {
-  if (status) return <span className="text-emerald-500 text-xs">{status}</span>;
+  if (status) return <span className="text-success-text text-xs">{status}</span>;
   if (dirty) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+      <span className="inline-flex items-center gap-1.5 text-xs text-warning-text">
         <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />Unsaved changes
       </span>
     );

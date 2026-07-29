@@ -141,7 +141,7 @@ export function TreeSwitcher({ collapsed = false }) {
                     )}
                   >
                     <span className="w-4 flex-shrink-0">
-                      {isActive ? <Check size={14} className="text-primary" /> : null}
+                      {isActive ? <Check size={14} className="text-interactive" /> : null}
                     </span>
                     <span className="flex-1 min-w-0 truncate">
                       {snapshot.favorite && <span aria-hidden className="text-yellow-500 me-1">★</span>}

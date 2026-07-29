@@ -102,8 +102,8 @@ export function SimpleCrudList({
       <div className="flex items-center mb-4">
         <h2 className="text-base font-semibold truncate">{displayLabel(active)}</h2>
         <div className="ms-auto flex items-center gap-2">
-          {status && <span className="text-emerald-500 text-xs">{status}</span>}
-          <button onClick={onDelete} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">Delete</button>
+          {status && <span className="text-success-text text-xs">{status}</span>}
+          <button onClick={onDelete} className="text-destructive-text border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">Delete</button>
           <Button variant="primary" size="md" onClick={onSave} disabled={saving}>
             {saving ? 'Saving…' : 'Save'}
           </Button>

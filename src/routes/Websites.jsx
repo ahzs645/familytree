@@ -345,7 +345,7 @@ export default function Websites() {
           <div>
             <h1 className="text-xl font-bold mb-1">Websites</h1>
             <p className="text-sm text-muted-foreground">
-              Configure and publish a static family website. Data import/export remains in <Link to="/export" className="text-primary hover:underline">Import & Export</Link>.
+              Configure and publish a static family website. Data import/export remains in <Link to="/export" className="text-interactive hover:underline">Import & Export</Link>.
             </p>
           </div>
           <Link to="/publish" className="ms-auto rounded-md border border-border bg-secondary px-3 py-2 text-xs font-medium hover:bg-accent">
@@ -859,9 +859,9 @@ export default function Websites() {
 }
 
 function statusBadgeClass(status) {
-  if (status === 'success') return 'bg-success/15 text-success';
-  if (status === 'canceled') return 'bg-warning/15 text-warning';
-  return 'bg-destructive/15 text-destructive';
+  if (status === 'success') return 'bg-success/15 text-success-text';
+  if (status === 'canceled') return 'bg-warning/15 text-warning-text';
+  return 'bg-destructive/15 text-destructive-text';
 }
 
 function Field({ label, children }) {
@@ -891,7 +891,7 @@ function ValidationPanel({ validation }) {
         {validation.missingReferences.length.toLocaleString()} missing references · {validation.privacyConflicts.length.toLocaleString()} privacy conflicts
       </div>
       {validation.errors.map((message) => (
-        <div key={message} className="text-destructive">{message}</div>
+        <div key={message} className="text-destructive-text">{message}</div>
       ))}
       {validation.warnings.map((message) => (
         <div key={message} className="text-muted-foreground">{message}</div>

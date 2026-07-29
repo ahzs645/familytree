@@ -80,7 +80,7 @@ export function SourcePickerSheet({ target, onClose, onLinked, onManageAll }) {
   const footer = (
     <>
       {onManageAll && (
-        <button type="button" onClick={() => { onClose?.(); onManageAll(); }} className="me-auto text-xs text-primary hover:underline">
+        <button type="button" onClick={() => { onClose?.(); onManageAll(); }} className="me-auto text-xs text-interactive hover:underline">
           Manage all citations…
         </button>
       )}
@@ -127,8 +127,8 @@ export function SourcePickerSheet({ target, onClose, onLinked, onManageAll }) {
             >
               <BdiText className="flex-1 truncate">{s.title || 'Untitled source'}</BdiText>
               {already
-                ? <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-600 shrink-0">Cited</span>
-                : <span className="text-[10px] font-bold uppercase tracking-wide text-primary shrink-0">Cite</span>}
+                ? <span className="text-[10px] font-bold uppercase tracking-wide text-success-text shrink-0">Cited</span>
+                : <span className="text-[10px] font-bold uppercase tracking-wide text-interactive shrink-0">Cite</span>}
             </button>
           );
         })}

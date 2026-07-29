@@ -115,7 +115,7 @@ function StartScreen({ settings, setSettings, counts, stats, loading, error, onS
                 ))}
               </div>
             </div>
-            {error ? <p className="mb-3 text-sm text-destructive">{error}</p> : null}
+            {error ? <p className="mb-3 text-sm text-destructive-text">{error}</p> : null}
             <button
               disabled={loading || enabledAvailable === 0}
               onClick={onStart}
@@ -168,12 +168,12 @@ function FinishedScreen({ answers, questions, stats, onRestart, onMissed }) {
           {answers.map((answer, answerIndex) => (
             <div key={answer.question.id} className="rounded-md border border-border bg-card p-4">
               <div className="flex items-start gap-3">
-                {answer.correct ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-success" /> : <XCircle className="mt-0.5 h-5 w-5 text-destructive" />}
+                {answer.correct ? <CheckCircle2 className="mt-0.5 h-5 w-5 text-success-text" /> : <XCircle className="mt-0.5 h-5 w-5 text-destructive-text" />}
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium text-muted-foreground">Question {answerIndex + 1} · {answer.question.type}</div>
                   <div className="mt-1 text-sm font-semibold">{answer.question.prompt}</div>
                   <div className="mt-2 text-sm text-muted-foreground">
-                    Your answer: <span className={answer.correct ? 'text-success' : 'text-destructive'}>{answer.picked}</span>
+                    Your answer: <span className={answer.correct ? 'text-success-text' : 'text-destructive-text'}>{answer.picked}</span>
                     {!answer.correct ? <> · Correct: <span className="text-foreground">{answer.question.correct}</span></> : null}
                   </div>
                 </div>
@@ -220,8 +220,8 @@ function QuestionScreen({ q, index, total, picked, score, choose, next }) {
                   disabled={!!picked}
                   onClick={() => choose(choice)}
                   className={`flex min-h-12 w-full items-center justify-between rounded-md border px-3 py-3 text-left text-sm transition-colors ${
-                    isCorrect ? 'border-success bg-success/10 text-success' :
-                    isWrong ? 'border-destructive bg-destructive/10 text-destructive' :
+                    isCorrect ? 'border-success bg-success/10 text-success-text' :
+                    isWrong ? 'border-destructive bg-destructive/10 text-destructive-text' :
                     'border-border bg-background hover:bg-secondary/50'
                   }`}
                 >

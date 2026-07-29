@@ -137,7 +137,7 @@ export function MergeTreesWizardSheet({ onClose, onComplete }) {
         </>
       )}
     >
-      {error && <div className="text-destructive">{error}</div>}
+      {error && <div className="text-destructive-text">{error}</div>}
           {step === 'file' && (
             <div className="space-y-2">
               <p className="text-muted-foreground">Choose a CloudTreeWeb backup (.json) or a MacFamilyTree package (.mftpkg) to merge into the current tree.</p>
@@ -174,7 +174,7 @@ export function MergeTreesWizardSheet({ onClose, onComplete }) {
           {step === 'progress' && <div className="text-muted-foreground">{progress || 'Working…'}</div>}
           {step === 'done' && result && (
             <div className="space-y-1">
-              <div className="text-emerald-500 font-semibold">Merge complete.</div>
+              <div className="text-success-text font-semibold">Merge complete.</div>
               <div>Records saved: {result.records ?? 0}</div>
               <div>Assets saved: {result.assets ?? 0}</div>
               {result.renamed ? <div>Renamed records: {result.renamed}</div> : null}

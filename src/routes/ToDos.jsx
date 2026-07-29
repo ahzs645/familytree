@@ -258,18 +258,18 @@ export default function ToDos() {
   );
 
   const detail = active ? (
-    <div className="p-5 max-w-3xl">
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-base font-semibold">{todoTitle(active, t('todosPage.fallbackTitle'))}</h2>
-        <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
+    <div className="max-w-3xl p-3 xl:p-5">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <h2 className="min-w-0 flex-1 basis-full break-words text-base font-semibold xl:basis-auto">{todoTitle(active, t('todosPage.fallbackTitle'))}</h2>
+        <span className="xl:ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-        <button onClick={onDelete} disabled={isRecordLocked(active)} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">{t('todosPage.delete')}</button>
+        <button onClick={onDelete} disabled={isRecordLocked(active)} className="text-destructive-text border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">{t('todosPage.delete')}</button>
         <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">
           {saving ? t('todosPage.saving') : t('todosPage.save')}
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         <FieldRow label={t('todosPage.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} className={formClasses.input} /></FieldRow>
         <FieldRow label={t('todosPage.field.dueDate')}>
           <DatePicker
@@ -279,24 +279,24 @@ export default function ToDos() {
           />
         </FieldRow>
         <FieldRow label={t('todosPage.field.type')}>
-          <div className="flex gap-2">
-            <select value={values.type || 'Research'} onChange={(e) => setValues({ ...values, type: e.target.value })} className={formClasses.input}>
+          <div className="flex min-w-0 flex-wrap gap-2">
+            <select value={values.type || 'Research'} onChange={(e) => setValues({ ...values, type: e.target.value })} className={`${formClasses.input} min-w-0 flex-1`}>
               {todoTypes.map((type) => <option key={type.id || type.label} value={type.label}>{todoTypeLabel(type)}</option>)}
             </select>
             <button type="button" onClick={addCustomTodoType} className="bg-secondary border border-border rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap">{t('todosPage.addType')}</button>
           </div>
         </FieldRow>
         <FieldRow label={t('todosPage.field.status')}>
-          <div className="flex gap-2">
-            <select value={values.status || 'Open'} onChange={(e) => setValues({ ...values, status: e.target.value })} className={formClasses.input}>
+          <div className="flex min-w-0 flex-wrap gap-2">
+            <select value={values.status || 'Open'} onChange={(e) => setValues({ ...values, status: e.target.value })} className={`${formClasses.input} min-w-0 flex-1`}>
               {todoStatuses.map((s) => <option key={s.id || s.label} value={s.id || s.label}>{statusLabel(s)}</option>)}
             </select>
             <button type="button" onClick={addCustomTodoStatus} className="bg-secondary border border-border rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap">{t('todosPage.addType')}</button>
           </div>
         </FieldRow>
         <FieldRow label={t('todosPage.field.priority')}>
-          <div className="flex gap-2">
-            <select value={values.priority || 'Normal'} onChange={(e) => setValues({ ...values, priority: e.target.value })} className={formClasses.input}>
+          <div className="flex min-w-0 flex-wrap gap-2">
+            <select value={values.priority || 'Normal'} onChange={(e) => setValues({ ...values, priority: e.target.value })} className={`${formClasses.input} min-w-0 flex-1`}>
               {todoPriorities.map((s) => <option key={s.id || s.label} value={s.id || s.label}>{priorityLabel(s)}</option>)}
             </select>
             <button type="button" onClick={addCustomTodoPriority} className="bg-secondary border border-border rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap">{t('todosPage.addType')}</button>
@@ -318,16 +318,16 @@ export default function ToDos() {
               <div key={rel.recordName} className="flex items-center gap-2 bg-secondary/40 rounded-md p-2">
                 <span className="text-xs text-muted-foreground w-24">{type || t('todosPage.recordType')}</span>
                 <span className="text-sm flex-1 truncate">{targetLabel(target) || id}</span>
-                <button onClick={() => removeRelation(rel)} className="text-xs text-destructive">{t('todosPage.removeRelation')}</button>
+                <button onClick={() => removeRelation(rel)} className="text-xs text-destructive-text">{t('todosPage.removeRelation')}</button>
               </div>
             );
           })}
         </div>
-        <div className="grid grid-cols-[140px_1fr_auto] gap-2">
-          <select value={targetType} onChange={(e) => { setTargetType(e.target.value); setTargetId(''); }} className="bg-background border border-border rounded-md px-2 py-1.5 text-sm">
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-[140px_minmax(0,1fr)_auto]">
+          <select value={targetType} onChange={(e) => { setTargetType(e.target.value); setTargetId(''); }} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm">
             {TARGET_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
-          <select value={targetId} onChange={(e) => setTargetId(e.target.value)} className="bg-background border border-border rounded-md px-2 py-1.5 text-sm">
+          <select value={targetId} onChange={(e) => setTargetId(e.target.value)} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm">
             <option value="">{t('todosPage.selectTarget')}</option>
             {(targetsByType[targetType] || []).map((target) => <option key={target.recordName} value={target.recordName}>{targetLabel(target)}</option>)}
           </select>

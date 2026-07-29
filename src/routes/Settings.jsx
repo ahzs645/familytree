@@ -42,7 +42,7 @@ function SettingsLayout() {
             <h1 className="text-xl font-bold">{t('settingsPage.title')}</h1>
             <p className="text-sm text-muted-foreground mt-1">{t('settingsPage.subtitle')}</p>
           </div>
-          {status && <span className="text-xs text-emerald-500">{status}</span>}
+          {status && <span className="text-xs text-success-text">{status}</span>}
           <div className="ms-auto flex flex-wrap items-center gap-3">
             <button onClick={save} className={primaryButton}>{t('settingsPage.save')}</button>
             <button onClick={reset} className={secondaryButton}>{t('settingsPage.reset')}</button>

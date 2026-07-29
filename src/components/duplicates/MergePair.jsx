@@ -107,7 +107,7 @@ export function MergePair({ pair, onMerged, onSkip }) {
               <div className="text-xs text-muted-foreground mb-0.5">{k}</div>
               <div className="text-sm text-foreground break-words">{displayValue(av)}</div>
               {different && (
-                <Button variant="outline" className="mt-1.5 text-primary" onClick={() => setChoices({ ...choices, [k]: 'a' })}>
+                <Button variant="outline" className="mt-1.5 text-interactive" onClick={() => setChoices({ ...choices, [k]: 'a' })}>
                   {t('duplicatesPage.useA')}
                 </Button>
               )}
@@ -122,7 +122,7 @@ export function MergePair({ pair, onMerged, onSkip }) {
               <div className="text-xs text-muted-foreground mb-0.5">{k}</div>
               <div className="text-sm text-foreground break-words">{displayValue(bv)}</div>
               {different && (
-                <Button variant="outline" className="mt-1.5 text-primary" onClick={() => setChoices({ ...choices, [k]: 'b' })}>
+                <Button variant="outline" className="mt-1.5 text-interactive" onClick={() => setChoices({ ...choices, [k]: 'b' })}>
                   {t('duplicatesPage.useB')}
                 </Button>
               )}

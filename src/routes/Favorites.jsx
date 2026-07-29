@@ -88,7 +88,7 @@ export default function Favorites() {
             <h1 className="text-xl font-bold">Favorites</h1>
             <p className="text-sm text-muted-foreground mt-1">Favorite functions and bookmarked records.</p>
           </div>
-          {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
+          {status && <span className="ms-auto text-xs text-success-text">{status}</span>}
           <button onClick={() => navigate('/settings')} className={secondaryButton}>Settings</button>
         </header>
 

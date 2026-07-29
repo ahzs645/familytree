@@ -203,7 +203,7 @@ export function SortableListTable({
                           className="inline-flex items-center gap-1 hover:text-foreground"
                         >
                           {column.label}
-                          {active && <span className="text-primary">{sortDirection === 'asc' ? '^' : 'v'}</span>}
+                          {active && <span className="text-interactive">{sortDirection === 'asc' ? '^' : 'v'}</span>}
                         </button>
                       )}
                     </th>

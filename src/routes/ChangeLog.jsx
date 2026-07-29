@@ -266,10 +266,10 @@ function SubEntries({ subs, entityType, author, targetId }) {
 }
 
 const KIND_COLORS = {
-  Add: 'text-emerald-500 border-emerald-500/40',
-  Delete: 'text-destructive border-destructive/40',
-  Change: 'text-primary border-primary/40',
-  ResolvedConflict: 'text-amber-500 border-amber-500/40',
+  Add: 'text-success-text border-emerald-500/40',
+  Delete: 'text-destructive-text border-destructive/40',
+  Change: 'text-interactive border-primary/40',
+  ResolvedConflict: 'text-warning-text border-amber-500/40',
 };
 
 function KindBadge({ kind }) {

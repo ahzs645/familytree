@@ -39,15 +39,15 @@ export function BookHasErrorsSheet({ errors = [], warnings = [], onProceedAnyway
     >
       {hasErrors && (
             <div>
-              <div className="text-destructive font-semibold mb-1">Errors ({errors.length})</div>
+              <div className="text-destructive-text font-semibold mb-1">Errors ({errors.length})</div>
               <ul className="space-y-1">
                 {errors.map((item, i) => (
                   <li key={`err-${i}`} className="flex items-start gap-2">
-                    <span className="text-destructive">•</span>
+                    <span className="text-destructive-text">•</span>
                     <div className="flex-1">
                       <div>{item.message}</div>
                       {item.sectionIndex >= 0 && onJumpToSection && (
-                        <button type="button" onClick={() => onJumpToSection(item.sectionIndex)} className="text-primary hover:underline">
+                        <button type="button" onClick={() => onJumpToSection(item.sectionIndex)} className="text-interactive hover:underline">
                           Jump to section {item.sectionIndex + 1}
                         </button>
                       )}
@@ -59,15 +59,15 @@ export function BookHasErrorsSheet({ errors = [], warnings = [], onProceedAnyway
           )}
           {warnings.length > 0 && (
             <div>
-              <div className="text-amber-500 font-semibold mb-1">Warnings ({warnings.length})</div>
+              <div className="text-warning-text font-semibold mb-1">Warnings ({warnings.length})</div>
               <ul className="space-y-1">
                 {warnings.map((item, i) => (
                   <li key={`warn-${i}`} className="flex items-start gap-2">
-                    <span className="text-amber-500">•</span>
+                    <span className="text-warning-text">•</span>
                     <div className="flex-1">
                       <div>{item.message}</div>
                       {item.sectionIndex >= 0 && onJumpToSection && (
-                        <button type="button" onClick={() => onJumpToSection(item.sectionIndex)} className="text-primary hover:underline">
+                        <button type="button" onClick={() => onJumpToSection(item.sectionIndex)} className="text-interactive hover:underline">
                           Jump to section {item.sectionIndex + 1}
                         </button>
                       )}

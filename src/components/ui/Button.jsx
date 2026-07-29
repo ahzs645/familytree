@@ -26,7 +26,7 @@ const VARIANTS = {
   outline: 'bg-transparent text-foreground border border-border hover:bg-accent',
   ghost: 'bg-transparent text-foreground border border-transparent hover:bg-accent',
   destructive: 'bg-destructive text-destructive-foreground border border-transparent hover:bg-destructive/90',
-  destructiveOutline: 'bg-transparent text-destructive border border-border hover:bg-destructive/10',
+  destructiveOutline: 'bg-transparent text-destructive-text border border-border hover:bg-destructive/10',
 };
 
 const SIZES = {

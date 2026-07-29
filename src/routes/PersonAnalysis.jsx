@@ -4,17 +4,13 @@ import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
 import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
 import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
 import { listToolbarButtonClass } from '../components/lists/listToolbarClasses.js';
+import { FilterChip } from '../components/ui/FilterChip.jsx';
+import { StatusBadge } from '../components/ui/StatusBadge.jsx';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { SORT_PROFILES, useSortProfile } from '../components/lists/useSortProfile.js';
 import { loadPersonAnalysisRows } from '../lib/listData.js';
 import { buildRelationshipMatrix } from '../lib/relationshipPath.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
-
-const RISK_CLASS = {
-  High: 'text-destructive border-destructive/40',
-  Medium: 'text-amber-500 border-amber-500/40',
-  Low: 'text-muted-foreground border-border',
-};
 
 const FILTER_IDS = ['attention', 'missing-dates', 'unsourced', 'unplaced', 'parents', 'impossible', 'orphaned', 'duplicates', 'all'];
 const SUMMARY_KEYS = ['attention', 'unsourced', 'unplaced', 'parents', 'impossible', 'duplicates'];
@@ -90,7 +86,7 @@ export default function PersonAnalysis() {
       key: 'personName',
       label: t('personAnalysis.person'),
       alwaysVisible: true,
-      render: (row) => <Link to={`/person/${row.personId}`} className="text-primary hover:underline">{row.personName}</Link>,
+      render: (row) => <Link to={`/person/${row.personId}`} className="text-interactive hover:underline">{row.personName}</Link>,
     },
     {
       key: 'age',
@@ -126,11 +122,9 @@ export default function PersonAnalysis() {
       sortValue: (row) => row.sourceCount,
       render: (row) => (
         <div>
-          <span className={`inline-block text-[10px] font-bold uppercase tracking-wide rounded border px-2 py-0.5 ${
-            row.sourceState === 'Supported' ? 'text-emerald-600 border-emerald-600/40' : row.sourceState === 'Weak' ? 'text-amber-500 border-amber-500/40' : 'text-destructive border-destructive/40'
-          }`}>
+          <StatusBadge tone={row.sourceState}>
             {stateLabel(row.sourceState)}
-          </span>
+          </StatusBadge>
           <div className="mt-1 text-xs text-muted-foreground">{t('personAnalysis.sourceLinks', { count: row.sourceCount })}</div>
         </div>
       ),
@@ -139,9 +133,9 @@ export default function PersonAnalysis() {
       key: 'duplicateRisk',
       label: t('personAnalysis.duplicateRisk'),
       render: (row) => (
-        <span className={`inline-block text-[10px] font-bold uppercase tracking-wide rounded border px-2 py-0.5 min-w-[62px] text-center ${RISK_CLASS[row.duplicateRisk]}`}>
+        <StatusBadge tone={row.duplicateRisk}>
           {riskLabel(row.duplicateRisk)}
-        </span>
+        </StatusBadge>
       ),
     },
     {
@@ -149,7 +143,7 @@ export default function PersonAnalysis() {
       label: t('personAnalysis.action'),
       sortable: false,
       export: false,
-      render: (row) => <Link to={`/person/${row.personId}`} className="text-xs text-primary hover:underline">{t('personAnalysis.openPerson')}</Link>,
+      render: (row) => <Link to={`/person/${row.personId}`} className="text-xs text-interactive hover:underline">{t('personAnalysis.openPerson')}</Link>,
     },
     { key: 'personId', label: t('personAnalysis.personId'), defaultVisible: false },
   ], [t]);
@@ -160,14 +154,13 @@ export default function PersonAnalysis() {
     <>
     <div className="ms-auto flex flex-wrap gap-2">
       {FILTER_IDS.map((id) => (
-        <button
+        <FilterChip
           key={id}
-          type="button"
+          active={filter === id}
           onClick={() => setFilter(id)}
-          className={`${listToolbarButtonClass} ${filter === id ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
         >
           {t(`personAnalysis.filters.${id}`)}
-        </button>
+        </FilterChip>
       ))}
       <button
         type="button"

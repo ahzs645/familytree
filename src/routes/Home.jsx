@@ -204,7 +204,7 @@ export function Home() {
             onClick={async () => {
               if (await modal.confirm(t('home.clearConfirm'), { title: t('home.clearTitle'), okLabel: t('home.clearOk'), destructive: true })) await clear();
             }}
-            className="rounded-md border border-border bg-transparent text-destructive px-3 py-2 text-xs hover:bg-destructive/10"
+            className="rounded-md border border-border bg-transparent text-destructive-text px-3 py-2 text-xs hover:bg-destructive/10"
           >
             {t('home.clearData')}
           </button>
@@ -215,7 +215,7 @@ export function Home() {
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{t('home.nextAnniversaries')}</h2>
-            <button type="button" onClick={() => navigate('/anniversaries')} className="text-xs text-primary hover:underline">{t('home.openList')}</button>
+            <button type="button" onClick={() => navigate('/anniversaries')} className="text-xs text-interactive hover:underline">{t('home.openList')}</button>
           </div>
           <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))] gap-3">
             {upcomingAnniversaries.map((row) => (
@@ -268,7 +268,7 @@ export function Home() {
                       {snapshot.favorite && <span aria-hidden className="text-yellow-500 me-1">★</span>}
                       {snapshot.name}
                       {isActive && (
-                        <span className="ms-2 inline-block rounded-full bg-primary/15 text-primary text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 align-middle">
+                        <span className="ms-2 inline-block rounded-full bg-primary/15 text-interactive text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 align-middle">
                           {t('home.treeCurrent', { defaultValue: 'Current' })}
                         </span>
                       )}
@@ -299,7 +299,7 @@ export function Home() {
                   <Button variant="primary" size="sm" onClick={() => onRestore(snapshot)} disabled={busy || isActive} className="py-1">{isActive ? t('home.treeCurrentBtn', { defaultValue: 'Open' }) : t('home.treeOpen')}</Button>
                   <button onClick={() => onRename(snapshot)} disabled={busy} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1 hover:bg-accent">{t('home.treeRename')}</button>
                   <button onClick={() => onLabel(snapshot)} disabled={busy} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1 hover:bg-accent">{t('home.treeLabel')}</button>
-                  <button onClick={() => onDelete(snapshot)} disabled={busy} className="text-xs border border-border bg-transparent text-destructive rounded-md px-2.5 py-1 hover:bg-destructive/10 ms-auto">{t('home.treeDelete')}</button>
+                  <button onClick={() => onDelete(snapshot)} disabled={busy} className="text-xs border border-border bg-transparent text-destructive-text rounded-md px-2.5 py-1 hover:bg-destructive/10 ms-auto">{t('home.treeDelete')}</button>
                 </div>
               </li>
               );

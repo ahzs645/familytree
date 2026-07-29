@@ -68,8 +68,8 @@ export default function ChartSplitWizard() {
         <section className="rounded-md border border-border bg-card overflow-hidden">
           <header className="p-3 border-b border-border text-sm font-semibold">Preview · {previews.length} chart{previews.length === 1 ? '' : 's'}</header>
           {previews.map((preview) => (
-            <div key={preview.id} className="grid grid-cols-[1fr_120px_120px] gap-3 border-b border-border px-3 py-2 text-sm">
-              <span>{preview.name}</span>
+            <div key={preview.id} className="grid grid-cols-1 gap-1 border-b border-border px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_100px_90px] sm:gap-3">
+              <span className="min-w-0 break-words">{preview.name}</span>
               <span className="text-muted-foreground">{preview.chartType}</span>
               <span className="text-muted-foreground">{preview.generations} gen.</span>
             </div>

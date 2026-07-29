@@ -229,7 +229,7 @@ export function PersonContextMenu({
           <MenuDivider />
           {onDeletePerson && (
             <MenuItem
-              className="text-destructive hover:bg-destructive/10"
+              className="text-destructive-text hover:bg-destructive/10"
               onClick={() => run(onDeletePerson)}
               role="menuitem"
             >
@@ -238,7 +238,7 @@ export function PersonContextMenu({
           )}
           {onDeleteFamily && familyId && (
             <MenuItem
-              className="text-destructive hover:bg-destructive/10"
+              className="text-destructive-text hover:bg-destructive/10"
               onClick={runDeleteFamily}
               role="menuitem"
             >

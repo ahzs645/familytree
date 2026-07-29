@@ -54,7 +54,7 @@ export default function FactsList() {
       key: 'personName',
       label: t('factsList.person'),
       render: (row) => row.personId
-        ? <Link to={`/person/${row.personId}`} className="text-primary hover:underline">{row.personName || row.personId}</Link>
+        ? <Link to={`/person/${row.personId}`} className="text-interactive hover:underline">{row.personName || row.personId}</Link>
         : <span className="text-muted-foreground">{t('factsList.noLinkedPerson')}</span>,
     },
     { key: 'factTypeLabel', label: t('factsList.fact') },
@@ -74,7 +74,7 @@ export default function FactsList() {
       sortable: false,
       export: false,
       render: (row) => row.personId
-        ? <Link to={`/person/${row.personId}`} className="text-xs text-primary hover:underline">{t('factsList.openPerson')}</Link>
+        ? <Link to={`/person/${row.personId}`} className="text-xs text-interactive hover:underline">{t('factsList.openPerson')}</Link>
         : null,
     },
   ], [t]);

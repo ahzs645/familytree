@@ -103,7 +103,7 @@ export default function SourceRepositories() {
         <h2 className="text-base font-semibold truncate">{repoName(active)}</h2>
         <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-        <button onClick={onDelete} disabled={isRecordLocked(active)} className="ms-auto text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
+        <button onClick={onDelete} disabled={isRecordLocked(active)} className="ms-auto text-destructive-text border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
         <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">
           {saving ? 'Saving...' : 'Save'}
         </Button>

@@ -55,9 +55,9 @@ export function ChartPreviewContent({ token: tokenOverride }) {
   if (state.status === 'error') {
     return (
       <div className="p-10 max-w-lg mx-auto text-center">
-        <div className="text-sm text-destructive mb-3">Couldn't open this share link.</div>
+        <div className="text-sm text-destructive-text mb-3">Couldn't open this share link.</div>
         <div className="text-xs text-muted-foreground mb-5">{String(state.error?.message || state.error)}</div>
-        <Link to="/" className="text-sm text-primary hover:underline">← Back to Home</Link>
+        <Link to="/" className="text-sm text-interactive hover:underline">← Back to Home</Link>
       </div>
     );
   }

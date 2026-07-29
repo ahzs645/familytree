@@ -100,7 +100,7 @@ export function SchemaMigrationSheet() {
               </div>
             ))}
           </div>
-          {error && <div className="text-xs text-destructive">Migration error: {String(error?.message || error)}</div>}
+          {error && <div className="text-xs text-destructive-text">Migration error: {String(error?.message || error)}</div>}
         </div>
         <footer className="px-5 py-3 border-t border-border flex gap-2 justify-end flex-wrap">
           <button

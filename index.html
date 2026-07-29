@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <link rel="icon" href="%BASE_URL%favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0f1117" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="description" content="CloudTreeWeb — your MacFamilyTree data, in the browser" />
     <link rel="apple-touch-icon" href="%BASE_URL%cloudtreeweb_webapp_icon.png" />
     <link rel="manifest" href="%BASE_URL%manifest.json" />
@@ -40,9 +40,14 @@
           }
           document.documentElement.dir = direction;
           var saved = localStorage.getItem('cloudtreeweb:theme');
+          var preference = /^(light|dark|system)$/.test(saved || '') ? saved : 'system';
           var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-          var dark = saved ? saved === 'dark' : prefersDark;
-          if (dark) document.documentElement.classList.add('dark');
+          var dark = preference === 'dark' || (preference === 'system' && prefersDark);
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+          var themeColor = document.querySelector('meta[name="theme-color"]');
+          if (themeColor) themeColor.setAttribute('content', dark ? '#0e1016' : '#ffffff');
         } catch (e) {}
       })();
     </script>

@@ -50,7 +50,7 @@ export function SectionEditor({
           <Button size="icon" disabled={index === total - 1} onClick={onMoveDown} title="Move down" aria-label="Move section down">
             <ChevronDown size={15} />
           </Button>
-          <Button size="icon" onClick={onRemove} className="text-destructive" title="Remove section" aria-label="Remove section">
+          <Button size="icon" onClick={onRemove} className="text-destructive-text" title="Remove section" aria-label="Remove section">
             <Trash2 size={15} />
           </Button>
         </div>

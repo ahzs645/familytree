@@ -14,6 +14,8 @@ import { formatName } from '../../lib/nameFormat.js';
 import { Select } from '../ui/Select.jsx';
 import { formClasses } from '../ui/formClasses.js';
 import { buttonClasses } from '../ui/Button.jsx';
+import { FilterChip } from '../ui/FilterChip.jsx';
+import { Switch as SwitchControl } from '../ui/Switch.jsx';
 
 export function Panel({ title, children }) {
   return (
@@ -38,25 +40,12 @@ export function Field({ label, children, hint }) {
   );
 }
 
-export function Switch({ label, checked, onChange }) {
-  return (
-    <label className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2">
-      <span className="text-sm">{label}</span>
-      <input type="checkbox" checked={!!checked} onChange={(event) => onChange(event.target.checked)} />
-    </label>
-  );
+export function Switch(props) {
+  return <SwitchControl {...props} />;
 }
 
 export function CheckButton({ active, onClick, children }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-md border px-2.5 py-1 text-xs ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-secondary text-foreground'}`}
-    >
-      {children}
-    </button>
-  );
+  return <FilterChip active={active} onClick={onClick}>{children}</FilterChip>;
 }
 
 export function SettingsSelect({ className, triggerClassName, ...props }) {
@@ -88,4 +77,4 @@ export function vitalPreview(markerStyle = 'range') {
 
 export const inputClass = formClasses.input;
 export const primaryButton = buttonClasses({ variant: 'primary', size: 'md' });
-export const secondaryButton = 'rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-60';
+export const secondaryButton = buttonClasses({ variant: 'secondary', size: 'md' });

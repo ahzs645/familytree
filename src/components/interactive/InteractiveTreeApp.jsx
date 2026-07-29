@@ -245,7 +245,7 @@ export function InteractiveTreeApp() {
     return (
       <EmptyMsg>
         No family data found.{' '}
-        <Link to="/" className="ms-1.5 text-primary">Import a .mftpkg</Link> first.
+        <Link to="/" className="ms-1.5 text-interactive">Import a .mftpkg</Link> first.
       </EmptyMsg>
     );
   }

@@ -446,4 +446,4 @@ export default function Events({
   );
 }
 
-const warningBoxClass = 'border border-destructive/40 bg-destructive/10 text-destructive rounded-md px-2.5 py-2 text-xs';
+const warningBoxClass = 'border border-destructive/40 bg-destructive/10 text-destructive-text rounded-md px-2.5 py-2 text-xs';

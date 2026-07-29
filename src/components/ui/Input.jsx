@@ -22,7 +22,7 @@ export const Textarea = React.forwardRef(function Textarea({ compact = false, cl
   return (
     <textarea
       ref={ref}
-      className={cn(compact ? formClasses.inputCompact : formClasses.input, className)}
+      className={cn(compact ? formClasses.inputCompact : formClasses.textarea, className)}
       {...props}
     />
   );

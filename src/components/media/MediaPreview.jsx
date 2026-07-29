@@ -18,7 +18,7 @@ export function MediaPreview({ record, assets }) {
         href={record.fields.url.value}
         target="_blank"
         rel="noreferrer"
-        className="text-primary text-xs break-all hover:underline"
+        className="text-interactive text-xs break-all hover:underline"
       >
         {record.fields.url.value}
       </a>

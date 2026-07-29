@@ -34,14 +34,14 @@ export default function MarriageList() {
       label: t('marriageList.partner1'),
       alwaysVisible: true,
       render: (row) => row.partner1Id
-        ? <Link to={`/person/${row.partner1Id}`} className="text-primary hover:underline">{row.partner1Name || row.partner1Id}</Link>
+        ? <Link to={`/person/${row.partner1Id}`} className="text-interactive hover:underline">{row.partner1Name || row.partner1Id}</Link>
         : <span className="text-muted-foreground">{t('marriageList.unknown')}</span>,
     },
     {
       key: 'partner2Name',
       label: t('marriageList.partner2'),
       render: (row) => row.partner2Id
-        ? <Link to={`/person/${row.partner2Id}`} className="text-primary hover:underline">{row.partner2Name || row.partner2Id}</Link>
+        ? <Link to={`/person/${row.partner2Id}`} className="text-interactive hover:underline">{row.partner2Name || row.partner2Id}</Link>
         : <span className="text-muted-foreground">{t('marriageList.unknown')}</span>,
     },
     {
@@ -54,7 +54,7 @@ export default function MarriageList() {
       label: t('marriageList.family'),
       sortable: false,
       export: false,
-      render: (row) => <Link to={`/family/${row.id}`} className="text-xs text-primary hover:underline">{t('marriageList.openFamily')}</Link>,
+      render: (row) => <Link to={`/family/${row.id}`} className="text-xs text-interactive hover:underline">{t('marriageList.openFamily')}</Link>,
     },
     { key: 'id', label: t('marriageList.familyId'), defaultVisible: false },
   ], [t]);

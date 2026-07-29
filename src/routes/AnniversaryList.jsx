@@ -54,7 +54,7 @@ export default function AnniversaryList() {
     {
       key: 'personName',
       label: t('anniversaryList.person'),
-      render: (row) => <Link to={`/person/${row.personId}`} className="text-primary hover:underline">{row.personName}</Link>,
+      render: (row) => <Link to={`/person/${row.personId}`} className="text-interactive hover:underline">{row.personName}</Link>,
     },
     {
       key: 'year',
@@ -73,7 +73,7 @@ export default function AnniversaryList() {
       label: t('anniversaryList.action'),
       sortable: false,
       export: false,
-      render: (row) => <Link to={`/person/${row.personId}`} className="text-xs text-primary hover:underline">{t('anniversaryList.openPerson')}</Link>,
+      render: (row) => <Link to={`/person/${row.personId}`} className="text-xs text-interactive hover:underline">{t('anniversaryList.openPerson')}</Link>,
     },
   ], [t, currentYear]);
 

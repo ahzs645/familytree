@@ -34,26 +34,26 @@ const CHART_LABELS = {
 };
 
 const ACCENT = {
-  ancestor: 'bg-blue-500/15 text-blue-500',
-  descendant: 'bg-emerald-500/15 text-emerald-500',
-  hourglass: 'bg-amber-500/15 text-amber-500',
-  tree: 'bg-violet-500/15 text-violet-500',
-  'family-chart': 'bg-cyan-500/15 text-cyan-500',
-  'double-ancestor': 'bg-pink-500/15 text-pink-500',
-  fan: 'bg-orange-500/15 text-orange-500',
-  circular: 'bg-lime-500/15 text-lime-500',
-  'radial-descendant': 'bg-amber-500/15 text-amber-500',
-  symmetrical: 'bg-sky-500/15 text-sky-500',
-  distribution: 'bg-teal-500/15 text-teal-500',
-  lifespan: 'bg-blue-500/15 text-blue-500',
-  timeline: 'bg-indigo-500/15 text-indigo-500',
-  genogram: 'bg-fuchsia-500/15 text-fuchsia-500',
-  sociogram: 'bg-rose-500/15 text-rose-500',
-  'fractal-h-tree': 'bg-yellow-500/15 text-yellow-500',
-  'square-tree': 'bg-green-500/15 text-green-500',
-  'fractal-tree': 'bg-purple-500/15 text-purple-500',
-  relationship: 'bg-cyan-500/15 text-cyan-500',
-  virtual: 'bg-rose-500/15 text-rose-500',
+  ancestor: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
+  descendant: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+  hourglass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  tree: 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
+  'family-chart': 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300',
+  'double-ancestor': 'bg-pink-500/15 text-pink-700 dark:text-pink-300',
+  fan: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
+  circular: 'bg-lime-500/15 text-lime-700 dark:text-lime-300',
+  'radial-descendant': 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+  symmetrical: 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
+  distribution: 'bg-teal-500/15 text-teal-700 dark:text-teal-300',
+  lifespan: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
+  timeline: 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300',
+  genogram: 'bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300',
+  sociogram: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
+  'fractal-h-tree': 'bg-yellow-500/15 text-yellow-700 dark:text-yellow-300',
+  'square-tree': 'bg-green-500/15 text-green-700 dark:text-green-300',
+  'fractal-tree': 'bg-purple-500/15 text-purple-700 dark:text-purple-300',
+  relationship: 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300',
+  virtual: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
 };
 
 function importedLayoutStatus(view) {
@@ -139,7 +139,7 @@ export default function SavedCharts() {
                       Open
                     </Button>
                     <button onClick={() => onDeleteDocument(doc.id)}
-                      className="border border-border text-destructive rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">
+                      className="border border-border text-destructive-text rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">
                       ×
                     </button>
                   </div>
@@ -175,7 +175,7 @@ export default function SavedCharts() {
                     Copy
                   </button>
                   <button onClick={() => onDelete(t.id)}
-                    className="border border-border text-destructive rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">
+                    className="border border-border text-destructive-text rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">
                     ×
                   </button>
                 </div>

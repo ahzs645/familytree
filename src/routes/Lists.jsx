@@ -38,7 +38,7 @@ export default function Lists() {
 
   return (
     <div className="h-full overflow-auto bg-background">
-      <div className="max-w-6xl mx-auto px-6 py-8 pb-16">
+      <div className="max-w-6xl mx-auto px-4 py-6 pb-16 sm:px-6 sm:py-8">
         <section className="mb-8">
           <h1 className="text-3xl font-bold mb-3">Lists</h1>
           <p className="text-muted-foreground leading-relaxed max-w-3xl">
@@ -49,7 +49,7 @@ export default function Lists() {
 
         <section className="mb-8">
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Core Lists</h2>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3.5">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-3.5">
             {LIST_CARDS.map((card) => (
               <ListCard key={card.to} card={card} count={counts?.[card.key]} loading={!counts} />
             ))}
@@ -58,7 +58,7 @@ export default function Lists() {
 
         <section>
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Analysis Lists</h2>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3.5">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,240px),1fr))] gap-3.5">
             {ANALYSIS_CARDS.map((card) => (
               <Link
                 key={card.to}
@@ -66,7 +66,7 @@ export default function Lists() {
                 className="p-4 rounded-lg border border-border bg-card hover:border-muted-foreground/50 transition-colors"
               >
                 <div className="text-base font-semibold flex justify-between mb-1.5">
-                  {card.title} <span className="text-primary">-&gt;</span>
+                  {card.title} <span className="text-interactive">-&gt;</span>
                 </div>
                 <div className="text-xs text-muted-foreground leading-relaxed">{card.body}</div>
               </Link>
@@ -83,7 +83,7 @@ function ListCard({ card, count, loading }) {
     <Link to={card.to} className="p-4 rounded-lg border border-border bg-card hover:border-muted-foreground/50 transition-colors">
       <div className="flex items-start justify-between gap-3 mb-2">
         <div className="text-base font-semibold">{card.title}</div>
-        <div className="text-sm font-semibold text-primary tabular-nums">{loading ? '...' : Number(count || 0).toLocaleString()}</div>
+        <div className="text-sm font-semibold text-interactive tabular-nums">{loading ? '...' : Number(count || 0).toLocaleString()}</div>
       </div>
       <div className="text-xs text-muted-foreground leading-relaxed">{card.body}</div>
     </Link>

@@ -117,8 +117,8 @@ export function FamilySearchSourceFoldersSheet({ open, onClose }) {
                     <div className="text-xs text-muted-foreground">{count}</div>
                   </div>
                   <div className="flex gap-2 mt-1">
-                    <button onClick={() => onRenameFolder(folder)} className="text-[11px] text-primary">Rename</button>
-                    <button onClick={() => onDeleteFolder(folder)} className="text-[11px] text-destructive">Delete</button>
+                    <button onClick={() => onRenameFolder(folder)} className="text-[11px] text-interactive">Rename</button>
+                    <button onClick={() => onDeleteFolder(folder)} className="text-[11px] text-destructive-text">Delete</button>
                   </div>
                 </div>
               );

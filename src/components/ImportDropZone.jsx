@@ -272,7 +272,7 @@ export function ImportDropZone({ onImported }) {
           <div
             className={cn(
               'mt-2 text-xs',
-              error ? 'text-destructive' : isDone ? 'text-emerald-500' : 'text-muted-foreground'
+              error ? 'text-destructive-text' : isDone ? 'text-success-text' : 'text-muted-foreground'
             )}
           >
             {progress.text}
@@ -281,7 +281,7 @@ export function ImportDropZone({ onImported }) {
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setReviewOpen(true); }}
-              className="mt-2 text-xs text-primary hover:underline"
+              className="mt-2 text-xs text-interactive hover:underline"
             >
               {t('import.reviewIssues', { count: reviewResult.issues.length })}
             </button>

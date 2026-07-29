@@ -97,7 +97,7 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
               <Button
                 key={fam.family.recordName}
                 variant="outline"
-                className="text-primary"
+                className="text-interactive"
                 onClick={() => navigate(`/family/${fam.family.recordName}`)}
               >
                 Edit family with {fam.partner?.fullName ? <BdiText>{fam.partner.fullName}</BdiText> : '?'}

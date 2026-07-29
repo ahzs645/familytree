@@ -125,7 +125,7 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
                 variant="ghost"
                 size="md"
                 onClick={() => setMobileView('list')}
-                className="text-primary font-semibold min-h-[40px] px-1"
+                className="text-interactive font-semibold min-h-[40px] px-1"
               >
                 ← Back to list
               </Button>

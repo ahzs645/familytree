@@ -342,7 +342,7 @@ export default function Export() {
         <h1 className="text-xl font-bold mb-1">Import &amp; Export</h1>
         <p className="text-sm text-muted-foreground mb-5">
           Move data in and out of your tree. {summary && `Currently ${summary.total.toLocaleString()} records.`}{' '}
-          Publishing tools are available in <Link to="/publish" className="text-primary hover:underline">Publish</Link>.
+          Publishing tools are available in <Link to="/publish" className="text-interactive hover:underline">Publish</Link>.
         </p>
 
         <div id="gedcom-export">
@@ -425,7 +425,7 @@ export default function Export() {
                   Conflict summary: GEDCOM records are imported with new local IDs, so existing records are not overwritten.
                 </div>
                 {gedIssues.issues.slice(0, 8).map((issue, i) => (
-                  <div key={i} className={issue.severity === 'error' ? 'text-destructive' : 'text-muted-foreground'}>
+                  <div key={i} className={issue.severity === 'error' ? 'text-destructive-text' : 'text-muted-foreground'}>
                     {issue.line ? `Line ${issue.line}: ` : ''}{issue.message}
                   </div>
                 ))}

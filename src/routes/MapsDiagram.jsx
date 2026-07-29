@@ -291,7 +291,7 @@ export default function MapsDiagram() {
           <Link to="/places" className="hidden rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent sm:inline-flex">Places</Link>
         </div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 xl:grid-cols-[minmax(240px,1.35fr)_minmax(140px,0.65fr)_minmax(220px,1fr)_minmax(260px,1.25fr)]">
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.35fr)_minmax(140px,0.65fr)_minmax(220px,1fr)_minmax(260px,1.25fr)]">
           <label className="grid gap-1 text-xs text-muted-foreground">
             <span>Statistic</span>
             <select
@@ -327,10 +327,10 @@ export default function MapsDiagram() {
               {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
             </select>
           </label>
-          <div className="col-span-2 grid gap-1 rounded-md border border-border bg-background px-2.5 py-2 text-xs text-muted-foreground xl:col-span-1">
+          <div className="grid gap-1 rounded-md border border-border bg-background px-2.5 py-2 text-xs text-muted-foreground sm:col-span-2 xl:col-span-1">
             <div className="flex items-center justify-between gap-2">
               <span>Years {rangeLabel(effectiveRange)}</span>
-              <button onClick={() => setYearRange(null)} className="text-primary hover:underline">Reset</button>
+              <button onClick={() => setYearRange(null)} className="text-interactive hover:underline">Reset</button>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <input
@@ -386,8 +386,8 @@ export default function MapsDiagram() {
           </div>
         </div>
       </header>
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="relative min-h-[420px]">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_360px] lg:overflow-hidden">
+        <div className="relative h-[min(52dvh,420px)] min-h-[280px] lg:h-auto lg:min-h-0">
           <MapView
             center={center}
             zoom={visualOptions.slideshowFit && playing ? 5 : 4}
@@ -411,7 +411,7 @@ export default function MapsDiagram() {
             emptyMessage={loading ? '' : 'Not enough information to display this map. Make sure you have entered data for the selected statistics type and coordinates for event places.'}
           />
         </div>
-        <aside className="min-h-0 overflow-auto border-t border-border bg-card p-4 lg:border-l lg:border-t-0">
+        <aside className="min-h-0 border-t border-border bg-card p-4 lg:overflow-auto lg:border-l lg:border-t-0">
           <VisualOptionsDrawer
             kind="mapStory"
             open={optionsOpen}

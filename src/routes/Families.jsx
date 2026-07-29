@@ -60,14 +60,14 @@ export default function Families() {
       label: t('families.partner1'),
       alwaysVisible: true,
       render: (row) => row.partner1Id
-        ? <Link to={`/person/${row.partner1Id}`} className="text-primary hover:underline">{row.partner1Name || row.partner1Id}</Link>
+        ? <Link to={`/person/${row.partner1Id}`} className="text-interactive hover:underline">{row.partner1Name || row.partner1Id}</Link>
         : <span className="text-muted-foreground">{t('families.unknown')}</span>,
     },
     {
       key: 'partner2Name',
       label: t('families.partner2'),
       render: (row) => row.partner2Id
-        ? <Link to={`/person/${row.partner2Id}`} className="text-primary hover:underline">{row.partner2Name || row.partner2Id}</Link>
+        ? <Link to={`/person/${row.partner2Id}`} className="text-interactive hover:underline">{row.partner2Name || row.partner2Id}</Link>
         : <span className="text-muted-foreground">{t('families.unknown')}</span>,
     },
     {
@@ -80,7 +80,7 @@ export default function Families() {
       label: t('families.family'),
       sortable: false,
       export: false,
-      render: (row) => <Link to={`/family/${row.id}`} className="text-xs text-primary hover:underline">{t('families.openFamily')}</Link>,
+      render: (row) => <Link to={`/family/${row.id}`} className="text-xs text-interactive hover:underline">{t('families.openFamily')}</Link>,
     },
     { key: 'id', label: t('families.familyId'), defaultVisible: false },
   ], [t]);
@@ -116,7 +116,7 @@ export default function Families() {
       <button
         type="button"
         onClick={() => bulkDelete(ids, clear)}
-        className="border border-destructive text-destructive rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10"
+        className="border border-destructive text-destructive-text rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10"
       >
         {t('common.delete')}
       </button>
@@ -148,7 +148,7 @@ export default function Families() {
           <button
             type="button"
             onClick={newFamily}
-            className={cn(listToolbarButtonClass, 'border-primary/60 text-primary')}
+            className={cn(listToolbarButtonClass, 'border-primary/60 text-interactive')}
             title={t('families.newFamily', { defaultValue: 'New family' })}
           >
             <Users size={15} className="flex-shrink-0" />

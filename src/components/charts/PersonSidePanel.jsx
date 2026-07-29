@@ -151,7 +151,7 @@ export function PersonSidePanel({
             <Button variant="primary" size="md" onClick={() => onReroot && onReroot(self.recordName)}>
               Re-root chart here
             </Button>
-            <Link to={`/person/${encodeURIComponent(self.recordName)}`} className="px-3 py-1.5 text-center text-sm text-primary no-underline">
+            <Link to={`/person/${encodeURIComponent(self.recordName)}`} className="px-3 py-1.5 text-center text-sm text-interactive no-underline">
               Open full editor →
             </Link>
           </footer>

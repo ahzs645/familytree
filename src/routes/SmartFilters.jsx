@@ -289,7 +289,7 @@ function GroupRow({ rule, entityType, suggestedFields, onChange, onRemove }) {
           <input type="radio" checked={rule.match === 'any'} onChange={() => onChange({ ...rule, match: 'any' })} />
           any
         </label>
-        <button onClick={onRemove} className="ms-auto text-sm text-muted-foreground hover:text-destructive" title="Remove group">×</button>
+        <button onClick={onRemove} className="ms-auto text-sm text-muted-foreground hover:text-destructive-text" title="Remove group">×</button>
       </div>
       <RuleList
         rules={rule.rules || []}
@@ -316,7 +316,7 @@ function RuleRow({ rule, onChange, onRemove, suggestedFields, entityType }) {
               <button
                 type="button"
                 onClick={() => onChange({ ...rule, path: path.slice(0, i) })}
-                className="text-muted-foreground hover:text-destructive"
+                className="text-muted-foreground hover:text-destructive-text"
                 aria-label={`Remove ${step}`}
               >
                 ×
@@ -365,7 +365,7 @@ function RuleRow({ rule, onChange, onRemove, suggestedFields, entityType }) {
             className={`${input} flex-1 min-w-[140px]`}
           />
         )}
-        <button onClick={onRemove} className="text-sm text-muted-foreground hover:text-destructive">×</button>
+        <button onClick={onRemove} className="text-sm text-muted-foreground hover:text-destructive-text">×</button>
       </div>
     </div>
   );

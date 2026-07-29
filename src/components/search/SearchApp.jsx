@@ -461,7 +461,7 @@ export function SearchApp() {
                   <strong>{change.label}</strong>
                   <span className="text-muted-foreground">{change.fieldName}</span>
                   <span>{String(change.before)}</span>
-                  <span className="text-primary">{String(change.after)}</span>
+                  <span className="text-interactive">{String(change.after)}</span>
                 </div>
               ))}
               {replacePreview.changes.length > 20 && (

@@ -155,15 +155,15 @@ export default function Stories() {
   };
 
   const detail = active ? (
-    <div className="p-5 max-w-4xl">
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-base font-semibold">{storyTitle(active, t('stories.fallbackTitle'))}</h2>
-        <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
+    <div className="max-w-4xl p-3 xl:p-5">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <h2 className="min-w-0 flex-1 basis-full break-words text-base font-semibold xl:basis-auto">{storyTitle(active, t('stories.fallbackTitle'))}</h2>
+        <span className="xl:ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-        <button onClick={onDelete} disabled={isRecordLocked(active)} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">{t('stories.delete')}</button>
+        <button onClick={onDelete} disabled={isRecordLocked(active)} className="text-destructive-text border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">{t('stories.delete')}</button>
         <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">{saving ? t('stories.saving') : t('stories.save')}</Button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         <FieldRow label={t('stories.field.title')}><input value={values.title || ''} onChange={(e) => setValues({ ...values, title: e.target.value })} className={formClasses.input} /></FieldRow>
         <FieldRow label={t('stories.field.subtitle')}><input value={values.subtitle || ''} onChange={(e) => setValues({ ...values, subtitle: e.target.value })} className={formClasses.input} /></FieldRow>
         <FieldRow label={t('stories.field.author')}><input value={values.author || ''} onChange={(e) => setValues({ ...values, author: e.target.value })} className={formClasses.input} /></FieldRow>
@@ -185,9 +185,9 @@ export default function Stories() {
         <div className="space-y-3">
           {storySections.map((section) => (
             <div key={section.recordName} className="bg-secondary/30 rounded-md p-3">
-              <div className="flex gap-2 mb-2">
-                <input value={section.fields?.title?.value || ''} onChange={(e) => updateSection(section, { title: e.target.value })} className="flex-1 bg-background border border-border rounded-md px-2 py-1.5 text-sm" />
-                <button onClick={() => deleteSection(section)} className="text-xs text-destructive">{t('stories.deleteSection')}</button>
+              <div className="mb-2 flex min-w-0 flex-wrap gap-2">
+                <input value={section.fields?.title?.value || ''} onChange={(e) => updateSection(section, { title: e.target.value })} className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1.5 text-sm" />
+                <button onClick={() => deleteSection(section)} className="text-xs text-destructive-text">{t('stories.deleteSection')}</button>
               </div>
               <textarea rows={4} value={section.fields?.text?.value || ''} onChange={(e) => updateSection(section, { text: e.target.value })} className="w-full bg-background border border-border rounded-md px-2 py-1.5 text-sm" />
             </div>
@@ -207,17 +207,17 @@ export default function Stories() {
               <div key={rel.recordName} className="flex items-center gap-2 bg-secondary/40 rounded-md p-2">
                 <span className="text-xs text-muted-foreground w-24">{type || t('stories.recordType')}</span>
                 <span className="text-sm flex-1 truncate">{targetLabel(target) || id}</span>
-                <button onClick={() => removeRelation(rel)} className="text-xs text-destructive">{t('stories.removeRelation')}</button>
+                <button onClick={() => removeRelation(rel)} className="text-xs text-destructive-text">{t('stories.removeRelation')}</button>
               </div>
             );
           })}
           {storyRelations.length === 0 && <div className="text-sm text-muted-foreground">{t('stories.noRelatedEntries')}</div>}
         </div>
-        <div className="grid grid-cols-[140px_1fr_auto] gap-2">
-          <select value={targetType} onChange={(e) => { setTargetType(e.target.value); setTargetId(''); }} className="bg-background border border-border rounded-md px-2 py-1.5 text-sm">
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-[140px_minmax(0,1fr)_auto]">
+          <select value={targetType} onChange={(e) => { setTargetType(e.target.value); setTargetId(''); }} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm">
             {TARGET_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
-          <select value={targetId} onChange={(e) => setTargetId(e.target.value)} className="bg-background border border-border rounded-md px-2 py-1.5 text-sm">
+          <select value={targetId} onChange={(e) => setTargetId(e.target.value)} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm">
             <option value="">{t('stories.selectTarget')}</option>
             {(targetsByType[targetType] || []).map((target) => <option key={target.recordName} value={target.recordName}>{targetLabel(target)}</option>)}
           </select>
@@ -229,7 +229,7 @@ export default function Stories() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
+      <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">{t('stories.title')}</h1>
         <span className="text-xs text-muted-foreground">{stories.length}</span>
         <Button variant="primary" size="sm" onClick={onCreate} className="ms-auto">{t('stories.newButton')}</Button>

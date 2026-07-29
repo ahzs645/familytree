@@ -73,7 +73,7 @@ export default function AuthorInformation() {
             <h1 className="text-xl font-bold">Author Information</h1>
             <p className="text-sm text-muted-foreground mt-1">Tree-level author, contact, copyright, and presentation metadata.</p>
           </div>
-          {status && <span className="ms-auto text-xs text-emerald-500">{status}</span>}
+          {status && <span className="ms-auto text-xs text-success-text">{status}</span>}
           <button onClick={save} className={primaryButton}>Save</button>
         </header>
 
@@ -132,7 +132,7 @@ export default function AuthorInformation() {
             <h2 className="text-base font-semibold mb-3">{values.treeName || 'Family Tree'}</h2>
             {values.subtitle && <div className="text-sm text-muted-foreground mb-4">{values.subtitle}</div>}
             <div className="whitespace-pre-line text-sm leading-relaxed">{addressPreview || 'No author contact entered.'}</div>
-            {values.website && <a href={values.website} target="_blank" rel="noreferrer" className="block mt-4 text-sm text-primary hover:underline">{values.website}</a>}
+            {values.website && <a href={values.website} target="_blank" rel="noreferrer" className="block mt-4 text-sm text-interactive hover:underline">{values.website}</a>}
             {values.copyright && <div className="mt-4 text-xs text-muted-foreground">{values.copyright}</div>}
           </aside>
         </div>

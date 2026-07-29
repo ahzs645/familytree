@@ -2,16 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ListPageHeader } from '../components/lists/SortableListTable.jsx';
 import { ConfigurableListTable } from '../components/lists/ConfigurableListTable.jsx';
-import { listToolbarButtonClass } from '../components/lists/listToolbarClasses.js';
+import { FilterChip } from '../components/ui/FilterChip.jsx';
+import { StatusBadge } from '../components/ui/StatusBadge.jsx';
 import { SORT_PROFILES, useSortProfile } from '../components/lists/useSortProfile.js';
 import { runPlausibilityChecks } from '../lib/plausibility.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
-
-const SEVERITY_CLASS = {
-  high: 'text-destructive border-destructive/40',
-  medium: 'text-amber-500 border-amber-500/40',
-  low: 'text-muted-foreground border-border',
-};
 
 function recordHref(row) {
   if (row.recordType === 'Family') return `/family/${row.recordName}`;
@@ -57,9 +52,9 @@ export default function PlausibilityList() {
       label: t('plausibilityList.severity'),
       sortValue: (row) => ({ high: 3, medium: 2, low: 1 }[row.severity] || 0),
       render: (row) => (
-        <span className={`inline-block text-[10px] font-bold uppercase tracking-wide rounded border px-2 py-0.5 min-w-[62px] text-center ${SEVERITY_CLASS[row.severity] || SEVERITY_CLASS.low}`}>
+        <StatusBadge tone={row.severity}>
           {severityLabel(row.severity)}
-        </span>
+        </StatusBadge>
       ),
     },
     { key: 'rule', label: t('plausibilityList.rule') },
@@ -68,7 +63,7 @@ export default function PlausibilityList() {
       key: 'recordName',
       label: t('plausibilityList.record'),
       alwaysVisible: true,
-      render: (row) => <Link to={recordHref(row)} className="text-primary hover:underline">{row.recordName}</Link>,
+      render: (row) => <Link to={recordHref(row)} className="text-interactive hover:underline">{row.recordName}</Link>,
     },
     { key: 'message', label: t('plausibilityList.message') },
     {
@@ -76,7 +71,7 @@ export default function PlausibilityList() {
       label: t('plausibilityList.action'),
       sortable: false,
       export: false,
-      render: (row) => <Link to={recordHref(row)} className="text-xs text-primary hover:underline">{t('plausibilityList.open')}</Link>,
+      render: (row) => <Link to={recordHref(row)} className="text-xs text-interactive hover:underline">{t('plausibilityList.open')}</Link>,
     },
   ], [t]);
 
@@ -90,14 +85,13 @@ export default function PlausibilityList() {
         ['medium', t('plausibilityList.filterMedium', { count: counts.medium || 0 })],
         ['low', t('plausibilityList.filterLow', { count: counts.low || 0 })],
       ].map(([id, label]) => (
-        <button
+        <FilterChip
           key={id}
-          type="button"
+          active={severity === id}
           onClick={() => setSeverity(id)}
-          className={`${listToolbarButtonClass} ${severity === id ? 'border-primary bg-primary text-primary-foreground hover:bg-primary/90' : ''}`}
         >
           {label}
-        </button>
+        </FilterChip>
       ))}
     </div>
   );

@@ -159,8 +159,8 @@ export default function SubtreeWizard() {
   const firstRight = workingPersons[0]?.recordName;
 
   return (
-    <div className="h-full overflow-auto p-6">
-      <header className="flex items-center gap-3 mb-4">
+    <div className="flex h-full min-h-0 flex-col overflow-auto p-3 sm:p-6 md:overflow-hidden">
+      <header className="mb-4 flex flex-wrap items-center gap-3 md:flex-nowrap">
         <div className="min-w-0 me-auto">
           <h1 className="text-base font-semibold leading-tight">Subtree wizard</h1>
           <p className="text-xs text-muted-foreground">Build a slice of the tree, then export or remove it.</p>
@@ -182,7 +182,7 @@ export default function SubtreeWizard() {
         <Button variant="primary" size="sm" onClick={exportWorkingSet} disabled={busy || working.size === 0}>
           Export subtree ({working.size})
         </Button>
-        <button onClick={removeWorkingSet} disabled={busy || working.size === 0} className="border border-destructive text-destructive rounded-md px-3 py-1.5 hover:bg-destructive/10 disabled:opacity-50">
+        <button onClick={removeWorkingSet} disabled={busy || working.size === 0} className="border border-destructive text-destructive-text rounded-md px-3 py-1.5 hover:bg-destructive/10 disabled:opacity-50">
           Remove subtree
         </button>
         <button onClick={exportAndRemove} disabled={busy || working.size === 0} className="border border-border rounded-md px-3 py-1.5 hover:bg-accent disabled:opacity-50" title="Mac 'Slice': export then remove">
@@ -191,14 +191,14 @@ export default function SubtreeWizard() {
         {status ? <span className="text-muted-foreground ms-2">{status}</span> : null}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 h-[calc(100vh-220px)]">
+      <div className="grid grid-cols-1 gap-3 md:min-h-0 md:flex-1 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
         <Column
           title={`Available persons (${availablePersons.length})`}
           persons={availablePersons}
           selection={leftSelection}
           onToggle={(id) => toggle(leftSelection, setLeftSelection, id)}
         />
-        <div className="flex md:flex-col items-center justify-center gap-2">
+        <div className="flex flex-wrap items-center justify-center gap-2 md:flex-col md:flex-nowrap">
           <button onClick={addSelected} disabled={leftSelection.size === 0} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50">Add →</button>
           <button onClick={removeSelected} disabled={rightSelection.size === 0} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50">← Remove</button>
           <div className="border-t border-border w-full my-2" />
@@ -225,7 +225,7 @@ function toggle(set, setSet, id) {
 
 function Column({ title, persons, selection, onToggle }) {
   return (
-    <div className="border border-border rounded-md flex flex-col min-h-0 overflow-hidden">
+    <div className="flex min-h-64 flex-col overflow-hidden rounded-md border border-border md:min-h-0">
       <header className="px-3 py-2 bg-muted border-b border-border text-xs font-semibold">{title}</header>
       <ul className="flex-1 overflow-auto p-1">
         {persons.map((p) => (

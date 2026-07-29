@@ -143,7 +143,7 @@ export default function PersonGroups() {
         <h2 className="text-base font-semibold truncate">{groupName(active)}</h2>
         <span className="ms-auto"><SaveStatus status={status} dirty={dirty} /></span>
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-        <button onClick={onDelete} disabled={isRecordLocked(active)} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
+        <button onClick={onDelete} disabled={isRecordLocked(active)} className="text-destructive-text border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
         <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">
           {saving ? 'Saving...' : 'Save'}
         </Button>
@@ -158,7 +158,7 @@ export default function PersonGroups() {
           {members.length === 0 ? <div className="text-sm text-muted-foreground">No members.</div> : members.map(({ rel, person }) => (
             <div key={rel.recordName} className="flex items-center gap-2 bg-secondary/40 rounded-md p-2">
               <span className="text-sm flex-1">{person?.summary.fullName || readRef(rel.fields?.person)}</span>
-              <button onClick={() => removeMember(rel)} className="text-xs text-destructive">Remove now</button>
+              <button onClick={() => removeMember(rel)} className="text-xs text-destructive-text">Remove now</button>
             </div>
           ))}
         </div>

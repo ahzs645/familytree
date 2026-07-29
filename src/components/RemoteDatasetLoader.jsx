@@ -187,7 +187,7 @@ function RemoteDatasetUI({ state, hasData, t, onConfirm, onCancel, onDismiss }) 
   if (status === 'error') {
     return (
       <Backdrop>
-        <h2 className="mb-2 text-lg font-semibold text-destructive">
+        <h2 className="mb-2 text-lg font-semibold text-destructive-text">
           {t('app.remoteImport.failedTitle', { defaultValue: 'Could not import that family tree' })}
         </h2>
         <p className="mb-3 text-sm text-muted-foreground">{error}</p>

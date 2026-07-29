@@ -213,7 +213,7 @@ export default function Research() {
                       <button
                         type="button"
                         onClick={() => removeJournalEntry(entry.id)}
-                        className="text-[11px] text-muted-foreground hover:text-destructive"
+                        className="text-[11px] text-muted-foreground hover:text-destructive-text"
                       >
                         {t('research.delete')}
                       </button>
@@ -239,7 +239,7 @@ export default function Research() {
                     <div className="text-sm text-muted-foreground mt-1">{row.fields?.infoValue?.value || t('research.noAnswer')}</div>
                     {target && (
                       <button onClick={() => navigate(target.recordType === 'Person' ? `/person/${target.recordName}` : target.recordType === 'Family' ? `/family/${target.recordName}` : '#')}
-                        className="text-xs text-primary hover:underline mt-2">
+                        className="text-xs text-interactive hover:underline mt-2">
                         {target.fields?.cached_fullName?.value || target.fields?.title?.value || target.recordName}
                       </button>
                     )}
@@ -272,7 +272,7 @@ export default function Research() {
           ) : visible.slice(0, 200).map((it) => (
             <div key={it.recordName} className="bg-card border border-border rounded-md p-4">
               <div className="flex items-baseline justify-between mb-2 gap-2">
-                <button onClick={() => navigate(`/person/${it.recordName}`)} className="text-sm font-semibold text-primary hover:underline text-start">
+                <button onClick={() => navigate(`/person/${it.recordName}`)} className="text-sm font-semibold text-interactive hover:underline text-start">
                   {it.fullName}
                 </button>
                 <div className="flex items-center gap-2">

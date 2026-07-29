@@ -393,9 +393,9 @@ export default function PersonEditor() {
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto sm:ms-auto">
           {status ? (
-            <span className="text-emerald-500 text-xs">{status}</span>
+            <span className="text-success-text text-xs">{status}</span>
           ) : dirty ? (
-            <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+            <span className="inline-flex items-center gap-1.5 text-xs text-warning-text">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />Unsaved changes
             </span>
           ) : (
@@ -542,7 +542,7 @@ export default function PersonEditor() {
                         <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
                           <span className="text-sm">{label}{date && <span className="text-muted-foreground"> · {date}</span>}</span>
                           <EvidenceBadge evidence={evidence?.byRecord?.get(e.recordName)} onClick={() => setSourceTarget({ recordName: e.recordName, recordType: 'PersonEvent', label })} />
-                          <button onClick={() => guardedNavigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-primary hover:underline">edit</button>
+                          <button onClick={() => guardedNavigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-interactive hover:underline">edit</button>
                         </div>
                       );
                     })}

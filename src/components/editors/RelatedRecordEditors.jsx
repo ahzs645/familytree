@@ -107,7 +107,7 @@ function RelationRow({ rel, target, label, typeLabel, children, onRemove, onLine
         <span className="text-xs text-muted-foreground min-w-20">{typeLabel || target?.recordType || 'Record'}</span>
         <span className="text-sm flex-1 min-w-0 truncate"><BdiText>{label || recordDisplayLabel(target) || readRef(rel.fields?.target) || rel.recordName}</BdiText></span>
         {onLineage && <button onClick={onLineage} className="text-xs text-muted-foreground hover:underline">View lineage</button>}
-        <button onClick={onRemove} className="text-xs text-destructive hover:underline" title="Detach this citation. The source record will not be deleted.">Detach</button>
+        <button onClick={onRemove} className="text-xs text-destructive-text hover:underline" title="Detach this citation. The source record will not be deleted.">Detach</button>
       </div>
       {children}
     </div>
@@ -211,7 +211,7 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
                 {supportsEntryImage && isPicture && (
                   <div className="mt-1.5">
                     {isEntry ? (
-                      <button onClick={() => setEntryImage(target, false)} className="text-xs text-primary hover:underline" title="Stop using this picture as the entry image.">★ Entry image — remove</button>
+                      <button onClick={() => setEntryImage(target, false)} className="text-xs text-interactive hover:underline" title="Stop using this picture as the entry image.">★ Entry image — remove</button>
                     ) : (
                       <button onClick={() => setEntryImage(target, true)} className="text-xs text-muted-foreground hover:underline" title="Use this picture as the profile/entry image.">Use as entry image</button>
                     )}
@@ -776,7 +776,7 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
                 aria-label="Note text"
               />
               <div className="text-end mt-2">
-                <button onClick={() => setNotes((items) => items.filter((_, i) => i !== index))} className="text-xs text-destructive hover:underline">Stage removal</button>
+                <button onClick={() => setNotes((items) => items.filter((_, i) => i !== index))} className="text-xs text-destructive-text hover:underline">Stage removal</button>
               </div>
             </div>
           ))}

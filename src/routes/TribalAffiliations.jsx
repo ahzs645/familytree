@@ -240,19 +240,19 @@ export default function TribalAffiliations() {
   );
 
   const detail = active ? (
-    <div className="p-5 max-w-5xl">
+    <div className="max-w-5xl p-3 xl:p-5">
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        <h2 className="text-base font-semibold">{active.name}</h2>
+        <h2 className="min-w-0 flex-1 basis-full break-words text-base font-semibold xl:basis-auto">{active.name}</h2>
         <span className="text-xs text-muted-foreground">{affiliationLevelLabel(active.level)}</span>
         {active.virtual && <span className="text-xs rounded bg-secondary px-2 py-1">Derived from imported facts</span>}
-        <span className="ms-auto">
+        <span className="xl:ms-auto">
           {active.virtual
-            ? (status ? <span className="text-xs text-emerald-500">{status}</span> : null)
+            ? (status ? <span className="text-xs text-success-text">{status}</span> : null)
             : <SaveStatus status={status} dirty={dirty} />}
         </span>
         {!active.virtual && <RecordLockButton record={activeRecord} saving={saving} onToggle={onToggleLock} />}
         {!active.virtual && (
-          <button onClick={onDelete} disabled={isRecordLocked(activeRecord)} className="text-destructive border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
+          <button onClick={onDelete} disabled={isRecordLocked(activeRecord)} className="text-destructive-text border border-border rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10 disabled:opacity-50">Delete</button>
         )}
         <Button
           variant="primary"
@@ -267,7 +267,7 @@ export default function TribalAffiliations() {
 
       <section className="border border-border rounded-md bg-card p-3 mb-4">
         <h3 className="text-sm font-semibold mb-3">Affiliation</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
           <FieldRow label="Name"><input value={values.name || ''} onChange={(e) => setValues({ ...values, name: e.target.value })} className={formClasses.input} /></FieldRow>
           <FieldRow label="Arabic name"><input dir="rtl" value={values.arabicName || ''} onChange={(e) => setValues({ ...values, arabicName: e.target.value })} className={formClasses.input} /></FieldRow>
           <FieldRow label="English name"><input value={values.englishName || ''} onChange={(e) => setValues({ ...values, englishName: e.target.value })} className={formClasses.input} /></FieldRow>
@@ -315,12 +315,12 @@ export default function TribalAffiliations() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm flex-1 min-w-0 truncate">{member.person?.label || member.personId}</span>
                   <span className="text-xs text-muted-foreground">{member.virtual ? 'Imported fact' : affiliationConfidenceLabel(member.confidence)}</span>
-                  {!member.virtual && <button onClick={() => removeMember(member)} className="text-xs text-destructive">Remove</button>}
+                  {!member.virtual && <button onClick={() => removeMember(member)} className="text-xs text-destructive-text">Remove</button>}
                 </div>
                 {!member.virtual && (
-                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_130px_120px_120px_auto] gap-2 mt-2">
-                    <input value={draft.role || ''} onChange={(e) => setMemberDrafts((state) => ({ ...state, [member.relation.recordName]: { ...draft, role: e.target.value } }))} className="bg-background border border-border rounded-md px-2 py-1.5 text-xs" placeholder="Role / note" />
-                    <select value={draft.confidence || 'unknown'} onChange={(e) => setMemberDrafts((state) => ({ ...state, [member.relation.recordName]: { ...draft, confidence: e.target.value } }))} className="bg-background border border-border rounded-md px-2 py-1.5 text-xs">
+                  <div className="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_130px_120px_120px_auto]">
+                    <input value={draft.role || ''} onChange={(e) => setMemberDrafts((state) => ({ ...state, [member.relation.recordName]: { ...draft, role: e.target.value } }))} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-xs" placeholder="Role / note" />
+                    <select value={draft.confidence || 'unknown'} onChange={(e) => setMemberDrafts((state) => ({ ...state, [member.relation.recordName]: { ...draft, confidence: e.target.value } }))} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-xs">
                       {TRIBAL_CONFIDENCE.map((confidence) => <option key={confidence.id} value={confidence.id}>{confidence.label}</option>)}
                     </select>
                     <DatePicker
@@ -344,8 +344,8 @@ export default function TribalAffiliations() {
             );
           })}
         </div>
-        <div className="grid grid-cols-[1fr_auto] gap-2">
-          <select value={personId} onChange={(e) => setPersonId(e.target.value)} className="bg-background border border-border rounded-md px-2 py-1.5 text-sm">
+        <div className="grid grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_auto]">
+          <select value={personId} onChange={(e) => setPersonId(e.target.value)} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm">
             <option value="">Select person...</option>
             {model.people.map((person) => <option key={person.record.recordName} value={person.record.recordName}>{person.label}</option>)}
           </select>
@@ -354,7 +354,7 @@ export default function TribalAffiliations() {
       </section>
 
       {!active.virtual && (
-        <section className="border border-border rounded-md bg-card p-3">
+        <section className="min-w-0 rounded-md border border-border bg-card p-3 [&>div>div.grid]:grid-cols-1 xl:[&>div>div.grid]:grid-cols-[130px_minmax(0,1fr)_auto]">
           <h3 className="text-sm font-semibold mb-3">Sources</h3>
           <SourceCitationsEditor ownerRecordName={active.recordName} ownerRecordType="TribalAffiliation" />
         </section>
@@ -367,7 +367,7 @@ export default function TribalAffiliations() {
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <h1 className="text-base font-semibold">Tribal Affiliations</h1>
         <span className="text-xs text-muted-foreground">{model.affiliations.length}</span>
-        {status && <span className="text-xs text-emerald-500">{status}</span>}
+        {status && <span className="text-xs text-success-text">{status}</span>}
         <div className="ms-auto flex flex-wrap items-center gap-2">
           <button onClick={importIraqiSeed} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Import Iraqi Seed</button>
           <Button variant="primary" size="sm" onClick={onCreate}>+ New</Button>

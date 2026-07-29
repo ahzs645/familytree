@@ -37,7 +37,7 @@ export function ScopeFilterSelect({
           );
         })}
       </select>
-      {error ? <span className="text-xs text-destructive">{error}</span> : null}
+      {error ? <span className="text-xs text-destructive-text">{error}</span> : null}
     </div>
   );
 }

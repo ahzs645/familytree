@@ -431,7 +431,7 @@ export function ReportsApp() {
   if (empty) {
     return (
       <div className={loadingClass}>
-        {t('reports.noFamilyData')} <Link to="/" className="ms-1.5 text-primary">{t('common.import')}</Link>
+        {t('reports.noFamilyData')} <Link to="/" className="ms-1.5 text-interactive">{t('common.import')}</Link>
       </div>
     );
   }

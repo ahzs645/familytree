@@ -106,7 +106,7 @@ export default function Maintenance() {
           <ResultList items={unreadable} columns={[
             { key: 'recordType', label: 'Type' },
             { key: 'value', label: 'Value' },
-            { key: 'open', label: '', render: (it) => <button onClick={() => navigate(`/events`)} className="text-primary hover:underline">open</button> },
+            { key: 'open', label: '', render: (it) => <button onClick={() => navigate(`/events`)} className="text-interactive hover:underline">open</button> },
           ]} />
         </Card>
 
@@ -190,7 +190,7 @@ export default function Maintenance() {
           <ResultList items={genderMismatch} columns={[
             { key: 'familyRecordName', label: 'Family' },
             { key: 'issue', label: 'Issue' },
-            { key: 'open', label: '', render: (it) => <button onClick={() => navigate(`/family/${it.familyRecordName}`)} className="text-primary hover:underline">open</button> },
+            { key: 'open', label: '', render: (it) => <button onClick={() => navigate(`/family/${it.familyRecordName}`)} className="text-interactive hover:underline">open</button> },
           ]} />
         </Card>
 

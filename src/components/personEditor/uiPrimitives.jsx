@@ -51,7 +51,7 @@ export function ReadOnly({ label, value }) {
 
 export function RemoveBtn({ onClick }) {
   return (
-    <button onClick={onClick} className="text-destructive border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 text-xs hover:bg-destructive/10">×</button>
+    <button onClick={onClick} className="text-destructive-text border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 text-xs hover:bg-destructive/10">×</button>
   );
 }
 
@@ -86,9 +86,9 @@ export function EvidenceBadge({ evidence, onClick }) {
 }
 
 export function toneClass(tone) {
-  if (tone === 'Supported') return 'text-emerald-600';
-  if (tone === 'Weak' || tone === 'Medium') return 'text-amber-500';
-  if (tone === 'Unsourced' || tone === 'High') return 'text-destructive';
+  if (tone === 'Supported') return 'text-success-text';
+  if (tone === 'Weak' || tone === 'Medium') return 'text-warning-text';
+  if (tone === 'Unsourced' || tone === 'High') return 'text-destructive-text';
   return 'text-foreground';
 }
 

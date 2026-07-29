@@ -3,14 +3,10 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { FilterChip } from '../components/ui/FilterChip.jsx';
+import { StatusBadge } from '../components/ui/StatusBadge.jsx';
 import { runPlausibilityChecks } from '../lib/plausibility.js';
 import { getAppPreferences } from '../lib/appPreferences.js';
-
-const SEV_COLORS = {
-  high: 'text-destructive border-destructive/40',
-  medium: 'text-amber-500 border-amber-500/40',
-  low: 'text-muted-foreground border-border',
-};
 
 export default function Plausibility() {
   const [warnings, setWarnings] = useState(null);
@@ -38,10 +34,9 @@ export default function Plausibility() {
         <span className="text-xs text-muted-foreground ms-2">{warnings.length} warnings</span>
         <div className="ms-auto flex flex-wrap gap-2">
           {[['', 'All'], ['high', `High (${counts.high || 0})`], ['medium', `Medium (${counts.medium || 0})`], ['low', `Low (${counts.low || 0})`]].map(([id, lbl]) => (
-            <button key={id} onClick={() => setFilter(id)}
-              className={`text-xs px-3 py-1.5 rounded-md border ${filter === id ? 'bg-primary text-primary-foreground border-primary' : 'border-border bg-secondary text-foreground'}`}>
+            <FilterChip key={id} active={filter === id} onClick={() => setFilter(id)}>
               {lbl}
-            </button>
+            </FilterChip>
           ))}
         </div>
       </header>
@@ -55,16 +50,16 @@ export default function Plausibility() {
             {filtered.map((w, i) => (
               <div key={i} className="flex flex-col gap-2 p-3 bg-card border border-border rounded-md sm:flex-row sm:items-center sm:gap-3">
                 <div className="flex items-start gap-3 sm:flex-1">
-                  <span className={`inline-block shrink-0 text-[10px] font-bold uppercase tracking-wider rounded border px-2 py-0.5 min-w-[60px] text-center ${SEV_COLORS[w.severity]}`}>
+                  <StatusBadge tone={w.severity}>
                     {w.severity}
-                  </span>
+                  </StatusBadge>
                   <span className="flex-1 text-sm">{w.message}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3 ps-[72px] sm:ps-0">
                   <span className="text-[11px] text-muted-foreground/70 font-mono">{w.rule}</span>
                   <button
                     onClick={() => navigate(w.recordType === 'Family' ? `/family/${w.recordName}` : `/person/${w.recordName}`)}
-                    className="text-xs text-primary border border-border rounded-md px-2 py-1 hover:bg-accent"
+                    className="text-xs text-interactive border border-border rounded-md px-2 py-1 hover:bg-accent"
                   >
                     open
                   </button>
