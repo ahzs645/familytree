@@ -19,8 +19,13 @@ const THEME_KEYS = ['app', 'classic', 'ink', 'ocean', 'forest', 'monochrome'];
 const ICON_BUTTON = 'h-9 w-9';
 const SELECT = 'h-9 rounded-md border border-border bg-secondary text-foreground text-sm outline-none cursor-pointer hover:bg-accent focus:border-primary';
 
-function Separator() {
-  return <div className="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden="true" />;
+/**
+ * Related controls travel together. The toolbar wraps rather than scrolls (a
+ * scrolling strip hid four of its controls on a phone), so without this the
+ * break can land between − and +, or leave a divider dangling at a row end.
+ */
+function Group({ children }) {
+  return <div className="flex items-center gap-1.5">{children}</div>;
 }
 
 export default function Header({
@@ -59,7 +64,7 @@ export default function Header({
         </p>
       </div>
 
-      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
         <Tooltip text={t('heritageTree.tooltips.search')}>
           <div className="flex min-h-9 items-center gap-1 rounded-md border border-border bg-secondary ps-2">
             <Search size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -124,48 +129,50 @@ export default function Header({
           </>
         )}
 
-        <Tooltip text={t('heritageTree.tooltips.exportPdf')}>
-          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.exportPdfAria')} onClick={() => exportTreeToPdf()}>
-            <Printer size={16} />
-          </Button>
-        </Tooltip>
-        <Tooltip text={t('heritageTree.tooltips.analytics')}>
-          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.analyticsAria')} onClick={() => setShowAnalytics(true)}>
-            <ChartColumn size={16} />
-          </Button>
-        </Tooltip>
+        <Group>
+          <Tooltip text={t('heritageTree.tooltips.exportPdf')}>
+            <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.exportPdfAria')} onClick={() => exportTreeToPdf()}>
+              <Printer size={16} />
+            </Button>
+          </Tooltip>
+          <Tooltip text={t('heritageTree.tooltips.analytics')}>
+            <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.analyticsAria')} onClick={() => setShowAnalytics(true)}>
+              <ChartColumn size={16} />
+            </Button>
+          </Tooltip>
+        </Group>
 
-        <Separator />
+        <Group>
+          <Tooltip text={t('heritageTree.tooltips.zoomOut')}>
+            <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.zoomOutAria')} onClick={() => setView((prev) => ({ ...prev, scale: Math.max(0.1, prev.scale - 0.12) }))}>
+              <Minus size={16} />
+            </Button>
+          </Tooltip>
+          <span className="min-w-[2.75rem] text-center text-xs tabular-nums text-muted-foreground">{Math.round(view.scale * 100)}%</span>
+          <Tooltip text={t('heritageTree.tooltips.zoomIn')}>
+            <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.zoomInAria')} onClick={() => setView((prev) => ({ ...prev, scale: Math.min(2, prev.scale + 0.12) }))}>
+              <Plus size={16} />
+            </Button>
+          </Tooltip>
+        </Group>
 
-        <Tooltip text={t('heritageTree.tooltips.zoomOut')}>
-          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.zoomOutAria')} onClick={() => setView((prev) => ({ ...prev, scale: Math.max(0.1, prev.scale - 0.12) }))}>
-            <Minus size={16} />
-          </Button>
-        </Tooltip>
-        <span className="min-w-[2.75rem] text-center text-xs tabular-nums text-muted-foreground">{Math.round(view.scale * 100)}%</span>
-        <Tooltip text={t('heritageTree.tooltips.zoomIn')}>
-          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.zoomInAria')} onClick={() => setView((prev) => ({ ...prev, scale: Math.min(2, prev.scale + 0.12) }))}>
-            <Plus size={16} />
-          </Button>
-        </Tooltip>
-
-        <Separator />
-
-        <Tooltip text={t('heritageTree.tooltips.recenter')}>
-          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.recenterAria')} onClick={handleRecenter}>
-            <LocateFixed size={16} />
-          </Button>
-        </Tooltip>
-        <Tooltip text={t('heritageTree.tooltips.resetRoot')}>
-          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.resetRootAria')} onClick={handleResetToDatasetDefault}>
-            <House size={16} />
-          </Button>
-        </Tooltip>
-        <Tooltip text={t('heritageTree.tooltips.reload')}>
-          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.reloadAria')} onClick={handleHardReset}>
-            <RotateCw size={16} />
-          </Button>
-        </Tooltip>
+        <Group>
+          <Tooltip text={t('heritageTree.tooltips.recenter')}>
+            <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.recenterAria')} onClick={handleRecenter}>
+              <LocateFixed size={16} />
+            </Button>
+          </Tooltip>
+          <Tooltip text={t('heritageTree.tooltips.resetRoot')}>
+            <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.resetRootAria')} onClick={handleResetToDatasetDefault}>
+              <House size={16} />
+            </Button>
+          </Tooltip>
+          <Tooltip text={t('heritageTree.tooltips.reload')}>
+            <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.reloadAria')} onClick={handleHardReset}>
+              <RotateCw size={16} />
+            </Button>
+          </Tooltip>
+        </Group>
       </div>
     </header>
   );
