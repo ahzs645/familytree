@@ -1,10 +1,27 @@
+/**
+ * Heritage Tree toolbar.
+ *
+ * Uses the app's header pattern (bg-card surface, bordered base, semibold
+ * title over a muted summary line) and the shared Button primitive, so the
+ * page reads as part of the app rather than a standalone display piece. The
+ * canvas below keeps its own themeable look — see heritageTree.css.
+ */
 import React, { useRef } from 'react';
+import { ChartColumn, House, LocateFixed, Minus, Plus, Printer, RotateCw, Search, Upload } from 'lucide-react';
 import Tooltip from './Tooltip.jsx';
 import { exportTreeToPdf } from './exportTree.js';
 import BdiText from '../BdiText.jsx';
+import { Button } from '../ui/Button.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
-const THEME_KEYS = ['classic', 'dark', 'ocean', 'forest', 'monochrome'];
+const THEME_KEYS = ['app', 'classic', 'ink', 'ocean', 'forest', 'monochrome'];
+
+const ICON_BUTTON = 'h-9 w-9';
+const SELECT = 'h-9 rounded-md border border-border bg-secondary text-foreground text-sm outline-none cursor-pointer hover:bg-accent focus:border-primary';
+
+function Separator() {
+  return <div className="mx-0.5 h-5 w-px shrink-0 bg-border" aria-hidden="true" />;
+}
 
 export default function Header({
   maxGen,
@@ -22,28 +39,33 @@ export default function Header({
   setView,
   handleRecenter,
   handleResetToDatasetDefault,
-  handleHardReset
+  handleHardReset,
+  headerRef,
 }) {
   const fileInputRef = useRef(null);
   const { t } = useTranslation();
 
   return (
-    <header>
-      <div className="heritage-title-block">
-        <h2>{t('heritageTree.title')}</h2>
-        <p>
+    <header
+      ref={headerRef}
+      className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-card px-3 py-2 md:px-5"
+    >
+      <div className="min-w-0 flex-1">
+        <h2 className="text-base font-semibold leading-tight">{t('heritageTree.title')}</h2>
+        <p className="truncate text-xs text-muted-foreground">
           {rootName
             ? <>{t('heritageTree.subtitleForRoot', { count: maxGen })} <BdiText>{rootName}</BdiText></>
             : t('heritageTree.subtitle', { count: maxGen })}
         </p>
       </div>
-      <div className="controls">
+
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <Tooltip text={t('heritageTree.tooltips.search')}>
-          <div className="heritage-search-control">
-            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none" style={{ color: 'var(--gold)' }}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            <input 
-              className="search-input"
-              type="text" 
+          <div className="flex min-h-9 items-center gap-1 rounded-md border border-border bg-secondary ps-2">
+            <Search size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+            <input
+              type="text"
+              className="w-20 bg-transparent py-1.5 text-sm outline-none transition-[width] placeholder:text-muted-foreground focus:w-32"
               placeholder={t('heritageTree.searchPlaceholder')}
               title={t('heritageTree.searchTitle')}
               aria-label={t('heritageTree.searchAria')}
@@ -57,80 +79,92 @@ export default function Header({
                 }
               }}
             />
-            <div className="heritage-control-separator"></div>
-            <select 
-              value={searchTerm ? 'search_prompt' : (rootId || '')} 
+            <div className="h-4 w-px shrink-0 bg-border" aria-hidden="true" />
+            <select
+              value={searchTerm ? 'search_prompt' : (rootId || '')}
               aria-label={t('heritageTree.selectRootAria')}
-              onChange={(e) => { 
+              onChange={(e) => {
                 if (e.target.value !== 'search_prompt') {
-                  setSelectedRootId(e.target.value); 
-                  setSearchTerm(''); 
+                  setSelectedRootId(e.target.value);
+                  setSearchTerm('');
                 }
               }}
-              className="heritage-root-select"
+              className="max-w-[9rem] cursor-pointer truncate bg-transparent py-1.5 ps-1 text-sm outline-none"
             >
               {searchTerm && filteredIndividuals.length > 0 && <option value="search_prompt" disabled>{t('heritageTree.searchResults', { count: filteredIndividuals.length })}</option>}
               {filteredIndividuals.length === 0 && <option value="search_prompt" disabled>{t('heritageTree.noResults')}</option>}
-              {filteredIndividuals.map(ind => (
+              {filteredIndividuals.map((ind) => (
                 <option key={ind.id} value={ind.id}>{ind.name}</option>
               ))}
             </select>
           </div>
         </Tooltip>
+
         <Tooltip text={t('heritageTree.tooltips.theme')}>
-          <select 
-            value={theme} 
+          <select
+            value={theme}
             aria-label={t('heritageTree.themeAria')}
             onChange={(e) => setTheme(e.target.value)}
-            className="heritage-theme-select"
+            className={`${SELECT} ps-2.5`}
           >
             {THEME_KEYS.map((key) => (
               <option key={key} value={key}>{t(`heritageTree.themes.${key}`)}</option>
             ))}
           </select>
         </Tooltip>
+
         {handleFileUpload && (
           <>
-            <input type="file" accept=".ged" style={{ display: 'none' }} ref={fileInputRef} onChange={handleFileUpload} />
+            <input type="file" accept=".ged" className="hidden" ref={fileInputRef} onChange={handleFileUpload} />
             <Tooltip text={t('heritageTree.tooltips.upload')}>
-              <button className="btn" aria-label={t('heritageTree.uploadAria')} onClick={() => fileInputRef.current?.click()}>
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-              </button>
+              <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.uploadAria')} onClick={() => fileInputRef.current?.click()}>
+                <Upload size={16} />
+              </Button>
             </Tooltip>
           </>
         )}
+
         <Tooltip text={t('heritageTree.tooltips.exportPdf')}>
-          <button className="btn" aria-label={t('heritageTree.exportPdfAria')} onClick={() => exportTreeToPdf()}>
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-          </button>
+          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.exportPdfAria')} onClick={() => exportTreeToPdf()}>
+            <Printer size={16} />
+          </Button>
         </Tooltip>
         <Tooltip text={t('heritageTree.tooltips.analytics')}>
-          <button className="btn" aria-label={t('heritageTree.analyticsAria')} onClick={() => setShowAnalytics(true)}>
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
-          </button>
+          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.analyticsAria')} onClick={() => setShowAnalytics(true)}>
+            <ChartColumn size={16} />
+          </Button>
         </Tooltip>
+
+        <Separator />
+
         <Tooltip text={t('heritageTree.tooltips.zoomOut')}>
-          <button className="btn" aria-label={t('heritageTree.zoomOutAria')} onClick={() => setView(prev => ({ ...prev, scale: Math.max(0.1, prev.scale - 0.12) }))}>−</button>
+          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.zoomOutAria')} onClick={() => setView((prev) => ({ ...prev, scale: Math.max(0.1, prev.scale - 0.12) }))}>
+            <Minus size={16} />
+          </Button>
         </Tooltip>
-        <span className="zoom-label">{Math.round(view.scale * 100)}%</span>
+        <span className="min-w-[2.75rem] text-center text-xs tabular-nums text-muted-foreground">{Math.round(view.scale * 100)}%</span>
         <Tooltip text={t('heritageTree.tooltips.zoomIn')}>
-          <button className="btn" aria-label={t('heritageTree.zoomInAria')} onClick={() => setView(prev => ({ ...prev, scale: Math.min(2, prev.scale + 0.12) }))}>+</button>
+          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.zoomInAria')} onClick={() => setView((prev) => ({ ...prev, scale: Math.min(2, prev.scale + 0.12) }))}>
+            <Plus size={16} />
+          </Button>
         </Tooltip>
-        <div className="heritage-toolbar-separator"></div>
+
+        <Separator />
+
         <Tooltip text={t('heritageTree.tooltips.recenter')}>
-          <button className="btn" aria-label={t('heritageTree.recenterAria')} onClick={handleRecenter}>
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
-          </button>
+          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.recenterAria')} onClick={handleRecenter}>
+            <LocateFixed size={16} />
+          </Button>
         </Tooltip>
         <Tooltip text={t('heritageTree.tooltips.resetRoot')}>
-          <button className="btn" aria-label={t('heritageTree.resetRootAria')} onClick={handleResetToDatasetDefault}>
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-          </button>
+          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.resetRootAria')} onClick={handleResetToDatasetDefault}>
+            <House size={16} />
+          </Button>
         </Tooltip>
         <Tooltip text={t('heritageTree.tooltips.reload')}>
-          <button className="btn" aria-label={t('heritageTree.reloadAria')} onClick={handleHardReset}>
-            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-          </button>
+          <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.reloadAria')} onClick={handleHardReset}>
+            <RotateCw size={16} />
+          </Button>
         </Tooltip>
       </div>
     </header>

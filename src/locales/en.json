@@ -904,6 +904,12 @@
     "exportPdfAria": "Export tree to PDF",
     "generationLabel": "Generation {count}",
     "hiddenRelations": "Click to reveal hidden relatives",
+    "legend": {
+      "descent": "Descent",
+      "marriage": "Marriage / union",
+      "origins": "Geographic origin",
+      "title": "Legend"
+    },
     "loading": "Loading heritage tree...",
     "noResults": "No results...",
     "originTitle": "Geographic origin",
@@ -923,9 +929,10 @@
     "subtitleForRoot": "{count} generations for",
     "themeAria": "Select color theme",
     "themes": {
+      "app": "Match app",
       "classic": "Classic",
-      "dark": "Dark",
       "forest": "Forest",
+      "ink": "Ink",
       "monochrome": "Monochrome",
       "ocean": "Ocean"
     },

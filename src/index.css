@@ -165,8 +165,8 @@
  * browser's default (OS-dependent) arrow with a themed chevron and reserves
  * room for it. Placed outside @layer base so the padding override beats
  * Tailwind's px-* utilities the selects carry. Excludes multi/listbox selects
- * and the heritage tree, which has its own gold serif select theme. */
-select:not([multiple]):not([size]):not(.heritage-root-select):not(.heritage-theme-select) {
+ * only. */
+select:not([multiple]):not([size]) {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
@@ -176,12 +176,12 @@ select:not([multiple]):not([size]):not(.heritage-root-select):not(.heritage-them
   background-size: 1rem;
   padding-inline-end: 2rem !important;
 }
-[dir="rtl"] select:not([multiple]):not([size]):not(.heritage-root-select):not(.heritage-theme-select) {
+[dir="rtl"] select:not([multiple]):not([size]) {
   background-position: left 0.625rem center;
 }
 /* Native <option> popups are OS-drawn; force readable theme colors so they
  * don't fall back to white-on-white in dark mode on some browsers. */
-select:not(.heritage-root-select):not(.heritage-theme-select) option {
+select option {
   background-color: hsl(var(--popover));
   color: hsl(var(--popover-foreground));
 }

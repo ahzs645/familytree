@@ -1,10 +1,34 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import { X } from 'lucide-react';
 import DonutChart from './DonutChart.jsx';
 import SegmentedBarChart from './SegmentedBarChart.jsx';
 import { originLabels, originColors } from './constants.js';
+import { cn } from '../../lib/utils.js';
+
+const SECTION = 'border-b border-border px-5 py-4 last:border-b-0';
+const SECTION_TITLE = 'mb-2 text-sm font-semibold';
+const SUB_TITLE = 'mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground';
+const STATS_LIST = 'flex flex-col';
+const STATS_ROW = 'flex flex-wrap items-baseline justify-between gap-x-4 border-b border-border py-2 last:border-b-0';
+const STATS_VALUE = 'text-muted-foreground';
+
+function segmentClass(active) {
+  return cn(
+    'flex-1 rounded px-3 py-1.5 text-sm transition-colors',
+    active ? 'bg-card font-semibold text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+  );
+}
 
 export default function AnalyticsModal({ show, onClose, indis, nodes, fams, rootId }) {
   const [isFullData, setIsFullData] = useState(false);
+
+  // Escape closes, as it does for the app's other dialogs.
+  useEffect(() => {
+    if (!show) return undefined;
+    const onKey = (event) => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [show, onClose]);
 
   const dataSource = useMemo(() => {
     return isFullData ? Object.values(indis || {}) : (nodes || []);
@@ -329,100 +353,113 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
   if (!show) return null;
 
   return (
-    <div className="analytics-backdrop" onClick={onClose} onWheel={e => e.stopPropagation()}>
-      <div className="analytics-modal" onClick={e => e.stopPropagation()}>
-        <div className="analytics-header">
-          <h2>Tree Analytics</h2>
-          <button className="close-btn" aria-label="Close" onClick={onClose}>✕</button>
-        </div>
-        <div className="analytics-content">
-          
+    // Same surface and chrome as the app's Sheet/Panel dialogs. Not literally
+    // <Sheet> because this one owns its overlay: the backdrop closes on click
+    // and swallows wheel events so scrolling the dialog doesn't zoom the tree
+    // behind it. `analytics-backdrop` is also what the canvas pan handler
+    // checks to ignore pointers landing here.
+    <div
+      className="analytics-backdrop fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tree analytics"
+      onClick={onClose}
+      onWheel={(e) => e.stopPropagation()}
+    >
+      <div
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-center gap-3 border-b border-border px-5 py-3">
+          <h2 className="text-base font-semibold">Tree Analytics</h2>
+          <button
+            type="button"
+            className="ms-auto flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <X size={16} />
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto text-sm">
           {rootHeritageData && (
-            <section className="analytics-section">
-              <h3>🧬 {rootHeritageData.person.name}'s Heritage</h3>
-              {rootHeritageData.desc && <p style={{ marginBottom: '15px', color: 'var(--ink-light)', fontStyle: 'italic' }}>{rootHeritageData.desc}</p>}
-              
+            <section className={SECTION}>
+              <h3 className={SECTION_TITLE}>🧬 {rootHeritageData.person.name}'s Heritage</h3>
+              {rootHeritageData.desc && <p className="mb-4 text-muted-foreground">{rootHeritageData.desc}</p>}
               {rootHeritageData.slices.length > 0 && <SegmentedBarChart data={rootHeritageData.slices} colors={originColors} />}
             </section>
           )}
 
-          <section className="analytics-section" style={{ paddingBottom: '15px' }}>
-            <h3 style={{ borderBottom: 'none', marginBottom: '5px' }}>📊 Group Insights</h3>
-            <p style={{ fontSize: '0.95rem', color: 'var(--ink-light)', fontStyle: 'italic', marginBottom: '15px' }}>
+          <section className={SECTION}>
+            <h3 className={SECTION_TITLE}>📊 Group Insights</h3>
+            <p className="mb-3 text-muted-foreground">
               The statistics below analyze multiple relatives. Select your dataset:
             </p>
-            <div style={{ display: 'flex', background: 'var(--card-border)', padding: '4px', borderRadius: '6px' }}>
-              <button 
-                style={{ flex: 1, padding: '6px 12px', border: 'none', borderRadius: '4px', background: isFullData ? 'var(--card-bg)' : 'transparent', color: isFullData ? 'var(--ink)' : 'var(--ink-light)', fontWeight: isFullData ? 600 : 400, cursor: 'pointer', transition: 'all 0.2s', boxShadow: isFullData ? '0 2px 4px var(--shadow)' : 'none' }}
-                onClick={() => setIsFullData(true)}
-              >
+            <div className="flex gap-1 rounded-md bg-muted p-1">
+              <button type="button" className={segmentClass(isFullData)} onClick={() => setIsFullData(true)}>
                 Entire File Data
               </button>
-              <button 
-                style={{ flex: 1, padding: '6px 12px', border: 'none', borderRadius: '4px', background: !isFullData ? 'var(--card-bg)' : 'transparent', color: !isFullData ? 'var(--ink)' : 'var(--ink-light)', fontWeight: !isFullData ? 600 : 400, cursor: 'pointer', transition: 'all 0.2s', boxShadow: !isFullData ? '0 2px 4px var(--shadow)' : 'none' }}
-                onClick={() => setIsFullData(false)}
-              >
+              <button type="button" className={segmentClass(!isFullData)} onClick={() => setIsFullData(false)}>
                 Everyone on Canvas
               </button>
             </div>
           </section>
 
-        <section className="analytics-section">
-          <h3>🌍 The Melting Pot</h3>
-          {originsData.length > 0 ? (
-            <DonutChart data={originsData} colors={originColors} />
-          ) : (
-            <p style={{ color: 'var(--ink-light)', fontStyle: 'italic', marginTop: '10px' }}>No historical immigrant data available in this view.</p>
-          )}
-        </section>
+          <section className={SECTION}>
+            <h3 className={SECTION_TITLE}>🌍 The Melting Pot</h3>
+            {originsData.length > 0 ? (
+              <DonutChart data={originsData} colors={originColors} />
+            ) : (
+              <p className="text-muted-foreground">No historical immigrant data available in this view.</p>
+            )}
+          </section>
 
-
-          <section className="analytics-section">
-            <h3>👨‍👩‍👧‍👦 Family Size & Dynamics</h3>
-            <ul className="stats-list">
-              <li><strong>Largest Branch</strong> <span>{familyDynamics.largestFamily.parents} ({familyDynamics.largestFamily.count} children)</span></li>
-              <li><strong>Average Family Size</strong> <span>{familyDynamics.averageSize} children</span></li>
-              <li><strong>Generational Gap</strong> <span>{familyDynamics.averageGap} years (avg age of parents)</span></li>
+          <section className={SECTION}>
+            <h3 className={SECTION_TITLE}>👨‍👩‍👧‍👦 Family Size &amp; Dynamics</h3>
+            <ul className={STATS_LIST}>
+              <li className={STATS_ROW}><strong className="font-medium">Largest Branch</strong> <span className={STATS_VALUE}>{familyDynamics.largestFamily.parents} ({familyDynamics.largestFamily.count} children)</span></li>
+              <li className={STATS_ROW}><strong className="font-medium">Average Family Size</strong> <span className={STATS_VALUE}>{familyDynamics.averageSize} children</span></li>
+              <li className={STATS_ROW}><strong className="font-medium">Generational Gap</strong> <span className={STATS_VALUE}>{familyDynamics.averageGap} years (avg age of parents)</span></li>
             </ul>
           </section>
-          <section className="analytics-section">
-            <h3>📛 Most Common Names</h3>
-            <div style={{ display: 'flex', gap: '20px' }}>
-              <div style={{ flex: 1 }}>
-                <h4 style={{ fontSize: '0.95rem', color: 'var(--ink-light)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>First Names</h4>
-                <ul className="stats-list">
+
+          <section className={SECTION}>
+            <h3 className={SECTION_TITLE}>📛 Most Common Names</h3>
+            <div className="flex flex-wrap gap-x-6 gap-y-4">
+              <div className="min-w-[10rem] flex-1">
+                <h4 className={SUB_TITLE}>First Names</h4>
+                <ul className={STATS_LIST}>
                   {namesData.topFirst.map(([name, count], i) => (
-                    <li key={i}><strong>{name}</strong> <span>{count}</span></li>
+                    <li key={i} className={STATS_ROW}><strong className="font-medium">{name}</strong> <span className={STATS_VALUE}>{count}</span></li>
                   ))}
                 </ul>
               </div>
-              <div style={{ flex: 1 }}>
-                <h4 style={{ fontSize: '0.95rem', color: 'var(--ink-light)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Surnames</h4>
-                <ul className="stats-list">
+              <div className="min-w-[10rem] flex-1">
+                <h4 className={SUB_TITLE}>Surnames</h4>
+                <ul className={STATS_LIST}>
                   {namesData.topLast.map(([name, count], i) => (
-                    <li key={i}><strong>{name}</strong> <span>{count}</span></li>
+                    <li key={i} className={STATS_ROW}><strong className="font-medium">{name}</strong> <span className={STATS_VALUE}>{count}</span></li>
                   ))}
                 </ul>
               </div>
             </div>
           </section>
 
-          <section className="analytics-section">
-            <h3>🔗 Namesakes & Lineage</h3>
-            <ul className="stats-list">
-              <li><strong>Direct Namesakes</strong> <span>{namesakesData.namesakesCount} relatives share a name with a parent</span></li>
+          <section className={SECTION}>
+            <h3 className={SECTION_TITLE}>🔗 Namesakes &amp; Lineage</h3>
+            <ul className={STATS_LIST}>
+              <li className={STATS_ROW}><strong className="font-medium">Direct Namesakes</strong> <span className={STATS_VALUE}>{namesakesData.namesakesCount} relatives share a name with a parent</span></li>
             </ul>
             {namesakesData.topChains.length > 0 && (
-              <div style={{ marginTop: '15px' }}>
-                <h4 style={{ fontSize: '0.95rem', color: 'var(--ink-light)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Longest Passed-Down Names</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div className="mt-4">
+                <h4 className={SUB_TITLE}>Longest Passed-Down Names</h4>
+                <div className="flex flex-col gap-2">
                   {namesakesData.topChains.map((chain, i) => (
-                    <div key={i} style={{ background: 'var(--badge-bg)', padding: '10px 12px', borderRadius: '6px', border: '1px solid var(--badge-border)' }}>
-                      <strong style={{ color: 'var(--accent)', fontSize: '1.05rem' }}>"{chain.name}"</strong> 
-                      <span style={{ fontSize: '0.85rem', color: 'var(--ink-light)', marginLeft: '6px' }}>({chain.path.length} generations)</span>
-                      <div style={{ marginTop: '4px', fontSize: '0.9rem', color: 'var(--ink)', lineHeight: '1.4' }}>
-                        {chain.path.join(' → ')}
-                      </div>
+                    <div key={i} className="rounded-md border border-border bg-muted px-3 py-2.5">
+                      <strong className="font-semibold text-interactive">&quot;{chain.name}&quot;</strong>
+                      <span className="ms-1.5 text-xs text-muted-foreground">({chain.path.length} generations)</span>
+                      <div className="mt-1 leading-relaxed">{chain.path.join(' → ')}</div>
                     </div>
                   ))}
                 </div>
@@ -430,31 +467,30 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
             )}
           </section>
 
-          <section className="analytics-section">
-            <h3>🏆 Longest Lived Relatives</h3>
-            <ul className="stats-list">
+          <section className={SECTION}>
+            <h3 className={SECTION_TITLE}>🏆 Longest Lived Relatives</h3>
+            <ul className={STATS_LIST}>
               {longevityData.map((p, i) => (
-                <li key={i}>
-                  <strong>
+                <li key={i} className={STATS_ROW}>
+                  <strong className="font-medium">
                     {p.name}
-                    {p.isLiving && <span style={{ fontSize: '0.75rem', color: 'var(--accent2)', marginLeft: '6px', fontStyle: 'italic' }}>(Living)</span>}
-                  </strong> 
-                  <span>{p.age} years ({p.bYear} - {p.isLiving ? 'Present' : p.dYear})</span>
+                    {p.isLiving && <span className="ms-1.5 text-xs font-normal text-success-text">(Living)</span>}
+                  </strong>
+                  <span className={STATS_VALUE}>{p.age} years ({p.bYear} - {p.isLiving ? 'Present' : p.dYear})</span>
                 </li>
               ))}
             </ul>
           </section>
 
-          <section className="analytics-section">
-            <h3>🏥 Tree Health & Stats</h3>
-            <ul className="stats-list">
-              <li><strong>Total Profiles</strong> <span>{treeHealth.total} relatives</span></li>
-              <li><strong>Average Lifespan</strong> <span>{treeHealth.avgLifespan} years</span></li>
-              <li><strong>Profiles with Birth Dates</strong> <span>{treeHealth.withBirthPct}%</span></li>
-              <li><strong>Profiles with Locations</strong> <span>{treeHealth.withPlacePct}%</span></li>
+          <section className={SECTION}>
+            <h3 className={SECTION_TITLE}>🏥 Tree Health &amp; Stats</h3>
+            <ul className={STATS_LIST}>
+              <li className={STATS_ROW}><strong className="font-medium">Total Profiles</strong> <span className={STATS_VALUE}>{treeHealth.total} relatives</span></li>
+              <li className={STATS_ROW}><strong className="font-medium">Average Lifespan</strong> <span className={STATS_VALUE}>{treeHealth.avgLifespan} years</span></li>
+              <li className={STATS_ROW}><strong className="font-medium">Profiles with Birth Dates</strong> <span className={STATS_VALUE}>{treeHealth.withBirthPct}%</span></li>
+              <li className={STATS_ROW}><strong className="font-medium">Profiles with Locations</strong> <span className={STATS_VALUE}>{treeHealth.withPlacePct}%</span></li>
             </ul>
           </section>
-          
         </div>
       </div>
     </div>

@@ -951,6 +951,12 @@
     "exportPdfAria": "تصدير الشجرة إلى PDF",
     "generationLabel": "الجيل {count}",
     "hiddenRelations": "انقر لإظهار الأقارب المخفيين",
+    "legend": {
+      "descent": "نسب",
+      "marriage": "زواج / اقتران",
+      "origins": "الأصل الجغرافي",
+      "title": "المفتاح"
+    },
     "loading": "جارٍ تحميل شجرة التراث...",
     "noResults": "لا توجد نتائج...",
     "originTitle": "الأصل الجغرافي",
@@ -974,9 +980,10 @@
     "subtitleForRoot": "{count} أجيال لـ",
     "themeAria": "اختيار سمة الألوان",
     "themes": {
+      "app": "مطابقة التطبيق",
       "classic": "كلاسيكية",
-      "dark": "داكنة",
       "forest": "غابة",
+      "ink": "حبرية",
       "monochrome": "أحادية اللون",
       "ocean": "بحرية"
     },

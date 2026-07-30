@@ -1,39 +1,44 @@
+/**
+ * Heritage split as a single stacked bar. Chrome uses the app tokens; only the
+ * segment colours come from the origin palette, where the colour is the data.
+ */
 import React, { useState } from 'react';
+import { cn } from '../../lib/utils.js';
 
 export default function SegmentedBarChart({ data, colors }) {
   const [hoveredOrigin, setHoveredOrigin] = useState(null);
 
   return (
     <div>
-      <div style={{ display: 'flex', width: '100%', height: '20px', borderRadius: '10px', overflow: 'hidden', marginBottom: '15px', boxShadow: '0 2px 5px var(--shadow)' }}>
-        {data.map(o => (
-          <div 
-            key={o.origin} 
-            style={{ 
-              width: `${o.exactPct}%`, 
-              height: '100%', 
-              background: colors[o.origin] || colors.generic,
-              opacity: hoveredOrigin && hoveredOrigin !== o.origin ? 0.3 : 1,
-              transition: 'opacity 0.2s',
-              cursor: 'pointer'
-            }}
+      <div className="mb-3 flex h-5 w-full overflow-hidden rounded-full border border-border">
+        {data.map((o) => (
+          <div
+            key={o.origin}
+            className={cn('h-full cursor-pointer transition-opacity', hoveredOrigin && hoveredOrigin !== o.origin && 'opacity-30')}
+            style={{ width: `${o.exactPct}%`, background: colors[o.origin] || colors.generic }}
             title={`${o.label}: ${o.percentage}%`}
             onMouseEnter={() => setHoveredOrigin(o.origin)}
             onMouseLeave={() => setHoveredOrigin(null)}
-          ></div>
+          />
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px' }}>
-        {data.map(o => (
-          <div 
-            key={o.origin} 
+      <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(9rem, 1fr))' }}>
+        {data.map((o) => (
+          <div
+            key={o.origin}
             onMouseEnter={() => setHoveredOrigin(o.origin)}
             onMouseLeave={() => setHoveredOrigin(null)}
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.95rem', color: 'var(--ink)', cursor: 'pointer', opacity: hoveredOrigin && hoveredOrigin !== o.origin ? 0.3 : 1, transition: 'opacity 0.2s' }}
+            className={cn(
+              'flex cursor-pointer items-center gap-2 transition-opacity',
+              hoveredOrigin && hoveredOrigin !== o.origin && 'opacity-30',
+            )}
           >
-            <div style={{ width: '12px', height: '12px', borderRadius: '3px', background: colors[o.origin] || colors.generic, transition: 'transform 0.2s', transform: hoveredOrigin === o.origin ? 'scale(1.2)' : 'scale(1)' }}></div>
-            <strong style={{ transition: 'color 0.2s', color: hoveredOrigin === o.origin ? 'var(--accent)' : 'inherit' }}>{o.label}</strong>
-            <span style={{ color: 'var(--ink-light)' }}>{o.percentage}%</span>
+            <div
+              className={cn('h-3 w-3 flex-shrink-0 rounded-sm transition-transform', hoveredOrigin === o.origin && 'scale-125')}
+              style={{ background: colors[o.origin] || colors.generic }}
+            />
+            <strong className={cn('truncate font-medium', hoveredOrigin === o.origin && 'text-interactive')}>{o.label}</strong>
+            <span className="ms-auto text-muted-foreground">{o.percentage}%</span>
           </div>
         ))}
       </div>

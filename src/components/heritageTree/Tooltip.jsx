@@ -43,9 +43,9 @@ const Tooltip = ({ text, children, style }) => {
         >
             {children}
             {show && text && (
-                <div 
-                    className="tooltip-popup" 
-                    style={{ 
+                <div
+                    className="pointer-events-none whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md"
+                    style={{
                         position: 'fixed', 
                         top: coords.top, 
                         left: coords.left, 
