@@ -334,6 +334,28 @@ first thing a reviewer sees if their shared link fails to load, which is a bad
 place to be untranslated. It is one translated string with the link inside it
 now (`components/NoDataYet.jsx`), so the whole line reorders as a unit.
 
+**5.5 — Measured, across all 90 routes:**
+
+| | before | after |
+|---|---|---|
+| form fields with no accessible name | 82 | **0** |
+| routes with no `<h1>` | 11 | **0** |
+| routes with two `<h1>` | 2 | **0** |
+| routes with horizontal overflow at 390 px | 0 | **0** |
+| controls unreachable at 390 px | 0 | **0** |
+| controls under a finger's size at 390 px | 88 | **2**¹ |
+
+¹ Both are native `<input type="file">` on `/websites`, whose box Chrome draws
+itself.
+
+Then the whole reviewer journey re-run on a phone against the real Arabic tree:
+deep link → import consent (button 66 × 40) → 836 people load → tap a person →
+the add-relatives menu opens in Arabic with father / mother / partner / child →
+`فتح المحرر` → the editor. At every step: no horizontal scroll, one `<h1>`, no
+page errors. On the editor itself — 22 fields, **0** unnamed, **0** under 40 px;
+38 buttons, **0** under 40 px. On `/export`, the page a reviewer must use to
+send work back: 21 buttons, **0** under 40 px.
+
 ---
 
 ## 6. Still open
