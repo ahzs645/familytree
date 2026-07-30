@@ -898,6 +898,75 @@
     "tree": "Tree"
   },
   "heritageTree": {
+    "analytics": {
+      "averageFamilySize": "Average family size",
+      "averageLifespan": "Average lifespan",
+      "childrenCount": {
+        "one": "{formattedCount} child",
+        "other": "{formattedCount} children"
+      },
+      "commonNames": "Most common names",
+      "datasetCanvas": "Everyone on canvas",
+      "datasetPrompt": "The statistics below analyze multiple relatives. Select your dataset:",
+      "datasetWholeFile": "Entire file",
+      "descMixed": "{name} is mostly of {primary} ancestry, with {secondary} as well.",
+      "descPrimary": "{name} is mostly of {primary} ancestry.",
+      "descSecondary": "{name} has {secondary} ancestry.",
+      "directNamesakes": "Direct namesakes",
+      "directNamesakesValue": {
+        "one": "{formattedCount} relative shares a name with a parent",
+        "other": "{formattedCount} relatives share a name with a parent"
+      },
+      "familySize": "Family size & dynamics",
+      "firstNames": "First names",
+      "generationalGap": "Generational gap",
+      "generationalGapValue": {
+        "one": "{formattedCount} year (average age of parents)",
+        "other": "{formattedCount} years (average age of parents)"
+      },
+      "generationsCount": {
+        "one": "({formattedCount} generation)",
+        "other": "({formattedCount} generations)"
+      },
+      "groupInsights": "Group insights",
+      "hoverToView": "Hover to view",
+      "largestBranch": "Largest branch",
+      "largestBranchValue": {
+        "one": "{parents} ({formattedCount} child)",
+        "other": "{parents} ({formattedCount} children)"
+      },
+      "lessThanOnePercent": "<1",
+      "lifespanValue": {
+        "one": "{formattedCount} year ({from} – {to})",
+        "other": "{formattedCount} years ({from} – {to})"
+      },
+      "living": "(Living)",
+      "longestChains": "Longest passed-down names",
+      "longestLived": "Longest lived relatives",
+      "meltingPot": "The melting pot",
+      "namesakes": "Namesakes & lineage",
+      "noHeritageForPerson": "Not enough historical immigrant data in the family tree to calculate a heritage breakdown.",
+      "noOriginData": "No historical immigrant data available in this view.",
+      "none": "None",
+      "percent": "{value}%",
+      "personHeritage": "{name}'s heritage",
+      "present": "Present",
+      "relativesCount": {
+        "one": "{formattedCount} relative",
+        "other": "{formattedCount} relatives"
+      },
+      "surnames": "Surnames",
+      "title": "Tree Analytics",
+      "totalProfiles": "Total profiles",
+      "treeHealth": "Tree health & stats",
+      "unknown": "Unknown",
+      "withBirthDates": "Profiles with birth dates",
+      "withLocations": "Profiles with locations",
+      "yearsCount": {
+        "one": "{formattedCount} year",
+        "other": "{formattedCount} years"
+      }
+    },
     "analyticsAria": "View tree analytics",
     "emptyBody": "Select another relative from the person list.",
     "emptyTitle": "This person’s family tree could not be laid out.",
@@ -913,6 +982,32 @@
     "loading": "Loading heritage tree...",
     "noResults": "No results...",
     "originTitle": "Geographic origin",
+    "origins": {
+      "american": "United States",
+      "austrian": "Austria",
+      "canadian": "Canada",
+      "chinese": "China",
+      "czech": "Czech Republic",
+      "english": "England",
+      "french": "France",
+      "generic": "Other",
+      "german": "Germany",
+      "hungarian": "Hungary",
+      "irish": "Ireland",
+      "italian": "Italy",
+      "lebanese": "Lebanon",
+      "mexican": "Mexico",
+      "polish": "Poland",
+      "russian": "Russia",
+      "rusyn": "Carpathian Ruthenia",
+      "scottish": "Scotland",
+      "slovak": "Slovakia",
+      "spanish": "Spain",
+      "swiss": "Switzerland",
+      "syrian": "Syria",
+      "turkish": "Türkiye",
+      "ukrainian": "Ukraine"
+    },
     "portraitAlt": "Portrait of {name}",
     "recenterAria": "Recenter on current person",
     "reloadAria": "Reload current tree",

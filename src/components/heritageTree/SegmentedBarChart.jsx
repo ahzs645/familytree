@@ -4,8 +4,10 @@
  */
 import React, { useState } from 'react';
 import { cn } from '../../lib/utils.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export default function SegmentedBarChart({ data, colors }) {
+  const { t } = useTranslation();
   const [hoveredOrigin, setHoveredOrigin] = useState(null);
 
   return (
@@ -16,7 +18,7 @@ export default function SegmentedBarChart({ data, colors }) {
             key={o.origin}
             className={cn('h-full cursor-pointer transition-opacity', hoveredOrigin && hoveredOrigin !== o.origin && 'opacity-30')}
             style={{ width: `${o.exactPct}%`, background: colors[o.origin] || colors.generic }}
-            title={`${o.label}: ${o.percentage}%`}
+            title={`${o.label}: ${t('heritageTree.analytics.percent', { value: o.percentage })}`}
             onMouseEnter={() => setHoveredOrigin(o.origin)}
             onMouseLeave={() => setHoveredOrigin(null)}
           />
@@ -38,7 +40,7 @@ export default function SegmentedBarChart({ data, colors }) {
               style={{ background: colors[o.origin] || colors.generic }}
             />
             <strong className={cn('truncate font-medium', hoveredOrigin === o.origin && 'text-interactive')}>{o.label}</strong>
-            <span className="ms-auto text-muted-foreground">{o.percentage}%</span>
+            <span className="ms-auto text-muted-foreground">{t('heritageTree.analytics.percent', { value: o.percentage })}</span>
           </div>
         ))}
       </div>

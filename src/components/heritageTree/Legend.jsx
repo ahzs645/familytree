@@ -4,7 +4,7 @@
  * key always matches whichever canvas theme is active.
  */
 import React from 'react';
-import { originLabels } from './constants.js';
+import { originLabel } from './constants.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export default function Legend({ nodes }) {
@@ -42,7 +42,7 @@ export default function Legend({ nodes }) {
           <div className="mt-1 flex flex-col gap-1">
             {uniqueOrigins.map((origin) => (
               <span key={origin} className={`origin-tag origin-${origin} w-28 text-center`} style={{ marginTop: 0 }}>
-                {originLabels[origin] || origin}
+                {originLabel(t, origin)}
               </span>
             ))}
           </div>

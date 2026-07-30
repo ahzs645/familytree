@@ -2,8 +2,10 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { X } from 'lucide-react';
 import DonutChart from './DonutChart.jsx';
 import SegmentedBarChart from './SegmentedBarChart.jsx';
-import { originLabels, originColors } from './constants.js';
+import { originLabel, originColors } from './constants.js';
 import { cn } from '../../lib/utils.js';
+import { formatDecimal, formatInteger, formatList } from '../../lib/i18n.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 const SECTION = 'border-b border-border px-5 py-4 last:border-b-0';
 const SECTION_TITLE = 'mb-2 text-sm font-semibold';
@@ -21,6 +23,8 @@ function segmentClass(active) {
 
 export default function AnalyticsModal({ show, onClose, indis, nodes, fams, rootId }) {
   const [isFullData, setIsFullData] = useState(false);
+  const { t, localization } = useTranslation();
+  const n = (value) => formatInteger(value, localization);
 
   // Escape closes, as it does for the app's other dialogs.
   useEffect(() => {
@@ -88,18 +92,19 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
       .map(([origin, score]) => {
         const exactPct = (score / totalScore) * 100;
         return {
-          origin, label: originLabels[origin] || origin, percentage: exactPct < 1 ? '<1' : Math.round(exactPct), exactPct
+          origin, label: originLabel(t, origin), percentage: exactPct < 1 ? t('heritageTree.analytics.lessThanOnePercent') : n(Math.round(exactPct)), exactPct
         };
       })
       .sort((a, b) => b.exactPct - a.exactPct);
-      
+
     let cumulative = 0;
     return sorted.map(o => {
       const offset = cumulative;
       cumulative += o.exactPct;
       return { ...o, offset };
     });
-  }, [dataSource]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataSource, localization.locale, localization.numberingSystem]);
 
   const treeHealth = useMemo(() => {
     const realPeople = dataSource.filter(p => !p.isDummy);
@@ -167,7 +172,7 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
     
     let totalChildren = 0;
     let familiesWithChildren = 0;
-    let largestFamily = { parents: 'None', count: 0 };
+    let largestFamily = { parents: t('heritageTree.analytics.none'), count: 0 };
     
     let totalGenerationGap = 0;
     let gapCount = 0;
@@ -196,9 +201,14 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
           const hFirst = hParts[0] || '';
           const hLast = hParts.length > 1 ? hParts[hParts.length - 1] : '';
           const wFirst = wParts[0] || '';
-          
-          let parentsStr = (hFirst && wFirst && hLast) ? `${hFirst} & ${wFirst} ${hLast}` : [hName, wName].filter(Boolean).join(' & ');
-          largestFamily = { parents: parentsStr || 'Unknown', count: realChildren.length };
+
+          // Shared-surname shorthand ("Johann and Maria Heasley"), joined the
+          // way the locale joins a list rather than with a hard-coded "&".
+          const parts = (hFirst && wFirst && hLast)
+            ? [hFirst, `${wFirst} ${hLast}`]
+            : [hName, wName].filter(Boolean);
+          const parentsStr = formatList(parts, localization);
+          largestFamily = { parents: parentsStr || t('heritageTree.analytics.unknown'), count: realChildren.length };
         }
 
         const getYear = (dateStr) => {
@@ -224,7 +234,8 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
       largestFamily,
       averageGap: gapCount > 0 ? Math.round(totalGenerationGap / gapCount) : 0
     };
-  }, [dataSource, fams, indis, isFullData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataSource, fams, indis, isFullData, localization.locale]);
 
   const namesakesData = useMemo(() => {
     const activeIds = new Set(dataSource.map(p => p.id));
@@ -315,13 +326,13 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
     knownOrigins.forEach(([org, pct]) => totalKnown += pct);
 
     if (totalKnown === 0) {
-      return { person: rootPerson, slices: [], desc: "Not enough historical immigrant data in the family tree to calculate a heritage breakdown." };
+      return { person: rootPerson, slices: [], desc: t('heritageTree.analytics.noHeritageForPerson') };
     }
 
     const sorted = knownOrigins
       .map(([origin, pct]) => {
         const exactPct = (pct / totalKnown) * 100; // Recalculate out of 100% known
-        return { origin, label: originLabels[origin] || origin, percentage: exactPct < 1 ? '<1' : Math.round(exactPct), exactPct };
+        return { origin, label: originLabel(t, origin), percentage: exactPct < 1 ? t('heritageTree.analytics.lessThanOnePercent') : n(Math.round(exactPct)), exactPct };
       })
       .sort((a, b) => b.exactPct - a.exactPct);
 
@@ -332,23 +343,29 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
       return { ...o, offset };
     });
 
-    // Build a natural language summary
+    // Natural-language summary. Each case is one whole sentence in the
+    // catalog: the old version glued fragments together (" ancestry.",
+    // ", with ") in English word order, which no other language can follow.
     const primary = sorted.filter(o => o.exactPct >= 20).map(o => o.label);
     const secondary = sorted.filter(o => o.exactPct > 0 && o.exactPct < 20).map(o => o.label);
-    let desc = '';
-    const formatList = (list) => list.length > 1 ? list.slice(0, -1).join(', ') + ' and ' + list[list.length - 1] : list[0];
     const firstName = rootPerson.given ? rootPerson.given.split(/\s+/)[0] : rootPerson.name.split(' ')[0];
 
-    if (primary.length > 0) {
-      desc += `${firstName} is mostly ${formatList(primary)}`;
-      if (secondary.length > 0) desc += `, with ${formatList(secondary)} ancestry.`;
-      else desc += ` ancestry.`;
+    let desc = '';
+    if (primary.length > 0 && secondary.length > 0) {
+      desc = t('heritageTree.analytics.descMixed', {
+        name: firstName,
+        primary: formatList(primary, localization),
+        secondary: formatList(secondary, localization),
+      });
+    } else if (primary.length > 0) {
+      desc = t('heritageTree.analytics.descPrimary', { name: firstName, primary: formatList(primary, localization) });
     } else if (secondary.length > 0) {
-      desc += `${firstName} has ${formatList(secondary)} ancestry.`;
+      desc = t('heritageTree.analytics.descSecondary', { name: firstName, secondary: formatList(secondary, localization) });
     }
 
     return { person: rootPerson, slices, desc };
-  }, [indis, rootId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [indis, rootId, localization.locale, localization.numberingSystem]);
 
   if (!show) return null;
 
@@ -362,7 +379,7 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
       className="analytics-backdrop fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="Tree analytics"
+      aria-label={t('heritageTree.analytics.title')}
       onClick={onClose}
       onWheel={(e) => e.stopPropagation()}
     >
@@ -371,11 +388,11 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-center gap-3 border-b border-border px-5 py-3">
-          <h2 className="text-base font-semibold">Tree Analytics</h2>
+          <h2 className="text-base font-semibold">{t('heritageTree.analytics.title')}</h2>
           <button
             type="button"
             className="ms-auto flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label="Close"
+            aria-label={t('common.close')}
             onClick={onClose}
           >
             <X size={16} />
@@ -385,61 +402,70 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
         <div className="flex-1 overflow-y-auto text-sm">
           {rootHeritageData && (
             <section className={SECTION}>
-              <h3 className={SECTION_TITLE}>🧬 {rootHeritageData.person.name}'s Heritage</h3>
+              <h3 className={SECTION_TITLE}>
+                🧬 {t('heritageTree.analytics.personHeritage', { name: rootHeritageData.person.name })}
+              </h3>
               {rootHeritageData.desc && <p className="mb-4 text-muted-foreground">{rootHeritageData.desc}</p>}
               {rootHeritageData.slices.length > 0 && <SegmentedBarChart data={rootHeritageData.slices} colors={originColors} />}
             </section>
           )}
 
           <section className={SECTION}>
-            <h3 className={SECTION_TITLE}>📊 Group Insights</h3>
-            <p className="mb-3 text-muted-foreground">
-              The statistics below analyze multiple relatives. Select your dataset:
-            </p>
+            <h3 className={SECTION_TITLE}>📊 {t('heritageTree.analytics.groupInsights')}</h3>
+            <p className="mb-3 text-muted-foreground">{t('heritageTree.analytics.datasetPrompt')}</p>
             <div className="flex gap-1 rounded-md bg-muted p-1">
               <button type="button" className={segmentClass(isFullData)} onClick={() => setIsFullData(true)}>
-                Entire File Data
+                {t('heritageTree.analytics.datasetWholeFile')}
               </button>
               <button type="button" className={segmentClass(!isFullData)} onClick={() => setIsFullData(false)}>
-                Everyone on Canvas
+                {t('heritageTree.analytics.datasetCanvas')}
               </button>
             </div>
           </section>
 
           <section className={SECTION}>
-            <h3 className={SECTION_TITLE}>🌍 The Melting Pot</h3>
+            <h3 className={SECTION_TITLE}>🌍 {t('heritageTree.analytics.meltingPot')}</h3>
             {originsData.length > 0 ? (
               <DonutChart data={originsData} colors={originColors} />
             ) : (
-              <p className="text-muted-foreground">No historical immigrant data available in this view.</p>
+              <p className="text-muted-foreground">{t('heritageTree.analytics.noOriginData')}</p>
             )}
           </section>
 
           <section className={SECTION}>
-            <h3 className={SECTION_TITLE}>👨‍👩‍👧‍👦 Family Size &amp; Dynamics</h3>
+            <h3 className={SECTION_TITLE}>👨‍👩‍👧‍👦 {t('heritageTree.analytics.familySize')}</h3>
             <ul className={STATS_LIST}>
-              <li className={STATS_ROW}><strong className="font-medium">Largest Branch</strong> <span className={STATS_VALUE}>{familyDynamics.largestFamily.parents} ({familyDynamics.largestFamily.count} children)</span></li>
-              <li className={STATS_ROW}><strong className="font-medium">Average Family Size</strong> <span className={STATS_VALUE}>{familyDynamics.averageSize} children</span></li>
-              <li className={STATS_ROW}><strong className="font-medium">Generational Gap</strong> <span className={STATS_VALUE}>{familyDynamics.averageGap} years (avg age of parents)</span></li>
+              <li className={STATS_ROW}>
+                <strong className="font-medium">{t('heritageTree.analytics.largestBranch')}</strong>
+                <span className={STATS_VALUE}>{t('heritageTree.analytics.largestBranchValue', { parents: familyDynamics.largestFamily.parents, count: familyDynamics.largestFamily.count, formattedCount: n(familyDynamics.largestFamily.count) })}</span>
+              </li>
+              <li className={STATS_ROW}>
+                <strong className="font-medium">{t('heritageTree.analytics.averageFamilySize')}</strong>
+                <span className={STATS_VALUE}>{t('heritageTree.analytics.childrenCount', { count: Number(familyDynamics.averageSize), formattedCount: formatDecimal(familyDynamics.averageSize, localization) })}</span>
+              </li>
+              <li className={STATS_ROW}>
+                <strong className="font-medium">{t('heritageTree.analytics.generationalGap')}</strong>
+                <span className={STATS_VALUE}>{t('heritageTree.analytics.generationalGapValue', { count: familyDynamics.averageGap, formattedCount: n(familyDynamics.averageGap) })}</span>
+              </li>
             </ul>
           </section>
 
           <section className={SECTION}>
-            <h3 className={SECTION_TITLE}>📛 Most Common Names</h3>
+            <h3 className={SECTION_TITLE}>📛 {t('heritageTree.analytics.commonNames')}</h3>
             <div className="flex flex-wrap gap-x-6 gap-y-4">
               <div className="min-w-[10rem] flex-1">
-                <h4 className={SUB_TITLE}>First Names</h4>
+                <h4 className={SUB_TITLE}>{t('heritageTree.analytics.firstNames')}</h4>
                 <ul className={STATS_LIST}>
                   {namesData.topFirst.map(([name, count], i) => (
-                    <li key={i} className={STATS_ROW}><strong className="font-medium">{name}</strong> <span className={STATS_VALUE}>{count}</span></li>
+                    <li key={i} className={STATS_ROW}><strong className="font-medium">{name}</strong> <span className={STATS_VALUE}>{n(count)}</span></li>
                   ))}
                 </ul>
               </div>
               <div className="min-w-[10rem] flex-1">
-                <h4 className={SUB_TITLE}>Surnames</h4>
+                <h4 className={SUB_TITLE}>{t('heritageTree.analytics.surnames')}</h4>
                 <ul className={STATS_LIST}>
                   {namesData.topLast.map(([name, count], i) => (
-                    <li key={i} className={STATS_ROW}><strong className="font-medium">{name}</strong> <span className={STATS_VALUE}>{count}</span></li>
+                    <li key={i} className={STATS_ROW}><strong className="font-medium">{name}</strong> <span className={STATS_VALUE}>{n(count)}</span></li>
                   ))}
                 </ul>
               </div>
@@ -447,18 +473,21 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
           </section>
 
           <section className={SECTION}>
-            <h3 className={SECTION_TITLE}>🔗 Namesakes &amp; Lineage</h3>
+            <h3 className={SECTION_TITLE}>🔗 {t('heritageTree.analytics.namesakes')}</h3>
             <ul className={STATS_LIST}>
-              <li className={STATS_ROW}><strong className="font-medium">Direct Namesakes</strong> <span className={STATS_VALUE}>{namesakesData.namesakesCount} relatives share a name with a parent</span></li>
+              <li className={STATS_ROW}>
+                <strong className="font-medium">{t('heritageTree.analytics.directNamesakes')}</strong>
+                <span className={STATS_VALUE}>{t('heritageTree.analytics.directNamesakesValue', { count: namesakesData.namesakesCount, formattedCount: n(namesakesData.namesakesCount) })}</span>
+              </li>
             </ul>
             {namesakesData.topChains.length > 0 && (
               <div className="mt-4">
-                <h4 className={SUB_TITLE}>Longest Passed-Down Names</h4>
+                <h4 className={SUB_TITLE}>{t('heritageTree.analytics.longestChains')}</h4>
                 <div className="flex flex-col gap-2">
                   {namesakesData.topChains.map((chain, i) => (
                     <div key={i} className="rounded-md border border-border bg-muted px-3 py-2.5">
                       <strong className="font-semibold text-interactive">&quot;{chain.name}&quot;</strong>
-                      <span className="ms-1.5 text-xs text-muted-foreground">({chain.path.length} generations)</span>
+                      <span className="ms-1.5 text-xs text-muted-foreground">{t('heritageTree.analytics.generationsCount', { count: chain.path.length, formattedCount: n(chain.path.length) })}</span>
                       <div className="mt-1 leading-relaxed">{chain.path.join(' → ')}</div>
                     </div>
                   ))}
@@ -468,27 +497,46 @@ export default function AnalyticsModal({ show, onClose, indis, nodes, fams, root
           </section>
 
           <section className={SECTION}>
-            <h3 className={SECTION_TITLE}>🏆 Longest Lived Relatives</h3>
+            <h3 className={SECTION_TITLE}>🏆 {t('heritageTree.analytics.longestLived')}</h3>
             <ul className={STATS_LIST}>
               {longevityData.map((p, i) => (
                 <li key={i} className={STATS_ROW}>
                   <strong className="font-medium">
                     {p.name}
-                    {p.isLiving && <span className="ms-1.5 text-xs font-normal text-success-text">(Living)</span>}
+                    {p.isLiving && <span className="ms-1.5 text-xs font-normal text-success-text">{t('heritageTree.analytics.living')}</span>}
                   </strong>
-                  <span className={STATS_VALUE}>{p.age} years ({p.bYear} - {p.isLiving ? 'Present' : p.dYear})</span>
+                  <span className={STATS_VALUE}>
+                    {t('heritageTree.analytics.lifespanValue', {
+                      count: p.age,
+                      formattedCount: n(p.age),
+                      from: n(p.bYear),
+                      to: p.isLiving ? t('heritageTree.analytics.present') : n(p.dYear),
+                    })}
+                  </span>
                 </li>
               ))}
             </ul>
           </section>
 
           <section className={SECTION}>
-            <h3 className={SECTION_TITLE}>🏥 Tree Health &amp; Stats</h3>
+            <h3 className={SECTION_TITLE}>🏥 {t('heritageTree.analytics.treeHealth')}</h3>
             <ul className={STATS_LIST}>
-              <li className={STATS_ROW}><strong className="font-medium">Total Profiles</strong> <span className={STATS_VALUE}>{treeHealth.total} relatives</span></li>
-              <li className={STATS_ROW}><strong className="font-medium">Average Lifespan</strong> <span className={STATS_VALUE}>{treeHealth.avgLifespan} years</span></li>
-              <li className={STATS_ROW}><strong className="font-medium">Profiles with Birth Dates</strong> <span className={STATS_VALUE}>{treeHealth.withBirthPct}%</span></li>
-              <li className={STATS_ROW}><strong className="font-medium">Profiles with Locations</strong> <span className={STATS_VALUE}>{treeHealth.withPlacePct}%</span></li>
+              <li className={STATS_ROW}>
+                <strong className="font-medium">{t('heritageTree.analytics.totalProfiles')}</strong>
+                <span className={STATS_VALUE}>{t('heritageTree.analytics.relativesCount', { count: treeHealth.total, formattedCount: n(treeHealth.total) })}</span>
+              </li>
+              <li className={STATS_ROW}>
+                <strong className="font-medium">{t('heritageTree.analytics.averageLifespan')}</strong>
+                <span className={STATS_VALUE}>{t('heritageTree.analytics.yearsCount', { count: treeHealth.avgLifespan, formattedCount: n(treeHealth.avgLifespan) })}</span>
+              </li>
+              <li className={STATS_ROW}>
+                <strong className="font-medium">{t('heritageTree.analytics.withBirthDates')}</strong>
+                <span className={STATS_VALUE}>{t('heritageTree.analytics.percent', { value: n(treeHealth.withBirthPct) })}</span>
+              </li>
+              <li className={STATS_ROW}>
+                <strong className="font-medium">{t('heritageTree.analytics.withLocations')}</strong>
+                <span className={STATS_VALUE}>{t('heritageTree.analytics.percent', { value: n(treeHealth.withPlacePct) })}</span>
+              </li>
             </ul>
           </section>
         </div>

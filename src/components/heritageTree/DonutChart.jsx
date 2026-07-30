@@ -5,8 +5,10 @@
  */
 import React, { useState } from 'react';
 import { cn } from '../../lib/utils.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export default function DonutChart({ data, colors }) {
+  const { t } = useTranslation();
   const [hoveredOrigin, setHoveredOrigin] = useState(null);
   const hovered = hoveredOrigin ? data.find((o) => o.origin === hoveredOrigin) : null;
 
@@ -37,10 +39,10 @@ export default function DonutChart({ data, colors }) {
               <span className="mb-0.5 text-[0.65rem] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
                 {hovered.label}
               </span>
-              <strong className="text-2xl leading-none">{hovered.percentage}%</strong>
+              <strong className="text-2xl leading-none">{t('heritageTree.analytics.percent', { value: hovered.percentage })}</strong>
             </>
           ) : (
-            <span className="text-xs text-muted-foreground">Hover to view</span>
+            <span className="text-xs text-muted-foreground">{t('heritageTree.analytics.hoverToView')}</span>
           )}
         </div>
       </div>
@@ -63,7 +65,7 @@ export default function DonutChart({ data, colors }) {
               />
               <strong className={cn('truncate font-medium', hoveredOrigin === o.origin && 'text-interactive')}>{o.label}</strong>
             </div>
-            <span className="text-muted-foreground">{o.percentage}%</span>
+            <span className="text-muted-foreground">{t('heritageTree.analytics.percent', { value: o.percentage })}</span>
           </div>
         ))}
       </div>
