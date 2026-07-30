@@ -27,7 +27,7 @@ function initialFor(person, localization) {
   return (normalized || firstGrapheme).toLocaleUpperCase(localization.locale);
 }
 
-export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null, renderBadge = null }) {
+export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null, renderBadge = null, searchRowActions = null }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const showColumn = (key) => !visibleColumns || visibleColumns.has(key);
@@ -97,14 +97,17 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
 
   return (
     <div className="flex h-full flex-col border-e border-border bg-card">
-      <div className="border-b border-border p-2.5">
+      {/* `searchRowActions` shares this row rather than taking one of its own —
+          on a phone the page's actions used to sit on a separate line above. */}
+      <div className="flex items-center gap-2 border-b border-border p-2.5">
         <Input
           dir="auto"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('persons.searchPlaceholder')}
-          className="h-10"
+          className="h-10 min-w-0 flex-1"
         />
+        {searchRowActions}
       </div>
       <div className="flex-1 overflow-auto">
         {sections.map(([letter, group]) => (

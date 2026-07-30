@@ -19,6 +19,7 @@ import { NavigationDrawer } from './NavigationDrawer.jsx';
 import { useKeyboardShortcuts } from '../lib/useKeyboardShortcuts.js';
 import { NAV_GROUPS, NAV_PINNED, findGroupForPath, isLinkActive } from '../lib/navigationConfig.js';
 import { LanguageSelect } from './LanguageSelect.jsx';
+import { usePageMeta } from '../contexts/PageMetaContext.jsx';
 
 // Loaded on demand: the palette indexes the whole nav tree, so keeping it out
 // of the entry chunk defers that cost until the user actually opens it.
@@ -274,6 +275,7 @@ export function AppShell() {
   const modal = useModal();
   const isMobile = useIsMobile();
   const { title: pageTitle, isHome } = usePageTitle();
+  const pageMeta = usePageMeta();
   const navigate = useNavigate();
   const [preferences, setPreferences] = useState(null);
   const [collapsed, setCollapsed] = useState(() => {
@@ -408,9 +410,14 @@ export function AppShell() {
               own title, so a static brand here meant the phone spent two rows
               of a small screen saying where you are. Home keeps the brand —
               it has no more specific name to show. */}
-          <h1 className="min-w-0 flex-1 truncate text-sm font-bold text-foreground">
-            {isHome ? 'CloudTreeWeb' : pageTitle}
-          </h1>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm font-bold text-foreground">
+              {isHome ? 'CloudTreeWeb' : pageTitle}
+            </h1>
+            {pageMeta ? (
+              <p className="truncate text-xs text-muted-foreground">{pageMeta}</p>
+            ) : null}
+          </div>
           <span
             className={cn(
               'inline-block w-2 h-2 rounded-full shrink-0',

@@ -283,12 +283,12 @@ export default function MapsDiagram() {
           <button
             type="button"
             onClick={() => setOptionsOpen((open) => !open)}
-            className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent"
+            className="inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs hover:bg-accent"
           >
             Options
           </button>
-          <Link to="/events" className="hidden rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent sm:inline-flex">Events</Link>
-          <Link to="/places" className="hidden rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent sm:inline-flex">Places</Link>
+          <Link to="/events" className="hidden inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs hover:bg-accent sm:inline-flex">Events</Link>
+          <Link to="/places" className="hidden inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs hover:bg-accent sm:inline-flex">Places</Link>
         </div>
         </div>
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.35fr)_minmax(140px,0.65fr)_minmax(220px,1fr)_minmax(260px,1.25fr)]">
@@ -356,7 +356,7 @@ export default function MapsDiagram() {
               <button
                 onClick={() => setPlaying((p) => !p)}
                 disabled={allYears}
-                className="rounded-md border border-border bg-secondary px-2 py-1 text-xs disabled:opacity-50"
+                className="inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs disabled:opacity-50"
                 title="Animate across the selected year range"
               >
                 {playing ? 'Stop' : 'Start'} Slideshow
@@ -369,7 +369,7 @@ export default function MapsDiagram() {
                     setStepYears(Number(e.target.value));
                     setVisualOptions((current) => normalizeVisualViewOptions('mapStory', { ...current, slideshowYearStep: Number(e.target.value) }));
                   }}
-                  className="rounded-md border border-border bg-secondary px-1 py-0.5 text-xs"
+                  className="inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2 text-xs"
                 >
                   {[1, 2, 5, 10, 25].map((n) => <option key={n} value={n}>{n}y</option>)}
                 </select>
@@ -486,9 +486,9 @@ function EventDetail({ event, selected }) {
         ) : null}
       </dl>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Link to={`/events?eventId=${encodeURIComponent(event.recordName)}`} className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Open Event</Link>
-        <Link to={`/places?placeId=${encodeURIComponent(event.placeId)}`} className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Open Place</Link>
-        <Link to={`/views/media-gallery?targetId=${encodeURIComponent(event.recordName)}&targetType=${event.recordType}`} className="rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent">Related Media</Link>
+        <Link to={`/events?eventId=${encodeURIComponent(event.recordName)}`} className="inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs hover:bg-accent">Open Event</Link>
+        <Link to={`/places?placeId=${encodeURIComponent(event.placeId)}`} className="inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs hover:bg-accent">Open Place</Link>
+        <Link to={`/views/media-gallery?targetId=${encodeURIComponent(event.recordName)}&targetType=${event.recordType}`} className="inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs hover:bg-accent">Related Media</Link>
       </div>
     </div>
   );

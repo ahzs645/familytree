@@ -147,7 +147,7 @@ export default function Slideshow() {
         <div className="ms-auto flex items-center gap-2 flex-wrap">
           <select value={filter} onChange={(e) => setFilter(e.target.value)}
             disabled={selectedIds.length > 0}
-            className="bg-secondary border border-border rounded-md px-2 py-1 text-xs disabled:opacity-50">
+            className="bg-secondary border border-border rounded-md h-8 px-2.5 text-xs disabled:opacity-50">
             <option value="all">All media</option>
             <option value="MediaPicture">Pictures only</option>
             <option value="MediaURL">URLs only</option>
@@ -156,7 +156,7 @@ export default function Slideshow() {
             <option value="MediaVideo">Video only</option>
           </select>
           <select value={eventFilter} onChange={(e) => setEventFilter(e.target.value)}
-            className="bg-secondary border border-border rounded-md px-2 py-1 text-xs" aria-label="Event filter">
+            className="bg-secondary border border-border rounded-md h-8 px-2.5 text-xs" aria-label="Event filter">
             <option value="all">Any event</option>
             <option value="birth">Birth</option>
             <option value="marriage">Marriage</option>
@@ -169,13 +169,13 @@ export default function Slideshow() {
             className="bg-background border border-border rounded-md w-14 px-2 py-1 text-xs" />
           <span className="text-xs text-muted-foreground">sec</span>
           <select value={fit} onChange={(e) => setFit(e.target.value)}
-            className="bg-secondary border border-border rounded-md px-2 py-1 text-xs" aria-label="Image fit">
+            className="bg-secondary border border-border rounded-md h-8 px-2.5 text-xs" aria-label="Image fit">
             <option value="contain">Fit</option>
             <option value="cover">Fill</option>
             <option value="actual">Actual</option>
           </select>
           <select value={background} onChange={(e) => setBackground(e.target.value)}
-            className="bg-secondary border border-border rounded-md px-2 py-1 text-xs" aria-label="Backdrop">
+            className="bg-secondary border border-border rounded-md h-8 px-2.5 text-xs" aria-label="Backdrop">
             <option value="dark">Dark</option>
             <option value="light">Light</option>
             <option value="soft">Soft</option>
@@ -184,9 +184,9 @@ export default function Slideshow() {
           <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={showMetadata} onChange={(e) => setShowMetadata(e.target.checked)} /> Details</label>
           <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} /> Loop</label>
           <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={random} onChange={(e) => setRandom(e.target.checked)} /> Shuffle</label>
-          <button onClick={toggleFullscreen} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">{fullscreen ? 'Exit full' : 'Fullscreen'}</button>
+          <button onClick={toggleFullscreen} className="bg-secondary border border-border rounded-md h-8 px-3 text-xs">{fullscreen ? 'Exit full' : 'Fullscreen'}</button>
           <button onClick={() => setPlaying((p) => !p)}
-            className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">{playing ? '❚❚' : '▶'}</button>
+            className="bg-secondary border border-border rounded-md h-8 px-3 text-xs">{playing ? '❚❚' : '▶'}</button>
         </div>
       </header>
       <div className={`flex-1 flex flex-col items-center justify-center p-6 relative overflow-hidden ${backdropClass}`}>

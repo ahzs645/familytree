@@ -8,6 +8,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Link, Navigate } from 'react-router-dom';
 import { AppShell } from './components/AppShell.jsx';
 import { ActivePersonProvider } from './contexts/ActivePersonContext.jsx';
+import { PageMetaProvider } from './contexts/PageMetaContext.jsx';
 import { DatabaseStatusProvider } from './contexts/DatabaseStatusContext.jsx';
 import { ThemeProvider } from './contexts/ThemeContext.jsx';
 import { ModalProvider } from './contexts/ModalContext.jsx';
@@ -124,6 +125,7 @@ export function App() {
        <ModalProvider>
        <DatabaseStatusProvider>
         <ActivePersonProvider>
+         <PageMetaProvider>
          <RemoteDatasetProvider>
           <DeepLinkHandler />
           <SchemaMigrationSheet />
@@ -138,6 +140,7 @@ export function App() {
           </Routes>
           </SharePreviewGate>
          </RemoteDatasetProvider>
+         </PageMetaProvider>
         </ActivePersonProvider>
        </DatabaseStatusProvider>
        </ModalProvider>

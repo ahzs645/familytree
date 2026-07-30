@@ -245,7 +245,7 @@ export default function Globe() {
               key={type.id}
               type="button"
               onClick={() => setOverlay(type.id)}
-              className={`px-2 py-1 text-[11px] rounded-md border ${overlay === type.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-foreground border-border hover:bg-accent'}`}
+              className={`inline-flex h-8 items-center rounded-md border px-2.5 text-xs ${overlay === type.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-foreground border-border hover:bg-accent'}`}
               title={`Show ${type.label.toLowerCase()}`}
             >
               {type.label}

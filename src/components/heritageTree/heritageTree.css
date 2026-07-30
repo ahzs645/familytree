@@ -49,7 +49,6 @@
   --ht-blood-line: hsl(var(--muted-foreground));
   --ht-legend-bg: hsl(var(--card));
   --ht-label-bg: hsl(var(--card));
-  --ht-label-border: hsl(var(--interactive));
   --ht-band-line: hsl(var(--border));
 }
 
@@ -62,7 +61,7 @@
   --ht-shadow: rgba(28, 25, 23, 0.08); --ht-shadow-selected: rgba(153, 27, 27, 0.25);
   --ht-marriage-line: #0284c7; --ht-blood-line: #991b1b;
   --ht-legend-bg: rgba(250, 246, 238, 0.95);
-  --ht-label-bg: rgba(249, 246, 240, 0.95); --ht-label-border: #991b1b;
+  --ht-label-bg: rgba(249, 246, 240, 0.95);
   --ht-band-line: rgba(28, 25, 23, 0.15);
 }
 .heritage-tree-view[data-heritage-theme='ink'] {
@@ -72,7 +71,7 @@
   --ht-shadow: rgba(0, 0, 0, 0.5); --ht-shadow-selected: rgba(56, 189, 248, 0.3);
   --ht-marriage-line: #a78bfa; --ht-blood-line: #38bdf8;
   --ht-legend-bg: rgba(30, 41, 59, 0.95);
-  --ht-label-bg: rgba(15, 23, 42, 0.95); --ht-label-border: #38bdf8;
+  --ht-label-bg: rgba(15, 23, 42, 0.95);
   --ht-band-line: rgba(248, 250, 252, 0.1);
 }
 .heritage-tree-view[data-heritage-theme='ocean'] {
@@ -82,7 +81,7 @@
   --ht-shadow: rgba(2, 132, 199, 0.1); --ht-shadow-selected: rgba(2, 132, 199, 0.3);
   --ht-marriage-line: #7c3aed; --ht-blood-line: #0284c7;
   --ht-legend-bg: rgba(255, 255, 255, 0.95);
-  --ht-label-bg: rgba(240, 249, 255, 0.95); --ht-label-border: #0284c7;
+  --ht-label-bg: rgba(240, 249, 255, 0.95);
   --ht-band-line: rgba(2, 132, 199, 0.15);
 }
 .heritage-tree-view[data-heritage-theme='forest'] {
@@ -92,7 +91,7 @@
   --ht-shadow: rgba(22, 101, 52, 0.1); --ht-shadow-selected: rgba(21, 128, 61, 0.3);
   --ht-marriage-line: #0369a1; --ht-blood-line: #15803d;
   --ht-legend-bg: rgba(245, 249, 244, 0.95);
-  --ht-label-bg: rgba(240, 253, 244, 0.95); --ht-label-border: #15803d;
+  --ht-label-bg: rgba(240, 253, 244, 0.95);
   --ht-band-line: rgba(22, 101, 52, 0.15);
 }
 .heritage-tree-view[data-heritage-theme='monochrome'] {
@@ -102,7 +101,7 @@
   --ht-shadow: rgba(0, 0, 0, 0.1); --ht-shadow-selected: rgba(0, 0, 0, 0.5);
   --ht-marriage-line: #6b7280; --ht-blood-line: #000000;
   --ht-legend-bg: rgba(255, 255, 255, 0.95);
-  --ht-label-bg: rgba(249, 250, 251, 0.95); --ht-label-border: #000000;
+  --ht-label-bg: rgba(249, 250, 251, 0.95);
   --ht-band-line: rgba(0, 0, 0, 0.15);
 }
 
@@ -150,20 +149,6 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
 }
 
-/* The app grows controls on touch devices (see the `pointer: coarse` block in
-   index.css), but its global rule only sets a min-height plus a token
-   min-width — which leaves these square icon buttons 36px wide. Give them the
-   same 40px target in both directions. */
-@media (pointer: coarse) {
-  /* `summary` too: the overflow sheet's trigger is a <summary>, which the
-     app's global button rule does not reach. */
-  .heritage-tree-view header button,
-  .heritage-tree-view header summary {
-    min-width: 40px;
-    min-height: 40px;
-  }
-}
-
 .heritage-tree-view #canvas {
   position: absolute;
   top: var(--ht-header-h);
@@ -171,7 +156,7 @@
      `left`, and the pan maths in HeritageTree.jsx assumes the same origin. In
      RTL an unpositioned absolute box anchors right instead, which put the whole
      tree off-screen. Card text still follows the reading direction — the cards
-     set `direction: auto`. */
+     align to `start` and bidi-isolate their names. */
   left: 0;
   transform-origin: 0 0;
   will-change: transform;
@@ -194,26 +179,27 @@
   border-top: 1px dashed var(--ht-band-line);
 }
 
+/* A quiet chip tabbed off the edge of the view. It used to be bare text with a
+   2px accent rule on its inner edge and a 3px radius — at that width the radius
+   rounded the rule into a tapered sliver that read as a stray mark rather than
+   part of the label. The generation bands already run across the canvas, so the
+   label does not need a pointer of its own. */
 .heritage-tree-view .gen-label {
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   z-index: 20;
   pointer-events: none;
-  font-family: var(--ht-font-display);
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
-  color: var(--ht-accent);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--ht-ink-light);
   background: var(--ht-label-bg);
-  border-inline-end: 2px solid var(--ht-label-border);
-  border-radius: 0 3px 3px 0;
-  padding: 3px 10px 3px 8px;
+  border: 1px solid var(--ht-card-border);
+  border-inline-start: 0;
+  border-start-end-radius: 999px;
+  border-end-end-radius: 999px;
+  padding: 2px 12px 2px 10px;
   white-space: nowrap;
-}
-.heritage-tree-view[dir='rtl'] .gen-label {
-  left: auto;
-  right: 0;
-  border-radius: 3px 0 0 3px;
-  padding: 3px 8px 3px 10px;
 }
 
 /* ==========================================================================

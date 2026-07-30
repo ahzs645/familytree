@@ -26,6 +26,7 @@ import { findRelationshipPaths } from '../lib/relationshipPath.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { cn } from '../lib/utils.js';
 import { PageTitle } from '../components/ui/PageTitle.jsx';
+import { useSetPageMeta } from '../contexts/PageMetaContext.jsx';
 
 const ME_PERSON_STORAGE_KEY = 'cloudtreeweb:mePersonId';
 
@@ -216,6 +217,14 @@ export default function Persons() {
     navigate('/tree');
   };
 
+  const summaryLine = t('persons.summary', {
+    visible: formatInteger(visiblePersons.length, localization),
+    total: formatInteger(persons.length, localization),
+  });
+  // The phone's app bar shows this under the page name, so the page does not
+  // need a row for it.
+  useSetPageMeta(isMobile ? summaryLine : null);
+
   if (loading) return <div className="p-10 text-muted-foreground">{t('persons.loading')}</div>;
 
   const filterOptions = [
@@ -313,42 +322,40 @@ export default function Persons() {
     </>
   );
 
+  // Sit beside the search field on a phone rather than on a row of their own.
+  const mobileSearchActions = (
+    <>
+      {newPersonAction}
+      <details className="group relative shrink-0">
+        <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-secondary text-foreground hover:bg-accent [&::-webkit-details-marker]:hidden" aria-label={t('persons.filter')}>
+          <SlidersHorizontal size={17} />
+        </summary>
+        <div className="absolute end-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-1.5rem))] rounded-md border border-border bg-card p-3 shadow-xl">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            {listActions}
+          </div>
+          <div className="grid grid-cols-1 gap-2">
+            {filterControls}
+          </div>
+          {mePerson ? (
+            <div className="mt-2 text-xs text-muted-foreground">
+              {t('persons.meHint', { name: mePerson.fullName })}
+            </div>
+          ) : null}
+        </div>
+      </details>
+    </>
+  );
+
   return (
     <div className="flex flex-col h-full">
-      <header className="border-b border-border bg-card px-3 py-2 md:px-5 md:py-3">
+      <header className="hidden border-b border-border bg-card px-3 py-2 md:block md:px-5 md:py-3">
         <div className="flex items-start gap-2 md:mb-3">
           <div className="min-w-0 flex-1">
             <PageTitle className="text-base font-semibold leading-tight">{t('persons.heading')}</PageTitle>
-            <div className="text-xs text-muted-foreground">
-              {t('persons.summary', {
-                visible: formatInteger(visiblePersons.length, localization),
-                total: formatInteger(persons.length, localization),
-              })}
-            </div>
+            <div className="hidden text-xs text-muted-foreground md:block">{summaryLine}</div>
           </div>
-          {isMobile ? (
-            <>
-            {newPersonAction}
-            <details className="group relative">
-              <summary className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-secondary text-foreground hover:bg-accent [&::-webkit-details-marker]:hidden" aria-label={t('persons.filter')}>
-                <SlidersHorizontal size={17} />
-              </summary>
-              <div className="absolute end-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-1.5rem))] rounded-md border border-border bg-card p-3 shadow-xl">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  {listActions}
-                </div>
-                <div className="grid grid-cols-1 gap-2">
-                  {filterControls}
-                </div>
-                {mePerson ? (
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    {t('persons.meHint', { name: mePerson.fullName })}
-                  </div>
-                ) : null}
-              </div>
-            </details>
-            </>
-          ) : (
+          {!isMobile && (
             <div className="flex flex-wrap items-center gap-2">
               {listActions}
             </div>
@@ -381,6 +388,7 @@ export default function Persons() {
               </div>
             ) : null}
             <PersonList
+              searchRowActions={isMobile ? mobileSearchActions : null}
               persons={visiblePersons}
               activeId={activeId}
               onPick={pick}

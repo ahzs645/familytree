@@ -17,9 +17,12 @@ export default function Templates() {
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-2 px-5 py-3 border-b border-border bg-card flex-wrap">
         <h2 className="text-base font-semibold me-2">Templates &amp; Types</h2>
+        {/* The selected tab carries a transparent border rather than none:
+            without it its border-box is 2px shorter than its neighbours, so the
+            active tab sat lower than the rest of the row. */}
         {TEMPLATE_TABS.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium ${tab === t.id ? 'bg-primary text-primary-foreground' : 'bg-secondary text-foreground border border-border hover:bg-accent'}`}>
+            className={`inline-flex h-8 items-center rounded-md px-3 text-xs font-medium border ${tab === t.id ? 'bg-primary text-primary-foreground border-transparent' : 'bg-secondary text-foreground border-border hover:bg-accent'}`}>
             {t.label}
           </button>
         ))}

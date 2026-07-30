@@ -268,17 +268,25 @@ input[type="radio"]:not(.sr-only):disabled {
 @media (pointer: coarse) {
   button,
   [role="button"],
+  summary,
   select,
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
   textarea {
     min-height: 40px;
   }
 
-  /* No button is meant to be thinner than this; catches icon-only "×" buttons
-   * that only ever had padding to give them width. */
+  /* Square, not just tall. The min-width used to be 24px, which left icon-only
+   * buttons stretched to 40 tall but as narrow as 32 — an audit of the chrome
+   * on all 90 routes found four of them, all on the same page. Text buttons are
+   * wider than 40px anyway, so this only ever squares up the icons.
+   *
+   * `summary` is here because a <details> disclosure is a real target — the
+   * Persons filter and the Heritage Tree overflow are both one — and it matches
+   * none of the selectors above. */
   button,
-  [role="button"] {
-    min-width: 24px;
+  [role="button"],
+  summary {
+    min-width: 40px;
   }
 
   /* The label wrapping a checkbox is usually the real target, but the box

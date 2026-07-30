@@ -19,6 +19,7 @@ import { Button } from '../ui/Button.jsx';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { useSetPageMeta } from '../../contexts/PageMetaContext.jsx';
 import { PageTitle } from '../ui/PageTitle.jsx';
 
 const THEME_KEYS = ['app', 'classic', 'ink', 'ocean', 'forest', 'monochrome'];
@@ -57,6 +58,10 @@ export default function Header({
   const overflowRef = useRef(null);
   const { t } = useTranslation();
   const isMobile = useIsMobile();
+  const summaryLine = rootName
+    ? `${t('heritageTree.subtitleForRoot', { count: maxGen })} ${rootName}`
+    : t('heritageTree.subtitle', { count: maxGen });
+  useSetPageMeta(isMobile ? summaryLine : null);
 
   const zoomOut = () => setView((prev) => ({ ...prev, scale: Math.max(0.1, prev.scale - 0.12) }));
   const zoomIn = () => setView((prev) => ({ ...prev, scale: Math.min(2, prev.scale + 0.12) }));
@@ -120,7 +125,9 @@ export default function Header({
       ref={headerRef}
       className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-card px-3 py-2 md:px-5"
     >
-      <div className="min-w-0 flex-1">
+      {/* Desktop only: on a phone the app bar carries both the title and this
+          summary, so the toolbar keeps its row for controls. */}
+      <div className="hidden min-w-0 flex-1 md:block">
         <PageTitle className="text-base font-semibold leading-tight">{t('heritageTree.title')}</PageTitle>
         <p className="truncate text-xs text-muted-foreground">
           {rootName
