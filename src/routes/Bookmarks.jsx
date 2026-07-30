@@ -135,7 +135,7 @@ export default function Bookmarks() {
                       <button onClick={() => !editMode && navigate(href)}
                         className="flex-1 text-start min-w-0">
                         <div className="text-sm font-medium truncate">★ <BdiText>{label}</BdiText></div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5 truncate"><LtrText>{r.recordName}</LtrText></div>
+                        <div className="text-2xs text-muted-foreground mt-0.5 truncate"><LtrText>{r.recordName}</LtrText></div>
                       </button>
                       {!editMode ? (
                         <button

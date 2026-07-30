@@ -370,7 +370,7 @@ export default function TribalAffiliations() {
         <span className="text-xs text-muted-foreground">{model.affiliations.length}</span>
         {status && <span className="text-xs text-success-text">{status}</span>}
         <div className="ms-auto flex flex-wrap items-center gap-2">
-          <button onClick={importIraqiSeed} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Import Iraqi Seed</button>
+          <button onClick={importIraqiSeed} className="inline-flex h-8 items-center border border-border rounded-md px-3 text-xs hover:bg-accent">Import Iraqi Seed</button>
           <Button variant="primary" size="sm" onClick={onCreate}>+ New</Button>
         </div>
       </header>

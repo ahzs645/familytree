@@ -27,7 +27,7 @@ export function Field({ label, children, hint }) {
     <label className="flex-1 min-w-0 block">
       <span className="block text-xs font-medium text-muted-foreground mb-1">{label}</span>
       {children}
-      {hint && <span className="block text-[11px] text-muted-foreground mt-1">{hint}</span>}
+      {hint && <span className="block text-2xs text-muted-foreground mt-1">{hint}</span>}
     </label>
   );
 }
@@ -47,7 +47,7 @@ export function Empty({ title, hint }) {
 export function ReadOnly({ label, value }) {
   return (
     <div className="mb-2 last:mb-0">
-      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className="text-2xs text-muted-foreground uppercase tracking-wide">{label}</div>
       <div className="text-sm">{value}</div>
     </div>
   );
@@ -71,7 +71,7 @@ export function EvidenceMetric({ label, value, tone }) {
   return (
     <div className="rounded-md border border-border bg-background px-3 py-2">
       <div className={`text-sm font-semibold ${toneClass(tone)}`}>{value}</div>
-      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="text-2xs text-muted-foreground">{label}</div>
     </div>
   );
 }
@@ -79,7 +79,7 @@ export function EvidenceMetric({ label, value, tone }) {
 export function EvidenceBadge({ evidence, onClick }) {
   const { t } = useTranslation();
   if (!evidence) return null;
-  const cls = `ms-auto shrink-0 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${toneClass(evidence.state)} ${borderToneClass(evidence.state)}`;
+  const cls = `ms-auto shrink-0 rounded border px-2 py-0.5 text-2xs font-bold uppercase tracking-wide ${toneClass(evidence.state)} ${borderToneClass(evidence.state)}`;
   const stateLabel = t(`editor.evidence.state.${evidence.state}`, { defaultValue: evidence.state });
   if (!onClick) {
     return <span className={cls}>{stateLabel}</span>;

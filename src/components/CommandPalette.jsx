@@ -151,12 +151,12 @@ export function CommandPalette({ commands = [], open: controlledOpen, onOpenChan
               >
                 <span className="flex-1 truncate">{entry.label}</span>
                 {entry.section ? <span className="text-xs text-muted-foreground">{entry.section}</span> : null}
-                {entry.shortcut ? <kbd className="text-[10px] font-semibold border border-border rounded px-1.5 py-0.5">{entry.shortcut}</kbd> : null}
+                {entry.shortcut ? <kbd className="text-2xs font-semibold border border-border rounded px-1.5 py-0.5">{entry.shortcut}</kbd> : null}
               </li>
             ))
           )}
         </ul>
-        <div className="border-t border-border px-4 py-2 text-[11px] text-muted-foreground flex items-center justify-between">
+        <div className="border-t border-border px-4 py-2 text-2xs text-muted-foreground flex items-center justify-between">
           <span>{t('commandPalette.footer')}</span>
           <kbd className="font-semibold border border-border rounded px-1.5 py-0.5">⌘K</kbd>
         </div>

@@ -139,7 +139,7 @@ export function PersonPicker({ persons, value, onChange, triggerClassName, note 
                   <div className="text-xs text-muted-foreground">{note(p)}</div>
                 ) : null}
                 {query.trim() && p.lineageSearchText ? (
-                  <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  <div className="mt-0.5 text-2xs text-muted-foreground">
                     <BdiText>{p.lineageSearchText}</BdiText>
                   </div>
                 ) : null}

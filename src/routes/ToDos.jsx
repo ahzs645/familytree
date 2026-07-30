@@ -345,10 +345,10 @@ export default function ToDos() {
         <span className="text-xs text-muted-foreground">{todos.length}</span>
         {status && <span className="text-xs text-muted-foreground">{status}</span>}
         <div className="ms-auto flex flex-wrap items-center gap-2">
-          <button onClick={onDeleteCompleted} className="border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
+          <button onClick={onDeleteCompleted} className="inline-flex h-8 items-center border border-border bg-secondary rounded-md px-3 text-xs">
             {t('todosPage.deleteCompleted')}
           </button>
-          <button onClick={() => setWizardOpen(true)} className="border border-border bg-secondary rounded-md px-3 py-1.5 text-xs">
+          <button onClick={() => setWizardOpen(true)} className="inline-flex h-8 items-center border border-border bg-secondary rounded-md px-3 text-xs">
             {t('todosPage.wizardButton')}
           </button>
           <Button variant="primary" size="sm" onClick={onCreate}>{t('todosPage.newButton')}</Button>

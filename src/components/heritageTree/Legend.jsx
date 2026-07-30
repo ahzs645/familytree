@@ -36,7 +36,7 @@ export default function Legend({ nodes }) {
 
       {uniqueOrigins.length > 0 && (
         <>
-          <div className="mt-2 border-t border-border pt-2 text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="mt-2 border-t border-border pt-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('heritageTree.legend.origins')}
           </div>
           <div className="mt-1 flex flex-col gap-1">

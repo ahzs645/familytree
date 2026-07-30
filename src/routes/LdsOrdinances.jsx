@@ -318,7 +318,7 @@ export default function LdsOrdinances() {
 function ReadOnlyCell({ label, value }) {
   return (
     <div className="grid grid-cols-[120px_1fr] gap-2">
-      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="text-2xs uppercase tracking-wide text-muted-foreground">{label}</span>
       <span className="break-words">{value}</span>
     </div>
   );

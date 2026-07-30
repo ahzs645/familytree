@@ -476,7 +476,7 @@ export default function Sources() {
 function ReadOnly({ label, value }) {
   return (
     <div className="mb-2 last:mb-0">
-      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className="text-2xs text-muted-foreground uppercase tracking-wide">{label}</div>
       <div className="text-sm">{value}</div>
     </div>
   );

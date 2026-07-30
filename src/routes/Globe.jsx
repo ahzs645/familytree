@@ -249,12 +249,12 @@ export default function Globe() {
               title={`Show ${type.label.toLowerCase()}`}
             >
               {type.label}
-              <span className="ms-1 text-[10px] opacity-70">{countsByOverlay[type.id] || 0}</span>
+              <span className="ms-1 text-2xs opacity-70">{countsByOverlay[type.id] || 0}</span>
             </button>
           ))}
         </div>
         {yearBounds.min !== null && yearBounds.max !== null && (
-          <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
             <span className="whitespace-nowrap">Year {yearFrom}–{yearTo}</span>
             <input
               type="range"
@@ -287,7 +287,7 @@ export default function Globe() {
         <button
           type="button"
           onClick={() => setOptionsOpen((open) => !open)}
-          className="ms-auto rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs hover:bg-accent"
+          className="ms-auto inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs hover:bg-accent"
         >
           Options
         </button>

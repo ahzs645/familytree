@@ -36,7 +36,7 @@ export default function DonutChart({ data, colors }) {
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-3 text-center">
           {hovered ? (
             <>
-              <span className="mb-0.5 text-[0.65rem] font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
+              <span className="mb-0.5 text-2xs font-semibold uppercase leading-tight tracking-wide text-muted-foreground">
                 {hovered.label}
               </span>
               <strong className="text-2xl leading-none">{t('heritageTree.analytics.percent', { value: hovered.percentage })}</strong>

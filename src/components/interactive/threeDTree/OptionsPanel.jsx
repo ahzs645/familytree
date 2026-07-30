@@ -102,7 +102,7 @@ export function OptionsPanel({ viewerOptions, onChange, onClose }) {
               onClick={() => toggle(group.id)}
               aria-expanded={open[group.id]}
             >
-              <span className="inline-block w-3 text-[10px] font-bold text-muted-foreground">{open[group.id] ? '▾' : '▸'}</span>
+              <span className="inline-block w-3 text-2xs font-bold text-muted-foreground">{open[group.id] ? '▾' : '▸'}</span>
               {group.label}
             </button>
             {open[group.id] && (
@@ -439,7 +439,7 @@ function SliderRow({ label, min, max, step, value, onChange, valueFormatter }) {
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
         <span className={ROW_LABEL_CLASS}>{label}</span>
-        <span className="font-mono text-[10px] font-semibold text-muted-foreground">{valueFormatter ? valueFormatter(value) : value}</span>
+        <span className="font-mono text-2xs font-semibold text-muted-foreground">{valueFormatter ? valueFormatter(value) : value}</span>
       </div>
       <input
         type="range"

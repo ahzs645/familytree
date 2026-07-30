@@ -17,6 +17,7 @@ import { exportTreeToPdf } from './exportTree.js';
 import BdiText from '../BdiText.jsx';
 import { Button } from '../ui/Button.jsx';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
+import { Select } from '../ui/Select.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { useSetPageMeta } from '../../contexts/PageMetaContext.jsx';
@@ -24,8 +25,9 @@ import { PageTitle } from '../ui/PageTitle.jsx';
 
 const THEME_KEYS = ['app', 'classic', 'ink', 'ocean', 'forest', 'monochrome'];
 
-const ICON_BUTTON = 'h-9 w-9';
-const SELECT = 'h-9 rounded-md border border-border bg-secondary text-foreground text-sm outline-none cursor-pointer hover:bg-accent focus:border-primary';
+// The compact rung — see ui/Button.jsx. Touch devices grow it to 40px via
+// the `pointer: coarse` rule in index.css.
+const ICON_BUTTON = 'h-8 w-8';
 const MENU_ITEM = 'flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-start text-sm hover:bg-accent';
 
 /**
@@ -75,22 +77,21 @@ export default function Header({
       persons={individuals}
       value={rootId || ''}
       onChange={setSelectedRootId}
-      triggerClassName="h-9"
+      triggerClassName="h-8"
       note={(person) => (person.disconnected ? t('heritageTree.notConnected') : null)}
     />
   );
 
+  const themeOptions = THEME_KEYS.map((key) => ({ value: key, label: t(`heritageTree.themes.${key}`) }));
   const themeSelect = (
-    <select
+    <Select
       value={theme}
-      aria-label={t('heritageTree.themeAria')}
-      onChange={(e) => setTheme(e.target.value)}
-      className={`${SELECT} ps-2.5`}
-    >
-      {THEME_KEYS.map((key) => (
-        <option key={key} value={key}>{t(`heritageTree.themes.${key}`)}</option>
-      ))}
-    </select>
+      onChange={setTheme}
+      options={themeOptions}
+      ariaLabel={t('heritageTree.themeAria')}
+      className="w-auto min-w-[8.5rem]"
+      triggerClassName="h-8 ps-2.5 pe-7 text-sm"
+    />
   );
 
   const zoomControls = (
@@ -144,26 +145,23 @@ export default function Header({
           </Button>
           <details ref={overflowRef} className="relative">
             <summary
-              className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-secondary text-foreground hover:bg-accent [&::-webkit-details-marker]:hidden"
+              className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-secondary text-foreground hover:bg-accent [&::-webkit-details-marker]:hidden"
               aria-label={t('heritageTree.moreActions')}
             >
               <Ellipsis size={18} />
             </summary>
             <div className="absolute end-0 top-full z-40 mt-2 w-[min(17rem,calc(100vw-1.5rem))] rounded-md border border-border bg-card p-2 shadow-xl">
               <div className="px-2 pb-2">
-                <label className="mb-1 block text-xs text-muted-foreground" htmlFor="heritage-theme">
+                <span className="mb-1 block text-xs text-muted-foreground" aria-hidden="true">
                   {t('heritageTree.themeAria')}
-                </label>
-                <select
-                  id="heritage-theme"
+                </span>
+                <Select
                   value={theme}
-                  onChange={(e) => setTheme(e.target.value)}
-                  className={`${SELECT} w-full ps-2.5`}
-                >
-                  {THEME_KEYS.map((key) => (
-                    <option key={key} value={key}>{t(`heritageTree.themes.${key}`)}</option>
-                  ))}
-                </select>
+                  onChange={setTheme}
+                  options={themeOptions}
+                  ariaLabel={t('heritageTree.themeAria')}
+                  triggerClassName="h-10 ps-2.5 pe-7 text-sm"
+                />
               </div>
 
               <div className="flex items-center justify-between gap-2 border-t border-border px-2 py-2">

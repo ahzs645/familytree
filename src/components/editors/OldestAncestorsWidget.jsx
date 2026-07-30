@@ -44,7 +44,7 @@ export function OldestAncestorsWidget({ recordName }) {
                 {ancestor.birthYear != null ? ancestor.birthYear : '—'}
               </LtrText>
             </div>
-            <div className="text-[11px] text-muted-foreground flex gap-2">
+            <div className="text-2xs text-muted-foreground flex gap-2">
               <span>{t('editor.oldestAncestors.generationsUp', { count: ancestor.generations, defaultValue: `${ancestor.generations} generations up` })}</span>
               {ancestor.deathDate && <span>· <LtrText>{formatVitalDateParts({ deathDate: ancestor.deathDate })[0]}</LtrText></span>}
             </div>

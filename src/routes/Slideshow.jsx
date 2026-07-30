@@ -8,6 +8,7 @@ import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { getAppPreferences } from '../lib/appPreferences.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { PageTitle } from '../components/ui/PageTitle.jsx';
+import { Select } from '../components/ui/Select.jsx';
 import {
   mediaAssetSrc,
   mediaDisplayLabel,
@@ -145,41 +146,65 @@ export default function Slideshow() {
         <PageTitle className="text-base font-semibold">Slideshow</PageTitle>
         <span className="text-xs text-muted-foreground">{index + 1} / {media.length}</span>
         <div className="ms-auto flex items-center gap-2 flex-wrap">
-          <select value={filter} onChange={(e) => setFilter(e.target.value)}
+          <Select
+            value={filter}
+            onChange={setFilter}
             disabled={selectedIds.length > 0}
-            className="bg-secondary border border-border rounded-md h-8 px-2.5 text-xs disabled:opacity-50">
-            <option value="all">All media</option>
-            <option value="MediaPicture">Pictures only</option>
-            <option value="MediaURL">URLs only</option>
-            <option value="MediaPDF">PDFs only</option>
-            <option value="MediaAudio">Audio only</option>
-            <option value="MediaVideo">Video only</option>
-          </select>
-          <select value={eventFilter} onChange={(e) => setEventFilter(e.target.value)}
-            className="bg-secondary border border-border rounded-md h-8 px-2.5 text-xs" aria-label="Event filter">
-            <option value="all">Any event</option>
-            <option value="birth">Birth</option>
-            <option value="marriage">Marriage</option>
-            <option value="death">Death</option>
-            <option value="residence">Residence</option>
-          </select>
+            ariaLabel="Media type"
+            className="w-auto"
+            triggerClassName="h-8 ps-2.5 pe-7 text-xs"
+            options={[
+              { value: 'all', label: 'All media' },
+              { value: 'MediaPicture', label: 'Pictures only' },
+              { value: 'MediaURL', label: 'URLs only' },
+              { value: 'MediaPDF', label: 'PDFs only' },
+              { value: 'MediaAudio', label: 'Audio only' },
+              { value: 'MediaVideo', label: 'Video only' },
+            ]}
+          />
+          <Select
+            value={eventFilter}
+            onChange={setEventFilter}
+            ariaLabel="Event filter"
+            className="w-auto"
+            triggerClassName="h-8 ps-2.5 pe-7 text-xs"
+            options={[
+              { value: 'all', label: 'Any event' },
+              { value: 'birth', label: 'Birth' },
+              { value: 'marriage', label: 'Marriage' },
+              { value: 'death', label: 'Death' },
+              { value: 'residence', label: 'Residence' },
+            ]}
+          />
           <label className="text-xs text-muted-foreground">Interval</label>
           <input type="number" min={1} max={60} value={interval}
             onChange={(e) => setIntervalSec(Math.max(1, +e.target.value || 5))}
-            className="bg-background border border-border rounded-md w-14 px-2 py-1 text-xs" />
+            className="bg-background border border-border rounded-md h-8 w-14 px-2 text-xs" />
           <span className="text-xs text-muted-foreground">sec</span>
-          <select value={fit} onChange={(e) => setFit(e.target.value)}
-            className="bg-secondary border border-border rounded-md h-8 px-2.5 text-xs" aria-label="Image fit">
-            <option value="contain">Fit</option>
-            <option value="cover">Fill</option>
-            <option value="actual">Actual</option>
-          </select>
-          <select value={background} onChange={(e) => setBackground(e.target.value)}
-            className="bg-secondary border border-border rounded-md h-8 px-2.5 text-xs" aria-label="Backdrop">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-            <option value="soft">Soft</option>
-          </select>
+          <Select
+            value={fit}
+            onChange={setFit}
+            ariaLabel="Image fit"
+            className="w-auto"
+            triggerClassName="h-8 ps-2.5 pe-7 text-xs"
+            options={[
+              { value: 'contain', label: 'Fit' },
+              { value: 'cover', label: 'Fill' },
+              { value: 'actual', label: 'Actual' },
+            ]}
+          />
+          <Select
+            value={background}
+            onChange={setBackground}
+            ariaLabel="Backdrop"
+            className="w-auto"
+            triggerClassName="h-8 ps-2.5 pe-7 text-xs"
+            options={[
+              { value: 'dark', label: 'Dark' },
+              { value: 'light', label: 'Light' },
+              { value: 'soft', label: 'Soft' },
+            ]}
+          />
           <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={showCaption} onChange={(e) => setShowCaption(e.target.checked)} /> Captions</label>
           <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={showMetadata} onChange={(e) => setShowMetadata(e.target.checked)} /> Details</label>
           <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} /> Loop</label>
@@ -209,7 +234,7 @@ export default function Slideshow() {
         {showCaption ? (
           <div className="absolute bottom-4 start-0 end-0 text-center text-sm bg-card/80 backdrop-blur px-4 py-2 mx-auto max-w-md rounded-md">
             {caption}
-            {showMetadata ? <div className="mt-1 text-[11px] text-muted-foreground">{currentType} · {current?.recordName}</div> : null}
+            {showMetadata ? <div className="mt-1 text-2xs text-muted-foreground">{currentType} · {current?.recordName}</div> : null}
           </div>
         ) : null}
         <button onClick={() => setIndex((i) => (i - 1 + order.length) % order.length)}

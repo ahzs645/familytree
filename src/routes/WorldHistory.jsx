@@ -188,15 +188,15 @@ export default function WorldHistory() {
             <div className="grid grid-cols-3 gap-2">
               <div className="rounded-md border border-border bg-card p-3">
                 <div className="text-lg font-semibold tabular-nums">{WORLD_EVENTS.length}</div>
-                <div className="text-[11px] text-muted-foreground">events</div>
+                <div className="text-2xs text-muted-foreground">events</div>
               </div>
               <div className="rounded-md border border-border bg-card p-3">
                 <div className="text-lg font-semibold tabular-nums">{allCategories.length}</div>
-                <div className="text-[11px] text-muted-foreground">sets</div>
+                <div className="text-2xs text-muted-foreground">sets</div>
               </div>
               <div className="rounded-md border border-border bg-card p-3">
                 <div className="text-lg font-semibold tabular-nums">{firstYear && lastYear ? `${firstYear}-${lastYear}` : '-'}</div>
-                <div className="text-[11px] text-muted-foreground">range</div>
+                <div className="text-2xs text-muted-foreground">range</div>
               </div>
             </div>
 
@@ -252,7 +252,7 @@ export default function WorldHistory() {
               <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {featuredEvents.map((event) => (
                   <div key={`${event.title}-${event.year}`} className="rounded-md border border-border bg-card p-3">
-                    <div className="mb-1 text-[11px] font-medium uppercase text-muted-foreground">{formatRange(event)}</div>
+                    <div className="mb-1 text-2xs font-medium uppercase text-muted-foreground">{formatRange(event)}</div>
                     <div className="text-sm font-semibold leading-snug">{event.title}</div>
                     <div className="mt-2 truncate text-xs text-muted-foreground">{event.category}</div>
                   </div>

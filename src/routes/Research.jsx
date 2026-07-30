@@ -175,7 +175,7 @@ export default function Research() {
           </button>
         )}
         <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t('research.filterPlaceholder')}
-          className="w-full bg-secondary border border-border rounded-md px-3 py-1.5 text-sm md:ms-auto md:w-64" />
+          className="w-full h-10 bg-secondary border border-border rounded-md px-3 text-sm md:ms-auto md:w-64" />
       </header>
       <div className="flex-1 overflow-auto p-5 bg-background">
         <div className="max-w-3xl mx-auto space-y-2">
@@ -207,13 +207,13 @@ export default function Research() {
                 {journal.map((entry) => (
                   <li key={entry.id} className="bg-card border border-border rounded-md p-3">
                     <div className="flex items-start justify-between gap-3 mb-1">
-                      <div className="text-[11px] text-muted-foreground">
+                      <div className="text-2xs text-muted-foreground">
                         {new Date(entry.createdAt).toLocaleString(localization?.locale || 'en')}
                       </div>
                       <button
                         type="button"
                         onClick={() => removeJournalEntry(entry.id)}
-                        className="text-[11px] text-muted-foreground hover:text-destructive-text"
+                        className="text-2xs text-muted-foreground hover:text-destructive-text"
                       >
                         {t('research.delete')}
                       </button>
@@ -280,7 +280,7 @@ export default function Research() {
                   <button
                     onClick={() => mark(it.recordName, 'ignoredEntities')}
                     title={t('research.ignoreAllTitle')}
-                    className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-muted-foreground hover:text-foreground"
+                    className="text-2xs rounded border border-border bg-secondary px-1.5 py-0.5 text-muted-foreground hover:text-foreground"
                   >
                     {t('research.ignoreAll')}
                   </button>
@@ -303,12 +303,12 @@ export default function Research() {
                           target: { recordName: it.recordName, recordType: 'Person' },
                         })}
                         disabled={creatingKeys[key]}
-                        className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground"
+                        className="text-2xs rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground"
                       >
                         {creatingKeys[key] ? t('research.creating') : t('research.todoShort')}
                       </button>
-                      <button onClick={() => mark(key, 'done')} className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground">{t('research.doneShort')}</button>
-                      <button onClick={() => mark(key, 'ignored')} className="text-[11px] rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground">{t('research.ignore')}</button>
+                      <button onClick={() => mark(key, 'done')} className="text-2xs rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground">{t('research.doneShort')}</button>
+                      <button onClick={() => mark(key, 'ignored')} className="text-2xs rounded border border-border bg-secondary px-1.5 py-0.5 text-foreground">{t('research.ignore')}</button>
                     </li>
                   );
                 })}

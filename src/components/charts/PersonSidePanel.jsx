@@ -77,7 +77,7 @@ export function PersonSidePanel({
             </div>
             {span && <div className="text-xs text-muted-foreground"><LtrText>{span}</LtrText></div>}
           </div>
-          <Button variant="outline" size="icon" onClick={onClose} className="h-7 w-7 text-muted-foreground" aria-label="Close panel">✕</Button>
+          <Button variant="outline" size="icon" onClick={onClose} className="text-muted-foreground" aria-label="Close panel">✕</Button>
         </header>
 
         <div className="flex-1 overflow-y-auto px-4 py-3.5">

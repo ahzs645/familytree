@@ -56,6 +56,14 @@ export default {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      fontSize: {
+        // The rung below `text-xs`, for badges, counts, and metadata lines.
+        // Without one, dense UI reached for arbitrary values instead: an audit
+        // found 33 uses of `text-[10px]` and 69 of `text-[11px]` across the
+        // app, so the same kind of label was three different sizes depending on
+        // the file. 11px is the floor — nothing should render smaller.
+        '2xs': ['0.6875rem', { lineHeight: '1rem' }],
+      },
     },
   },
   plugins: [],

@@ -47,7 +47,7 @@ function ResultList({ items, columns }) {
             ))}
           </tbody>
         </table>
-        {items.length > 200 && <div className="text-[11px] text-muted-foreground p-2 text-center">… +{items.length - 200} more</div>}
+        {items.length > 200 && <div className="text-2xs text-muted-foreground p-2 text-center">… +{items.length - 200} more</div>}
       </div>
     </div>
   );

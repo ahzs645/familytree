@@ -23,6 +23,7 @@ import {
   purgeChangeLogForDeletedRecords,
 } from '../lib/changeLog.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { Select } from '../components/ui/Select.jsx';
 
 const ENTITY_TYPES = ['', 'Person', 'Family', 'PersonEvent', 'FamilyEvent', 'Place', 'Source'];
 
@@ -132,13 +133,14 @@ export default function ChangeLog() {
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <label className="flex items-center gap-3 text-xs text-muted-foreground">
           <span>Entity</span>
-          <select
+          <Select
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm outline-none"
-          >
-            {ENTITY_TYPES.map((t) => <option key={t} value={t}>{t || 'All'}</option>)}
-          </select>
+            onChange={setFilter}
+            ariaLabel="Record type"
+            className="w-auto"
+            triggerClassName="h-8 ps-2.5 pe-7 text-sm"
+            options={ENTITY_TYPES.map((t) => ({ value: t, label: t || 'All' }))}
+          />
         </label>
         <span className="ms-auto text-xs text-muted-foreground">
           {loading ? 'Loading…' : `${entries.length} entries`}
@@ -227,7 +229,7 @@ function SubEntries({ subs, entityType, author, targetId }) {
       <div className="px-4 py-3">
         <div className="text-xs text-muted-foreground italic">No field-level changes recorded.</div>
         {(author || targetId) && (
-          <div className="text-[11px] text-muted-foreground mt-1">
+          <div className="text-2xs text-muted-foreground mt-1">
             {author && <>Author: {author} · </>}Target: {targetId || '—'}
           </div>
         )}
@@ -251,7 +253,7 @@ function SubEntries({ subs, entityType, author, targetId }) {
               {subEntryDescription(s, entityType)}
             </span>
             {ts && (
-              <span className="text-[11px] text-muted-foreground ms-2 whitespace-nowrap">
+              <span className="text-2xs text-muted-foreground ms-2 whitespace-nowrap">
                 {new Date(ts).toLocaleString()}
               </span>
             )}
@@ -259,7 +261,7 @@ function SubEntries({ subs, entityType, author, targetId }) {
         );
       })}
       {(author || targetId) && (
-        <div className="px-4 py-2 border-t border-border/40 text-[11px] text-muted-foreground">
+        <div className="px-4 py-2 border-t border-border/40 text-2xs text-muted-foreground">
           {author && <>Author: {author} · </>}Target: {targetId || '—'}
         </div>
       )}
@@ -276,7 +278,7 @@ const KIND_COLORS = {
 
 function KindBadge({ kind }) {
   return (
-    <span className={`inline-block text-[10px] font-bold uppercase tracking-wider rounded border px-2 py-0.5 min-w-[60px] text-center ${KIND_COLORS[kind] || 'text-muted-foreground border-border'}`}>
+    <span className={`inline-block text-2xs font-bold uppercase tracking-wider rounded border px-2 py-0.5 min-w-[60px] text-center ${KIND_COLORS[kind] || 'text-muted-foreground border-border'}`}>
       {kind}
     </span>
   );

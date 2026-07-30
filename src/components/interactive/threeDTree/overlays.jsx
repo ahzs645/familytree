@@ -13,7 +13,7 @@ export function Metric({ label, value }) {
   return (
     <div className="min-w-[58px] border-s border-border px-1.5 py-0.5 text-center">
       <span className="block text-sm font-extrabold text-foreground">{value}</span>
-      <span className="block text-[10px] font-semibold text-muted-foreground">{label}</span>
+      <span className="block text-2xs font-semibold text-muted-foreground">{label}</span>
     </div>
   );
 }

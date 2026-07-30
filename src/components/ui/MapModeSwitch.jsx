@@ -10,6 +10,9 @@ const MAP_MODES = [
  * Sits on the 32px compact rung (see ui/Button.jsx) so it aligns with the
  * buttons and selects it shares a toolbar with — it used to derive its height
  * from padding and come out at 24px.
+ *
+ * The segments inside measure ~26px on purpose: they are inset within the
+ * track's border and padding. The group is the control, not the segment.
  */
 export function MapModeSwitch({ activeMode, onModeChange, modes = MAP_MODES }) {
   return (

@@ -91,7 +91,10 @@
   }
   code {
     font-family: 'SF Mono', Monaco, Consolas, monospace;
-    font-size: 0.9em;
+    /* Relative to the surrounding text, but never below the 11px floor: 0.9em
+       inside a `text-xs` paragraph lands on 10.8px, which is the smallest type
+       anywhere in the app and sits below the `text-2xs` rung. */
+    font-size: max(0.9em, 0.6875rem);
     background-color: hsl(var(--muted));
     padding: 1px 5px;
     border-radius: 3px;

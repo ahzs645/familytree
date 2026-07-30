@@ -399,7 +399,7 @@ export default function Persons() {
                 const kinship = kinshipById.get(person.id);
                 if (!kinship) return null;
                 return (
-                  <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold ${kinship.self ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-primary/40 bg-primary/10 text-interactive'}`}>
+                  <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-2xs font-semibold ${kinship.self ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-primary/40 bg-primary/10 text-interactive'}`}>
                     <BdiText>{kinship.label}</BdiText>
                   </span>
                 );
@@ -513,7 +513,7 @@ export default function Persons() {
                         <div key={family.family.recordName} className="border border-border rounded-md p-3 bg-card grid gap-3 sm:grid-cols-2">
                           {roles.map(({ person, label }) => (
                             <div key={person.recordName} className="flex flex-col gap-0.5">
-                              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+                              <span className="text-2xs uppercase tracking-wide text-muted-foreground">{label}</span>
                               <Link to={`/person/${person.recordName}`} className="text-interactive text-sm">
                                 <BdiText>{person.fullName}</BdiText>
                               </Link>
@@ -576,7 +576,7 @@ function SummaryBox({ label, value, localization }) {
 function InfoCell({ label, value }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-2xs uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="mt-1 break-words"><BdiText>{value}</BdiText></div>
     </div>
   );

@@ -314,7 +314,7 @@ export function SearchApp() {
             value={entityType}
             onChange={(value) => { setEntityType(value); setFilters([]); setResult(null); }}
             options={entityTypeOptions}
-            triggerClassName="h-auto py-2"
+            triggerClassName="h-10"
           />
         </Field>
 
@@ -334,7 +334,7 @@ export function SearchApp() {
             onChange={onRunScope}
             options={scopeSelectOptions}
             className="w-full min-w-0"
-            triggerClassName="h-auto py-2"
+            triggerClassName="h-10"
           />
         </Field>
 
@@ -358,7 +358,7 @@ export function SearchApp() {
               onChange={(value) => value && onLoadSearch(value)}
               options={savedSearchOptions}
               className="min-w-0 flex-[1_1_180px]"
-              triggerClassName="h-auto py-2"
+              triggerClassName="h-10"
             />
             <Button size="md" onClick={onSaveSearch} title={t('search.saveHint', { defaultValue: 'Persist the current search' })}>{t('common.save', { defaultValue: 'Save' })}</Button>
             {savedSearches.length > 0 && (
@@ -367,7 +367,7 @@ export function SearchApp() {
                 onChange={(value) => value && onDeleteSearch(value)}
                 options={deleteSavedSearchOptions}
                 className="w-20"
-                triggerClassName="h-auto py-2"
+                triggerClassName="h-10"
               />
             )}
             <Button size="md" onClick={onSaveAsSmartFilter} title={t('search.smartFilterHint', { defaultValue: 'Open this search in the Smart Filter editor' })}>
@@ -399,7 +399,7 @@ export function SearchApp() {
                 value={genealogySearch.matchMode}
                 onChange={(value) => updateGenealogySearch('matchMode', value)}
                 options={[{ value: 'all', label: t('search.allCriteria', { defaultValue: 'All criteria' }) }, { value: 'any', label: t('search.anyCriteria', { defaultValue: 'Any criteria' }) }]}
-                triggerClassName="h-auto py-2"
+                triggerClassName="h-10"
               />
             </Field>
             <TextField label="First name" value={genealogySearch.firstName} onChange={(value) => updateGenealogySearch('firstName', value)} />
@@ -412,7 +412,7 @@ export function SearchApp() {
                 value={genealogySearch.gender}
                 onChange={(value) => updateGenealogySearch('gender', value)}
                 options={genealogyGenderOptions}
-                triggerClassName="h-auto py-2"
+                triggerClassName="h-10"
               />
             </Field>
             <TextField label="Occupation/fact" value={genealogySearch.occupation} onChange={(value) => updateGenealogySearch('occupation', value)} />
@@ -439,7 +439,7 @@ export function SearchApp() {
                 onChange={setReplaceField}
                 options={replaceFieldOptions}
                 className="w-full min-w-0"
-                triggerClassName="h-auto py-2"
+                triggerClassName="h-10"
               />
             </Field>
             <Field label="Find">

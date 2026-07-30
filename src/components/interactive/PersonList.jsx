@@ -187,16 +187,16 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                       </div>
                     ) : null}
                     {showColumn('outsideFamily') && p.outsideFamily ? (
-                      <div className="text-[10px] font-semibold text-interactive">{t('persons.outsideFamily')}</div>
+                      <div className="text-2xs font-semibold text-interactive">{t('persons.outsideFamily')}</div>
                     ) : null}
                     {showColumn('bookmarked') && p.bookmarked ? (
-                      <div className="text-[10px] font-semibold text-interactive">★ {t('persons.bookmarked')}</div>
+                      <div className="text-2xs font-semibold text-interactive">★ {t('persons.bookmarked')}</div>
                     ) : null}
                     {showColumn('startPerson') && p.startPerson ? (
-                      <div className="text-[10px] font-semibold text-interactive">✓ {t('persons.startPerson')}</div>
+                      <div className="text-2xs font-semibold text-interactive">✓ {t('persons.startPerson')}</div>
                     ) : null}
                     {queryText && !p.nameIsPatrilineal && (p.arabicPatrilinealTail || p.arabicPatrilinealName) ? (
-                      <div className="mt-0.5 text-[10px] text-muted-foreground [direction:rtl] text-start">
+                      <div className="mt-0.5 text-2xs text-muted-foreground [direction:rtl] text-start">
                         <BdiText>{p.arabicPatrilinealTail || p.arabicPatrilinealName}</BdiText>
                       </div>
                     ) : null}

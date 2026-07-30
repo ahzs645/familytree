@@ -194,7 +194,7 @@ export default function PersonAnalysis() {
         {SUMMARY_KEYS.map((key) => (
           <div key={key} className="rounded-md border border-border bg-background px-3 py-2">
             <div className="text-lg font-semibold tabular-nums">{summary[key]}</div>
-            <div className="text-[11px] text-muted-foreground">{t(`personAnalysis.summary.${key}`)}</div>
+            <div className="text-2xs text-muted-foreground">{t(`personAnalysis.summary.${key}`)}</div>
           </div>
         ))}
       </div>
@@ -236,7 +236,7 @@ export default function PersonAnalysis() {
                     {row.cells.map((cell) => (
                       <td key={`${cell.from}-${cell.to}`} className="px-3 py-2 align-top">
                         <div>{cell.label}</div>
-                        {cell.distance != null && <div className="text-[10px] text-muted-foreground">{cell.distance} link{cell.distance === 1 ? '' : 's'}</div>}
+                        {cell.distance != null && <div className="text-2xs text-muted-foreground">{cell.distance} link{cell.distance === 1 ? '' : 's'}</div>}
                       </td>
                     ))}
                   </tr>

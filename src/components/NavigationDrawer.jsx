@@ -145,7 +145,7 @@ export function NavigationDrawer({
                 <span className="flex-1 text-start text-[13px] truncate">
                   {t('commandPalette.placeholder')}
                 </span>
-                <kbd className="text-[10px] font-semibold border border-border rounded px-1.5 py-0.5">⌘K</kbd>
+                <kbd className="text-2xs font-semibold border border-border rounded px-1.5 py-0.5">⌘K</kbd>
               </>
             )}
           </button>

@@ -73,7 +73,7 @@ export default function Lineages() {
       <aside className="min-h-0 overflow-auto border-b border-border bg-card lg:border-b-0 lg:border-e">
         <header className="flex items-center gap-2 p-3 border-b border-border">
           <PageTitle className="text-sm font-semibold">Lineages</PageTitle>
-          <button onClick={create} className="ms-auto rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">New</button>
+          <button onClick={create} className="ms-auto inline-flex h-8 items-center rounded-md bg-primary px-2.5 text-xs font-semibold text-primary-foreground">New</button>
         </header>
         {definitions.map((item) => (
           <button key={item.id} onClick={() => setActiveId(item.id)} className={`block w-full text-start px-3 py-2 border-b border-border text-sm ${item.id === activeId ? 'bg-primary/10' : 'hover:bg-accent'}`}>

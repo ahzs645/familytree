@@ -162,7 +162,7 @@ function Grid({ children }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
+      <span className="block text-2xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
       {children}
     </label>
   );

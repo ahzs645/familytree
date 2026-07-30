@@ -42,8 +42,12 @@ import { NoDataYet } from '../NoDataYet.jsx';
  * ui/Select) because these are action selects (Load…, Delete…, template picker,
  * "Add Book Elements…" with optgroups) that reset to an empty value on use —
  * semantics the custom Select doesn't model.
+ *
+ * They still sit on the app's 40px control rung, so they line up with the
+ * Buttons beside them; height is declared rather than left to padding, which
+ * had them landing on 38px.
  */
-const controlClass = 'cursor-pointer rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 py-2 text-sm outline-none';
+const controlClass = 'h-10 cursor-pointer rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 text-sm outline-none';
 
 function blankBook() {
   return {
@@ -396,7 +400,7 @@ export function BooksApp() {
         <aside className="flex w-full flex-col border-e border-border bg-card sm:w-[360px]">
           <div className="flex items-center justify-between gap-3 px-3.5 pb-2.5 pt-3.5">
             <div>
-              <div className="text-[10px] font-bold tracking-wider text-muted-foreground">YOUR BOOKS</div>
+              <div className="text-2xs font-bold tracking-wider text-muted-foreground">YOUR BOOKS</div>
               <div className="mt-0.5 text-[15px] font-bold text-foreground">Chapters and Sections</div>
             </div>
             <span className="inline-flex h-6 min-w-[28px] items-center justify-center rounded-full bg-secondary text-xs font-bold text-muted-foreground">{formatInteger(book.sections.length)}</span>

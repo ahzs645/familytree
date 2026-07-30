@@ -182,7 +182,7 @@ export default function WebSearch() {
                 {history.slice(0, 8).map((entry) => (
                   <a key={`${entry.at}-${entry.url}`} href={entry.url} target={openInNewTab ? '_blank' : '_self'} rel="noreferrer" className="block rounded-md border border-border bg-background p-2 hover:bg-secondary">
                     <div className="text-sm truncate">{entry.label}</div>
-                    <div className="text-[11px] text-muted-foreground">{providerLabel(entry.provider)} · {new Date(entry.at).toLocaleDateString()}</div>
+                    <div className="text-2xs text-muted-foreground">{providerLabel(entry.provider)} · {new Date(entry.at).toLocaleDateString()}</div>
                   </a>
                 ))}
               </div>
@@ -327,7 +327,7 @@ function uuid(prefix) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
+      <span className="block text-2xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
       {children}
     </label>
   );

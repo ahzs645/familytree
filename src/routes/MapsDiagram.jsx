@@ -12,6 +12,7 @@ import { MapModeSwitch } from '../components/ui/MapModeSwitch.jsx';
 import { VisualOptionsDrawer } from '../components/charts/VisualOptionsDrawer.jsx';
 import { formatEventDate } from '../utils/formatDate.js';
 import { personSummary } from '../models/index.js';
+import { Select } from '../components/ui/Select.jsx';
 import {
   buildChronologicalConnections,
   colorForVisualEvent,
@@ -294,38 +295,37 @@ export default function MapsDiagram() {
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.35fr)_minmax(140px,0.65fr)_minmax(220px,1fr)_minmax(260px,1.25fr)]">
           <label className="grid gap-1 text-xs text-muted-foreground">
             <span>Statistic</span>
-            <select
+            <Select
               value={statisticSourceId}
-              onChange={(e) => {
-                const nextSource = STATISTIC_SOURCES.find((source) => source.id === e.target.value);
-                setStatisticSourceId(e.target.value);
+              onChange={(value) => {
+                const nextSource = STATISTIC_SOURCES.find((source) => source.id === value);
+                setStatisticSourceId(value);
                 if (nextSource?.mode === 'heat') setVisualOptions((current) => normalizeVisualViewOptions('mapStory', { ...current, markerMode: 'pins-heat' }));
               }}
-              className="h-8 min-w-0 rounded-md border border-border bg-secondary px-2 text-sm text-foreground"
-            >
-              {STATISTIC_SOURCES.map((source) => <option key={source.id} value={source.id}>{source.label}</option>)}
-            </select>
+              ariaLabel="Statistic"
+              triggerClassName="h-8 ps-2 pe-7 text-sm"
+              options={STATISTIC_SOURCES.map((source) => ({ value: source.id, label: source.label }))}
+            />
           </label>
           <label className="grid gap-1 text-xs text-muted-foreground">
             <span>Type</span>
-            <select
+            <Select
               value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}
-              className="h-8 min-w-0 rounded-md border border-border bg-secondary px-2 text-sm text-foreground"
-            >
-              {types.map((t) => <option key={t} value={t}>{t || 'All types'}</option>)}
-            </select>
+              onChange={setFilterType}
+              ariaLabel="Type"
+              triggerClassName="h-8 ps-2 pe-7 text-sm"
+              options={types.map((t) => ({ value: t, label: t || 'All types' }))}
+            />
           </label>
           <label className="grid gap-1 text-xs text-muted-foreground">
             <span>Person</span>
-            <select
+            <Select
               value={subjectId}
-              onChange={(e) => setSubjectId(e.target.value)}
-              className="h-8 min-w-0 rounded-md border border-border bg-secondary px-2 text-sm text-foreground"
-            >
-              <option value="">All people</option>
-              {subjects.map((subject) => <option key={subject.id} value={subject.id}>{subject.name}</option>)}
-            </select>
+              onChange={setSubjectId}
+              ariaLabel="Person"
+              triggerClassName="h-8 ps-2 pe-7 text-sm"
+              options={[{ value: '', label: 'All people' }, ...subjects.map((subject) => ({ value: subject.id, label: subject.name }))]}
+            />
           </label>
           <div className="grid gap-1 rounded-md border border-border bg-background px-2.5 py-2 text-xs text-muted-foreground sm:col-span-2 xl:col-span-1">
             <div className="flex items-center justify-between gap-2">
@@ -363,16 +363,17 @@ export default function MapsDiagram() {
               </button>
               <label className="flex items-center gap-1">
                 step
-                <select
-                  value={stepYears}
-                  onChange={(e) => {
-                    setStepYears(Number(e.target.value));
-                    setVisualOptions((current) => normalizeVisualViewOptions('mapStory', { ...current, slideshowYearStep: Number(e.target.value) }));
+                <Select
+                  value={String(stepYears)}
+                  onChange={(value) => {
+                    setStepYears(Number(value));
+                    setVisualOptions((current) => normalizeVisualViewOptions('mapStory', { ...current, slideshowYearStep: Number(value) }));
                   }}
-                  className="inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2 text-xs"
-                >
-                  {[1, 2, 5, 10, 25].map((n) => <option key={n} value={n}>{n}y</option>)}
-                </select>
+                  ariaLabel="Year step"
+                  className="w-auto"
+                  triggerClassName="h-8 ps-2 pe-7 text-xs"
+                  options={[1, 2, 5, 10, 25].map((n) => ({ value: String(n), label: `${n}y` }))}
+                />
               </label>
               <label className="flex items-center gap-1">
                 <input type="checkbox" checked={allYears} onChange={(e) => setAllYears(e.target.checked)} />
@@ -443,7 +444,7 @@ export default function MapsDiagram() {
                   >
                     <div className="text-sm font-medium">{event.conclusionType}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground">{formatEventDate(event.date) || 'Undated'} · {event.placeName}</div>
-                    {event.subjectName && <div className="mt-0.5 text-[11px] text-muted-foreground">{event.subjectName}</div>}
+                    {event.subjectName && <div className="mt-0.5 text-2xs text-muted-foreground">{event.subjectName}</div>}
                   </button>
                 );
               })}

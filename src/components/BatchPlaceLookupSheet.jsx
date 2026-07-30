@@ -190,7 +190,7 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
                       <div className={`text-xs truncate ${statusTone(row.status)}`}>{row.message}</div>
                     )}
                   </div>
-                  <div className={`text-[11px] ${statusTone(row.status)}`}>{statusLabel(row.status)}</div>
+                  <div className={`text-2xs ${statusTone(row.status)}`}>{statusLabel(row.status)}</div>
                 </li>
               ))}
             </ul>
