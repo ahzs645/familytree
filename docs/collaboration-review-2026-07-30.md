@@ -161,30 +161,90 @@ correctly left alone.
 
 ---
 
-## 3. Still open
+## 3. Round two — adding relatives through the tree
 
-- **`/charts`, `/reports`, `/statistics`, `/search` are still partly English**
-  (14–28 unique words each). They are read-only analysis surfaces, off the
-  review-and-edit path, so they were left for a follow-up.
+Driving the flow the tree actually offers — open a person, "Add relatives",
+pick father/mother/partner/child — turned up a data bug rather than a
+translation gap.
+
+**3.1 — "Add father" created the person and connected nothing.**
+`assignParent()` fills the first free parent slot; once `man` and `woman` were
+both set it fell through every branch and did nothing. `linkParent()` then
+saved the unchanged family and returned success, so `/person/new` reported
+nothing wrong. Reproduced on the real tree: the anchor (`person-182`, سلطان
+حسن) already had both parents, and the new record ended up in **zero**
+families with zero children. The reviewer believes they added a grandfather;
+they added a floating record.
+
+Fixed: when no slot is free the child gets another parent family — which is
+how the schema already models step and adoptive parents — and a link that
+genuinely fails now redirects with a banner instead of silently succeeding.
+`assignParent()` returns whether it placed anyone.
+
+**3.2 — "Add son with <partner>" ignored the partner.** `NewPerson` never read
+the `partner` query parameter, so the child landed in whichever family
+`findFamilyWithParent` returned first. Wrong for anyone with more than one
+union. Both bugs now have regression tests that fail against the old code.
+
+**3.3 — On a phone the menu could not be opened at all.** It was bound only to
+`contextmenu`, and phones have no right-click; measured on a 390 px touch
+context, neither tap nor long press produced anything. A 500 ms long press
+opens it now (cancelled by a pan), and the menu clamps into the viewport —
+anchored at the tap point it used to hang off the edge and clip its own
+labels.
+
+**3.4 — Deletions now travel.** `deletePerson`, `deleteFamily` and
+`removeSubtree` wrote straight to the transaction and skipped the change log
+entirely, so a reviewer's removals were indistinguishable from records their
+file simply never contained. They log now, and `planMerge` reads those Delete
+entries out of an incoming package — never plain absence, since a subtree
+export or GEDCOM subset is missing most of the tree without meaning any of it
+should go. Deletions are listed first in the merge sheet, opt-in per record,
+defaulting to keep. Verified end to end: reviewer deletes ابراهيم نداء (3
+records with the cascade), owner sees "حُذفت 3 سجلات في النسخة الأخرى" and
+applies it.
+
+**3.5 — Exports are distinguishable and small.** Every file was
+`cloudtreeweb-<date>.mftpkg`; they now carry the tree name, the author, and a
+time to the second. The package was also stored uncompressed with
+pretty-printed JSON — **7,517,658 → 640,578 bytes**, now smaller than the
+1.5 MB package being published.
+
+**3.6 — The four read-only routes are done.** `/search` had been measuring
+zero English words for the wrong reason: `SearchApp` threw
+`t is not defined` and the page never rendered.
+
+| route | before | after |
+|---|---|---|
+| `/search` | 28 | **0** |
+| `/charts` | 14 | **2** (`SVG`, `PNG`) |
+| `/reports` | 16 | **4** (`HTML`, `CSV`, `RTF`, `PDF`) |
+| `/statistics` | 14 | **0** — the rest is place-name data |
+
+Gender values (`Male` / `Female`) were the last non-format English inside
+report bodies; `genderLabel()` is locale-aware now, like `noNameLabel()`.
+
+---
+
+## 4. Still open
+
 - **No live collaboration.** Two people editing separate copies of the same
   tree will produce two files that both need merging, and a record edited in
   both will surface as a conflict with no indication of who changed what. If
   simultaneous editing is wanted, that is a backend — the `ConvexDataClient`
   seam exists for it, but nothing behind it does.
-- **Exports are named `cloudtreeweb-<date>.mftpkg`** regardless of who made
-  them. Two relatives returning files on the same day produce identical
-  filenames.
-- **A returned `.mftpkg` is 7.5 MB** where the published package is 1.5 MB, so
-  it round-trips as JSON rather than the compact SQLite form. Fine over mail,
-  awkward over a messaging app.
-- **Deletions do not travel.** The merge adds and updates; a person the
-  reviewer deleted stays in the owner's copy.
+- **Only the 3D view can add relatives.** Flat, Sun, Family, Canvas and
+  Details have no add path at all; someone who switches view loses the
+  affordance.
+- **A merge cannot say who changed what.** Conflicts show current vs incoming
+  with no author, so an owner merging two relatives' files back has to
+  remember which is which.
 - **~79 unlabelled form fields remain** elsewhere in the app (Sources, Books,
   Places), unchanged from the 2026-07-27 review.
 
 ---
 
-## 4. What to tell the reviewers
+## 5. What to tell the reviewers
 
 The link gives each of them a private copy that never leaves their phone. They
 can change anything without risk to the original. When they are done:
