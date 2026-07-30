@@ -31,8 +31,10 @@ import { BdiText, LtrText } from '../BdiText.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { Button } from '../ui/Button.jsx';
 import { cn } from '../../lib/utils.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function InteractiveTreeApp() {
+  const { t } = useTranslation();
   const modal = useModal();
   const [persons, setPersons] = useState([]);
   const [dataVersion, setDataVersion] = useState(0);
@@ -273,15 +275,15 @@ export function InteractiveTreeApp() {
                 size="icon"
                 className="h-10 w-10 shrink-0 text-base font-semibold"
                 onClick={() => setMobilePane('list')}
-                aria-label="Back to person list"
+                aria-label={t('interactiveTree.backToList', { defaultValue: 'Back to person list' })}
               >
                 ←
               </Button>
             )}
             <div className="min-w-0 flex-1">
-              <div className="mb-0.5 text-xs font-bold uppercase text-muted-foreground">Interactive Tree</div>
+              <div className="mb-0.5 text-xs font-bold uppercase text-muted-foreground">{t('interactiveTree.heading', { defaultValue: 'Interactive Tree' })}</div>
               <div className="truncate text-[17px] font-bold text-foreground" title={context?.selfSummary?.fullName || ''}>
-                <BdiText>{context?.selfSummary?.fullName || 'No person selected'}</BdiText>
+                <BdiText>{context?.selfSummary?.fullName || t('interactiveTree.noPersonSelected', { defaultValue: 'No person selected' })}</BdiText>
               </div>
             </div>
             {/* Six tree view modes — the segmented control fits on desktop but
@@ -292,16 +294,16 @@ export function InteractiveTreeApp() {
               <select
                 value={viewMode}
                 onChange={(event) => setViewMode(event.target.value)}
-                aria-label="Tree view mode"
+                aria-label={t('interactiveTree.viewMode', { defaultValue: 'Tree view mode' })}
                 className="h-9 shrink-0 cursor-pointer rounded-md border border-border bg-secondary px-2.5 text-sm font-semibold text-secondary-foreground"
               >
-                {TREE_VIEW_MODES.map(([id, label]) => (
-                  <option key={id} value={id}>{label}</option>
+                {TREE_VIEW_MODES.map(([id, key, label]) => (
+                  <option key={id} value={id}>{t(key, { defaultValue: label })}</option>
                 ))}
               </select>
             ) : (
-              <div className="flex max-w-full shrink-0 items-center gap-1 overflow-x-auto rounded-md border border-border bg-secondary p-1" role="tablist" aria-label="Tree view mode">
-                {TREE_VIEW_MODES.map(([id, label]) => (
+              <div className="flex max-w-full shrink-0 items-center gap-1 overflow-x-auto rounded-md border border-border bg-secondary p-1" role="tablist" aria-label={t('interactiveTree.viewMode', { defaultValue: 'Tree view mode' })}>
+                {TREE_VIEW_MODES.map(([id, key, label]) => (
                   <button
                     key={id}
                     type="button"
@@ -314,7 +316,7 @@ export function InteractiveTreeApp() {
                     )}
                     aria-selected={viewMode === id}
                   >
-                    {label}
+                    {t(key, { defaultValue: label })}
                   </button>
                 ))}
               </div>
@@ -558,12 +560,12 @@ function EmptyMsg({ text, children }) {
 // Ordered list of tree-view modes — kept here so both the desktop segmented
 // control and the mobile <select> render the same options in the same order.
 const TREE_VIEW_MODES = [
-  ['three', '3D'],
-  ['flat', 'Flat'],
-  ['sun', 'Sun'],
-  ['family', 'Family'],
-  ['canvas', 'Canvas'],
-  ['details', 'Details'],
+  ['three', 'interactiveTree.view.three', '3D'],
+  ['flat', 'interactiveTree.view.flat', 'Flat'],
+  ['sun', 'interactiveTree.view.sun', 'Sun'],
+  ['family', 'interactiveTree.view.family', 'Family'],
+  ['canvas', 'interactiveTree.view.canvas', 'Canvas'],
+  ['details', 'interactiveTree.view.details', 'Details'],
 ];
 
 export default InteractiveTreeApp;

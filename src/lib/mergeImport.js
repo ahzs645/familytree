@@ -132,18 +132,7 @@ export async function planMerge(json) {
       newRecords.push(record);
       continue;
     }
-    const fieldDiffs = [];
-    const names = new Set([
-      ...Object.keys(existing.fields || {}),
-      ...Object.keys(record.fields || {}),
-    ]);
-    for (const name of names) {
-      const left = existing.fields?.[name]?.value;
-      const right = record.fields?.[name]?.value;
-      if (!valuesEqual(left, right)) {
-        fieldDiffs.push({ name, existing: left, incoming: right });
-      }
-    }
+    const fieldDiffs = diffFields(existing, record);
     if (fieldDiffs.length === 0) {
       // Identical payload — nothing to do; counts as "keep existing".
       continue;
@@ -163,6 +152,25 @@ export async function planMerge(json) {
   }
 
   return { conflicts, newRecords, assetCollisions };
+}
+
+/** Fields whose values differ between an existing and an incoming record. */
+function diffFields(existing, incoming) {
+  const names = new Set([
+    ...Object.keys(existing?.fields || {}),
+    ...Object.keys(incoming?.fields || {}),
+  ]);
+  const diffs = [];
+  for (const name of names) {
+    const left = existing?.fields?.[name]?.value;
+    const right = incoming?.fields?.[name]?.value;
+    if (!valuesEqual(left, right)) diffs.push({ name, existing: left, incoming: right });
+  }
+  return diffs;
+}
+
+function recordsDiffer(existing, incoming) {
+  return diffFields(existing, incoming).length > 0;
 }
 
 function valuesEqual(a, b) {
@@ -265,13 +273,26 @@ export async function analyzeBackupMergeJSON(json) {
   const incoming = Object.values(json.records);
   const recordTypes = {};
   let collisions = 0;
+  let changed = 0;
+  let unchanged = 0;
+  let newRecords = 0;
   const collisionSamples = [];
   for (const record of incoming) {
     recordTypes[record.recordType] = (recordTypes[record.recordType] || 0) + 1;
     const existing = await db.get(record.recordName);
-    if (existing) {
-      collisions += 1;
+    if (!existing) {
+      newRecords += 1;
+      continue;
+    }
+    // An ID match is not by itself interesting. Re-importing a copy of the
+    // same tree collides on every record while changing nothing, so the
+    // number worth showing is how many of those actually differ.
+    collisions += 1;
+    if (recordsDiffer(existing, record)) {
+      changed += 1;
       if (collisionSamples.length < 8) collisionSamples.push({ recordName: record.recordName, recordType: record.recordType });
+    } else {
+      unchanged += 1;
     }
   }
 
@@ -290,6 +311,9 @@ export async function analyzeBackupMergeJSON(json) {
     records: incoming.length,
     assets: Array.isArray(json.assets) ? json.assets.length : 0,
     collisions,
+    changed,
+    unchanged,
+    newRecords,
     collisionSamples,
     assetCollisions,
     assetSamples,

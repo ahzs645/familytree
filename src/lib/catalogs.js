@@ -59,16 +59,137 @@ const ARABIC_CATALOG_LABELS = {
   Race: 'الأصل العرقي',
   NationalOrTribalOrigin: 'الأصل الوطني أو القبلي',
   TribeName: 'قبيلة',
+  // Additional names
+  DoubleBarrelledName: 'اسم مركّب',
+  FormalName: 'الاسم الرسمي',
+  MarriedName: 'اسم بعد الزواج',
+  Other: 'اسم آخر',
+  // Person events
+  AdultChristening: 'تعميد البالغين',
+  Apprenticeship: 'تدريب مهني',
+  BarMitzvah: 'بار متسفا',
+  BasMitzvah: 'بات متسفا',
+  Blessing: 'مباركة',
+  CauseOfDeath: 'سبب الوفاة',
+  Census: 'تعداد سكاني',
+  Confirmation: 'تثبيت',
+  Cremation: 'حرق الجثمان',
+  Deed: 'وثيقة / صك',
+  Degree: 'شهادة علمية',
+  Elected: 'منصب انتخابي',
+  Emigration: 'هجرة إلى الخارج',
+  Excommunication: 'حرمان كنسي',
+  FirstCommunion: 'المناولة الأولى',
+  FosterChild: 'طفل بالكفالة',
+  GenericEvent: 'حدث آخر',
+  Graduation: 'تخرّج',
+  Illness: 'مرض',
+  Immigration: 'هجرة إلى الداخل',
+  LDSBaptism: 'تعميد (المورمون)',
+  LDSChildSealing: 'ختم بالوالدين (المورمون)',
+  LDSConfirmation: 'تثبيت (المورمون)',
+  LDSEndowment: 'وقف (المورمون)',
+  LDSInitiatory: 'مراسم تمهيدية (المورمون)',
+  LandTransaction: 'معاملة أرض',
+  MedicalInformation: 'معلومات طبية',
+  MilitaryAward: 'وسام عسكري',
+  MilitaryDischarge: 'تسريح عسكري',
+  MilitaryInduction: 'تجنيد',
+  MilitaryService: 'خدمة عسكرية',
+  Miscarriage: 'إجهاض',
+  Mission: 'بعثة تبشيرية',
+  Naturalization: 'تجنّس',
+  NickName: 'اللقب',
+  NobilityTypeTitle: 'لقب نبالة',
+  NumberOfMarriages: 'عدد الزيجات',
+  Ordination: 'رسامة دينية',
+  Probate: 'تصديق الوصية',
+  Retirement: 'تقاعد',
+  Stillbirth: 'ولادة ميت',
+  Will: 'وصية',
+  // Family events
+  AlternateMarriage: 'زواج بديل',
+  Annuled: 'إبطال الزواج',
+  Bann: 'إعلان الزواج',
+  Divorce_Filing: 'رفع دعوى طلاق',
+  LDSSpouseSealing: 'ختم بالزوج (المورمون)',
+  License: 'رخصة زواج',
+  MarriageBanns: 'إعلان الزواج',
+  MarriageCivil: 'زواج مدني',
+  OtherEvent: 'حدث آخر',
+  Partnership: 'شراكة مدنية',
+  Settlement: 'اتفاق ما قبل الزواج',
+  // Person facts
+  BloodType: 'فصيلة الدم',
+  Email: 'البريد الإلكتروني',
+  EyeColor: 'لون العينين',
+  HairColor: 'لون الشعر',
+  Height: 'الطول',
+  Hobby: 'هواية',
+  Honors: 'أوسمة وتكريمات',
+  NationalID: 'رقم الهوية الوطنية',
+  Phone: 'رقم الهاتف',
+  PhysicalDescription: 'وصف جسدي',
+  Possession: 'ممتلكات',
+  SkinColor: 'لون البشرة',
+  SocialSecurityNumber: 'رقم الضمان الاجتماعي',
+  Weight: 'الوزن',
+  // Parent-child and associate relation types
+  Biological: 'بيولوجي',
+  Adopted: 'بالتبنّي',
+  Step: 'بالزواج',
+  Foster: 'بالكفالة',
+  BestFriend: 'صديق مقرّب',
+  Boss: 'رئيس في العمل',
+  CoWorker: 'زميل عمل',
+  Friend: 'صديق',
+  Godparent: 'عرّاب',
+  Neighbor: 'جار',
+  Servant: 'خادم',
+  Teacher: 'معلّم',
+  WitnessOfBirth: 'شاهد على الميلاد',
+  WitnessOfDeath: 'شاهد على الوفاة',
+  WitnessOfCivilMarriage: 'شاهد على الزواج المدني',
+  WitnessOfMarriage: 'شاهد على الزواج',
+  WitnessOfReligiousMarriage: 'شاهد على الزواج الديني',
 };
 
 let catalogLabelPreferences = {
   preferArabicCatalogLabels: false,
+  locale: 'en',
 };
 
 export function setCatalogLabelPreferences(value = {}) {
   catalogLabelPreferences = {
     preferArabicCatalogLabels: !!value.preferArabicCatalogLabels,
+    locale: String(value.locale || 'en'),
   };
+}
+
+/**
+ * Arabic catalog labels apply when the interface itself is Arabic, not only
+ * when the Arabic/Islamic preference is ticked. Without this an Arabic
+ * interface offered "Birth / Death / Nationality" in its Add Event menu and
+ * then displayed the saved value as "ميلاد" — the same field, two languages.
+ */
+function arabicCatalogLabels() {
+  if (catalogLabelPreferences.preferArabicCatalogLabels) return true;
+  return String(catalogLabelPreferences.locale).toLowerCase().split(/[-_]/)[0] === 'ar';
+}
+
+/** Localized label for one catalog entry (`{ id, label }`). */
+export function catalogTypeLabel(type, fallback = '') {
+  if (!type) return fallback;
+  if (arabicCatalogLabels() && ARABIC_CATALOG_LABELS[type.id]) return ARABIC_CATALOG_LABELS[type.id];
+  return type.label || fallback || type.id || '';
+}
+
+/** Same list with `label` swapped for the localized label — for dropdowns. */
+export function localizeTypeOptions(types) {
+  if (!arabicCatalogLabels()) return types || [];
+  return (types || []).map((type) => (
+    ARABIC_CATALOG_LABELS[type.id] ? { ...type, label: ARABIC_CATALOG_LABELS[type.id] } : type
+  ));
 }
 
 export const PERSON_EVENT_TYPES = [
@@ -278,7 +399,7 @@ export function normalizeConclusionTypeId(raw) {
 
 export function labelForCatalogType(types, raw, fallback = '') {
   const id = normalizeConclusionTypeId(raw);
-  if (catalogLabelPreferences.preferArabicCatalogLabels && ARABIC_CATALOG_LABELS[id]) {
+  if (arabicCatalogLabels() && ARABIC_CATALOG_LABELS[id]) {
     return ARABIC_CATALOG_LABELS[id];
   }
   return types.find((t) => t.id === id)?.label || fallback || id;
@@ -296,7 +417,7 @@ export function labelForCatalogType(types, raw, fallback = '') {
  */
 export function eventTypeLabel(raw, fallback = 'Event') {
   const id = normalizeConclusionTypeId(raw);
-  if (catalogLabelPreferences.preferArabicCatalogLabels && ARABIC_CATALOG_LABELS[id]) {
+  if (arabicCatalogLabels() && ARABIC_CATALOG_LABELS[id]) {
     return ARABIC_CATALOG_LABELS[id];
   }
   const catalogLabel = PERSON_EVENT_TYPES.find((t) => t.id === id)?.label

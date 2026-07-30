@@ -4,6 +4,7 @@ import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutDescendants } from './layouts/descendantLayout.js';
+import { localizeNoName, noNameLabel } from '../../lib/personDisplayName.js';
 
 const NODE_PAD_X = 90;
 const ROW_HEIGHT = 86;
@@ -66,7 +67,7 @@ function collectDescendantRows(tree) {
     const row = {
       id: person.recordName,
       person,
-      name: person.fullName || 'No name recorded',
+      name: person.fullName ? localizeNoName(person.fullName) : noNameLabel(),
       birthYear: parseYear(person.birthDate),
       deathYear: parseYear(person.deathDate),
       generation,

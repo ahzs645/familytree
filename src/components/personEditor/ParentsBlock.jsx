@@ -7,10 +7,17 @@ import React from 'react';
 import { lifeSpanLabel } from '../../models/index.js';
 import { Empty } from './uiPrimitives.jsx';
 import { BdiText, LtrText } from '../BdiText.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function ParentsBlock({ context, onPick }) {
+  const { t } = useTranslation();
   if (!context.parents || context.parents.length === 0) {
-    return <Empty title="No parents recorded" hint="Add parents via the family editor." />;
+    return (
+      <Empty
+        title={t('editor.person.noParents', { defaultValue: 'No parents recorded' })}
+        hint={t('editor.person.noParentsHint', { defaultValue: 'Add parents via the family editor.' })}
+      />
+    );
   }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

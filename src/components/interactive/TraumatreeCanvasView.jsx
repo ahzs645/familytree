@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Minus, Plus, RotateCcw, Scan } from 'lucide-react';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
+import { localizeNoName, noNameLabel } from '../../lib/personDisplayName.js';
 
 const NODE_WIDTH = 184;
 const NODE_HEIGHT = 82;
@@ -188,7 +189,7 @@ function CanvasPersonNode({ node, active, onPick, onEditPerson }) {
         {initials(person?.fullName)}
       </text>
       <text x="43" y="27" style={nameText} fill="#2f2a24">
-        {truncate(person?.fullName || 'No name recorded', 22)}
+        {truncate(person?.fullName ? localizeNoName(person.fullName) : noNameLabel(), 22)}
       </text>
       {dates && (
         <text x="43" y="44" style={dateText} fill="#756a5b">

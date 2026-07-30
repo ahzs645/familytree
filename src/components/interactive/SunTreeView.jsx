@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
 import { lifeSpanLabel } from '../../models/index.js';
 import { buildSunTreeLayout, sunNodeClass } from './sunTreeLayout.js';
+import { localizeNoName, noNameLabel } from '../../lib/personDisplayName.js';
 
 const MIN_ZOOM = 0.45;
 const MAX_ZOOM = 14;
@@ -178,7 +179,7 @@ function IconButton({ label, onClick, children }) {
 }
 
 function compactName(value) {
-  const parts = String(value || 'No name recorded').trim().split(/\s+/);
+  const parts = String(value ? localizeNoName(value) : noNameLabel()).trim().split(/\s+/);
   if (parts.length <= 2) return [parts.join(' ')];
   return [`${parts[0]} ${parts[1]}`];
 }

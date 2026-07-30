@@ -4,6 +4,7 @@ import { lifeSpanLabel } from '../../../models/index.js';
 import { cn } from '../../../lib/utils.js';
 import { Button } from '../../ui/Button.jsx';
 import { buildTreeNavigationOptions, firstNavigationOption } from './navigationOptions.js';
+import { localizeNoName } from '../../../lib/personDisplayName.js';
 
 const DOCK_SELECT_CLASS =
   'h-8 cursor-pointer rounded-md border border-border bg-secondary ps-2 pe-6 text-xs font-bold text-secondary-foreground';
@@ -64,11 +65,13 @@ export function TreeNavigationControls({ context, onPick }) {
         aria-label={t('interactiveTree.navigateAria')}
       >
         <option value="">{t('interactiveTree.navigate')}</option>
+        {/* buildTreeNavigationOptions stays pure English data; the relation
+            words are localized here, at the point they are rendered. */}
         {sections.map((section) => (
-          <optgroup key={section.id} label={section.label}>
+          <optgroup key={section.id} label={t(`interactiveTree.navSection.${section.id}`, { defaultValue: section.label })}>
             {section.options.map((option) => (
               <option key={`${section.id}:${option.id}`} value={option.id}>
-                {option.relation}: {option.label}
+                {t(`interactiveTree.relation.${option.relation}`, { defaultValue: option.relation })}: {localizeNoName(option.label)}
               </option>
             ))}
           </optgroup>

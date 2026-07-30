@@ -7,8 +7,10 @@ import { useNavigate } from 'react-router-dom';
 import { findOldestAncestors } from '../../lib/oldestAncestors.js';
 import { formatVitalDateParts } from '../../lib/vitalFormat.js';
 import { BdiText, LtrText } from '../BdiText.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function OldestAncestorsWidget({ recordName }) {
+  const { t } = useTranslation();
   const [items, setItems] = useState(null);
   const navigate = useNavigate();
   useEffect(() => {
@@ -26,8 +28,8 @@ export function OldestAncestorsWidget({ recordName }) {
     return () => { cancelled = true; };
   }, [recordName]);
 
-  if (items === null) return <div className="text-xs text-muted-foreground py-1">Walking ancestor lines…</div>;
-  if (items.length === 0) return <div className="text-xs text-muted-foreground py-1">No ancestors recorded for this person yet.</div>;
+  if (items === null) return <div className="text-xs text-muted-foreground py-1">{t('editor.oldestAncestors.loading', { defaultValue: 'Walking ancestor lines…' })}</div>;
+  if (items.length === 0) return <div className="text-xs text-muted-foreground py-1">{t('editor.oldestAncestors.empty', { defaultValue: 'No ancestors recorded for this person yet.' })}</div>;
   return (
     <ul className="space-y-1.5 text-sm">
       {items.map((ancestor) => (
@@ -43,7 +45,7 @@ export function OldestAncestorsWidget({ recordName }) {
               </LtrText>
             </div>
             <div className="text-[11px] text-muted-foreground flex gap-2">
-              <span>{ancestor.generations} gen{ancestor.generations === 1 ? '' : 's'} up</span>
+              <span>{t('editor.oldestAncestors.generationsUp', { count: ancestor.generations, defaultValue: `${ancestor.generations} generations up` })}</span>
               {ancestor.deathDate && <span>· <LtrText>{formatVitalDateParts({ deathDate: ancestor.deathDate })[0]}</LtrText></span>}
             </div>
           </button>

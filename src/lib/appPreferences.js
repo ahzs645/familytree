@@ -5,6 +5,7 @@ import {
   DEFAULT_LOCALIZATION,
   DIRECTION_OPTIONS,
   NUMBERING_SYSTEM_OPTIONS,
+  detectedLocalization,
   normalizeLocale,
   persistLocalization,
 } from './i18n.js';
@@ -62,9 +63,9 @@ const DEFAULT_APP_PREFERENCES = {
     cycleProtection: true,
     singleParentCoupleFallback: true,
   },
-  localization: {
-    ...DEFAULT_LOCALIZATION,
-  },
+  // Seeded from the browser's languages so a first-time visitor lands in
+  // their own language; anything they save afterwards overrides it.
+  localization: detectedLocalization(),
   appearance: {
     accentColor: '#2563eb',
     chartTheme: 'auto',
@@ -350,6 +351,7 @@ export async function getAppPreferences() {
   setActivePrivacyPolicy(prefs);
   setCatalogLabelPreferences({
     preferArabicCatalogLabels: prefs.arabicIslamic.preferArabicCatalogLabels,
+    locale: prefs.localization.locale,
   });
   return prefs;
 }
@@ -420,7 +422,7 @@ function normalizeLocalization(value = {}) {
   const numberingValues = new Set(NUMBERING_SYSTEM_OPTIONS.map((option) => option.value));
   const calendarValues = new Set(CALENDAR_OPTIONS.map((option) => option.value));
   return {
-    locale: normalizeLocale(value.locale || DEFAULT_LOCALIZATION.locale),
+    locale: normalizeLocale(value.locale || detectedLocalization().locale),
     direction: directionValues.has(value.direction) ? value.direction : DEFAULT_LOCALIZATION.direction,
     numberingSystem: numberingValues.has(value.numberingSystem) ? value.numberingSystem : DEFAULT_LOCALIZATION.numberingSystem,
     calendar: calendarValues.has(value.calendar) ? value.calendar : DEFAULT_LOCALIZATION.calendar,
@@ -475,6 +477,7 @@ function announcePreferences(preferences) {
   setActivePrivacyPolicy(preferences);
   setCatalogLabelPreferences({
     preferArabicCatalogLabels: !!preferences?.arabicIslamic?.preferArabicCatalogLabels,
+    locale: preferences?.localization?.locale,
   });
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(APP_PREFERENCES_EVENT, { detail: preferences }));

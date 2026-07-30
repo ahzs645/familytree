@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { lifeSpanLabel } from '../../models/index.js';
-import { personDisplayName } from '../../lib/personDisplayName.js';
+import { localizeNoName, noNameLabel, personDisplayName } from '../../lib/personDisplayName.js';
 import { textDirection, wrapGraphemes } from '../../lib/i18n.js';
 import { DEFAULT_THEME } from './theme.js';
 import { useChartSelection } from './ChartSelectionContext.jsx';
@@ -25,7 +25,7 @@ export function PersonNode({
 
   if (!person && !placeholder) return null;
   const colors = theme.gender[person?.gender ?? 0] || theme.gender[0];
-  const display = (person ? personDisplayName(person) : '') || 'No name recorded';
+  const display = localizeNoName((person ? personDisplayName(person) : '') || noNameLabel());
   const photo = content.showPortraits && person ? photoFor(person.recordName) : null;
   const refId = content.showIds && person ? (person.referenceNumber || person.gedcomId || person.familySearchID || '') : '';
   const baseSpan = person && content.showLifespan ? lifeSpanLabel(person) : '';

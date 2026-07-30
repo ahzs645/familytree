@@ -3,13 +3,17 @@
  * "Common" and "More" groups when items have a `common` flag.
  */
 import React from 'react';
-import { groupedTypeOptions } from '../../lib/catalogs.js';
+import { groupedTypeOptions, localizeTypeOptions } from '../../lib/catalogs.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
-export function TypePicker({ placeholder = 'Add', options, onPick }) {
-  const { common, rest } = groupedTypeOptions(options);
+export function TypePicker({ placeholder, options, onPick, ariaLabel }) {
+  const { t } = useTranslation();
+  const label = placeholder || t('common.add', { defaultValue: 'Add' });
+  const { common, rest } = groupedTypeOptions(localizeTypeOptions(options));
   return (
     <select
       value=""
+      aria-label={ariaLabel || label}
       onChange={(e) => {
         if (e.target.value) {
           onPick(e.target.value);
@@ -18,9 +22,9 @@ export function TypePicker({ placeholder = 'Add', options, onPick }) {
       }}
       className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-xs cursor-pointer outline-none"
     >
-      <option value="" disabled>{placeholder}</option>
+      <option value="" disabled>{label}</option>
       {common.length > 0 && (
-        <optgroup label="Common">
+        <optgroup label={t('editor.commonTypes', { defaultValue: 'Common' })}>
           {common.map((o) => (
             <option key={o.id} value={o.id}>{o.label}</option>
           ))}

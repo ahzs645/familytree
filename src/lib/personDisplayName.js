@@ -12,6 +12,25 @@
  * Fallback chain: real name → Arabic patrilineal name → "No name recorded (#id)".
  */
 import { NO_NAME } from '../models/index.js';
+import { translate } from './translate.js';
+import { getCurrentLocalization } from './i18n.js';
+
+/**
+ * The placeholder as the reader should see it. NO_NAME stays an English
+ * constant because half the codebase compares against it to detect "has no
+ * real name"; only the rendered form is localized. Reads the live document
+ * locale, so it works in canvas/chart code outside the React tree too.
+ */
+export function noNameLabel() {
+  return translate('persons.unnamedGroup', {}, { localization: getCurrentLocalization() });
+}
+
+/** Swap the NO_NAME sentinel for its localized form; pass anything else through. */
+export function localizeNoName(value) {
+  if (!value) return noNameLabel();
+  const text = String(value);
+  return text === NO_NAME ? noNameLabel() : text.replace(NO_NAME, noNameLabel());
+}
 
 /** Compact, stable identifier for a record, e.g. "person-1381" → "#1381". */
 export function shortPersonId(recordName) {

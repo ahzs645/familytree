@@ -32,6 +32,7 @@ function searchText(row, columns, rowSearchValue) {
 }
 
 export function ListPageHeader({ title, subtitle, count, total, actions, children }) {
+  const { t } = useTranslation();
   const localization = getCurrentLocalization();
   return (
     <header className="flex flex-wrap items-end gap-3 px-4 md:px-5 py-3 border-b border-border bg-card">
@@ -41,8 +42,16 @@ export function ListPageHeader({ title, subtitle, count, total, actions, childre
       </div>
       {children}
       <div className="text-xs text-muted-foreground whitespace-nowrap">
-        {typeof count === 'number' ? formatInteger(count, localization) : 0}
-        {typeof total === 'number' && total !== count ? ` of ${formatInteger(total, localization)}` : ''} rows
+        {typeof total === 'number' && total !== count
+          ? t('lists.rowsOfTotal', {
+            count: formatInteger(typeof count === 'number' ? count : 0, localization),
+            total: formatInteger(total, localization),
+            defaultValue: `${formatInteger(typeof count === 'number' ? count : 0, localization)} of ${formatInteger(total, localization)} rows`,
+          })
+          : t('lists.rowsTotal', {
+            count: formatInteger(typeof count === 'number' ? count : 0, localization),
+            defaultValue: `${formatInteger(typeof count === 'number' ? count : 0, localization)} rows`,
+          })}
       </div>
       {actions}
     </header>
@@ -58,7 +67,7 @@ export function SortableListTable({
   initialSortDirection = 'asc',
   searchPlaceholder = 'Search list...',
   rowSearchValue,
-  emptyTitle = 'No rows',
+  emptyTitle,
   emptyHint,
   toolbar,
   onRowClick,
@@ -138,7 +147,7 @@ export function SortableListTable({
           />
         ) : visibleRows.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 py-12">
-            <div className="text-sm font-semibold text-foreground">{emptyTitle}</div>
+            <div className="text-sm font-semibold text-foreground">{emptyTitle || t('lists.noRows', { defaultValue: 'No rows' })}</div>
             {emptyHint && <div className="text-xs text-muted-foreground mt-1 max-w-lg">{emptyHint}</div>}
           </div>
         ) : (

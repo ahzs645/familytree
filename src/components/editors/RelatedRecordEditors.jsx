@@ -27,6 +27,7 @@ import {
   writeCitationEvidenceFields,
 } from '../../lib/citationEvidence.js';
 import { BdiText } from '../BdiText.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { generateId } from '../../lib/ids.js';
 import { formClasses } from '../ui/formClasses.js';
 
@@ -101,13 +102,14 @@ function Empty({ title, hint }) {
 }
 
 function RelationRow({ rel, target, label, typeLabel, children, onRemove, onLineage }) {
+  const { t } = useTranslation();
   return (
     <div className="rounded-md bg-secondary/30 border border-border/60 p-2.5">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground min-w-20">{typeLabel || target?.recordType || 'Record'}</span>
+        <span className="text-xs text-muted-foreground min-w-20">{typeLabel || target?.recordType || t('related.record', { defaultValue: 'Record' })}</span>
         <span className="text-sm flex-1 min-w-0 truncate"><BdiText>{label || recordDisplayLabel(target) || readRef(rel.fields?.target) || rel.recordName}</BdiText></span>
-        {onLineage && <button onClick={onLineage} className="text-xs text-muted-foreground hover:underline">View lineage</button>}
-        <button onClick={onRemove} className="text-xs text-destructive-text hover:underline" title="Detach this citation. The source record will not be deleted.">Detach</button>
+        {onLineage && <button onClick={onLineage} className="text-xs text-muted-foreground hover:underline">{t('related.viewLineage', { defaultValue: 'View lineage' })}</button>}
+        <button onClick={onRemove} className="text-xs text-destructive-text hover:underline" title={t('related.detachHint', { defaultValue: 'Detach this citation. The source record will not be deleted.' })}>{t('related.detach', { defaultValue: 'Detach' })}</button>
       </div>
       {children}
     </div>
@@ -124,7 +126,8 @@ function mediaPictureIdentifier(record) {
 // Owner record types that carry a primary "entry image" (thumbnailFileIdentifier).
 const ENTRY_IMAGE_OWNERS = ['Person', 'Family', 'Place'];
 
-export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChanged, emptyHint = 'Attach media records to this entry.' }) {
+export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChanged, emptyHint }) {
+  const { t } = useTranslation();
   const [relations, setRelations] = useState([]);
   const [media, setMedia] = useState([]);
   const [mediaType, setMediaType] = useState(MEDIA_TYPES[0]);
@@ -194,7 +197,10 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
   return (
     <div>
       {relations.length === 0 ? (
-        <Empty title="No media attached" hint={emptyHint} />
+        <Empty
+          title={t('related.noMedia', { defaultValue: 'No media attached' })}
+          hint={emptyHint || t('related.noMediaHint', { defaultValue: 'Attach media records to this entry.' })}
+        />
       ) : (
         <div className="space-y-2 mb-3">
           {relations.map(({ rel, target }) => {
@@ -211,9 +217,9 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
                 {supportsEntryImage && isPicture && (
                   <div className="mt-1.5">
                     {isEntry ? (
-                      <button onClick={() => setEntryImage(target, false)} className="text-xs text-interactive hover:underline" title="Stop using this picture as the entry image.">★ Entry image — remove</button>
+                      <button onClick={() => setEntryImage(target, false)} className="text-xs text-interactive hover:underline" title={t('related.entryImageRemoveHint', { defaultValue: 'Stop using this picture as the entry image.' })}>{t('related.entryImageRemove', { defaultValue: '★ Entry image — remove' })}</button>
                     ) : (
-                      <button onClick={() => setEntryImage(target, true)} className="text-xs text-muted-foreground hover:underline" title="Use this picture as the profile/entry image.">Use as entry image</button>
+                      <button onClick={() => setEntryImage(target, true)} className="text-xs text-muted-foreground hover:underline" title={t('related.entryImageUseHint', { defaultValue: 'Use this picture as the profile/entry image.' })}>{t('related.entryImageUse', { defaultValue: 'Use as entry image' })}</button>
                     )}
                   </div>
                 )}
@@ -223,24 +229,25 @@ export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChang
         </div>
       )}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[130px_1fr_auto]">
-        <select value={mediaType} onChange={(e) => { setMediaType(e.target.value); setMediaId(''); }} className={inputClass} aria-label="Media type">
+        <select value={mediaType} onChange={(e) => { setMediaType(e.target.value); setMediaId(''); }} className={inputClass} aria-label={t('related.mediaType', { defaultValue: 'Media type' })}>
           {MEDIA_TYPES.map((type) => <option key={type} value={type}>{type.replace('Media', '')}</option>)}
         </select>
-        <select value={mediaId} onChange={(e) => setMediaId(e.target.value)} className={inputClass} aria-label="Media record" dir="auto">
-          <option value="">Select media...</option>
+        <select value={mediaId} onChange={(e) => setMediaId(e.target.value)} className={inputClass} aria-label={t('related.mediaRecord', { defaultValue: 'Media record' })} dir="auto">
+          <option value="">{t('related.selectMedia', { defaultValue: 'Select media…' })}</option>
           {filteredMedia.map((record) => (
             <option key={record.recordName} value={record.recordName} disabled={attachedIds.has(record.recordName)}>
               {recordDisplayLabel(record)}
             </option>
           ))}
         </select>
-        <button onClick={addRelation} disabled={!mediaId || attachedIds.has(mediaId)} className={primaryButtonClass}>Attach now</button>
+        <button onClick={addRelation} disabled={!mediaId || attachedIds.has(mediaId)} className={primaryButtonClass}>{t('related.attachNow', { defaultValue: 'Attach now' })}</button>
       </div>
     </div>
   );
 }
 
 export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerRole = 'target', onChanged }) {
+  const { t } = useTranslation();
   const [relations, setRelations] = useState([]);
   const [pool, setPool] = useState([]);
   const [selectedType, setSelectedType] = useState(ownerRole === 'source' ? 'Person' : 'Source');
@@ -378,17 +385,26 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
   return (
     <div>
       {relations.length === 0 ? (
-        <Empty title={ownerRole === 'source' ? 'No referenced entries present' : 'No source citations'} hint={ownerRole === 'source' ? 'Add entries assigned to this source.' : 'Attach sources that document this entry.'} />
+        <Empty
+          title={ownerRole === 'source'
+            ? t('related.noReferencedEntries', { defaultValue: 'No referenced entries present' })
+            : t('related.noSourceCitations', { defaultValue: 'No source citations' })}
+          hint={ownerRole === 'source'
+            ? t('related.noReferencedEntriesHint', { defaultValue: 'Add entries assigned to this source.' })
+            : t('related.noSourceCitationsHint', { defaultValue: 'Attach sources that document this entry.' })}
+        />
       ) : (
         <>
           {relations.length > 1 ? (
             <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              Sort
-              <select value={sortMode} onChange={(e) => setSortMode(e.target.value)} className={inputClass}>
-                <option value="title">{ownerRole === 'source' ? 'By Type/Title' : 'By Source Title'}</option>
-                <option value="certainty">By Certainty</option>
-                <option value="date">By Source Date</option>
-                <option value="page">By Page Number</option>
+              {t('common.sort', { defaultValue: 'Sort' })}
+              <select value={sortMode} onChange={(e) => setSortMode(e.target.value)} className={inputClass} aria-label={t('common.sort', { defaultValue: 'Sort' })}>
+                <option value="title">{ownerRole === 'source'
+                  ? t('related.sortByTypeTitle', { defaultValue: 'By Type/Title' })
+                  : t('related.sortBySourceTitle', { defaultValue: 'By Source Title' })}</option>
+                <option value="certainty">{t('related.sortByCertainty', { defaultValue: 'By Certainty' })}</option>
+                <option value="date">{t('related.sortBySourceDate', { defaultValue: 'By Source Date' })}</option>
+                <option value="page">{t('related.sortByPage', { defaultValue: 'By Page Number' })}</option>
               </select>
             </label>
           ) : null}
@@ -400,7 +416,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                   key={rel.recordName}
                   rel={rel}
                   target={target}
-                  typeLabel={target?.recordType || rel.fields?.targetType?.value || 'Record'}
+                  typeLabel={target?.recordType || rel.fields?.targetType?.value || t('related.record', { defaultValue: 'Record' })}
                   label={recordDisplayLabel(target) || readRef(rel.fields?.[relatedField])}
                   onRemove={() => removeRelation(rel)}
                   onLineage={() => showLineage(rel)}
@@ -413,50 +429,50 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                       value={draft.page || ''}
                       onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, page: e.target.value } }))}
                       className={inputClass}
-                      placeholder="Page"
-                      aria-label="Citation page"
+                      placeholder={t('related.page', { defaultValue: 'Page' })}
+                      aria-label={t('related.citationPage', { defaultValue: 'Citation page' })}
                     />
                     <input
                       value={draft.citation || ''}
                       onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, citation: e.target.value } }))}
                       className={inputClass}
-                      placeholder="Citation text"
-                      aria-label="Citation text"
+                      placeholder={t('related.citationText', { defaultValue: 'Citation text' })}
+                      aria-label={t('related.citationText', { defaultValue: 'Citation text' })}
                     />
-                    <button onClick={() => saveRelation(rel)} className={buttonClass}>Save citation now</button>
+                    <button onClick={() => saveRelation(rel)} className={buttonClass}>{t('related.saveCitation', { defaultValue: 'Save citation now' })}</button>
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_150px] mt-2">
                     <textarea
                       value={draft.transcription || ''}
                       onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, transcription: e.target.value } }))}
                       className={`${inputClass} min-h-16 resize-y`}
-                      placeholder="Transcription / excerpt"
-                      aria-label="Citation transcription"
+                      placeholder={t('related.transcription', { defaultValue: 'Transcription / excerpt' })}
+                      aria-label={t('related.citationTranscription', { defaultValue: 'Citation transcription' })}
                     />
                     <div className="space-y-2">
                       <select
                         value={draft.confidence || EVIDENCE_CONFIDENCE.UNKNOWN}
                         onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, confidence: e.target.value } }))}
                         className={inputClass}
-                        aria-label="Evidence confidence"
+                        aria-label={t('related.evidenceConfidence', { defaultValue: 'Evidence confidence' })}
                       >
                         {Object.entries(EVIDENCE_CONFIDENCE_LABELS).map(([value, text]) => (
-                          <option key={value} value={value}>{text} confidence</option>
+                          <option key={value} value={value}>{t('related.confidenceOption', { level: t(`related.confidence.${value}`, { defaultValue: text }), defaultValue: `${text} confidence` })}</option>
                         ))}
                       </select>
                       <input
                         value={draft.attribution || ''}
                         onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, attribution: e.target.value } }))}
                         className={inputClass}
-                        placeholder="Attribution"
-                        aria-label="Citation attribution"
+                        placeholder={t('related.attribution', { defaultValue: 'Attribution' })}
+                        aria-label={t('related.citationAttribution', { defaultValue: 'Citation attribution' })}
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 mt-2" role="group" aria-label="Citation certainty">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 mt-2" role="group" aria-label={t('related.citationCertainty', { defaultValue: 'Citation certainty' })}>
                     {CERTAINTY_AXES.map(({ key, label, values }) => (
                       <label key={key} className="text-[11px] text-muted-foreground">
-                        <span className="block mb-0.5">{label} quality</span>
+                        <span className="block mb-0.5">{t('related.qualityAxis', { axis: t(`related.certaintyAxis.${key}`, { defaultValue: label }), defaultValue: `${label} quality` })}</span>
                         <select
                           value={draft[key] || CERTAINTY.DONT_KNOW}
                           onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, [key]: e.target.value } }))}
@@ -479,18 +495,24 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
         </>
       )}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[130px_1fr_auto]">
-        <select value={selectedType} onChange={(e) => { setSelectedType(e.target.value); setSelectedId(''); }} className={inputClass} aria-label={ownerRole === 'source' ? 'Citation target type' : 'Citation source type'}>
+        <select value={selectedType} onChange={(e) => { setSelectedType(e.target.value); setSelectedId(''); }} className={inputClass} aria-label={ownerRole === 'source'
+          ? t('related.citationTargetType', { defaultValue: 'Citation target type' })
+          : t('related.citationSourceType', { defaultValue: 'Citation source type' })}>
           {poolTypes.map((type) => <option key={type} value={type}>{type.replace('Media', '')}</option>)}
         </select>
-        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className={inputClass} aria-label={ownerRole === 'source' ? 'Citation target record' : 'Citation source record'} dir="auto">
-          <option value="">Select {ownerRole === 'source' ? 'target' : 'source'}...</option>
+        <select value={selectedId} onChange={(e) => setSelectedId(e.target.value)} className={inputClass} aria-label={ownerRole === 'source'
+          ? t('related.citationTargetRecord', { defaultValue: 'Citation target record' })
+          : t('related.citationSourceRecord', { defaultValue: 'Citation source record' })} dir="auto">
+          <option value="">{ownerRole === 'source'
+            ? t('related.selectTarget', { defaultValue: 'Select target…' })
+            : t('related.selectSource', { defaultValue: 'Select source…' })}</option>
           {filteredPool.map((record) => (
             <option key={record.recordName} value={record.recordName} disabled={attachedIds.has(record.recordName)}>
               {recordDisplayLabel(record)}
             </option>
           ))}
         </select>
-        <button onClick={addRelation} disabled={!selectedId || attachedIds.has(selectedId)} className={primaryButtonClass}>Attach now</button>
+        <button onClick={addRelation} disabled={!selectedId || attachedIds.has(selectedId)} className={primaryButtonClass}>{t('related.attachNow', { defaultValue: 'Attach now' })}</button>
       </div>
       {lineage && (
         <LineageDrawer lineage={lineage} onClose={() => setLineage(null)} />
@@ -500,6 +522,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
 }
 
 function LineageDrawer({ lineage, onClose }) {
+  const { t } = useTranslation();
   const relation = lineage?.relation;
   const events = lineage?.events || [];
   const batch = lineage?.batch;
@@ -508,33 +531,33 @@ function LineageDrawer({ lineage, onClose }) {
     <div className="fixed inset-0 z-50 bg-black/30 flex justify-end" role="dialog" aria-modal="true">
       <div className="h-full w-full max-w-lg overflow-auto border-l border-border bg-background p-5 shadow-xl">
         <div className="flex items-center gap-3 mb-4">
-          <h3 className="text-base font-semibold flex-1">Citation lineage</h3>
-          <button onClick={onClose} className={buttonClass}>Close</button>
+          <h3 className="text-base font-semibold flex-1">{t('related.lineage.title', { defaultValue: 'Citation lineage' })}</h3>
+          <button onClick={onClose} className={buttonClass}>{t('common.close', { defaultValue: 'Close' })}</button>
         </div>
         {lineage.loading ? (
-          <div className="text-sm text-muted-foreground">Loading lineage…</div>
+          <div className="text-sm text-muted-foreground">{t('related.lineage.loading', { defaultValue: 'Loading lineage…' })}</div>
         ) : (
           <div className="space-y-4">
             <div className="rounded-md border border-border bg-card p-3">
-              <div className="text-xs text-muted-foreground mb-1">Citation</div>
-              <div className="text-sm">Source: <BdiText>{recordDisplayLabel(lineage.source) || readRef(relation?.fields?.source) || 'Unknown'}</BdiText></div>
-              <div className="text-sm">Target: <BdiText>{recordDisplayLabel(lineage.target) || readRef(relation?.fields?.target) || 'Unknown'}</BdiText></div>
-              {citation.page && <div className="text-sm">Page: {citation.page}</div>}
-              {citation.citation && <div className="text-sm">Citation: {citation.citation}</div>}
-              {citation.transcription && <div className="text-sm">Transcription present</div>}
+              <div className="text-xs text-muted-foreground mb-1">{t('related.lineage.citation', { defaultValue: 'Citation' })}</div>
+              <div className="text-sm">{t('related.lineage.source', { defaultValue: 'Source' })}: <BdiText>{recordDisplayLabel(lineage.source) || readRef(relation?.fields?.source) || t('common.unknown', { defaultValue: 'Unknown' })}</BdiText></div>
+              <div className="text-sm">{t('related.lineage.target', { defaultValue: 'Target' })}: <BdiText>{recordDisplayLabel(lineage.target) || readRef(relation?.fields?.target) || t('common.unknown', { defaultValue: 'Unknown' })}</BdiText></div>
+              {citation.page && <div className="text-sm">{t('related.page', { defaultValue: 'Page' })}: {citation.page}</div>}
+              {citation.citation && <div className="text-sm">{t('related.lineage.citation', { defaultValue: 'Citation' })}: {citation.citation}</div>}
+              {citation.transcription && <div className="text-sm">{t('related.lineage.transcriptionPresent', { defaultValue: 'Transcription present' })}</div>}
             </div>
             <div className="rounded-md border border-border bg-card p-3">
-              <div className="text-xs text-muted-foreground mb-1">Batch</div>
-              <div className="text-sm">{batch?.fields?.summary?.value || batch?.fields?.kind?.value || relation?.fields?.lineageOperation?.value || 'Legacy / unknown origin'}</div>
+              <div className="text-xs text-muted-foreground mb-1">{t('related.lineage.batch', { defaultValue: 'Batch' })}</div>
+              <div className="text-sm">{batch?.fields?.summary?.value || batch?.fields?.kind?.value || relation?.fields?.lineageOperation?.value || t('related.lineage.unknownOrigin', { defaultValue: 'Legacy / unknown origin' })}</div>
               {batch?.fields?.sourceName?.value && <div className="text-xs text-muted-foreground mt-1">{batch.fields.sourceName.value}</div>}
             </div>
             <div>
-              <div className="text-xs font-medium text-muted-foreground mb-2">Timeline</div>
+              <div className="text-xs font-medium text-muted-foreground mb-2">{t('related.lineage.timeline', { defaultValue: 'Timeline' })}</div>
               {events.length === 0 ? (
-                <div className="text-sm text-muted-foreground">Legacy / unknown origin</div>
+                <div className="text-sm text-muted-foreground">{t('related.lineage.unknownOrigin', { defaultValue: 'Legacy / unknown origin' })}</div>
               ) : events.map((event) => (
                 <div key={event.recordName} className="rounded-md border border-border bg-card p-3 mb-2">
-                  <div className="text-sm font-medium">{event.fields?.eventType?.value || 'event'} · {event.fields?.operation?.value || 'unknown'}</div>
+                  <div className="text-sm font-medium">{event.fields?.eventType?.value || t('related.lineage.event', { defaultValue: 'event' })} · {event.fields?.operation?.value || t('related.lineage.unknownOperation', { defaultValue: 'unknown' })}</div>
                   <div className="text-xs text-muted-foreground">{event.fields?.timestamp?.value || ''}</div>
                   {event.fields?.details?.value && <div className="text-sm mt-1">{event.fields.details.value}</div>}
                 </div>
@@ -548,6 +571,7 @@ function LineageDrawer({ lineage, onClose }) {
 }
 
 export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, relationTypes, onChanged }) {
+  const { t } = useTranslation();
   const [relations, setRelations] = useState([]);
   const [persons, setPersons] = useState([]);
   const [typeId, setTypeId] = useState(relationTypes?.[0]?.id || '');
@@ -634,7 +658,10 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
   return (
     <div>
       {relations.length === 0 ? (
-        <Empty title="No influential persons" hint="Attach witnesses, friends, neighbors, or other associated people." />
+        <Empty
+          title={t('related.noInfluential', { defaultValue: 'No influential persons' })}
+          hint={t('related.noInfluentialHint', { defaultValue: 'Attach witnesses, friends, neighbors, or other associated people.' })}
+        />
       ) : (
         <div className="space-y-2 mb-3">
           {relations.map(({ rel, target }) => {
@@ -652,29 +679,29 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
                     value={draft.type || ''}
                     onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, type: e.target.value } }))}
                     className={inputClass}
-                    aria-label="Associate relation type"
+                    aria-label={t('related.associateType', { defaultValue: 'Associate relation type' })}
                   >
-                    <option value="">Relation type...</option>
+                    <option value="">{t('related.selectRelationType', { defaultValue: 'Relation type…' })}</option>
                     {relationTypes.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
                   </select>
                   <select
                     value={draft.targetPerson || ''}
                     onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, targetPerson: e.target.value } }))}
                     className={inputClass}
-                    aria-label="Associate person"
+                    aria-label={t('related.associatePerson', { defaultValue: 'Associate person' })}
                     dir="auto"
                   >
-                    <option value="">Select person...</option>
+                    <option value="">{t('related.selectPerson', { defaultValue: 'Select person…' })}</option>
                     {persons.map((person) => <option key={person.recordName} value={person.recordName}>{recordDisplayLabel(person)}</option>)}
                   </select>
                   <input
                     value={draft.date || ''}
                     onChange={(e) => setDrafts((state) => ({ ...state, [rel.recordName]: { ...draft, date: e.target.value } }))}
                     className={inputClass}
-                    placeholder="Date"
-                    aria-label="Associate relation date"
+                    placeholder={t('common.date', { defaultValue: 'Date' })}
+                    aria-label={t('related.associateDate', { defaultValue: 'Associate relation date' })}
                   />
-                  <button onClick={() => saveRelation(rel)} disabled={!draft.type || !draft.targetPerson} className={buttonClass}>Save relation now</button>
+                  <button onClick={() => saveRelation(rel)} disabled={!draft.type || !draft.targetPerson} className={buttonClass}>{t('related.saveRelation', { defaultValue: 'Save relation now' })}</button>
                 </div>
               </RelationRow>
             );
@@ -682,21 +709,22 @@ export function AssociateRelationsEditor({ ownerRecordName, ownerRecordType, rel
         </div>
       )}
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[150px_1fr_130px_auto]">
-        <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className={inputClass} aria-label="New associate relation type">
+        <select value={typeId} onChange={(e) => setTypeId(e.target.value)} className={inputClass} aria-label={t('related.newAssociateType', { defaultValue: 'New associate relation type' })}>
           {relationTypes.map((type) => <option key={type.id} value={type.id}>{type.label}</option>)}
         </select>
-        <select value={personId} onChange={(e) => setPersonId(e.target.value)} className={inputClass} aria-label="New associate person" dir="auto">
-          <option value="">Select person...</option>
+        <select value={personId} onChange={(e) => setPersonId(e.target.value)} className={inputClass} aria-label={t('related.newAssociatePerson', { defaultValue: 'New associate person' })} dir="auto">
+          <option value="">{t('related.selectPerson', { defaultValue: 'Select person…' })}</option>
           {persons.map((person) => <option key={person.recordName} value={person.recordName}>{recordDisplayLabel(person)}</option>)}
         </select>
-        <input value={newDate} onChange={(e) => setNewDate(e.target.value)} className={inputClass} placeholder="Date (optional)" aria-label="New associate relation date" />
-        <button onClick={addRelation} disabled={!personId || !typeId} className={primaryButtonClass}>Attach now</button>
+        <input value={newDate} onChange={(e) => setNewDate(e.target.value)} className={inputClass} placeholder={t('related.dateOptional', { defaultValue: 'Date (optional)' })} aria-label={t('related.newAssociateDate', { defaultValue: 'New associate relation date' })} />
+        <button onClick={addRelation} disabled={!personId || !typeId} className={primaryButtonClass}>{t('related.attachNow', { defaultValue: 'Attach now' })}</button>
       </div>
     </div>
   );
 }
 
 export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
+  const { t } = useTranslation();
   const [notes, setNotes] = useState([]);
   const [saving, setSaving] = useState(false);
   const ownerField = ownerRecordType.toLowerCase();
@@ -755,7 +783,10 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
   return (
     <div>
       {notes.length === 0 ? (
-        <Empty title="No notes present" hint="Add notes directly from this editor." />
+        <Empty
+          title={t('related.noNotes', { defaultValue: 'No notes present' })}
+          hint={t('related.noNotesHint', { defaultValue: 'Add notes directly from this editor.' })}
+        />
       ) : (
         <div className="space-y-2 mb-3">
           {notes.map((note, index) => (
@@ -764,28 +795,28 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
                 value={note.title}
                 onChange={(e) => setNotes((items) => items.map((item, i) => i === index ? { ...item, title: e.target.value } : item))}
                 className={inputClass}
-                placeholder="Title"
-                aria-label="Note title"
+                placeholder={t('common.title', { defaultValue: 'Title' })}
+                aria-label={t('related.noteTitle', { defaultValue: 'Note title' })}
               />
               <textarea
                 value={note.text}
                 onChange={(e) => setNotes((items) => items.map((item, i) => i === index ? { ...item, text: e.target.value } : item))}
                 className={`${inputClass} mt-2 resize-y`}
                 rows={3}
-                placeholder="Note text"
-                aria-label="Note text"
+                placeholder={t('related.noteText', { defaultValue: 'Note text' })}
+                aria-label={t('related.noteText', { defaultValue: 'Note text' })}
               />
               <div className="text-end mt-2">
-                <button onClick={() => setNotes((items) => items.filter((_, i) => i !== index))} className="text-xs text-destructive-text hover:underline">Stage removal</button>
+                <button onClick={() => setNotes((items) => items.filter((_, i) => i !== index))} className="text-xs text-destructive-text hover:underline">{t('related.stageRemoval', { defaultValue: 'Stage removal' })}</button>
               </div>
             </div>
           ))}
         </div>
       )}
       <div className="flex gap-2">
-        <button onClick={() => setNotes((items) => [...items, { title: '', text: '' }])} className={primaryButtonClass}>Stage note</button>
+        <button onClick={() => setNotes((items) => [...items, { title: '', text: '' }])} className={primaryButtonClass}>{t('related.stageNote', { defaultValue: 'Stage note' })}</button>
         <Button variant="primary" size="sm" onClick={saveNotes} disabled={saving}>
-          {saving ? 'Saving...' : 'Save notes'}
+          {saving ? t('common.saving', { defaultValue: 'Saving…' }) : t('related.saveNotes', { defaultValue: 'Save notes' })}
         </Button>
       </div>
     </div>

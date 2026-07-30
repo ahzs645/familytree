@@ -5,6 +5,7 @@ import { getAppDataClient } from '../../lib/data/AppDataClient.js';
 import { sourceSummary } from '../../models/index.js';
 import { BdiText } from '../BdiText.jsx';
 import { attachSourceRelation, attachedSourceIdsForTarget, createQuickSource } from '../../lib/citationLinks.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 /**
  * SourcePickerSheet — inline "cite a source" modal opened from the Unsourced /
@@ -22,6 +23,7 @@ import { attachSourceRelation, attachedSourceIdsForTarget, createQuickSource } f
  *                 full Source Citations editor)
  */
 export function SourcePickerSheet({ target, onClose, onLinked, onManageAll }) {
+  const { t } = useTranslation();
   const [sources, setSources] = useState([]);
   const [attachedIds, setAttachedIds] = useState(() => new Set());
   const [search, setSearch] = useState('');
@@ -81,39 +83,44 @@ export function SourcePickerSheet({ target, onClose, onLinked, onManageAll }) {
     <>
       {onManageAll && (
         <button type="button" onClick={() => { onClose?.(); onManageAll(); }} className="me-auto text-xs text-interactive hover:underline">
-          Manage all citations…
+          {t('sourcePicker.manageAll', { defaultValue: 'Manage all citations…' })}
         </button>
       )}
       <button type="button" onClick={onClose} className="rounded-md border border-border px-3 py-1.5 text-xs">
-        Cancel
+        {t('common.cancel', { defaultValue: 'Cancel' })}
       </button>
     </>
   );
 
   return (
     <Sheet
-      title="Add a source citation"
-      subtitle={target?.label ? `Cite a source for "${target.label}"` : 'Choose an existing source or create a new one.'}
+      title={t('sourcePicker.title', { defaultValue: 'Add a source citation' })}
+      subtitle={target?.label
+        ? t('sourcePicker.subtitleFor', { label: target.label, defaultValue: `Cite a source for "${target.label}"` })
+        : t('sourcePicker.subtitle', { defaultValue: 'Choose an existing source or create a new one.' })}
       footer={footer}
       maxWidth="max-w-md"
       scroll="card"
-      ariaLabel="Add a source citation"
+      ariaLabel={t('sourcePicker.title', { defaultValue: 'Add a source citation' })}
     >
       <input
         autoFocus
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search sources…"
+        placeholder={t('sourcePicker.search', { defaultValue: 'Search sources…' })}
+        aria-label={t('sourcePicker.search', { defaultValue: 'Search sources…' })}
         dir="auto"
         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
       />
 
       <div className="rounded-md border border-border divide-y divide-border max-h-[40vh] overflow-y-auto">
         {loading ? (
-          <p className="p-3 text-xs text-muted-foreground">Loading sources…</p>
+          <p className="p-3 text-xs text-muted-foreground">{t('sourcePicker.loading', { defaultValue: 'Loading sources…' })}</p>
         ) : filtered.length === 0 ? (
           <p className="p-3 text-xs text-muted-foreground">
-            {sources.length === 0 ? 'No sources yet — create one below.' : 'No matching sources.'}
+            {sources.length === 0
+              ? t('sourcePicker.empty', { defaultValue: 'No sources yet — create one below.' })
+              : t('sourcePicker.noMatches', { defaultValue: 'No matching sources.' })}
           </p>
         ) : filtered.map((s) => {
           const already = attachedIds.has(s.recordName);
@@ -125,10 +132,10 @@ export function SourcePickerSheet({ target, onClose, onLinked, onManageAll }) {
               onClick={() => link(s.recordName)}
               className="w-full flex items-center gap-2 px-3 py-2 text-start text-sm hover:bg-accent disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <BdiText className="flex-1 truncate">{s.title || 'Untitled source'}</BdiText>
+              <BdiText className="flex-1 truncate">{s.title || t('sourcePicker.untitled', { defaultValue: 'Untitled source' })}</BdiText>
               {already
-                ? <span className="text-[10px] font-bold uppercase tracking-wide text-success-text shrink-0">Cited</span>
-                : <span className="text-[10px] font-bold uppercase tracking-wide text-interactive shrink-0">Cite</span>}
+                ? <span className="text-[10px] font-bold uppercase tracking-wide text-success-text shrink-0">{t('sourcePicker.cited', { defaultValue: 'Cited' })}</span>
+                : <span className="text-[10px] font-bold uppercase tracking-wide text-interactive shrink-0">{t('sourcePicker.cite', { defaultValue: 'Cite' })}</span>}
             </button>
           );
         })}
@@ -139,7 +146,8 @@ export function SourcePickerSheet({ target, onClose, onLinked, onManageAll }) {
           value={newTitle}
           onChange={(e) => setNewTitle(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') createAndLink(); }}
-          placeholder="New source title…"
+          placeholder={t('sourcePicker.newTitle', { defaultValue: 'New source title…' })}
+          aria-label={t('sourcePicker.newTitle', { defaultValue: 'New source title…' })}
           dir="auto"
           className="flex-1 rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
         />
@@ -149,7 +157,7 @@ export function SourcePickerSheet({ target, onClose, onLinked, onManageAll }) {
           onClick={createAndLink}
           disabled={busy || !newTitle.trim()}
         >
-          Create &amp; cite
+          {t('sourcePicker.createAndCite', { defaultValue: 'Create & cite' })}
         </Button>
       </div>
     </Sheet>

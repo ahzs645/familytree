@@ -8,6 +8,7 @@ import React from 'react';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
 import { DatePicker } from '../ui/DatePicker.jsx';
 import { Field, RemoveBtn, inputClass } from './uiPrimitives.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function emptyMilkKinship(currentPersonId) {
   return {
@@ -23,6 +24,7 @@ export function emptyMilkKinship(currentPersonId) {
 }
 
 export function MilkKinshipEditor({ item, persons, currentPersonId, onChange, onRemove }) {
+  const { t } = useTranslation();
   const updateRole = (role) => {
     const next = { ...item, role };
     if (item.role === 'child' && next.childId === currentPersonId) next.childId = '';
@@ -40,58 +42,58 @@ export function MilkKinshipEditor({ item, persons, currentPersonId, onChange, on
   return (
     <div className="rounded-md border border-border bg-secondary/20 p-3">
       <div className="grid grid-cols-1 md:grid-cols-[160px_1fr_auto] gap-2 items-end">
-        <Field label="This person is">
+        <Field label={t('editor.milk.thisPersonIs', { defaultValue: 'This person is' })}>
           <select value={role} onChange={(event) => updateRole(event.target.value)} className={inputClass()}>
-            <option value="child">Breastfed child</option>
-            <option value="nursingMother">Nursing mother</option>
-            <option value="milkFather">Milk father</option>
+            <option value="child">{t('editor.milk.child', { defaultValue: 'Breastfed child' })}</option>
+            <option value="nursingMother">{t('editor.milk.nursingMother', { defaultValue: 'Nursing mother' })}</option>
+            <option value="milkFather">{t('editor.milk.milkFather', { defaultValue: 'Milk father' })}</option>
           </select>
         </Field>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {showMother ? (
-            <Field label="Nursing mother">
+            <Field label={t('editor.milk.nursingMother', { defaultValue: 'Nursing mother' })}>
               <PersonPicker persons={persons.filter((p) => p.recordName !== currentPersonId)} value={item.nursingMotherId || ''} onChange={(value) => onChange({ ...item, nursingMotherId: value })} />
             </Field>
           ) : null}
           {showFather ? (
-            <Field label="Milk father">
+            <Field label={t('editor.milk.milkFather', { defaultValue: 'Milk father' })}>
               <PersonPicker persons={persons.filter((p) => p.recordName !== currentPersonId)} value={item.milkFatherId || ''} onChange={(value) => onChange({ ...item, milkFatherId: value })} />
             </Field>
           ) : null}
           {showChild ? (
-            <Field label="Breastfed child">
+            <Field label={t('editor.milk.child', { defaultValue: 'Breastfed child' })}>
               <PersonPicker persons={persons.filter((p) => p.recordName !== currentPersonId)} value={item.childId || ''} onChange={(value) => onChange({ ...item, childId: value })} />
             </Field>
           ) : null}
         </div>
-        <RemoveBtn onClick={onRemove} />
+        <RemoveBtn label={t('common.remove', { defaultValue: 'Remove' })} onClick={onRemove} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_120px] gap-2 mt-3">
-        <Field label="Start date">
+        <Field label={t('common.startDate', { defaultValue: 'Start date' })}>
           <DatePicker
             value={item.startDate || ''}
             onChange={(value) => onChange({ ...item, startDate: value })}
-            placeholder="Start date"
-            ariaLabel="Milk kinship start date"
+            placeholder={t('common.startDate', { defaultValue: 'Start date' })}
+            ariaLabel={t('editor.milk.startDateLabel', { defaultValue: 'Milk kinship start date' })}
           />
         </Field>
-        <Field label="End date">
+        <Field label={t('common.endDate', { defaultValue: 'End date' })}>
           <DatePicker
             value={item.endDate || ''}
             onChange={(value) => onChange({ ...item, endDate: value })}
-            placeholder="End date"
-            ariaLabel="Milk kinship end date"
+            placeholder={t('common.endDate', { defaultValue: 'End date' })}
+            ariaLabel={t('editor.milk.endDateLabel', { defaultValue: 'Milk kinship end date' })}
           />
         </Field>
-        <Field label="Active">
+        <Field label={t('editor.milk.active', { defaultValue: 'Active' })}>
           <select value={item.isActive === false ? 'no' : 'yes'} onChange={(event) => onChange({ ...item, isActive: event.target.value === 'yes' })} className={inputClass()}>
-            <option value="yes">Active</option>
-            <option value="no">Inactive</option>
+            <option value="yes">{t('editor.milk.active', { defaultValue: 'Active' })}</option>
+            <option value="no">{t('editor.milk.inactive', { defaultValue: 'Inactive' })}</option>
           </select>
         </Field>
       </div>
       <div className="mt-3">
-        <Field label="Notes">
+        <Field label={t('editor.person.notes', { defaultValue: 'Notes' })}>
           <textarea value={item.notes || ''} onChange={(event) => onChange({ ...item, notes: event.target.value })} rows={2} className={inputClass() + ' resize-y'} />
         </Field>
       </div>
