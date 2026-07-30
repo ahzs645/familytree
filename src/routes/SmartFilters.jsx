@@ -19,6 +19,7 @@ import {
   availablePathSteps,
 } from '../lib/customScopes.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const COMMON_FIELDS_BY_ENTITY = {
   Person: ['firstName', 'lastName', 'gender', 'cached_birthDate', 'cached_deathDate', 'birthPlace', 'deathPlace', 'thumbnailFileIdentifier', 'isBookmarked'],
@@ -145,7 +146,7 @@ export default function SmartFilters() {
       <div className="max-w-5xl mx-auto p-5 grid grid-cols-1 md:grid-cols-[240px_1fr] gap-4">
         <aside>
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold">Smart filters</h2>
+            <PageTitle className="text-sm font-semibold">Smart filters</PageTitle>
             <button onClick={onNew} className={button}>+ New</button>
           </div>
           {filters.length === 0 ? (

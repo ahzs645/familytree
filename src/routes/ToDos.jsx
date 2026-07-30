@@ -22,6 +22,7 @@ import { useRecordEditor } from '../components/editors/useRecordEditor.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { useListSelection } from '../components/lists/useListSelection.js';
 import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const TARGET_TYPES = ['Person', 'Family', 'Source', 'Place', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
 const TODO_FIELDS = ['title', 'type', 'status', 'priority', 'dueDate'];
@@ -340,7 +341,7 @@ export default function ToDos() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h2 className="text-base font-semibold">{t('todosPage.title')}</h2>
+        <PageTitle className="text-base font-semibold">{t('todosPage.title')}</PageTitle>
         <span className="text-xs text-muted-foreground">{todos.length}</span>
         {status && <span className="text-xs text-muted-foreground">{status}</span>}
         <div className="ms-auto flex flex-wrap items-center gap-2">

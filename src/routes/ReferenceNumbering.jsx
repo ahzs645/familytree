@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
 import { listAllPersons, findStartPerson } from '../lib/treeQuery.js';
 import { NUMBERING_SYSTEMS, calculateReferenceNumbers } from '../lib/referenceNumbering.js';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 export default function ReferenceNumbering() {
   const { recordName: activePersonId, setActivePerson } = useActivePerson();
@@ -41,7 +42,7 @@ export default function ReferenceNumbering() {
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-6xl mx-auto p-3 sm:p-5">
         <header className="mb-5">
-          <h2 className="text-xl font-bold">Reference Numbering</h2>
+          <PageTitle className="text-xl font-bold">Reference Numbering</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">Calculate Ahnentafel, d'Aboville, Henry, or generation-relative numbers from a selected person.</p>
         </header>
 

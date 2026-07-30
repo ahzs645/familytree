@@ -34,6 +34,7 @@ import {
   clearPublishHistory,
 } from '../lib/publishTargets.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const buttonPrimary = buttonClasses({ variant: 'primary', size: 'md' });
 const buttonSecondary = 'rounded-md border border-border bg-secondary px-4 py-2 text-sm font-medium hover:bg-accent disabled:opacity-50';
@@ -343,7 +344,7 @@ export default function Websites() {
       <div className="max-w-4xl mx-auto p-5">
         <div className="flex flex-wrap items-start gap-3 mb-5">
           <div>
-            <h2 className="text-xl font-bold mb-1">Websites</h2>
+            <PageTitle className="text-xl font-bold mb-1">Websites</PageTitle>
             <p className="text-sm text-muted-foreground">
               Configure and publish a static family website. Data import/export remains in <Link to="/export" className="text-interactive hover:underline">Import & Export</Link>.
             </p>

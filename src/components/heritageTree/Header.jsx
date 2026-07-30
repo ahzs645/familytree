@@ -19,6 +19,7 @@ import { Button } from '../ui/Button.jsx';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { PageTitle } from '../ui/PageTitle.jsx';
 
 const THEME_KEYS = ['app', 'classic', 'ink', 'ocean', 'forest', 'monochrome'];
 
@@ -120,7 +121,7 @@ export default function Header({
       className="absolute inset-x-0 top-0 z-30 flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-card px-3 py-2 md:px-5"
     >
       <div className="min-w-0 flex-1">
-        <h2 className="text-base font-semibold leading-tight">{t('heritageTree.title')}</h2>
+        <PageTitle className="text-base font-semibold leading-tight">{t('heritageTree.title')}</PageTitle>
         <p className="truncate text-xs text-muted-foreground">
           {rootName
             ? <>{t('heritageTree.subtitleForRoot', { count: maxGen })} <BdiText>{rootName}</BdiText></>

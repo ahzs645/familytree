@@ -13,6 +13,7 @@ import { WORLD_EVENTS } from '../lib/worldHistory.js';
 import { eventTypeLabel } from '../lib/catalogs.js';
 import { formatEventDate } from '../utils/formatDate.js';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const CATEGORY_STORAGE_KEY = 'worldHistory.enabledCategories';
 const RANGE_PADDING_YEARS = 20;
@@ -151,7 +152,7 @@ export default function WorldHistory() {
     <div className="flex flex-col h-full bg-background">
       <header className="border-b border-border bg-card px-5 py-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-base font-semibold">World History</h2>
+          <PageTitle className="text-base font-semibold">World History</PageTitle>
           <div className="w-full sm:w-72">
             <PersonPicker persons={persons} value={recordName} onChange={(id) => setActivePerson(id)} />
           </div>

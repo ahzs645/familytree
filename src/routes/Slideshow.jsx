@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router-dom';
 import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { getAppPreferences } from '../lib/appPreferences.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 import {
   mediaAssetSrc,
   mediaDisplayLabel,
@@ -141,7 +142,7 @@ export default function Slideshow() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card flex-wrap">
-        <h2 className="text-base font-semibold">Slideshow</h2>
+        <PageTitle className="text-base font-semibold">Slideshow</PageTitle>
         <span className="text-xs text-muted-foreground">{index + 1} / {media.length}</span>
         <div className="ms-auto flex items-center gap-2 flex-wrap">
           <select value={filter} onChange={(e) => setFilter(e.target.value)}

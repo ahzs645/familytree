@@ -31,6 +31,7 @@ import { useListSelection } from '../components/lists/useListSelection.js';
 import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
 import { useRecordEditor } from '../components/editors/useRecordEditor.js';
 import { useRecords } from '../lib/data/useRecords.js';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 function humanizeTemplateName(recordName) {
   // "SourceTemplate_ChurchRecord_Books" → "Church Record - Books"
@@ -435,7 +436,7 @@ export default function Sources() {
     <EditorSectionNavProvider>
       <div className="flex flex-col h-full">
         <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-          <h2 className="text-base font-semibold">Sources</h2>
+          <PageTitle className="text-base font-semibold">Sources</PageTitle>
           <span className="text-xs text-muted-foreground">{sources.length}</span>
           <Button variant="primary" size="sm" onClick={onCreate} className="ms-auto">+ New Source</Button>
         </header>

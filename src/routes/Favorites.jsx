@@ -6,6 +6,7 @@ import { APP_FUNCTIONS, functionByRoute } from '../lib/functionCatalog.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { familySummary, personSummary, placeSummary, sourceSummary } from '../models/index.js';
 import { BdiText } from '../components/BdiText.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const BOOKMARK_TYPES = [
   { id: 'Person', label: 'People', route: 'person', summarize: personSummary },
@@ -85,7 +86,7 @@ export default function Favorites() {
       <div className="max-w-6xl mx-auto p-5">
         <header className="flex items-center gap-3 mb-5">
           <div>
-            <h2 className="text-xl font-bold">Favorites</h2>
+            <PageTitle className="text-xl font-bold">Favorites</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">Favorite functions and bookmarked records.</p>
           </div>
           {status && <span className="ms-auto text-xs text-success-text">{status}</span>}

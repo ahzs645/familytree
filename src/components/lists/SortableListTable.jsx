@@ -5,6 +5,7 @@ import { BulkActionBar } from './BulkActionBar.jsx';
 import { ListReportPreview } from './ListReportWorkbench.jsx';
 import { listToolbarCountClass, listToolbarInputClass } from './listToolbarClasses.js';
 import { useListSelection } from './useListSelection.js';
+import { PageTitle } from '../ui/PageTitle.jsx';
 
 function defaultValue(row, column) {
   if (column.sortValue) return column.sortValue(row);
@@ -37,7 +38,7 @@ export function ListPageHeader({ title, subtitle, count, total, actions, childre
   return (
     <header className="flex flex-wrap items-end gap-3 px-4 md:px-5 py-3 border-b border-border bg-card">
       <div className="min-w-0 me-auto">
-        <h2 className="text-base font-semibold truncate">{title}</h2>
+        <PageTitle className="text-base font-semibold truncate">{title}</PageTitle>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       {children}

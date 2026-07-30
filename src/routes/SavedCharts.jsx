@@ -9,6 +9,7 @@ import { listChartTemplates, deleteChartTemplate, saveChartTemplate, newTemplate
 import { listChartDocuments, deleteChartDocument } from '../lib/chartDocuments.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const CHART_LABELS = {
   ancestor: 'Ancestor',
@@ -109,7 +110,7 @@ export default function SavedCharts() {
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-5xl mx-auto p-5">
         <header className="mb-5">
-          <h2 className="text-xl font-bold">Saved Charts</h2>
+          <PageTitle className="text-xl font-bold">Saved Charts</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">
             {templates.length + documents.length + importedViews.length === 0
               ? 'No saved charts yet. Configure a chart in Charts and click Save to store the layout.'

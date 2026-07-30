@@ -31,6 +31,7 @@ import { useModal } from '../contexts/ModalContext.jsx';
 import { getAppPreferences } from '../lib/appPreferences.js';
 import { useActivePerson } from '../contexts/ActivePersonContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 function Card({ title, description, children }) {
   return (
@@ -395,7 +396,7 @@ export default function Export() {
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-2xl mx-auto p-5">
-        <h2 className="text-xl font-bold mb-1">{t('exportPage.title', { defaultValue: 'Import & Export' })}</h2>
+        <PageTitle className="text-xl font-bold mb-1">{t('exportPage.title', { defaultValue: 'Import & Export' })}</PageTitle>
         <p className="text-sm text-muted-foreground mb-5">
           {t('exportPage.intro', { defaultValue: 'Move data in and out of your tree.' })}{' '}
           {summary && t('exportPage.currentRecords', { formatted: summary.total.toLocaleString(), defaultValue: `Currently ${summary.total.toLocaleString()} records.` })}{' '}

@@ -12,6 +12,7 @@ import { useRecords } from '../lib/data/useRecords.js';
 import { refValue } from '../lib/recordRef.js';
 import { readField, readRef } from '../lib/schema.js';
 import { listAllPersons } from '../lib/treeQuery.js';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const PROVIDERS = [
   { id: 'familysearch', label: 'FamilySearch' },
@@ -119,7 +120,7 @@ export default function WebSearch() {
       <div className="max-w-5xl mx-auto p-5">
         <header className="flex items-center gap-3 mb-5">
           <div>
-            <h2 className="text-xl font-bold">Web Search</h2>
+            <PageTitle className="text-xl font-bold">Web Search</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">Person-aware search links and quick inserts back into the local tree.</p>
           </div>
           {status && <span className="ms-auto text-xs text-success-text">{status}</span>}

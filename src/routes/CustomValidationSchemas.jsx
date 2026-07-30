@@ -7,6 +7,7 @@ import {
   saveCustomValidationSchema,
 } from '../lib/customValidationSchemas.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const starter = {
   name: 'Core person fields',
@@ -85,7 +86,7 @@ export default function CustomValidationSchemas() {
     <div className="grid h-full min-h-0 grid-cols-1 grid-rows-[minmax(9rem,min(38dvh,18rem))_minmax(0,1fr)] bg-background lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-1">
       <aside className="min-h-0 overflow-auto border-b border-border bg-card lg:border-b-0 lg:border-e">
         <header className="flex items-center gap-2 p-3 border-b border-border">
-          <h2 className="text-sm font-semibold">Custom Data Rules</h2>
+          <PageTitle className="text-sm font-semibold">Custom Data Rules</PageTitle>
           <button onClick={create} className="ms-auto rounded-md bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground">New</button>
         </header>
         {schemas.map((schema) => (
