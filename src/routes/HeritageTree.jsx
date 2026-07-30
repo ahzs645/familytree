@@ -46,7 +46,6 @@ export default function HeritageTree() {
   // fixed decorative looks kept for PDF exports.
   const [theme, setTheme] = useState('app');
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const { recordName: activeId, setActivePerson } = useActivePerson();
   const { t, localization } = useTranslation();
@@ -56,12 +55,6 @@ export default function HeritageTree() {
     [treeData, selectedRootId, activeId]
   );
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
-
-  const filteredIndividuals = useMemo(() => {
-    if (!searchTerm) return individuals;
-    const lower = searchTerm.toLocaleLowerCase(localization.locale);
-    return individuals.filter((i) => i.searchText.toLocaleLowerCase(localization.locale).includes(lower));
-  }, [individuals, localization.locale, searchTerm]);
 
   const highlightedIds = useMemo(() => {
     if (!hoveredNodeId) return null;
@@ -306,9 +299,7 @@ export default function HeritageTree() {
         headerRef={headerRef}
         maxGen={maxGen}
         rootName={byId[rootId]?.name}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        filteredIndividuals={filteredIndividuals}
+        individuals={individuals}
         rootId={rootId}
         setSelectedRootId={selectRoot}
         theme={theme}

@@ -1059,7 +1059,8 @@
       "title": "المفتاح"
     },
     "loading": "جارٍ تحميل شجرة التراث...",
-    "noResults": "لا توجد نتائج...",
+    "moreActions": "إجراءات أخرى",
+    "notConnected": "لا أقارب مرتبطون",
     "originTitle": "الأصل الجغرافي",
     "origins": {
       "american": "الولايات المتحدة",
@@ -1091,18 +1092,6 @@
     "recenterAria": "إعادة التوسيط على الشخص الحالي",
     "reloadAria": "إعادة تحميل الشجرة الحالية",
     "resetRootAria": "العودة إلى الشخص الافتراضي",
-    "searchAria": "بحث عن أشخاص",
-    "searchPlaceholder": "بحث...",
-    "searchResults": {
-      "few": "اختر من {count} نتائج...",
-      "many": "اختر من {count} نتيجة...",
-      "one": "اختر من نتيجة واحدة...",
-      "other": "اختر من {count} نتيجة...",
-      "two": "اختر من نتيجتين...",
-      "zero": "لا توجد نتائج..."
-    },
-    "searchTitle": "اكتب اسماً ثم اضغط Enter",
-    "selectRootAria": "اختيار شخص الجذر",
     "subtitle": "{count} أجيال",
     "subtitleForRoot": "{count} أجيال لـ",
     "themeAria": "اختيار سمة الألوان",
@@ -1121,7 +1110,6 @@
       "recenter": "إعادة التوسيط على الشخص الحالي",
       "reload": "إعادة تحميل الشجرة الحالية",
       "resetRoot": "العودة إلى الشخص الافتراضي",
-      "search": "البحث واختيار شخص الجذر",
       "theme": "اختيار سمة ألوان مرئية",
       "upload": "رفع ملف GEDCOM",
       "zoomIn": "تكبير",
@@ -1129,6 +1117,7 @@
     },
     "uploadAria": "رفع ملف GEDCOM",
     "zoomInAria": "تكبير",
+    "zoomLabel": "التكبير",
     "zoomOutAria": "تصغير"
   },
   "home": {

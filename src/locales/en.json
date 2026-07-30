@@ -980,7 +980,8 @@
       "title": "Legend"
     },
     "loading": "Loading heritage tree...",
-    "noResults": "No results...",
+    "moreActions": "More actions",
+    "notConnected": "No relatives linked",
     "originTitle": "Geographic origin",
     "origins": {
       "american": "United States",
@@ -1012,14 +1013,6 @@
     "recenterAria": "Recenter on current person",
     "reloadAria": "Reload current tree",
     "resetRootAria": "Reset to default person",
-    "searchAria": "Search people",
-    "searchPlaceholder": "Search...",
-    "searchResults": {
-      "one": "Select from {count} result...",
-      "other": "Select from {count} results..."
-    },
-    "searchTitle": "Type a name, then press Enter",
-    "selectRootAria": "Select root person",
     "subtitle": "{count} generations",
     "subtitleForRoot": "{count} generations for",
     "themeAria": "Select color theme",
@@ -1038,7 +1031,6 @@
       "recenter": "Recenter on current person",
       "reload": "Reload current tree",
       "resetRoot": "Reset to the default person",
-      "search": "Search and select the root person",
       "theme": "Select a visual color theme",
       "upload": "Upload GEDCOM file",
       "zoomIn": "Zoom in",
@@ -1046,6 +1038,7 @@
     },
     "uploadAria": "Upload GEDCOM file",
     "zoomInAria": "Zoom in",
+    "zoomLabel": "Zoom",
     "zoomOutAria": "Zoom out"
   },
   "home": {

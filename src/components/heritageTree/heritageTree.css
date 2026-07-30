@@ -155,7 +155,10 @@
    min-width — which leaves these square icon buttons 36px wide. Give them the
    same 40px target in both directions. */
 @media (pointer: coarse) {
-  .heritage-tree-view header button {
+  /* `summary` too: the overflow sheet's trigger is a <summary>, which the
+     app's global button rule does not reach. */
+  .heritage-tree-view header button,
+  .heritage-tree-view header summary {
     min-width: 40px;
     min-height: 40px;
   }

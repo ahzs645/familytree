@@ -89,26 +89,19 @@ export function layoutHeritageTree(data = {}, preferredRootId = null) {
   const { indis = {}, fams = {} } = data || {};
   if (Object.keys(indis).length === 0) return emptyResult(indis, fams);
 
+  // Shaped for the shared PersonPicker, which expects personSummary fields.
+  // The label used to be pre-baked here ("Name (1900 - 1950) [Disconnected]"),
+  // which put an English string and an English date order into a list the
+  // picker is perfectly able to render itself.
   const individuals = Object.values(indis).filter((i) => !i.isDummy).map((i) => {
-    let label = i.name || 'Unknown';
-    const bYear = year(i.birth);
-    const dYear = year(i.death);
-    if (bYear || dYear) label += ` (${bYear} - ${dYear})`;
     const connCount = i.famc.length + i.fams.length;
-    if (connCount === 0) label += ' [Disconnected]';
     return {
-      id: i.id,
-      name: label,
-      sortName: i.summary?.fullNameForSorting || i.name || 'Unknown',
-      searchText: [
-        label,
-        i.name,
-        i.summary?.fullName,
-        i.summary?.fullNameForSorting,
-        i.given,
-        i.surname,
-      ].filter(Boolean).join(' '),
+      ...(i.summary || {}),
+      recordName: i.id,
+      fullName: i.name || i.summary?.fullName,
+      sortName: i.summary?.fullNameForSorting || i.name || '',
       connCount,
+      disconnected: connCount === 0,
     };
   }).sort((a, b) => a.sortName.localeCompare(b.sortName) || b.connCount - a.connCount);
 
