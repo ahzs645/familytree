@@ -1,12 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { APP_PREFERENCES_EVENT, getAppPreferences, patchAppPreferences } from '../lib/appPreferences.js';
-import { applyDocumentLocalization, DEFAULT_LOCALIZATION, resolveLocalization } from '../lib/i18n.js';
+import { applyDocumentLocalization, detectedLocalization, resolveLocalization } from '../lib/i18n.js';
 import { translate } from '../lib/translate.js';
 
 const LocalizationContext = createContext(null);
 
 export function LocalizationProvider({ children }) {
-  const [localization, setLocalization] = useState(() => resolveLocalization(DEFAULT_LOCALIZATION));
+  // Before stored preferences load, fall back to the browser's language
+  // rather than English — the first frame of a shared link is often the only
+  // one a reviewer sees before deciding whether the app is for them.
+  const [localization, setLocalization] = useState(() => resolveLocalization(detectedLocalization()));
 
   useEffect(() => {
     let cancelled = false;

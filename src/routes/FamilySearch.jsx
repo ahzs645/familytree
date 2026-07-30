@@ -603,7 +603,7 @@ export default function FamilySearch() {
       <div className="max-w-6xl mx-auto p-5">
         <header className="flex flex-wrap items-center gap-3 mb-3">
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold">FamilySearch</h1>
+            <h2 className="text-xl font-bold">FamilySearch</h2>
             <p className="text-sm text-muted-foreground mt-1">{activePaneMeta.description}</p>
           </div>
           {status && <span className="text-xs text-success-text">{status}</span>}

@@ -250,3 +250,53 @@ input[type="radio"]:not(.sr-only):disabled {
     font-size: 16px !important;
   }
 }
+
+/* Touch targets.
+ *
+ * The control sizes are tuned for a mouse: a `size="sm"` button lands at 30px
+ * tall, toolbar selects at 26px, checkboxes at 16px. A crawl of all 90 routes
+ * at 390px found no layout breakage — nothing overflows, nothing is
+ * unreachable — but most controls were under the 44px a finger actually needs,
+ * and the "+ New" / "Save" / filter controls on every list page were among
+ * them.
+ *
+ * Keyed on `pointer: coarse` rather than a width breakpoint: it's the touch
+ * input that needs the bigger target, not the narrow screen, so a phone in
+ * landscape and a tablet both get it while desktop density is untouched.
+ * min-height only grows things, so flex/wrap toolbars absorb it. Inline prose
+ * links are excluded by CSS itself — an inline box ignores min-height. */
+@media (pointer: coarse) {
+  button,
+  [role="button"],
+  select,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  textarea {
+    min-height: 40px;
+  }
+
+  /* No button is meant to be thinner than this; catches icon-only "×" buttons
+   * that only ever had padding to give them width. */
+  button,
+  [role="button"] {
+    min-width: 24px;
+  }
+
+  /* The label wrapping a checkbox is usually the real target, but the box
+   * itself has to be gettable when it stands alone in a table cell. */
+  input[type="checkbox"]:not(.sr-only),
+  input[type="radio"]:not(.sr-only) {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  input[type="range"] {
+    min-height: 32px;
+  }
+
+  /* MapLibre draws its own control stack; forcing our sizes on it breaks the
+   * zoom cluster's alignment. */
+  .maplibregl-ctrl button {
+    min-height: 0;
+    min-width: 0;
+  }
+}

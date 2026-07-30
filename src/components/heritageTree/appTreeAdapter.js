@@ -6,6 +6,7 @@ import { refToRecordName } from '../../lib/recordRef.js';
 import { readField } from '../../lib/schema.js';
 import { mediaAssetSrc } from '../../lib/mediaPresentation.js';
 import { Gender, personSummary } from '../../models/index.js';
+import { localizeNoName, noNameLabel } from '../../lib/personDisplayName.js';
 
 export const CW = 192;
 const PX = 80;
@@ -40,7 +41,7 @@ export async function loadHeritageTreeData() {
       type: 'INDI',
       record,
       summary,
-      name: summary?.fullName || 'No name recorded',
+      name: summary?.fullName ? localizeNoName(summary.fullName) : noNameLabel(),
       given: summary?.firstName || '',
       surname: summary?.lastName || '',
       birth: summary?.birthDate || '',

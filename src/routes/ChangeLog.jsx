@@ -130,14 +130,16 @@ export default function ChangeLog() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <label className="text-xs text-muted-foreground">Entity</label>
-        <select
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm outline-none"
-        >
-          {ENTITY_TYPES.map((t) => <option key={t} value={t}>{t || 'All'}</option>)}
-        </select>
+        <label className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span>Entity</span>
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="bg-secondary text-foreground border border-border rounded-md px-2.5 py-1.5 text-sm outline-none"
+          >
+            {ENTITY_TYPES.map((t) => <option key={t} value={t}>{t || 'All'}</option>)}
+          </select>
+        </label>
         <span className="ms-auto text-xs text-muted-foreground">
           {loading ? 'Loading…' : `${entries.length} entries`}
         </span>

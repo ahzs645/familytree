@@ -1,4 +1,6 @@
 import { getAppDataClient } from './data/AppDataClient.js';
+import { deletionFromLogEntry, UNKNOWN_AUTHOR } from './changeLog.js';
+import { refToRecordName } from './recordRef.js';
 
 /**
  * Map a dataset produced by `extractMFTPKGDataset` (lib/mftpkgExtractor.js) to
@@ -125,6 +127,7 @@ export async function planMerge(json) {
   const incoming = Object.values(json.records);
   const conflicts = [];
   const newRecords = [];
+  const edits = latestEditsByTarget(incoming);
 
   for (const record of incoming) {
     const existing = await db.get(record.recordName);
@@ -132,18 +135,7 @@ export async function planMerge(json) {
       newRecords.push(record);
       continue;
     }
-    const fieldDiffs = [];
-    const names = new Set([
-      ...Object.keys(existing.fields || {}),
-      ...Object.keys(record.fields || {}),
-    ]);
-    for (const name of names) {
-      const left = existing.fields?.[name]?.value;
-      const right = record.fields?.[name]?.value;
-      if (!valuesEqual(left, right)) {
-        fieldDiffs.push({ name, existing: left, incoming: right });
-      }
-    }
+    const fieldDiffs = diffFields(existing, record);
     if (fieldDiffs.length === 0) {
       // Identical payload — nothing to do; counts as "keep existing".
       continue;
@@ -152,6 +144,10 @@ export async function planMerge(json) {
       recordName: record.recordName,
       recordType: record.recordType,
       fields: fieldDiffs,
+      // Who touched this in the other copy, from the change log it carries.
+      // Without it a merge of two relatives' files is two anonymous columns.
+      editedBy: edits.get(record.recordName)?.author || '',
+      editedAt: edits.get(record.recordName)?.timestamp || '',
     });
   }
 
@@ -162,7 +158,111 @@ export async function planMerge(json) {
     if (existing) assetCollisions.push(asset.assetId);
   }
 
-  return { conflicts, newRecords, assetCollisions };
+  return { conflicts, newRecords, assetCollisions, deletions: await planDeletions(db, incoming) };
+}
+
+/**
+ * Records the incoming copy explicitly deleted and we still have.
+ *
+ * Absence alone is not evidence — a GEDCOM subset or a subtree export is
+ * missing most of the tree without meaning any of it should go. So this reads
+ * the Delete entries the other copy's change log carries, and only proposes a
+ * record whose deletion was recorded *and* which the incoming file does not
+ * also contain (a delete followed by a re-add is not a deletion).
+ */
+async function planDeletions(db, incoming) {
+  const authors = deletionAuthorsByTarget(incoming);
+  const present = new Set(incoming.map((record) => record?.recordName).filter(Boolean));
+  const seen = new Set();
+  const deletions = [];
+  for (const record of incoming) {
+    const deletion = deletionFromLogEntry(record);
+    if (!deletion) continue;
+    if (present.has(deletion.recordName) || seen.has(deletion.recordName)) continue;
+    seen.add(deletion.recordName);
+    const local = await db.get(deletion.recordName);
+    if (!local) continue;
+    deletions.push({
+      recordName: deletion.recordName,
+      recordType: deletion.recordType || local.recordType || '',
+      deletedAt: deletion.timestamp,
+      deletedBy: authors.get(deletion.recordName) || '',
+      label: recordLabel(local),
+    });
+  }
+  return deletions;
+}
+
+/**
+ * recordName → the most recent change-log entry about it in this package.
+ *
+ * Every edit an app makes writes a ChangeLogEntry carrying an author and a
+ * timestamp, and those entries travel inside a returned package — so the file
+ * already knows who changed what; nothing was reading it.
+ */
+/** recordName → author of the Delete entry that removed it. */
+function deletionAuthorsByTarget(records) {
+  const authors = new Map();
+  for (const record of records) {
+    if (record?.recordType !== 'ChangeLogEntry') continue;
+    if (record.fields?.changeType?.value !== 'Delete') continue;
+    const target = refToRecordName(record.fields?.target?.value);
+    if (target) authors.set(target, incomingAuthor(record.fields?.author?.value));
+  }
+  return authors;
+}
+
+/**
+ * "You" in someone else's file means "whoever made that file", not us — so it
+ * carries no information here. Drop it and let the caller name the source.
+ */
+function incomingAuthor(value) {
+  const author = String(value || '').trim();
+  return author && author !== UNKNOWN_AUTHOR ? author : '';
+}
+
+function latestEditsByTarget(records) {
+  const latest = new Map();
+  for (const record of records) {
+    if (record?.recordType !== 'ChangeLogEntry') continue;
+    const changeType = record.fields?.changeType?.value;
+    if (changeType === 'Delete') continue;
+    const target = refToRecordName(record.fields?.target?.value);
+    if (!target) continue;
+    const timestamp = record.fields?.timestamp?.value || '';
+    const previous = latest.get(target);
+    if (previous && String(previous.timestamp) >= String(timestamp)) continue;
+    latest.set(target, { author: incomingAuthor(record.fields?.author?.value), timestamp });
+  }
+  return latest;
+}
+
+function recordLabel(record) {
+  const fields = record?.fields || {};
+  return fields.cached_fullName?.value
+    || fields.title?.value
+    || fields.name?.value
+    || record?.recordName
+    || '';
+}
+
+/** Fields whose values differ between an existing and an incoming record. */
+function diffFields(existing, incoming) {
+  const names = new Set([
+    ...Object.keys(existing?.fields || {}),
+    ...Object.keys(incoming?.fields || {}),
+  ]);
+  const diffs = [];
+  for (const name of names) {
+    const left = existing?.fields?.[name]?.value;
+    const right = incoming?.fields?.[name]?.value;
+    if (!valuesEqual(left, right)) diffs.push({ name, existing: left, incoming: right });
+  }
+  return diffs;
+}
+
+function recordsDiffer(existing, incoming) {
+  return diffFields(existing, incoming).length > 0;
 }
 
 function valuesEqual(a, b) {
@@ -227,31 +327,48 @@ export async function mergeBackupJSONWithResolutions(json, resolutions, options 
     }
   }
 
+  // Deletions are opt-in per record: `delete:<recordName>` set to USE_INCOMING
+  // means "the other copy removed this and I agree". Anything not ticked stays.
+  const deleteRecordNames = Object.entries(resolutions || {})
+    .filter(([key, choice]) => key.startsWith('delete:') && choice === CONFLICT_RESOLUTION.USE_INCOMING)
+    .map(([key]) => key.slice('delete:'.length))
+    .filter((recordName) => !nameMap.has(recordName));
+
   const rewritten = saveRecords.map((record) => rewriteRecord(record, nameMap, assetIdMap));
+  // Capture what this merge is about to change *before* changing it, so the
+  // rollback note has something that can act on it. Only accepted records are
+  // touched, so this is tens of records, not the whole tree.
+  const undo = await captureUndoJournal(db, rewritten, deleteRecordNames);
   const logEntry = buildMergeLogEntry({
     records: rewritten.length,
     assets: saveAssets.length,
     renamed: nameMap.size,
     assetRenamed: assetIdMap.size,
+    deleted: deleteRecordNames.length,
     rollbackNote: options.rollbackNote || '',
     exportedAt: json.exportedAt || '',
   });
-  await db.transaction({ saveRecords: [...rewritten, logEntry], saveAssets });
+  await db.transaction({ saveRecords: [...rewritten, logEntry], saveAssets, deleteRecordNames });
   await appendMergeHistory(client, {
+    id: logEntry.recordName,
     importedAt: new Date().toISOString(),
+    source: options.sourceLabel || '',
     records: rewritten.length,
     assets: saveAssets.length,
     renamed: nameMap.size,
     assetRenamed: assetIdMap.size,
+    deleted: deleteRecordNames.length,
     rollbackNote: options.rollbackNote || '',
     exportedAt: json.exportedAt || null,
     resolvedConflicts: Object.keys(resolutions || {}).length,
+    undo,
   });
   return {
     records: rewritten.length,
     assets: saveAssets.length,
     renamed: nameMap.size,
     assetRenamed: assetIdMap.size,
+    deleted: deleteRecordNames.length,
     resolvedConflicts: Object.keys(resolutions || {}).length,
   };
 }
@@ -265,13 +382,26 @@ export async function analyzeBackupMergeJSON(json) {
   const incoming = Object.values(json.records);
   const recordTypes = {};
   let collisions = 0;
+  let changed = 0;
+  let unchanged = 0;
+  let newRecords = 0;
   const collisionSamples = [];
   for (const record of incoming) {
     recordTypes[record.recordType] = (recordTypes[record.recordType] || 0) + 1;
     const existing = await db.get(record.recordName);
-    if (existing) {
-      collisions += 1;
+    if (!existing) {
+      newRecords += 1;
+      continue;
+    }
+    // An ID match is not by itself interesting. Re-importing a copy of the
+    // same tree collides on every record while changing nothing, so the
+    // number worth showing is how many of those actually differ.
+    collisions += 1;
+    if (recordsDiffer(existing, record)) {
+      changed += 1;
       if (collisionSamples.length < 8) collisionSamples.push({ recordName: record.recordName, recordType: record.recordType });
+    } else {
+      unchanged += 1;
     }
   }
 
@@ -290,6 +420,9 @@ export async function analyzeBackupMergeJSON(json) {
     records: incoming.length,
     assets: Array.isArray(json.assets) ? json.assets.length : 0,
     collisions,
+    changed,
+    unchanged,
+    newRecords,
     collisionSamples,
     assetCollisions,
     assetSamples,
@@ -386,7 +519,7 @@ function structuredCloneSafe(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function buildMergeLogEntry({ records, assets, renamed, assetRenamed, rollbackNote, exportedAt }) {
+function buildMergeLogEntry({ records, assets, renamed, assetRenamed, deleted = 0, rollbackNote, exportedAt }) {
   const stamp = Date.now().toString(36);
   return {
     recordName: `cle-merge-${stamp}-${Math.random().toString(36).slice(2, 7)}`,
@@ -397,16 +530,104 @@ function buildMergeLogEntry({ records, assets, renamed, assetRenamed, rollbackNo
       author: { value: 'CloudTreeWeb' },
       changeType: { value: 'Merge' },
       changeCount: { value: records },
-      summary: { value: `Merged backup: ${records} records, ${assets} assets, ${renamed} record renames, ${assetRenamed} asset renames.` },
+      summary: { value: `Merged backup: ${records} records, ${assets} assets, ${renamed} record renames, ${assetRenamed} asset renames, ${deleted} deletions.` },
       rollbackNote: { value: rollbackNote || 'Rollback by restoring a backup captured before this merge.' },
       sourceExportedAt: { value: exportedAt || '' },
     },
   };
 }
 
+/**
+ * What it takes to put the database back the way it was: the previous version
+ * of every record about to be overwritten, the names of records about to be
+ * created, and the full payload of records about to be deleted.
+ */
+// A journal holds whole records, so it is bounded twice: a single merge past
+// this size skips it, and only the newest few merges keep theirs.
+const MAX_UNDO_RECORDS = 5000;
+const UNDO_JOURNALS_KEPT = 3;
+
+async function captureUndoJournal(db, saveRecords, deleteRecordNames) {
+  if (saveRecords.length + deleteRecordNames.length > MAX_UNDO_RECORDS) return null;
+  const overwritten = [];
+  const created = [];
+  for (const record of saveRecords) {
+    const previous = await db.get(record.recordName);
+    if (previous) overwritten.push(previous);
+    else created.push({ recordName: record.recordName, recordType: record.recordType });
+  }
+  const deleted = [];
+  for (const recordName of deleteRecordNames) {
+    const previous = await db.get(recordName);
+    if (previous) deleted.push(previous);
+  }
+  return { overwritten, created, deleted };
+}
+
+/**
+ * Reverse a merge recorded in the history: restore what it overwrote, remove
+ * what it added, and put back what it deleted. Returns the counts, or null if
+ * that merge has no journal (merges applied before this existed).
+ */
+export async function undoMerge(mergeId) {
+  const client = getAppDataClient();
+  const history = await client.meta.get('mergeImportHistory');
+  const entries = Array.isArray(history) ? history : [];
+  const index = mergeId
+    ? entries.findIndex((entry) => entry?.id === mergeId)
+    : entries.length - 1;
+  const entry = index >= 0 ? entries[index] : null;
+  if (!entry?.undo) return null;
+
+  const { overwritten = [], created = [], deleted = [] } = entry.undo;
+  await client.records.transaction({
+    saveRecords: [...overwritten, ...deleted],
+    deleteRecordNames: created.map((item) => (typeof item === 'string' ? item : item.recordName)),
+  });
+
+  const next = entries.slice();
+  next[index] = { ...entry, undo: null, undoneAt: new Date().toISOString() };
+  await client.meta.set('mergeImportHistory', next);
+
+  // The merge also wrote its own change-log entries; those are reversed too,
+  // but counting them would inflate a number the user reads as "people".
+  return {
+    restored: countDataRecords(overwritten),
+    removed: countDataRecords(created),
+    reinstated: countDataRecords(deleted),
+  };
+}
+
+const LOG_RECORD_TYPES = new Set(['ChangeLogEntry', 'ChangeLogSubEntry']);
+
+/** Records a person would recognise — bookkeeping rows do not count. */
+function countDataRecords(items) {
+  return (items || []).filter((item) => !LOG_RECORD_TYPES.has(item?.recordType)).length;
+}
+
+/** Merges that still have a journal, newest first. */
+export async function listUndoableMerges() {
+  const history = await getAppDataClient().meta.get('mergeImportHistory');
+  return (Array.isArray(history) ? history : [])
+    .filter((entry) => entry?.undo && entry.id)
+    .reverse()
+    .map(({ undo, ...summary }) => ({
+      ...summary,
+      undoSize: countDataRecords(undo.overwritten) + countDataRecords(undo.created) + countDataRecords(undo.deleted),
+    }));
+}
+
 async function appendMergeHistory(client, entry) {
   const history = await client.meta.get('mergeImportHistory');
   const next = Array.isArray(history) ? history.slice(-24) : [];
   next.push(entry);
+  // Drop journals older than the last few so history cannot grow without
+  // bound; the summary rows stay.
+  let kept = 0;
+  for (let i = next.length - 1; i >= 0; i -= 1) {
+    if (!next[i]?.undo) continue;
+    kept += 1;
+    if (kept > UNDO_JOURNALS_KEPT) next[i] = { ...next[i], undo: null };
+  }
   await client.meta.set('mergeImportHistory', next);
 }

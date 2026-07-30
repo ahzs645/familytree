@@ -1,7 +1,8 @@
 import { getAppDataClient } from './data/AppDataClient.js';
 import { readField } from './schema.js';
+import { AUTHOR_INFO_META_KEY, setChangeLogAuthor } from './changeLog.js';
 
-const META_KEY = 'familyTreeAuthorInfo';
+const META_KEY = AUTHOR_INFO_META_KEY;
 
 const DEFAULT_AUTHOR_INFO = {
   treeName: '',
@@ -25,8 +26,11 @@ const DEFAULT_AUTHOR_INFO = {
 export async function getAuthorInfo() {
   const db = getAppDataClient().meta;
   const saved = await db.get(META_KEY);
-  if (saved) return normalizeAuthorInfo(saved);
-  return normalizeAuthorInfo(await hydrateFromTreeInformation());
+  const info = saved ? normalizeAuthorInfo(saved) : normalizeAuthorInfo(await hydrateFromTreeInformation());
+  // Keep the change-log author in step so edits are attributable once a
+  // package leaves this browser.
+  setChangeLogAuthor(info.authorName);
+  return info;
 }
 
 export async function saveAuthorInfo(info) {
@@ -34,6 +38,7 @@ export async function saveAuthorInfo(info) {
   const normalized = normalizeAuthorInfo(info);
   await db.set(META_KEY, normalized);
   await saveTreeInformationRecord(normalized);
+  setChangeLogAuthor(normalized.authorName);
   return normalized;
 }
 

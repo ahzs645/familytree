@@ -1,6 +1,8 @@
 /**
  * Enums and constants extracted from the CloudTreeWeb bundle.
  */
+import { translate } from '../lib/translate.js';
+import { getCurrentLocalization } from '../lib/i18n.js';
 
 /** Gender values (was `ct`) */
 export const Gender = Object.freeze({
@@ -10,14 +12,24 @@ export const Gender = Object.freeze({
   Intersex: 3,
 });
 
-/** Canonical English label for a Gender value (anything unmapped → 'Unknown'). */
+const GENDER_LABEL_KEYS = {
+  [Gender.Male]: ['gender.male', 'Male'],
+  [Gender.Female]: ['gender.female', 'Female'],
+  [Gender.Intersex]: ['gender.intersex', 'Intersex'],
+};
+
+/**
+ * Display label for a Gender value (anything unmapped → 'Unknown').
+ *
+ * Localized rather than fixed English: this feeds list columns, chart nodes
+ * and report bodies, so an Arabic report used to print "Gender: Male" in the
+ * middle of otherwise Arabic prose. Reads the live document locale, so it
+ * works outside the React tree too. Nothing compares against the result —
+ * `Gender` is the value anything conditional should switch on.
+ */
 export function genderLabel(gender) {
-  switch (gender) {
-    case Gender.Male: return 'Male';
-    case Gender.Female: return 'Female';
-    case Gender.Intersex: return 'Intersex';
-    default: return 'Unknown';
-  }
+  const [key, fallback] = GENDER_LABEL_KEYS[gender] || ['common.unknown', 'Unknown'];
+  return translate(key, { defaultValue: fallback }, { localization: getCurrentLocalization() });
 }
 
 /** Change log entry types (was `nt`) */

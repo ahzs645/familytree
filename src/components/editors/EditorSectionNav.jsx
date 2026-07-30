@@ -12,6 +12,7 @@
  */
 import React, { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { cn } from '../../lib/utils.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 const SectionNavContext = createContext(null);
 
@@ -56,6 +57,7 @@ export function useEditorSection(title) {
 }
 
 export function EditorSectionNavBar({ className }) {
+  const { t } = useTranslation();
   const ctx = useContext(SectionNavContext);
   const [activeId, setActiveId] = useState(null);
   // Map of section id -> chip button element, so we can scroll the active chip
@@ -103,7 +105,7 @@ export function EditorSectionNavBar({ className }) {
 
   return (
     <nav
-      aria-label="Editor sections"
+      aria-label={t('editor.sectionsNav', { defaultValue: 'Editor sections' })}
       className={cn(
         'no-scrollbar flex items-center gap-1 snap-x scroll-px-4 overflow-x-auto border-b border-border bg-card/90 px-4 py-1.5 backdrop-blur',
         '[mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)]',

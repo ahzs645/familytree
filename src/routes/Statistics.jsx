@@ -61,13 +61,13 @@ export default function Statistics() {
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-6xl mx-auto p-5">
-        <h1 className="text-xl font-bold mb-1">{t('statistics.title')}</h1>
+        <h2 className="text-xl font-bold mb-1">{t('statistics.title')}</h2>
         <p className="text-sm text-muted-foreground mb-5">{t('statistics.subtitle')}</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
           <Card title={t('statistics.records')}>
             {Object.entries(stats.counts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([type, n]) => (
-              <StatLine key={type} label={humanizeType(type)} value={n.toLocaleString()} />
+              <StatLine key={type} label={t(`recordTypes.${type}`, { defaultValue: humanizeType(type) })} value={n.toLocaleString()} />
             ))}
           </Card>
 

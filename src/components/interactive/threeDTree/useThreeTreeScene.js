@@ -325,11 +325,35 @@ export function useThreeTreeScene({
       setConnHighlightSig(sig);
     };
 
+    // Touch devices have no right-click, so the whole "Add relatives" menu —
+    // the only way to add a father/partner/child from the tree — was
+    // unreachable on a phone. A long press opens it there.
+    let longPressTimer = 0;
+    const cancelLongPress = () => {
+      if (!longPressTimer) return;
+      clearTimeout(longPressTimer);
+      longPressTimer = 0;
+    };
+    const openContextMenuAt = (event) => {
+      const person = intersectPerson(event);
+      setContextMenu(person ? { node: person, person: person.person, x: event.clientX, y: event.clientY } : null);
+      return !!person;
+    };
     const onPointerDown = (event) => {
       setContextMenu(null);
       downRef.current = { x: event.clientX, y: event.clientY };
+      cancelLongPress();
+      if (event.pointerType !== 'touch') return;
+      const point = { clientX: event.clientX, clientY: event.clientY };
+      longPressTimer = setTimeout(() => {
+        longPressTimer = 0;
+        // Opening the menu consumes the gesture — clear the press so the
+        // following pointerup does not also re-select the node underneath.
+        if (openContextMenuAt(point)) downRef.current = null;
+      }, 500);
     };
     const onPointerUp = (event) => {
+      cancelLongPress();
       if (event.button !== 0) return;
       const start = downRef.current;
       downRef.current = null;
@@ -378,10 +402,14 @@ export function useThreeTreeScene({
       updateConnHighlight(nextHoveredId, nextConnection);
     };
     const onPointerMove = (event) => {
+      // Any real movement is a pan, not a long press.
+      const start = downRef.current;
+      if (start && Math.hypot(event.clientX - start.x, event.clientY - start.y) > 8) cancelLongPress();
       pendingMove = { clientX: event.clientX, clientY: event.clientY };
       if (!moveRaf) moveRaf = requestAnimationFrame(processMove);
     };
     const onPointerLeave = () => {
+      cancelLongPress();
       renderer.domElement.style.cursor = 'grab';
       setHoverCard(null);
       if (hoveredIdRef.current !== null) {
@@ -393,8 +421,8 @@ export function useThreeTreeScene({
     };
     const onContextMenu = (event) => {
       event.preventDefault();
-      const person = intersectPerson(event);
-      setContextMenu(person ? { node: person, person: person.person, x: event.clientX, y: event.clientY } : null);
+      cancelLongPress();
+      openContextMenuAt(event);
     };
 
     // Arrow-key navigation: move focus to the nearest person in that direction
@@ -427,6 +455,7 @@ export function useThreeTreeScene({
 
     renderer.domElement.addEventListener('pointerdown', onPointerDown);
     renderer.domElement.addEventListener('pointerup', onPointerUp);
+    renderer.domElement.addEventListener('pointercancel', cancelLongPress);
     renderer.domElement.addEventListener('pointermove', onPointerMove);
     renderer.domElement.addEventListener('pointerleave', onPointerLeave);
     renderer.domElement.addEventListener('contextmenu', onContextMenu);
@@ -484,8 +513,10 @@ export function useThreeTreeScene({
         persistCameraTimerRef.current = 0;
       }
       resizeObserver.disconnect();
+      cancelLongPress();
       renderer.domElement.removeEventListener('pointerdown', onPointerDown);
       renderer.domElement.removeEventListener('pointerup', onPointerUp);
+      renderer.domElement.removeEventListener('pointercancel', cancelLongPress);
       renderer.domElement.removeEventListener('pointermove', onPointerMove);
       renderer.domElement.removeEventListener('pointerleave', onPointerLeave);
       renderer.domElement.removeEventListener('contextmenu', onContextMenu);

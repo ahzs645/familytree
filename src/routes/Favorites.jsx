@@ -85,7 +85,7 @@ export default function Favorites() {
       <div className="max-w-6xl mx-auto p-5">
         <header className="flex items-center gap-3 mb-5">
           <div>
-            <h1 className="text-xl font-bold">Favorites</h1>
+            <h2 className="text-xl font-bold">Favorites</h2>
             <p className="text-sm text-muted-foreground mt-1">Favorite functions and bookmarked records.</p>
           </div>
           {status && <span className="ms-auto text-xs text-success-text">{status}</span>}
@@ -98,7 +98,7 @@ export default function Favorites() {
               <h2 className="text-base font-semibold">Favorite Functions</h2>
               <div className="text-xs text-muted-foreground mt-1">{favoriteFunctions.length} shortcuts</div>
             </div>
-            <select value="" onChange={(event) => addFavorite(event.target.value)} className={inputClass}>
+            <select aria-label="Add a function to favorites" value="" onChange={(event) => addFavorite(event.target.value)} className={inputClass}>
               <option value="">Add function...</option>
               {availableToAdd.map((item) => <option key={item.to} value={item.to}>{item.label}</option>)}
             </select>

@@ -123,7 +123,12 @@ export default function DistinctivePersons() {
         error={scoped.error}
         label={t('distinctivePersons.personScope')}
       />
-      <select value={matchMode} onChange={(event) => setMatchMode(event.target.value)} className={listToolbarSelectTriggerClass}>
+      <select
+        value={matchMode}
+        onChange={(event) => setMatchMode(event.target.value)}
+        aria-label={t('distinctivePersons.matchMode', { defaultValue: 'Match mode' })}
+        className={listToolbarSelectTriggerClass}
+      >
         <option value="any">{t('distinctivePersons.matchAny')}</option>
         <option value="all">{t('distinctivePersons.matchAll')}</option>
       </select>

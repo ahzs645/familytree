@@ -30,7 +30,7 @@ export default function Header({
   return (
     <header>
       <div className="heritage-title-block">
-        <h1>{t('heritageTree.title')}</h1>
+        <h2>{t('heritageTree.title')}</h2>
         <p>
           {rootName
             ? <>{t('heritageTree.subtitleForRoot', { count: maxGen })} <BdiText>{rootName}</BdiText></>

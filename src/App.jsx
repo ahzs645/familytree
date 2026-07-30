@@ -36,7 +36,7 @@ function NotFound() {
   return (
     <div className="h-full flex flex-col items-center justify-center text-center px-6">
       <div className="text-xs uppercase tracking-wider text-muted-foreground mb-2">404</div>
-      <h1 className="text-2xl font-bold mb-2">{t('app.notFound.title')}</h1>
+      <h2 className="text-2xl font-bold mb-2">{t('app.notFound.title')}</h2>
       <p className="text-sm text-muted-foreground mb-5 max-w-md">
         {t('app.notFound.body')}
       </p>

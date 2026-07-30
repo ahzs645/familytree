@@ -390,7 +390,7 @@ function downloadReportHtml(title, rows, columns, options) {
   const preparedRows = prepareRows(rows, options);
   const header = exportColumns.map((column) => `<th>${escapeHtml(column.label)}</th>`).join('');
   const body = preparedRows.map((row) => `<tr>${exportColumns.map((column) => `<td>${escapeHtml(exportCellValue(row, column))}</td>`).join('')}</tr>`).join('');
-  const html = `<!doctype html><meta charset="utf-8"><title>${escapeHtml(title)}</title><h1>${escapeHtml(title)}</h1><table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
+  const html = `<!doctype html><meta charset="utf-8"><title>${escapeHtml(title)}</title><h2>${escapeHtml(title)}</h2><table><thead><tr>${header}</tr></thead><tbody>${body}</tbody></table>`;
   const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
   const a = document.createElement('a');
   a.href = url;

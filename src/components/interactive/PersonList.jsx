@@ -6,7 +6,7 @@ import React, { useDeferredValue, useMemo, useState } from 'react';
 import { BdiText, LtrText } from '../BdiText.jsx';
 import { compareStrings, getCurrentLocalization, graphemes, normalizeSearchText, searchTextForms, searchTokenVariants } from '../../lib/i18n.js';
 import { personSearchHaystack } from '../../lib/personLineage.js';
-import { hasRealName, shortPersonId } from '../../lib/personDisplayName.js';
+import { hasRealName, localizeNoName, shortPersonId } from '../../lib/personDisplayName.js';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { lifeSpanLabel } from '../../models/index.js';
 import { Gender } from '../../models/constants.js';
@@ -118,6 +118,17 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
               return (
                 <div
                   key={p.recordName}
+                  // A row is the only way into a person on mobile, so it has to
+                  // be a real control: focusable, Enter/Space activated, and
+                  // announced as a button rather than as anonymous text.
+                  role="button"
+                  tabIndex={0}
+                  aria-current={isActive ? 'true' : undefined}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    onPick(p.recordName);
+                  }}
                   onClick={(event) => {
                     if (onToggleSelect && (event.metaKey || event.ctrlKey || event.shiftKey)) {
                       onToggleSelect(p.recordName, { range: event.shiftKey });
@@ -127,6 +138,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                   }}
                   className={cn(
                     'cursor-pointer border-b border-border border-s-[3px] px-3 py-2',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
                     isActive
                       ? 'border-s-primary bg-secondary'
                       : isSelected
@@ -149,7 +161,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                   <div className="min-w-0 flex-1">
                     {showColumn('fullName') ? (
                       <div className="flex min-w-0 items-center gap-1.5 text-sm text-foreground">
-                        <span className="min-w-0 overflow-hidden text-ellipsis"><BdiText>{p.fullName}</BdiText></span>
+                        <span className="min-w-0 overflow-hidden text-ellipsis"><BdiText>{localizeNoName(p.fullName)}</BdiText></span>
                         {renderBadge ? renderBadge(p) : null}
                       </div>
                     ) : null}
@@ -172,7 +184,7 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                       </div>
                     ) : null}
                     {showColumn('outsideFamily') && p.outsideFamily ? (
-                      <div className="text-[10px] font-semibold text-interactive">Outside main family</div>
+                      <div className="text-[10px] font-semibold text-interactive">{t('persons.outsideFamily')}</div>
                     ) : null}
                     {showColumn('bookmarked') && p.bookmarked ? (
                       <div className="text-[10px] font-semibold text-interactive">★ {t('persons.bookmarked')}</div>

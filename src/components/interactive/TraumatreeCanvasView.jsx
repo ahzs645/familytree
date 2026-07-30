@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { Minus, Plus, RotateCcw, Scan } from 'lucide-react';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
+import { localizeNoName, noNameLabel } from '../../lib/personDisplayName.js';
 
 const NODE_WIDTH = 184;
 const NODE_HEIGHT = 82;
@@ -8,7 +9,7 @@ const GENERATION_GAP = 154;
 const COLUMN_GAP = 76;
 const PADDING = 96;
 
-export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditPerson, onOpenFamily }) {
+export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditPerson, onOpenFamily, menu }) {
   const layout = useMemo(() => buildCanvasLayout(graph), [graph]);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -146,6 +147,7 @@ export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditP
             active={node.id === activeId}
             onPick={onPick}
             onEditPerson={onEditPerson}
+            menu={menu}
           />
         ))}
       </svg>
@@ -153,7 +155,7 @@ export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditP
   );
 }
 
-function CanvasPersonNode({ node, active, onPick, onEditPerson }) {
+function CanvasPersonNode({ node, active, onPick, onEditPerson, menu }) {
   const person = node.person;
   const dates = lifeSpanLabel(person);
   const color = nodeColor(person?.gender);
@@ -172,6 +174,7 @@ function CanvasPersonNode({ node, active, onPick, onEditPerson }) {
         event.stopPropagation();
         onEditPerson?.(node.id);
       }}
+      {...(menu?.handlersFor?.({ person: node.person, node }) || {})}
     >
       <rect
         width={NODE_WIDTH}
@@ -188,7 +191,7 @@ function CanvasPersonNode({ node, active, onPick, onEditPerson }) {
         {initials(person?.fullName)}
       </text>
       <text x="43" y="27" style={nameText} fill="#2f2a24">
-        {truncate(person?.fullName || 'No name recorded', 22)}
+        {truncate(person?.fullName ? localizeNoName(person.fullName) : noNameLabel(), 22)}
       </text>
       {dates && (
         <text x="43" y="44" style={dateText} fill="#756a5b">

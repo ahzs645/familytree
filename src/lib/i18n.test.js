@@ -10,6 +10,7 @@ import {
   resolveLocalization,
   startsWithSearchText,
   SUPPORTED_LOCALES,
+  detectPreferredLocale,
   textDirection,
   wrapGraphemes,
 } from './i18n.js';
@@ -118,5 +119,22 @@ describe('normalizeSearchText honorific handling', () => {
 
   it('still strips honorifics from full names by default', () => {
     expect(normalizeSearchText('د أحمد', { locale: 'ar' })).toBe(normalizeSearchText('أحمد', { locale: 'ar' }));
+  });
+});
+
+describe('detectPreferredLocale', () => {
+  it('picks the first supported language from the browser list', () => {
+    expect(detectPreferredLocale(['ar-IQ', 'en-US'])).toBe('ar');
+    expect(detectPreferredLocale(['fr-CA', 'ar'])).toBe('ar');
+    expect(detectPreferredLocale(['vi'])).toBe('vi');
+  });
+
+  it('falls back to English when nothing matches', () => {
+    expect(detectPreferredLocale(['fr-CA', 'de'])).toBe('en');
+    expect(detectPreferredLocale([])).toBe('en');
+  });
+
+  it('accepts underscore-separated tags and ignores blanks', () => {
+    expect(detectPreferredLocale(['', null, 'ar_EG'])).toBe('ar');
   });
 });

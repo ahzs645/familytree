@@ -7,6 +7,7 @@ import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutFan } from './layouts/fanLayout.js';
 import { formatVitalDateParts } from '../../lib/vitalFormat.js';
+import { localizeNoName, noNameLabel } from '../../lib/personDisplayName.js';
 
 const PADDING = 40;
 // Approximate width of one character in SVG px, per 1px of font size. Works for
@@ -65,7 +66,7 @@ export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT
               const colors = theme.gender[s.person?.gender ?? 0] || theme.gender[0];
               const override = colorForPerson?.(s.person);
               const sub = personSubtext(s.person, 0);
-              const fullName = s.person?.fullName || 'No name recorded';
+              const fullName = s.person?.fullName ? localizeNoName(s.person.fullName) : noNameLabel();
               const nameSize = fitFontSize(fullName, probandRadius * 1.75, 14);
               return (
                 <g key={'p' + i} style={{ cursor: onPersonClick && s.person ? 'pointer' : 'default' }} onClick={() => onPersonClick && s.person && onPersonClick(s.person)}>

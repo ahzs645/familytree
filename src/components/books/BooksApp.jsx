@@ -3,7 +3,6 @@
  * and export using the same report exporters.
  */
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { AlertTriangle, BookOpen, FileDown, FileText, Printer, Save } from 'lucide-react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import {
@@ -36,6 +35,7 @@ import { useModal } from '../../contexts/ModalContext.jsx';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { Button } from '../ui/Button.jsx';
 import { cn } from '../../lib/utils.js';
+import { NoDataYet } from '../NoDataYet.jsx';
 
 /**
  * Toolbar select/input chrome. Native <select> elements are kept (instead of
@@ -299,18 +299,13 @@ export function BooksApp() {
   }, [book, includeWebsite, validation]);
 
   if (loading) return <div className={loadingClass}>Loading…</div>;
-  if (empty) {
-    return (
-      <div className={loadingClass}>
-        No family data. <Link to="/" className="ms-1.5 text-interactive">Import a .mftpkg</Link> first.
-      </div>
-    );
-  }
+  if (empty) return <NoDataYet />;
 
   return (
     <div className="flex h-full flex-col bg-background">
       <header className="flex flex-wrap items-center gap-1.5 border-b border-border bg-card px-4 py-3">
         <input
+          aria-label="Book title"
           value={book.title}
           onChange={(e) => setBook({ ...book, title: e.target.value })}
           className={cn(controlClass, 'min-w-[220px] flex-[1_1_160px] cursor-text font-semibold')}
@@ -333,6 +328,7 @@ export function BooksApp() {
         <div className={`${optionsOpen ? 'contents' : 'hidden'} sm:contents`}>
         <Button size="md" onClick={onSave}><Save size={14} /> Save</Button>
         <select
+          aria-label="Start a new book from a template"
           value=""
           onChange={(e) => { if (e.target.value) setBook(bookFromTemplate(e.target.value)); }}
           className={cn(controlClass, 'min-w-[150px]')}
@@ -341,12 +337,12 @@ export function BooksApp() {
           <option value="">New from template…</option>
           {BOOK_TEMPLATES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
         </select>
-        <select value="" onChange={(e) => e.target.value && onLoad(e.target.value)} className={cn(controlClass, 'min-w-[140px]')}>
+        <select aria-label="Load a saved book" value="" onChange={(e) => e.target.value && onLoad(e.target.value)} className={cn(controlClass, 'min-w-[140px]')}>
           <option value="">Load saved…</option>
           {savedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
         </select>
         {savedBooks.length > 0 && (
-          <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} className={cn(controlClass, 'w-[70px]')}>
+          <select aria-label="Delete a saved book" value="" onChange={(e) => e.target.value && onDelete(e.target.value)} className={cn(controlClass, 'w-[70px]')}>
             <option value="">Delete…</option>
             {savedBooks.map((b) => <option key={b.id} value={b.id}>{b.title}</option>)}
           </select>
@@ -428,6 +424,7 @@ export function BooksApp() {
           </div>
           <div className="border-t border-border p-3.5">
             <select
+              aria-label="Add Book Elements"
               value=""
               onChange={(e) => { if (e.target.value) { addSection(e.target.value); e.target.value = ''; } }}
               className={cn(controlClass, 'w-full')}

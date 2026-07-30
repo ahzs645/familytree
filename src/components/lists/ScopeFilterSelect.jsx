@@ -15,8 +15,8 @@ export function ScopeFilterSelect({
   if (!loading && (!scopes || scopes.length === 0)) return null;
   const resolvedLabel = label || t('smartScopes.smartFilter');
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <label className="text-xs text-muted-foreground whitespace-nowrap">{resolvedLabel}</label>
+    <label className={`flex items-center gap-2 ${className}`}>
+      <span className="text-xs text-muted-foreground whitespace-nowrap">{resolvedLabel}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -38,7 +38,7 @@ export function ScopeFilterSelect({
         })}
       </select>
       {error ? <span className="text-xs text-destructive-text">{error}</span> : null}
-    </div>
+    </label>
   );
 }
 

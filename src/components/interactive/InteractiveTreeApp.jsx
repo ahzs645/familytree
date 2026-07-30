@@ -3,7 +3,7 @@
  * Uses ActivePersonContext so the choice persists across routes.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   listAllPersons,
   findStartPerson,
@@ -24,15 +24,25 @@ import { SunTreeView } from './SunTreeView.jsx';
 import { TraumatreeCanvasView } from './TraumatreeCanvasView.jsx';
 import { FamilyTreeView } from './FamilyTreeView.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
+import { NoDataYet } from '../NoDataYet.jsx';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
 import { resolveInitialTreePersonId } from './initialTreePerson.js';
 import { persistTreeViewMode, readInitialTreeViewMode } from './treeViewMode.js';
 import { BdiText, LtrText } from '../BdiText.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { Button } from '../ui/Button.jsx';
+import { UserPlus } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { usePersonContextMenu } from './usePersonContextMenu.js';
+import { PersonContextMenu } from './threeDTree/overlays.jsx';
 
 export function InteractiveTreeApp() {
+  const { t } = useTranslation();
+  // One menu for every non-3D view: right-click on a pointer device, long
+  // press on a touch one. The 3D view raycasts its own canvas and keeps its
+  // own copy.
+  const personMenu = usePersonContextMenu();
   const modal = useModal();
   const [persons, setPersons] = useState([]);
   const [dataVersion, setDataVersion] = useState(0);
@@ -240,15 +250,8 @@ export function InteractiveTreeApp() {
     navigate('/familysearch');
   }, [navigate, setActivePerson]);
 
-  if (loading) return <EmptyMsg text="Loading…" />;
-  if (empty) {
-    return (
-      <EmptyMsg>
-        No family data found.{' '}
-        <Link to="/" className="ms-1.5 text-interactive">Import a .mftpkg</Link> first.
-      </EmptyMsg>
-    );
-  }
+  if (loading) return <EmptyMsg text={t('common.loading', { defaultValue: 'Loading…' })} />;
+  if (empty) return <NoDataYet />;
 
   const showList = !isMobile || mobilePane === 'list';
   const showFocus = !isMobile || mobilePane === 'focus';
@@ -273,17 +276,39 @@ export function InteractiveTreeApp() {
                 size="icon"
                 className="h-10 w-10 shrink-0 text-base font-semibold"
                 onClick={() => setMobilePane('list')}
-                aria-label="Back to person list"
+                aria-label={t('interactiveTree.backToList', { defaultValue: 'Back to person list' })}
               >
                 ←
               </Button>
             )}
             <div className="min-w-0 flex-1">
-              <div className="mb-0.5 text-xs font-bold uppercase text-muted-foreground">Interactive Tree</div>
+              <div className="mb-0.5 text-xs font-bold uppercase text-muted-foreground">{t('interactiveTree.heading', { defaultValue: 'Interactive Tree' })}</div>
               <div className="truncate text-[17px] font-bold text-foreground" title={context?.selfSummary?.fullName || ''}>
-                <BdiText>{context?.selfSummary?.fullName || 'No person selected'}</BdiText>
+                <BdiText>{context?.selfSummary?.fullName || t('interactiveTree.noPersonSelected', { defaultValue: 'No person selected' })}</BdiText>
               </div>
             </div>
+            {/* Right-click and long-press are invisible affordances, so the
+             * add action is also a button in the header — the same fix the
+             * Persons list needed. It opens the menu for the focused person,
+             * anchored under the button. */}
+            {context?.selfSummary?.recordName && (
+              <Button
+                variant="outline"
+                className="shrink-0 border-primary/60 text-interactive"
+                aria-label={t('interactiveTree.addRelatives')}
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  personMenu.open(
+                    { person: context.selfSummary, node: null },
+                    rect.left,
+                    rect.bottom + 4,
+                  );
+                }}
+              >
+                <UserPlus size={15} className="flex-shrink-0" />
+                <span className="hidden sm:inline">{t('interactiveTree.addRelatives')}</span>
+              </Button>
+            )}
             {/* Six tree view modes — the segmented control fits on desktop but
              * runs off the right edge on phones (3D Flat Sun Family Canvas
              * Details is ~360px even at minimum widths). On narrow screens
@@ -292,16 +317,16 @@ export function InteractiveTreeApp() {
               <select
                 value={viewMode}
                 onChange={(event) => setViewMode(event.target.value)}
-                aria-label="Tree view mode"
+                aria-label={t('interactiveTree.viewMode', { defaultValue: 'Tree view mode' })}
                 className="h-9 shrink-0 cursor-pointer rounded-md border border-border bg-secondary px-2.5 text-sm font-semibold text-secondary-foreground"
               >
-                {TREE_VIEW_MODES.map(([id, label]) => (
-                  <option key={id} value={id}>{label}</option>
+                {TREE_VIEW_MODES.map(([id, key, label]) => (
+                  <option key={id} value={id}>{t(key, { defaultValue: label })}</option>
                 ))}
               </select>
             ) : (
-              <div className="flex max-w-full shrink-0 items-center gap-1 overflow-x-auto rounded-md border border-border bg-secondary p-1" role="tablist" aria-label="Tree view mode">
-                {TREE_VIEW_MODES.map(([id, label]) => (
+              <div className="flex max-w-full shrink-0 items-center gap-1 overflow-x-auto rounded-md border border-border bg-secondary p-1" role="tablist" aria-label={t('interactiveTree.viewMode', { defaultValue: 'Tree view mode' })}>
+                {TREE_VIEW_MODES.map(([id, key, label]) => (
                   <button
                     key={id}
                     type="button"
@@ -314,7 +339,7 @@ export function InteractiveTreeApp() {
                     )}
                     aria-selected={viewMode === id}
                   >
-                    {label}
+                    {t(key, { defaultValue: label })}
                   </button>
                 ))}
               </div>
@@ -372,6 +397,7 @@ export function InteractiveTreeApp() {
                 onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
                 onShowInfo={showTreeInfo}
                 onReturnToFamilyTree={returnToFamilyTreeChrome}
+                menu={personMenu}
               />
             ) : viewMode === 'sun' ? (
               <SunTreeView
@@ -380,6 +406,7 @@ export function InteractiveTreeApp() {
                 loading={trees.loading}
                 onPick={onPick}
                 onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+                menu={personMenu}
               />
             ) : viewMode === 'family' ? (
               <FamilyTreeView
@@ -389,6 +416,7 @@ export function InteractiveTreeApp() {
                 onPick={onPick}
                 onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
                 onOpenFamily={(recordName) => navigate(`/family/${recordName}`)}
+                menu={personMenu}
               />
             ) : viewMode === 'canvas' ? (
               <TraumatreeCanvasView
@@ -398,13 +426,36 @@ export function InteractiveTreeApp() {
                 onPick={onPick}
                 onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
                 onOpenFamily={(recordName) => navigate(`/family/${recordName}`)}
+                menu={personMenu}
               />
             ) : (
               <PersonFocus
                 context={context}
                 onPick={onPick}
+                onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+                onAddRelative={onAddRelative}
                 onOpenAncestorChart={openAncestor}
                 onOpenDescendantChart={openDescendant}
+              />
+            )}
+            {personMenu.menu && (
+              <PersonContextMenu
+                node={personMenu.menu.node}
+                person={personMenu.menu.person}
+                x={personMenu.menu.x}
+                y={personMenu.menu.y}
+                onClose={personMenu.close}
+                onPick={onPick}
+                onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+                onOpenFamily={(recordName) => navigate(`/family/${recordName}`)}
+                onShowInfo={showTreeInfo}
+                onOpenAncestorChart={openAncestor}
+                onOpenDescendantChart={openDescendant}
+                onAddRelative={onAddRelative}
+                onDeletePerson={onDeletePerson}
+                onDeleteFamily={onDeleteFamily}
+                onEditInfluential={onEditInfluential}
+                context={context}
               />
             )}
           </div>
@@ -558,12 +609,12 @@ function EmptyMsg({ text, children }) {
 // Ordered list of tree-view modes — kept here so both the desktop segmented
 // control and the mobile <select> render the same options in the same order.
 const TREE_VIEW_MODES = [
-  ['three', '3D'],
-  ['flat', 'Flat'],
-  ['sun', 'Sun'],
-  ['family', 'Family'],
-  ['canvas', 'Canvas'],
-  ['details', 'Details'],
+  ['three', 'interactiveTree.view.three', '3D'],
+  ['flat', 'interactiveTree.view.flat', 'Flat'],
+  ['sun', 'interactiveTree.view.sun', 'Sun'],
+  ['family', 'interactiveTree.view.family', 'Family'],
+  ['canvas', 'interactiveTree.view.canvas', 'Canvas'],
+  ['details', 'interactiveTree.view.details', 'Details'],
 ];
 
 export default InteractiveTreeApp;

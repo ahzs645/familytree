@@ -45,7 +45,7 @@ export default function ChartSplitWizard() {
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-6xl mx-auto p-5">
         <header className="mb-5">
-          <h1 className="text-xl font-bold">Chart Split Wizard</h1>
+          <h2 className="text-xl font-bold">Chart Split Wizard</h2>
           <p className="text-sm text-muted-foreground mt-1">Plan and create focused saved chart documents from one large tree.</p>
         </header>
 

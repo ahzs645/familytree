@@ -272,7 +272,7 @@ export default function MapsDiagram() {
         <div className="flex items-start gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-base font-semibold">Maps</h1>
+            <h2 className="text-base font-semibold">Maps</h2>
             <MapModeSwitch activeMode="statistics" onModeChange={navigateMapMode} />
           </div>
           <div className="text-xs text-muted-foreground">

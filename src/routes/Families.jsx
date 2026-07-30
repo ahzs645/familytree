@@ -15,6 +15,7 @@ import { createRecordEnvelope, createWithChangeLog } from '../lib/recordWrite.js
 import { cn } from '../lib/utils.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { localizeNoName } from '../lib/personDisplayName.js';
 
 export default function Families() {
   const { t } = useTranslation();
@@ -60,14 +61,14 @@ export default function Families() {
       label: t('families.partner1'),
       alwaysVisible: true,
       render: (row) => row.partner1Id
-        ? <Link to={`/person/${row.partner1Id}`} className="text-interactive hover:underline">{row.partner1Name || row.partner1Id}</Link>
+        ? <Link to={`/person/${row.partner1Id}`} className="text-interactive hover:underline">{localizeNoName(row.partner1Name || row.partner1Id)}</Link>
         : <span className="text-muted-foreground">{t('families.unknown')}</span>,
     },
     {
       key: 'partner2Name',
       label: t('families.partner2'),
       render: (row) => row.partner2Id
-        ? <Link to={`/person/${row.partner2Id}`} className="text-interactive hover:underline">{row.partner2Name || row.partner2Id}</Link>
+        ? <Link to={`/person/${row.partner2Id}`} className="text-interactive hover:underline">{localizeNoName(row.partner2Name || row.partner2Id)}</Link>
         : <span className="text-muted-foreground">{t('families.unknown')}</span>,
     },
     {

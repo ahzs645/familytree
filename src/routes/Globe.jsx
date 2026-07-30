@@ -234,7 +234,7 @@ export default function Globe() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h1 className="text-base font-semibold">Maps</h1>
+        <h2 className="text-base font-semibold">Maps</h2>
         <MapModeSwitch activeMode="globe" onModeChange={navigateMapMode} />
         <span className="text-xs text-muted-foreground">
           {loading ? 'Loading all person events…' : `${filtered.length.toLocaleString()} / ${points.length.toLocaleString()} person and family event location${points.length === 1 ? '' : 's'}`}

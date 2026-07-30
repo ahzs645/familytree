@@ -111,8 +111,8 @@ export function SimpleCrudList({
       </div>
       <div className="space-y-3">
         {fields.map((f) => (
-          <div key={f.id}>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">{f.label}</label>
+          <label key={f.id} className="block">
+            <span className="block text-xs font-medium text-muted-foreground mb-1">{f.label}</span>
             {f.kind === 'textarea' ? (
               <textarea value={values[f.id] ?? ''} rows={f.rows || 4}
                 onChange={(e) => setValues((s) => ({ ...s, [f.id]: e.target.value }))}
@@ -128,8 +128,8 @@ export function SimpleCrudList({
                 onChange={(e) => setValues((s) => ({ ...s, [f.id]: e.target.value }))}
                 className={inputClass} />
             )}
-            {f.hint && <div className="text-[11px] text-muted-foreground mt-1">{f.hint}</div>}
-          </div>
+            {f.hint && <span className="block text-[11px] text-muted-foreground mt-1">{f.hint}</span>}
+          </label>
         ))}
       </div>
     </div>
@@ -140,7 +140,8 @@ export function SimpleCrudList({
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h1 className="text-base font-semibold">{title}</h1>
+        {/* h2, not h1: this list is a panel inside a page that already titles itself. */}
+        <h2 className="text-base font-semibold">{title}</h2>
         <span className="text-xs text-muted-foreground">{records.length}</span>
         <Button variant="primary" size="sm" onClick={onCreate} className="ms-auto">+ New</Button>
       </header>

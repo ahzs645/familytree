@@ -231,17 +231,30 @@ export default function Persons() {
     { value: 'death', label: t('persons.sortDeath') },
   ];
 
+  // "New person" is the one action someone reviewing a shared tree comes here
+  // to find. On mobile it sits in the header next to the filter toggle rather
+  // than inside the filter popover, where it was an unlabelled icon two taps
+  // deep.
+  const newPersonAction = (
+    <button
+      type="button"
+      onClick={() => navigate('/person/new', { state: { intent: 'create' } })}
+      className={cn(
+        listToolbarButtonClass,
+        'border-primary/60 text-interactive',
+        isMobile && 'h-9 w-9 justify-center px-0',
+      )}
+      title={t('persons.newPerson', { defaultValue: 'New person' })}
+      aria-label={t('persons.newPerson', { defaultValue: 'New person' })}
+    >
+      <UserPlus size={isMobile ? 17 : 15} className="flex-shrink-0" />
+      <span className="hidden sm:inline">{t('persons.newPerson', { defaultValue: 'New person' })}</span>
+    </button>
+  );
+
   const listActions = (
     <>
-      <button
-        type="button"
-        onClick={() => navigate('/person/new', { state: { intent: 'create' } })}
-        className={cn(listToolbarButtonClass, 'border-primary/60 text-interactive')}
-        title={t('persons.newPerson', { defaultValue: 'New person' })}
-      >
-        <UserPlus size={15} className="flex-shrink-0" />
-        <span className="hidden sm:inline">{t('persons.newPerson', { defaultValue: 'New person' })}</span>
-      </button>
+      {!isMobile && newPersonAction}
       <ColumnChooser
         columns={listColumns}
         isVisible={columnVisibility.isVisible}
@@ -304,7 +317,7 @@ export default function Persons() {
       <header className="border-b border-border bg-card px-3 py-2 md:px-5 md:py-3">
         <div className="flex items-start gap-2 md:mb-3">
           <div className="min-w-0 flex-1">
-            <h1 className="text-base font-semibold leading-tight">{t('persons.heading')}</h1>
+            <h2 className="text-base font-semibold leading-tight">{t('persons.heading')}</h2>
             <div className="text-xs text-muted-foreground">
               {t('persons.summary', {
                 visible: formatInteger(visiblePersons.length, localization),
@@ -313,6 +326,8 @@ export default function Persons() {
             </div>
           </div>
           {isMobile ? (
+            <>
+            {newPersonAction}
             <details className="group relative">
               <summary className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-secondary text-foreground hover:bg-accent [&::-webkit-details-marker]:hidden" aria-label={t('persons.filter')}>
                 <SlidersHorizontal size={17} />
@@ -331,6 +346,7 @@ export default function Persons() {
                 ) : null}
               </div>
             </details>
+            </>
           ) : (
             <div className="flex flex-wrap items-center gap-2">
               {listActions}

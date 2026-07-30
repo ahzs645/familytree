@@ -145,7 +145,7 @@ export default function Backup() {
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-2xl mx-auto p-5">
-        <h1 className="text-xl font-bold mb-1">Backup &amp; Restore</h1>
+        <h2 className="text-xl font-bold mb-1">Backup &amp; Restore</h2>
         <p className="text-sm text-muted-foreground mb-5">
           Export your entire local database to a JSON file you can keep offsite, then restore it on the same or a different device.
         </p>

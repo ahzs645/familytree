@@ -32,6 +32,16 @@
           try {
             localization = JSON.parse(localStorage.getItem('cloudtreeweb:localization') || 'null') || {};
           } catch (e) {}
+          // No stored preference yet (first visit, e.g. a shared ?url= link):
+          // paint in the browser's own language so an Arabic reader is not
+          // greeted by an English, left-to-right shell.
+          if (!localization.locale) {
+            var preferred = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language]);
+            for (var i = 0; i < preferred.length; i++) {
+              var code = String(preferred[i] || '').toLowerCase().split(/[-_]/)[0];
+              if (code === 'en' || code === 'vi' || code === 'ar') { localization.locale = code; break; }
+            }
+          }
           if (localization.locale) document.documentElement.lang = localization.locale;
           var direction = localization.direction;
           if (!direction || direction === 'auto') {

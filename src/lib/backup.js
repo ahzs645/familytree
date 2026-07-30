@@ -29,10 +29,105 @@ export async function exportBackup() {
   };
 }
 
+/**
+ * Filename stem for an export: tree name, whoever made it, and a timestamp
+ * down to the second.
+ *
+ * Everything used to be `cloudtreeweb-<date>`, so two relatives returning
+ * reviewed copies of the same tree on the same day handed back files with
+ * identical names — one silently overwriting the other in a downloads folder.
+ */
+export function exportFileBaseName({ treeName = '', authorName = '', now = new Date(), fallback = 'cloudtreeweb' } = {}) {
+  const stamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-') + '-' + [
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+    String(now.getSeconds()).padStart(2, '0'),
+  ].join('');
+  const parts = [treeName, authorName]
+    .map((part) => sanitizeFileNamePart(part))
+    .filter(Boolean);
+  if (!parts.length) parts.push(fallback);
+  return `${parts.join('-')}-${stamp}`;
+}
+
+// Chromium ignores a download filename containing any non-ASCII character and
+// saves the file as "download" instead — so an Arabic tree name produced the
+// very filename collision this is meant to prevent. Transliterate instead of
+// dropping, so the name stays recognisable.
+const ARABIC_TRANSLITERATION = {
+  'ء': '', 'آ': 'a', 'أ': 'a', 'ؤ': 'w', 'إ': 'i', 'ئ': 'y', 'ا': 'a', 'ب': 'b',
+  'ة': 'h', 'ت': 't', 'ث': 'th', 'ج': 'j', 'ح': 'h', 'خ': 'kh', 'د': 'd',
+  'ذ': 'dh', 'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sh', 'ص': 's', 'ض': 'd',
+  'ط': 't', 'ظ': 'z', 'ع': 'a', 'غ': 'gh', 'ف': 'f', 'ق': 'q', 'ك': 'k',
+  'ل': 'l', 'م': 'm', 'ن': 'n', 'ه': 'h', 'و': 'w', 'ى': 'a', 'ي': 'y',
+  'ٱ': 'a', '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4', '٥': '5',
+  '٦': '6', '٧': '7', '٨': '8', '٩': '9',
+  // Latin letters NFKD leaves alone because they are not accented forms.
+  'ß': 'ss', 'æ': 'ae', 'Æ': 'AE', 'œ': 'oe', 'Œ': 'OE', 'ø': 'o', 'Ø': 'O',
+  'đ': 'd', 'Đ': 'D', 'ł': 'l', 'Ł': 'L', 'þ': 'th', 'Þ': 'Th', 'ð': 'd', 'Ð': 'D',
+};
+
+/** Readable ASCII for a filename part: transliterate, then drop the rest. */
+export function asciiFileNamePart(value) {
+  const text = String(value || '');
+  const transliterated = [...text]
+    .map((char) => (char in ARABIC_TRANSLITERATION ? ARABIC_TRANSLITERATION[char] : char))
+    .join('')
+    // é → e, ü → u, and Arabic diacritics fall away with their base letters.
+    .normalize('NFKD')
+    .replace(/\p{M}+/gu, '');
+  const ascii = transliterated.replace(/[^\x20-\x7E]+/g, ' ');
+  const cleaned = ascii
+    .replace(/[\\/:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\s/g, '-')
+    .slice(0, 48)
+    .replace(/^-+|-+$/g, '');
+  // A script with no mapping at all still has to stay distinguishable, or two
+  // relatives' files collide again.
+  if (!cleaned && text.trim()) return `t${shortHash(text)}`;
+  return cleaned;
+}
+
+/** Small stable token so different names never produce the same filename. */
+function shortHash(value) {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i += 1) hash = ((hash * 33) ^ value.charCodeAt(i)) >>> 0;
+  return hash.toString(36).slice(0, 6);
+}
+
+function sanitizeFileNamePart(value) {
+  return asciiFileNamePart(value);
+}
+
+async function exportBaseName() {
+  // Dynamic imports: treeLibrary imports exportBackup from here.
+  let treeName = '';
+  let authorName = '';
+  try {
+    const { getAuthorInfo } = await import('./authorInfo.js');
+    const info = await getAuthorInfo();
+    treeName = info?.treeName || '';
+    authorName = info?.authorName || '';
+  } catch { /* author info is optional */ }
+  if (!treeName) {
+    try {
+      const { getActiveTreeName } = await import('./treeLibrary.js');
+      treeName = await getActiveTreeName();
+    } catch { /* library is optional */ }
+  }
+  return exportFileBaseName({ treeName, authorName });
+}
+
 export async function downloadBackup() {
   const data = await exportBackup();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  downloadBlob(blob, `cloudtreeweb-backup-${new Date().toISOString().slice(0, 10)}.json`);
+  downloadBlob(blob, `${await exportBaseName()}-backup.json`);
 }
 
 export async function downloadMFTPackage() {
@@ -40,7 +135,9 @@ export async function downloadMFTPackage() {
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
   const exportedAt = new Date().toISOString();
-  zip.file('database.json', JSON.stringify(data, null, 2));
+  // Compact, not pretty-printed: database.json is read by the importer, never
+  // by a person, and the indentation was a large share of the file.
+  zip.file('database.json', JSON.stringify(data));
   zip.file('metadata.json', JSON.stringify({
     format: 'cloudtreeweb-mftpkg',
     version: 1,
@@ -61,8 +158,15 @@ export async function downloadMFTPackage() {
     zip.file(`resources/${safePackageName(asset.filename || asset.sourceIdentifier || asset.assetId)}`, asset.dataBase64, { base64: true });
   }
 
-  const blob = await zip.generateAsync({ type: 'blob' });
-  downloadBlob(blob, `cloudtreeweb-${new Date().toISOString().slice(0, 10)}.mftpkg`);
+  // JSZip stores uncompressed by default, which is why a returned package came
+  // back several times the size of the one that was published. The payload is
+  // JSON, so DEFLATE pays for itself many times over.
+  const blob = await zip.generateAsync({
+    type: 'blob',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 },
+  });
+  downloadBlob(blob, `${await exportBaseName()}.mftpkg`);
 }
 
 function downloadBlob(blob, filename) {

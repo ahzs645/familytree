@@ -238,6 +238,28 @@ function MobileNavLink({ link, indented, pathname }) {
   );
 }
 
+/**
+ * The one <h2> on every page.
+ *
+ * Route components can't own this reliably: most of them return a different
+ * tree while loading or when there is nothing to show, and those branches were
+ * dropping the heading entirely — eleven routes had no h1 at all, two had two.
+ * Naming the page from the shell means it is correct in every state, and the
+ * route's own visible title stays an h2 underneath it.
+ *
+ * Visually hidden, because these pages already show their title in the header
+ * or the toolbar; this is here for screen readers and heading navigation.
+ */
+function PageHeading() {
+  const { t } = useTranslation();
+  const { pathname } = useLocation();
+  const path = pathname.replace(/\/+$/, '') || '/';
+  const key = routeLabelKey(path) || routeLabelKey(`/${path.split('/')[1] || ''}`);
+  // Unlisted routes (record editors, wizards) fall back to their first segment.
+  const fallback = path === '/' ? 'Home' : (path.split('/')[1] || 'Page').replace(/-/g, ' ');
+  return <h1 className="sr-only">{key ? t(key, { defaultValue: fallback }) : fallback}</h1>;
+}
+
 export function AppShell() {
   const { t, localization: liveLocalization, setLocale } = useTranslation();
   const { hasData, summary, loading } = useDatabaseStatus();
@@ -403,6 +425,7 @@ export function AppShell() {
           </div>
         </header>
         <main className="flex-1 relative overflow-hidden">
+          <PageHeading />
           <Outlet />
         </main>
       </div>
@@ -424,6 +447,7 @@ export function AppShell() {
       />
       )}
       <main className="flex-1 relative overflow-hidden min-w-0">
+        <PageHeading />
         <Outlet />
       </main>
     </div>

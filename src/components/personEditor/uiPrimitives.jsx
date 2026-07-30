@@ -13,6 +13,7 @@
 import React from 'react';
 import { readRef } from '../../lib/schema.js';
 import { formClasses } from '../ui/formClasses.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function inputClass() {
   return formClasses.input;
@@ -31,11 +32,14 @@ export function Field({ label, children, hint }) {
   );
 }
 
+// dir="auto" so a sentence that is still English inside an RTL page keeps its
+// own punctuation on the right end ("Use the menu above." not ".Use the menu
+// above") until its translation lands.
 export function Empty({ title, hint }) {
   return (
     <div className="text-center py-6">
-      <div className="text-sm text-foreground">{title}</div>
-      {hint && <div className="text-xs text-muted-foreground mt-1">{hint}</div>}
+      <div className="text-sm text-foreground" dir="auto">{title}</div>
+      {hint && <div className="text-xs text-muted-foreground mt-1" dir="auto">{hint}</div>}
     </div>
   );
 }
@@ -49,9 +53,17 @@ export function ReadOnly({ label, value }) {
   );
 }
 
-export function RemoveBtn({ onClick }) {
+export function RemoveBtn({ onClick, label }) {
   return (
-    <button onClick={onClick} className="text-destructive-text border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 text-xs hover:bg-destructive/10">×</button>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label || undefined}
+      title={label || undefined}
+      className="text-destructive-text border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 text-xs hover:bg-destructive/10"
+    >
+      ×
+    </button>
   );
 }
 
@@ -65,10 +77,12 @@ export function EvidenceMetric({ label, value, tone }) {
 }
 
 export function EvidenceBadge({ evidence, onClick }) {
+  const { t } = useTranslation();
   if (!evidence) return null;
   const cls = `ms-auto shrink-0 rounded border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${toneClass(evidence.state)} ${borderToneClass(evidence.state)}`;
+  const stateLabel = t(`editor.evidence.state.${evidence.state}`, { defaultValue: evidence.state });
   if (!onClick) {
-    return <span className={cls}>{evidence.state}</span>;
+    return <span className={cls}>{stateLabel}</span>;
   }
   // Clickable: jumps to the Source Citations section so the user can attach a
   // source. Title differs by state so "Supported" reads as "manage", not "fix".
@@ -77,10 +91,12 @@ export function EvidenceBadge({ evidence, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      title={isUnsourced ? 'Add a source citation' : 'Manage source citations'}
+      title={isUnsourced
+        ? t('editor.evidence.addSource', { defaultValue: 'Add a source citation' })
+        : t('editor.evidence.manageSources', { defaultValue: 'Manage source citations' })}
       className={`${cls} cursor-pointer transition-opacity hover:opacity-70 focus-visible:opacity-70`}
     >
-      {evidence.state}
+      {stateLabel}
     </button>
   );
 }

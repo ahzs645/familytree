@@ -4,6 +4,7 @@ import { lifeSpanLabel } from '../../../models/index.js';
 import { cn } from '../../../lib/utils.js';
 import { Button } from '../../ui/Button.jsx';
 import { buildTreeNavigationOptions, firstNavigationOption } from './navigationOptions.js';
+import { localizeNoName } from '../../../lib/personDisplayName.js';
 
 const DOCK_SELECT_CLASS =
   'h-8 cursor-pointer rounded-md border border-border bg-secondary ps-2 pe-6 text-xs font-bold text-secondary-foreground';
@@ -64,11 +65,13 @@ export function TreeNavigationControls({ context, onPick }) {
         aria-label={t('interactiveTree.navigateAria')}
       >
         <option value="">{t('interactiveTree.navigate')}</option>
+        {/* buildTreeNavigationOptions stays pure English data; the relation
+            words are localized here, at the point they are rendered. */}
         {sections.map((section) => (
-          <optgroup key={section.id} label={section.label}>
+          <optgroup key={section.id} label={t(`interactiveTree.navSection.${section.id}`, { defaultValue: section.label })}>
             {section.options.map((option) => (
               <option key={`${section.id}:${option.id}`} value={option.id}>
-                {option.relation}: {option.label}
+                {t(`interactiveTree.relation.${option.relation}`, { defaultValue: option.relation })}: {localizeNoName(option.label)}
               </option>
             ))}
           </optgroup>
@@ -103,6 +106,29 @@ function MenuItem({ className, ...props }) {
 
 function MenuDivider() {
   return <div className="mx-0.5 my-1 h-px bg-border/80" />;
+}
+
+const MENU_WIDTH = 230;
+const MENU_MAX_HEIGHT = 420;
+const MENU_GUTTER = 8;
+
+/**
+ * Keep a point-anchored menu fully on screen. Flips to the other side of the
+ * anchor when there is no room, then clamps, so it never hangs off an edge.
+ */
+export function clampMenuToViewport(x, y, width, height, viewport = null) {
+  const view = viewport || {
+    width: typeof window === 'undefined' ? width + MENU_GUTTER * 2 : window.innerWidth,
+    height: typeof window === 'undefined' ? height + MENU_GUTTER * 2 : window.innerHeight,
+  };
+  const maxLeft = Math.max(MENU_GUTTER, view.width - width - MENU_GUTTER);
+  const maxTop = Math.max(MENU_GUTTER, view.height - height - MENU_GUTTER);
+  const left = x + width + MENU_GUTTER > view.width ? x - width : x;
+  const top = y + height + MENU_GUTTER > view.height ? y - height : y;
+  return {
+    left: Math.round(Math.min(Math.max(left, MENU_GUTTER), maxLeft)),
+    top: Math.round(Math.min(Math.max(top, MENU_GUTTER), maxTop)),
+  };
 }
 
 export function PersonContextMenu({
@@ -145,10 +171,13 @@ export function PersonContextMenu({
   };
   const [addOpen, setAddOpen] = useStateLike(false);
   const partners = (context?.families || []).map((family) => family.partner).filter(Boolean);
+  // Anchored at the tap point, the menu ran off the edge of a phone screen and
+  // clipped its own labels. Keep it inside the viewport on both axes.
+  const position = clampMenuToViewport(x, y, MENU_WIDTH, MENU_MAX_HEIGHT);
   return (
     <div
-      className="fixed z-50 w-[230px] rounded-md border border-border bg-card/95 p-1.5 text-card-foreground shadow-xl backdrop-blur-md"
-      style={{ left: x, top: y }}
+      className="fixed z-50 w-[230px] max-h-[80vh] overflow-y-auto rounded-md border border-border bg-card/95 p-1.5 text-card-foreground shadow-xl backdrop-blur-md"
+      style={position}
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
       role="menu"

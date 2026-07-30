@@ -40,7 +40,7 @@ export default function Lists() {
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-6xl mx-auto px-4 py-6 pb-16 sm:px-6 sm:py-8">
         <section className="mb-8">
-          <h1 className="text-3xl font-bold mb-3">Lists</h1>
+          <h2 className="text-3xl font-bold mb-3">Lists</h2>
           <p className="text-muted-foreground leading-relaxed max-w-3xl">
             Direct entry points for desktop-equivalent list surfaces. These routes open independently from Reports and
             link rows back to the relevant editors.

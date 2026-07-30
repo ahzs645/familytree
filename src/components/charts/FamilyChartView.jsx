@@ -6,6 +6,8 @@ import { DEFAULT_THEME } from './theme.js';
 import { lifeSpanLabel } from '../../models/index.js';
 import { textDirection, wrapGraphemes } from '../../lib/i18n.js';
 import { layoutFamilyChart } from './layouts/familyChartLayout.js';
+import { localizeNoName, noNameLabel } from '../../lib/personDisplayName.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 const PADDING = 8;
 
@@ -112,8 +114,9 @@ function FamilyChartNode({
   colorOverride,
   editable,
 }) {
+  const { t } = useTranslation();
   const { person, placeholder } = node;
-  const display = person?.fullName || (node.role === 'placeholder-spouse' ? 'Unknown partner' : 'No name recorded');
+  const display = person?.fullName ? localizeNoName(person.fullName) : (node.role === 'placeholder-spouse' ? t('editor.person.unknownPartner', { defaultValue: 'Unknown partner' }) : noNameLabel());
   const span = person ? lifeSpanLabel(person) : '';
   const displayDirection = textDirection(display, 'ltr');
   const spanDirection = textDirection(span, displayDirection);

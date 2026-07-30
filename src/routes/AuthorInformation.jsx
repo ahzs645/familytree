@@ -70,7 +70,7 @@ export default function AuthorInformation() {
       <div className="max-w-5xl mx-auto p-5">
         <header className="flex items-center gap-3 mb-5">
           <div>
-            <h1 className="text-xl font-bold">Author Information</h1>
+            <h2 className="text-xl font-bold">Author Information</h2>
             <p className="text-sm text-muted-foreground mt-1">Tree-level author, contact, copyright, and presentation metadata.</p>
           </div>
           {status && <span className="ms-auto text-xs text-success-text">{status}</span>}
@@ -117,7 +117,7 @@ export default function AuthorInformation() {
             </Panel>
 
             <Panel title="Notes">
-              <textarea value={values.notes} onChange={(event) => update('notes', event.target.value)} rows={6} className={inputClass} />
+              <textarea value={values.notes} onChange={(event) => update('notes', event.target.value)} rows={6} className={inputClass} aria-label="Notes" />
             </Panel>
           </div>
 

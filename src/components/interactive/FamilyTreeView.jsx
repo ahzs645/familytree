@@ -3,13 +3,15 @@ import { Gender, lifeSpanLabel } from '../../models/index.js';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { BdiText, LtrText } from '../BdiText.jsx';
 import { cn } from '../../lib/utils.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 const emptyClass = 'h-full grid place-items-center text-sm text-muted-foreground';
 
-export function FamilyTreeView({ model, activeId, loading, onPick, onEditPerson, onOpenFamily }) {
+export function FamilyTreeView({ model, activeId, loading, onPick, onEditPerson, onOpenFamily, menu }) {
+  const { t } = useTranslation();
   const isMobile = useIsMobile();
-  if (loading) return <div className={emptyClass}>Loading family tree...</div>;
-  if (!model) return <div className={emptyClass}>Pick a person to view their family tree.</div>;
+  if (loading) return <div className={emptyClass}>{t('familyTreeView.loading', { defaultValue: 'Loading family tree…' })}</div>;
+  if (!model) return <div className={emptyClass}>{t('familyTreeView.pickPerson', { defaultValue: 'Pick a person to view their family tree.' })}</div>;
 
   const hasParents = model.parents.length > 0;
   const hasSpouses = model.spouses.length > 0;
@@ -18,7 +20,7 @@ export function FamilyTreeView({ model, activeId, loading, onPick, onEditPerson,
   return (
     <div className="h-full overflow-auto bg-gradient-to-b from-background to-secondary">
       <div className={cn('grid min-h-full content-start', isMobile ? 'gap-1 p-3' : 'min-w-[980px] p-6')}>
-        <FamilyBand title="Parents" emptyText="No parents recorded." people={model.parents} onPick={onPick} />
+        <FamilyBand title={t('interactiveTree.navSection.parents', { defaultValue: 'Parents' })} emptyText={t('editor.person.noParents', { defaultValue: 'No parents recorded' })} people={model.parents} onPick={onPick} onEditPerson={onEditPerson} menu={menu} />
 
         <Connector visible={hasParents || model.siblings.length > 1} />
 
@@ -30,7 +32,7 @@ export function FamilyTreeView({ model, activeId, loading, onPick, onEditPerson,
               : 'grid-cols-[minmax(270px,1fr)_260px_minmax(270px,1fr)] items-center gap-4'
           )}
         >
-          <FamilyPanel title="Siblings">
+          <FamilyPanel title={t('familyTreeView.siblings', { defaultValue: 'Siblings' })}>
             <div className="flex gap-2.5 overflow-x-auto pb-0.5">
               {model.siblings.map((person) => (
                 <PersonNode
@@ -39,32 +41,33 @@ export function FamilyTreeView({ model, activeId, loading, onPick, onEditPerson,
                   active={person.recordName === activeId}
                   onPick={onPick}
                   onEditPerson={onEditPerson}
+                  menu={menu}
                 />
               ))}
             </div>
           </FamilyPanel>
 
           <div className="grid justify-items-center gap-2">
-            <div className="text-xs font-extrabold uppercase text-muted-foreground">Subject</div>
-            <PersonNode person={model.subject} active onPick={onPick} onEditPerson={onEditPerson} large />
+            <div className="text-xs font-extrabold uppercase text-muted-foreground">{t('familyTreeView.subject', { defaultValue: 'Subject' })}</div>
+            <PersonNode person={model.subject} active onPick={onPick} onEditPerson={onEditPerson} menu={menu} large />
           </div>
 
-          <FamilyPanel title="Spouses">
+          <FamilyPanel title={t('familyTreeView.spouses', { defaultValue: 'Spouses' })}>
             {hasSpouses ? (
               <div className="grid gap-2.5">
                 {model.spouses.map((person) => (
                   <div key={person.recordName} className="flex items-center gap-2.5">
-                    <PersonNode person={person} onPick={onPick} onEditPerson={onEditPerson} />
+                    <PersonNode person={person} onPick={onPick} onEditPerson={onEditPerson} menu={menu} />
                     <div className="grid min-w-24 gap-1 text-xs text-muted-foreground">
-                      {person.dateOfMarriage ? <span>Married {person.dateOfMarriage}</span> : <span>No marriage date</span>}
-                      {person.dateOfDivorce ? <span>Divorced {person.dateOfDivorce}</span> : null}
+                      {person.dateOfMarriage ? <span>{t('familyTreeView.married', { date: person.dateOfMarriage, defaultValue: `Married ${person.dateOfMarriage}` })}</span> : <span>{t('familyTreeView.noMarriageDate', { defaultValue: 'No marriage date' })}</span>}
+                      {person.dateOfDivorce ? <span>{t('familyTreeView.divorced', { date: person.dateOfDivorce, defaultValue: `Divorced ${person.dateOfDivorce}` })}</span> : null}
                       {person.familyRecordName ? (
                         <button
                           type="button"
                           className="w-fit cursor-pointer border-0 bg-transparent p-0 text-xs font-bold text-interactive"
                           onClick={() => onOpenFamily(person.familyRecordName)}
                         >
-                          Edit family
+                          {t('familyTreeView.editFamily', { defaultValue: 'Edit family' })}
                         </button>
                       ) : null}
                     </div>
@@ -72,26 +75,26 @@ export function FamilyTreeView({ model, activeId, loading, onPick, onEditPerson,
                 ))}
               </div>
             ) : (
-              <PanelEmpty>No spouses recorded.</PanelEmpty>
+              <PanelEmpty>{t('familyTreeView.noSpouses', { defaultValue: 'No spouses recorded.' })}</PanelEmpty>
             )}
           </FamilyPanel>
         </div>
 
         <Connector visible={hasChildren || hasSpouses} />
 
-        <FamilyBand title="Children" emptyText="No children recorded." people={model.children} onPick={onPick} onEditPerson={onEditPerson} />
+        <FamilyBand title={t('interactiveTree.navSection.children', { defaultValue: 'Children' })} emptyText={t('familyTreeView.noChildren', { defaultValue: 'No children recorded.' })} people={model.children} onPick={onPick} onEditPerson={onEditPerson} menu={menu} />
       </div>
     </div>
   );
 }
 
-function FamilyBand({ title, emptyText, people, onPick, onEditPerson }) {
+function FamilyBand({ title, emptyText, people, onPick, onEditPerson, menu }) {
   return (
     <FamilyPanel title={title}>
       {people.length ? (
         <div className="flex flex-wrap justify-center gap-3">
           {people.map((person) => (
-            <PersonNode key={person.recordName} person={person} onPick={onPick} onEditPerson={onEditPerson} />
+            <PersonNode key={person.recordName} person={person} onPick={onPick} onEditPerson={onEditPerson} menu={menu} />
           ))}
         </div>
       ) : (
@@ -118,7 +121,8 @@ function Connector({ visible }) {
   return <div className={cn('h-8 w-0.5 justify-self-center bg-border', !visible && 'opacity-[0.18]')} aria-hidden="true" />;
 }
 
-function PersonNode({ person, active = false, large = false, onPick, onEditPerson }) {
+function PersonNode({ person, active = false, large = false, onPick, onEditPerson, menu }) {
+  const { t } = useTranslation();
   if (!person) return null;
   const [fill, stroke] = palette(person.gender);
   return (
@@ -133,6 +137,7 @@ function PersonNode({ person, active = false, large = false, onPick, onEditPerso
       onClick={() => onPick(person.recordName)}
       onDoubleClick={() => onEditPerson?.(person.recordName)}
       title={person.fullName}
+      {...(menu?.handlersFor?.({ person, node: { familyBlockId: person.familyRecordName } }) || {})}
     >
       {/* Avatar fills are fixed mid-tone gender colors, so the white initials
           stay readable in both themes. */}
@@ -144,8 +149,8 @@ function PersonNode({ person, active = false, large = false, onPick, onEditPerso
       </span>
       <span className="grid min-w-0 gap-0.5">
         <span className="truncate text-sm font-extrabold"><BdiText>{person.fullName}</BdiText></span>
-        <span className="text-xs text-muted-foreground"><LtrText>{lifeSpanLabel(person) || 'No life dates'}</LtrText></span>
-        {person.relationToSubject ? <span className="text-xs font-bold text-foreground">{person.relationToSubject}</span> : null}
+        <span className="text-xs text-muted-foreground"><LtrText>{lifeSpanLabel(person) || t('interactiveTree.noLifeDates')}</LtrText></span>
+        {person.relationToSubject ? <span className="text-xs font-bold text-foreground">{t(`relations.${person.relationToSubject}`, { defaultValue: person.relationToSubject })}</span> : null}
       </span>
     </button>
   );

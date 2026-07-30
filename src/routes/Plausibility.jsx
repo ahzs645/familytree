@@ -30,7 +30,7 @@ export default function Plausibility() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h1 className="text-base font-semibold">Plausibility checker</h1>
+        <h2 className="text-base font-semibold">Plausibility checker</h2>
         <span className="text-xs text-muted-foreground ms-2">{warnings.length} warnings</span>
         <div className="ms-auto flex flex-wrap gap-2">
           {[['', 'All'], ['high', `High (${counts.high || 0})`], ['medium', `Medium (${counts.medium || 0})`], ['low', `Low (${counts.low || 0})`]].map(([id, lbl]) => (

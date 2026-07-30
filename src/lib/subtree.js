@@ -1,5 +1,6 @@
 import { getAppDataClient } from './data/AppDataClient.js';
 import { refToRecordName } from './recordRef.js';
+import { buildDeletionLogEntries } from './changeLog.js';
 
 /**
  * Collect the recordNames of every ancestor of `personId` up to the given
@@ -124,8 +125,25 @@ export async function downloadSubtreeBackup(rootPersonRecordName) {
 export async function removeSubtree(rootPersonRecordName) {
   const names = await collectSubtreeRecordNames(rootPersonRecordName);
   const db = getAppDataClient().records;
-  await db.transaction({ deleteRecordNames: [...names] });
+  await db.transaction({
+    saveRecords: await deletionLogFor(db, names),
+    deleteRecordNames: [...names],
+  });
   return names.size;
+}
+
+/**
+ * Change-log entries for records about to be deleted. Written in the same
+ * transaction as the delete so the log never disagrees with the data — and so
+ * a package sent back to whoever shared the tree carries the deletions with it.
+ */
+async function deletionLogFor(db, recordNames) {
+  const records = [];
+  for (const recordName of recordNames) {
+    const record = await db.get(recordName);
+    if (record) records.push(record);
+  }
+  return buildDeletionLogEntries(records);
 }
 
 /**
@@ -192,7 +210,7 @@ export async function deletePerson(personRecordName) {
   }
 
   await db.transaction({
-    saveRecords,
+    saveRecords: [...saveRecords, ...await deletionLogFor(db, deleteNames)],
     deleteRecordNames: [...deleteNames],
   });
   return deleteNames.size;
@@ -231,7 +249,7 @@ export async function deleteFamily(familyRecordName) {
   }
 
   await db.transaction({
-    saveRecords: [],
+    saveRecords: await deletionLogFor(db, deleteNames),
     deleteRecordNames: [...deleteNames],
   });
   return deleteNames.size;

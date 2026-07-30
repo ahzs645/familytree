@@ -32,6 +32,36 @@ export const CALENDAR_OPTIONS = [
   { value: 'islamic-umalqura', label: 'Islamic Umm al-Qura' },
 ];
 
+/**
+ * First-run locale, taken from the browser's language preferences.
+ *
+ * Someone opening a shared `?url=` link has no stored preference yet, so
+ * without this the import sheet and the whole welcome screen greet an
+ * Arabic reader in English — before they have any way to find the language
+ * picker. A stored preference always wins over this; it only seeds the
+ * default.
+ */
+export function detectPreferredLocale(navigatorLanguages) {
+  const supported = new Set(SUPPORTED_LOCALES.map((entry) => entry.value));
+  let candidates = navigatorLanguages;
+  if (!Array.isArray(candidates)) {
+    if (typeof navigator === 'undefined') return DEFAULT_LOCALIZATION.locale;
+    candidates = Array.isArray(navigator.languages) && navigator.languages.length
+      ? navigator.languages
+      : [navigator.language].filter(Boolean);
+  }
+  for (const candidate of candidates) {
+    const language = String(candidate || '').trim().split(/[-_]/)[0].toLowerCase();
+    if (supported.has(language)) return language;
+  }
+  return DEFAULT_LOCALIZATION.locale;
+}
+
+/** DEFAULT_LOCALIZATION with the browser's language filled in. */
+export function detectedLocalization() {
+  return { ...DEFAULT_LOCALIZATION, locale: detectPreferredLocale() };
+}
+
 const RTL_LANGUAGE_CODES = new Set(['ar', 'arc', 'ckb', 'dv', 'fa', 'he', 'ku', 'ps', 'syr', 'ur', 'yi']);
 const RTL_CHAR_RE = /[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufefc]/;
 const ARABIC_CHAR_RE = /[\u0600-\u06ff\ufb50-\ufdff\ufe70-\ufefc]/;

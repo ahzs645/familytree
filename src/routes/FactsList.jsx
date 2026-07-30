@@ -83,11 +83,13 @@ export default function FactsList() {
 
   const filters = (
     <>
-      <label className="text-xs text-muted-foreground ms-auto">{t('factsList.factType')}</label>
-      <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className={listToolbarSelectTriggerClass}>
-        <option value="">{t('factsList.allTypes')}</option>
-        {typeOptions.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
-      </select>
+      <label className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
+        <span>{t('factsList.factType')}</span>
+        <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className={listToolbarSelectTriggerClass}>
+          <option value="">{t('factsList.allTypes')}</option>
+          {typeOptions.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+        </select>
+      </label>
       <ScopeFilterSelect
         value={scoped.scopeId}
         onChange={scoped.setScopeId}

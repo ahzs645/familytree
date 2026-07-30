@@ -324,10 +324,10 @@ export default function ToDos() {
           })}
         </div>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-[140px_minmax(0,1fr)_auto]">
-          <select value={targetType} onChange={(e) => { setTargetType(e.target.value); setTargetId(''); }} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm">
+          <select aria-label={t('todosPage.relationType', { defaultValue: 'Record type' })} value={targetType} onChange={(e) => { setTargetType(e.target.value); setTargetId(''); }} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm">
             {TARGET_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
           </select>
-          <select value={targetId} onChange={(e) => setTargetId(e.target.value)} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm">
+          <select aria-label={t('todosPage.selectTarget')} value={targetId} onChange={(e) => setTargetId(e.target.value)} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm">
             <option value="">{t('todosPage.selectTarget')}</option>
             {(targetsByType[targetType] || []).map((target) => <option key={target.recordName} value={target.recordName}>{targetLabel(target)}</option>)}
           </select>
@@ -340,7 +340,7 @@ export default function ToDos() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h1 className="text-base font-semibold">{t('todosPage.title')}</h1>
+        <h2 className="text-base font-semibold">{t('todosPage.title')}</h2>
         <span className="text-xs text-muted-foreground">{todos.length}</span>
         {status && <span className="text-xs text-muted-foreground">{status}</span>}
         <div className="ms-auto flex flex-wrap items-center gap-2">

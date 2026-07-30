@@ -4,9 +4,11 @@
 import React from 'react';
 import { SEARCH_FIELDS } from '../../lib/search.js';
 import { BdiText, LtrText } from '../BdiText.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function SearchResults({ entityType, result }) {
-  if (!result) return <div className="p-6 text-muted-foreground">Run a search to see results.</div>;
+  const { t } = useTranslation();
+  if (!result) return <div className="p-6 text-muted-foreground">{t('search.runToSeeResults', { defaultValue: 'Run a search to see results.' })}</div>;
   if (result.records.length === 0) return <div className="p-6 text-muted-foreground">No matches.</div>;
 
   const cols = (SEARCH_FIELDS[entityType] || []).slice(0, 5);

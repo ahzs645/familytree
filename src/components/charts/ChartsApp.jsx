@@ -9,7 +9,7 @@
  * hands rendering to ChartStage.
  */
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { matchesSearchText } from '../../lib/i18n.js';
@@ -48,6 +48,8 @@ import { useChartLibrary } from './hooks/useChartLibrary.js';
 import { useChartSharing } from './hooks/useChartSharing.js';
 import { useChartsBootstrap } from './hooks/useChartsBootstrap.js';
 import { useChartData } from './hooks/useChartData.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { NoDataYet } from '../NoDataYet.jsx';
 
 const LOADING_CLASSES = 'flex h-full items-center justify-center bg-background text-muted-foreground';
 
@@ -88,6 +90,7 @@ const CHART_TYPES = [
 ];
 
 export function ChartsApp() {
+  const { t } = useTranslation();
   const modal = useModal();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -483,18 +486,12 @@ export function ChartsApp() {
   );
 
   if (loading) return <div className={LOADING_CLASSES}>Loading family data…</div>;
-  if (empty) {
-    return (
-      <div className={LOADING_CLASSES}>
-        No family data found. <Link to="/" className="ms-1.5 text-interactive">Import a .mftpkg</Link> first.
-      </div>
-    );
-  }
+  if (empty) return <NoDataYet />;
 
   return (
     <div className="flex h-full flex-col bg-background">
       <header className="flex flex-wrap items-end gap-2 border-b border-border bg-card px-5 py-3">
-        <Field label="Person">
+        <Field label={t('charts.person', { defaultValue: 'Person' })}>
           <PersonPicker persons={chartPersons} value={rootId} onChange={onRootChange} />
         </Field>
 
@@ -526,16 +523,16 @@ export function ChartsApp() {
           />
         )}
 
-        <Field label="Type">
+        <Field label={t('charts.type', { defaultValue: 'Type' })}>
           <Select
             value={chartType}
             onChange={setChartType}
-            options={CHART_TYPES.map((type) => ({ value: type.id, label: type.label }))}
+            options={CHART_TYPES.map((type) => ({ value: type.id, label: t(`charts.chartType.${type.id}`, { defaultValue: type.label }) }))}
             align="start"
           />
         </Field>
 
-        <Field label="Gen" hideOnNarrow>
+        <Field label={t('charts.generations', { defaultValue: 'Gen' })} hideOnNarrow>
           <Input
             type="number"
             min={2}
@@ -548,11 +545,11 @@ export function ChartsApp() {
 
         <div ref={moreRef} className="relative ms-auto">
           <Button size="md" onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}>
-            More ▾
+            {t('charts.more', { defaultValue: 'More' })} ▾
           </Button>
           {moreOpen && (
             <div className="absolute end-0 top-[calc(100%+6px)] z-20 w-[380px] max-w-[calc(100vw-24px)] max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-card p-3.5 text-card-foreground shadow-lg">
-              <div className="no-scrollbar -mx-0.5 mb-2.5 flex gap-0.5 overflow-x-auto border-b border-border" role="tablist" aria-label="Chart options">
+              <div className="no-scrollbar -mx-0.5 mb-2.5 flex gap-0.5 overflow-x-auto border-b border-border" role="tablist" aria-label={t('charts.optionsTabs', { defaultValue: 'Chart options' })}>
                 {[
                   ['view', 'View'],
                   ['layout', 'Layout'],
@@ -560,7 +557,7 @@ export function ChartsApp() {
                   ['library', 'Library'],
                   ['overlays', 'Overlays'],
                   ['export', 'Export'],
-                ].map(([id, label]) => (
+                ].map(([id, fallback]) => (
                   <button
                     key={id}
                     type="button"
@@ -569,7 +566,7 @@ export function ChartsApp() {
                     onClick={() => setMorePopoverTab(id)}
                     className={morePopoverTabClasses(morePopoverTab === id)}
                   >
-                    {label}
+                    {t(`charts.tab.${id}`, { defaultValue: fallback })}
                   </button>
                 ))}
               </div>

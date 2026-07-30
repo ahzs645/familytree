@@ -33,7 +33,7 @@ export default function Publish() {
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-5xl mx-auto p-6">
         <section className="mb-6">
-          <h1 className="text-2xl font-bold mb-2">Publish</h1>
+          <h2 className="text-2xl font-bold mb-2">Publish</h2>
           <p className="text-sm text-muted-foreground max-w-2xl">
             Create artifacts meant to be shared or hosted. GEDCOM and backup transfer tools stay separate in Import & Export.
           </p>
