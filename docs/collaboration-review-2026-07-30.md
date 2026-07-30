@@ -226,28 +226,69 @@ report bodies; `genderLabel()` is locale-aware now, like `noNameLabel()`.
 
 ---
 
-## 4. Still open
+## 4. Round three — every view, and who changed what
 
-- **No live collaboration.** Two people editing separate copies of the same
-  tree will produce two files that both need merging, and a record edited in
-  both will surface as a conflict with no indication of who changed what. If
-  simultaneous editing is wanted, that is a backend — the `ConvexDataClient`
-  seam exists for it, but nothing behind it does.
-- **Only the 3D view can add relatives.** Flat, Sun, Family, Canvas and
-  Details have no add path at all; someone who switches view loses the
-  affordance.
-- **A merge cannot say who changed what.** Conflicts show current vs incoming
-  with no author, so an owner merging two relatives' files back has to
-  remember which is which.
+**4.1 — Adding a relative works from every tree view.** It existed only in
+the 3D view, so switching to Flat, Sun, Family, Canvas or Details lost it.
+A shared `usePersonContextMenu` hook gives every view the same two ways in
+(right-click, long press), and the Details pane — which has no canvas to
+right-click — gets the add actions as plain buttons. Since both gestures are
+invisible, the tree header also grows an **"Add relatives"** button, the same
+fix the Persons list needed. Verified in all six views.
+
+**4.2 — Merges say who changed what.** Every edit already wrote a
+ChangeLogEntry carrying an author, and those travel inside a returned
+package; nothing read them. Conflicts now show "Changed by X · date" and
+label the incoming column with the author, falling back to the file name for
+records nobody edited by hand. Deletions name who deleted them.
+
+That needed the author to be real. Entries were hardcoded `"You"` — fine
+locally, meaningless once a file leaves the browser — and the name in Author
+Information was never used. It is now, resolved lazily on the first write so
+a session that never opens that screen still attributes correctly, and a
+`"You"` arriving from someone else's file is treated as unknown rather than
+shown as though it meant us.
+
+**4.3 — A merge can be undone.** The rollback note had nothing that could act
+on it. Applying a merge now captures a journal — the previous version of every
+record it overwrites, the names of the ones it adds, the payloads of the ones
+it deletes — and `/export` offers to reverse the last one. Bounded twice: a
+merge past 5,000 records skips the journal, and only the newest three keep
+theirs. Verified end to end: a rename and a deletion applied, then reversed,
+with both records back to their original state.
+
+**4.4 — The export filename regressed for Arabic, and this caught it.**
+Chromium ignores a `download` filename containing *any* non-ASCII character
+and saves the file as `download` — measured, including for German umlauts. So
+the round-three naming fix reintroduced exactly the collision it was meant to
+prevent, for precisely the users this tree belongs to. Names are transliterated
+now: `عائلة أحمد` produced `download`, and now produces `aaylh-ahmd-…`.
+
+---
+
+## 5. Still open
+
+- **No live collaboration.** Two people editing separate copies still produce
+  two files that both need merging. Simultaneous editing is a backend — the
+  `ConvexDataClient` seam exists for it, but nothing behind it does.
+- **Author Information is itself untranslated**, which is awkward given that
+  filling it in is now what makes a reviewer's edits attributable.
+- **Undo is one level and local.** It reverses the last merge in this browser;
+  there is no history UI for older ones, and the journal is dropped after three
+  merges.
 - **~79 unlabelled form fields remain** elsewhere in the app (Sources, Books,
   Places), unchanged from the 2026-07-27 review.
 
 ---
 
-## 5. What to tell the reviewers
+## 6. What to tell the reviewers
 
 The link gives each of them a private copy that never leaves their phone. They
 can change anything without risk to the original. When they are done:
 **القائمة ← الإعدادات والبيانات ← الاستيراد والتصدير ← تنزيل ملف ‎.mftpkg**, then send
 that file back. On the owner's side, the same page's "دمج شجرة أخرى" takes it,
 and **"استخدام الوارد للكل"** is the button that accepts their corrections.
+
+Ask them to fill in their name once under **الإعدادات والبيانات ← Author
+Information**. That is what makes their edits show up as theirs when you merge
+two people's files, instead of as two anonymous columns.
