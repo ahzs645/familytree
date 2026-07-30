@@ -99,11 +99,11 @@ export default function Welcome() {
           <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
             {t('onboarding.eyebrow', { defaultValue: 'Start a new family tree' })}
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold mb-3">
+          <h2 className="text-2xl sm:text-3xl font-bold mb-3">
             {step === 1
               ? t('onboarding.step1Title', { defaultValue: 'Name your family tree' })
               : t('onboarding.step2Title', { defaultValue: 'Add yourself' })}
-          </h1>
+          </h2>
           <p className="text-muted-foreground leading-relaxed">
             {step === 1
               ? t('onboarding.step1Body', { defaultValue: 'Pick a name so you can switch between trees later. You can rename it any time from “My family trees.”' })

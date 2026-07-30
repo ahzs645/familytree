@@ -395,7 +395,7 @@ export default function Export() {
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-2xl mx-auto p-5">
-        <h1 className="text-xl font-bold mb-1">{t('exportPage.title', { defaultValue: 'Import & Export' })}</h1>
+        <h2 className="text-xl font-bold mb-1">{t('exportPage.title', { defaultValue: 'Import & Export' })}</h2>
         <p className="text-sm text-muted-foreground mb-5">
           {t('exportPage.intro', { defaultValue: 'Move data in and out of your tree.' })}{' '}
           {summary && t('exportPage.currentRecords', { formatted: summary.total.toLocaleString(), defaultValue: `Currently ${summary.total.toLocaleString()} records.` })}{' '}

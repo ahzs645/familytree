@@ -71,12 +71,15 @@ const INFO_FIELDS = [
 
 const REF_NUMBER_FIELDS = REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID');
 
+// The caption has to wrap the control, not sit beside it: a bare <label> with
+// no `for` names nothing, so every field on these screens reached assistive
+// tech unnamed even though the caption was right there on screen.
 function Field({ label, children }) {
   return (
-    <div className="flex-1 min-w-0">
-      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+    <label className="flex-1 min-w-0 block">
+      <span className="block text-xs font-medium text-muted-foreground mb-1">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -432,7 +435,7 @@ export default function Sources() {
     <EditorSectionNavProvider>
       <div className="flex flex-col h-full">
         <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-          <h1 className="text-base font-semibold">Sources</h1>
+          <h2 className="text-base font-semibold">Sources</h2>
           <span className="text-xs text-muted-foreground">{sources.length}</span>
           <Button variant="primary" size="sm" onClick={onCreate} className="ms-auto">+ New Source</Button>
         </header>

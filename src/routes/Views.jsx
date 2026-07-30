@@ -19,7 +19,7 @@ export default function Views() {
       <header className="border-b border-border bg-card px-5 pt-3">
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <div>
-            <h1 className="text-base font-semibold">Views</h1>
+            <h2 className="text-base font-semibold">Views</h2>
             <p className="text-xs text-muted-foreground">Map, globe, statistic, media, and quiz workflows.</p>
           </div>
         </div>

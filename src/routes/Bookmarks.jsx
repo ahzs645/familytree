@@ -96,7 +96,7 @@ export default function Bookmarks() {
       <div className="max-w-4xl mx-auto p-5">
         <header className="mb-5 flex items-center gap-3">
           <div className="flex-1">
-            <h1 className="text-xl font-bold">{t('bookmarks.title')}</h1>
+            <h2 className="text-xl font-bold">{t('bookmarks.title')}</h2>
             <p className="text-sm text-muted-foreground mt-1">
               {total === 0 ? t('bookmarks.empty') : t('bookmarks.count', { count: total })}
             </p>

@@ -396,7 +396,7 @@ export default function PersonEditor() {
           {t('common.back', { defaultValue: 'Back' })}
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold truncate"><BdiText>{headerLabel}</BdiText></h1>
+          <h2 className="text-base font-semibold truncate"><BdiText>{headerLabel}</BdiText></h2>
           {subtitle && <div className="text-xs text-muted-foreground"><LtrText>{subtitle}</LtrText></div>}
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto sm:ms-auto">

@@ -81,12 +81,14 @@ export default function AnniversaryList() {
 
   const filters = (
     <>
-      <label className="text-xs text-muted-foreground ms-auto">{t('anniversaryList.filterType')}</label>
+      <label className="ms-auto flex items-center gap-2 text-xs text-muted-foreground">
+      <span>{t('anniversaryList.filterType')}</span>
       <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className={listToolbarSelectTriggerClass}>
         <option value="">{t('anniversaryList.birthAndDeath')}</option>
         <option value="Birth">{t('anniversaryList.birth')}</option>
         <option value="Death">{t('anniversaryList.death')}</option>
       </select>
+      </label>
       <ScopeFilterSelect
         value={scoped.scopeId}
         onChange={scoped.setScopeId}
@@ -95,12 +97,15 @@ export default function AnniversaryList() {
         error={scoped.error}
         label={t('anniversaryList.personScope')}
       />
-      <label className="text-xs text-muted-foreground">{t('anniversaryList.month')}</label>
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span>{t('anniversaryList.month')}</span>
       <select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className={listToolbarSelectTriggerClass}>
         <option value="">{t('anniversaryList.allMonths')}</option>
         {MONTH_VALUES.map((value) => <option key={value} value={value}>{t(`anniversaryList.months.${value}`)}</option>)}
       </select>
-      <label className="text-xs text-muted-foreground">{t('anniversaryList.day')}</label>
+      </label>
+      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span>{t('anniversaryList.day')}</span>
       <input
         type="number"
         min="1"
@@ -109,6 +114,7 @@ export default function AnniversaryList() {
         onChange={(event) => setDayFilter(event.target.value)}
         className={`${listToolbarInputBaseClass} w-20`}
       />
+      </label>
     </>
   );
 

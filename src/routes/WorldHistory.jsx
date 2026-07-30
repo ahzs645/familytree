@@ -151,7 +151,7 @@ export default function WorldHistory() {
     <div className="flex flex-col h-full bg-background">
       <header className="border-b border-border bg-card px-5 py-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-base font-semibold">World History</h1>
+          <h2 className="text-base font-semibold">World History</h2>
           <div className="w-full sm:w-72">
             <PersonPicker persons={persons} value={recordName} onChange={(id) => setActivePerson(id)} />
           </div>

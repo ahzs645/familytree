@@ -230,7 +230,7 @@ export default function Stories() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h1 className="text-base font-semibold">{t('stories.title')}</h1>
+        <h2 className="text-base font-semibold">{t('stories.title')}</h2>
         <span className="text-xs text-muted-foreground">{stories.length}</span>
         <Button variant="primary" size="sm" onClick={onCreate} className="ms-auto">{t('stories.newButton')}</Button>
       </header>

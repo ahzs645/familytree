@@ -109,7 +109,7 @@ export default function SavedCharts() {
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-5xl mx-auto p-5">
         <header className="mb-5">
-          <h1 className="text-xl font-bold">Saved Charts</h1>
+          <h2 className="text-xl font-bold">Saved Charts</h2>
           <p className="text-sm text-muted-foreground mt-1">
             {templates.length + documents.length + importedViews.length === 0
               ? 'No saved charts yet. Configure a chart in Charts and click Save to store the layout.'

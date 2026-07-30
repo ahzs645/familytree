@@ -24,9 +24,11 @@ export function ReportPreview({ report }) {
 function Block({ block: b }) {
   switch (b.kind) {
     case 'title': {
-      if (b.level === 1) return <h1 className="mb-2.5 mt-0 text-[28px] font-bold"><BdiText>{b.text}</BdiText></h1>;
-      if (b.level === 2) return <h2 className="mb-2.5 mt-6 border-b border-[#d4d7e0] pb-1 text-xl font-semibold"><BdiText>{b.text}</BdiText></h2>;
-      return <h3 className="mb-2 mt-[18px] text-base font-semibold"><BdiText>{b.text}</BdiText></h3>;
+      // The preview is a document nested inside the page, so its headings start
+      // one level down — the page's own h1 stays the only h1.
+      if (b.level === 1) return <h2 className="mb-2.5 mt-0 text-[28px] font-bold"><BdiText>{b.text}</BdiText></h2>;
+      if (b.level === 2) return <h3 className="mb-2.5 mt-6 border-b border-[#d4d7e0] pb-1 text-xl font-semibold"><BdiText>{b.text}</BdiText></h3>;
+      return <h4 className="mb-2 mt-[18px] text-base font-semibold"><BdiText>{b.text}</BdiText></h4>;
     }
     case 'paragraph':
       return <p className="my-2 text-sm"><BdiText>{b.text}</BdiText></p>;

@@ -140,7 +140,7 @@ export default function Actions() {
   return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 pb-16 h-full overflow-auto">
       <section className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-3">{t('actions.title')}</h1>
+        <h2 className="text-2xl sm:text-3xl font-bold mb-3">{t('actions.title')}</h2>
         <p className="text-muted-foreground leading-relaxed max-w-3xl">
           {t('actions.subtitle')}
         </p>

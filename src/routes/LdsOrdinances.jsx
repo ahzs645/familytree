@@ -177,7 +177,7 @@ export default function LdsOrdinances() {
     return (
       <div className="flex flex-col h-full">
         <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-          <h1 className="text-base font-semibold">{t('ldsOrdinances.title')}</h1>
+          <h2 className="text-base font-semibold">{t('ldsOrdinances.title')}</h2>
           <span className="ms-auto">{newButton}</span>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
@@ -287,7 +287,7 @@ export default function LdsOrdinances() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h1 className="text-base font-semibold">{t('ldsOrdinances.title')}</h1>
+        <h2 className="text-base font-semibold">{t('ldsOrdinances.title')}</h2>
         <span className="text-xs text-muted-foreground">{result.rows.length}</span>
         <span className="ms-auto">{newButton}</span>
       </header>

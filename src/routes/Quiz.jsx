@@ -61,7 +61,7 @@ function StartScreen({ settings, setSettings, counts, stats, loading, error, onS
               <Settings2 className="h-4 w-4" />
               Family Quiz
             </div>
-            <h1 className="text-2xl font-bold">Build a quiz from this tree</h1>
+            <h2 className="text-2xl font-bold">Build a quiz from this tree</h2>
           </div>
           <div className="flex gap-3 text-xs text-muted-foreground">
             <ScoreLine label="Last" score={stats.lastScore} total={stats.lastTotal} />
@@ -149,7 +149,7 @@ function FinishedScreen({ answers, questions, stats, onRestart, onMissed }) {
                 <Trophy className="h-4 w-4" />
                 Quiz complete
               </div>
-              <h1 className="text-3xl font-bold">{score} / {questions.length}</h1>
+              <h2 className="text-3xl font-bold">{score} / {questions.length}</h2>
               <p className="mt-1 text-sm text-muted-foreground">{percent}% correct · Best {stats.bestScore} / {stats.bestTotal}</p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -204,7 +204,7 @@ function QuestionScreen({ q, index, total, picked, score, choose, next }) {
             {q.subject?.thumbnail ? <Avatar src={q.subject.thumbnail} label={q.subject.name} /> : null}
             <div>
               <div className="mb-1 inline-flex rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted-foreground">{q.type}</div>
-              <h1 className="text-xl font-semibold leading-snug sm:text-2xl">{q.prompt}</h1>
+              <h2 className="text-xl font-semibold leading-snug sm:text-2xl">{q.prompt}</h2>
             </div>
           </div>
 
@@ -341,7 +341,7 @@ export default function Quiz() {
         <div className="mx-auto flex h-full max-w-2xl items-center justify-center">
           <div className="rounded-lg border border-border bg-card p-6 text-center">
             <HelpCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
-            <h1 className="text-lg font-semibold">Family Quiz</h1>
+            <h2 className="text-lg font-semibold">Family Quiz</h2>
             <p className="mt-2 text-sm text-muted-foreground">{error || EMPTY_TEXT}</p>
             <button onClick={() => setMode('start')} className="mt-5 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground">Back to settings</button>
           </div>

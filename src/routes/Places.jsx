@@ -70,12 +70,15 @@ const inputClass = formClasses.input;
 
 const REF_NUMBER_FIELDS = REFERENCE_NUMBER_FIELDS.filter((f) => f.id !== 'familySearchID');
 
+// The caption has to wrap the control, not sit beside it: a bare <label> with
+// no `for` names nothing, so every field on these screens reached assistive
+// tech unnamed even though the caption was right there on screen.
 function Field({ label, children }) {
   return (
-    <div className="flex-1 min-w-0">
-      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+    <label className="flex-1 min-w-0 block">
+      <span className="block text-xs font-medium text-muted-foreground mb-1">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 

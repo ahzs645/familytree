@@ -2654,7 +2654,8 @@
       "title": "معالج المهام",
       "toggleVisible": "تبديل المرئي"
     },
-    "wizardButton": "معالج المهام…"
+    "wizardButton": "معالج المهام…",
+    "relationType": "نوع السجل"
   },
   "treeSwitcher": {
     "aria": "تبديل شجرة العائلة",

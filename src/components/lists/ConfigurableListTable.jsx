@@ -32,10 +32,11 @@ export function ConfigurableListTable({
       />
       {sortProfile?.sortOptions?.length ? (
         <div className="inline-flex items-center gap-2">
-          <label className="text-xs text-muted-foreground whitespace-nowrap">{sortProfile.label || t('sortProfiles.label')}</label>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">{sortProfile.label || t('sortProfiles.label')}</span>
           <Select
             value={sortProfile.sortKey}
             onChange={sortProfile.setSortKey}
+            ariaLabel={sortProfile.label || t('sortProfiles.label')}
             options={sortProfile.sortOptions.map((option) => ({
               value: option.key,
               label: t(`sortProfiles.${option.key}`, { defaultValue: option.label }),

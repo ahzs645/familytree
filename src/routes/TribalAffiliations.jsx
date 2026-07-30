@@ -345,7 +345,7 @@ export default function TribalAffiliations() {
           })}
         </div>
         <div className="grid grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_auto]">
-          <select value={personId} onChange={(e) => setPersonId(e.target.value)} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm">
+          <select aria-label="Person to add" value={personId} onChange={(e) => setPersonId(e.target.value)} className="min-w-0 rounded-md border border-border bg-background px-2 py-1.5 text-sm">
             <option value="">Select person...</option>
             {model.people.map((person) => <option key={person.record.recordName} value={person.record.recordName}>{person.label}</option>)}
           </select>
@@ -365,7 +365,7 @@ export default function TribalAffiliations() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h1 className="text-base font-semibold">Tribal Affiliations</h1>
+        <h2 className="text-base font-semibold">Tribal Affiliations</h2>
         <span className="text-xs text-muted-foreground">{model.affiliations.length}</span>
         {status && <span className="text-xs text-success-text">{status}</span>}
         <div className="ms-auto flex flex-wrap items-center gap-2">

@@ -162,7 +162,7 @@ export default function SubtreeWizard() {
     <div className="flex h-full min-h-0 flex-col overflow-auto p-3 sm:p-6 md:overflow-hidden">
       <header className="mb-4 flex flex-wrap items-center gap-3 md:flex-nowrap">
         <div className="min-w-0 me-auto">
-          <h1 className="text-base font-semibold leading-tight">Subtree wizard</h1>
+          <h2 className="text-base font-semibold leading-tight">Subtree wizard</h2>
           <p className="text-xs text-muted-foreground">Build a slice of the tree, then export or remove it.</p>
         </div>
         <button onClick={() => navigate('/export')} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Back to Export</button>

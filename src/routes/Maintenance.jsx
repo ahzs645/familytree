@@ -81,7 +81,7 @@ export default function Maintenance() {
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-3xl mx-auto p-5">
-        <h1 className="text-xl font-bold mb-1">Database Maintenance</h1>
+        <h2 className="text-xl font-bold mb-1">Database Maintenance</h2>
         <p className="text-sm text-muted-foreground mb-5">Audit and clean up your tree. Each tool previews changes first.</p>
 
         <div className="rounded-lg border border-border bg-card p-4 mb-4">
@@ -112,12 +112,14 @@ export default function Maintenance() {
 
         <Card title="Reformat All Dates" description="Converts every parseable event date to a single chosen format.">
           <div className="flex items-center gap-2 mb-2">
-            <label className="text-xs text-muted-foreground">Format</label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Format</span>
             <select value={dateFormat} onChange={(e) => setDateFormat(e.target.value)} className={inputClass}>
               <option value="YYYY-MM-DD">YYYY-MM-DD</option>
               <option value="DD MM YYYY">DD MM YYYY</option>
               <option value="MM/DD/YYYY">MM/DD/YYYY</option>
             </select>
+          </label>
             <button className={btnSecondary} disabled={busy}
               onClick={wrap(async () => setDateChanges(await reformatAllDates(dateFormat, { dryRun: true })))}>
               Preview
@@ -139,19 +141,23 @@ export default function Maintenance() {
 
         <Card title="Reformat Names" description="Apply a casing rule to a name field across all persons.">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <label className="text-xs text-muted-foreground">Field</label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Field</span>
             <select value={nameField} onChange={(e) => setNameField(e.target.value)} className={inputClass}>
               <option value="firstName">First name</option>
               <option value="lastName">Last name</option>
               <option value="nameMiddle">Middle name</option>
             </select>
-            <label className="text-xs text-muted-foreground">Mode</label>
+          </label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Mode</span>
             <select value={nameMode} onChange={(e) => setNameMode(e.target.value)} className={inputClass}>
               <option value="TITLE">Title Case</option>
               <option value="UPPER">UPPERCASE</option>
               <option value="LOWER">lowercase</option>
               <option value="TRIM">Trim whitespace</option>
             </select>
+          </label>
             <button className={btnSecondary} disabled={busy}
               onClick={wrap(async () => setNameChanges(await reformatNames({ field: nameField, mode: nameMode, dryRun: true })))}>
               Preview

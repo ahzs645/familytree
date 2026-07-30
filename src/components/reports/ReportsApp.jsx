@@ -453,7 +453,7 @@ export function ReportsApp() {
         </Button>
         <div className="min-w-0">
           <div className={eyebrowClass}>{t('reports.ui.reportsEyebrow')}</div>
-          <h1 className="m-0 max-w-[420px] truncate text-lg font-bold leading-tight text-foreground">{selectedBuilderLabel}</h1>
+          <h2 className="m-0 max-w-[420px] truncate text-lg font-bold leading-tight text-foreground">{selectedBuilderLabel}</h2>
         </div>
         <div className="ms-auto flex min-w-0 flex-wrap items-center gap-2 whitespace-nowrap text-xs text-muted-foreground">
           <span>{reportCategoryLabel(t, builder.category || 'Reports')}</span>
@@ -644,18 +644,18 @@ export function ReportsApp() {
 
             <InspectorSection title={t('reports.saved')}>
               <Button variant="primary" onClick={onSave} className="w-full"><Save size={15} /> {t('reports.ui.saveReport')}…</Button>
-              <select value="" onChange={(e) => e.target.value && onApplySaved(e.target.value)} className={selectClass}>
+              <select aria-label={t('reports.load')} value="" onChange={(e) => e.target.value && onApplySaved(e.target.value)} className={selectClass}>
                 <option value="">{savedList.length ? t('reports.load') : t('reports.noSaved', { defaultValue: 'No saved reports' })}</option>
                 {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
               </select>
               {savedList.length > 0 && (
-                <select value="" onChange={(e) => { if (e.target.value) onRename(e.target.value); e.target.value = ''; }} className={selectClass}>
+                <select aria-label={t('reports.ui.renameReport')} value="" onChange={(e) => { if (e.target.value) onRename(e.target.value); e.target.value = ''; }} className={selectClass}>
                   <option value="">{t('reports.ui.renameReport')}</option>
                   {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
                 </select>
               )}
               {savedList.length > 0 && (
-                <select value="" onChange={(e) => e.target.value && onDelete(e.target.value)} className={selectClass}>
+                <select aria-label={t('reports.ui.deleteReport')} value="" onChange={(e) => e.target.value && onDelete(e.target.value)} className={selectClass}>
                   <option value="">{t('reports.ui.deleteReport')}</option>
                   {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
                 </select>

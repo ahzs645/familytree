@@ -86,12 +86,15 @@ function writeChildRelType(fields, key, value) {
   else delete fields[key];
 }
 
+// The caption has to wrap the control, not sit beside it: a bare <label> with
+// no `for` names nothing, so every field on these screens reached assistive
+// tech unnamed even though the caption was right there on screen.
 function Field({ label, children }) {
   return (
-    <div className="flex-1 min-w-0">
-      <label className="block text-xs font-medium text-muted-foreground mb-1">{label}</label>
+    <label className="flex-1 min-w-0 block">
+      <span className="block text-xs font-medium text-muted-foreground mb-1">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 
@@ -400,7 +403,7 @@ export default function FamilyEditor() {
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <button onClick={() => guardedNavigate(-1)} className="text-xs text-muted-foreground border border-border rounded-md px-3 py-1.5 hover:bg-accent">← Back</button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-semibold truncate">
+          <h2 className="text-base font-semibold truncate">
             {/* Prefer the couple's names; familyName() returns a generic
                 "Family" placeholder when no custom name is set, so don't let
                 that win over the actual partners. */}
@@ -415,7 +418,7 @@ export default function FamilyEditor() {
             ) : (
               <>Family · <LtrText>{family.recordName}</LtrText></>
             ))}
-          </h1>
+          </h2>
         </div>
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto sm:ms-auto">
           {status ? (

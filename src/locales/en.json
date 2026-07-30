@@ -2543,7 +2543,8 @@
       "title": "ToDo Wizard",
       "toggleVisible": "Toggle visible"
     },
-    "wizardButton": "ToDo Wizard…"
+    "wizardButton": "ToDo Wizard…",
+    "relationType": "Record type"
   },
   "treeSwitcher": {
     "aria": "Switch family tree",

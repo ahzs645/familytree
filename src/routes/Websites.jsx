@@ -343,7 +343,7 @@ export default function Websites() {
       <div className="max-w-4xl mx-auto p-5">
         <div className="flex flex-wrap items-start gap-3 mb-5">
           <div>
-            <h1 className="text-xl font-bold mb-1">Websites</h1>
+            <h2 className="text-xl font-bold mb-1">Websites</h2>
             <p className="text-sm text-muted-foreground">
               Configure and publish a static family website. Data import/export remains in <Link to="/export" className="text-interactive hover:underline">Import & Export</Link>.
             </p>
@@ -566,17 +566,20 @@ export default function Websites() {
               </label>
 
               <div className="mt-3 rounded-md border border-border bg-background p-3">
-                <div className="text-sm font-medium mb-2">Persons to include</div>
-                <select
-                  value={options.exportPersonsMode || 'all'}
-                  onChange={(event) => updateOption('exportPersonsMode', event.target.value)}
-                  className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm"
-                >
-                  <option value="all">All persons</option>
-                  <option value="smartFilter">Only a smart filter</option>
-                </select>
+                <label className="block">
+                  <span className="block text-sm font-medium mb-2">Persons to include</span>
+                  <select
+                    value={options.exportPersonsMode || 'all'}
+                    onChange={(event) => updateOption('exportPersonsMode', event.target.value)}
+                    className="w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm"
+                  >
+                    <option value="all">All persons</option>
+                    <option value="smartFilter">Only a smart filter</option>
+                  </select>
+                </label>
                 {options.exportPersonsMode === 'smartFilter' && (
                   <select
+                    aria-label="Smart filter to export"
                     value={options.exportScopeId || ''}
                     onChange={(event) => updateOption('exportScopeId', event.target.value)}
                     className="mt-2 w-full rounded-md border border-border bg-card px-2 py-1.5 text-sm"

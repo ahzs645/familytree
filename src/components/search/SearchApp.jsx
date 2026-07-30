@@ -486,12 +486,14 @@ export function SearchApp() {
   );
 }
 
+// A caption sitting next to a control names nothing on its own — the caption has
+// to wrap the control for the browser to tie the two together.
 function Field({ label, children }) {
   return (
-    <div className="me-3 flex min-w-0 flex-[1_1_auto] flex-col">
+    <label className="me-3 flex min-w-0 flex-[1_1_auto] flex-col">
       <span className="mb-1 text-xs text-muted-foreground">{label}</span>
       {children}
-    </div>
+    </label>
   );
 }
 

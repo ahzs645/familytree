@@ -405,9 +405,9 @@ export default function Events({
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-border bg-card">
-      <h1 className="text-sm font-bold text-foreground me-1">Events</h1>
+      <h2 className="text-sm font-bold text-foreground me-1">Events</h2>
       {showKindFilter ? (
-        <select value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} className="rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 py-1.5 text-xs cursor-pointer">
+        <select aria-label="Filter events by kind" value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} className="rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 py-1.5 text-xs cursor-pointer">
           <option value="all">All events</option>
           <option value="PersonEvent">Person events</option>
           <option value="FamilyEvent">Family events</option>

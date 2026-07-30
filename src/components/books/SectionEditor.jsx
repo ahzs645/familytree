@@ -166,6 +166,7 @@ export function SectionEditor({
         )}
         {section.kind === 'toc' && (
           <select
+            aria-label="Table of contents style"
             value={section.tocStyle || 'numbered'}
             onChange={(e) => onChange({ ...section, tocStyle: e.target.value })}
             className={controlClass}

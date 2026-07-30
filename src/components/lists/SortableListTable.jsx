@@ -37,7 +37,7 @@ export function ListPageHeader({ title, subtitle, count, total, actions, childre
   return (
     <header className="flex flex-wrap items-end gap-3 px-4 md:px-5 py-3 border-b border-border bg-card">
       <div className="min-w-0 me-auto">
-        <h1 className="text-base font-semibold truncate">{title}</h1>
+        <h2 className="text-base font-semibold truncate">{title}</h2>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       {children}
