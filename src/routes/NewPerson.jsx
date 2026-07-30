@@ -18,6 +18,7 @@ import { getAppPreferences } from '../lib/appPreferences.js';
 import { refValue } from '../lib/recordRef.js';
 import { Gender } from '../models/index.js';
 import { Button } from '../components/ui/Button.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 function uuid(prefix) {
   return generateId(prefix);
@@ -47,10 +48,11 @@ function relationType(relation) {
 }
 
 export default function NewPerson() {
+  const { t } = useTranslation();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const [status, setStatus] = useState('Creating new person…');
+  const [status, setStatus] = useState(() => t('newPerson.creating', { defaultValue: 'Creating new person…' }));
   const [error, setError] = useState(null);
   const ranRef = useRef(false);
 
@@ -107,30 +109,31 @@ export default function NewPerson() {
         if (anchorId) {
           const linkType = relationType(relation);
           if (linkType) {
-            setStatus('Linking to anchor person…');
+            setStatus(t('newPerson.linking', { defaultValue: 'Linking to anchor person…' }));
             // For 'parent' relation, link from child (anchor) to parent (new).
             // For 'child', link from parent (anchor) to child (new).
-            // For 'spouse'/'sibling', order doesn't matter.
+            // For 'spouse'/'sibling', order doesn't matter. `partner` names
+            // which union a son/daughter belongs to.
             try {
-              if (linkType === 'parent') {
-                await linkExistingRelative(anchorId, newRecord.recordName, 'parent');
-              } else if (linkType === 'child') {
-                await linkExistingRelative(anchorId, newRecord.recordName, 'child');
-              } else {
-                await linkExistingRelative(anchorId, newRecord.recordName, linkType);
-              }
+              await linkExistingRelative(anchorId, newRecord.recordName, linkType, {
+                partnerId: params.get('partner') || '',
+              });
             } catch (linkError) {
-              // Don't fail the whole flow — the user can edit relations manually.
+              // The person exists either way, so send the user to the editor —
+              // but say the relationship did not take, instead of leaving them
+              // to discover an orphan record later.
               console.warn('Could not auto-link relation', linkError);
+              navigate(`/person/${encodeURIComponent(newRecord.recordName)}?linkFailed=1`, { replace: true });
+              return;
             }
           }
         }
         navigate(`/person/${encodeURIComponent(newRecord.recordName)}`, { replace: true });
       } catch (ex) {
-        setError(ex?.message || 'Could not create person.');
+        setError(ex?.message || t('newPerson.createFailed', { defaultValue: 'Could not create person.' }));
       }
     })();
-  }, [navigate, params]);
+  }, [navigate, params, t]);
 
   useEffect(() => {
     if (hasIntent || confirmed) create();
@@ -144,23 +147,29 @@ export default function NewPerson() {
       <div className="flex flex-col items-center gap-2.5 rounded-xl border border-border bg-card text-card-foreground px-8 py-6 shadow-[0_18px_40px_rgb(0_0_0/0.08)]">
         {!error && !hasIntent && !confirmed ? (
           <>
-            <div className={title}>Add a new person?</div>
+            <div className={title}>{t('newPerson.confirmTitle', { defaultValue: 'Add a new person?' })}</div>
             <div className={message}>
-              This creates an empty person record in your tree, ready to edit.
+              {t('newPerson.confirmBody', { defaultValue: 'This creates an empty person record in your tree, ready to edit.' })}
             </div>
-            <Button variant="secondary" size="md" className="mt-2" onClick={() => setConfirmed(true)}>Create person</Button>
-            <Button variant="secondary" size="md" className="mt-2" onClick={() => navigate(-1)}>Cancel</Button>
+            <Button variant="secondary" size="md" className="mt-2" onClick={() => setConfirmed(true)}>
+              {t('newPerson.create', { defaultValue: 'Create person' })}
+            </Button>
+            <Button variant="secondary" size="md" className="mt-2" onClick={() => navigate(-1)}>
+              {t('common.cancel', { defaultValue: 'Cancel' })}
+            </Button>
           </>
         ) : error ? (
           <>
-            <div className={title}>Could not create person</div>
+            <div className={title}>{t('newPerson.createFailedTitle', { defaultValue: 'Could not create person' })}</div>
             <div className={message}>{error}</div>
-            <Button variant="secondary" size="md" className="mt-2" onClick={() => navigate(-1)}>Back</Button>
+            <Button variant="secondary" size="md" className="mt-2" onClick={() => navigate(-1)}>
+              {t('common.back', { defaultValue: 'Back' })}
+            </Button>
           </>
         ) : (
           <>
             <div className={title}>{status}</div>
-            <div className={message}>Hold on a moment…</div>
+            <div className={message}>{t('newPerson.wait', { defaultValue: 'Hold on a moment…' })}</div>
           </>
         )}
       </div>

@@ -3,6 +3,7 @@ const ROUTE_LABEL_KEYS = {
   '/anniversaries': 'nav.anniversaries',
   '/author': 'nav.author',
   '/backup': 'nav.backup',
+  '/quiz': 'nav.quiz',
   '/bookmarks': 'nav.bookmarks',
   '/books': 'nav.books',
   '/change-log': 'nav.changeLog',

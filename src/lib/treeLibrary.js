@@ -41,6 +41,19 @@ export function setActiveTreeId(id) {
   } catch { /* SSR/test */ }
 }
 
+/** Name of the tree currently loaded, as shown in the tree switcher. */
+export async function getActiveTreeName() {
+  const id = getActiveTreeId();
+  if (!id) return '';
+  try {
+    const db = await openLibrary();
+    const snapshot = await db[STORE].get(id);
+    return snapshot?.name || '';
+  } catch {
+    return '';
+  }
+}
+
 async function openLibrary() {
   if (!libraryDb) {
     libraryDb = new Dexie(DB_NAME);

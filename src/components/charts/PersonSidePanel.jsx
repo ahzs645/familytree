@@ -15,6 +15,7 @@ import { useChartSelection } from './ChartSelectionContext.jsx';
 import { BdiText, LtrText } from '../BdiText.jsx';
 import { Button } from '../ui/Button.jsx';
 import { cn } from '../../lib/utils.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 const GENDER_LABEL = {
   [Gender?.Male ?? 0]: 'Male',
@@ -30,6 +31,7 @@ export function PersonSidePanel({
   onReroot,
   width = 340,
 }) {
+  const { t } = useTranslation();
   const [context, setContext] = useState(null);
   const [loading, setLoading] = useState(false);
   const isMobile = useIsMobile();
@@ -69,9 +71,9 @@ export function PersonSidePanel({
       <div className="flex h-full flex-col" style={{ width: effectiveWidth }}>
         <header className="flex items-center gap-2 border-b border-border px-4 py-3.5">
           <div className="min-w-0 flex-1">
-            <div className="text-xs tracking-wide text-muted-foreground">PERSON</div>
+            <div className="text-xs tracking-wide text-muted-foreground">{t('charts.personLabel', { defaultValue: 'PERSON' })}</div>
             <div className="truncate text-[15px] font-semibold">
-              <BdiText>{self?.fullName || (loading ? 'Loading…' : 'No person')}</BdiText>
+              <BdiText>{self?.fullName || (loading ? t('common.loading', { defaultValue: 'Loading…' }) : t('charts.noPerson', { defaultValue: 'No person' }))}</BdiText>
             </div>
             {span && <div className="text-xs text-muted-foreground"><LtrText>{span}</LtrText></div>}
           </div>
@@ -80,7 +82,7 @@ export function PersonSidePanel({
 
         <div className="flex-1 overflow-y-auto px-4 py-3.5">
           {!self && !loading && (
-            <div className="text-sm text-muted-foreground">Person not found.</div>
+            <div className="text-sm text-muted-foreground">{t('charts.personNotFound', { defaultValue: 'Person not found.' })}</div>
           )}
 
           {self && (

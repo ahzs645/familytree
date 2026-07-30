@@ -645,7 +645,7 @@ export function ReportsApp() {
             <InspectorSection title={t('reports.saved')}>
               <Button variant="primary" onClick={onSave} className="w-full"><Save size={15} /> {t('reports.ui.saveReport')}…</Button>
               <select value="" onChange={(e) => e.target.value && onApplySaved(e.target.value)} className={selectClass}>
-                <option value="">{savedList.length ? t('reports.load') : 'No saved reports'}</option>
+                <option value="">{savedList.length ? t('reports.load') : t('reports.noSaved', { defaultValue: 'No saved reports' })}</option>
                 {savedList.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
               </select>
               {savedList.length > 0 && (
@@ -696,7 +696,7 @@ export function ReportsApp() {
                 value={bookTargetId}
                 onChange={setBookTargetId}
                 options={[
-                  { value: '', label: 'New book: Family Reports' },
+                  { value: '', label: t('reports.newBook', { defaultValue: 'New book: Family Reports' }) },
                   ...savedBooks.map((book) => ({ value: book.id, label: book.title || 'Untitled Book' })),
                 ]}
               />

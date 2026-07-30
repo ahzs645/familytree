@@ -5,7 +5,7 @@
  * side by side.
  */
 import { getAppDataClient } from './data/AppDataClient.js';
-import { refValue } from './recordRef.js';
+import { refToRecordName, refValue } from './recordRef.js';
 
 let _seq = 0;
 
@@ -138,6 +138,48 @@ export async function logRecordDeleted(recordName, recordType, { author = 'You',
   };
   await db.save(entry);
   return entry;
+}
+
+/**
+ * Change-log entries for a batch of deletions, returned rather than saved so a
+ * caller can put them in the same transaction as the deletes themselves.
+ *
+ * Bulk deletes (deletePerson, deleteFamily, removeSubtree) used to bypass the
+ * change log entirely, which left the log incomplete and — because a returned
+ * package carries its change log — meant a reviewer's deletions could not be
+ * told apart from records their file simply never contained.
+ */
+export function buildDeletionLogEntries(records, { author = 'You', lineage = null } = {}) {
+  const timestamp = nowIso();
+  return (records || [])
+    .filter((record) => record?.recordName)
+    .map((record) => ({
+      recordName: uuid('cle'),
+      recordType: 'ChangeLogEntry',
+      fields: {
+        target: { value: refValue(record.recordName, record.recordType || 'Record'), type: 'REFERENCE' },
+        targetType: { value: record.recordType || 'Record' },
+        timestamp: { value: timestamp },
+        author: { value: author },
+        changeType: { value: 'Delete' },
+        changeCount: { value: 0 },
+        summary: { value: 'Deleted' },
+        ...lineageFields(lineage),
+      },
+    }));
+}
+
+/** recordName → recordType for a Delete entry, or null for anything else. */
+export function deletionFromLogEntry(entry) {
+  if (entry?.recordType !== 'ChangeLogEntry') return null;
+  if (entry.fields?.changeType?.value !== 'Delete') return null;
+  const recordName = refToRecordName(entry.fields?.target?.value);
+  if (!recordName) return null;
+  return {
+    recordName,
+    recordType: entry.fields?.targetType?.value || '',
+    timestamp: entry.fields?.timestamp?.value || '',
+  };
 }
 
 function lineageFields(lineage) {

@@ -29,10 +29,65 @@ export async function exportBackup() {
   };
 }
 
+/**
+ * Filename stem for an export: tree name, whoever made it, and a timestamp
+ * down to the second.
+ *
+ * Everything used to be `cloudtreeweb-<date>`, so two relatives returning
+ * reviewed copies of the same tree on the same day handed back files with
+ * identical names — one silently overwriting the other in a downloads folder.
+ */
+export function exportFileBaseName({ treeName = '', authorName = '', now = new Date(), fallback = 'cloudtreeweb' } = {}) {
+  const stamp = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-') + '-' + [
+    String(now.getHours()).padStart(2, '0'),
+    String(now.getMinutes()).padStart(2, '0'),
+    String(now.getSeconds()).padStart(2, '0'),
+  ].join('');
+  const parts = [treeName, authorName]
+    .map((part) => sanitizeFileNamePart(part))
+    .filter(Boolean);
+  if (!parts.length) parts.push(fallback);
+  return `${parts.join('-')}-${stamp}`;
+}
+
+/** Keep letters, digits and separators; drop anything a filesystem dislikes. */
+function sanitizeFileNamePart(value) {
+  return String(value || '')
+    .replace(/[\\/:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\s/g, '-')
+    .slice(0, 48)
+    .replace(/^-+|-+$/g, '');
+}
+
+async function exportBaseName() {
+  // Dynamic imports: treeLibrary imports exportBackup from here.
+  let treeName = '';
+  let authorName = '';
+  try {
+    const { getAuthorInfo } = await import('./authorInfo.js');
+    const info = await getAuthorInfo();
+    treeName = info?.treeName || '';
+    authorName = info?.authorName || '';
+  } catch { /* author info is optional */ }
+  if (!treeName) {
+    try {
+      const { getActiveTreeName } = await import('./treeLibrary.js');
+      treeName = await getActiveTreeName();
+    } catch { /* library is optional */ }
+  }
+  return exportFileBaseName({ treeName, authorName });
+}
+
 export async function downloadBackup() {
   const data = await exportBackup();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  downloadBlob(blob, `cloudtreeweb-backup-${new Date().toISOString().slice(0, 10)}.json`);
+  downloadBlob(blob, `${await exportBaseName()}-backup.json`);
 }
 
 export async function downloadMFTPackage() {
@@ -40,7 +95,9 @@ export async function downloadMFTPackage() {
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
   const exportedAt = new Date().toISOString();
-  zip.file('database.json', JSON.stringify(data, null, 2));
+  // Compact, not pretty-printed: database.json is read by the importer, never
+  // by a person, and the indentation was a large share of the file.
+  zip.file('database.json', JSON.stringify(data));
   zip.file('metadata.json', JSON.stringify({
     format: 'cloudtreeweb-mftpkg',
     version: 1,
@@ -61,8 +118,15 @@ export async function downloadMFTPackage() {
     zip.file(`resources/${safePackageName(asset.filename || asset.sourceIdentifier || asset.assetId)}`, asset.dataBase64, { base64: true });
   }
 
-  const blob = await zip.generateAsync({ type: 'blob' });
-  downloadBlob(blob, `cloudtreeweb-${new Date().toISOString().slice(0, 10)}.mftpkg`);
+  // JSZip stores uncompressed by default, which is why a returned package came
+  // back several times the size of the one that was published. The payload is
+  // JSON, so DEFLATE pays for itself many times over.
+  const blob = await zip.generateAsync({
+    type: 'blob',
+    compression: 'DEFLATE',
+    compressionOptions: { level: 6 },
+  });
+  downloadBlob(blob, `${await exportBaseName()}.mftpkg`);
 }
 
 function downloadBlob(blob, filename) {

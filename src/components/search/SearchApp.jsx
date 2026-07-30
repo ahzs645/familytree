@@ -15,6 +15,7 @@ import { useModal } from '../../contexts/ModalContext.jsx';
 import { Select } from '../ui/Select.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Input } from '../ui/Input.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 const SAVED_SEARCHES_KEY = 'savedSearches';
 const EMPTY_GENEALOGY_SEARCH = Object.freeze({
@@ -72,6 +73,7 @@ function newFilter(entityType) {
 }
 
 export function SearchApp() {
+  const { t } = useTranslation();
   const modal = useModal();
   const [entityType, setEntityType] = useState('Person');
   const [textQuery, setTextQuery] = useState('');
@@ -152,29 +154,32 @@ export function SearchApp() {
   }, [entityType, filters, textQuery, navigate, modal]);
 
   const replaceFields = useMemo(() => replaceableFields(entityType), [entityType]);
-  const entityTypeOptions = useMemo(() => ENTITY_TYPES.map((type) => ({ value: type.id, label: type.label })), []);
+  const entityTypeOptions = useMemo(
+    () => ENTITY_TYPES.map((type) => ({ value: type.id, label: t(`search.entityType.${type.id}`, { defaultValue: type.label }) })),
+    [t],
+  );
   const scopeSelectOptions = useMemo(() => [
-    { value: '', label: 'Choose a scope…' },
+    { value: '', label: t('search.chooseScope', { defaultValue: 'Choose a scope…' }) },
     ...scopeOptions.map((scope) => ({
       value: scope.id,
       label: `${scope.imported ? 'Imported: ' : ''}${scope.label}${scope.imported && !scope.executable ? ' (preserved)' : ''}`,
     })),
   ], [scopeOptions]);
   const savedSearchOptions = useMemo(() => [
-    { value: '', label: savedSearches.length ? 'Load saved…' : 'No saved searches' },
+    { value: '', label: savedSearches.length ? t('search.loadSaved', { defaultValue: 'Load saved…' }) : t('search.noSavedSearches', { defaultValue: 'No saved searches' }) },
     ...savedSearches.map((search) => ({ value: search.id, label: search.name })),
   ], [savedSearches]);
   const deleteSavedSearchOptions = useMemo(() => [
-    { value: '', label: 'Del…' },
+    { value: '', label: t('search.deleteSaved', { defaultValue: 'Del…' }) },
     ...savedSearches.map((search) => ({ value: search.id, label: search.name })),
   ], [savedSearches]);
   const replaceFieldOptions = useMemo(() => replaceFields.map((field) => ({ value: field.id, label: field.label })), [replaceFields]);
   const genealogyGenderOptions = useMemo(() => [
-    { value: '', label: 'Any gender' },
-    { value: '0', label: 'Male' },
-    { value: '1', label: 'Female' },
-    { value: '2', label: 'Unknown' },
-    { value: '3', label: 'Intersex' },
+    { value: '', label: t('search.anyGender', { defaultValue: 'Any gender' }) },
+    { value: '0', label: t('gender.male', { defaultValue: 'Male' }) },
+    { value: '1', label: t('gender.female', { defaultValue: 'Female' }) },
+    { value: '2', label: t('common.unknown', { defaultValue: 'Unknown' }) },
+    { value: '3', label: t('gender.intersex', { defaultValue: 'Intersex' }) },
   ], []);
 
   useEffect(() => {
@@ -304,7 +309,7 @@ export function SearchApp() {
   return (
     <div className="flex h-full flex-col bg-background">
       <header className="flex flex-wrap items-end gap-2 border-b border-border bg-card px-5 py-3">
-        <Field label="Entity">
+        <Field label={t('search.entity', { defaultValue: 'Entity' })}>
           <Select
             value={entityType}
             onChange={(value) => { setEntityType(value); setFilters([]); setResult(null); }}
@@ -313,17 +318,17 @@ export function SearchApp() {
           />
         </Field>
 
-        <Field label="Free text">
+        <Field label={t('search.freeText', { defaultValue: 'Free text' })}>
           <Input
             value={textQuery}
             onChange={(e) => setTextQuery(e.target.value)}
-            placeholder="Match any field…"
+            placeholder={t('search.matchAnyField', { defaultValue: 'Match any field…' })}
             className="min-w-0"
             onKeyDown={(e) => e.key === 'Enter' && onRun()}
           />
         </Field>
 
-        <Field label="Smart Scope">
+        <Field label={t('search.smartScope', { defaultValue: 'Smart Scope' })}>
           <Select
             value=""
             onChange={onRunScope}
@@ -333,20 +338,20 @@ export function SearchApp() {
           />
         </Field>
 
-        <Button size="md" onClick={onAddFilter} className="mt-3.5">+ Filter</Button>
+        <Button size="md" onClick={onAddFilter} className="mt-3.5">{t('search.addFilter', { defaultValue: '+ Filter' })}</Button>
         <Button
           size="md"
           onClick={() => setShowGenealogySearch((value) => !value)}
           className="mt-3.5"
-          title="Show genealogy-specific person criteria"
+          title={t('search.genealogyHint', { defaultValue: 'Show genealogy-specific person criteria' })}
         >
-          Genealogy
+          {t('search.genealogy', { defaultValue: 'Genealogy' })}
         </Button>
         <Button variant="primary" size="md" onClick={onRun} disabled={running} className="mt-3.5">
-          {running ? 'Running…' : 'Search'}
+          {running ? t('search.running', { defaultValue: 'Running…' }) : t('common.search', { defaultValue: 'Search' })}
         </Button>
 
-        <Field label="Saved searches">
+        <Field label={t('search.savedSearches', { defaultValue: 'Saved searches' })}>
           <div className="flex gap-1">
             <Select
               value=""
@@ -355,7 +360,7 @@ export function SearchApp() {
               className="min-w-0 flex-[1_1_180px]"
               triggerClassName="h-auto py-2"
             />
-            <Button size="md" onClick={onSaveSearch} title="Persist the current search">Save</Button>
+            <Button size="md" onClick={onSaveSearch} title={t('search.saveHint', { defaultValue: 'Persist the current search' })}>{t('common.save', { defaultValue: 'Save' })}</Button>
             {savedSearches.length > 0 && (
               <Select
                 value=""
@@ -365,15 +370,15 @@ export function SearchApp() {
                 triggerClassName="h-auto py-2"
               />
             )}
-            <Button size="md" onClick={onSaveAsSmartFilter} title="Open this search in the Smart Filter editor">
-              → Smart Filter
+            <Button size="md" onClick={onSaveAsSmartFilter} title={t('search.smartFilterHint', { defaultValue: 'Open this search in the Smart Filter editor' })}>
+              → {t('search.smartFilter', { defaultValue: 'Smart Filter' })}
             </Button>
           </div>
         </Field>
       </header>
 
       <div className="border-b border-border bg-card px-5 py-3">
-        {filters.length === 0 && <div className="text-sm text-muted-foreground">No filters. Type free text and click Search, or add field-specific filters with “+ Filter”.</div>}
+        {filters.length === 0 && <div className="text-sm text-muted-foreground" dir="auto">{t('search.noFilters', { defaultValue: 'No filters. Type free text and click Search, or add field-specific filters with "+ Filter".' })}</div>}
         {filters.map((f, i) => (
           <FilterRow
             key={i}
@@ -389,11 +394,11 @@ export function SearchApp() {
         <section className="border-b border-border bg-card px-5 py-3">
           <div className="mb-2 text-xs font-bold uppercase text-muted-foreground">Genealogy Advanced Search</div>
           <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] items-end gap-2">
-            <Field label="Match">
+            <Field label={t('search.match', { defaultValue: 'Match' })}>
               <Select
                 value={genealogySearch.matchMode}
                 onChange={(value) => updateGenealogySearch('matchMode', value)}
-                options={[{ value: 'all', label: 'All criteria' }, { value: 'any', label: 'Any criteria' }]}
+                options={[{ value: 'all', label: t('search.allCriteria', { defaultValue: 'All criteria' }) }, { value: 'any', label: t('search.anyCriteria', { defaultValue: 'Any criteria' }) }]}
                 triggerClassName="h-auto py-2"
               />
             </Field>
@@ -402,7 +407,7 @@ export function SearchApp() {
             <TextField label="Surname" value={genealogySearch.surname} onChange={(value) => updateGenealogySearch('surname', value)} />
             <CheckField label="Exact surname" checked={genealogySearch.exactSurname} onChange={(value) => updateGenealogySearch('exactSurname', value)} />
             <TextField label="Alias/public name" value={genealogySearch.alias} onChange={(value) => updateGenealogySearch('alias', value)} />
-            <Field label="Gender">
+            <Field label={t('editor.person.field.gender', { defaultValue: 'Gender' })}>
               <Select
                 value={genealogySearch.gender}
                 onChange={(value) => updateGenealogySearch('gender', value)}

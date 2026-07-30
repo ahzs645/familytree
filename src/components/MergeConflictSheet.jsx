@@ -31,28 +31,42 @@ export function MergeConflictSheet({ plan, onApply, onCancel }) {
   const [resolutions, setResolutions] = useState(() => seedDefaults(plan));
   const conflictCount = plan?.conflicts?.length || 0;
   const newCount = plan?.newRecords?.length || 0;
+  const deletions = plan?.deletions || [];
 
   const resolutionLabels = useMemo(() => Object.fromEntries(
     Object.entries(RESOLUTION_KEYS).map(([value, [key, fallback]]) => [value, t(key, { defaultValue: fallback })])
   ), [t]);
 
-  const setAll = (value) => {
-    const next = {};
+  const setAll = (value) => setResolutions((prev) => {
+    // Deletions have their own controls — a bulk conflict choice must not
+    // silently re-answer them.
+    const next = { ...prev };
     for (const entry of plan?.conflicts || []) next[entry.recordName] = value;
     for (const assetId of plan?.assetCollisions || []) next[`asset:${assetId}`] = value;
-    setResolutions(next);
-  };
+    return next;
+  });
 
   const setOne = (key, value) => setResolutions((prev) => ({ ...prev, [key]: value }));
+
+  const setAllDeletions = (value) => setResolutions((prev) => {
+    const next = { ...prev };
+    for (const deletion of deletions) next[`delete:${deletion.recordName}`] = value;
+    return next;
+  });
 
   const summary = useMemo(() => {
     const counts = { existing: 0, incoming: 0, rename: 0 };
     for (const key of Object.keys(resolutions)) {
+      if (key.startsWith('delete:')) continue;
       const v = resolutions[key];
       if (counts[v] !== undefined) counts[v] += 1;
     }
     return counts;
   }, [resolutions]);
+
+  const deletionsAccepted = useMemo(() => Object.entries(resolutions)
+    .filter(([key, value]) => key.startsWith('delete:') && value === CONFLICT_RESOLUTION.USE_INCOMING)
+    .length, [resolutions]);
 
   const everythingKeepsCurrent = conflictCount > 0 && summary.incoming === 0 && summary.rename === 0;
   const title = t('merge.title', { defaultValue: 'Resolve merge conflicts' });
@@ -75,6 +89,10 @@ export function MergeConflictSheet({ plan, onApply, onCancel }) {
           {newCount ? ` ${t('merge.newRecords', {
             count: newCount,
             defaultValue: `${newCount} new records will be added automatically.`,
+          })}` : ''}
+          {deletions.length ? ` ${t('merge.deletionsFound', {
+            count: deletions.length,
+            defaultValue: `${deletions.length} records were deleted in the other copy.`,
           })}` : ''}
         </>
       )}
@@ -112,6 +130,10 @@ export function MergeConflictSheet({ plan, onApply, onCancel }) {
               rename: summary.rename,
               defaultValue: `Kept current: ${summary.existing} · Used incoming: ${summary.incoming} · Kept both: ${summary.rename}`,
             })}
+            {deletions.length ? ` · ${t('merge.footerDeletions', {
+              count: deletionsAccepted,
+              defaultValue: `Deleting: ${deletionsAccepted}`,
+            })}` : ''}
           </div>
           <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">
             {t('common.cancel', { defaultValue: 'Cancel' })}
@@ -122,6 +144,49 @@ export function MergeConflictSheet({ plan, onApply, onCancel }) {
         </>
       )}
     >
+          {deletions.length ? (
+            <article className="border border-border rounded-md p-3">
+              <header className="mb-2 flex flex-wrap items-center gap-2">
+                <h3 className="text-xs font-semibold flex-1">
+                  {t('merge.deletionsHeading', { count: deletions.length, defaultValue: `Deleted in the other copy (${deletions.length})` })}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setAllDeletions(CONFLICT_RESOLUTION.USE_INCOMING)}
+                  className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent"
+                >
+                  {t('merge.deleteAll', { defaultValue: 'Delete all here too' })}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAllDeletions(CONFLICT_RESOLUTION.KEEP_EXISTING)}
+                  className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent"
+                >
+                  {t('merge.keepAll', { defaultValue: 'Keep all' })}
+                </button>
+              </header>
+              <p className="mb-2 text-[11px] text-muted-foreground" dir="auto">
+                {t('merge.deletionsHint', { defaultValue: 'These records still exist here. Nothing is removed unless you tick it.' })}
+              </p>
+              <div className="space-y-1">
+                {deletions.map((deletion) => (
+                  <label key={deletion.recordName} className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={resolutions[`delete:${deletion.recordName}`] === CONFLICT_RESOLUTION.USE_INCOMING}
+                      onChange={(e) => setOne(
+                        `delete:${deletion.recordName}`,
+                        e.target.checked ? CONFLICT_RESOLUTION.USE_INCOMING : CONFLICT_RESOLUTION.KEEP_EXISTING,
+                      )}
+                      className="h-[18px] w-[18px] shrink-0"
+                    />
+                    <span className="truncate" dir="auto">{deletion.label || deletion.recordName}</span>
+                    <span className="ms-auto shrink-0 text-muted-foreground">{deletion.recordType}</span>
+                  </label>
+                ))}
+              </div>
+            </article>
+          ) : null}
       {(plan?.conflicts || []).map((entry) => (
             <article key={entry.recordName} className="border border-border rounded-md p-3">
               <header className="flex items-center justify-between mb-2">
@@ -186,6 +251,7 @@ function seedDefaults(plan) {
   const out = {};
   for (const entry of plan?.conflicts || []) out[entry.recordName] = CONFLICT_RESOLUTION.KEEP_EXISTING;
   for (const assetId of plan?.assetCollisions || []) out[`asset:${assetId}`] = CONFLICT_RESOLUTION.KEEP_EXISTING;
+  for (const deletion of plan?.deletions || []) out[`delete:${deletion.recordName}`] = CONFLICT_RESOLUTION.KEEP_EXISTING;
   return out;
 }
 

@@ -1,4 +1,5 @@
 import { getAppDataClient } from './data/AppDataClient.js';
+import { deletionFromLogEntry } from './changeLog.js';
 
 /**
  * Map a dataset produced by `extractMFTPKGDataset` (lib/mftpkgExtractor.js) to
@@ -151,7 +152,46 @@ export async function planMerge(json) {
     if (existing) assetCollisions.push(asset.assetId);
   }
 
-  return { conflicts, newRecords, assetCollisions };
+  return { conflicts, newRecords, assetCollisions, deletions: await planDeletions(db, incoming) };
+}
+
+/**
+ * Records the incoming copy explicitly deleted and we still have.
+ *
+ * Absence alone is not evidence — a GEDCOM subset or a subtree export is
+ * missing most of the tree without meaning any of it should go. So this reads
+ * the Delete entries the other copy's change log carries, and only proposes a
+ * record whose deletion was recorded *and* which the incoming file does not
+ * also contain (a delete followed by a re-add is not a deletion).
+ */
+async function planDeletions(db, incoming) {
+  const present = new Set(incoming.map((record) => record?.recordName).filter(Boolean));
+  const seen = new Set();
+  const deletions = [];
+  for (const record of incoming) {
+    const deletion = deletionFromLogEntry(record);
+    if (!deletion) continue;
+    if (present.has(deletion.recordName) || seen.has(deletion.recordName)) continue;
+    seen.add(deletion.recordName);
+    const local = await db.get(deletion.recordName);
+    if (!local) continue;
+    deletions.push({
+      recordName: deletion.recordName,
+      recordType: deletion.recordType || local.recordType || '',
+      deletedAt: deletion.timestamp,
+      label: recordLabel(local),
+    });
+  }
+  return deletions;
+}
+
+function recordLabel(record) {
+  const fields = record?.fields || {};
+  return fields.cached_fullName?.value
+    || fields.title?.value
+    || fields.name?.value
+    || record?.recordName
+    || '';
 }
 
 /** Fields whose values differ between an existing and an incoming record. */
@@ -235,22 +275,31 @@ export async function mergeBackupJSONWithResolutions(json, resolutions, options 
     }
   }
 
+  // Deletions are opt-in per record: `delete:<recordName>` set to USE_INCOMING
+  // means "the other copy removed this and I agree". Anything not ticked stays.
+  const deleteRecordNames = Object.entries(resolutions || {})
+    .filter(([key, choice]) => key.startsWith('delete:') && choice === CONFLICT_RESOLUTION.USE_INCOMING)
+    .map(([key]) => key.slice('delete:'.length))
+    .filter((recordName) => !nameMap.has(recordName));
+
   const rewritten = saveRecords.map((record) => rewriteRecord(record, nameMap, assetIdMap));
   const logEntry = buildMergeLogEntry({
     records: rewritten.length,
     assets: saveAssets.length,
     renamed: nameMap.size,
     assetRenamed: assetIdMap.size,
+    deleted: deleteRecordNames.length,
     rollbackNote: options.rollbackNote || '',
     exportedAt: json.exportedAt || '',
   });
-  await db.transaction({ saveRecords: [...rewritten, logEntry], saveAssets });
+  await db.transaction({ saveRecords: [...rewritten, logEntry], saveAssets, deleteRecordNames });
   await appendMergeHistory(client, {
     importedAt: new Date().toISOString(),
     records: rewritten.length,
     assets: saveAssets.length,
     renamed: nameMap.size,
     assetRenamed: assetIdMap.size,
+    deleted: deleteRecordNames.length,
     rollbackNote: options.rollbackNote || '',
     exportedAt: json.exportedAt || null,
     resolvedConflicts: Object.keys(resolutions || {}).length,
@@ -260,6 +309,7 @@ export async function mergeBackupJSONWithResolutions(json, resolutions, options 
     assets: saveAssets.length,
     renamed: nameMap.size,
     assetRenamed: assetIdMap.size,
+    deleted: deleteRecordNames.length,
     resolvedConflicts: Object.keys(resolutions || {}).length,
   };
 }
@@ -410,7 +460,7 @@ function structuredCloneSafe(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function buildMergeLogEntry({ records, assets, renamed, assetRenamed, rollbackNote, exportedAt }) {
+function buildMergeLogEntry({ records, assets, renamed, assetRenamed, deleted = 0, rollbackNote, exportedAt }) {
   const stamp = Date.now().toString(36);
   return {
     recordName: `cle-merge-${stamp}-${Math.random().toString(36).slice(2, 7)}`,
@@ -421,7 +471,7 @@ function buildMergeLogEntry({ records, assets, renamed, assetRenamed, rollbackNo
       author: { value: 'CloudTreeWeb' },
       changeType: { value: 'Merge' },
       changeCount: { value: records },
-      summary: { value: `Merged backup: ${records} records, ${assets} assets, ${renamed} record renames, ${assetRenamed} asset renames.` },
+      summary: { value: `Merged backup: ${records} records, ${assets} assets, ${renamed} record renames, ${assetRenamed} asset renames, ${deleted} deletions.` },
       rollbackNote: { value: rollbackNote || 'Rollback by restoring a backup captured before this merge.' },
       sourceExportedAt: { value: exportedAt || '' },
     },

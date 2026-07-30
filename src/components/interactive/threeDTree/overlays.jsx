@@ -108,6 +108,29 @@ function MenuDivider() {
   return <div className="mx-0.5 my-1 h-px bg-border/80" />;
 }
 
+const MENU_WIDTH = 230;
+const MENU_MAX_HEIGHT = 420;
+const MENU_GUTTER = 8;
+
+/**
+ * Keep a point-anchored menu fully on screen. Flips to the other side of the
+ * anchor when there is no room, then clamps, so it never hangs off an edge.
+ */
+export function clampMenuToViewport(x, y, width, height, viewport = null) {
+  const view = viewport || {
+    width: typeof window === 'undefined' ? width + MENU_GUTTER * 2 : window.innerWidth,
+    height: typeof window === 'undefined' ? height + MENU_GUTTER * 2 : window.innerHeight,
+  };
+  const maxLeft = Math.max(MENU_GUTTER, view.width - width - MENU_GUTTER);
+  const maxTop = Math.max(MENU_GUTTER, view.height - height - MENU_GUTTER);
+  const left = x + width + MENU_GUTTER > view.width ? x - width : x;
+  const top = y + height + MENU_GUTTER > view.height ? y - height : y;
+  return {
+    left: Math.round(Math.min(Math.max(left, MENU_GUTTER), maxLeft)),
+    top: Math.round(Math.min(Math.max(top, MENU_GUTTER), maxTop)),
+  };
+}
+
 export function PersonContextMenu({
   node,
   person,
@@ -148,10 +171,13 @@ export function PersonContextMenu({
   };
   const [addOpen, setAddOpen] = useStateLike(false);
   const partners = (context?.families || []).map((family) => family.partner).filter(Boolean);
+  // Anchored at the tap point, the menu ran off the edge of a phone screen and
+  // clipped its own labels. Keep it inside the viewport on both axes.
+  const position = clampMenuToViewport(x, y, MENU_WIDTH, MENU_MAX_HEIGHT);
   return (
     <div
-      className="fixed z-50 w-[230px] rounded-md border border-border bg-card/95 p-1.5 text-card-foreground shadow-xl backdrop-blur-md"
-      style={{ left: x, top: y }}
+      className="fixed z-50 w-[230px] max-h-[80vh] overflow-y-auto rounded-md border border-border bg-card/95 p-1.5 text-card-foreground shadow-xl backdrop-blur-md"
+      style={position}
       onPointerDown={(event) => event.stopPropagation()}
       onContextMenu={(event) => event.preventDefault()}
       role="menu"

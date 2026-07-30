@@ -161,6 +161,9 @@ export default function PersonEditor() {
   const deepLinkHint = showDeepLinkHint && deepLinkHintEntry
     ? t(deepLinkHintEntry[0], { defaultValue: deepLinkHintEntry[1] })
     : null;
+  // /person/new redirects here with ?linkFailed=1 when it created the person
+  // but could not attach the relationship. Say so where the relatives are.
+  const linkFailed = searchParams.get('linkFailed') === '1';
   const [labels, setLabels] = useState({}); // labelId -> bool
   const [labelDefs, setLabelDefs] = useState(LABELS);
   const [refNumbers, setRefNumbers] = useState({});
@@ -421,6 +424,11 @@ export default function PersonEditor() {
           {context && (
             <Section title={t('editor.person.parentsRelatives', { defaultValue: 'Parents & Relatives' })} accent={ACCENTS.parents} domId={RELATIVES_ANCHOR}>
               <ParentsBlock context={context} onPick={(rn) => guardedNavigate(`/person/${rn}`)} />
+              {linkFailed && (
+                <div className="mt-3 rounded-md border border-warning/50 bg-warning/10 px-3 py-2 text-xs text-warning-text" dir="auto">
+                  {t('editor.person.linkFailed', { defaultValue: 'This person was created, but the relationship could not be added automatically. Link them below.' })}
+                </div>
+              )}
               {deepLinkHint && (
                 <div className="mt-3 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs text-foreground">
                   {deepLinkHint}

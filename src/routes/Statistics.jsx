@@ -67,7 +67,7 @@ export default function Statistics() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
           <Card title={t('statistics.records')}>
             {Object.entries(stats.counts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([type, n]) => (
-              <StatLine key={type} label={humanizeType(type)} value={n.toLocaleString()} />
+              <StatLine key={type} label={t(`recordTypes.${type}`, { defaultValue: humanizeType(type) })} value={n.toLocaleString()} />
             ))}
           </Card>
 

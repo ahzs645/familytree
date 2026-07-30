@@ -231,14 +231,19 @@ export default function Export() {
     const assetPart = result.assetRenamed ? ` ${t('exportPage.merge.assetsRenamed', { formatted: result.assetRenamed.toLocaleString(), defaultValue: `${result.assetRenamed.toLocaleString()} colliding asset IDs were renamed.` })}` : '';
     const renamedPart = result.renamed ? t('exportPage.merge.namesRenamed', { formatted: result.renamed.toLocaleString(), defaultValue: `${result.renamed.toLocaleString()} colliding record names were renamed.` }) : '';
     const resolvedPart = result.resolvedConflicts ? ` ${t('exportPage.merge.resolvedConflicts', { count: result.resolvedConflicts, formatted: result.resolvedConflicts.toLocaleString(), defaultValue: `Resolved ${result.resolvedConflicts.toLocaleString()} conflicts.` })}` : '';
+    const deletedPart = result.deleted ? ` ${t('exportPage.merge.appliedDeletions', { count: result.deleted, formatted: result.deleted.toLocaleString(), defaultValue: `Applied ${result.deleted.toLocaleString()} deletions.` })}` : '';
     const merged = t('exportPage.merge.mergedSummary', { records: result.records.toLocaleString(), assets: result.assets.toLocaleString(), defaultValue: `Merged ${result.records.toLocaleString()} records and ${result.assets.toLocaleString()} assets.` });
-    return `${merged}${resolvedPart} ${renamedPart}${assetPart}`.trim();
+    return `${merged}${resolvedPart}${deletedPart} ${renamedPart}${assetPart}`.trim();
   };
 
   const onConfirmMergeBackup = wrap(t('exportPage.status.reviewingConflicts', { defaultValue: 'Reviewing merge conflicts…' }), async () => {
     if (!pendingMerge) return t('exportPage.status.chooseBackupFirst', { defaultValue: 'Choose a backup file first.' });
     const plan = await planMerge(pendingMerge.json);
-    if ((plan.conflicts?.length || 0) === 0 && (plan.assetCollisions?.length || 0) === 0) {
+    // Deletions need a decision too, so they keep the sheet open even when
+    // nothing else conflicts.
+    if ((plan.conflicts?.length || 0) === 0
+      && (plan.assetCollisions?.length || 0) === 0
+      && (plan.deletions?.length || 0) === 0) {
       const result = await mergeBackupJSON(pendingMerge.json, { rollbackNote });
       return finalizeMerge(result);
     }

@@ -267,7 +267,7 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
       <div className="absolute end-3 top-3 flex gap-1.5">
         <Button onClick={() => setView((v) => ({ ...v, k: Math.min(maxZoom, v.k * 1.2) }))}>＋</Button>
         <Button onClick={() => setView((v) => ({ ...v, k: Math.max(minZoom, v.k / 1.2) }))}>－</Button>
-        <Button onClick={onReset}>Reset</Button>
+        <Button onClick={onReset}>{t('charts.reset', { defaultValue: 'Reset' })}</Button>
         <Button onClick={onExportSvg}>SVG</Button>
         <Button onClick={onExportPng}>PNG</Button>
         <Button onClick={onPrint} title={t('charts.printHint')}>{t('charts.print')}</Button>
