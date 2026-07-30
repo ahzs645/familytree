@@ -9,6 +9,48 @@ import { refToRecordName, refValue } from './recordRef.js';
 
 let _seq = 0;
 
+/**
+ * Name stamped on change-log entries.
+ *
+ * Defaults to "You", which reads fine locally but is meaningless once a
+ * package travels — a merge showing "changed by You" for a relative's edits
+ * tells the owner nothing. Author Information sets this, and anything that
+ * still says "You" is treated as unknown on the receiving side.
+ */
+export const UNKNOWN_AUTHOR = 'You';
+/** Where Author Information stores its record (owned here to avoid a cycle). */
+export const AUTHOR_INFO_META_KEY = 'familyTreeAuthorInfo';
+
+// null = not looked up yet. Set eagerly by Author Information, and lazily on
+// the first write otherwise — a page load that never visits that screen would
+// otherwise stamp every edit "You", which is exactly the case that matters
+// when the package is going back to whoever shared the tree.
+let activeAuthor = null;
+
+export function setChangeLogAuthor(name) {
+  activeAuthor = String(name || '').trim() || UNKNOWN_AUTHOR;
+}
+
+export function getChangeLogAuthor() {
+  return activeAuthor || UNKNOWN_AUTHOR;
+}
+
+/** Reset to "not looked up yet" — tests and tree switches. */
+export function resetChangeLogAuthor() {
+  activeAuthor = null;
+}
+
+async function resolveAuthor() {
+  if (activeAuthor) return activeAuthor;
+  try {
+    const stored = await getAppDataClient().meta.get(AUTHOR_INFO_META_KEY);
+    activeAuthor = String(stored?.authorName || '').trim() || UNKNOWN_AUTHOR;
+  } catch {
+    activeAuthor = UNKNOWN_AUTHOR;
+  }
+  return activeAuthor;
+}
+
 function uuid(prefix) {
   _seq++;
   return `${prefix}-${Date.now().toString(36)}-${_seq.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -36,7 +78,8 @@ function nowIso() {
  * Returns the saved record. If no changes, the record is still saved (touch)
  * but no log entries are written.
  */
-export async function saveWithChangeLog(updatedRecord, { author = 'You', changeKind = 'Change', lineage = null } = {}) {
+export async function saveWithChangeLog(updatedRecord, { author = null, changeKind = 'Change', lineage = null } = {}) {
+  const resolvedAuthor = author || await resolveAuthor();
   const db = getAppDataClient().records;
   const prev = await db.get(updatedRecord.recordName);
   const changes = diffFields(prev?.fields, updatedRecord.fields);
@@ -69,7 +112,7 @@ export async function saveWithChangeLog(updatedRecord, { author = 'You', changeK
       target: { value: refValue(updatedRecord.recordName, updatedRecord.recordType), type: 'REFERENCE' },
       targetType: { value: updatedRecord.recordType },
       timestamp: { value: nowIso() },
-      author: { value: author },
+      author: { value: resolvedAuthor },
       changeType: { value: changeKind },
       changeCount: { value: changes.length },
       summary: { value: summarize(changes) },
@@ -100,7 +143,8 @@ function summarize(changes) {
 /**
  * Append a creation or deletion entry without diffing fields.
  */
-export async function logRecordCreated(record, { author = 'You', lineage = null } = {}) {
+export async function logRecordCreated(record, { author = null, lineage = null } = {}) {
+  const resolvedAuthor = author || await resolveAuthor();
   const db = getAppDataClient().records;
   const entry = {
     recordName: uuid('cle'),
@@ -109,7 +153,7 @@ export async function logRecordCreated(record, { author = 'You', lineage = null 
       target: { value: refValue(record.recordName, record.recordType), type: 'REFERENCE' },
       targetType: { value: record.recordType },
       timestamp: { value: nowIso() },
-      author: { value: author },
+      author: { value: resolvedAuthor },
       changeType: { value: 'Add' },
       changeCount: { value: Object.keys(record.fields || {}).length },
       summary: { value: 'Created' },
@@ -120,7 +164,8 @@ export async function logRecordCreated(record, { author = 'You', lineage = null 
   return entry;
 }
 
-export async function logRecordDeleted(recordName, recordType, { author = 'You', lineage = null } = {}) {
+export async function logRecordDeleted(recordName, recordType, { author = null, lineage = null } = {}) {
+  const resolvedAuthor = author || await resolveAuthor();
   const db = getAppDataClient().records;
   const entry = {
     recordName: uuid('cle'),
@@ -129,7 +174,7 @@ export async function logRecordDeleted(recordName, recordType, { author = 'You',
       target: { value: refValue(recordName, recordType), type: 'REFERENCE' },
       targetType: { value: recordType },
       timestamp: { value: nowIso() },
-      author: { value: author },
+      author: { value: resolvedAuthor },
       changeType: { value: 'Delete' },
       changeCount: { value: 0 },
       summary: { value: 'Deleted' },
@@ -149,7 +194,8 @@ export async function logRecordDeleted(recordName, recordType, { author = 'You',
  * package carries its change log — meant a reviewer's deletions could not be
  * told apart from records their file simply never contained.
  */
-export function buildDeletionLogEntries(records, { author = 'You', lineage = null } = {}) {
+export function buildDeletionLogEntries(records, { author = null, lineage = null } = {}) {
+  const resolvedAuthor = author || getChangeLogAuthor();
   const timestamp = nowIso();
   return (records || [])
     .filter((record) => record?.recordName)
@@ -160,7 +206,7 @@ export function buildDeletionLogEntries(records, { author = 'You', lineage = nul
         target: { value: refValue(record.recordName, record.recordType || 'Record'), type: 'REFERENCE' },
         targetType: { value: record.recordType || 'Record' },
         timestamp: { value: timestamp },
-        author: { value: author },
+        author: { value: resolvedAuthor },
         changeType: { value: 'Delete' },
         changeCount: { value: 0 },
         summary: { value: 'Deleted' },

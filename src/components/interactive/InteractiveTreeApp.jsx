@@ -30,11 +30,18 @@ import { persistTreeViewMode, readInitialTreeViewMode } from './treeViewMode.js'
 import { BdiText, LtrText } from '../BdiText.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { Button } from '../ui/Button.jsx';
+import { UserPlus } from 'lucide-react';
 import { cn } from '../../lib/utils.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { usePersonContextMenu } from './usePersonContextMenu.js';
+import { PersonContextMenu } from './threeDTree/overlays.jsx';
 
 export function InteractiveTreeApp() {
   const { t } = useTranslation();
+  // One menu for every non-3D view: right-click on a pointer device, long
+  // press on a touch one. The 3D view raycasts its own canvas and keeps its
+  // own copy.
+  const personMenu = usePersonContextMenu();
   const modal = useModal();
   const [persons, setPersons] = useState([]);
   const [dataVersion, setDataVersion] = useState(0);
@@ -286,6 +293,28 @@ export function InteractiveTreeApp() {
                 <BdiText>{context?.selfSummary?.fullName || t('interactiveTree.noPersonSelected', { defaultValue: 'No person selected' })}</BdiText>
               </div>
             </div>
+            {/* Right-click and long-press are invisible affordances, so the
+             * add action is also a button in the header — the same fix the
+             * Persons list needed. It opens the menu for the focused person,
+             * anchored under the button. */}
+            {context?.selfSummary?.recordName && (
+              <Button
+                variant="outline"
+                className="shrink-0 border-primary/60 text-interactive"
+                aria-label={t('interactiveTree.addRelatives')}
+                onClick={(event) => {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  personMenu.open(
+                    { person: context.selfSummary, node: null },
+                    rect.left,
+                    rect.bottom + 4,
+                  );
+                }}
+              >
+                <UserPlus size={15} className="flex-shrink-0" />
+                <span className="hidden sm:inline">{t('interactiveTree.addRelatives')}</span>
+              </Button>
+            )}
             {/* Six tree view modes — the segmented control fits on desktop but
              * runs off the right edge on phones (3D Flat Sun Family Canvas
              * Details is ~360px even at minimum widths). On narrow screens
@@ -374,6 +403,7 @@ export function InteractiveTreeApp() {
                 onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
                 onShowInfo={showTreeInfo}
                 onReturnToFamilyTree={returnToFamilyTreeChrome}
+                menu={personMenu}
               />
             ) : viewMode === 'sun' ? (
               <SunTreeView
@@ -382,6 +412,7 @@ export function InteractiveTreeApp() {
                 loading={trees.loading}
                 onPick={onPick}
                 onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+                menu={personMenu}
               />
             ) : viewMode === 'family' ? (
               <FamilyTreeView
@@ -391,6 +422,7 @@ export function InteractiveTreeApp() {
                 onPick={onPick}
                 onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
                 onOpenFamily={(recordName) => navigate(`/family/${recordName}`)}
+                menu={personMenu}
               />
             ) : viewMode === 'canvas' ? (
               <TraumatreeCanvasView
@@ -400,13 +432,36 @@ export function InteractiveTreeApp() {
                 onPick={onPick}
                 onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
                 onOpenFamily={(recordName) => navigate(`/family/${recordName}`)}
+                menu={personMenu}
               />
             ) : (
               <PersonFocus
                 context={context}
                 onPick={onPick}
+                onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+                onAddRelative={onAddRelative}
                 onOpenAncestorChart={openAncestor}
                 onOpenDescendantChart={openDescendant}
+              />
+            )}
+            {personMenu.menu && (
+              <PersonContextMenu
+                node={personMenu.menu.node}
+                person={personMenu.menu.person}
+                x={personMenu.menu.x}
+                y={personMenu.menu.y}
+                onClose={personMenu.close}
+                onPick={onPick}
+                onEditPerson={(recordName) => navigate(`/person/${recordName}`)}
+                onOpenFamily={(recordName) => navigate(`/family/${recordName}`)}
+                onShowInfo={showTreeInfo}
+                onOpenAncestorChart={openAncestor}
+                onOpenDescendantChart={openDescendant}
+                onAddRelative={onAddRelative}
+                onDeletePerson={onDeletePerson}
+                onDeleteFamily={onDeleteFamily}
+                onEditInfluential={onEditInfluential}
+                context={context}
               />
             )}
           </div>

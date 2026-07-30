@@ -26,7 +26,7 @@ const RESOLUTION_KEYS = {
  *   onApply(resolutions):              — called with { recordName: CONFLICT_RESOLUTION }
  *   onCancel():
  */
-export function MergeConflictSheet({ plan, onApply, onCancel }) {
+export function MergeConflictSheet({ plan, onApply, onCancel, sourceLabel = '' }) {
   const { t } = useTranslation();
   const [resolutions, setResolutions] = useState(() => seedDefaults(plan));
   const conflictCount = plan?.conflicts?.length || 0;
@@ -181,6 +181,11 @@ export function MergeConflictSheet({ plan, onApply, onCancel }) {
                       className="h-[18px] w-[18px] shrink-0"
                     />
                     <span className="truncate" dir="auto">{deletion.label || deletion.recordName}</span>
+                    {deletion.deletedBy || sourceLabel ? (
+                      <span className="shrink-0 text-muted-foreground" dir="auto">
+                        {t('merge.deletedBy', { author: deletion.deletedBy || sourceLabel, defaultValue: `deleted by ${deletion.deletedBy || sourceLabel}` })}
+                      </span>
+                    ) : null}
                     <span className="ms-auto shrink-0 text-muted-foreground">{deletion.recordType}</span>
                   </label>
                 ))}
@@ -190,9 +195,16 @@ export function MergeConflictSheet({ plan, onApply, onCancel }) {
       {(plan?.conflicts || []).map((entry) => (
             <article key={entry.recordName} className="border border-border rounded-md p-3">
               <header className="flex items-center justify-between mb-2">
-                <div className="text-xs font-semibold truncate" dir="auto">
-                  <span className="text-muted-foreground me-1">{entry.recordType}</span>
-                  {entry.recordName}
+                <div className="min-w-0 flex-1 truncate">
+                  <div className="text-xs font-semibold truncate" dir="auto">
+                    <span className="text-muted-foreground me-1">{entry.recordType}</span>
+                    {entry.recordName}
+                  </div>
+                  {entry.editedBy || entry.editedAt || sourceLabel ? (
+                    <div className="text-[11px] text-muted-foreground truncate" dir="auto">
+                      {editedByLabel(t, entry.editedBy || sourceLabel, entry.editedAt)}
+                    </div>
+                  ) : null}
                 </div>
                 <select
                   value={resolutions[entry.recordName] || CONFLICT_RESOLUTION.KEEP_EXISTING}
@@ -208,7 +220,11 @@ export function MergeConflictSheet({ plan, onApply, onCancel }) {
               <div className="grid grid-cols-[140px_1fr_1fr] gap-2 text-xs">
                 <div className="text-muted-foreground">{t('merge.field', { defaultValue: 'Field' })}</div>
                 <div className="text-muted-foreground">{t('merge.current', { defaultValue: 'Current' })}</div>
-                <div className="text-muted-foreground">{t('merge.incoming', { defaultValue: 'Incoming' })}</div>
+                <div className="text-muted-foreground truncate" dir="auto">
+                  {entry.editedBy || sourceLabel
+                    ? t('merge.incomingFrom', { author: entry.editedBy || sourceLabel, defaultValue: `Incoming (${entry.editedBy || sourceLabel})` })
+                    : t('merge.incoming', { defaultValue: 'Incoming' })}
+                </div>
                 {entry.fields.map((field) => (
                   <React.Fragment key={field.name}>
                     <div className="font-medium truncate">{field.name}</div>
@@ -245,6 +261,14 @@ export function MergeConflictSheet({ plan, onApply, onCancel }) {
           ) : null}
     </Sheet>
   );
+}
+
+/** "Changed by Raad · 2026-07-30", with whichever half we actually have. */
+function editedByLabel(t, author, timestamp) {
+  const when = timestamp ? String(timestamp).slice(0, 10) : '';
+  if (author && when) return t('merge.editedByOn', { author, date: when, defaultValue: `Changed by ${author} · ${when}` });
+  if (author) return t('merge.editedBy', { author, defaultValue: `Changed by ${author}` });
+  return t('merge.editedOn', { date: when, defaultValue: `Changed ${when}` });
 }
 
 function seedDefaults(plan) {

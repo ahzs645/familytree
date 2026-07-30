@@ -50,6 +50,7 @@ export function FlatInteractiveTreeView({
   onEditPerson,
   onShowInfo,
   onReturnToFamilyTree,
+  menu,
 }) {
   const { t } = useTranslation();
   const [viewerOptions, setViewerOptions] = useState(readInitialViewerOptions);
@@ -225,13 +226,14 @@ export function FlatInteractiveTreeView({
                 active={node.id === activeId}
                 onClick={() => onNodeClick(node.id)}
                 onDoubleClick={() => onEditPerson?.(node.id)}
+                menu={menu}
               />
             ))}
           </g>
         </svg>
         {(loading || !hasTree) && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-bold text-muted-foreground">
-            {loading ? 'Loading tree...' : 'Pick a person from the list.'}
+            {loading ? t('interactiveTree.loadingTree', { defaultValue: 'Loading tree…' }) : t('interactiveTree.pickFromList', { defaultValue: 'Pick a person from the list.' })}
           </div>
         )}
       </div>
@@ -272,7 +274,7 @@ function BandRow({ band, bounds, fullWidth, opacity }) {
   );
 }
 
-function PersonCard({ node, viewerOptions, active, onClick, onDoubleClick }) {
+function PersonCard({ node, viewerOptions, active, onClick, onDoubleClick, menu }) {
   const x = node.x - CARD_W / 2;
   const y = node.y - CARD_H / 2;
   const name = node.person?.fullName || 'Unknown';
@@ -287,7 +289,13 @@ function PersonCard({ node, viewerOptions, active, onClick, onDoubleClick }) {
   const showAvatar = (viewerOptions?.personImageStyle || 'round') !== 'none';
   const textInsetX = showAvatar ? 44 : 14;
   return (
-    <g transform={`translate(${x}, ${y})`} className="cursor-pointer" onClick={onClick} onDoubleClick={onDoubleClick}>
+    <g
+      transform={`translate(${x}, ${y})`}
+      className="cursor-pointer"
+      onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      {...(menu?.handlersFor?.({ person: node.person, node }) || {})}
+    >
       <rect
         width={CARD_W}
         height={CARD_H}

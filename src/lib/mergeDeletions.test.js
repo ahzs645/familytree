@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createAppDataClient, setAppDataClientForTesting } from './data/index.js';
 import { refValue } from './recordRef.js';
-import { planMerge, mergeBackupJSONWithResolutions, CONFLICT_RESOLUTION } from './mergeImport.js';
+import { planMerge, mergeBackupJSONWithResolutions, listUndoableMerges, undoMerge, CONFLICT_RESOLUTION } from './mergeImport.js';
 import { buildDeletionLogEntries } from './changeLog.js';
 
 afterEach(() => {
@@ -110,5 +110,108 @@ describe('merge deletions', () => {
     expect(applied.deleted).toBe(1);
     expect(await db.get('p2')).toBeFalsy();
     expect(await db.get('p1')).toBeTruthy();
+  });
+});
+
+describe('merge attribution', () => {
+  it('names who changed each conflicting record, from the incoming change log', async () => {
+    setup([person('p1', 'قديم')]);
+    const edited = person('p1', 'جديد');
+    const incoming = backup([
+      edited,
+      {
+        recordName: 'cle-1',
+        recordType: 'ChangeLogEntry',
+        fields: {
+          target: { value: refValue('p1', 'Person'), type: 'REFERENCE' },
+          targetType: { value: 'Person' },
+          author: { value: 'Raad' },
+          timestamp: { value: '2026-07-30T10:00:00.000Z' },
+          changeType: { value: 'Change' },
+        },
+      },
+    ]);
+
+    const [conflict] = (await planMerge(incoming)).conflicts;
+    expect(conflict.editedBy).toBe('Raad');
+    expect(conflict.editedAt).toBe('2026-07-30T10:00:00.000Z');
+  });
+
+  it('keeps the most recent author when a record was edited twice', async () => {
+    setup([person('p1', 'قديم')]);
+    const entry = (id, author, timestamp) => ({
+      recordName: id,
+      recordType: 'ChangeLogEntry',
+      fields: {
+        target: { value: refValue('p1', 'Person'), type: 'REFERENCE' },
+        author: { value: author },
+        timestamp: { value: timestamp },
+        changeType: { value: 'Change' },
+      },
+    });
+    const incoming = backup([
+      person('p1', 'جديد'),
+      entry('cle-1', 'Raad', '2026-07-01T00:00:00.000Z'),
+      entry('cle-2', 'Jenan', '2026-07-30T00:00:00.000Z'),
+    ]);
+
+    expect((await planMerge(incoming)).conflicts[0].editedBy).toBe('Jenan');
+  });
+
+  it('treats the default "You" as unknown, since it means nothing in someone else\'s file', async () => {
+    setup([person('p1', 'قديم')]);
+    const incoming = backup([
+      person('p1', 'جديد'),
+      {
+        recordName: 'cle-1',
+        recordType: 'ChangeLogEntry',
+        fields: {
+          target: { value: refValue('p1', 'Person'), type: 'REFERENCE' },
+          author: { value: 'You' },
+          timestamp: { value: '2026-07-30T10:00:00.000Z' },
+          changeType: { value: 'Change' },
+        },
+      },
+    ]);
+
+    expect((await planMerge(incoming)).conflicts[0].editedBy).toBe('');
+  });
+});
+
+describe('merge undo', () => {
+  it('restores overwrites, removes additions and puts deletions back', async () => {
+    const db = setup([person('p1', 'الأصلي'), person('p2', 'محذوف')]);
+    const incoming = backup([
+      person('p1', 'المعدل'),
+      person('p3', 'جديد'),
+      ...buildDeletionLogEntries([person('p2', 'محذوف')]),
+    ]);
+
+    await mergeBackupJSONWithResolutions(incoming, {
+      p1: CONFLICT_RESOLUTION.USE_INCOMING,
+      'delete:p2': CONFLICT_RESOLUTION.USE_INCOMING,
+    });
+    expect((await db.get('p1')).fields.cached_fullName.value).toBe('المعدل');
+    expect(await db.get('p3')).toBeTruthy();
+    expect(await db.get('p2')).toBeFalsy();
+
+    const [pending] = await listUndoableMerges();
+    const result = await undoMerge(pending.id);
+
+    expect(result).toMatchObject({ restored: 1, removed: 1, reinstated: 1 });
+    expect((await db.get('p1')).fields.cached_fullName.value).toBe('الأصلي');
+    expect(await db.get('p3')).toBeFalsy();
+    expect((await db.get('p2')).fields.cached_fullName.value).toBe('محذوف');
+  });
+
+  it('cannot be undone twice', async () => {
+    setup([person('p1', 'الأصلي')]);
+    const incoming = backup([person('p1', 'المعدل')]);
+    await mergeBackupJSONWithResolutions(incoming, { p1: CONFLICT_RESOLUTION.USE_INCOMING });
+
+    const [pending] = await listUndoableMerges();
+    expect(await undoMerge(pending.id)).toBeTruthy();
+    expect(await undoMerge(pending.id)).toBeNull();
+    expect(await listUndoableMerges()).toHaveLength(0);
   });
 });

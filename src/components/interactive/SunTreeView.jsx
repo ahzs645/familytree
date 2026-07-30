@@ -9,7 +9,7 @@ const MAX_ZOOM = 14;
 const BUTTON_ZOOM_STEP = 0.5;
 const WHEEL_ZOOM_FACTOR = 1.16;
 
-export function SunTreeView({ descendantTree, activeId, loading, onPick, onEditPerson }) {
+export function SunTreeView({ descendantTree, activeId, loading, onPick, onEditPerson, menu }) {
   const layout = useMemo(() => buildSunTreeLayout(descendantTree), [descendantTree]);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -91,6 +91,7 @@ export function SunTreeView({ descendantTree, activeId, loading, onPick, onEditP
             node={node}
             active={node.id === activeId}
             onPick={onPick}
+            menu={menu}
             onEditPerson={onEditPerson}
           />
         ))}
@@ -99,7 +100,7 @@ export function SunTreeView({ descendantTree, activeId, loading, onPick, onEditP
   );
 }
 
-function SunPersonNode({ node, active, onPick, onEditPerson }) {
+function SunPersonNode({ node, active, onPick, onEditPerson, menu }) {
   const className = sunNodeClass(node.person, node.kind);
   const fill = nodeFill(className);
   const dates = lifeSpanLabel(node.person);
@@ -123,6 +124,7 @@ function SunPersonNode({ node, active, onPick, onEditPerson }) {
           event.stopPropagation();
           onEditPerson?.(node.id);
         }}
+        {...(menu?.handlersFor?.({ person: node.person }) || {})}
       >
         <image href={`${import.meta.env.BASE_URL}ftree/map_2x.png`} x="-96" y="-96" width="192" height="192" clipPath="url(#sun-root-map-clip)" opacity="0.98" />
         <circle r="48" fill="none" stroke="#f7f1e6" strokeWidth="3" />
@@ -144,6 +146,7 @@ function SunPersonNode({ node, active, onPick, onEditPerson }) {
         event.stopPropagation();
         onEditPerson?.(node.id);
       }}
+      {...(menu?.handlersFor?.({ person: node.person }) || {})}
     >
       <circle
         r={node.radius}

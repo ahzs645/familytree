@@ -787,6 +787,7 @@
       "snapshotDeleted": "Tree snapshot deleted.",
       "snapshotRenamed": "Tree snapshot renamed.",
       "snapshotSaved": "Saved tree snapshot \"{name}\".",
+      "undoingMerge": "Undoing merge…",
       "updatingFavorite": "Updating favorite…",
       "updatingLabel": "Updating label…"
     },
@@ -798,7 +799,18 @@
       "rootPerson": "Root person",
       "title": "Subtree export / remove"
     },
-    "title": "Import & Export"
+    "title": "Import & Export",
+    "undo": {
+      "action": "Undo merge",
+      "canceled": "Undo canceled.",
+      "confirm": "Undo this merge? Records it overwrote are restored, records it added are removed, and records it deleted come back.",
+      "description": "Reverse a merge you did not want: records it overwrote are restored, records it added are removed, and records it deleted come back.",
+      "done": "Undone: {restored} records restored, {removed} removed, {reinstated} put back.",
+      "lastMerge": "Last merge: {source} · {when} · {count} records affected",
+      "nothingToUndo": "No merge left to undo.",
+      "title": "Undo merge",
+      "unavailable": "That merge can no longer be undone."
+    }
   },
   "factsList": {
     "action": "Action",
@@ -838,6 +850,19 @@
     "subtitle": "Dedicated family list matching partner-pair and marriage data.",
     "title": "Families",
     "unknown": "Unknown"
+  },
+  "familyTreeView": {
+    "divorced": "Divorced {date}",
+    "editFamily": "Edit family",
+    "loading": "Loading family tree…",
+    "married": "Married {date}",
+    "noChildren": "No children recorded.",
+    "noMarriageDate": "No marriage date",
+    "noSpouses": "No spouses recorded.",
+    "pickPerson": "Pick a person to view their family tree.",
+    "siblings": "Siblings",
+    "spouses": "Spouses",
+    "subject": "Subject"
   },
   "gender": {
     "female": "Female",
@@ -1042,6 +1067,7 @@
     "heading": "Interactive Tree",
     "inspector": "Inspector",
     "loading": "Loading tree...",
+    "loadingTree": "Loading tree…",
     "matchesFamilySearch": "Matches on FamilySearch",
     "nav": "Nav",
     "navChild": "Child",
@@ -1062,6 +1088,7 @@
     "partners": "Partners",
     "people": "People",
     "personList": "Person List",
+    "pickFromList": "Pick a person from the list.",
     "presentationBadge": "Presentation — press Esc to exit",
     "relation": {
       "Child": "Child",
@@ -1264,16 +1291,21 @@
     "current": "Current",
     "defaultWarning": "Every row below is set to \"Keep current\", so applying now keeps your values and discards all {count} incoming changes. Choose \"Use incoming all\" to take them instead.",
     "deleteAll": "Delete all here too",
+    "deletedBy": "deleted by {author}",
     "deletionsFound": {
       "one": "{count} record was deleted in the other copy.",
       "other": "{count} records were deleted in the other copy."
     },
     "deletionsHeading": "Deleted in the other copy ({count})",
     "deletionsHint": "These records still exist here. Nothing is removed unless you tick it.",
+    "editedBy": "Changed by {author}",
+    "editedByOn": "Changed by {author} · {date}",
+    "editedOn": "Changed {date}",
     "field": "Field",
     "footerCounts": "Kept current: {existing} · Used incoming: {incoming} · Kept both: {rename}",
     "footerDeletions": "Deleting: {count}",
     "incoming": "Incoming",
+    "incomingFrom": "Incoming ({author})",
     "keepAll": "Keep all",
     "newRecords": {
       "one": "{count} new record will be added automatically.",
@@ -1456,6 +1488,11 @@
     },
     "title": "Research Dashboard",
     "unplaced": "{count} unplaced"
+  },
+  "personFocus": {
+    "editFamilyWith": "Edit family with",
+    "noEvents": "No events recorded.",
+    "noPartners": "No partners recorded."
   },
   "persons": {
     "all": "All persons",
@@ -1694,6 +1731,21 @@
     "stageRemoval": "Stage removal",
     "transcription": "Transcription / excerpt",
     "viewLineage": "View lineage"
+  },
+  "relations": {
+    "Brother": "Brother",
+    "Child": "Child",
+    "Daughter": "Daughter",
+    "Father": "Father",
+    "Husband": "Husband",
+    "Mother": "Mother",
+    "Parent": "Parent",
+    "Self": "Self",
+    "Sibling": "Sibling",
+    "Sister": "Sister",
+    "Son": "Son",
+    "Spouse": "Spouse",
+    "Wife": "Wife"
   },
   "reports": {
     "builders": {

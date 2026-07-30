@@ -10,6 +10,7 @@ import { eventTypeLabel } from '../../lib/catalogs.js';
 import { MiniTimeline } from '../MiniTimeline.jsx';
 import { BdiText, LtrText } from '../BdiText.jsx';
 import { Button } from '../ui/Button.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 const humanizeConclusionLabel = (raw) => eventTypeLabel(raw);
 
@@ -21,11 +22,11 @@ const CHIP_COLORS = {
   [Gender.Intersex]: ['hsl(280 60% 55% / 0.18)', 'hsl(280 60% 55% / 0.6)'],
 };
 
-function Chip({ person, onPick }) {
+function Chip({ person, onPick, unknownLabel }) {
   if (!person) {
     return (
       <div className="min-w-[160px] rounded-md border border-dashed border-border bg-muted px-3.5 py-2.5 text-muted-foreground">
-        Unknown
+        {unknownLabel}
       </div>
     );
   }
@@ -53,10 +54,11 @@ function Section({ title, children, count }) {
   );
 }
 
-export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescendantChart }) {
+export function PersonFocus({ context, onPick, onEditPerson, onAddRelative, onOpenAncestorChart, onOpenDescendantChart }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   if (!context) {
-    return <div className="p-10 text-muted-foreground">Pick a person from the list.</div>;
+    return <div className="p-10 text-muted-foreground">{t('interactiveTree.pickFromList', { defaultValue: 'Pick a person from the list.' })}</div>;
   }
   const self = context.selfSummary;
   const parents = context.parents.flatMap((fam) => [fam.man, fam.woman]).filter(Boolean);
@@ -68,28 +70,52 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
       <div className="mb-6 border-b border-border pb-5">
         <div className="text-[22px] font-bold text-foreground"><BdiText>{self.fullName}</BdiText></div>
         <div className="mt-1 text-sm text-muted-foreground">
-          <LtrText>{lifeSpanLabel(self) || 'No life dates'}</LtrText> · {genderLabel(self.gender)}
+          <LtrText>{lifeSpanLabel(self) || t('interactiveTree.noLifeDates')}</LtrText> · {genderLabel(self.gender)}
         </div>
         <div className="mt-3.5 flex flex-wrap gap-2">
-          <Button variant="primary" onClick={() => navigate(`/person/${self.recordName}`)}>Edit person</Button>
-          <Button onClick={() => onOpenAncestorChart(self.recordName)}>Ancestor chart</Button>
-          <Button onClick={() => onOpenDescendantChart(self.recordName)}>Descendant chart</Button>
+          <Button variant="primary" onClick={() => (onEditPerson ? onEditPerson(self.recordName) : navigate(`/person/${self.recordName}`))}>
+            {t('interactiveTree.editPerson')}
+          </Button>
+          <Button onClick={() => onOpenAncestorChart(self.recordName)}>{t('interactiveTree.ancestorChart')}</Button>
+          <Button onClick={() => onOpenDescendantChart(self.recordName)}>{t('interactiveTree.descendantChart')}</Button>
         </div>
+        {/* This pane has no canvas to right-click, so the add actions are
+            spelled out rather than hidden behind a gesture. */}
+        {onAddRelative && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <span className="self-center text-xs font-semibold text-muted-foreground">
+              {t('interactiveTree.addRelatives')}
+            </span>
+            {[
+              ['father', 'interactiveTree.addFather'],
+              ['mother', 'interactiveTree.addMother'],
+              ['partner', 'interactiveTree.addPartner'],
+              ['son', 'interactiveTree.addSon'],
+              ['daughter', 'interactiveTree.addDaughter'],
+              ['brother', 'interactiveTree.addBrother'],
+              ['sister', 'interactiveTree.addSister'],
+            ].map(([relation, key]) => (
+              <Button key={relation} onClick={() => onAddRelative({ relation, anchorId: self.recordName })}>
+                {t(key)}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
 
-      <Section title="Parents" count={parents.length}>
+      <Section title={t('interactiveTree.navSection.parents', { defaultValue: 'Parents' })} count={parents.length}>
         {parents.length === 0 ? (
-          <div className="text-sm italic text-muted-foreground">No parents recorded.</div>
+          <div className="text-sm italic text-muted-foreground">{t('editor.person.noParents', { defaultValue: 'No parents recorded' })}</div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">{parents.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} />)}</div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">{parents.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} unknownLabel={t('common.unknown', { defaultValue: 'Unknown' })} />)}</div>
         )}
       </Section>
 
-      <Section title="Partners" count={partners.length}>
+      <Section title={t('interactiveTree.navSection.partners', { defaultValue: 'Partners' })} count={partners.length}>
         {partners.length === 0 ? (
-          <div className="text-sm italic text-muted-foreground">No partners recorded.</div>
+          <div className="text-sm italic text-muted-foreground">{t('personFocus.noPartners', { defaultValue: 'No partners recorded.' })}</div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">{partners.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} />)}</div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">{partners.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} unknownLabel={t('common.unknown', { defaultValue: 'Unknown' })} />)}</div>
         )}
         {context.families.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -100,24 +126,25 @@ export function PersonFocus({ context, onPick, onOpenAncestorChart, onOpenDescen
                 className="text-interactive"
                 onClick={() => navigate(`/family/${fam.family.recordName}`)}
               >
-                Edit family with {fam.partner?.fullName ? <BdiText>{fam.partner.fullName}</BdiText> : '?'}
+                {t('personFocus.editFamilyWith', { defaultValue: 'Edit family with' })}{' '}
+                {fam.partner?.fullName ? <BdiText>{fam.partner.fullName}</BdiText> : '?'}
               </Button>
             ))}
           </div>
         )}
       </Section>
 
-      <Section title="Children" count={children.length}>
+      <Section title={t('interactiveTree.navSection.children', { defaultValue: 'Children' })} count={children.length}>
         {children.length === 0 ? (
-          <div className="text-sm italic text-muted-foreground">No children recorded.</div>
+          <div className="text-sm italic text-muted-foreground">{t('familyTreeView.noChildren', { defaultValue: 'No children recorded.' })}</div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">{children.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} />)}</div>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2">{children.map((p) => <Chip key={p.recordName} person={p} onPick={onPick} unknownLabel={t('common.unknown', { defaultValue: 'Unknown' })} />)}</div>
         )}
       </Section>
 
-      <Section title="Events" count={context.events.length}>
+      <Section title={t('editor.person.events', { defaultValue: 'Events' })} count={context.events.length}>
         {context.events.length === 0 ? (
-          <div className="text-sm italic text-muted-foreground">No events recorded.</div>
+          <div className="text-sm italic text-muted-foreground">{t('personFocus.noEvents', { defaultValue: 'No events recorded.' })}</div>
         ) : (
           <>
             <div className="mb-3">

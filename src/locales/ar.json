@@ -834,6 +834,7 @@
       "snapshotDeleted": "حُذفت لقطة الشجرة.",
       "snapshotRenamed": "أُعيدت تسمية لقطة الشجرة.",
       "snapshotSaved": "حُفظت لقطة الشجرة «{name}».",
+      "undoingMerge": "جارٍ التراجع عن الدمج…",
       "updatingFavorite": "جارٍ تحديث المفضّلة…",
       "updatingLabel": "جارٍ تحديث التصنيف…"
     },
@@ -845,7 +846,18 @@
       "rootPerson": "شخص الجذر",
       "title": "تصدير/إزالة فرع"
     },
-    "title": "الاستيراد والتصدير"
+    "title": "الاستيراد والتصدير",
+    "undo": {
+      "action": "التراجع عن الدمج",
+      "canceled": "أُلغي التراجع.",
+      "confirm": "هل تريد التراجع عن هذا الدمج؟ ستُستعاد السجلات التي استُبدلت، وتُزال السجلات التي أُضيفت، وتعود السجلات التي حُذفت.",
+      "description": "التراجع عن دمج غير مرغوب: تُستعاد السجلات التي استُبدلت، وتُزال السجلات التي أُضيفت، وتعود السجلات التي حُذفت.",
+      "done": "تم التراجع: استُعيد {restored} سجل، وأُزيل {removed}، وأُعيد {reinstated}.",
+      "lastMerge": "آخر دمج: {source} · {when} · {count} سجل متأثّر",
+      "nothingToUndo": "لا يوجد دمج للتراجع عنه.",
+      "title": "التراجع عن الدمج",
+      "unavailable": "لم يعد بالإمكان التراجع عن ذلك الدمج."
+    }
   },
   "factsList": {
     "action": "إجراء",
@@ -885,6 +897,19 @@
     "subtitle": "قائمة عائلات مخصّصة لمعاينة الأزواج وروابط الزواج.",
     "title": "العائلات",
     "unknown": "غير معروف"
+  },
+  "familyTreeView": {
+    "divorced": "طلاق في {date}",
+    "editFamily": "تحرير العائلة",
+    "loading": "جارٍ تحميل شجرة العائلة…",
+    "married": "تزوّج في {date}",
+    "noChildren": "لا يوجد أبناء مسجّلون.",
+    "noMarriageDate": "لا يوجد تاريخ زواج",
+    "noSpouses": "لا يوجد أزواج مسجّلون.",
+    "pickPerson": "اختر شخصاً لعرض شجرة عائلته.",
+    "siblings": "الإخوة والأخوات",
+    "spouses": "الأزواج",
+    "subject": "الشخص المعني"
   },
   "gender": {
     "female": "أنثى",
@@ -1105,6 +1130,7 @@
     "heading": "الشجرة التفاعلية",
     "inspector": "الفاحص",
     "loading": "جارٍ تحميل الشجرة...",
+    "loadingTree": "جارٍ تحميل الشجرة…",
     "matchesFamilySearch": "التطابقات على FamilySearch",
     "nav": "تنقل",
     "navChild": "الابن",
@@ -1125,6 +1151,7 @@
     "partners": "الشركاء",
     "people": "الأشخاص",
     "personList": "قائمة الأشخاص",
+    "pickFromList": "اختر شخصاً من القائمة.",
     "presentationBadge": "عرض تقديمي — اضغط Esc للخروج",
     "relation": {
       "Child": "الابن/الابنة",
@@ -1335,6 +1362,7 @@
     "current": "الحالي",
     "defaultWarning": "كل الصفوف أدناه مضبوطة على «الإبقاء على الحالي»، لذا فإن التطبيق الآن يحتفظ بقيمك ويتجاهل جميع التغييرات الواردة ({count}). اختر «استخدام الوارد للكل» لأخذها بدلاً من ذلك.",
     "deleteAll": "حذفها كلها هنا أيضاً",
+    "deletedBy": "حذفه {author}",
     "deletionsFound": {
       "few": "حُذفت {count} سجلات في النسخة الأخرى.",
       "many": "حُذف {count} سجلاً في النسخة الأخرى.",
@@ -1345,10 +1373,14 @@
     },
     "deletionsHeading": "محذوف في النسخة الأخرى ({count})",
     "deletionsHint": "هذه السجلات لا تزال موجودة هنا. لن يُحذف شيء ما لم تحدّده.",
+    "editedBy": "عدّله {author}",
+    "editedByOn": "عدّله {author} · {date}",
+    "editedOn": "عُدّل في {date}",
     "field": "الحقل",
     "footerCounts": "أُبقي على الحالي: {existing} · استُخدم الوارد: {incoming} · أُبقي على الاثنين: {rename}",
     "footerDeletions": "سيُحذف: {count}",
     "incoming": "الوارد",
+    "incomingFrom": "الوارد (من {author})",
     "keepAll": "الإبقاء عليها كلها",
     "newRecords": {
       "few": "ستُضاف {count} سجلات جديدة تلقائياً.",
@@ -1547,6 +1579,11 @@
     },
     "title": "لوحة البحث",
     "unplaced": "{count} غير مُموقع"
+  },
+  "personFocus": {
+    "editFamilyWith": "تحرير العائلة مع",
+    "noEvents": "لا توجد أحداث مسجّلة.",
+    "noPartners": "لا يوجد شركاء مسجّلون."
   },
   "persons": {
     "all": "كل الأشخاص",
@@ -1793,6 +1830,21 @@
     "stageRemoval": "تهيئة الحذف",
     "transcription": "النسخ / المقتطف",
     "viewLineage": "عرض المصدرية"
+  },
+  "relations": {
+    "Brother": "الأخ",
+    "Child": "الابن/الابنة",
+    "Daughter": "الابنة",
+    "Father": "الأب",
+    "Husband": "الزوج",
+    "Mother": "الأم",
+    "Parent": "أحد الوالدين",
+    "Self": "نفسه",
+    "Sibling": "أخ/أخت",
+    "Sister": "الأخت",
+    "Son": "الابن",
+    "Spouse": "الزوج/الزوجة",
+    "Wife": "الزوجة"
   },
   "reports": {
     "builders": {

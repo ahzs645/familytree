@@ -54,15 +54,55 @@ export function exportFileBaseName({ treeName = '', authorName = '', now = new D
   return `${parts.join('-')}-${stamp}`;
 }
 
-/** Keep letters, digits and separators; drop anything a filesystem dislikes. */
-function sanitizeFileNamePart(value) {
-  return String(value || '')
+// Chromium ignores a download filename containing any non-ASCII character and
+// saves the file as "download" instead — so an Arabic tree name produced the
+// very filename collision this is meant to prevent. Transliterate instead of
+// dropping, so the name stays recognisable.
+const ARABIC_TRANSLITERATION = {
+  'ء': '', 'آ': 'a', 'أ': 'a', 'ؤ': 'w', 'إ': 'i', 'ئ': 'y', 'ا': 'a', 'ب': 'b',
+  'ة': 'h', 'ت': 't', 'ث': 'th', 'ج': 'j', 'ح': 'h', 'خ': 'kh', 'د': 'd',
+  'ذ': 'dh', 'ر': 'r', 'ز': 'z', 'س': 's', 'ش': 'sh', 'ص': 's', 'ض': 'd',
+  'ط': 't', 'ظ': 'z', 'ع': 'a', 'غ': 'gh', 'ف': 'f', 'ق': 'q', 'ك': 'k',
+  'ل': 'l', 'م': 'm', 'ن': 'n', 'ه': 'h', 'و': 'w', 'ى': 'a', 'ي': 'y',
+  'ٱ': 'a', '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4', '٥': '5',
+  '٦': '6', '٧': '7', '٨': '8', '٩': '9',
+  // Latin letters NFKD leaves alone because they are not accented forms.
+  'ß': 'ss', 'æ': 'ae', 'Æ': 'AE', 'œ': 'oe', 'Œ': 'OE', 'ø': 'o', 'Ø': 'O',
+  'đ': 'd', 'Đ': 'D', 'ł': 'l', 'Ł': 'L', 'þ': 'th', 'Þ': 'Th', 'ð': 'd', 'Ð': 'D',
+};
+
+/** Readable ASCII for a filename part: transliterate, then drop the rest. */
+export function asciiFileNamePart(value) {
+  const text = String(value || '');
+  const transliterated = [...text]
+    .map((char) => (char in ARABIC_TRANSLITERATION ? ARABIC_TRANSLITERATION[char] : char))
+    .join('')
+    // é → e, ü → u, and Arabic diacritics fall away with their base letters.
+    .normalize('NFKD')
+    .replace(/\p{M}+/gu, '');
+  const ascii = transliterated.replace(/[^\x20-\x7E]+/g, ' ');
+  const cleaned = ascii
     .replace(/[\\/:*?"<>|]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\s/g, '-')
     .slice(0, 48)
     .replace(/^-+|-+$/g, '');
+  // A script with no mapping at all still has to stay distinguishable, or two
+  // relatives' files collide again.
+  if (!cleaned && text.trim()) return `t${shortHash(text)}`;
+  return cleaned;
+}
+
+/** Small stable token so different names never produce the same filename. */
+function shortHash(value) {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i += 1) hash = ((hash * 33) ^ value.charCodeAt(i)) >>> 0;
+  return hash.toString(36).slice(0, 6);
+}
+
+function sanitizeFileNamePart(value) {
+  return asciiFileNamePart(value);
 }
 
 async function exportBaseName() {

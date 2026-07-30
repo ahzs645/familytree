@@ -9,7 +9,7 @@ const GENERATION_GAP = 154;
 const COLUMN_GAP = 76;
 const PADDING = 96;
 
-export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditPerson, onOpenFamily }) {
+export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditPerson, onOpenFamily, menu }) {
   const layout = useMemo(() => buildCanvasLayout(graph), [graph]);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -147,6 +147,7 @@ export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditP
             active={node.id === activeId}
             onPick={onPick}
             onEditPerson={onEditPerson}
+            menu={menu}
           />
         ))}
       </svg>
@@ -154,7 +155,7 @@ export function TraumatreeCanvasView({ graph, activeId, loading, onPick, onEditP
   );
 }
 
-function CanvasPersonNode({ node, active, onPick, onEditPerson }) {
+function CanvasPersonNode({ node, active, onPick, onEditPerson, menu }) {
   const person = node.person;
   const dates = lifeSpanLabel(person);
   const color = nodeColor(person?.gender);
@@ -173,6 +174,7 @@ function CanvasPersonNode({ node, active, onPick, onEditPerson }) {
         event.stopPropagation();
         onEditPerson?.(node.id);
       }}
+      {...(menu?.handlersFor?.({ person: node.person, node }) || {})}
     >
       <rect
         width={NODE_WIDTH}

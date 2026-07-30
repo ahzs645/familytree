@@ -11,7 +11,7 @@ import { downloadGraphvizDot } from '../lib/graphvizExport.js';
 import { analyzeGedcomText, canImportGedcomAnalysis, gedcomImportModeLabel, importGedcomText } from '../lib/gedcomImport.js';
 import { GEDCOM_ACCEPT, readGedcomTextFromFile } from '../lib/genealogyFileFormats.js';
 import { downloadBackup, downloadMFTPackage } from '../lib/backup.js';
-import { analyzeBackupMergeJSON, mergeBackupJSON, planMerge, mergeBackupJSONWithResolutions, loadMergeFileToBackupJSON } from '../lib/mergeImport.js';
+import { analyzeBackupMergeJSON, mergeBackupJSON, planMerge, mergeBackupJSONWithResolutions, loadMergeFileToBackupJSON, listUndoableMerges, undoMerge } from '../lib/mergeImport.js';
 import { MergeConflictSheet } from '../components/MergeConflictSheet.jsx';
 import { MergeTreesWizardSheet } from '../components/MergeTreesWizardSheet.jsx';
 import { downloadSubtreeBackup, removeSubtree } from '../lib/subtree.js';
@@ -61,6 +61,7 @@ export default function Export() {
   const [pendingMerge, setPendingMerge] = useState(null);
   const [rollbackNote, setRollbackNote] = useState('');
   const [conflictPlan, setConflictPlan] = useState(null);
+  const [undoableMerges, setUndoableMerges] = useState([]);
   const [mergeWizardOpen, setMergeWizardOpen] = useState(false);
   const [persons, setPersons] = useState([]);
   const [subtreeRoot, setSubtreeRoot] = useState(null);
@@ -90,6 +91,7 @@ export default function Export() {
       setSelectedSnapshot((current) => current || snapshots[0]?.id || '');
       const prefs = await getAppPreferences();
       setGedcomImportMode(prefs.importDefaults?.gedcomMode || 'review');
+      setUndoableMerges(await listUndoableMerges());
     })();
     // activePersonId is intentionally only used as the initial default.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -224,6 +226,7 @@ export default function Export() {
 
   const finalizeMerge = async (result) => {
     await refresh();
+    setUndoableMerges(await listUndoableMerges());
     setPendingMerge(null);
     setRollbackNote('');
     setConflictPlan(null);
@@ -256,7 +259,10 @@ export default function Export() {
     setBusy(true);
     setStatus(t('exportPage.status.applyingMerge', { defaultValue: 'Applying merge…' }));
     try {
-      const result = await mergeBackupJSONWithResolutions(pendingMerge.json, resolutions, { rollbackNote });
+      const result = await mergeBackupJSONWithResolutions(pendingMerge.json, resolutions, {
+        rollbackNote,
+        sourceLabel: pendingMerge.fileName || '',
+      });
       setStatus(await finalizeMerge(result));
     } catch (error) {
       setStatus(t('exportPage.status.mergeFailed', { message: error.message, defaultValue: `Merge failed: ${error.message}` }));
@@ -264,6 +270,25 @@ export default function Export() {
       setBusy(false);
     }
   };
+
+  const onUndoMerge = wrap(t('exportPage.status.undoingMerge', { defaultValue: 'Undoing merge…' }), async () => {
+    const target = undoableMerges[0];
+    if (!target) return t('exportPage.undo.nothingToUndo', { defaultValue: 'No merge left to undo.' });
+    if (!(await modal.confirm(
+      t('exportPage.undo.confirm', { source: target.source || target.rollbackNote || '', defaultValue: 'Undo this merge? Records it overwrote are restored, records it added are removed, and records it deleted come back.' }),
+      { title: t('exportPage.undo.title', { defaultValue: 'Undo merge' }), okLabel: t('exportPage.undo.action', { defaultValue: 'Undo merge' }), destructive: true },
+    ))) return t('exportPage.undo.canceled', { defaultValue: 'Undo canceled.' });
+    const result = await undoMerge(target.id);
+    await refresh();
+    setUndoableMerges(await listUndoableMerges());
+    if (!result) return t('exportPage.undo.unavailable', { defaultValue: 'That merge can no longer be undone.' });
+    return t('exportPage.undo.done', {
+      restored: result.restored,
+      removed: result.removed,
+      reinstated: result.reinstated,
+      defaultValue: `Undone: ${result.restored} records restored, ${result.removed} removed, ${result.reinstated} put back.`,
+    });
+  });
 
   const onSubtreeExport = wrap(t('exportPage.status.exportingSubtree', { defaultValue: 'Exporting subtree…' }), async () => {
     if (!subtreeRoot) return t('exportPage.status.pickSubtreeRoot', { defaultValue: 'Pick a subtree root first.' });
@@ -563,6 +588,27 @@ export default function Export() {
           </Card>
         </div>
 
+        {undoableMerges.length > 0 && (
+          <div id="undo-merge">
+            <Card
+              title={t('exportPage.undo.title', { defaultValue: 'Undo merge' })}
+              description={t('exportPage.undo.description', { defaultValue: 'Reverse a merge you did not want: records it overwrote are restored, records it added are removed, and records it deleted come back.' })}
+            >
+              <div className="mb-3 text-xs text-muted-foreground" dir="auto">
+                {t('exportPage.undo.lastMerge', {
+                  source: undoableMerges[0].source || t('common.unknown', { defaultValue: 'Unknown' }),
+                  when: new Date(undoableMerges[0].importedAt).toLocaleString(),
+                  count: undoableMerges[0].undoSize,
+                  defaultValue: `Last merge: ${undoableMerges[0].source} · ${new Date(undoableMerges[0].importedAt).toLocaleString()} · ${undoableMerges[0].undoSize} records affected`,
+                })}
+              </div>
+              <button onClick={onUndoMerge} disabled={busy} className={btnSecondary}>
+                {t('exportPage.undo.action', { defaultValue: 'Undo merge' })}
+              </button>
+            </Card>
+          </div>
+        )}
+
         <div id="contacts-import">
           <Card
             title={t('exportPage.contacts.title', { defaultValue: 'Contacts import' })}
@@ -703,6 +749,7 @@ export default function Export() {
       {conflictPlan && (
         <MergeConflictSheet
           plan={conflictPlan}
+          sourceLabel={pendingMerge?.fileName || ''}
           onApply={onApplyResolutions}
           onCancel={() => setConflictPlan(null)}
         />
