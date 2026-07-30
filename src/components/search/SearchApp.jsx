@@ -18,6 +18,7 @@ import { Input } from '../ui/Input.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { ToolbarOverflow } from '../ui/ToolbarOverflow.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
+import { Search as SearchIcon } from 'lucide-react';
 
 const SAVED_SEARCHES_KEY = 'savedSearches';
 const EMPTY_GENEALOGY_SEARCH = Object.freeze({
@@ -341,7 +342,9 @@ export function SearchApp() {
         {t('search.genealogy', { defaultValue: 'Genealogy' })}
       </Button>
         <Field label={t('search.savedSearches', { defaultValue: 'Saved searches' })}>
-          <div className="flex gap-1">
+          {/* Wraps: three controls do not fit one line inside the overflow
+              sheet on a phone, and the last was clipped at its edge. */}
+          <div className="flex flex-wrap gap-1">
             <Select
               value=""
               onChange={(value) => value && onLoadSearch(value)}
@@ -369,24 +372,52 @@ export function SearchApp() {
 
   return (
     <div className="flex h-full flex-col bg-background">
-      <header className="flex flex-wrap items-end gap-2 border-b border-border bg-card px-3 py-2 md:px-5 md:py-3">
-        <Field label={t('search.freeText', { defaultValue: 'Free text' })}>
-          <Input
-            value={textQuery}
-            onChange={(e) => setTextQuery(e.target.value)}
-            placeholder={t('search.matchAnyField', { defaultValue: 'Match any field…' })}
-            className="min-w-0"
-            onKeyDown={(e) => e.key === 'Enter' && onRun()}
-          />
-        </Field>
-        {!isMobile && secondaryControls}
-        <Button variant="primary" size="md" onClick={onRun} disabled={running} className="md:mt-3.5">
-          {running ? t('search.running', { defaultValue: 'Running…' }) : t('common.search', { defaultValue: 'Search' })}
-        </Button>
-        {isMobile && (
-          <ToolbarOverflow label={t('search.moreOptions', { defaultValue: 'Search options' })} className="mb-0.5">
-            <div className="flex flex-col gap-2">{secondaryControls}</div>
-          </ToolbarOverflow>
+      <header className="border-b border-border bg-card px-3 py-2 md:px-5 md:py-3">
+        {isMobile ? (
+          // One row: query, run, and the rest. The field label is dropped —
+          // the placeholder already says what the box takes — and the Search
+          // button becomes its icon, which is what keeps the overflow on the
+          // same line instead of wrapping it onto its own.
+          <div className="flex items-center gap-2">
+            <Input
+              value={textQuery}
+              onChange={(e) => setTextQuery(e.target.value)}
+              placeholder={t('search.matchAnyField', { defaultValue: 'Match any field…' })}
+              aria-label={t('search.freeText', { defaultValue: 'Free text' })}
+              className="min-w-0 flex-1"
+              onKeyDown={(e) => e.key === 'Enter' && onRun()}
+            />
+            <Button
+              variant="primary"
+              size="md"
+              onClick={onRun}
+              disabled={running}
+              className="w-10 shrink-0 px-0"
+              aria-label={running ? t('search.running', { defaultValue: 'Running…' }) : t('common.search', { defaultValue: 'Search' })}
+              title={t('common.search', { defaultValue: 'Search' })}
+            >
+              <SearchIcon size={18} />
+            </Button>
+            <ToolbarOverflow label={t('search.moreOptions', { defaultValue: 'Search options' })}>
+              <div className="flex flex-col gap-2">{secondaryControls}</div>
+            </ToolbarOverflow>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label={t('search.freeText', { defaultValue: 'Free text' })}>
+              <Input
+                value={textQuery}
+                onChange={(e) => setTextQuery(e.target.value)}
+                placeholder={t('search.matchAnyField', { defaultValue: 'Match any field…' })}
+                className="min-w-0"
+                onKeyDown={(e) => e.key === 'Enter' && onRun()}
+              />
+            </Field>
+            {secondaryControls}
+            <Button variant="primary" size="md" onClick={onRun} disabled={running} className="mt-3.5">
+              {running ? t('search.running', { defaultValue: 'Running…' }) : t('common.search', { defaultValue: 'Search' })}
+            </Button>
+          </div>
         )}
       </header>
 
