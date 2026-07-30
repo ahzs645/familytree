@@ -3,7 +3,7 @@
  * Uses ActivePersonContext so the choice persists across routes.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   listAllPersons,
   findStartPerson,
@@ -24,6 +24,7 @@ import { SunTreeView } from './SunTreeView.jsx';
 import { TraumatreeCanvasView } from './TraumatreeCanvasView.jsx';
 import { FamilyTreeView } from './FamilyTreeView.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
+import { NoDataYet } from '../NoDataYet.jsx';
 import { Gender, lifeSpanLabel } from '../../models/index.js';
 import { resolveInitialTreePersonId } from './initialTreePerson.js';
 import { persistTreeViewMode, readInitialTreeViewMode } from './treeViewMode.js';
@@ -249,15 +250,8 @@ export function InteractiveTreeApp() {
     navigate('/familysearch');
   }, [navigate, setActivePerson]);
 
-  if (loading) return <EmptyMsg text="Loading…" />;
-  if (empty) {
-    return (
-      <EmptyMsg>
-        No family data found.{' '}
-        <Link to="/" className="ms-1.5 text-interactive">Import a .mftpkg</Link> first.
-      </EmptyMsg>
-    );
-  }
+  if (loading) return <EmptyMsg text={t('common.loading', { defaultValue: 'Loading…' })} />;
+  if (empty) return <NoDataYet />;
 
   const showList = !isMobile || mobilePane === 'list';
   const showFocus = !isMobile || mobilePane === 'focus';

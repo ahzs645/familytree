@@ -9,7 +9,7 @@
  * hands rendering to ChartStage.
  */
 import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { matchesSearchText } from '../../lib/i18n.js';
@@ -49,6 +49,7 @@ import { useChartSharing } from './hooks/useChartSharing.js';
 import { useChartsBootstrap } from './hooks/useChartsBootstrap.js';
 import { useChartData } from './hooks/useChartData.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { NoDataYet } from '../NoDataYet.jsx';
 
 const LOADING_CLASSES = 'flex h-full items-center justify-center bg-background text-muted-foreground';
 
@@ -485,13 +486,7 @@ export function ChartsApp() {
   );
 
   if (loading) return <div className={LOADING_CLASSES}>Loading family data…</div>;
-  if (empty) {
-    return (
-      <div className={LOADING_CLASSES}>
-        No family data found. <Link to="/" className="ms-1.5 text-interactive">Import a .mftpkg</Link> first.
-      </div>
-    );
-  }
+  if (empty) return <NoDataYet />;
 
   return (
     <div className="flex h-full flex-col bg-background">

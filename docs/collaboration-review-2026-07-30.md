@@ -266,7 +266,77 @@ now: `عائلة أحمد` produced `download`, and now produces `aaylh-ahmd-…
 
 ---
 
-## 5. Still open
+## 5. Round four — the form fields, and the phone
+
+Method: all 90 routes crawled in Chromium, first computing each control's
+accessible name the way a screen reader does (`aria-label`, `aria-labelledby`,
+`label[for]`, a wrapping `<label>`, `title`, `placeholder`), then re-crawled at
+390 × 844 with `pointer: coarse` and again at 1280 × 900, measuring every
+control's rendered box.
+
+**5.1 — 82 form fields had no name at all.**
+
+Not missing captions — the captions were on screen the whole time. They were
+markup like this, repeated in Sources, Places and the family editor:
+
+```jsx
+<div className="flex-1 min-w-0">
+  <label className="block text-xs …">{label}</label>   // names nothing
+  {children}
+</div>
+```
+
+A `<label>` with no `for` and no control inside it is decoration. To anyone
+using a screen reader, `/sources` was 23 anonymous text boxes and `/places` was
+12. Fixed at the source in each shared component — the `Field` helper used by
+Sources/Places/FamilyEditor, `SimpleCrudList`, `ScopeFilterSelect`,
+`ConfigurableListTable` and SearchApp's own `Field` now wrap the control rather
+than sit beside it — plus one-off `aria-label`s on toolbar selects that have no
+visible caption to wrap. **82 → 0.**
+
+**5.2 — Eleven pages had no `<h1>`; two had two.**
+
+Route components turned out to be the wrong owner for this. Most of them return
+a different tree while loading and a third one when there is nothing to show,
+and those branches dropped the heading — `/slideshow` had a perfectly good
+`<h1>`, in the branch that only renders once media exists. The shell names the
+page now, from the same nav-label table the drawer uses, and every route-level
+`<h1>` became an `<h2>` beneath it. Correct in every state. **90/90 routes now
+have exactly one `<main>` and exactly one `<h1>`.**
+
+**5.3 — Layout at 390 px was already sound. Touch targets were not.**
+
+The crawl found **zero** horizontal overflow and **zero** unreachable controls
+at either width — the one wide table (`/reference-numbering`, `min-w-[30rem]`)
+is inside an `overflow-x-auto` wrapper and scrolls within itself, which is
+correct. Nothing needed a layout fix.
+
+What it did find was size. The control styles are tuned for a mouse: a
+`size="sm"` button lands at 30 px tall, toolbar selects at 26 px, the map/globe
+switcher at 24 px, checkboxes at 16 px. That is a mouse target, not a finger
+one, and it covered the "+ New" and "Save" buttons on essentially every list
+page.
+
+Fixed once, in `index.css`, keyed on `pointer: coarse` rather than a width
+breakpoint — it is the touch input that needs the bigger target, not the narrow
+screen, so a tablet and a phone in landscape both get it and desktop density is
+untouched. `min-height` only grows things, so the flex/wrap toolbars absorb it.
+MapLibre's own control stack is excluded; forcing our sizes on it breaks the
+zoom cluster's alignment.
+
+**5.4 — The empty state was English, and backwards.**
+
+Three pages (tree, charts, books) each carried their own copy of "No family
+data found. *Import a .mftpkg* first." — hard-coded, and assembled from three
+sibling nodes, so under `dir="rtl"` it rendered in source order and came out as
+fragments: `.first` `Import a .mftpkg` `.No family data found`. This is the
+first thing a reviewer sees if their shared link fails to load, which is a bad
+place to be untranslated. It is one translated string with the link inside it
+now (`components/NoDataYet.jsx`), so the whole line reorders as a unit.
+
+---
+
+## 6. Still open
 
 - **No live collaboration.** Two people editing separate copies still produce
   two files that both need merging. Simultaneous editing is a backend — the
@@ -276,12 +346,13 @@ now: `عائلة أحمد` produced `download`, and now produces `aaylh-ahmd-…
 - **Undo is one level and local.** It reverses the last merge in this browser;
   there is no history UI for older ones, and the journal is dropped after three
   merges.
-- **~79 unlabelled form fields remain** elsewhere in the app (Sources, Books,
-  Places), unchanged from the 2026-07-27 review.
+- **Several utility pages are still English** in their body copy (Books,
+  Websites, Tribal Affiliations, Maintenance). They are off the review path —
+  a reviewer never needs them — but they are not translated.
 
 ---
 
-## 6. What to tell the reviewers
+## 7. What to tell the reviewers
 
 The link gives each of them a private copy that never leaves their phone. They
 can change anything without risk to the original. When they are done:

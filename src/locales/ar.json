@@ -312,7 +312,9 @@
     "startDate": "تاريخ البدء",
     "title": "العنوان",
     "unknown": "غير معروف",
-    "value": "القيمة"
+    "value": "القيمة",
+    "noFamilyDataYet": "لم يتم تحميل أي شجرة عائلة بعد. استورد ملف ‎.mftpkg للبدء.",
+    "goToImport": "فتح صفحة الاستيراد"
   },
   "constants": {
     "additionalNameDisplay": {

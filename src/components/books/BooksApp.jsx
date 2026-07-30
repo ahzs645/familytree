@@ -3,7 +3,6 @@
  * and export using the same report exporters.
  */
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { AlertTriangle, BookOpen, FileDown, FileText, Printer, Save } from 'lucide-react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import {
@@ -36,6 +35,7 @@ import { useModal } from '../../contexts/ModalContext.jsx';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { Button } from '../ui/Button.jsx';
 import { cn } from '../../lib/utils.js';
+import { NoDataYet } from '../NoDataYet.jsx';
 
 /**
  * Toolbar select/input chrome. Native <select> elements are kept (instead of
@@ -299,13 +299,7 @@ export function BooksApp() {
   }, [book, includeWebsite, validation]);
 
   if (loading) return <div className={loadingClass}>Loading…</div>;
-  if (empty) {
-    return (
-      <div className={loadingClass}>
-        No family data. <Link to="/" className="ms-1.5 text-interactive">Import a .mftpkg</Link> first.
-      </div>
-    );
-  }
+  if (empty) return <NoDataYet />;
 
   return (
     <div className="flex h-full flex-col bg-background">

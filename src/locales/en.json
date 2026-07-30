@@ -300,7 +300,9 @@
     "startDate": "Start date",
     "title": "Title",
     "unknown": "Unknown",
-    "value": "Value"
+    "value": "Value",
+    "noFamilyDataYet": "No family tree loaded yet. Import a .mftpkg file to get started.",
+    "goToImport": "Open the import page"
   },
   "constants": {
     "additionalNameDisplay": {
