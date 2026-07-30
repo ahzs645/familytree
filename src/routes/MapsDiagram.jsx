@@ -13,6 +13,8 @@ import { VisualOptionsDrawer } from '../components/charts/VisualOptionsDrawer.js
 import { formatEventDate } from '../utils/formatDate.js';
 import { personSummary } from '../models/index.js';
 import { Select } from '../components/ui/Select.jsx';
+import { useIsMobile } from '../lib/useIsMobile.js';
+import { cn } from '../lib/utils.js';
 import {
   buildChronologicalConnections,
   colorForVisualEvent,
@@ -65,6 +67,7 @@ export default function MapsDiagram() {
   const [playing, setPlaying] = useState(false);
   const [stepYears, setStepYears] = useState(5);
   const [allYears, setAllYears] = useState(false);
+  const isMobile = useIsMobile();
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [visualOptions, setVisualOptions] = useState(() => normalizeVisualViewOptions('mapStory'));
   const navigateMapMode = (mode) => {
@@ -284,15 +287,22 @@ export default function MapsDiagram() {
           <button
             type="button"
             onClick={() => setOptionsOpen((open) => !open)}
+            aria-expanded={optionsOpen}
             className="inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs hover:bg-accent"
           >
-            Options
+            {isMobile && optionsOpen ? 'Hide options' : 'Options'}
           </button>
           <Link to="/events" className="hidden inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs hover:bg-accent sm:inline-flex">Events</Link>
           <Link to="/places" className="hidden inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs hover:bg-accent sm:inline-flex">Places</Link>
         </div>
         </div>
-        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.35fr)_minmax(140px,0.65fr)_minmax(220px,1fr)_minmax(260px,1.25fr)]">
+        {/* Nine rows of filters at 390px — 64% of the screen above a map. On a
+            phone they fold behind the toolbar's own Options toggle; on a wide
+            screen they stay open, where there is room for them. */}
+        <div className={cn(
+          'mt-3 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.35fr)_minmax(140px,0.65fr)_minmax(220px,1fr)_minmax(260px,1.25fr)]',
+          isMobile && !optionsOpen ? 'hidden' : 'grid',
+        )}>
           <label className="grid gap-1 text-xs text-muted-foreground">
             <span>Statistic</span>
             <Select

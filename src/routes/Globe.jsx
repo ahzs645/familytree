@@ -14,6 +14,9 @@ import { readConclusionType } from '../lib/schema.js';
 import { Map as MapView } from '../components/ui/Map.jsx';
 import { MapModeSwitch } from '../components/ui/MapModeSwitch.jsx';
 import { VisualOptionsDrawer } from '../components/charts/VisualOptionsDrawer.jsx';
+import { ToolbarOverflow } from '../components/ui/ToolbarOverflow.jsx';
+import { useIsMobile } from '../lib/useIsMobile.js';
+import { useSetPageMeta } from '../contexts/PageMetaContext.jsx';
 import {
   attachEventCounts,
   buildChronologicalConnections,
@@ -56,6 +59,7 @@ function classifyOverlay(type) {
 }
 
 export default function Globe() {
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
   const inViews = location.pathname.startsWith('/views/');
@@ -231,28 +235,51 @@ export default function Globe() {
     navigate(targets[mode] || targets.globe);
   };
 
+  const countLine = loading
+    ? 'Loading all person events…'
+    : `${filtered.length.toLocaleString()} / ${points.length.toLocaleString()} person and family event location${points.length === 1 ? '' : 's'}`;
+  useSetPageMeta(isMobile ? countLine : null);
+
   return (
     <div className="flex flex-col h-full">
-      <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
+      <header className="flex flex-wrap items-center gap-3 border-b border-border bg-card px-3 py-2 md:px-5 md:py-3">
         <h2 className="text-base font-semibold">Maps</h2>
         <MapModeSwitch activeMode="globe" onModeChange={navigateMapMode} />
-        <span className="text-xs text-muted-foreground">
-          {loading ? 'Loading all person events…' : `${filtered.length.toLocaleString()} / ${points.length.toLocaleString()} person and family event location${points.length === 1 ? '' : 's'}`}
-        </span>
-        <div className="flex items-center gap-1 flex-wrap">
-          {OVERLAY_TYPES.map((type) => (
-            <button
-              key={type.id}
-              type="button"
-              onClick={() => setOverlay(type.id)}
-              className={`inline-flex h-8 items-center rounded-md border px-2.5 text-xs ${overlay === type.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-foreground border-border hover:bg-accent'}`}
-              title={`Show ${type.label.toLowerCase()}`}
-            >
-              {type.label}
-              <span className="ms-1 text-2xs opacity-70">{countsByOverlay[type.id] || 0}</span>
-            </button>
-          ))}
-        </div>
+        <span className="hidden text-xs text-muted-foreground md:inline">{countLine}</span>
+        {isMobile ? (
+          <ToolbarOverflow label="Event types">
+            {({ close }) => (
+              <div className="flex flex-wrap gap-1">
+                {OVERLAY_TYPES.map((type) => (
+                  <button
+                    key={type.id}
+                    type="button"
+                    onClick={() => { setOverlay(type.id); close(); }}
+                    className={`inline-flex h-8 items-center rounded-md border px-2.5 text-xs ${overlay === type.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-foreground border-border hover:bg-accent'}`}
+                  >
+                    {type.label}
+                    <span className="ms-1 text-2xs opacity-70">{countsByOverlay[type.id] || 0}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </ToolbarOverflow>
+        ) : (
+          <div className="flex items-center gap-1 flex-wrap">
+            {OVERLAY_TYPES.map((type) => (
+              <button
+                key={type.id}
+                type="button"
+                onClick={() => setOverlay(type.id)}
+                className={`inline-flex h-8 items-center rounded-md border px-2.5 text-xs ${overlay === type.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-foreground border-border hover:bg-accent'}`}
+                title={`Show ${type.label.toLowerCase()}`}
+              >
+                {type.label}
+                <span className="ms-1 text-2xs opacity-70">{countsByOverlay[type.id] || 0}</span>
+              </button>
+            ))}
+          </div>
+        )}
         {yearBounds.min !== null && yearBounds.max !== null && (
           <div className="flex flex-wrap items-center gap-2 text-2xs text-muted-foreground">
             <span className="whitespace-nowrap">Year {yearFrom}–{yearTo}</span>

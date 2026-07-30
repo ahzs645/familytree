@@ -9,6 +9,9 @@ import { getAppPreferences } from '../lib/appPreferences.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { PageTitle } from '../components/ui/PageTitle.jsx';
 import { Select } from '../components/ui/Select.jsx';
+import { ToolbarOverflow, MenuRow } from '../components/ui/ToolbarOverflow.jsx';
+import { useIsMobile } from '../lib/useIsMobile.js';
+import { useSetPageMeta } from '../contexts/PageMetaContext.jsx';
 import {
   mediaAssetSrc,
   mediaDisplayLabel,
@@ -21,6 +24,7 @@ import {
 export default function Slideshow() {
   const { localization } = useTranslation();
   const isRtl = localization.direction === 'rtl';
+  const isMobile = useIsMobile();
   const [searchParams] = useSearchParams();
   const [media, setMedia] = useState([]);
   const [assetsByMedia, setAssetsByMedia] = useState({});
@@ -113,6 +117,9 @@ export default function Slideshow() {
     return () => clearInterval(tick.current);
   }, [playing, interval, order.length, loop]);
 
+  // The phone's app bar carries the position, so the toolbar does not.
+  useSetPageMeta(isMobile && media.length ? `${index + 1} / ${media.length}` : null);
+
   if (settingsReady && media.length === 0) {
     return (
       <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -130,6 +137,87 @@ export default function Slideshow() {
   const fitClass = fit === 'cover' ? 'object-cover w-full h-full' : fit === 'actual' ? 'object-none max-w-none max-h-none' : 'object-contain max-w-full max-h-full';
   const backdropClass = background === 'light' ? 'bg-white text-slate-950' : background === 'soft' ? 'bg-secondary text-foreground' : 'bg-zinc-950 text-white';
 
+  // Rendered inline on a wide toolbar and inside the overflow sheet on a
+  // phone, so the two never drift apart.
+  const settingsControls = (
+    <>
+      <MenuRow label="Media">
+        <Select
+          value={filter}
+          onChange={setFilter}
+          disabled={selectedIds.length > 0}
+          ariaLabel="Media type"
+          className="w-auto"
+          triggerClassName="h-8 ps-2.5 pe-7 text-xs"
+          options={[
+            { value: 'all', label: 'All media' },
+            { value: 'MediaPicture', label: 'Pictures only' },
+            { value: 'MediaURL', label: 'URLs only' },
+            { value: 'MediaPDF', label: 'PDFs only' },
+            { value: 'MediaAudio', label: 'Audio only' },
+            { value: 'MediaVideo', label: 'Video only' },
+          ]}
+        />
+      </MenuRow>
+      <MenuRow label="Event">
+        <Select
+          value={eventFilter}
+          onChange={setEventFilter}
+          ariaLabel="Event filter"
+          className="w-auto"
+          triggerClassName="h-8 ps-2.5 pe-7 text-xs"
+          options={[
+            { value: 'all', label: 'Any event' },
+            { value: 'birth', label: 'Birth' },
+            { value: 'marriage', label: 'Marriage' },
+            { value: 'death', label: 'Death' },
+            { value: 'residence', label: 'Residence' },
+          ]}
+        />
+      </MenuRow>
+      <MenuRow label="Interval">
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <input type="number" min={1} max={60} value={interval} aria-label="Interval in seconds"
+            onChange={(e) => setIntervalSec(Math.max(1, +e.target.value || 5))}
+            className="bg-background border border-border rounded-md h-8 w-14 px-2 text-xs" />
+          sec
+        </span>
+      </MenuRow>
+      <MenuRow label="Fit">
+        <Select
+          value={fit}
+          onChange={setFit}
+          ariaLabel="Image fit"
+          className="w-auto"
+          triggerClassName="h-8 ps-2.5 pe-7 text-xs"
+          options={[
+            { value: 'contain', label: 'Fit' },
+            { value: 'cover', label: 'Fill' },
+            { value: 'actual', label: 'Actual' },
+          ]}
+        />
+      </MenuRow>
+      <MenuRow label="Backdrop">
+        <Select
+          value={background}
+          onChange={setBackground}
+          ariaLabel="Backdrop"
+          className="w-auto"
+          triggerClassName="h-8 ps-2.5 pe-7 text-xs"
+          options={[
+            { value: 'dark', label: 'Dark' },
+            { value: 'light', label: 'Light' },
+            { value: 'soft', label: 'Soft' },
+          ]}
+        />
+      </MenuRow>
+      <label className="flex items-center gap-1.5 px-2 py-1.5 text-xs md:px-0 md:py-0"><input type="checkbox" checked={showCaption} onChange={(e) => setShowCaption(e.target.checked)} /> Captions</label>
+      <label className="flex items-center gap-1.5 px-2 py-1.5 text-xs md:px-0 md:py-0"><input type="checkbox" checked={showMetadata} onChange={(e) => setShowMetadata(e.target.checked)} /> Details</label>
+      <label className="flex items-center gap-1.5 px-2 py-1.5 text-xs md:px-0 md:py-0"><input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} /> Loop</label>
+      <label className="flex items-center gap-1.5 px-2 py-1.5 text-xs md:px-0 md:py-0"><input type="checkbox" checked={random} onChange={(e) => setRandom(e.target.checked)} /> Shuffle</label>
+    </>
+  );
+
   const toggleFullscreen = async () => {
     if (!document.fullscreenElement) {
       await document.documentElement.requestFullscreen?.();
@@ -142,76 +230,21 @@ export default function Slideshow() {
 
   return (
     <div className="flex flex-col h-full">
-      <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card flex-wrap">
+      <header className="flex items-center gap-3 border-b border-border bg-card px-3 py-2 md:px-5 md:py-3 flex-wrap">
         <PageTitle className="text-base font-semibold">Slideshow</PageTitle>
-        <span className="text-xs text-muted-foreground">{index + 1} / {media.length}</span>
-        <div className="ms-auto flex items-center gap-2 flex-wrap">
-          <Select
-            value={filter}
-            onChange={setFilter}
-            disabled={selectedIds.length > 0}
-            ariaLabel="Media type"
-            className="w-auto"
-            triggerClassName="h-8 ps-2.5 pe-7 text-xs"
-            options={[
-              { value: 'all', label: 'All media' },
-              { value: 'MediaPicture', label: 'Pictures only' },
-              { value: 'MediaURL', label: 'URLs only' },
-              { value: 'MediaPDF', label: 'PDFs only' },
-              { value: 'MediaAudio', label: 'Audio only' },
-              { value: 'MediaVideo', label: 'Video only' },
-            ]}
-          />
-          <Select
-            value={eventFilter}
-            onChange={setEventFilter}
-            ariaLabel="Event filter"
-            className="w-auto"
-            triggerClassName="h-8 ps-2.5 pe-7 text-xs"
-            options={[
-              { value: 'all', label: 'Any event' },
-              { value: 'birth', label: 'Birth' },
-              { value: 'marriage', label: 'Marriage' },
-              { value: 'death', label: 'Death' },
-              { value: 'residence', label: 'Residence' },
-            ]}
-          />
-          <label className="text-xs text-muted-foreground">Interval</label>
-          <input type="number" min={1} max={60} value={interval}
-            onChange={(e) => setIntervalSec(Math.max(1, +e.target.value || 5))}
-            className="bg-background border border-border rounded-md h-8 w-14 px-2 text-xs" />
-          <span className="text-xs text-muted-foreground">sec</span>
-          <Select
-            value={fit}
-            onChange={setFit}
-            ariaLabel="Image fit"
-            className="w-auto"
-            triggerClassName="h-8 ps-2.5 pe-7 text-xs"
-            options={[
-              { value: 'contain', label: 'Fit' },
-              { value: 'cover', label: 'Fill' },
-              { value: 'actual', label: 'Actual' },
-            ]}
-          />
-          <Select
-            value={background}
-            onChange={setBackground}
-            ariaLabel="Backdrop"
-            className="w-auto"
-            triggerClassName="h-8 ps-2.5 pe-7 text-xs"
-            options={[
-              { value: 'dark', label: 'Dark' },
-              { value: 'light', label: 'Light' },
-              { value: 'soft', label: 'Soft' },
-            ]}
-          />
-          <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={showCaption} onChange={(e) => setShowCaption(e.target.checked)} /> Captions</label>
-          <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={showMetadata} onChange={(e) => setShowMetadata(e.target.checked)} /> Details</label>
-          <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={loop} onChange={(e) => setLoop(e.target.checked)} /> Loop</label>
-          <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={random} onChange={(e) => setRandom(e.target.checked)} /> Shuffle</label>
+        <span className="hidden text-xs text-muted-foreground md:inline">{index + 1} / {media.length}</span>
+        <div className="ms-auto flex flex-wrap items-center gap-2">
+          {/* Playback stays on the bar; everything that configures the show
+              moves into the sheet on a phone, where the media is the point. */}
+          {!isMobile && settingsControls}
           <button onClick={toggleFullscreen} className="bg-secondary border border-border rounded-md h-8 px-3 text-xs">{fullscreen ? 'Exit full' : 'Fullscreen'}</button>
-          <button onClick={() => setPlaying((p) => !p)}
+          <button onClick={() => setPlaying((p) => !p)} aria-label={playing ? 'Pause' : 'Play'}
             className="bg-secondary border border-border rounded-md h-8 px-3 text-xs">{playing ? '❚❚' : '▶'}</button>
+          {isMobile && (
+            <ToolbarOverflow label="Slideshow settings">
+              <div className="flex flex-col gap-1">{settingsControls}</div>
+            </ToolbarOverflow>
+          )}
         </div>
       </header>
       <div className={`flex-1 flex flex-col items-center justify-center p-6 relative overflow-hidden ${backdropClass}`}>

@@ -16,6 +16,8 @@ import { Select } from '../ui/Select.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Input } from '../ui/Input.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { ToolbarOverflow } from '../ui/ToolbarOverflow.jsx';
+import { useIsMobile } from '../../lib/useIsMobile.js';
 
 const SAVED_SEARCHES_KEY = 'savedSearches';
 const EMPTY_GENEALOGY_SEARCH = Object.freeze({
@@ -73,6 +75,7 @@ function newFilter(entityType) {
 }
 
 export function SearchApp() {
+  const isMobile = useIsMobile();
   const { t } = useTranslation();
   const modal = useModal();
   const [entityType, setEntityType] = useState('Person');
@@ -306,9 +309,11 @@ export function SearchApp() {
     }
   }, [onRun]);
 
-  return (
-    <div className="flex h-full flex-col bg-background">
-      <header className="flex flex-wrap items-end gap-2 border-b border-border bg-card px-5 py-3">
+  // Everything except the query and the Search button. Inline on a wide
+  // toolbar; behind the overflow on a phone, where the five rows this used to
+  // wrap onto left almost no room for results.
+  const secondaryControls = (
+    <>
         <Field label={t('search.entity', { defaultValue: 'Entity' })}>
           <Select
             value={entityType}
@@ -317,17 +322,6 @@ export function SearchApp() {
             triggerClassName="h-10"
           />
         </Field>
-
-        <Field label={t('search.freeText', { defaultValue: 'Free text' })}>
-          <Input
-            value={textQuery}
-            onChange={(e) => setTextQuery(e.target.value)}
-            placeholder={t('search.matchAnyField', { defaultValue: 'Match any field…' })}
-            className="min-w-0"
-            onKeyDown={(e) => e.key === 'Enter' && onRun()}
-          />
-        </Field>
-
         <Field label={t('search.smartScope', { defaultValue: 'Smart Scope' })}>
           <Select
             value=""
@@ -337,20 +331,15 @@ export function SearchApp() {
             triggerClassName="h-10"
           />
         </Field>
-
-        <Button size="md" onClick={onAddFilter} className="mt-3.5">{t('search.addFilter', { defaultValue: '+ Filter' })}</Button>
-        <Button
-          size="md"
-          onClick={() => setShowGenealogySearch((value) => !value)}
-          className="mt-3.5"
-          title={t('search.genealogyHint', { defaultValue: 'Show genealogy-specific person criteria' })}
-        >
-          {t('search.genealogy', { defaultValue: 'Genealogy' })}
-        </Button>
-        <Button variant="primary" size="md" onClick={onRun} disabled={running} className="mt-3.5">
-          {running ? t('search.running', { defaultValue: 'Running…' }) : t('common.search', { defaultValue: 'Search' })}
-        </Button>
-
+      <Button size="md" onClick={onAddFilter} className="md:mt-3.5">{t('search.addFilter', { defaultValue: '+ Filter' })}</Button>
+      <Button
+        size="md"
+        onClick={() => setShowGenealogySearch((value) => !value)}
+        className="md:mt-3.5"
+        title={t('search.genealogyHint', { defaultValue: 'Show genealogy-specific person criteria' })}
+      >
+        {t('search.genealogy', { defaultValue: 'Genealogy' })}
+      </Button>
         <Field label={t('search.savedSearches', { defaultValue: 'Saved searches' })}>
           <div className="flex gap-1">
             <Select
@@ -375,6 +364,30 @@ export function SearchApp() {
             </Button>
           </div>
         </Field>
+    </>
+  );
+
+  return (
+    <div className="flex h-full flex-col bg-background">
+      <header className="flex flex-wrap items-end gap-2 border-b border-border bg-card px-3 py-2 md:px-5 md:py-3">
+        <Field label={t('search.freeText', { defaultValue: 'Free text' })}>
+          <Input
+            value={textQuery}
+            onChange={(e) => setTextQuery(e.target.value)}
+            placeholder={t('search.matchAnyField', { defaultValue: 'Match any field…' })}
+            className="min-w-0"
+            onKeyDown={(e) => e.key === 'Enter' && onRun()}
+          />
+        </Field>
+        {!isMobile && secondaryControls}
+        <Button variant="primary" size="md" onClick={onRun} disabled={running} className="md:mt-3.5">
+          {running ? t('search.running', { defaultValue: 'Running…' }) : t('common.search', { defaultValue: 'Search' })}
+        </Button>
+        {isMobile && (
+          <ToolbarOverflow label={t('search.moreOptions', { defaultValue: 'Search options' })} className="mb-0.5">
+            <div className="flex flex-col gap-2">{secondaryControls}</div>
+          </ToolbarOverflow>
+        )}
       </header>
 
       <div className="border-b border-border bg-card px-5 py-3">
