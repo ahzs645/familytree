@@ -14,7 +14,7 @@ import { cn } from '../../lib/utils.js';
  * kept (instead of ui/Input and ui/Select) because these controls mix fixed
  * widths and flex-1 inside a flex-wrap row, which the w-full primitives fight.
  */
-const controlClass = 'rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 py-1.5 text-sm outline-none focus:border-primary';
+const controlClass = 'h-10 rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 text-sm outline-none focus:border-primary';
 
 export function SectionEditor({
   section,
@@ -39,7 +39,7 @@ export function SectionEditor({
         <div className="flex min-w-0 items-center gap-2">
           <GripVertical size={16} aria-hidden="true" className="flex-none text-muted-foreground" />
           <div className="min-w-0">
-            <div className="text-[10px] font-bold tracking-wider text-muted-foreground">SECTION {index + 1}</div>
+            <div className="text-2xs font-bold tracking-wider text-muted-foreground">SECTION {index + 1}</div>
             <div className="truncate text-sm font-semibold text-foreground" title={sectionTitle}>{sectionTitle}</div>
           </div>
         </div>

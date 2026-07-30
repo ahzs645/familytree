@@ -134,8 +134,8 @@ export function SourcePickerSheet({ target, onClose, onLinked, onManageAll }) {
             >
               <BdiText className="flex-1 truncate">{s.title || t('sourcePicker.untitled', { defaultValue: 'Untitled source' })}</BdiText>
               {already
-                ? <span className="text-[10px] font-bold uppercase tracking-wide text-success-text shrink-0">{t('sourcePicker.cited', { defaultValue: 'Cited' })}</span>
-                : <span className="text-[10px] font-bold uppercase tracking-wide text-interactive shrink-0">{t('sourcePicker.cite', { defaultValue: 'Cite' })}</span>}
+                ? <span className="text-2xs font-bold uppercase tracking-wide text-success-text shrink-0">{t('sourcePicker.cited', { defaultValue: 'Cited' })}</span>
+                : <span className="text-2xs font-bold uppercase tracking-wide text-interactive shrink-0">{t('sourcePicker.cite', { defaultValue: 'Cite' })}</span>}
             </button>
           );
         })}

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { loadListCounts } from '../lib/listData.js';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const LIST_CARDS = [
   { to: '/persons', title: 'Persons', key: 'persons', body: 'Dedicated person master-detail list with export and editor jumps.' },
@@ -40,7 +41,7 @@ export default function Lists() {
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-6xl mx-auto px-4 py-6 pb-16 sm:px-6 sm:py-8">
         <section className="mb-8">
-          <h2 className="text-3xl font-bold mb-3">Lists</h2>
+          <PageTitle className="text-3xl font-bold mb-3">Lists</PageTitle>
           <p className="text-muted-foreground leading-relaxed max-w-3xl">
             Direct entry points for desktop-equivalent list surfaces. These routes open independently from Reports and
             link rows back to the relevant editors.

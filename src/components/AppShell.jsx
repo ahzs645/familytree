@@ -19,6 +19,7 @@ import { NavigationDrawer } from './NavigationDrawer.jsx';
 import { useKeyboardShortcuts } from '../lib/useKeyboardShortcuts.js';
 import { NAV_GROUPS, NAV_PINNED, findGroupForPath, isLinkActive } from '../lib/navigationConfig.js';
 import { LanguageSelect } from './LanguageSelect.jsx';
+import { usePageMeta } from '../contexts/PageMetaContext.jsx';
 
 // Loaded on demand: the palette indexes the whole nav tree, so keeping it out
 // of the entry chunk defers that cost until the user actually opens it.
@@ -239,25 +240,32 @@ function MobileNavLink({ link, indented, pathname }) {
 }
 
 /**
- * The one <h2> on every page.
+ * The name of the current page, resolved from the route rather than from the
+ * route component.
  *
  * Route components can't own this reliably: most of them return a different
  * tree while loading or when there is nothing to show, and those branches were
  * dropping the heading entirely — eleven routes had no h1 at all, two had two.
- * Naming the page from the shell means it is correct in every state, and the
- * route's own visible title stays an h2 underneath it.
- *
- * Visually hidden, because these pages already show their title in the header
- * or the toolbar; this is here for screen readers and heading navigation.
+ * Naming the page from the shell means it is correct in every state.
  */
-function PageHeading() {
+function usePageTitle() {
   const { t } = useTranslation();
   const { pathname } = useLocation();
   const path = pathname.replace(/\/+$/, '') || '/';
   const key = routeLabelKey(path) || routeLabelKey(`/${path.split('/')[1] || ''}`);
   // Unlisted routes (record editors, wizards) fall back to their first segment.
   const fallback = path === '/' ? 'Home' : (path.split('/')[1] || 'Page').replace(/-/g, ' ');
-  return <h1 className="sr-only">{key ? t(key, { defaultValue: fallback }) : fallback}</h1>;
+  return { title: key ? t(key, { defaultValue: fallback }) : fallback, isHome: path === '/' };
+}
+
+/**
+ * The one <h1> on every page. Visually hidden on desktop, where the route's
+ * own header already shows the title; on mobile the title bar renders it
+ * visibly instead, so this is not mounted there.
+ */
+function PageHeading() {
+  const { title } = usePageTitle();
+  return <h1 className="sr-only">{title}</h1>;
 }
 
 export function AppShell() {
@@ -266,6 +274,8 @@ export function AppShell() {
   const { theme, toggle } = useTheme();
   const modal = useModal();
   const isMobile = useIsMobile();
+  const { title: pageTitle, isHome } = usePageTitle();
+  const pageMeta = usePageMeta();
   const navigate = useNavigate();
   const [preferences, setPreferences] = useState(null);
   const [collapsed, setCollapsed] = useState(() => {
@@ -396,10 +406,21 @@ export function AppShell() {
           className="flex items-center gap-3 px-4 min-h-12 border-b border-border bg-card flex-shrink-0"
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
-          <span className="text-sm font-bold text-foreground shrink-0">CloudTreeWeb</span>
+          {/* The page name, not the product name. Every route also draws its
+              own title, so a static brand here meant the phone spent two rows
+              of a small screen saying where you are. Home keeps the brand —
+              it has no more specific name to show. */}
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm font-bold text-foreground">
+              {isHome ? 'CloudTreeWeb' : pageTitle}
+            </h1>
+            {pageMeta ? (
+              <p className="truncate text-xs text-muted-foreground">{pageMeta}</p>
+            ) : null}
+          </div>
           <span
             className={cn(
-              'inline-block w-2 h-2 rounded-full',
+              'inline-block w-2 h-2 rounded-full shrink-0',
               statusState === 'loading' ? 'bg-muted-foreground' : statusState === 'ok' ? 'bg-success' : 'bg-destructive'
             )}
             title={recordCountLabel}
@@ -407,7 +428,7 @@ export function AppShell() {
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
-            className="ms-auto flex items-center justify-center w-10 h-10 rounded-md border border-border bg-secondary text-secondary-foreground"
+            className="flex shrink-0 items-center justify-center w-10 h-10 rounded-md border border-border bg-secondary text-secondary-foreground"
             aria-label={t('commandPalette.ariaLabel', { defaultValue: 'Search commands' })}
           >
             <Search size={20} />
@@ -425,7 +446,6 @@ export function AppShell() {
           </div>
         </header>
         <main className="flex-1 relative overflow-hidden">
-          <PageHeading />
           <Outlet />
         </main>
       </div>

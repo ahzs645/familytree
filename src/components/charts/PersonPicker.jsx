@@ -11,7 +11,13 @@ import { personDisplayName } from '../../lib/personDisplayName.js';
 import { lifeSpanLabel } from '../../models/index.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
-export function PersonPicker({ persons, value, onChange, triggerClassName }) {
+/**
+ * `note` is an optional per-person annotation rendered under the lifespan —
+ * for callers that need to flag something about a row (the heritage tree marks
+ * people with no relatives, since picking one shows a single lone card).
+ * Omitted by every other caller, which renders exactly as before.
+ */
+export function PersonPicker({ persons, value, onChange, triggerClassName, note }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -129,8 +135,11 @@ export function PersonPicker({ persons, value, onChange, triggerClassName }) {
                     <LtrText>{lifeSpanLabel(p)}</LtrText>
                   </div>
                 )}
+                {note?.(p) ? (
+                  <div className="text-xs text-muted-foreground">{note(p)}</div>
+                ) : null}
                 {query.trim() && p.lineageSearchText ? (
-                  <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  <div className="mt-0.5 text-2xs text-muted-foreground">
                     <BdiText>{p.lineageSearchText}</BdiText>
                   </div>
                 ) : null}

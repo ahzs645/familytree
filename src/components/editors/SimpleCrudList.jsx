@@ -128,7 +128,7 @@ export function SimpleCrudList({
                 onChange={(e) => setValues((s) => ({ ...s, [f.id]: e.target.value }))}
                 className={inputClass} />
             )}
-            {f.hint && <span className="block text-[11px] text-muted-foreground mt-1">{f.hint}</span>}
+            {f.hint && <span className="block text-2xs text-muted-foreground mt-1">{f.hint}</span>}
           </label>
         ))}
       </div>

@@ -8,16 +8,17 @@
  * (text-xs) variant for dense lists.
  */
 export const formClasses = {
-  /** Standard full-width input / select / textarea. */
-  input: 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary',
-  /** Compact input for dense rows (e.g. related-record editors). */
-  inputCompact: 'w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:border-primary',
+  /** Standard full-width input / select / textarea. Height is explicit so it
+   *  matches the Select trigger and Button `md` on the 40px rung. */
+  input: 'w-full h-10 rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary',
+  /** Compact input for dense rows (e.g. related-record editors) — 32px rung. */
+  inputCompact: 'w-full h-8 rounded-md border border-border bg-background px-2 text-xs outline-none focus:border-primary',
   /** Standard textarea — input styling plus a sane min height and vertical resize. */
   textarea: 'w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary min-h-20 resize-y',
   /** Neutral / secondary button. */
-  buttonSecondary: 'border border-border rounded-md px-2.5 py-1.5 text-xs hover:bg-accent disabled:opacity-50',
+  buttonSecondary: 'inline-flex h-8 items-center rounded-md border border-border px-2.5 text-xs hover:bg-accent disabled:opacity-50',
   /** Filled neutral button used as the primary action in related-record editors. */
-  buttonFilled: 'bg-secondary border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50',
+  buttonFilled: 'inline-flex h-8 items-center rounded-md border border-border bg-secondary px-3 text-xs hover:bg-accent disabled:opacity-50',
 };
 
 export default formClasses;

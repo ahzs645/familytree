@@ -503,7 +503,7 @@ export default function FamilyEditor() {
                             <button onClick={() => removeChild(i)} title="Stage child removal until Save changes" className="text-destructive-text border border-border rounded-md h-9 w-9 sm:h-7 sm:w-7 text-xs hover:bg-destructive/10 ms-1">×</button>
                           </div>
                         </div>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 ps-8 text-[11px] text-muted-foreground">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 ps-8 text-2xs text-muted-foreground">
                           <label className="flex items-center gap-1">to father
                             <select value={c.fatherRelationType || ''} aria-label="Relationship to father"
                               onChange={(e) => setChildren((arr) => arr.map((x, j) => j === i ? { ...x, fatherRelationType: e.target.value } : x))}
@@ -553,7 +553,7 @@ export default function FamilyEditor() {
                 </Field>
                 <div className="mt-2">
                   <EditSwitch label="Married (no further information)" checked={isMarried} onChange={setIsMarried} />
-                  <p className="text-[11px] text-muted-foreground mt-1">Records that the couple married even without a date — exports as <code>1 MARR Y</code>.</p>
+                  <p className="text-2xs text-muted-foreground mt-1">Records that the couple married even without a date — exports as <code>1 MARR Y</code>.</p>
                 </div>
                 {events.length === 0 ? (
                   <div className="mt-3">
@@ -636,7 +636,7 @@ export default function FamilyEditor() {
 
               <Section title="Private" accent={ACCENTS.private}>
                 <EditSwitch label="Marked as Private" checked={isPrivate} onChange={setIsPrivate} />
-                <p className="text-[11px] text-muted-foreground mt-2">Hidden from charts and reports when set.</p>
+                <p className="text-2xs text-muted-foreground mt-2">Hidden from charts and reports when set.</p>
               </Section>
 
               <Section title="Last Edited" accent={ACCENTS.edited}>
@@ -681,7 +681,7 @@ function RelatedList({ items, emptyTitle, emptyHint }) {
 function ReadOnly({ label, value }) {
   return (
     <div className="mb-2 last:mb-0">
-      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className="text-2xs text-muted-foreground uppercase tracking-wide">{label}</div>
       <div className="text-sm">{value}</div>
     </div>
   );

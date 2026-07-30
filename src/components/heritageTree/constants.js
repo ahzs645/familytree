@@ -1,8 +1,23 @@
-export const originLabels = {
-  polish: 'Poland', czech: 'Czech Republic', slovak: 'Slovakia', austrian: 'Austria', lebanese: 'Lebanon', american: 'America',
-  german: 'Germany', french: 'France', swiss: 'Switzerland', irish: 'Ireland', english: 'England', scottish: 'Scotland', italian: 'Italy',
-  spanish: 'Spain', canadian: 'Canada', mexican: 'Mexico', russian: 'Russia', ukrainian: 'Ukraine', chinese: 'China', syrian: 'Syria', hungarian: 'Hungary', turkish: 'Turkiye', rusyn: 'Carpatho-Rusyn', generic: 'Other'
-};
+/**
+ * Geographic origins the tree infers from a person's birth or death place
+ * (see originForPlace in appTreeAdapter.js).
+ *
+ * Names are translated — they used to be a hard-coded English map, which put
+ * "Czech Republic" on an otherwise Arabic page. Colours are not: they key the
+ * card badges, the donut, and the bar chart to each other, so the colour is
+ * the data.
+ */
+export const ORIGIN_KEYS = [
+  'polish', 'czech', 'slovak', 'austrian', 'lebanese', 'american', 'german', 'french', 'swiss',
+  'irish', 'english', 'scottish', 'italian', 'spanish', 'canadian', 'mexican', 'russian',
+  'ukrainian', 'chinese', 'syrian', 'hungarian', 'turkish', 'rusyn', 'generic',
+];
+
+/** Localized name for an origin key. Pass the `t` from useTranslation. */
+export function originLabel(t, origin) {
+  if (!origin) return '';
+  return t(`heritageTree.origins.${origin}`, { defaultValue: origin });
+}
 
 export const originColors = {
   polish: '#ef4444', czech: '#f97316', slovak: '#8b5cf6', austrian: '#06b6d4', lebanese: '#10b981', american: '#3b82f6',

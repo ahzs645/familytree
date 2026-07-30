@@ -12,6 +12,7 @@ import { useRecords } from '../lib/data/useRecords.js';
 import { refValue } from '../lib/recordRef.js';
 import { readField, readRef } from '../lib/schema.js';
 import { listAllPersons } from '../lib/treeQuery.js';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const PROVIDERS = [
   { id: 'familysearch', label: 'FamilySearch' },
@@ -119,7 +120,7 @@ export default function WebSearch() {
       <div className="max-w-5xl mx-auto p-5">
         <header className="flex items-center gap-3 mb-5">
           <div>
-            <h2 className="text-xl font-bold">Web Search</h2>
+            <PageTitle className="text-xl font-bold">Web Search</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">Person-aware search links and quick inserts back into the local tree.</p>
           </div>
           {status && <span className="ms-auto text-xs text-success-text">{status}</span>}
@@ -181,7 +182,7 @@ export default function WebSearch() {
                 {history.slice(0, 8).map((entry) => (
                   <a key={`${entry.at}-${entry.url}`} href={entry.url} target={openInNewTab ? '_blank' : '_self'} rel="noreferrer" className="block rounded-md border border-border bg-background p-2 hover:bg-secondary">
                     <div className="text-sm truncate">{entry.label}</div>
-                    <div className="text-[11px] text-muted-foreground">{providerLabel(entry.provider)} · {new Date(entry.at).toLocaleDateString()}</div>
+                    <div className="text-2xs text-muted-foreground">{providerLabel(entry.provider)} · {new Date(entry.at).toLocaleDateString()}</div>
                   </a>
                 ))}
               </div>
@@ -326,7 +327,7 @@ function uuid(prefix) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
+      <span className="block text-2xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
       {children}
     </label>
   );

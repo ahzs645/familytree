@@ -58,7 +58,7 @@ export function MiniTimeline({ events = [], height = 56 }) {
           );
         })}
       </div>
-      <div className="flex justify-between text-[10px] text-muted-foreground mt-1 tabular-nums">
+      <div className="flex justify-between text-2xs text-muted-foreground mt-1 tabular-nums">
         <span>{start}</span>
         <span>{end}</span>
       </div>

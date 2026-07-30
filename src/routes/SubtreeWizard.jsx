@@ -165,7 +165,7 @@ export default function SubtreeWizard() {
           <h2 className="text-base font-semibold leading-tight">Subtree wizard</h2>
           <p className="text-xs text-muted-foreground">Build a slice of the tree, then export or remove it.</p>
         </div>
-        <button onClick={() => navigate('/export')} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Back to Export</button>
+        <button onClick={() => navigate('/export')} className="inline-flex h-8 items-center border border-border rounded-md px-3 text-xs hover:bg-accent">Back to Export</button>
       </header>
 
       <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
@@ -199,11 +199,11 @@ export default function SubtreeWizard() {
           onToggle={(id) => toggle(leftSelection, setLeftSelection, id)}
         />
         <div className="flex flex-wrap items-center justify-center gap-2 md:flex-col md:flex-nowrap">
-          <button onClick={addSelected} disabled={leftSelection.size === 0} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50">Add →</button>
-          <button onClick={removeSelected} disabled={rightSelection.size === 0} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50">← Remove</button>
+          <button onClick={addSelected} disabled={leftSelection.size === 0} className="inline-flex h-8 items-center border border-border rounded-md px-3 text-xs hover:bg-accent disabled:opacity-50">Add →</button>
+          <button onClick={removeSelected} disabled={rightSelection.size === 0} className="inline-flex h-8 items-center border border-border rounded-md px-3 text-xs hover:bg-accent disabled:opacity-50">← Remove</button>
           <div className="border-t border-border w-full my-2" />
-          <button onClick={() => firstRight && addAncestorsOf(firstRight)} disabled={!firstRight || busy} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50">+ Ancestors</button>
-          <button onClick={() => firstRight && addDescendantsOf(firstRight)} disabled={!firstRight || busy} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50">+ Descendants</button>
+          <button onClick={() => firstRight && addAncestorsOf(firstRight)} disabled={!firstRight || busy} className="inline-flex h-8 items-center border border-border rounded-md px-3 text-xs hover:bg-accent disabled:opacity-50">+ Ancestors</button>
+          <button onClick={() => firstRight && addDescendantsOf(firstRight)} disabled={!firstRight || busy} className="inline-flex h-8 items-center border border-border rounded-md px-3 text-xs hover:bg-accent disabled:opacity-50">+ Descendants</button>
         </div>
         <Column
           title={`Persons to be exported (${workingPersons.length})`}

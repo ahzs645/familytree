@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { originLabels } from './constants.js';
+import { originLabel } from './constants.js';
 import { formatVitalDateParts } from '../../lib/vitalFormat.js';
 import BdiText from '../BdiText.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
@@ -58,7 +58,7 @@ export default function PersonCard({ person, isRoot, isDimmed, onClick, onMouseE
       { (person.place || person.deathPlace) && <div className="place"><BdiText>{person.place || person.deathPlace}</BdiText></div> }
       
       { person.origin ? (
-        <span className={`origin-tag origin-${person.origin}`} title={t('heritageTree.originTitle')}>{originLabels[person.origin] || person.origin}</span>
+        <span className={`origin-tag origin-${person.origin}`} title={t('heritageTree.originTitle')}>{originLabel(t, person.origin)}</span>
       ) : null }
     </div>
   );

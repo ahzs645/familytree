@@ -11,6 +11,7 @@ import React from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { SettingsProvider, useSettings } from '../components/settings/SettingsContext.jsx';
 import { primaryButton, secondaryButton } from '../components/settings/sharedUI.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const TAB_IDS = [
   'general', 'formats', 'colors', 'arabic-islamic', 'tree-layout', 'maps', 'media',
@@ -39,7 +40,7 @@ function SettingsLayout() {
       <div className="max-w-5xl mx-auto p-5">
         <header className="flex flex-wrap items-center gap-3 mb-5">
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-bold">{t('settingsPage.title')}</h2>
+            <PageTitle className="text-xl font-bold">{t('settingsPage.title')}</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">{t('settingsPage.subtitle')}</p>
           </div>
           {status && <span className="text-xs text-success-text">{status}</span>}

@@ -63,6 +63,27 @@ const ROUTE_LABEL_KEYS = {
   '/web-search': 'nav.webSearch',
   '/websites': 'nav.websites',
   '/world-history': 'nav.worldHistory',
+  // Secondary paths that render the same page as a labelled route, plus the
+  // settings panels. Without a key here the page name falls back to the raw
+  // path segment — which the mobile title bar now shows to the reader.
+  '/statistic-maps': 'nav.mapsDiagram',
+  '/virtual-map': 'nav.map',
+  '/virtual-globe': 'nav.globe',
+  '/media-gallery': 'nav.media',
+  '/family-quiz': 'nav.familyQuiz',
+  '/marriage-list': 'nav.marriages',
+  '/facts-list': 'nav.facts',
+  '/anniversary-list': 'nav.anniversaries',
+  '/author-information': 'nav.author',
+  '/chart-split': 'nav.chartSplit',
+  '/reference-numbering': 'nav.referenceNumbering',
+  '/custom-validation': 'nav.customValidation',
+  '/smart-filters': 'nav.smartFilters',
+  '/custom-types': 'nav.customTypes',
+  '/arabic-islamic': 'nav.arabicIslamic',
+  '/tree-layout': 'nav.treeLayout',
+  '/content-download': 'nav.contentDownload',
+  '/edit-controllers': 'nav.editControllers',
 };
 
 const CATEGORY_KEYS = {

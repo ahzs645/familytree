@@ -27,7 +27,7 @@ function initialFor(person, localization) {
   return (normalized || firstGrapheme).toLocaleUpperCase(localization.locale);
 }
 
-export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null, renderBadge = null }) {
+export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null, renderBadge = null, searchRowActions = null }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const showColumn = (key) => !visibleColumns || visibleColumns.has(key);
@@ -97,14 +97,17 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
 
   return (
     <div className="flex h-full flex-col border-e border-border bg-card">
-      <div className="border-b border-border p-2.5">
+      {/* `searchRowActions` shares this row rather than taking one of its own —
+          on a phone the page's actions used to sit on a separate line above. */}
+      <div className="flex items-center gap-2 border-b border-border p-2.5">
         <Input
           dir="auto"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('persons.searchPlaceholder')}
-          className="h-10"
+          className="h-10 min-w-0 flex-1"
         />
+        {searchRowActions}
       </div>
       <div className="flex-1 overflow-auto">
         {sections.map(([letter, group]) => (
@@ -184,16 +187,16 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                       </div>
                     ) : null}
                     {showColumn('outsideFamily') && p.outsideFamily ? (
-                      <div className="text-[10px] font-semibold text-interactive">{t('persons.outsideFamily')}</div>
+                      <div className="text-2xs font-semibold text-interactive">{t('persons.outsideFamily')}</div>
                     ) : null}
                     {showColumn('bookmarked') && p.bookmarked ? (
-                      <div className="text-[10px] font-semibold text-interactive">★ {t('persons.bookmarked')}</div>
+                      <div className="text-2xs font-semibold text-interactive">★ {t('persons.bookmarked')}</div>
                     ) : null}
                     {showColumn('startPerson') && p.startPerson ? (
-                      <div className="text-[10px] font-semibold text-interactive">✓ {t('persons.startPerson')}</div>
+                      <div className="text-2xs font-semibold text-interactive">✓ {t('persons.startPerson')}</div>
                     ) : null}
                     {queryText && !p.nameIsPatrilineal && (p.arabicPatrilinealTail || p.arabicPatrilinealName) ? (
-                      <div className="mt-0.5 text-[10px] text-muted-foreground [direction:rtl] text-start">
+                      <div className="mt-0.5 text-2xs text-muted-foreground [direction:rtl] text-start">
                         <BdiText>{p.arabicPatrilinealTail || p.arabicPatrilinealName}</BdiText>
                       </div>
                     ) : null}

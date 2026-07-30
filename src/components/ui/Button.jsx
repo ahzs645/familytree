@@ -29,9 +29,23 @@ const VARIANTS = {
   destructiveOutline: 'bg-transparent text-destructive-text border border-border hover:bg-destructive/10',
 };
 
+/**
+ * Two rungs, and every other control in the app sits on one of them:
+ *
+ *   32px  compact — `sm`, `icon`, and the list toolbars (listToolbarClasses.js)
+ *   40px  standard — `md`, the Select trigger, PersonPicker, and the height a
+ *                    touch target needs (see the `pointer: coarse` block in
+ *                    index.css)
+ *
+ * The heights are explicit rather than implied by padding. Derived from
+ * padding, `sm` landed on 30px and `md` on 38px — so a Button next to a Select
+ * was 2px short of it, and a Button next to a list-toolbar button was 2px short
+ * of that. An audit of the chrome on all 90 routes found twelve distinct
+ * control heights on desktop, and most of the near-misses traced back here.
+ */
 const SIZES = {
-  sm: 'px-2.5 py-1.5 text-xs rounded-md',
-  md: 'px-3 py-2 text-sm rounded-md',
+  sm: 'h-8 px-2.5 text-xs rounded-md',
+  md: 'h-10 px-3 text-sm rounded-md',
   icon: 'h-8 w-8 p-0 rounded-md',
 };
 

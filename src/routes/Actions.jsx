@@ -7,6 +7,7 @@ import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { importContactsFile } from '../lib/contactImport.js';
 import { clearBackupHistory } from '../lib/backup.js';
 import { clearTreeSnapshots } from '../lib/treeLibrary.js';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const btn = buttonClasses({ variant: 'primary', size: 'md' });
 const btnSecondary = 'bg-secondary border border-border text-foreground rounded-md px-4 py-2 text-sm hover:bg-accent disabled:opacity-60';
@@ -140,7 +141,7 @@ export default function Actions() {
   return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 pb-16 h-full overflow-auto">
       <section className="mb-8">
-        <h2 className="text-2xl sm:text-3xl font-bold mb-3">{t('actions.title')}</h2>
+        <PageTitle className="text-2xl sm:text-3xl font-bold mb-3">{t('actions.title')}</PageTitle>
         <p className="text-muted-foreground leading-relaxed max-w-3xl">
           {t('actions.subtitle')}
         </p>

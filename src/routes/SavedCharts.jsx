@@ -9,6 +9,7 @@ import { listChartTemplates, deleteChartTemplate, saveChartTemplate, newTemplate
 import { listChartDocuments, deleteChartDocument } from '../lib/chartDocuments.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const CHART_LABELS = {
   ancestor: 'Ancestor',
@@ -109,7 +110,7 @@ export default function SavedCharts() {
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-5xl mx-auto p-5">
         <header className="mb-5">
-          <h2 className="text-xl font-bold">Saved Charts</h2>
+          <PageTitle className="text-xl font-bold">Saved Charts</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">
             {templates.length + documents.length + importedViews.length === 0
               ? 'No saved charts yet. Configure a chart in Charts and click Save to store the layout.'
@@ -124,10 +125,10 @@ export default function SavedCharts() {
               {documents.map((doc) => (
                 <div key={doc.id} className="rounded-lg border border-border bg-card p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider rounded px-2 py-0.5 ${ACCENT[doc.chartType] || 'bg-muted text-muted-foreground'}`}>
+                    <span className={`text-2xs font-bold uppercase tracking-wider rounded px-2 py-0.5 ${ACCENT[doc.chartType] || 'bg-muted text-muted-foreground'}`}>
                       {CHART_LABELS[doc.chartType] || doc.chartType}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">{doc.overlays?.length || 0} overlays</span>
+                    <span className="text-2xs text-muted-foreground">{doc.overlays?.length || 0} overlays</span>
                   </div>
                   <div className="text-sm font-semibold mb-1 truncate">{doc.name}</div>
                   <div className="text-xs text-muted-foreground mb-3">
@@ -154,11 +155,11 @@ export default function SavedCharts() {
             {templates.map((t) => (
               <div key={t.id} className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider rounded px-2 py-0.5 ${ACCENT[t.chartType] || 'bg-muted text-muted-foreground'}`}>
+                  <span className={`text-2xs font-bold uppercase tracking-wider rounded px-2 py-0.5 ${ACCENT[t.chartType] || 'bg-muted text-muted-foreground'}`}>
                     {CHART_LABELS[t.chartType] || t.chartType}
                   </span>
                   {t.themeId && t.themeId !== 'auto' && (
-                    <span className="text-[10px] text-muted-foreground">{t.themeId}</span>
+                    <span className="text-2xs text-muted-foreground">{t.themeId}</span>
                   )}
                 </div>
                 <div className="text-sm font-semibold mb-1 truncate">{t.name}</div>
@@ -189,7 +190,7 @@ export default function SavedCharts() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {importedViews.map((view) => (
                 <div key={view.recordName} className="rounded-lg border border-border bg-card p-4">
-                  <span className="text-[10px] font-bold uppercase tracking-wider rounded px-2 py-0.5 bg-secondary text-muted-foreground">SavedChart</span>
+                  <span className="text-2xs font-bold uppercase tracking-wider rounded px-2 py-0.5 bg-secondary text-muted-foreground">SavedChart</span>
                   <div className="text-sm font-semibold mt-2 mb-1 truncate">{view.fields?.title?.value || view.fields?.name?.value || view.recordName}</div>
                   <div className="text-xs text-muted-foreground mb-3">
                     {view.fields?.author?.value || 'MacFamilyTree import'}

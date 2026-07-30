@@ -422,7 +422,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                   onLineage={() => showLineage(rel)}
                 >
                   {evidenceSummary(rel) && (
-                    <div className="mt-1 text-[11px] text-muted-foreground">{evidenceSummary(rel)}</div>
+                    <div className="mt-1 text-2xs text-muted-foreground">{evidenceSummary(rel)}</div>
                   )}
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-[120px_1fr_auto] mt-2">
                     <input
@@ -471,7 +471,7 @@ export function SourceCitationsEditor({ ownerRecordName, ownerRecordType, ownerR
                   </div>
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 mt-2" role="group" aria-label={t('related.citationCertainty', { defaultValue: 'Citation certainty' })}>
                     {CERTAINTY_AXES.map(({ key, label, values }) => (
-                      <label key={key} className="text-[11px] text-muted-foreground">
+                      <label key={key} className="text-2xs text-muted-foreground">
                         <span className="block mb-0.5">{t('related.qualityAxis', { axis: t(`related.certaintyAxis.${key}`, { defaultValue: label }), defaultValue: `${label} quality` })}</span>
                         <select
                           value={draft[key] || CERTAINTY.DONT_KNOW}

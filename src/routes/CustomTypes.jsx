@@ -23,6 +23,7 @@ import {
 } from '../lib/catalogs.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 // Built-in catalogs that back each custom-type category, so the page can show
 // the full set (built-ins + user additions) the pickers actually offer. The
@@ -113,7 +114,7 @@ export default function CustomTypes() {
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-3xl mx-auto p-5">
-        <h2 className="text-xl font-bold mb-1">Custom Types</h2>
+        <PageTitle className="text-xl font-bold mb-1">Custom Types</PageTitle>
         <p className="text-sm text-muted-foreground mb-5">
           Add project-specific type labels that show up in event, fact, alias, and ToDo pickers.
         </p>

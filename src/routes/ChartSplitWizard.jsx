@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { listAllPersons } from '../lib/treeQuery.js';
 import { createSplitChartDocuments, previewChartSplit, SPLIT_METHODS } from '../lib/chartSplitWizard.js';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 export default function ChartSplitWizard() {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ export default function ChartSplitWizard() {
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-6xl mx-auto p-5">
         <header className="mb-5">
-          <h2 className="text-xl font-bold">Chart Split Wizard</h2>
+          <PageTitle className="text-xl font-bold">Chart Split Wizard</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">Plan and create focused saved chart documents from one large tree.</p>
         </header>
 

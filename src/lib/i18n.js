@@ -265,6 +265,27 @@ export function formatInteger(value, localization = getCurrentLocalization()) {
   return formatNumber(value, localization, { maximumFractionDigits: 0 });
 }
 
+/** Localized number that keeps its fraction — averages, rates, ratios. */
+export function formatDecimal(value, localization = getCurrentLocalization(), maximumFractionDigits = 1) {
+  return formatNumber(value, localization, { maximumFractionDigits });
+}
+
+/**
+ * Join a list into a phrase the way the locale writes one — "Poland, Lebanon
+ * and Ireland" in English, "بولندا ولبنان وإيرلندا" in Arabic. Building these
+ * by hand (`slice(0, -1).join(', ') + ' and ' + last`) bakes English grammar
+ * into the string, so the sentence around it cannot be translated.
+ */
+export function formatList(items, localization = getCurrentLocalization(), type = 'conjunction') {
+  const list = (items || []).map((item) => String(item ?? '')).filter(Boolean);
+  if (list.length < 2) return list[0] || '';
+  try {
+    return new Intl.ListFormat(localeWithExtensions(localization), { style: 'long', type }).format(list);
+  } catch {
+    return list.join(', ');
+  }
+}
+
 /**
  * Fold Arabic orthographic variation (hamza forms, tatweel, diacritics, ta
  * marbuta) so search and sorting treat أحمد / احمد / إحمد as one string.

@@ -33,9 +33,9 @@ export function Grid({ children }) {
 export function Field({ label, children, hint }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
+      <span className="block text-2xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
       {children}
-      {hint && <span className="block text-[11px] text-muted-foreground mt-1">{hint}</span>}
+      {hint && <span className="block text-2xs text-muted-foreground mt-1">{hint}</span>}
     </label>
   );
 }
@@ -63,7 +63,7 @@ const SAMPLE_NAME_PARTS = { title: 'Dr.', first: 'Maria', middle: 'Eleanor', las
 export function NameFormatPreview({ preset, t }) {
   const rendered = formatName(SAMPLE_NAME_PARTS, preset) || '—';
   return (
-    <div className="mt-1 text-[11px] text-muted-foreground">
+    <div className="mt-1 text-2xs text-muted-foreground">
       {t ? t('settingsPage.preview') : 'Preview'}: <span className="font-mono text-foreground">{rendered}</span>
     </div>
   );

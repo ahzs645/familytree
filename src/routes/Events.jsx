@@ -32,6 +32,7 @@ import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
 import { Button } from '../components/ui/Button.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 export default function Events({
   initialKindFilter = 'all',
@@ -405,7 +406,7 @@ export default function Events({
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2 px-5 py-2.5 border-b border-border bg-card">
-      <h2 className="text-sm font-bold text-foreground me-1">Events</h2>
+      <PageTitle className="text-sm font-bold text-foreground me-1">Events</PageTitle>
       {showKindFilter ? (
         <select aria-label="Filter events by kind" value={kindFilter} onChange={(e) => setKindFilter(e.target.value)} className="rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 py-1.5 text-xs cursor-pointer">
           <option value="all">All events</option>

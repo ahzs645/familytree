@@ -41,6 +41,7 @@ import { FamilySearchSourceFoldersSheet } from '../components/FamilySearchSource
 import { FamilySearchBatchDownloadSheet } from '../components/FamilySearchBatchDownloadSheet.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const TASK_META_KEY = 'familySearchTasks';
 
@@ -603,15 +604,15 @@ export default function FamilySearch() {
       <div className="max-w-6xl mx-auto p-5">
         <header className="flex flex-wrap items-center gap-3 mb-3">
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-bold">FamilySearch</h2>
+            <PageTitle className="text-xl font-bold">FamilySearch</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">{activePaneMeta.description}</p>
           </div>
           {status && <span className="text-xs text-success-text">{status}</span>}
           <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:ms-auto">
-            <button onClick={() => setSourceFoldersOpen(true)} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1.5">
+            <button onClick={() => setSourceFoldersOpen(true)} className="text-xs inline-flex h-8 items-center border border-border bg-secondary rounded-md px-2.5">
               Manage Sources…
             </button>
-            <button onClick={() => setBatchDownloadOpen(true)} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1.5">
+            <button onClick={() => setBatchDownloadOpen(true)} className="text-xs inline-flex h-8 items-center border border-border bg-secondary rounded-md px-2.5">
               Auto-Download Relatives…
             </button>
           </div>
@@ -807,7 +808,7 @@ export default function FamilySearch() {
                   Per-field download / upload / replace / delete{syncPersonId ? ` for ${syncPersonId}` : ''}. Each FamilySearch write requires a reason.
                 </p>
                 <div className="overflow-hidden rounded-md border border-border text-xs">
-                  <div className="grid grid-cols-[64px_1fr_1fr] gap-2 border-b border-border p-2 font-semibold text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <div className="grid grid-cols-[64px_1fr_1fr] gap-2 border-b border-border p-2 font-semibold text-2xs uppercase tracking-wide text-muted-foreground">
                     <span>Field</span><span>Local</span><span>FamilySearch</span>
                   </div>
                   {syncRows.map((row) => (
@@ -823,7 +824,7 @@ export default function FamilySearch() {
                             <button
                               key={action}
                               onClick={() => onSyncAction(row, action)}
-                              className="rounded border border-border bg-background px-2 py-0.5 text-[10px] capitalize hover:bg-accent"
+                              className="rounded border border-border bg-background px-2 py-0.5 text-2xs capitalize hover:bg-accent"
                             >
                               {action}
                             </button>
@@ -961,7 +962,7 @@ export default function FamilySearch() {
             {apiOutput && (
               <section className="rounded-lg border border-border bg-card p-4">
                 <h2 className="text-base font-semibold mb-3">{apiOutput.title}</h2>
-                <pre className="max-h-72 overflow-auto rounded-md border border-border bg-background p-3 text-[11px] leading-relaxed">
+                <pre className="max-h-72 overflow-auto rounded-md border border-border bg-background p-3 text-2xs leading-relaxed">
                   {JSON.stringify(apiOutput.data, null, 2)}
                 </pre>
               </section>
@@ -1034,7 +1035,7 @@ function Stat({ label, value }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
+      <span className="block text-2xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
       {children}
     </label>
   );

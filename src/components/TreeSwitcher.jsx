@@ -118,7 +118,7 @@ export function TreeSwitcher({ collapsed = false }) {
           className="absolute z-40 mt-1 start-0 end-auto min-w-[240px] max-w-[280px] rounded-md border border-border bg-popover text-popover-foreground shadow-xl overflow-hidden"
           style={{ insetInlineStart: 0 }}
         >
-          <div className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">
+          <div className="px-3 py-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">
             {t('treeSwitcher.heading', { defaultValue: 'My family trees' })}
           </div>
           <ul className="max-h-72 overflow-y-auto py-1">
@@ -147,7 +147,7 @@ export function TreeSwitcher({ collapsed = false }) {
                       {snapshot.favorite && <span aria-hidden className="text-yellow-500 me-1">★</span>}
                       {snapshot.name}
                     </span>
-                    <span className="text-[10px] text-muted-foreground flex-shrink-0">
+                    <span className="text-2xs text-muted-foreground flex-shrink-0">
                       {snapshot.recordCount}
                     </span>
                   </button>

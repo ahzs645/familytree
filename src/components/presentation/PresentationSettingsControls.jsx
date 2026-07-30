@@ -8,7 +8,7 @@ import { useTranslation } from '../../contexts/LocalizationContext.jsx';
  * ui/Select) because these live in width-sensitive flex-wrap toolbars and rely
  * on the browser auto-sizing to translated option labels.
  */
-const controlClass = 'cursor-pointer rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 py-2 text-sm outline-none';
+const controlClass = 'h-10 cursor-pointer rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 text-sm outline-none';
 
 export function PresentationSettingsControls({ value, onChange, label }) {
   const { t } = useTranslation();

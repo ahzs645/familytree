@@ -22,6 +22,7 @@ import { subscribeRecordChanges } from '../lib/data/recordEvents.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const COMMON_ORDINANCES = ['Baptism', 'Confirmation', 'Initiatory', 'Endowment', 'Sealing to Spouse', 'Sealing to Parents'];
 const COMMON_STATUSES = ['Completed', 'Submitted', 'Reserved', 'In Progress', 'Ready', 'Not Ready', 'Cancelled'];
@@ -177,7 +178,7 @@ export default function LdsOrdinances() {
     return (
       <div className="flex flex-col h-full">
         <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-          <h2 className="text-base font-semibold">{t('ldsOrdinances.title')}</h2>
+          <PageTitle className="text-base font-semibold">{t('ldsOrdinances.title')}</PageTitle>
           <span className="ms-auto">{newButton}</span>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
@@ -287,7 +288,7 @@ export default function LdsOrdinances() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h2 className="text-base font-semibold">{t('ldsOrdinances.title')}</h2>
+        <PageTitle className="text-base font-semibold">{t('ldsOrdinances.title')}</PageTitle>
         <span className="text-xs text-muted-foreground">{result.rows.length}</span>
         <span className="ms-auto">{newButton}</span>
       </header>
@@ -317,7 +318,7 @@ export default function LdsOrdinances() {
 function ReadOnlyCell({ label, value }) {
   return (
     <div className="grid grid-cols-[120px_1fr] gap-2">
-      <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="text-2xs uppercase tracking-wide text-muted-foreground">{label}</span>
       <span className="break-words">{value}</span>
     </div>
   );

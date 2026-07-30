@@ -16,6 +16,9 @@ import { Select } from '../ui/Select.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Input } from '../ui/Input.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { ToolbarOverflow } from '../ui/ToolbarOverflow.jsx';
+import { useIsMobile } from '../../lib/useIsMobile.js';
+import { Search as SearchIcon } from 'lucide-react';
 
 const SAVED_SEARCHES_KEY = 'savedSearches';
 const EMPTY_GENEALOGY_SEARCH = Object.freeze({
@@ -73,6 +76,7 @@ function newFilter(entityType) {
 }
 
 export function SearchApp() {
+  const isMobile = useIsMobile();
   const { t } = useTranslation();
   const modal = useModal();
   const [entityType, setEntityType] = useState('Person');
@@ -306,59 +310,47 @@ export function SearchApp() {
     }
   }, [onRun]);
 
-  return (
-    <div className="flex h-full flex-col bg-background">
-      <header className="flex flex-wrap items-end gap-2 border-b border-border bg-card px-5 py-3">
+  // Everything except the query and the Search button. Inline on a wide
+  // toolbar; behind the overflow on a phone, where the five rows this used to
+  // wrap onto left almost no room for results.
+  const secondaryControls = (
+    <>
         <Field label={t('search.entity', { defaultValue: 'Entity' })}>
           <Select
             value={entityType}
             onChange={(value) => { setEntityType(value); setFilters([]); setResult(null); }}
             options={entityTypeOptions}
-            triggerClassName="h-auto py-2"
+            triggerClassName="h-10"
           />
         </Field>
-
-        <Field label={t('search.freeText', { defaultValue: 'Free text' })}>
-          <Input
-            value={textQuery}
-            onChange={(e) => setTextQuery(e.target.value)}
-            placeholder={t('search.matchAnyField', { defaultValue: 'Match any field…' })}
-            className="min-w-0"
-            onKeyDown={(e) => e.key === 'Enter' && onRun()}
-          />
-        </Field>
-
         <Field label={t('search.smartScope', { defaultValue: 'Smart Scope' })}>
           <Select
             value=""
             onChange={onRunScope}
             options={scopeSelectOptions}
             className="w-full min-w-0"
-            triggerClassName="h-auto py-2"
+            triggerClassName="h-10"
           />
         </Field>
-
-        <Button size="md" onClick={onAddFilter} className="mt-3.5">{t('search.addFilter', { defaultValue: '+ Filter' })}</Button>
-        <Button
-          size="md"
-          onClick={() => setShowGenealogySearch((value) => !value)}
-          className="mt-3.5"
-          title={t('search.genealogyHint', { defaultValue: 'Show genealogy-specific person criteria' })}
-        >
-          {t('search.genealogy', { defaultValue: 'Genealogy' })}
-        </Button>
-        <Button variant="primary" size="md" onClick={onRun} disabled={running} className="mt-3.5">
-          {running ? t('search.running', { defaultValue: 'Running…' }) : t('common.search', { defaultValue: 'Search' })}
-        </Button>
-
+      <Button size="md" onClick={onAddFilter} className="md:mt-3.5">{t('search.addFilter', { defaultValue: '+ Filter' })}</Button>
+      <Button
+        size="md"
+        onClick={() => setShowGenealogySearch((value) => !value)}
+        className="md:mt-3.5"
+        title={t('search.genealogyHint', { defaultValue: 'Show genealogy-specific person criteria' })}
+      >
+        {t('search.genealogy', { defaultValue: 'Genealogy' })}
+      </Button>
         <Field label={t('search.savedSearches', { defaultValue: 'Saved searches' })}>
-          <div className="flex gap-1">
+          {/* Wraps: three controls do not fit one line inside the overflow
+              sheet on a phone, and the last was clipped at its edge. */}
+          <div className="flex flex-wrap gap-1">
             <Select
               value=""
               onChange={(value) => value && onLoadSearch(value)}
               options={savedSearchOptions}
               className="min-w-0 flex-[1_1_180px]"
-              triggerClassName="h-auto py-2"
+              triggerClassName="h-10"
             />
             <Button size="md" onClick={onSaveSearch} title={t('search.saveHint', { defaultValue: 'Persist the current search' })}>{t('common.save', { defaultValue: 'Save' })}</Button>
             {savedSearches.length > 0 && (
@@ -367,7 +359,7 @@ export function SearchApp() {
                 onChange={(value) => value && onDeleteSearch(value)}
                 options={deleteSavedSearchOptions}
                 className="w-20"
-                triggerClassName="h-auto py-2"
+                triggerClassName="h-10"
               />
             )}
             <Button size="md" onClick={onSaveAsSmartFilter} title={t('search.smartFilterHint', { defaultValue: 'Open this search in the Smart Filter editor' })}>
@@ -375,6 +367,58 @@ export function SearchApp() {
             </Button>
           </div>
         </Field>
+    </>
+  );
+
+  return (
+    <div className="flex h-full flex-col bg-background">
+      <header className="border-b border-border bg-card px-3 py-2 md:px-5 md:py-3">
+        {isMobile ? (
+          // One row: query, run, and the rest. The field label is dropped —
+          // the placeholder already says what the box takes — and the Search
+          // button becomes its icon, which is what keeps the overflow on the
+          // same line instead of wrapping it onto its own.
+          <div className="flex items-center gap-2">
+            <Input
+              value={textQuery}
+              onChange={(e) => setTextQuery(e.target.value)}
+              placeholder={t('search.matchAnyField', { defaultValue: 'Match any field…' })}
+              aria-label={t('search.freeText', { defaultValue: 'Free text' })}
+              className="min-w-0 flex-1"
+              onKeyDown={(e) => e.key === 'Enter' && onRun()}
+            />
+            <Button
+              variant="primary"
+              size="md"
+              onClick={onRun}
+              disabled={running}
+              className="w-10 shrink-0 px-0"
+              aria-label={running ? t('search.running', { defaultValue: 'Running…' }) : t('common.search', { defaultValue: 'Search' })}
+              title={t('common.search', { defaultValue: 'Search' })}
+            >
+              <SearchIcon size={18} />
+            </Button>
+            <ToolbarOverflow label={t('search.moreOptions', { defaultValue: 'Search options' })}>
+              <div className="flex flex-col gap-2">{secondaryControls}</div>
+            </ToolbarOverflow>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label={t('search.freeText', { defaultValue: 'Free text' })}>
+              <Input
+                value={textQuery}
+                onChange={(e) => setTextQuery(e.target.value)}
+                placeholder={t('search.matchAnyField', { defaultValue: 'Match any field…' })}
+                className="min-w-0"
+                onKeyDown={(e) => e.key === 'Enter' && onRun()}
+              />
+            </Field>
+            {secondaryControls}
+            <Button variant="primary" size="md" onClick={onRun} disabled={running} className="mt-3.5">
+              {running ? t('search.running', { defaultValue: 'Running…' }) : t('common.search', { defaultValue: 'Search' })}
+            </Button>
+          </div>
+        )}
       </header>
 
       <div className="border-b border-border bg-card px-5 py-3">
@@ -399,7 +443,7 @@ export function SearchApp() {
                 value={genealogySearch.matchMode}
                 onChange={(value) => updateGenealogySearch('matchMode', value)}
                 options={[{ value: 'all', label: t('search.allCriteria', { defaultValue: 'All criteria' }) }, { value: 'any', label: t('search.anyCriteria', { defaultValue: 'Any criteria' }) }]}
-                triggerClassName="h-auto py-2"
+                triggerClassName="h-10"
               />
             </Field>
             <TextField label="First name" value={genealogySearch.firstName} onChange={(value) => updateGenealogySearch('firstName', value)} />
@@ -412,7 +456,7 @@ export function SearchApp() {
                 value={genealogySearch.gender}
                 onChange={(value) => updateGenealogySearch('gender', value)}
                 options={genealogyGenderOptions}
-                triggerClassName="h-auto py-2"
+                triggerClassName="h-10"
               />
             </Field>
             <TextField label="Occupation/fact" value={genealogySearch.occupation} onChange={(value) => updateGenealogySearch('occupation', value)} />
@@ -439,7 +483,7 @@ export function SearchApp() {
                 onChange={setReplaceField}
                 options={replaceFieldOptions}
                 className="w-full min-w-0"
-                triggerClassName="h-auto py-2"
+                triggerClassName="h-10"
               />
             </Field>
             <Field label="Find">

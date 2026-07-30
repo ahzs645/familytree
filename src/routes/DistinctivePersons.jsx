@@ -88,7 +88,7 @@ export default function DistinctivePersons() {
       render: (row) => (
         <div className="flex flex-wrap gap-1.5">
           {row.tags.length ? row.tags.map((tag) => (
-            <span key={tag} className="rounded border border-border bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">{tag}</span>
+            <span key={tag} className="rounded border border-border bg-secondary px-2 py-0.5 text-2xs text-muted-foreground">{tag}</span>
           )) : <span className="text-muted-foreground">{t('distinctivePersons.noSignals')}</span>}
         </div>
       ),

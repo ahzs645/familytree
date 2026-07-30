@@ -5,6 +5,7 @@ import { BulkActionBar } from './BulkActionBar.jsx';
 import { ListReportPreview } from './ListReportWorkbench.jsx';
 import { listToolbarCountClass, listToolbarInputClass } from './listToolbarClasses.js';
 import { useListSelection } from './useListSelection.js';
+import { PageTitle } from '../ui/PageTitle.jsx';
 
 function defaultValue(row, column) {
   if (column.sortValue) return column.sortValue(row);
@@ -37,7 +38,7 @@ export function ListPageHeader({ title, subtitle, count, total, actions, childre
   return (
     <header className="flex flex-wrap items-end gap-3 px-4 md:px-5 py-3 border-b border-border bg-card">
       <div className="min-w-0 me-auto">
-        <h2 className="text-base font-semibold truncate">{title}</h2>
+        <PageTitle className="text-base font-semibold truncate">{title}</PageTitle>
         {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
       </div>
       {children}
@@ -174,7 +175,7 @@ export function SortableListTable({
                   if (content === '' || content == null) return null;
                   return (
                     <div key={column.key} className="flex gap-2 py-0.5">
-                      <span className="text-[11px] uppercase tracking-wide text-muted-foreground min-w-20 shrink-0 pt-0.5">{column.label}</span>
+                      <span className="text-2xs uppercase tracking-wide text-muted-foreground min-w-20 shrink-0 pt-0.5">{column.label}</span>
                       <span className={`min-w-0 flex-1 ${column.cellClassName || ''}`}>{content}</span>
                     </div>
                   );
@@ -201,7 +202,7 @@ export function SortableListTable({
                     <th
                       key={column.key}
                       scope="col"
-                      className={`text-start text-[11px] uppercase font-semibold tracking-wide text-muted-foreground px-3 py-2 ${column.className || ''}`}
+                      className={`text-start text-2xs uppercase font-semibold tracking-wide text-muted-foreground px-3 py-2 ${column.className || ''}`}
                     >
                       {column.sortable === false ? (
                         column.label

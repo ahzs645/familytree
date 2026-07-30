@@ -165,7 +165,7 @@ export function MergeConflictSheet({ plan, onApply, onCancel, sourceLabel = '' }
                   {t('merge.keepAll', { defaultValue: 'Keep all' })}
                 </button>
               </header>
-              <p className="mb-2 text-[11px] text-muted-foreground" dir="auto">
+              <p className="mb-2 text-2xs text-muted-foreground" dir="auto">
                 {t('merge.deletionsHint', { defaultValue: 'These records still exist here. Nothing is removed unless you tick it.' })}
               </p>
               <div className="space-y-1">
@@ -201,7 +201,7 @@ export function MergeConflictSheet({ plan, onApply, onCancel, sourceLabel = '' }
                     {entry.recordName}
                   </div>
                   {entry.editedBy || entry.editedAt || sourceLabel ? (
-                    <div className="text-[11px] text-muted-foreground truncate" dir="auto">
+                    <div className="text-2xs text-muted-foreground truncate" dir="auto">
                       {editedByLabel(t, entry.editedBy || sourceLabel, entry.editedAt)}
                     </div>
                   ) : null}

@@ -12,6 +12,7 @@ import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { useRecordEditor } from '../components/editors/useRecordEditor.js';
 import { useRecords } from '../lib/data/useRecords.js';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const TEST_TYPES = ['Autosomal', 'ATDNA', 'Y-DNA', 'MTDNA', 'mtDNA', 'X-DNA', 'Other'];
 const STATUS_VALUES = ['Ordered', 'Processing', 'Complete', 'Needs Review', 'Archived'];
@@ -175,7 +176,7 @@ export default function DNAResults() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h2 className="text-base font-semibold">DNA Results</h2>
+        <PageTitle className="text-base font-semibold">DNA Results</PageTitle>
         <span className="text-xs text-muted-foreground">{results.length}</span>
         <Button variant="primary" size="sm" onClick={onCreate} className="ms-auto">+ New</Button>
       </header>

@@ -13,6 +13,7 @@ import { WORLD_EVENTS } from '../lib/worldHistory.js';
 import { eventTypeLabel } from '../lib/catalogs.js';
 import { formatEventDate } from '../utils/formatDate.js';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const CATEGORY_STORAGE_KEY = 'worldHistory.enabledCategories';
 const RANGE_PADDING_YEARS = 20;
@@ -151,7 +152,7 @@ export default function WorldHistory() {
     <div className="flex flex-col h-full bg-background">
       <header className="border-b border-border bg-card px-5 py-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-base font-semibold">World History</h2>
+          <PageTitle className="text-base font-semibold">World History</PageTitle>
           <div className="w-full sm:w-72">
             <PersonPicker persons={persons} value={recordName} onChange={(id) => setActivePerson(id)} />
           </div>
@@ -187,15 +188,15 @@ export default function WorldHistory() {
             <div className="grid grid-cols-3 gap-2">
               <div className="rounded-md border border-border bg-card p-3">
                 <div className="text-lg font-semibold tabular-nums">{WORLD_EVENTS.length}</div>
-                <div className="text-[11px] text-muted-foreground">events</div>
+                <div className="text-2xs text-muted-foreground">events</div>
               </div>
               <div className="rounded-md border border-border bg-card p-3">
                 <div className="text-lg font-semibold tabular-nums">{allCategories.length}</div>
-                <div className="text-[11px] text-muted-foreground">sets</div>
+                <div className="text-2xs text-muted-foreground">sets</div>
               </div>
               <div className="rounded-md border border-border bg-card p-3">
                 <div className="text-lg font-semibold tabular-nums">{firstYear && lastYear ? `${firstYear}-${lastYear}` : '-'}</div>
-                <div className="text-[11px] text-muted-foreground">range</div>
+                <div className="text-2xs text-muted-foreground">range</div>
               </div>
             </div>
 
@@ -251,7 +252,7 @@ export default function WorldHistory() {
               <div className="mb-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 {featuredEvents.map((event) => (
                   <div key={`${event.title}-${event.year}`} className="rounded-md border border-border bg-card p-3">
-                    <div className="mb-1 text-[11px] font-medium uppercase text-muted-foreground">{formatRange(event)}</div>
+                    <div className="mb-1 text-2xs font-medium uppercase text-muted-foreground">{formatRange(event)}</div>
                     <div className="text-sm font-semibold leading-snug">{event.title}</div>
                     <div className="mt-2 truncate text-xs text-muted-foreground">{event.category}</div>
                   </div>

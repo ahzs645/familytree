@@ -17,7 +17,7 @@ export default function ArabicIslamicPanel() {
               label: t(`constants.vitalMarker.${option.value}`),
             }))}
           />
-          <div className="mt-1 text-[11px] text-muted-foreground">
+          <div className="mt-1 text-2xs text-muted-foreground">
             {t('settingsPage.preview')}: <span className="font-mono text-foreground">{vitalPreview(prefs.formats.vitalDisplay?.markerStyle)}</span>
           </div>
         </Field>

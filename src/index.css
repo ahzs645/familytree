@@ -91,7 +91,10 @@
   }
   code {
     font-family: 'SF Mono', Monaco, Consolas, monospace;
-    font-size: 0.9em;
+    /* Relative to the surrounding text, but never below the 11px floor: 0.9em
+       inside a `text-xs` paragraph lands on 10.8px, which is the smallest type
+       anywhere in the app and sits below the `text-2xs` rung. */
+    font-size: max(0.9em, 0.6875rem);
     background-color: hsl(var(--muted));
     padding: 1px 5px;
     border-radius: 3px;
@@ -165,8 +168,8 @@
  * browser's default (OS-dependent) arrow with a themed chevron and reserves
  * room for it. Placed outside @layer base so the padding override beats
  * Tailwind's px-* utilities the selects carry. Excludes multi/listbox selects
- * and the heritage tree, which has its own gold serif select theme. */
-select:not([multiple]):not([size]):not(.heritage-root-select):not(.heritage-theme-select) {
+ * only. */
+select:not([multiple]):not([size]) {
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
@@ -176,12 +179,12 @@ select:not([multiple]):not([size]):not(.heritage-root-select):not(.heritage-them
   background-size: 1rem;
   padding-inline-end: 2rem !important;
 }
-[dir="rtl"] select:not([multiple]):not([size]):not(.heritage-root-select):not(.heritage-theme-select) {
+[dir="rtl"] select:not([multiple]):not([size]) {
   background-position: left 0.625rem center;
 }
 /* Native <option> popups are OS-drawn; force readable theme colors so they
  * don't fall back to white-on-white in dark mode on some browsers. */
-select:not(.heritage-root-select):not(.heritage-theme-select) option {
+select option {
   background-color: hsl(var(--popover));
   color: hsl(var(--popover-foreground));
 }
@@ -268,17 +271,25 @@ input[type="radio"]:not(.sr-only):disabled {
 @media (pointer: coarse) {
   button,
   [role="button"],
+  summary,
   select,
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
   textarea {
     min-height: 40px;
   }
 
-  /* No button is meant to be thinner than this; catches icon-only "×" buttons
-   * that only ever had padding to give them width. */
+  /* Square, not just tall. The min-width used to be 24px, which left icon-only
+   * buttons stretched to 40 tall but as narrow as 32 — an audit of the chrome
+   * on all 90 routes found four of them, all on the same page. Text buttons are
+   * wider than 40px anyway, so this only ever squares up the icons.
+   *
+   * `summary` is here because a <details> disclosure is a real target — the
+   * Persons filter and the Heritage Tree overflow are both one — and it matches
+   * none of the selectors above. */
   button,
-  [role="button"] {
-    min-width: 24px;
+  [role="button"],
+  summary {
+    min-width: 40px;
   }
 
   /* The label wrapping a checkbox is usually the real target, but the box

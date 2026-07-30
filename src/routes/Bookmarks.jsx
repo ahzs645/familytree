@@ -11,6 +11,7 @@ import { saveWithChangeLog } from '../lib/changeLog.js';
 import { personSummary, familySummary, placeSummary, sourceSummary } from '../models/index.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const TYPE_DEFS = [
   { id: 'Person', labelKey: 'bookmarks.people', route: 'person', summarize: personSummary },
@@ -96,7 +97,7 @@ export default function Bookmarks() {
       <div className="max-w-4xl mx-auto p-5">
         <header className="mb-5 flex items-center gap-3">
           <div className="flex-1">
-            <h2 className="text-xl font-bold">{t('bookmarks.title')}</h2>
+            <PageTitle className="text-xl font-bold">{t('bookmarks.title')}</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">
               {total === 0 ? t('bookmarks.empty') : t('bookmarks.count', { count: total })}
             </p>
@@ -134,7 +135,7 @@ export default function Bookmarks() {
                       <button onClick={() => !editMode && navigate(href)}
                         className="flex-1 text-start min-w-0">
                         <div className="text-sm font-medium truncate">★ <BdiText>{label}</BdiText></div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5 truncate"><LtrText>{r.recordName}</LtrText></div>
+                        <div className="text-2xs text-muted-foreground mt-0.5 truncate"><LtrText>{r.recordName}</LtrText></div>
                       </button>
                       {!editMode ? (
                         <button

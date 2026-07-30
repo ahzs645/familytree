@@ -782,21 +782,21 @@ export default function PersonEditor() {
 
               <Section title={t('editor.person.private', { defaultValue: 'Private' })} accent={ACCENTS.private}>
                 <EditSwitch label={t('editor.person.markedPrivate', { defaultValue: 'Marked as Private' })} checked={isPrivate} onChange={setIsPrivate} />
-                <p className="text-[11px] text-muted-foreground mt-2" dir="auto">
+                <p className="text-2xs text-muted-foreground mt-2" dir="auto">
                   {t('editor.person.privateHint', { defaultValue: "If selected, this person won't appear in charts or reports." })}
                 </p>
               </Section>
 
               <Section title={t('editor.person.vitalStatus', { defaultValue: 'Vital Status' })} accent={ACCENTS.grave}>
                 <EditSwitch label={t('editor.person.deceased', { defaultValue: 'Deceased (no further information)' })} checked={isDeceased} onChange={setIsDeceased} />
-                <p className="text-[11px] text-muted-foreground mt-2" dir="auto">
+                <p className="text-2xs text-muted-foreground mt-2" dir="auto">
                   {t('editor.person.deceasedHint', { defaultValue: 'Confirms the person has died even without a death date — keeps them out of "living person" privacy filters and exports as 1 DEAT Y.' })}
                 </p>
               </Section>
 
               <Section title={t('editor.person.familyScope', { defaultValue: 'Family Scope' })} accent={ACCENTS.outside}>
                 <EditSwitch label={t('editor.person.outsideFamily', { defaultValue: 'Outside main family' })} checked={outsideFamily} onChange={setOutsideFamily} />
-                <p className="text-[11px] text-muted-foreground mt-2" dir="auto">
+                <p className="text-2xs text-muted-foreground mt-2" dir="auto">
                   {t('editor.person.outsideFamilyHint', { defaultValue: 'Use for spouses, milk relatives, friends, and invitees who should remain searchable without being treated as a core descendant branch.' })}
                 </p>
               </Section>

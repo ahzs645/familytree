@@ -4,6 +4,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const CARDS = [
   {
@@ -33,7 +34,7 @@ export default function Publish() {
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-5xl mx-auto p-6">
         <section className="mb-6">
-          <h2 className="text-2xl font-bold mb-2">Publish</h2>
+          <PageTitle className="text-2xl font-bold mb-2">Publish</PageTitle>
           <p className="text-sm text-muted-foreground max-w-2xl">
             Create artifacts meant to be shared or hosted. GEDCOM and backup transfer tools stay separate in Import & Export.
           </p>

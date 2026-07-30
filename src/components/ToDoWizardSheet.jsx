@@ -258,7 +258,7 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
         <div className="flex-1 min-h-0 flex">
           {/* Generators */}
           <nav className="w-56 shrink-0 border-e border-border overflow-auto p-2">
-            <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+            <div className="px-2 py-1 text-2xs uppercase tracking-wide text-muted-foreground">
               {t('todosPage.wizard.generatorsHeading')}
             </div>
             {CREATORS.map((c) => {

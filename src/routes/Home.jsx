@@ -230,7 +230,7 @@ export function Home() {
                   {translateAnniversaryType(t, row.type)} · {row.monthDayLabel}
                   {row.yearLabel ? ` · ${translateYearLabel(t, row.yearLabel)}` : ''}
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-1">
+                <div className="text-2xs text-muted-foreground mt-1">
                   {row.daysUntil === 0
                     ? t('home.today')
                     : t('home.inDays', { count: row.daysUntil })}
@@ -268,19 +268,19 @@ export function Home() {
                       {snapshot.favorite && <span aria-hidden className="text-yellow-500 me-1">★</span>}
                       {snapshot.name}
                       {isActive && (
-                        <span className="ms-2 inline-block rounded-full bg-primary/15 text-interactive text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 align-middle">
+                        <span className="ms-2 inline-block rounded-full bg-primary/15 text-interactive text-2xs font-semibold uppercase tracking-wide px-1.5 py-0.5 align-middle">
                           {t('home.treeCurrent', { defaultValue: 'Current' })}
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                    <div className="text-2xs text-muted-foreground mt-0.5">
                       {t('home.treeStats', {
                         records: snapshot.recordCount.toLocaleString(localeForFormat),
                         assets: snapshot.assetCount.toLocaleString(localeForFormat),
                       })}
                       {snapshot.label ? ` · ${snapshot.label}` : ''}
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-2xs text-muted-foreground">
                       {t('home.treeUpdated', { date: new Date(snapshot.updatedAt).toLocaleString(localeForFormat) })}
                     </div>
                   </div>

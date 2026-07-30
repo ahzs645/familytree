@@ -117,8 +117,8 @@ export function FamilySearchSourceFoldersSheet({ open, onClose }) {
                     <div className="text-xs text-muted-foreground">{count}</div>
                   </div>
                   <div className="flex gap-2 mt-1">
-                    <button onClick={() => onRenameFolder(folder)} className="text-[11px] text-interactive">Rename</button>
-                    <button onClick={() => onDeleteFolder(folder)} className="text-[11px] text-destructive-text">Delete</button>
+                    <button onClick={() => onRenameFolder(folder)} className="text-2xs text-interactive">Rename</button>
+                    <button onClick={() => onDeleteFolder(folder)} className="text-2xs text-destructive-text">Delete</button>
                   </div>
                 </div>
               );
@@ -137,7 +137,7 @@ export function FamilySearchSourceFoldersSheet({ open, onClose }) {
                       {ref?.tags?.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {ref.tags.map((tag) => (
-                            <span key={tag} className="text-[10px] bg-background border border-border rounded-full px-2 py-0.5">{tag}</span>
+                            <span key={tag} className="text-2xs bg-background border border-border rounded-full px-2 py-0.5">{tag}</span>
                           ))}
                         </div>
                       )}

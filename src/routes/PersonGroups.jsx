@@ -14,6 +14,7 @@ import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { useRecordEditor } from '../components/editors/useRecordEditor.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { createRecordEnvelope, createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const GROUP_FIELDS = ['name', 'description', 'color'];
 
@@ -180,7 +181,7 @@ export default function PersonGroups() {
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
-        <h2 className="text-base font-semibold">Person Groups</h2>
+        <PageTitle className="text-base font-semibold">Person Groups</PageTitle>
         <span className="text-xs text-muted-foreground">{groups.length}</span>
         <Button variant="primary" size="sm" onClick={onCreate} className="ms-auto">+ New</Button>
       </header>

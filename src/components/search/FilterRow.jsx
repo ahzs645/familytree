@@ -31,20 +31,20 @@ export function FilterRow({ entityType, filter, onChange, onRemove }) {
         value={filter.field}
         onChange={(field) => update({ field })}
         options={fields.map((f) => ({ value: f.id, label: f.label }))}
-        triggerClassName="h-auto py-1.5"
+        triggerClassName="h-10"
       />
       <Select
         value={filter.op}
         onChange={(op) => update({ op })}
         options={ops.map((op) => ({ value: op, label: op }))}
-        triggerClassName="h-auto py-1.5"
+        triggerClassName="h-10"
       />
       {fieldDef.type === 'enum' && filter.op === 'equals' && (
         <Select
           value={String(filter.value ?? '')}
           onChange={(value) => update({ value: parseValueForType(fieldDef, value) })}
           options={[{ value: '', label: '—' }, ...fieldDef.options.map((o) => ({ value: String(o.value), label: o.label }))]}
-          triggerClassName="h-auto py-1.5"
+          triggerClassName="h-10"
         />
       )}
       {fieldDef.type === 'date' && (

@@ -196,7 +196,7 @@ export function DatePicker({
             <div className="mb-3 space-y-2 border-b border-border pb-3">
               <div className="flex items-end gap-2">
                 <div className="flex-1 space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Qualifier</label>
+                  <label className="block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Qualifier</label>
                   <Select
                     value={parsed.prefix}
                     onChange={(next) => {
@@ -210,7 +210,7 @@ export function DatePicker({
                   />
                 </div>
                 <div className="w-24 space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Era</label>
+                  <label className="block text-2xs font-semibold uppercase tracking-wide text-muted-foreground">Era</label>
                   <Select
                     value={parsed.era}
                     onChange={(next) => commit({ ...parsed, era: next })}
@@ -235,7 +235,7 @@ export function DatePicker({
                   >
                     {parsed.date1 || (parsed.prefix === PREFIX.BET ? 'from…' : 'start…')}
                   </button>
-                  <span className="text-[10px] font-semibold text-muted-foreground">{parsed.prefix === PREFIX.BET ? 'AND' : 'TO'}</span>
+                  <span className="text-2xs font-semibold text-muted-foreground">{parsed.prefix === PREFIX.BET ? 'AND' : 'TO'}</span>
                   <button
                     type="button"
                     onClick={() => { activeDateField.current = 'date2'; }}
@@ -279,7 +279,7 @@ export function DatePicker({
           </div>
           <div className="grid grid-cols-7 gap-0.5 text-center mb-1">
             {weekdays.map((d) => (
-              <div key={d} className="text-[11px] font-semibold text-muted-foreground py-1">{d}</div>
+              <div key={d} className="text-2xs font-semibold text-muted-foreground py-1">{d}</div>
             ))}
           </div>
           <div className="grid grid-cols-7 gap-0.5">

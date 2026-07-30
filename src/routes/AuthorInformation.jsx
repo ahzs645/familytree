@@ -5,6 +5,7 @@ import { buttonClasses } from '../components/ui/Button.jsx';
 import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { readField } from '../lib/schema.js';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 export default function AuthorInformation() {
   const [values, setValues] = useState(null);
@@ -70,7 +71,7 @@ export default function AuthorInformation() {
       <div className="max-w-5xl mx-auto p-5">
         <header className="flex items-center gap-3 mb-5">
           <div>
-            <h2 className="text-xl font-bold">Author Information</h2>
+            <PageTitle className="text-xl font-bold">Author Information</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">Tree-level author, contact, copyright, and presentation metadata.</p>
           </div>
           {status && <span className="ms-auto text-xs text-success-text">{status}</span>}
@@ -161,7 +162,7 @@ function Grid({ children }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
+      <span className="block text-2xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">{label}</span>
       {children}
     </label>
   );

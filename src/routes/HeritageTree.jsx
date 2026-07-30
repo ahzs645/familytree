@@ -19,6 +19,8 @@ function clampScale(scale) {
 
 export default function HeritageTree() {
   const [view, setView] = useState({ scale: 0.38, tx: 60, ty: 30 });
+  const headerRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(57);
   const pointersRef = useRef(new Map());
   const dragRef = useRef({
     isDragging: false,
@@ -39,9 +41,11 @@ export default function HeritageTree() {
   const [treeData, setTreeData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedRootId, setSelectedRootId] = useState(null);
-  const [theme, setTheme] = useState('classic');
+  // 'app' derives the canvas from the app design tokens, so the page follows
+  // the light/dark theme like every other route. The remaining palettes are
+  // fixed decorative looks kept for PDF exports.
+  const [theme, setTheme] = useState('app');
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
   const { recordName: activeId, setActivePerson } = useActivePerson();
   const { t, localization } = useTranslation();
@@ -51,12 +55,6 @@ export default function HeritageTree() {
     [treeData, selectedRootId, activeId]
   );
   const byId = useMemo(() => Object.fromEntries(nodes.map((n) => [n.id, n])), [nodes]);
-
-  const filteredIndividuals = useMemo(() => {
-    if (!searchTerm) return individuals;
-    const lower = searchTerm.toLocaleLowerCase(localization.locale);
-    return individuals.filter((i) => i.searchText.toLocaleLowerCase(localization.locale).includes(lower));
-  }, [individuals, localization.locale, searchTerm]);
 
   const highlightedIds = useMemo(() => {
     if (!hoveredNodeId) return null;
@@ -132,6 +130,23 @@ export default function HeritageTree() {
     handleResetView();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rootId, nodes.length]);
+
+  // The canvas and the generation labels start below the toolbar. That offset
+  // used to be a hard-coded 62px, which the toolbar outgrows as soon as its
+  // controls wrap — on a narrow window the top row of cards ended up hidden
+  // underneath it. Measure the real toolbar instead.
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header || typeof ResizeObserver === 'undefined') return undefined;
+    // getBoundingClientRect, not entry.contentRect: the latter is the content
+    // box, so it drops the toolbar's padding and border.
+    const observer = new ResizeObserver(() => {
+      const next = Math.round(header.getBoundingClientRect().height);
+      setHeaderHeight((current) => (current === next ? current : next));
+    });
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [loading]);
 
   const handleResetToDatasetDefault = () => {
     setSelectedRootId(null);
@@ -260,7 +275,11 @@ export default function HeritageTree() {
   const maxY = nodes.length > 0 ? Math.max(...nodes.map((p) => p.y + p.h)) + 140 : window.innerHeight;
 
   if (loading) {
-    return <div className="heritage-tree-loading">{t('heritageTree.loading')}</div>;
+    return (
+      <div className="grid h-full place-items-center bg-background text-sm text-muted-foreground">
+        {t('heritageTree.loading')}
+      </div>
+    );
   }
 
   return (
@@ -274,14 +293,13 @@ export default function HeritageTree() {
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onWheel={handleWheel}
-      style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+      style={{ '--ht-header-h': `${headerHeight}px`, cursor: isDragging ? 'grabbing' : 'grab' }}
     >
       <Header
+        headerRef={headerRef}
         maxGen={maxGen}
         rootName={byId[rootId]?.name}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        filteredIndividuals={filteredIndividuals}
+        individuals={individuals}
         rootId={rootId}
         setSelectedRootId={selectRoot}
         theme={theme}
@@ -309,7 +327,7 @@ export default function HeritageTree() {
             <polyline
               key={c.id}
               points={c.path}
-              stroke={c.isMarriage ? 'var(--marriage-line)' : 'var(--blood-line)'}
+              stroke={c.isMarriage ? 'var(--ht-marriage-line)' : 'var(--ht-blood-line)'}
               strokeWidth="2"
               fill="none"
               strokeLinejoin="round"
@@ -318,14 +336,6 @@ export default function HeritageTree() {
             />
           ))}
         </svg>
-
-        {nodes.length === 0 && (
-          <div className="heritage-empty-state">
-            {t('heritageTree.emptyTitle')}
-            <br />
-            {t('heritageTree.emptyBody')}
-          </div>
-        )}
 
         {nodes.map((p) => (
           <PersonCard
@@ -348,10 +358,19 @@ export default function HeritageTree() {
       </div>
 
       {genLabels?.map((l) => (
-        <div key={`label-${l.gen}`} className="gen-label" style={{ top: (l.y * view.scale + view.ty + 62) }}>
+        <div key={`label-${l.gen}`} className="gen-label" style={{ top: (l.y * view.scale + view.ty + headerHeight) }}>
           {t('heritageTree.generationLabel', { count: l.gen })}
         </div>
       ))}
+
+      {/* Sits outside #canvas: inside it, the message inherited the pan/zoom
+          transform and drifted off-screen the moment the view moved. */}
+      {nodes.length === 0 && (
+        <div className="pointer-events-none absolute inset-x-6 top-1/2 z-20 -translate-y-1/2 text-center text-sm text-muted-foreground">
+          <p className="text-base font-medium text-foreground">{t('heritageTree.emptyTitle')}</p>
+          <p className="mt-1">{t('heritageTree.emptyBody')}</p>
+        </div>
+      )}
 
       <Legend nodes={nodes} />
 

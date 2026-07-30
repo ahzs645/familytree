@@ -614,11 +614,11 @@ export default function Places() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Latitude">
             <input value={values.latitude || ''} onChange={(e) => setValues((v) => ({ ...v, latitude: e.target.value }))} className={inputClass} />
-            {hasPoint && <div className="text-[11px] text-muted-foreground mt-1">{dmsLat(lat)}</div>}
+            {hasPoint && <div className="text-2xs text-muted-foreground mt-1">{dmsLat(lat)}</div>}
           </Field>
           <Field label="Longitude">
             <input value={values.longitude || ''} onChange={(e) => setValues((v) => ({ ...v, longitude: e.target.value }))} className={inputClass} />
-            {hasPoint && <div className="text-[11px] text-muted-foreground mt-1">{dmsLon(lng)}</div>}
+            {hasPoint && <div className="text-2xs text-muted-foreground mt-1">{dmsLon(lng)}</div>}
           </Field>
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
@@ -651,7 +651,7 @@ export default function Places() {
             showControls={false}
           />
         </div>
-        <div className="text-[11px] text-muted-foreground mt-2">Click on the map to set coordinates, drag the marker to fine-tune.</div>
+        <div className="text-2xs text-muted-foreground mt-2">Click on the map to set coordinates, drag the marker to fine-tune.</div>
       </Section>
 
       <MapPreferencesCard preferences={mapPrefs} onChange={onPrefsChange} />
@@ -839,7 +839,7 @@ function Empty({ title, hint }) {
 function ReadOnly({ label, value }) {
   return (
     <div className="mb-2 last:mb-0">
-      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      <div className="text-2xs text-muted-foreground uppercase tracking-wide">{label}</div>
       <div className="text-sm">{value}</div>
     </div>
   );

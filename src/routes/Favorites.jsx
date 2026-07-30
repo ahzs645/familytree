@@ -6,6 +6,7 @@ import { APP_FUNCTIONS, functionByRoute } from '../lib/functionCatalog.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { familySummary, personSummary, placeSummary, sourceSummary } from '../models/index.js';
 import { BdiText } from '../components/BdiText.jsx';
+import { PageTitle } from '../components/ui/PageTitle.jsx';
 
 const BOOKMARK_TYPES = [
   { id: 'Person', label: 'People', route: 'person', summarize: personSummary },
@@ -85,7 +86,7 @@ export default function Favorites() {
       <div className="max-w-6xl mx-auto p-5">
         <header className="flex items-center gap-3 mb-5">
           <div>
-            <h2 className="text-xl font-bold">Favorites</h2>
+            <PageTitle className="text-xl font-bold">Favorites</PageTitle>
             <p className="text-sm text-muted-foreground mt-1">Favorite functions and bookmarked records.</p>
           </div>
           {status && <span className="ms-auto text-xs text-success-text">{status}</span>}
@@ -109,7 +110,7 @@ export default function Favorites() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {favoriteFunctions.map((item) => (
                 <div key={item.to} className="rounded-md border border-border bg-background p-3">
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{item.category}</div>
+                  <div className="text-2xs uppercase tracking-wide text-muted-foreground">{item.category}</div>
                   <div className="text-sm font-semibold mt-1">{item.label}</div>
                   <div className="flex gap-2 mt-3">
                     <button onClick={() => navigate(item.to)} className={primaryButton}>Open</button>
@@ -142,7 +143,7 @@ export default function Favorites() {
                         return (
                           <button key={record.recordName} onClick={() => navigate(href)} className="text-start rounded-md border border-border bg-background p-3 hover:bg-secondary">
                             <div className="text-sm font-medium truncate"><BdiText>{label}</BdiText></div>
-                            <div className="text-[11px] text-muted-foreground mt-1">{record.recordType}</div>
+                            <div className="text-2xs text-muted-foreground mt-1">{record.recordType}</div>
                           </button>
                         );
                       })}
@@ -160,4 +161,4 @@ export default function Favorites() {
 
 const inputClass = 'rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary';
 const primaryButton = buttonClasses({ variant: 'primary', size: 'sm' });
-const secondaryButton = 'rounded-md border border-border bg-secondary px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-60';
+const secondaryButton = 'inline-flex h-8 items-center rounded-md border border-border bg-secondary px-3 text-xs font-medium hover:bg-accent disabled:opacity-60';

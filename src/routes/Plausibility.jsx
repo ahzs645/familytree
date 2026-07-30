@@ -56,7 +56,7 @@ export default function Plausibility() {
                   <span className="flex-1 text-sm">{w.message}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3 ps-[72px] sm:ps-0">
-                  <span className="text-[11px] text-muted-foreground/70 font-mono">{w.rule}</span>
+                  <span className="text-2xs text-muted-foreground/70 font-mono">{w.rule}</span>
                   <button
                     onClick={() => navigate(w.recordType === 'Family' ? `/family/${w.recordName}` : `/person/${w.recordName}`)}
                     className="text-xs text-interactive border border-border rounded-md px-2 py-1 hover:bg-accent"

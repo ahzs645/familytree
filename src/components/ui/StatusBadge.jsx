@@ -31,7 +31,7 @@ export function StatusBadge({ tone = 'neutral', className, children, ...props })
     <span
       className={cn(
         'inline-flex min-w-[62px] shrink-0 items-center justify-center rounded border px-2 py-0.5',
-        'text-[10px] font-bold uppercase tracking-wide',
+        'text-2xs font-bold uppercase tracking-wide',
         TONE_CLASSES[normalizedTone(tone)],
         className,
       )}
