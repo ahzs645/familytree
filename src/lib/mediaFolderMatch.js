@@ -1,4 +1,6 @@
 import { getAppDataClient } from './data/AppDataClient.js';
+import { createWithChangeLog } from './recordWrite.js';
+import { saveWithChangeLog } from './changeLog.js';
 
 const IDENTIFIER_FIELDS = [
   'audioFileIdentifier',
@@ -49,7 +51,8 @@ export async function matchMediaFiles(files) {
       },
     });
   }
-  await db.transaction({ saveRecords, saveAssets: assets });
+  await db.transaction({ saveAssets: assets });
+  for (const record of saveRecords) await saveWithChangeLog(record);
   return { matched: assets.length };
 }
 
@@ -57,6 +60,7 @@ export async function createMediaRecordsFromFiles(files) {
   const db = getAppDataClient().records;
   const saveRecords = [];
   const saveAssets = [];
+  const creationDate = new Date().toISOString();
   for (const file of files || []) {
     const recordType = mediaTypeForFile(file);
     const recordName = `${recordType.toLowerCase()}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
@@ -71,6 +75,7 @@ export async function createMediaRecordsFromFiles(files) {
         filename: { value: file.name, type: 'STRING' },
         fileName: { value: file.name, type: 'STRING' },
         assetIds: { value: [assetId], type: 'LIST' },
+        mft_creationDate: { value: creationDate, type: 'TIMESTAMP' },
       },
     };
     if (identifierField) record.fields[identifierField] = { value: file.name, type: 'STRING' };
@@ -85,7 +90,8 @@ export async function createMediaRecordsFromFiles(files) {
       dataBase64: await fileToBase64(file),
     });
   }
-  await db.transaction({ saveRecords, saveAssets });
+  await db.transaction({ saveAssets });
+  for (const record of saveRecords) await createWithChangeLog(record);
   return { created: saveRecords.length, records: saveRecords };
 }
 
@@ -107,7 +113,7 @@ export async function createMediaRecordFromBlob(blob, {
         ...(caption ? { caption: { value: caption, type: 'STRING' } } : {}),
       },
     };
-    await db.save(next);
+    await saveWithChangeLog(next);
     return next;
   }
   return record;
@@ -143,7 +149,6 @@ export async function replaceMediaRecordAsset(mediaRecord, fileOrBlob, {
     fields: nextFields,
   };
   await db.transaction({
-    saveRecords: [nextRecord],
     saveAssets: [{
       assetId,
       ownerRecordName: mediaRecord.recordName,
@@ -155,6 +160,7 @@ export async function replaceMediaRecordAsset(mediaRecord, fileOrBlob, {
     }],
     deleteAssetIds: priorAssetIds,
   });
+  await saveWithChangeLog(nextRecord);
   return nextRecord;
 }
 
@@ -184,7 +190,6 @@ export async function replaceMediaRecordImageData(mediaRecord, {
     },
   };
   await db.transaction({
-    saveRecords: [nextRecord],
     saveAssets: [{
       assetId,
       ownerRecordName: mediaRecord.recordName,
@@ -196,6 +201,7 @@ export async function replaceMediaRecordImageData(mediaRecord, {
     }],
     deleteAssetIds: priorAssetIds,
   });
+  await saveWithChangeLog(nextRecord);
   return nextRecord;
 }
 
@@ -209,9 +215,10 @@ export async function createMediaURLRecord(url, { caption = '' } = {}) {
     fields: {
       url: { value, type: 'STRING' },
       caption: { value: caption || value, type: 'STRING' },
+      mft_creationDate: { value: new Date().toISOString(), type: 'TIMESTAMP' },
     },
   };
-  await db.save(record);
+  await createWithChangeLog(record);
   return record;
 }
 

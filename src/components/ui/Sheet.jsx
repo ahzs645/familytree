@@ -26,6 +26,7 @@ import { cn } from '../../lib/utils.js';
  *   scroll               — false (default) | 'card' | 'body'
  *   maxHeight            — height cap used by scroll modes (default: 'max-h-[80vh]')
  *   ariaLabel            — optional aria-label on the dialog
+ *   dialogRef            — optional ref to the dialog overlay for focus management
  */
 export function Sheet({
   title,
@@ -43,6 +44,7 @@ export function Sheet({
   scroll = false,
   maxHeight = 'max-h-[80vh]',
   ariaLabel,
+  dialogRef,
 }) {
   const alignClasses = align === 'center'
     ? 'items-center justify-center'
@@ -50,6 +52,7 @@ export function Sheet({
 
   return (
     <div
+      ref={dialogRef}
       className={cn('fixed inset-0 z-50 flex p-4', backdrop, alignClasses)}
       role="dialog"
       aria-modal="true"
