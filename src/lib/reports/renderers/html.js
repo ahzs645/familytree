@@ -16,10 +16,13 @@ function bdi(s) {
 }
 
 function renderBlock(b) {
+  const bookClass = b.bookSectionKind === 'cover' || b.bookSectionKind === 'title'
+    ? ' class="book-title-page"'
+    : '';
   switch (b.kind) {
     case 'title': {
       const tag = b.level === 3 ? 'h3' : b.level === 2 ? 'h2' : 'h1';
-      return `<${tag}>${bdi(b.text)}</${tag}>`;
+      return `<${tag}${bookClass}>${bdi(b.text)}</${tag}>`;
     }
     case 'paragraph':
       return `<p>${bdi(b.text)}</p>`;
@@ -43,13 +46,13 @@ function renderBlock(b) {
   }
 }
 
-export function renderHTML(report, { theme } = {}) {
-  const localization = getCurrentLocalization();
+export function renderHTML(report, { theme, localization: requestedLocalization } = {}) {
+  const localization = requestedLocalization || report.localization || getCurrentLocalization();
   const pageStyle = report.pageStyle || {};
   const pageBackground = pageStyle.background === 'sepia' ? '#fbf6e8' : pageStyle.background === 'soft' ? '#f7f8fb' : '#fff';
-  const css = theme?.id === 'sepia'
+  const css = theme?.css || (theme?.id === 'sepia'
     ? `body{background:${pageBackground};color:#3a2a14}`
-    : `body{background:${pageBackground};color:#1a1d27}`;
+    : `body{background:${pageBackground};color:#1a1d27}`);
   const pageSize = pageStyle.pageSize === 'a4' ? 'A4' : pageStyle.pageSize === 'legal' ? 'legal' : 'letter';
   const orientation = pageStyle.orientation === 'landscape' ? 'landscape' : 'portrait';
   const margin = Number.isFinite(pageStyle.margin) ? Math.max(24, Math.min(96, pageStyle.margin)) : 48;

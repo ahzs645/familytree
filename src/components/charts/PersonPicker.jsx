@@ -17,7 +17,7 @@ import { useTranslation } from '../../contexts/LocalizationContext.jsx';
  * people with no relatives, since picking one shows a single lone card).
  * Omitted by every other caller, which renders exactly as before.
  */
-export function PersonPicker({ persons, value, onChange, triggerClassName, note }) {
+export function PersonPicker({ persons, value, onChange, triggerClassName, note, ariaLabel }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -77,6 +77,7 @@ export function PersonPicker({ persons, value, onChange, triggerClassName, note 
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-label={ariaLabel}
         className={cn(
           'w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm ps-3 pe-8 text-start outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 hover:bg-accent inline-flex items-center relative',
           triggerClassName
