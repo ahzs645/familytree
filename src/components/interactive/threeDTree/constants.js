@@ -2,12 +2,12 @@ import { Gender } from '../../../models/index.js';
 
 export const GEN_STEP = 270;
 
-// Generations sit at staggered DEPTH (z) so the tilted camera shows nearer
-// generations overlapping/occluding farther ones — the native viewer's nested
-// look, which a flat coplanar board can't produce. Descendants (gen > 0) lift
-// toward the camera, ancestors (gen < 0) recede; root stays at 0. Applied to
-// bands, figures, and connectors together so each generation moves as a slab.
-const GENERATION_DEPTH_STEP = 18;
+// The native viewer has NO per-generation depth staggering: every band floor
+// sits on the common ground plane and only the style-driven band elevation
+// (raised/pedestal/stairs) lifts content (decompiled GenerationBandObject +
+// elevationOfContentAboveBottomFloor...). Kept at 0; the helper remains so a
+// future stairs-style implementation can reuse the plumbing.
+const GENERATION_DEPTH_STEP = 0;
 export function generationDepthZ(generation) {
   return (Number(generation) || 0) * GENERATION_DEPTH_STEP;
 }
@@ -22,12 +22,15 @@ export const VIEWER_OPTIONS_VERSION = 7;
 export const CAMERA_STATE_STORAGE_KEY = 'cloudtreeweb:interactive-tree-camera-state';
 export const CAMERA_STATE_VERSION = 12;
 export const OPTIONS_PANEL_STATE_STORAGE_KEY = 'cloudtreeweb:interactive-tree-options-panel';
-// Native InteractiveTreeView3DViewerPersonObject leans each figure back to face
-// the camera (decompiled bodyNode euler-X = -18° in the default perspective
-// mode). Our board is the XY plane with +Z up, so a negative X rotation tilts
-// the figure's front up toward the tilted camera, revealing the front of the
-// body+head (the puffy "cloud" silhouette) instead of a top-down foreshortening.
-export const REFERENCE_MODEL_GROUND_ROTATION_X = -0.32;
+// Decompiled -[InteractiveTreeView3DViewerPersonObject(Body)
+// buildNewBodyNodeAndReturnBodyNodeSize:] assigns the flattened .dae geometry
+// to bodyNode with NO euler rotation: the Y_UP Collada figures simply stand
+// upright in SceneKit's Y-up world, perpendicular to the flat bands (only the
+// texts plane is rotated, euler-X = -π/2, to lie flat on the band). Our board
+// is the XY plane with +Z up and the camera approaches from -Y, so the
+// equivalent pose is a quarter turn about X: model-up (+Y) → board-up (+Z),
+// model-front (+Z) → -Y, facing the camera.
+export const REFERENCE_MODEL_GROUND_ROTATION_X = Math.PI / 2;
 
 // Person rendering style (matches Mac InteractiveTreeView3DViewer_PersonStyle_*)
 export const PERSON_STYLES = [

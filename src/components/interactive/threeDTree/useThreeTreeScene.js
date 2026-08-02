@@ -142,7 +142,7 @@ export function useThreeTreeScene({
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(palette.background);
-    scene.fog = new THREE.Fog(palette.background, 1700, 3900);
+    // No fog: the native SceneKit scene has none (setupSceneEssentials).
 
     const camera = new THREE.OrthographicCamera(-500, 500, 500, -500, 1, 6000);
     // Pre-fit placeholder at the default preset's tilt (topDownSlight, -63°).
@@ -164,8 +164,10 @@ export function useThreeTreeScene({
     controls.dampingFactor = 0.08;
     controls.screenSpacePanning = true;
     controls.zoomToCursor = true; // zoom toward the pointer, like the native viewer
-    controls.minZoom = 0.1;
-    controls.maxZoom = 4.5; // allow close inspection of the small busts
+    // Native zoom clamps: minimumZoom 0.25, maximumZoom 4 (decompiled
+    // InteractiveTreeView3DViewer(Camera) class methods).
+    controls.minZoom = 0.25;
+    controls.maxZoom = 4;
     controls.maxPolarAngle = Math.PI * 0.68;
     controls.mouseButtons = {
       LEFT: THREE.MOUSE.PAN,
@@ -188,29 +190,27 @@ export function useThreeTreeScene({
 
     const illumination = Number.isFinite(viewerOptions.illuminationStrength) ? viewerOptions.illuminationStrength : 1;
     const shadowStrength = Number.isFinite(viewerOptions.shadowStrength) ? viewerOptions.shadowStrength : 1;
-    // Match the native SceneKit rig (decompiled from InteractiveTreeView3DViewer
-    // setupSceneEssentials): ONE strong spot/key light from above (~850) + a
-    // dimmer ambient fill (~550), ratio ~1.5:1, no separate fill light. The
-    // figures' "glossy" look is NOT material specular (native materials are
-    // matte Blinn, shininess 0) — it is this single overhead key producing a
-    // bright-top / dark-bottom gradient on each rounded body.
-    scene.add(new THREE.AmbientLight(palette.ambient, 1.0 * illumination));
+    // Native SceneKit rig (decompiled setupSceneEssentials + updateLighting*):
+    // exactly ONE overhead spot/key light + ONE ambient, intensities
+    // spot 850 : ambient 550 (ratio ≈ 1.545), no second fill light, shadow map
+    // 2048², radius 4, shadow color (0,0,0,shadowStrength). The figures'
+    // "glossy" look is this single key's bright-top/dark-bottom gradient on
+    // matte Blinn bodies, not material specular.
+    // Keep the native 850:550 key:ambient ratio; the 1.4 factor calibrates
+    // absolute exposure so the pastel bands read as bright as the Mac render.
+    scene.add(new THREE.AmbientLight(palette.ambient, 1.4 * illumination));
     const shadowRadius = Number.isFinite(viewerOptions.shadowRadius) ? viewerOptions.shadowRadius : 1;
-    const key = new THREE.DirectionalLight(palette.keyLight, 2.3 * illumination);
+    const key = new THREE.DirectionalLight(palette.keyLight, (850 / 550) * 1.4 * illumination);
     // High overhead, only slightly toward the camera (-y) so tops catch light
-    // and a soft contact shadow falls behind each figure.
+    // and a soft contact shadow falls behind each figure (approximates the
+    // native focus-following spotlight at orbit euler ~27°/36°).
     key.position.set(60, -240, 940);
     key.castShadow = shadowStrength > 0;
-    key.shadow.mapSize.width = 1024;
-    key.shadow.mapSize.height = 1024;
+    key.shadow.mapSize.width = 2048;
+    key.shadow.mapSize.height = 2048;
     key.shadow.bias = -0.0005;
-    key.shadow.radius = Math.max(0, 3 * shadowRadius);
+    key.shadow.radius = Math.max(0, 4 * shadowRadius);
     scene.add(key);
-    // Faint cool fill only to keep shadow sides from going fully black — the
-    // native rig has no second directional, just ambient, so keep this low.
-    const fill = new THREE.DirectionalLight(palette.fillLight, 0.4 * illumination);
-    fill.position.set(-420, 380, 520);
-    scene.add(fill);
     renderer.shadowMap.enabled = shadowStrength > 0;
 
     const stage = new THREE.Group();

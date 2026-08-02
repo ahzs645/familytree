@@ -174,8 +174,10 @@ export function makeConnector(link, nodes, palette, options = {}) {
       : orthogonalPoints(from, to, z);
   }
 
-  // Slim, near-uniform width — the source does NOT bold the focus/emphasis line.
-  const baseRadius = type === 'partner' ? 1.2 : 1.6;
+  // Native uses ONE capsule radius t for every segment — couple bar, trunk,
+  // crossbar and child drops alike (t = minification × connectionThickness
+  // 0.022 ≈ 1.6 web units at scale 72.7); no thinner partner special case.
+  const baseRadius = 1.6;
   const tubeRadius = baseRadius * thicknessScale * (highlighted ? 2 : 1);
   const glow = highlighted ? { emissive: color, emissiveIntensity: 0.6 } : {};
   group.add(makeConnectorTube(points, palette.shadow, tubeRadius + 1.4, 0.05, { x: 1.5, y: -1.5, z: -6 }, 3));
@@ -202,94 +204,93 @@ function lightenHex(hex, amount) {
   return `#${next.join('')}`;
 }
 
-// The native viewer marks each couple bar with a MARRIAGE symbol — two
-// interlocking wedding rings (MacFamilyTree ships Family_Rings models for this),
-// NOT a slashed circle. Two thin neutral-silver ring outlines overlapping
-// horizontally, sitting just in front of the bar.
+// Native marriage mark (decompiled FamilyConnectionObject): a FLAT square
+// image plane (the _FamilyEvent_Marriage rings icon) of side 0.25 native
+// units ≈ 18 web, lying on the board at the couple-bar attachment, no shadow,
+// high render order — not 3D torus geometry. We draw the ⚭ rings glyph onto
+// a canvas as a stand-in for the platform icon asset.
+const unionMarkerTextureCache = new Map();
+
+function unionMarkerTexture(emphasis) {
+  const key = emphasis ? 'emphasis' : 'regular';
+  if (unionMarkerTextureCache.has(key)) return unionMarkerTextureCache.get(key);
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, size, size);
+  ctx.strokeStyle = 'rgba(74, 79, 88, 0.9)';
+  ctx.lineWidth = 7;
+  const r = size * 0.26;
+  for (const dx of [-r * 0.55, r * 0.55]) {
+    ctx.beginPath();
+    ctx.arc(size / 2 + dx, size / 2, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.anisotropy = 4;
+  unionMarkerTextureCache.set(key, texture);
+  return texture;
+}
+
 function makeUnionMarker(point, emphasis) {
-  const group = new THREE.Group();
-  const r = emphasis ? 8.5 : 6.8;
-  const tube = emphasis ? 1.5 : 1.25;
-  const mat = new THREE.MeshBasicMaterial({ color: '#aeb3bd', transparent: true, opacity: 0.96 });
-  const offset = r * 0.6;
-  const ringLeft = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 14, 44), mat);
-  ringLeft.position.x = -offset;
-  const ringRight = new THREE.Mesh(new THREE.TorusGeometry(r, tube, 14, 44), mat);
-  ringRight.position.x = offset;
-  group.add(ringLeft);
-  group.add(ringRight);
-  group.position.set(point.x, point.y, (point.z ?? 5) + 4);
-  group.renderOrder = 7;
-  return group;
+  const side = emphasis ? 20 : 18;
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(side, side),
+    new THREE.MeshBasicMaterial({
+      map: unionMarkerTexture(emphasis),
+      transparent: true,
+      depthWrite: false,
+    })
+  );
+  plane.position.set(point.x, point.y, (point.z ?? 5) + 4);
+  plane.renderOrder = 100;
+  plane.castShadow = false;
+  return plane;
 }
 
-// Native flat-viewer connector colour: a muted dusty rose-brown, NOT the heavy
-// dark maroon we had — the source's hairlines read as a soft terracotta/rose
-// that lightens slightly as generations climb away from the root.
-const CONNECTOR_GENERATION_COLORS = [
-  '#b06257', // 0 — root / descendants (muted rose-brown)
-  '#b56a5e', // 1 — parents / children
-  '#ba7266', // 2 — grandparents
-  '#bf7b6e', // 3
-  '#c48476', // 4
-  '#c98d7f', // 5
-  '#ce9789', // 6 — distant ancestors
-];
-
-function connectorGenerationColor(generation) {
-  const index = Math.min(CONNECTOR_GENERATION_COLORS.length - 1, Math.abs(Number(generation) || 0));
-  return CONNECTOR_GENERATION_COLORS[index];
-}
-
-// Native viewer lineage hues. Values are pixel-sampled from the line cores of
-// the MacFamilyTree 11 reference (Screenshot 2026-05-08 10.29.06) — the source
-// lines are MUTED mid-tones (not hot/saturated), matching the binary's scheme
-// of a 0.5-saturation HSB generation palette darkened ~30% toward black.
-// The focus line is violet, descendant flow magenta-rose, ancestor lineages
-// split red (husband line) / green (wife line).
-const LINEAGE_CONNECTOR_COLORS = {
-  root: '#9f4ac6', // violet — couple bar + trunk feeding the focus person
-  descend: '#b04489', // magenta-rose — grandparents → parents, descendant flow
-  paternal: '#ae5047', // brick/salmon red — link feeding a male (husband) ancestor
-  maternal: '#a6ba3b', // lime green — link feeding a female (wife) ancestor
-};
-
-function lineageConnectorColor(colorClass) {
-  return LINEAGE_CONNECTOR_COLORS[colorClass] || null;
+// Native connection color (decompiled CommonColorsHelper colorForHierarchicalLevel:
+// via generalPlatformColorForFamilyConnectionInfo:): a 20-entry HSV wheel indexed
+// by mod20(level - 8) where level ≈ the family's generation number (+ relation
+// orders, which default to 0). The connection wheel is the FULL-saturation
+// counterpart of the band palette (no white mixing): indices 0-9 use S=0.5/V=1,
+// indices 10-19 use H+0.05 with S=0.7/V=0.95. Native's "Light" and "Dark"
+// generation modes are literally identical (the adjust method is a no-op).
+// Web generations are ancestors-negative; native numbers ancestors positive.
+function nativeConnectionColor(webGeneration) {
+  if (!Number.isFinite(webGeneration)) return '#b3b3b3'; // native no-level fallback (0.7 gray)
+  const nativeGeneration = -Number(webGeneration);
+  const idx = ((nativeGeneration - 8) % 20 + 20) % 20;
+  const hue = idx < 10 ? (0.5 + idx / 10) % 1 : (0.55 + idx / 10) % 1;
+  const sat = idx < 10 ? 0.5 : 0.7;
+  const val = idx < 10 ? 1 : 0.95;
+  const i = Math.floor(hue * 6);
+  const f = hue * 6 - i;
+  const p = val * (1 - sat);
+  const q = val * (1 - f * sat);
+  const t = val * (1 - (1 - f) * sat);
+  const rgb = [
+    [val, t, p], [q, val, p], [p, val, t],
+    [p, q, val], [t, p, val], [val, p, q],
+  ][i % 6];
+  return `#${rgb.map((c) => Math.round(c * 255).toString(16).padStart(2, '0')).join('')}`;
 }
 
 function colorForConnector(link, type, palette, mode, customColor) {
-  if (mode === 'gray') return '#9098a0';
-  if (mode === 'blackOrWhite') return palette.background && isDarkBackground(palette.background) ? '#f4f5f7' : '#1c1f24';
+  if (mode === 'gray') return palette.background && isDarkBackground(palette.background) ? '#999999' : '#737373';
+  if (mode === 'blackOrWhite') return palette.background && isDarkBackground(palette.background) ? '#ffffff' : '#000000';
   if (mode === 'customColor') return customColor || '#7b5af6';
-  if (mode === 'byGenerationDark') {
-    if (type === 'partner') return palette.partnerLine;
-    if (Number.isFinite(link.generation)) return shadeHex(connectorGenerationColor(link.generation), 0.22);
-    return link.emphasis || type === 'descendant' ? palette.descendantLine : palette.ancestorLine;
-  }
   if (mode === 'byBlood') {
     if (type === 'partner') return '#b2b8bf';
     return link.emphasis ? palette.descendantLine : (type === 'ancestor' ? palette.ancestorLine : palette.descendantLine);
   }
-  // byGenerationLight (default) — match the native viewer's lineage hues
-  // (violet focus line, magenta descendant flow, red/green ancestor lineages).
+  // byGenerationLight (default) and byGenerationDark are identical natively.
+  if (Number.isFinite(link.generation)) return nativeConnectionColor(link.generation);
   if (type === 'partner') return palette.partnerLine;
-  const lineage = lineageConnectorColor(link.colorClass);
-  if (lineage) return lineage;
-  if (Number.isFinite(link.generation)) return connectorGenerationColor(link.generation);
   if (link.emphasis) return palette.descendantLine;
   if (type === 'ancestor') return palette.ancestorLine;
   return palette.descendantLine;
-}
-
-function shadeHex(hex, amount) {
-  const normalized = String(hex || '').replace('#', '');
-  if (normalized.length !== 6) return hex;
-  const next = [0, 2, 4].map((index) => {
-    const value = parseInt(normalized.slice(index, index + 2), 16);
-    return Math.round(value * (1 - amount)).toString(16).padStart(2, '0');
-  });
-  return `#${next.join('')}`;
 }
 
 function isDarkBackground(color) {
@@ -390,7 +391,9 @@ function roundedPolylinePoints(points) {
       routed.push(current.clone());
       continue;
     }
-    const cornerRadius = Math.min(40, beforeLength * 0.45, afterLength * 0.45);
+    // Native bends cap at 0.3 native units ≈ 22 web (outer child drops only;
+    // interior corners are straight — the small cap keeps corners crisp).
+    const cornerRadius = Math.min(22, beforeLength * 0.45, afterLength * 0.45);
     const entry = current.clone().add(before.multiplyScalar(cornerRadius));
     const exit = current.clone().add(after.multiplyScalar(cornerRadius));
     routed.push(entry);

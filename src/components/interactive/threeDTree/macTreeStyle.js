@@ -1,8 +1,12 @@
 export const MAC_FAMILY_GRAPH_LAYOUT = {
   // Tight rows like the native viewer — bands nearly abut (~30% band-height
   // gutter) so inter-generation connectors stay short.
-  generationStep: 248,
-  childGap: 146,
+  // Native contour packing yields ~104 web units row pitch for body-only rows
+  // and ~126 ordinary horizontal pitch (1 native unit = 58 web; see decompile
+  // notes in docs/interactive-tree-parity.md). Web labels hang below figures,
+  // so the row pitch keeps some headroom above the native body-only baseline.
+  generationStep: 200,
+  childGap: 127,
   rootCardWidth: 640,
   familyPadding: 120,
   blockGap: 90,

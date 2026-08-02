@@ -166,8 +166,10 @@ function applyMinification(layout, options) {
     const role = String(node.role || (node.roles || []).join(' ')).toLowerCase();
     const collateral = !node.featured && (node.lineage === false || role.includes('collateral'));
     if (collateral) {
+      // Collateral base scale is already the native 0.5 × lineage (decompiled
+      // TreeBuilder auxiliary-sibling factor); the option shrinks further.
       const factor = gen === 0 ? sibMin : otherSibMin;
-      if (factor > 0) scale = Math.min(scale, Math.max(0.42, 1 - factor));
+      if (factor > 0) scale = Math.max(0.35, scale * (1 - factor * 0.5));
     }
     return scale === 1 ? node : { ...node, scale };
   });
@@ -321,7 +323,8 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   const GENERATION_STEP_SCALED = GENERATION_STEP * pcFactor;
   // Horizontal couple gap, sibling pitch, and the minimum same-generation gap.
   // Partner Spacing widens couples; Branch Spacing widens siblings/lineages.
-  const PARTNER_GAP = 150 * partnerFactor;
+  // Native ordinary contour pitch ≈ 126 web units (2.175 native × 58).
+  const PARTNER_GAP = 127 * partnerFactor;
   const SIBLING_GAP = CHILD_GAP * branchFactor;
   const MIN_GEN_GAP = 124 * branchFactor;
 
@@ -447,17 +450,19 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     lineageChildId.set(rootFamily.id, rootId);
     const rootChildren = orderFamilyChildren(rootFamily, rootId, 0, true).map((node) => node.person.recordName);
     const companion = rootChildren.find((id) => id !== rootId);
-    if (companion) addNode(companion, 0, -132, rootFamily.id, 80, { lineage: false, scale: 0.72 });
+    if (companion) addNode(companion, 0, -132, rootFamily.id, 80, { lineage: false, scale: 0.5 });
     addNode(rootId, 0, rootX, rootFamily.id, 900);
     // The root + companion are pinned above; the branch skips apex siblings so
-    // only the ancestor fan is emitted from it. Direct-lineage ancestors render
-    // large like the native viewer; collateral siblings minify small.
+    // only the ancestor fan is emitted from it. Native scales (decompiled
+    // TreeBuilder): direct-line persons stay at 1.0 — there is NO featured
+    // enlargement — and auxiliary siblings are 0.5 × their lineage scale,
+    // which is what produces the big-couple/small-sibling hierarchy.
     const branch = buildBranch(rootId, 0, 1, 0, false);
     for (const node of branch.nodes) {
       if (node.gen === 0) continue;
       addNode(node.id, node.gen, rootX + node.dx, node.holderId, node.priority, {
         lineage: node.lineage,
-        scale: node.lineage ? 1.5 : 0.72,
+        scale: node.lineage ? 1 : 0.5,
       });
     }
   } else {
@@ -545,75 +550,85 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     const direction = Math.sign(parentY - childY || 1);
     const emphasis = family.id === rootFamily?.id || family.parents.some((id) => id === familyGraph.rootId);
 
-    // ONE connector assembly per family. Native model (confirmed against the
-    // reference close-ups): a SHORT couple bar at the spouses' lower-body
-    // height with the ⊘ union marker midway (drawn behind the figures), one
-    // trunk dropping from it, and a sibling bus running at the SMALL figures'
-    // head level inside the band — the enlarged lineage child's head rises to
-    // meet the bus directly, so only smaller children get a drop leg.
+    // ONE connector assembly per family — the native FamilyConnectionObject
+    // model, decompiled (docs/mft-decompile-reports + routing pass):
+    //  · couple bar runs between the spouses' FACING slot edges at their
+    //    center line (through the bodies), rings icon at the gap center Gx;
+    //  · one straight trunk at Gx from the bar down to the sibling crossbar
+    //    (no dogleg — the crossbar expands to include Gx instead);
+    //  · the crossbar sits at the MIDPOINT of the free gutter between the
+    //    parents' child-facing slot edge and the nearest child's parent-facing
+    //    slot edge (no fixed clearance constant);
+    //  · EVERY visible child gets a drop from the crossbar to its slot edge;
+    //    only the two outer drops bend (rounded corner), middle drops T-join.
+    // Slot = the native 1×1 allocated rect: half-extent 29 web units × scale.
+    const slotHalf = (node) => 29 * (Number.isFinite(node.scale) ? node.scale : 1);
     const sortedChildren = [...children].sort((a, b) => a.x - b.x);
-    const minChildX = Math.min(...sortedChildren.map((child) => child.x));
-    const maxChildX = Math.max(...sortedChildren.map((child) => child.x));
-    const attachOf = (child) => child.y + direction * nodeVerticalRadius(child);
-    // Bus sits in the gutter just past the TALLEST head in the row (toward the
-    // parents) so it clears every figure — including the big featured root
-    // medallion — instead of cutting across it. Each child then drops down to
-    // the bus with a roundable corner, matching the source (where the bus runs
-    // above the root medallion, not through it).
-    const nearestAttach = direction > 0
-      ? Math.max(...sortedChildren.map(attachOf))
-      : Math.min(...sortedChildren.map(attachOf));
-    const childBusY = nearestAttach + direction * CHILD_BUS_GAP;
-    const coupleX = average(parents.map((parent) => parent.x));
-    const anchorX = clamp(coupleX, minChildX, maxChildX);
-    // Couple bar at lower-body height of the spouses (the native bar links the
-    // bodies themselves; no per-parent drop segments).
-    const coupleBarY = average(parents.map((parent) => parent.y)) - direction * COUPLE_BAR_DROP;
+    const edgeOf = (child) => child.y + direction * (child.featured ? nodeVerticalRadius(child) : slotHalf(child));
+    const parentFarEdge = direction > 0
+      ? Math.min(...parents.map((parent) => parent.y - slotHalf(parent)))
+      : Math.max(...parents.map((parent) => parent.y + slotHalf(parent)));
+    const childNearEdge = direction > 0
+      ? Math.max(...sortedChildren.map(edgeOf))
+      : Math.min(...sortedChildren.map(edgeOf));
+    const childBusY = (parentFarEdge + childNearEdge) / 2;
+    const coupleBarY = average(parents.map((parent) => parent.y));
     const parentIds = parents.map((parent) => parent.id);
 
-    let trunkTop = { x: coupleX, y: coupleBarY };
+    let trunkTop;
     if (parents.length > 1) {
-      // Couple bar joining the spouses, ⊘ union marker tagged at its midpoint.
-      const xs = parents.map((parent) => parent.x);
+      // Couple bar between facing slot edges; ⚭ marker at the gap center.
+      const sortedParents = [...parents].sort((a, b) => a.x - b.x);
+      const leftEdge = sortedParents[0].x + slotHalf(sortedParents[0]);
+      const rightEdge = sortedParents[sortedParents.length - 1].x - slotHalf(sortedParents[sortedParents.length - 1]);
+      const gapCenter = (leftEdge + rightEdge) / 2;
       addSegment(family.id, 'family', emphasis,
-        { x: Math.min(...xs), y: coupleBarY }, { x: Math.max(...xs), y: coupleBarY }, parentIds);
+        { x: Math.min(...sortedParents.map((p) => p.x)), y: coupleBarY },
+        { x: Math.max(...sortedParents.map((p) => p.x)), y: coupleBarY }, parentIds);
       const coupleBar = routedLinks[routedLinks.length - 1];
-      if (coupleBar) coupleBar.coupleMark = { x: average(xs), y: coupleBarY };
+      if (coupleBar) coupleBar.coupleMark = { x: gapCenter, y: coupleBarY };
+      trunkTop = { x: gapCenter, y: coupleBarY };
     } else {
-      // Single parent: the trunk starts under the figure itself.
-      trunkTop = { x: parents[0].x, y: parents[0].y - direction * nodeVerticalRadius(parents[0]) };
+      // Single parent: the trunk starts at the figure's child-facing edge.
+      trunkTop = { x: parents[0].x, y: parents[0].y - direction * slotHalf(parents[0]) };
     }
-    // Single trunk: couple bar (or lone parent) -> anchor over the children -> bus.
-    addPolyline(family.id, 'family', emphasis, [
-      trunkTop,
-      { x: anchorX, y: trunkTop.y },
-      { x: anchorX, y: childBusY },
-    ], parentIds);
-    // U-shaped sibling bus with rounded corners; a child only gets a vertical
-    // leg when its head sits beyond the bus line (small siblings) — a head the
-    // bus already passes through (the enlarged lineage child) connects as-is.
-    const needsLeg = (child) => (childBusY - attachOf(child)) * direction > 0.5;
-    if (sortedChildren.length === 1) {
+    // Straight trunk at Gx down to the crossbar lane.
+    addSegment(family.id, 'family', emphasis,
+      trunkTop, { x: trunkTop.x, y: childBusY }, parentIds);
+
+    if (sortedChildren.length === 1 && Math.abs(sortedChildren[0].x - trunkTop.x) <= 1) {
+      // Single aligned child: no crossbar, the trunk continues into the drop.
       const only = sortedChildren[0];
-      if (needsLeg(only)) {
-        addSegment(family.id, 'family', emphasis,
-          { x: only.x, y: childBusY }, { x: only.x, y: attachOf(only) }, [only.id]);
-      }
+      addSegment(family.id, 'family', emphasis,
+        { x: only.x, y: childBusY }, { x: only.x, y: edgeOf(only) }, [only.id]);
     } else {
       const first = sortedChildren[0];
       const last = sortedChildren[sortedChildren.length - 1];
-      const busPath = [
-        ...(needsLeg(first) ? [{ x: first.x, y: attachOf(first) }] : []),
-        { x: first.x, y: childBusY },
-        { x: last.x, y: childBusY },
-        ...(needsLeg(last) ? [{ x: last.x, y: attachOf(last) }] : []),
-      ];
+      // Outer drops + crossbar as one rounded U (native bends only these two
+      // corners, capped at ~22 web units by the renderer).
+      const busPath = sortedChildren.length === 1
+        ? [{ x: first.x, y: childBusY }, { x: first.x, y: edgeOf(first) }]
+        : [
+          { x: first.x, y: edgeOf(first) },
+          { x: first.x, y: childBusY },
+          { x: last.x, y: childBusY },
+          { x: last.x, y: edgeOf(last) },
+        ];
       addPolyline(family.id, 'family', emphasis, busPath, sortedChildren.map((child) => child.id));
+      // Crossbar expansion so the trunk always lands on it (native enlarges
+      // the crossbar extent to include Gx instead of dog-legging the trunk).
+      const busMinX = Math.min(first.x, last.x);
+      const busMaxX = Math.max(first.x, last.x);
+      if (trunkTop.x < busMinX - 1 || trunkTop.x > busMaxX + 1) {
+        const nearest = trunkTop.x < busMinX ? busMinX : busMaxX;
+        addSegment(family.id, 'family', emphasis,
+          { x: trunkTop.x, y: childBusY }, { x: nearest, y: childBusY }, parentIds);
+      }
+      // Middle children: straight T-join drops, one per visible child.
       for (let i = 1; i < sortedChildren.length - 1; i += 1) {
         const child = sortedChildren[i];
-        if (!needsLeg(child)) continue;
         addSegment(family.id, 'family', emphasis,
-          { x: child.x, y: childBusY }, { x: child.x, y: attachOf(child) }, [child.id]);
+          { x: child.x, y: childBusY }, { x: child.x, y: edgeOf(child) }, [child.id]);
       }
     }
   }

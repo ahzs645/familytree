@@ -86,11 +86,12 @@ export function makeReferencePersonModel(node, palette, featured, personStyle = 
   const scaledBox = new THREE.Box3().setFromObject(clone);
   const scaledCenter = new THREE.Vector3();
   scaledBox.getCenter(scaledCenter);
+  // Center the upright figure's footprint on the node and sit its feet on the
+  // band surface — the native viewer grounds bodyNode the same way and adds no
+  // extra offsets.
   clone.position.x -= scaledCenter.x;
   clone.position.y -= scaledCenter.y;
   clone.position.z -= scaledBox.min.z;
-  wrapper.position.y = featured ? -8 : -10;
-  wrapper.position.z = featured ? 2 : 0;
   return wrapper;
 }
 

@@ -47,7 +47,9 @@ export function computeFitState(bounds, container, cameraMode = 'topDownSlight')
   const projectedHeight = (width * Math.sin(ya) + height * Math.cos(ya)) * Math.sin(el);
   const zoomForWidth = viewportWidth / projectedWidth;
   const zoomForHeight = viewportHeight / projectedHeight;
-  const zoom = THREE.MathUtils.clamp(Math.min(zoomForWidth, zoomForHeight) * 0.9, 0.1, 1.45);
+  // Native size-to-fit caps its computed zoom at 2 within the overall
+  // [0.25, 4] zoom range (decompiled Camera category).
+  const zoom = THREE.MathUtils.clamp(Math.min(zoomForWidth, zoomForHeight) * 0.95, 0.25, 2);
   return {
     position: cameraPositionForMode(cameraMode, centerX, centerY),
     target: new THREE.Vector3(centerX, centerY, 0),

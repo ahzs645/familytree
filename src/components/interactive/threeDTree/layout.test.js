@@ -132,24 +132,29 @@ describe('buildInteractiveLayout', () => {
       const ids = link.nodeIds || [];
       return ids.includes('father') && ids.includes('mother');
     })).toBe(true);
-    // The sibling bus runs in the gutter just ABOVE the tallest figure's head
-    // (the featured medallion attaches at radius 96), so it clears every figure
-    // instead of cutting across the big root medallion. Each child drops down to
-    // it. featuredConnectorRadius (96) + childBusGap (34) ⇒ ~root.y + 130.
+    // Native crossbar placement (decompiled FamilyConnectionObject): the bus
+    // sits at the MIDPOINT of the free gutter between the parents' child-facing
+    // slot edge and the nearest child's parent-facing edge — above the root
+    // medallion's top edge (featured attach radius 96), below the parents row.
     const rootLink = familyLinks.find((link) => (link.nodeIds || []).includes('root'));
     expect(rootLink).toBeTruthy();
     const busY = Math.max(...rootLink.points.map((point) => point.y));
     expect(busY).toBeGreaterThan(nodes.get('root').y + 96);
     expect(busY).toBeLessThan(nodes.get('root').y + 170);
-    // The trunk (the segment owned by both parents) crosses the gutter from the
-    // couple bar down to the children's bus level.
+    // The trunk (owned by both parents) is a STRAIGHT vertical segment — the
+    // native trunk never doglegs; it runs from the couple bar's gap center
+    // down to the crossbar lane.
     const trunk = familyLinks.find((link) => {
       const ids = link.nodeIds || [];
-      return ids.includes('father') && ids.includes('mother') && (link.points?.length || 0) >= 3;
+      const points = link.points || [];
+      return ids.includes('father') && ids.includes('mother')
+        && points.length >= 2
+        && points.every((point) => Math.abs(point.x - points[0].x) < 0.5)
+        && Math.max(...points.map((p) => p.y)) - Math.min(...points.map((p) => p.y)) > 1;
     });
     expect(trunk).toBeTruthy();
-    // Trunk spans from the couple bar (high, near the parents row) down to the
-    // gutter bus level (above the root medallion's top edge, ~root.y + 130).
+    // Trunk spans from the couple bar (at the parents' center line) down to
+    // the gutter-midpoint bus level.
     expect(Math.max(...trunk.points.map((point) => point.y))).toBeGreaterThan(nodes.get('root').y + 150);
     expect(Math.min(...trunk.points.map((point) => point.y))).toBeGreaterThan(nodes.get('root').y + 96);
     expect(Math.min(...trunk.points.map((point) => point.y))).toBeLessThan(nodes.get('root').y + 170);

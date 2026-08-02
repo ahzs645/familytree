@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { lifeSpanLabel } from '../../../models/index.js';
 import { yearLabel } from '../../../lib/vitalFormat.js';
 import { ROOT_CARD, SKIN } from './constants.js';
 import { MAC_FAMILY_GRAPH_LAYOUT } from './macTreeStyle.js';
@@ -7,19 +6,18 @@ import { makeReferencePersonModel } from './referenceModels.js';
 import { colorsForGender, colorsForNode, isLivingPerson, lightenHex } from './personColors.js';
 import { makeCanvasTexture, makePlaneFromTexture, roundedRect } from './threeUtils.js';
 
-function buildLifeLabel(person, options = {}) {
-  const showBirth = options.displayBirthDate !== false;
-  const showDeath = options.displayDeathDate !== false;
-  if (showBirth && showDeath) return lifeSpanLabel(person) || '';
-  if (showBirth) {
-    const year = yearLabel(person?.birthDate);
-    return year ? `b. ${year}` : '';
+// The native texts plane prints the recorded dates verbatim as separate
+// "☆ <birth>" / "† <death>" lines (never a "1966 –" range) — see both MFT11
+// reference screenshots and PersonObject(PersonInformationTextImage).
+function buildLifeLines(person, options = {}) {
+  const lines = [];
+  if (options.displayBirthDate !== false && person?.birthDate) {
+    lines.push(`☆ ${String(person.birthDate)}`);
   }
-  if (showDeath) {
-    const year = yearLabel(person?.deathDate);
-    return year ? `d. ${year}` : '';
+  if (options.displayDeathDate !== false && person?.deathDate) {
+    lines.push(`† ${String(person.deathDate)}`);
   }
-  return '';
+  return lines;
 }
 
 function kinshipLabelForNode(node) {
@@ -146,14 +144,17 @@ export function makePersonNode(node, palette, personStyle, hovered = false, view
   // Minification of distant generations (Scale Ancestors/Descendants control).
   const minScale = Number.isFinite(node.scale) ? node.scale : 1;
 
+  // Native FakeRoundShadowNode: centered under the figure (no directional
+  // offset), sized 1.8×/1.65× the fitted footprint, and scaled with the whole
+  // person object (minification shrinks the shadow too). Footprint ≈
+  // regularModelSize wide × ~0.75 deep for the busts.
   const shadow = makeSoftShadow(
     palette,
-    MAC_FAMILY_GRAPH_LAYOUT.regularShadowWidth,
-    MAC_FAMILY_GRAPH_LAYOUT.regularShadowHeight,
-    0.17
+    MAC_FAMILY_GRAPH_LAYOUT.regularModelSize * 1.8 * minScale,
+    MAC_FAMILY_GRAPH_LAYOUT.regularModelSize * 0.75 * 1.65 * minScale,
+    0.22
   );
-  const shadowOffset = shadowOffsetFor(viewerOptions, 1);
-  shadow.position.set(shadowOffset.x, shadowOffset.y, -20);
+  shadow.position.set(0, 12 + boxAlignmentOffset(viewerOptions), -20);
   shadow.renderOrder = 2;
   group.add(shadow);
 
@@ -543,39 +544,45 @@ function makePersonLabelTexture(person, palette, viewerOptions = {}, node = null
     ctx.fillRect(0, 0, w, h);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    // Native text plane (decompiled PersonObject(PersonInformationTextImage)):
+    // name at full opacity, every other row in the SAME color at 0.4 alpha;
+    // fonts are the platform default at 14pt name / 12pt dates / 10pt rest
+    // (ratios 1 : 0.857 : 0.714), not the heavy weights we used before.
     const name = person?.fullName || 'Unknown';
     const rtl = isRtlText(name);
     ctx.direction = rtl ? 'rtl' : 'ltr';
-    ctx.fillStyle = '#17191d';
-    ctx.font = `${rtl ? 850 : 780} ${rtl ? 28 : 25}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+    ctx.fillStyle = '#0d0f12';
+    ctx.font = `${rtl ? 700 : 650} ${rtl ? 28 : 25}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
     let cursorY = 48;
     for (const line of wrapMeasuredText(ctx, name, 366, 2)) {
       ctx.fillText(line, w / 2, cursorY);
       cursorY += 29;
     }
     cursorY = Math.max(cursorY, 96);
-    const life = buildLifeLabel(person, viewerOptions);
-    if (life) {
+    const lifeLines = buildLifeLines(person, viewerOptions);
+    if (lifeLines.length) {
       ctx.direction = 'ltr';
-      ctx.fillStyle = '#747b86';
-      ctx.font = '700 19px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-      ctx.fillText(life, w / 2, cursorY + 8);
-      cursorY += 24;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.font = '500 21px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      for (const line of lifeLines) {
+        ctx.fillText(line, w / 2, cursorY + 8);
+        cursorY += 24;
+      }
     }
     const kinship = viewerOptions.displayKinships ? kinshipLabelForNode(node) : '';
     if (kinship) {
       ctx.direction = 'ltr';
-      ctx.fillStyle = '#5c6580';
-      ctx.font = '650 17px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.font = '500 17px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
       ctx.fillText(kinship, w / 2, cursorY + 4);
       cursorY += 22;
     }
     const numbering = viewerOptions.displayNumberingSystem && node?.refNumber ? String(node.refNumber) : '';
     if (numbering) {
       ctx.direction = 'ltr';
-      ctx.fillStyle = '#3f7cc0';
-      ctx.font = '750 17px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
-      ctx.fillText(`# ${numbering}`, w / 2, cursorY + 4);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+      ctx.font = '500 17px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillText(numbering, w / 2, cursorY + 4);
       cursorY += 22;
     }
     const eventDescription = viewerOptions.displayEventDescription && node?.eventDescription ? String(node.eventDescription) : '';

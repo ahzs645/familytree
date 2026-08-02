@@ -163,48 +163,52 @@ export function makeGenerationLabel(band, options = {}) {
   const showYears = options.generationBandsShowBirthDates !== false && Boolean(band.subtitle);
   if (!showGen && !showYears) return new THREE.Group();
   const label = generationLabel(band.generation);
-  const peopleLine = `${band.count} ${band.count === 1 ? 'person' : 'people'}`;
   const primary = showYears ? band.subtitle : label;
-  const secondary = showYears ? (showGen ? label : peopleLine) : peopleLine;
+  const secondary = showYears && showGen ? label : '';
   const vertical = band.axis === 'vertical';
   const texture = makeGenerationLabelTexture(band, primary, secondary, false);
   const compactTexture = makeGenerationLabelTexture(band, primary, secondary, true);
-  const labelWidth = Math.min(BAND_LABEL_GUTTER - 22, 276);
-  const labelHeight = 92;
   const group = new THREE.Group();
   const segments = band.segments?.length ? band.segments : [band];
   let primaryLabelX = null;
   let maxRight = -Infinity;
-  for (const [index, segment] of segments.entries()) {
-    // In the horizontal L→R / R→L orientations a band is a vertical column:
-    // the along-band extent lives in segment.height and labels sit at the top
-    // of each column (always compact — the column is only ~band-height wide).
-    const compact = vertical || index > 0;
-    const width = compact ? 176 : labelWidth;
-    const height = compact ? 58 : labelHeight;
-    const along = vertical ? (segment.height ?? band.height) : segment.width;
-    if (!vertical && compact && along > 430) continue;
-    if (along < (vertical ? height + 60 : width + 60)) continue;
-    const plane = makePlaneFromTexture(compact ? compactTexture : texture, width, height);
-    let x;
-    let y;
-    if (vertical) {
-      const segmentTop = (Number.isFinite(segment.y) ? segment.y : band.y) + along / 2;
-      x = segment.x;
-      y = segmentTop - height / 2 - 14;
-    } else {
-      const segmentLeft = segment.x - segment.width / 2;
-      x = compact
-        ? segmentLeft + width / 2 + 18
-        : Math.min(segmentLeft + BAND_LABEL_GUTTER / 2, segment.x - labelWidth * 0.05);
-      y = band.y + (compact ? band.height * 0.2 : 2);
-    }
+  if (!vertical) {
+    // Native (decompiled GenerationBandObject): ONE text plane per band, sized
+    // from the generation depth L — width 1.6·L, line heights 0.25·L (years) +
+    // 0.15·L (generation) — anchored at the band's min-X with margin 0.1·L,
+    // toward the band's child-side edge, target opacity 0.8. This is what makes
+    // the big knockout year numbers of the reference.
+    const depth = Math.max(60, band.height || 0);
+    const planeW = 1.6 * depth;
+    const planeH = ((showYears ? 0.25 : 0) + (secondary || !showYears ? 0.15 : 0)) * depth * 1.15;
+    const margin = 0.1 * depth;
+    const bandLeft = (Number.isFinite(band.minX) ? band.minX : band.x - band.width / 2);
+    const plane = makePlaneFromTexture(texture, planeW, planeH);
+    const x = bandLeft + margin + planeW / 2;
+    const y = band.y - depth / 2 + planeH / 2 + margin;
     plane.position.set(x, y, -18);
     plane.material.depthTest = false;
+    plane.material.opacity = 0.8;
     plane.renderOrder = 18;
     group.add(plane);
-    if (primaryLabelX === null) primaryLabelX = x;
-    maxRight = Math.max(maxRight, segment.x + (vertical ? 0 : segment.width / 2));
+    primaryLabelX = x;
+    for (const segment of segments) {
+      maxRight = Math.max(maxRight, segment.x + segment.width / 2);
+    }
+  } else {
+    for (const segment of segments) {
+      const width = 176;
+      const height = 58;
+      const along = segment.height ?? band.height;
+      if (along < height + 60) continue;
+      const segmentTop = (Number.isFinite(segment.y) ? segment.y : band.y) + along / 2;
+      const plane = makePlaneFromTexture(compactTexture, width, height);
+      plane.position.set(segment.x, segmentTop - height / 2 - 14, -18);
+      plane.material.depthTest = false;
+      plane.renderOrder = 18;
+      group.add(plane);
+      if (primaryLabelX === null) primaryLabelX = segment.x;
+    }
   }
   // Metadata for the "keep labels visible while scrolling" per-frame slide
   // (X-based, so vertical-column labels opt out).
@@ -217,17 +221,46 @@ export function makeGenerationLabel(band, options = {}) {
 }
 
 function makeGenerationLabelTexture(band, primary, secondary, compact) {
-  return makeCanvasTexture(compact ? 380 : 520, compact ? 130 : 170, (ctx, w, h) => {
+  if (compact) {
+    return makeCanvasTexture(380, 130, (ctx, w, h) => {
+      ctx.clearRect(0, 0, w, h);
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = band.generation === 0 ? 'rgba(154, 69, 158, 0.64)' : 'rgba(103, 94, 82, 0.6)';
+      ctx.font = '800 30px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+      ctx.fillText(primary, 18, 58);
+      if (secondary) {
+        ctx.fillStyle = band.generation === 0 ? 'rgba(139, 78, 156, 0.54)' : 'rgba(89, 96, 108, 0.58)';
+        ctx.font = '750 19px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif';
+        ctx.fillText(secondary, 19, 88);
+      }
+    }, { scale: 3 });
+  }
+  // Native ratio (decompiled band text plane): the years line is 0.55 of the
+  // texture height, the generation line 0.35 semibold, left-aligned, with a
+  // uniform downscale when the years line would overflow the plane width.
+  return makeCanvasTexture(720, 210, (ctx, w, h) => {
     ctx.clearRect(0, 0, w, h);
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = band.generation === 0 ? 'rgba(154, 69, 158, 0.64)' : 'rgba(103, 94, 82, 0.6)';
-    ctx.font = `800 ${compact ? 30 : 38}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
-    ctx.fillText(primary, compact ? 18 : 24, compact ? 58 : 78);
-    ctx.fillStyle = band.generation === 0 ? 'rgba(139, 78, 156, 0.54)' : 'rgba(89, 96, 108, 0.58)';
-    ctx.font = `750 ${compact ? 19 : 24}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
-    ctx.fillText(secondary, compact ? 19 : 26, compact ? 88 : 116);
-  }, { scale: 3 });
+    let primarySize = h * 0.55;
+    let secondarySize = h * 0.35;
+    ctx.font = `600 ${primarySize}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+    const measured = ctx.measureText(primary).width;
+    if (measured > w - 24) {
+      const fit = (w - 24) / measured;
+      primarySize *= fit;
+      secondarySize *= fit;
+    }
+    ctx.fillStyle = band.generation === 0 ? 'rgba(154, 69, 158, 0.66)' : 'rgba(122, 96, 102, 0.62)';
+    ctx.font = `600 ${primarySize}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+    ctx.fillText(primary, 12, primarySize * 1.02);
+    if (secondary) {
+      ctx.fillStyle = band.generation === 0 ? 'rgba(139, 78, 156, 0.56)' : 'rgba(110, 99, 106, 0.56)';
+      ctx.font = `650 ${secondarySize}px -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif`;
+      ctx.fillText(secondary, 14, primarySize * 1.02 + secondarySize * 1.08);
+    }
+  }, { scale: 2 });
 }
 
 function tint(color, amount) {
@@ -288,21 +321,7 @@ function bandFillForMode(band, mode, options = {}) {
     : band.generation < 0
       ? ancestorBandColor(Math.abs(band.generation))
       : descendantBandColor(band.generation);
-  if (mode === 'macPink') {
-    // Pixel-sampled from the MFT11 reference (Screenshot 2026-06-01 8.12.34):
-    // the pedigree ramp runs WARM going back — pale lilac at the focal box,
-    // orchid at the parents, pink at the grandparents, then peach and pale
-    // yellow for the most distant holders.
-    if (band.generation === 0) return 'rgb(250, 222, 255)'; // #fadeff lilac
-    const tiers = [
-      'rgb(250, 215, 252)', // gen ±1 (parents) — pale orchid  (#fedbff sampled)
-      'rgb(255, 208, 225)', // gen ±2 (grandparents) — pink    (#ffd0e1 sampled)
-      'rgb(255, 230, 201)', // gen ±3 — peach                  (#ffe6c9 sampled)
-      'rgb(255, 254, 211)', // gen ±4 — pale yellow            (#fffed3 sampled)
-      'rgb(255, 254, 226)', // distant generations — cream
-    ];
-    return tiers[Math.min(Math.abs(band.generation) - 1, tiers.length - 1)];
-  }
+  if (mode === 'macPink') return nativeBandColor(band.generation);
   if (mode === 'byGeneration') return baseGenerationFill;
   if (mode === 'gray') return 'rgba(170, 174, 178, 0.55)';
   if (mode === 'highSaturation') {
@@ -317,6 +336,40 @@ function bandFillForMode(band, mode, options = {}) {
   if (mode === 'blueOrange') return gradientFill(band.generation, ['rgba(180,216,244,0.6)', 'rgba(252,200,150,0.6)', 'rgba(244,138,84,0.6)']);
   if (mode === 'magentaOrange') return gradientFill(band.generation, ['rgba(244,178,228,0.6)', 'rgba(252,194,156,0.6)', 'rgba(240,134,84,0.6)']);
   return baseGenerationFill;
+}
+
+// Native band color mode 0, decompiled from CommonColorsHelper
+// colorForHierarchicalLevel: — a 20-entry HSV wheel indexed by
+// mod20(generationNumber - 8), then mixed 65% toward white for the light
+// appearance. The native builder numbers generations root=0 with ancestors
+// POSITIVE (our web convention is ancestors negative), so flip the sign.
+// Stepping one generation rotates hue by 0.1: violet root → orchid parents →
+// pink grandparents → salmon → yellow, exactly the reference ramp.
+function nativeBandColor(webGeneration) {
+  const nativeGeneration = -Number(webGeneration || 0);
+  const idx = ((nativeGeneration - 8) % 20 + 20) % 20;
+  const hue = idx < 10 ? (0.55 + 0.1 * idx) % 1 : (0.5 + 0.1 * idx) % 1;
+  const sat = idx < 10 ? 0.7 : 0.5;
+  const val = idx < 10 ? 0.95 : 1.0;
+  const [r, g, b] = hsvToRgb(hue, sat, val);
+  const mix = (channel) => Math.round((channel + (1 - channel) * 0.65) * 255);
+  return `rgb(${mix(r)}, ${mix(g)}, ${mix(b)})`;
+}
+
+function hsvToRgb(h, s, v) {
+  const i = Math.floor(h * 6);
+  const f = h * 6 - i;
+  const p = v * (1 - s);
+  const q = v * (1 - f * s);
+  const t = v * (1 - (1 - f) * s);
+  switch (i % 6) {
+    case 0: return [v, t, p];
+    case 1: return [q, v, p];
+    case 2: return [p, v, t];
+    case 3: return [p, q, v];
+    case 4: return [t, p, v];
+    default: return [v, p, q];
+  }
 }
 
 function gradientFill(generation, palette) {
