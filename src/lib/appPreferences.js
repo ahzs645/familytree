@@ -22,6 +22,10 @@ import {
   normalizeMediaSlideshowSettings,
 } from './mediaPresentation.js';
 import {
+  DEFAULT_MEDIA_GALLERY_PREFERENCES,
+  normalizeMediaGalleryPreferences,
+} from './mediaManagement.js';
+import {
   DEFAULT_VITAL_DISPLAY,
   normalizeVitalDisplay,
   setActiveVitalDisplay,
@@ -72,6 +76,7 @@ const DEFAULT_APP_PREFERENCES = {
     reportBackground: 'none',
   },
   media: {
+    gallery: DEFAULT_MEDIA_GALLERY_PREFERENCES,
     slideshow: DEFAULT_MEDIA_SLIDESHOW_SETTINGS,
   },
   pdf: {
@@ -389,6 +394,7 @@ function normalizePreferences(value = {}) {
   merged.pdf.margin = clampNumber(merged.pdf.margin, 12, 144, DEFAULT_APP_PREFERENCES.pdf.margin);
   merged.webSearch.openInNewTab = merged.webSearch.openInNewTab !== false;
   if (!isPlainObject(merged.media)) merged.media = { ...DEFAULT_APP_PREFERENCES.media };
+  merged.media.gallery = normalizeMediaGalleryPreferences(merged.media?.gallery);
   merged.media.slideshow = normalizeMediaSlideshowSettings(merged.media?.slideshow);
   if (!NAME_FORMAT_LABELS[merged.formats.nameDisplayFormat]) merged.formats.nameDisplayFormat = DEFAULT_DISPLAY_FORMAT;
   if (!NAME_FORMAT_LABELS[merged.formats.nameSortFormat]) merged.formats.nameSortFormat = DEFAULT_SORT_FORMAT;

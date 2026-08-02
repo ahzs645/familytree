@@ -5,12 +5,10 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { getAppDataClient } from '../lib/data/AppDataClient.js';
-import { saveWithChangeLog, logRecordDeleted } from '../lib/changeLog.js';
-import { deleteRecordsWithLog } from '../lib/bulkActions.js';
+import { saveWithChangeLog } from '../lib/changeLog.js';
 import { BulkLabelMenu } from '../components/lists/BulkLabelMenu.jsx';
 import { readRef } from '../lib/schema.js';
 import {
-  createMediaRecordFromBlob,
   createMediaRecordsFromFiles,
   createMediaURLRecord,
   matchMediaFiles,
@@ -30,22 +28,31 @@ import { GalleryDetail } from '../components/media/GalleryDetail.jsx';
 import { MediaPreview } from '../components/media/MediaPreview.jsx';
 import { ImageEditingSheet } from '../components/ImageEditingSheet.jsx';
 import { useMediaCapture } from '../components/media/useMediaCapture.js';
-import { canvasToBlob, editedFilename, loadImage } from '../components/media/mediaHelpers.js';
+import { editedFilename, loadImage } from '../components/media/mediaHelpers.js';
 import { isRecordLocked } from '../lib/recordLock.js';
 import { useDirtyBaseline } from '../lib/editorState.js';
 import { useSaveShortcut } from '../lib/useSaveShortcut.js';
 import { SaveStatus } from '../components/editors/SaveStatus.jsx';
 import { useRecordLock } from '../lib/useRecordLock.js';
 import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { getAppPreferences, patchAppPreferences } from '../lib/appPreferences.js';
+import {
+  DEFAULT_MEDIA_GALLERY_PREFERENCES,
+  assetToBlob,
+  attachMediaToTarget,
+  buildMediaExportZip,
+  deleteMediaEverywhere,
+  detachMediaFromTarget,
+  findMediaReferences,
+  groupMediaRecords,
+  loadAssetsForMedia,
+  normalizeMediaGalleryPreferences,
+  setMediaAsEntryImage,
+} from '../lib/mediaManagement.js';
+import { AddMediaSheet, DeleteMediaSheet, EntryImageSheet } from '../components/media/MediaWorkflowSheets.jsx';
 
-const MEDIA_TYPES = [
-  { id: 'all', label: 'All', match: null },
-  { id: 'MediaPicture', label: 'Pictures' },
-  { id: 'MediaPDF', label: 'PDFs' },
-  { id: 'MediaURL', label: 'URLs' },
-  { id: 'MediaAudio', label: 'Audio' },
-  { id: 'MediaVideo', label: 'Video' },
-];
+const MEDIA_TYPES = ['all', 'MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 
 function iconFor(type) {
   return { MediaPicture: '🖼', MediaPDF: '📄', MediaURL: '🔗', MediaAudio: '🎵', MediaVideo: '🎬' }[type] || '📎';
@@ -56,12 +63,14 @@ function routeForRecord(record) {
   if (record.recordType === 'Person') return `/person/${record.recordName}`;
   if (record.recordType === 'Family') return `/family/${record.recordName}`;
   if (record.recordType === 'Place') return `/places?placeId=${encodeURIComponent(record.recordName)}`;
+  if (record.recordType === 'Source') return `/sources?sourceId=${encodeURIComponent(record.recordName)}`;
   if (record.recordType === 'PersonEvent' || record.recordType === 'FamilyEvent') return `/events?eventId=${encodeURIComponent(record.recordName)}`;
   if (record.recordType?.startsWith('Media')) return `/views/media-gallery?mediaId=${encodeURIComponent(record.recordName)}`;
   return null;
 }
 
 export default function Media() {
+  const { t, localization } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const modal = useModal();
@@ -85,15 +94,20 @@ export default function Media() {
   const [selectedIds, setSelectedIds] = useState([]);
   const [subject, setSubject] = useState(null);
   const folderRef = React.useRef(null);
-  const addFilesRef = React.useRef(null);
   const replaceFileRef = React.useRef(null);
+  const workflowReturnFocusRef = useRef(null);
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
+  const [entryImageOpen, setEntryImageOpen] = useState(false);
+  const [deleteRequest, setDeleteRequest] = useState(null);
+  const [workflowBusy, setWorkflowBusy] = useState(false);
+  const [galleryPrefs, setGalleryPrefs] = useState(DEFAULT_MEDIA_GALLERY_PREFERENCES);
   const [loadSeq, setLoadSeq] = useState(0);
 
   const reload = useCallback(async () => {
     const data = getAppDataClient();
     const all = [];
-    for (const t of MEDIA_TYPES.slice(1)) {
-      const { records } = await data.records.query(t.id, { limit: 100000 });
+    for (const type of MEDIA_TYPES.slice(1)) {
+      const { records } = await data.records.query(type, { limit: 100000 });
       all.push(...records);
     }
     setMedia(all);
@@ -103,6 +117,32 @@ export default function Media() {
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAppPreferences().then((preferences) => {
+      if (!cancelled) setGalleryPrefs(normalizeMediaGalleryPreferences(preferences.media?.gallery));
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  const updateGalleryPrefs = useCallback((patch) => {
+    setGalleryPrefs((current) => {
+      const next = normalizeMediaGalleryPreferences({ ...current, ...patch });
+      patchAppPreferences('media.gallery', next);
+      return next;
+    });
+  }, []);
+
+  const openWorkflow = useCallback((setter) => {
+    workflowReturnFocusRef.current = document.activeElement;
+    setter(true);
+  }, []);
+
+  const closeWorkflow = useCallback((setter) => {
+    setter(false);
+    requestAnimationFrame(() => workflowReturnFocusRef.current?.focus?.());
+  }, []);
 
   const [imageEditorSrc, setImageEditorSrc] = useState(null);
   const {
@@ -168,7 +208,7 @@ export default function Media() {
     const m = media.find((r) => r.recordName === activeId);
     if (!m) return;
     if (isRecordLocked(m)) {
-      setStatus('Unlock this media record before saving.');
+      setStatus(t('mediaManager.status.unlockSave'));
       return;
     }
     setSaving(true);
@@ -183,64 +223,94 @@ export default function Media() {
     await saveWithChangeLog(next);
     await reload();
     setSaving(false);
-    setStatus('Saved');
+    setStatus(t('mediaManager.status.saved'));
     setTimeout(() => setStatus(null), 1500);
-  }, [activeId, media, values, reload]);
+  }, [activeId, media, values, reload, t]);
 
-  const onDelete = useCallback(async () => {
-    const m = media.find((r) => r.recordName === activeId);
-    if (!m) return;
-    if (isRecordLocked(m)) {
-      setStatus('Unlock this media record before deleting.');
+  const hydrateReferences = useCallback(async (records) => {
+    const relations = await findMediaReferences(records.map((record) => record.recordName));
+    return Promise.all(relations.map(async (rel) => ({
+      rel,
+      target: await getAppDataClient().records.get(readRef(rel.fields?.target)),
+    })));
+  }, []);
+
+  const requestDelete = useCallback(async (records) => {
+    const deletable = records.filter((record) => record && !isRecordLocked(record));
+    if (!deletable.length) {
+      setStatus(t('mediaManager.status.unlockDelete'));
       return;
     }
-    if (!(await modal.confirm('Delete this media record?', { title: 'Delete media', okLabel: 'Delete', destructive: true }))) return;
-    await getAppDataClient().records.delete(m.recordName);
-    await logRecordDeleted(m.recordName, m.recordType);
-    await reload();
-    setActiveId(null);
-  }, [activeId, media, reload, modal]);
+    workflowReturnFocusRef.current = document.activeElement;
+    setDeleteRequest({ records: deletable, references: await hydrateReferences(deletable) });
+  }, [hydrateReferences, t]);
+
+  const onConfirmDelete = useCallback(async (mode, detachTargetId) => {
+    if (!deleteRequest) return;
+    setWorkflowBusy(true);
+    try {
+      if (mode === 'detach') {
+        const count = await detachMediaFromTarget(deleteRequest.records, detachTargetId);
+        setStatus(t('mediaManager.status.detached', { count }));
+      } else {
+        const result = await deleteMediaEverywhere(deleteRequest.records);
+        setSelectedIds((current) => current.filter((id) => !deleteRequest.records.some((record) => record.recordName === id)));
+        if (deleteRequest.records.some((record) => record.recordName === activeId)) setActiveId(null);
+        setStatus(t('mediaManager.status.deleted', { count: result.deleted }));
+      }
+      setDeleteRequest(null);
+      await reload();
+    } catch (error) {
+      setStatus(t('mediaManager.status.operationFailed', { message: error.message }));
+    } finally {
+      setWorkflowBusy(false);
+      requestAnimationFrame(() => workflowReturnFocusRef.current?.focus?.());
+    }
+  }, [activeId, deleteRequest, reload, t]);
 
   const onMatchFolder = useCallback(async (files) => {
     if (!files?.length) return;
-    setStatus('Matching media folder…');
+    setStatus(t('mediaManager.status.matching'));
     try {
       const result = await matchMediaFiles([...files]);
       await reload();
-      setStatus(`Matched ${result.matched.toLocaleString()} media file${result.matched === 1 ? '' : 's'}.`);
+      setStatus(t('mediaManager.status.matched', { count: result.matched }));
     } catch (error) {
       setStatus(error.message);
     }
-  }, [reload]);
+  }, [reload, t]);
 
-  const onAddFiles = useCallback(async (files) => {
-    if (!files?.length) return;
-    setStatus('Adding media files…');
+  const onAddFiles = useCallback(async (files, target) => {
+    if (!files?.length || !target) return;
+    setWorkflowBusy(true);
+    setStatus(t('mediaManager.status.adding'));
     try {
       const result = await createMediaRecordsFromFiles([...files]);
+      for (const record of result.records) await attachMediaToTarget(record, target);
       await reload();
       setActiveId(result.records[0]?.recordName || null);
-      setStatus(`Added ${result.created.toLocaleString()} media record${result.created === 1 ? '' : 's'}.`);
+      setStatus(t('mediaManager.status.added', { count: result.created, name: recordDisplayLabel(target) }));
+      closeWorkflow(setAddSheetOpen);
     } catch (error) {
-      setStatus(error.message);
+      setStatus(t('mediaManager.status.operationFailed', { message: error.message }));
     } finally {
-      if (addFilesRef.current) addFilesRef.current.value = '';
+      setWorkflowBusy(false);
     }
-  }, [reload]);
+  }, [closeWorkflow, reload, t]);
 
   const onAddURL = useCallback(async () => {
-    const url = await modal.prompt('Media URL:', '', { title: 'Add media URL', placeholder: 'https://…' });
+    const url = await modal.prompt(t('mediaManager.addUrl.prompt'), '', { title: t('mediaManager.addUrl.title'), placeholder: 'https://…' });
     if (!url) return;
-    setStatus('Adding URL…');
+    setStatus(t('mediaManager.status.addingUrl'));
     try {
       const record = await createMediaURLRecord(url);
       await reload();
       setActiveId(record.recordName);
-      setStatus('Added URL media record.');
+      setStatus(t('mediaManager.status.addedUrl'));
     } catch (error) {
       setStatus(error.message);
     }
-  }, [reload, modal]);
+  }, [reload, modal, t]);
 
   const active = media.find((m) => m.recordName === activeId);
   const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
@@ -263,35 +333,35 @@ export default function Media() {
     const m = media.find((r) => r.recordName === activeId);
     if (!file || !m) return;
     if (isRecordLocked(m)) {
-      setStatus('Unlock this media record before replacing its file.');
+      setStatus(t('mediaManager.status.unlockReplace'));
       return;
     }
-    setStatus('Replacing media file…');
+    setStatus(t('mediaManager.status.replacing'));
     try {
       const next = await replaceMediaRecordAsset(m, file);
       await reload();
       setActiveId(next.recordName);
-      setStatus('Media file replaced.');
+      setStatus(t('mediaManager.status.replaced'));
     } catch (error) {
       setStatus(error.message);
     } finally {
       if (replaceFileRef.current) replaceFileRef.current.value = '';
     }
-  }, [activeId, media, reload]);
+  }, [activeId, media, reload, t]);
 
 
   const onEditImage = useCallback(async (operation) => {
     if (!active || active.recordType !== 'MediaPicture') return;
     if (isRecordLocked(active)) {
-      setStatus('Unlock this media record before editing its image.');
+      setStatus(t('mediaManager.status.unlockEdit'));
       return;
     }
     const asset = activeAssets[0];
     if (!asset?.dataBase64) {
-      setStatus('No local image asset is available to edit.');
+      setStatus(t('mediaManager.status.noLocalAsset'));
       return;
     }
-    setStatus(operation === 'rotate' ? 'Rotating image…' : 'Cropping image…');
+    setStatus(operation === 'rotate' ? t('mediaManager.status.rotating') : t('mediaManager.status.cropping'));
     try {
       const src = `data:${asset.mimeType || 'image/png'};base64,${asset.dataBase64}`;
       const image = await loadImage(src);
@@ -323,35 +393,35 @@ export default function Media() {
       });
       await reload();
       setActiveId(next.recordName);
-      setStatus(operation === 'rotate' ? 'Image rotated.' : 'Image cropped.');
+      setStatus(operation === 'rotate' ? t('mediaManager.status.rotated') : t('mediaManager.status.cropped'));
     } catch (error) {
-      setStatus(`Image edit failed: ${error.message}`);
+      setStatus(t('mediaManager.status.imageEditFailed', { message: error.message }));
     }
-  }, [active, activeAssets, reload, values.caption, values.filename]);
+  }, [active, activeAssets, reload, values.caption, values.filename, t]);
 
   const onOpenImageEditor = useCallback(() => {
     if (!active || active.recordType !== 'MediaPicture') return;
     if (isRecordLocked(active)) {
-      setStatus('Unlock this media record before editing its image.');
+      setStatus(t('mediaManager.status.unlockEdit'));
       return;
     }
     const asset = activeAssets[0];
     if (!asset?.dataBase64) {
-      setStatus('No local image asset is available to edit.');
+      setStatus(t('mediaManager.status.noLocalAsset'));
       return;
     }
     setImageEditorSrc(`data:${asset.mimeType || 'image/png'};base64,${asset.dataBase64}`);
-  }, [active, activeAssets]);
+  }, [active, activeAssets, t]);
 
   const onApplyImageEdit = useCallback(async (dataUrl) => {
     if (!active) return;
     const dataBase64 = String(dataUrl || '').split(',')[1] || '';
     if (!dataBase64) {
-      setStatus('Edited image could not be read.');
+      setStatus(t('mediaManager.status.editReadFailed'));
       setImageEditorSrc(null);
       return;
     }
-    setStatus('Saving edited image…');
+    setStatus(t('mediaManager.status.savingEdit'));
     try {
       const filename = editedFilename(activeAssets[0]?.filename || values.filename || active.recordName, 'edit', 'image/png');
       const next = await replaceMediaRecordImageData(active, {
@@ -362,19 +432,23 @@ export default function Media() {
       });
       await reload();
       setActiveId(next.recordName);
-      setStatus('Image updated.');
+      setStatus(t('mediaManager.status.imageUpdated'));
     } catch (error) {
-      setStatus(`Image edit failed: ${error.message}`);
+      setStatus(t('mediaManager.status.imageEditFailed', { message: error.message }));
     } finally {
       setImageEditorSrc(null);
     }
-  }, [active, activeAssets, reload, values.caption, values.filename]);
+  }, [active, activeAssets, reload, values.caption, values.filename, t]);
 
   const filtered = useMemo(() => {
     const byType = filter === 'all' ? media : media.filter((m) => m.recordType === filter);
     if (!relatedMediaIds) return byType;
     return byType.filter((m) => relatedMediaIds.has(m.recordName));
   }, [filter, media, relatedMediaIds]);
+  const mediaGroups = useMemo(
+    () => groupMediaRecords(filtered, galleryPrefs, localization.locale),
+    [filtered, galleryPrefs, localization.locale]
+  );
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const visibleIds = useMemo(() => filtered.map((m) => m.recordName), [filtered]);
   const selectedVisibleCount = useMemo(() => visibleIds.filter((id) => selectedSet.has(id)).length, [selectedSet, visibleIds]);
@@ -412,6 +486,63 @@ export default function Media() {
     navigate(`/slideshow?${params.toString()}`);
   }, [activeId, navigate, selectedIds]);
 
+  const onExportSelected = useCallback(async () => {
+    const records = selectedIds.map((id) => media.find((record) => record.recordName === id)).filter(Boolean);
+    if (!records.length) return;
+    setStatus(t('mediaManager.status.exporting'));
+    try {
+      const assets = await loadAssetsForMedia(records);
+      const result = await buildMediaExportZip(records, assets);
+      if (!result.fileCount) {
+        setStatus(t('mediaManager.status.noExportableFiles'));
+        return;
+      }
+      const url = URL.createObjectURL(result.blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = t('mediaManager.export.filename');
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setStatus(t('mediaManager.status.exported', { count: result.fileCount }));
+    } catch (error) {
+      setStatus(t('mediaManager.status.operationFailed', { message: error.message }));
+    }
+  }, [media, selectedIds, t]);
+
+  const onOpenMedia = useCallback(() => {
+    if (!active) return;
+    if (active.recordType === 'MediaURL') {
+      const url = active.fields?.url?.value;
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+      else setStatus(t('mediaManager.status.noLocalAsset'));
+      return;
+    }
+    const blob = assetToBlob(activeAssets[0]);
+    if (!blob) {
+      setStatus(t('mediaManager.status.noLocalAsset'));
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }, [active, activeAssets, t]);
+
+  const onApplyEntryImage = useCallback(async (target) => {
+    if (!active || !target) return;
+    setWorkflowBusy(true);
+    try {
+      await setMediaAsEntryImage(active, target);
+      setStatus(t('mediaManager.status.entryImageSet', { name: recordDisplayLabel(target) }));
+      closeWorkflow(setEntryImageOpen);
+      const references = await hydrateReferences([active]);
+      setActiveRelations(references);
+    } catch (error) {
+      setStatus(t('mediaManager.status.operationFailed', { message: error.message }));
+    } finally {
+      setWorkflowBusy(false);
+    }
+  }, [active, closeWorkflow, hydrateReferences, t]);
+
   useEffect(() => {
     const allIds = new Set(media.map((m) => m.recordName));
     setSelectedIds((current) => current.filter((id) => allIds.has(id)));
@@ -422,18 +553,14 @@ export default function Media() {
     [media]
   );
 
-  const onDeleteSelected = useCallback(async () => {
+  const onDeleteSelected = useCallback(() => {
     const deletable = selectedIds.filter((id) => {
       const record = media.find((m) => m.recordName === id);
       return record && !isRecordLocked(record);
-    });
+    }).map((id) => media.find((record) => record.recordName === id));
     if (!deletable.length) return;
-    if (!(await modal.confirm(`Delete ${deletable.length} selected media record(s)?`, { title: 'Delete media', okLabel: 'Delete', destructive: true }))) return;
-    await deleteRecordsWithLog(deletable, mediaTypeFor);
-    clearSelection();
-    if (deletable.includes(activeId)) setActiveId(null);
-    await reload();
-  }, [activeId, clearSelection, media, mediaTypeFor, modal, reload, selectedIds]);
+    requestDelete(deletable);
+  }, [media, requestDelete, selectedIds]);
 
   useEffect(() => {
     if (mediaIdParam && filtered.some((m) => m.recordName === mediaIdParam)) {
@@ -444,53 +571,78 @@ export default function Media() {
     setActiveId(filtered[0]?.recordName || null);
   }, [activeId, filtered, mediaIdParam]);
 
+  const mediaTypeLabel = useCallback((type) => t(`mediaManager.types.${type || 'unknown'}`), [t]);
+  const groupLabel = useCallback((group) => {
+    if (group.kind === 'type') return mediaTypeLabel(group.value);
+    if (group.value === 'unknown') return t('mediaManager.grouping.unknownDate');
+    if (group.kind === 'decade') return t('mediaManager.grouping.decadeLabel', { year: group.value });
+    return new Intl.NumberFormat(localization.locale, { useGrouping: false }).format(group.value);
+  }, [localization.locale, mediaTypeLabel, t]);
+  const thumbnailGridClass = {
+    small: 'grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-2',
+    medium: 'grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3',
+    large: 'grid-cols-[repeat(auto-fill,minmax(230px,1fr))] gap-4',
+  }[galleryPrefs.thumbnailSize];
+  const thumbnailCardClass = {
+    small: 'min-h-[86px] p-2.5',
+    medium: 'min-h-[110px] p-3.5',
+    large: 'min-h-[160px] p-5',
+  }[galleryPrefs.thumbnailSize];
+  const thumbnailIconClass = {
+    small: 'text-[28px]',
+    medium: 'text-[38px]',
+    large: 'text-[56px]',
+  }[galleryPrefs.thumbnailSize];
+
   return (
     <div className="flex flex-col h-full">
       <header className="flex items-center gap-2.5 px-5 py-2.5 border-b border-border bg-card text-card-foreground flex-wrap">
         <div className="min-w-[160px]">
-          <div className="text-sm font-bold text-foreground">Media Gallery</div>
+          <div className="text-sm font-bold text-foreground">{t('mediaManager.title')}</div>
           {targetId ? (
             <div className="text-xs text-muted-foreground">
-              {readOnlyGallery ? 'Read-only gallery' : 'Editor'} · filtered by {subjectLabel || targetId}
+              {readOnlyGallery ? t('mediaManager.readOnlyGallery') : t('mediaManager.editor')} · {t('mediaManager.filteredBy', { name: subjectLabel || targetId })}
             </div>
           ) : (
             <div className="text-xs text-muted-foreground">
-              {readOnlyGallery ? 'Read-only gallery report' : 'Browse and edit media records'}
+              {readOnlyGallery ? t('mediaManager.readOnlyReport') : t('mediaManager.subtitle')}
             </div>
           )}
         </div>
         <Select
           value={filter}
           onChange={setFilter}
-          options={MEDIA_TYPES.map((t) => ({ value: t.id, label: t.label }))}
-          ariaLabel="Filter media by type"
+          options={MEDIA_TYPES.map((type) => ({ value: type, label: mediaTypeLabel(type) }))}
+          ariaLabel={t('mediaManager.filterAria')}
           className="w-32"
         />
+        <GroupingStylePopover preferences={galleryPrefs} onChange={updateGalleryPrefs} />
         <span className="ms-auto text-muted-foreground text-xs">
-          {filtered.length} item{filtered.length === 1 ? '' : 's'}
-          {selectedIds.length ? ` · ${selectedVisibleCount}/${selectedIds.length} selected visible` : ''}
+          {t('mediaManager.itemCount', { count: filtered.length })}
+          {selectedIds.length ? ` · ${t('mediaManager.selectedVisible', { visible: selectedVisibleCount, count: selectedIds.length })}` : ''}
         </span>
-        <input ref={folderRef} type="file" multiple webkitdirectory="" className="hidden" onChange={(e) => onMatchFolder(e.target.files)} />
         <input
-          ref={addFilesRef}
+          ref={folderRef}
           type="file"
           multiple
-          accept="image/*,application/pdf,audio/*,video/*"
+          webkitdirectory=""
           className="hidden"
-          onChange={(e) => onAddFiles(e.target.files)}
+          aria-label={t('mediaManager.actions.matchFolder')}
+          onChange={(e) => onMatchFolder(e.target.files)}
         />
         <input
           ref={replaceFileRef}
           type="file"
           accept="image/*,application/pdf,audio/*,video/*"
           className="hidden"
+          aria-label={t('mediaManager.actions.replace')}
           onChange={(e) => onReplaceFile(e.target.files)}
         />
         {targetId && (
-          <Button onClick={clearSubject}>Clear subject</Button>
+          <Button onClick={clearSubject}>{t('mediaManager.actions.clearSubject')}</Button>
         )}
-        <Button onClick={selectVisible} disabled={!filtered.length}>Select visible</Button>
-        <Button onClick={clearSelection} disabled={!selectedIds.length}>Clear selection</Button>
+        <Button onClick={selectVisible} disabled={!filtered.length}>{t('mediaManager.actions.selectVisible')}</Button>
+        <Button onClick={clearSelection} disabled={!selectedIds.length}>{t('mediaManager.actions.clearSelection')}</Button>
         {!readOnlyGallery && selectedIds.length > 0 && (
           <>
             <BulkLabelMenu
@@ -499,49 +651,57 @@ export default function Media() {
               onAssigned={clearSelection}
             />
             <Button variant="destructiveOutline" onClick={onDeleteSelected}>
-              Delete selected
+              {t('mediaManager.actions.deleteSelected')}
             </Button>
           </>
         )}
-        {!readOnlyGallery && <Button onClick={() => addFilesRef.current?.click()}>Add files</Button>}
+        {!readOnlyGallery && <Button onClick={() => openWorkflow(setAddSheetOpen)}>{t('mediaManager.actions.addMedia')}</Button>}
         <MoreMenu
           items={[
             {
-              label: `Slideshow${selectedIds.length ? ` (${selectedIds.length})` : ''}`,
+              label: selectedIds.length ? t('mediaManager.actions.slideshowCount', { count: selectedIds.length }) : t('mediaManager.actions.slideshow'),
               onClick: startSlideshow,
               disabled: !selectedIds.length && !activeId,
             },
             {
-              label: readOnlyGallery ? 'Edit records' : 'Gallery report',
+              label: t('mediaManager.actions.exportSelected'),
+              onClick: onExportSelected,
+              disabled: !selectedIds.length,
+            },
+            {
+              label: readOnlyGallery ? t('mediaManager.actions.editRecords') : t('mediaManager.actions.galleryReport'),
               onClick: () => setMode(readOnlyGallery ? 'editor' : 'gallery'),
             },
-            !readOnlyGallery && { label: 'Add URL', onClick: onAddURL },
-            !readOnlyGallery && { label: 'Camera', onClick: onStartCamera },
-            !readOnlyGallery && { label: 'Record audio', onClick: onStartAudioRecording },
-            !readOnlyGallery && { label: 'Record video', onClick: onStartVideoRecording },
-            !readOnlyGallery && { label: 'Match media folder', onClick: () => folderRef.current?.click() },
+            !readOnlyGallery && { label: t('mediaManager.actions.addUrl'), onClick: onAddURL },
+            !readOnlyGallery && { label: t('mediaManager.actions.camera'), onClick: onStartCamera },
+            !readOnlyGallery && { label: t('mediaManager.actions.recordAudio'), onClick: onStartAudioRecording },
+            !readOnlyGallery && { label: t('mediaManager.actions.recordVideo'), onClick: onStartVideoRecording },
+            !readOnlyGallery && { label: t('mediaManager.actions.matchFolder'), onClick: () => folderRef.current?.click() },
           ]}
         />
       </header>
 
       <div className={cn('flex-1 flex overflow-hidden', isMobile && 'flex-col')}>
         {(!isMobile || !active) && (
-        <div
-          className={cn(
-            'flex-1 overflow-auto p-5 grid',
-            readOnlyGallery
-              ? 'grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3.5 content-start'
-              : 'grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3',
-          )}
-        >
+        <div className="flex-1 overflow-auto p-5">
           {filtered.length === 0 && (
-            <div className="text-muted-foreground p-10 col-span-full text-center">
+            <div className="text-muted-foreground p-10 text-center">
               {targetId
-                ? `No related media${filter !== 'all' ? ` of type "${filter}"` : ''} for ${subjectLabel || targetId}.`
-                : filter !== 'all' ? `No media of type "${filter}" in this tree.` : 'No media in this tree.'}
+                ? filter === 'all'
+                  ? t('mediaManager.empty.related', { name: subjectLabel || targetId })
+                  : t('mediaManager.empty.relatedType', { type: mediaTypeLabel(filter), name: subjectLabel || targetId })
+                : filter !== 'all' ? t('mediaManager.empty.type', { type: mediaTypeLabel(filter) }) : t('mediaManager.empty.tree')}
             </div>
           )}
-          {filtered.map((m) => {
+          {mediaGroups.map((group) => (
+            <section key={group.key} className="mb-5 last:mb-0" aria-labelledby={`media-group-${group.key}`}>
+              {group.kind !== 'none' && (
+                <h2 id={`media-group-${group.key}`} className="mb-2 text-xs font-semibold text-muted-foreground">
+                  {groupLabel(group)} <span className="font-normal">({group.records.length})</span>
+                </h2>
+              )}
+              <div className={cn('grid content-start', readOnlyGallery ? 'grid-cols-[repeat(auto-fill,minmax(210px,1fr))] gap-3.5' : thumbnailGridClass)}>
+          {group.records.map((m) => {
             const isActive = m.recordName === activeId;
             const isSelected = selectedSet.has(m.recordName);
             return (
@@ -557,13 +717,13 @@ export default function Media() {
                 role="button"
                 tabIndex={0}
                 className={cn(
-                  'relative p-3.5 border rounded-md cursor-pointer transition-colors',
-                  readOnlyGallery ? 'min-h-[150px] flex flex-col justify-center' : 'min-h-[110px]',
+                  'relative border rounded-md cursor-pointer transition-colors',
+                  readOnlyGallery ? 'min-h-[150px] flex flex-col justify-center p-3.5' : thumbnailCardClass,
                   isActive ? 'border-primary bg-accent' : 'border-border bg-card',
                 )}
               >
                 <label
-                  aria-label={`Select ${m.fields?.caption?.value || m.recordName}`}
+                  aria-label={t('mediaManager.selectItem', { name: m.fields?.caption?.value || m.recordName })}
                   onClick={(event) => event.stopPropagation()}
                   className="absolute top-2 end-2 grid place-items-center w-6 h-6 rounded-md bg-background/85 border border-border cursor-pointer"
                 >
@@ -573,14 +733,17 @@ export default function Media() {
                     onChange={() => toggleSelected(m.recordName)}
                   />
                 </label>
-                <div className="text-[38px] leading-none mb-1.5">{iconFor(m.recordType)}</div>
+                <div className={cn(thumbnailIconClass, 'leading-none mb-1.5')}>{iconFor(m.recordType)}</div>
                 <div className="text-xs text-foreground font-semibold mb-0.5 break-words">
                   {m.fields?.caption?.value || m.fields?.filename?.value || m.fields?.fileName?.value || m.fields?.url?.value || m.recordName}
                 </div>
-                <div className="text-xs text-muted-foreground">{m.recordType.replace('Media', '')}</div>
+                <div className="text-xs text-muted-foreground">{mediaTypeLabel(m.recordType)}</div>
               </div>
             );
           })}
+              </div>
+            </section>
+          ))}
         </div>
         )}
 
@@ -600,38 +763,40 @@ export default function Media() {
           <aside className={cn('bg-card text-card-foreground overflow-auto', isMobile ? 'w-full flex-1 p-4' : 'w-[360px] border-s border-border p-5')}>
             <div className="flex items-center mb-3 flex-wrap gap-1.5">
               {isMobile && (
-                <Button variant="destructiveOutline" onClick={() => setActiveId(null)} aria-label="Back to gallery">← Back</Button>
+                <Button variant="destructiveOutline" onClick={() => setActiveId(null)} aria-label={t('mediaManager.actions.backToGallery')}>← {t('mediaManager.actions.back')}</Button>
               )}
               <h2 className="text-sm text-foreground m-0 font-semibold">
-                {iconFor(active.recordType)} {active.recordType.replace('Media', '')}
+                {iconFor(active.recordType)} {mediaTypeLabel(active.recordType)}
               </h2>
               <div className="ms-auto flex gap-1.5 flex-wrap">
                 <SaveStatus status={status} dirty={dirty} />
                 <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-                {active.recordType !== 'MediaURL' && <Button variant="destructiveOutline" onClick={() => replaceFileRef.current?.click()} disabled={isRecordLocked(active)}>Replace</Button>}
-                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={() => onEditImage('rotate')} disabled={isRecordLocked(active)}>Rotate</Button>}
-                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={() => onEditImage('crop-square')} disabled={isRecordLocked(active)}>Crop</Button>}
-                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={onOpenImageEditor} disabled={isRecordLocked(active)}>Edit &amp; Enhance…</Button>}
-                <Button variant="destructiveOutline" onClick={onDelete} disabled={isRecordLocked(active)}>Delete</Button>
-                <Button variant="primary" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">{saving ? 'Saving…' : 'Save'}</Button>
+                <Button onClick={onOpenMedia}>{t('mediaManager.actions.openMedia')}</Button>
+                {active.recordType === 'MediaPicture' && <Button onClick={() => openWorkflow(setEntryImageOpen)}>{t('mediaManager.actions.useEntryImage')}</Button>}
+                {active.recordType !== 'MediaURL' && <Button variant="destructiveOutline" onClick={() => replaceFileRef.current?.click()} disabled={isRecordLocked(active)}>{t('mediaManager.actions.replace')}</Button>}
+                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={() => onEditImage('rotate')} disabled={isRecordLocked(active)}>{t('mediaManager.actions.rotate')}</Button>}
+                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={() => onEditImage('crop-square')} disabled={isRecordLocked(active)}>{t('mediaManager.actions.crop')}</Button>}
+                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={onOpenImageEditor} disabled={isRecordLocked(active)}>{t('mediaManager.actions.editEnhance')}</Button>}
+                <Button variant="destructiveOutline" onClick={() => requestDelete([active])} disabled={isRecordLocked(active)}>{t('mediaManager.actions.delete')}</Button>
+                <Button variant="primary" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title={t('mediaManager.actions.saveShortcut')}>{saving ? t('mediaManager.actions.saving') : t('mediaManager.actions.save')}</Button>
               </div>
             </div>
-            <FieldRow label="Caption">
+            <FieldRow label={t('mediaManager.fields.caption')}>
               <Input value={values.caption ?? ''} onChange={(e) => setValues({ ...values, caption: e.target.value })} />
             </FieldRow>
             {active.recordType === 'MediaURL' && (
-              <FieldRow label="URL">
+              <FieldRow label={t('mediaManager.fields.url')}>
                 <Input value={values.url ?? ''} onChange={(e) => setValues({ ...values, url: e.target.value })} />
               </FieldRow>
             )}
             {values.filename && (
-              <FieldRow label="Filename">
+              <FieldRow label={t('mediaManager.fields.filename')}>
                 <div className="text-muted-foreground text-xs font-mono break-all">
                   {values.filename}
                 </div>
               </FieldRow>
             )}
-            <FieldRow label="Description">
+            <FieldRow label={t('mediaManager.fields.description')}>
               <Textarea
                 value={values.description ?? ''}
                 onChange={(e) => setValues({ ...values, description: e.target.value })}
@@ -639,12 +804,12 @@ export default function Media() {
                 rows={6}
               />
             </FieldRow>
-            <FieldRow label="Preview">
+            <FieldRow label={t('mediaManager.fields.preview')}>
               <MediaPreview record={active} assets={activeAssets} />
             </FieldRow>
-            <FieldRow label="Related Entries">
+            <FieldRow label={t('mediaManager.fields.relatedEntries')}>
               {activeRelations.length === 0 ? (
-                <div className="text-muted-foreground text-xs">No related entries.</div>
+                <div className="text-muted-foreground text-xs">{t('mediaManager.empty.relatedEntries')}</div>
               ) : (
                 <div className="grid gap-1.5">
                   {activeRelations.map(({ rel, target }) => (
@@ -660,7 +825,7 @@ export default function Media() {
                         routeForRecord(target) ? 'cursor-pointer hover:bg-accent' : 'cursor-default',
                       )}
                     >
-                      <span className="text-muted-foreground me-1.5">{rel.fields?.targetType?.value || target?.recordType || 'Record'}</span>
+                      <span className="text-muted-foreground me-1.5">{rel.fields?.targetType?.value || target?.recordType || t('mediaManager.targets.record')}</span>
                       {target?.fields?.cached_fullName?.value || target?.fields?.title?.value || target?.fields?.cached_familyName?.value || target?.recordName || readRef(rel.fields?.target)}
                     </button>
                   ))}
@@ -676,15 +841,15 @@ export default function Media() {
           <div className="w-[min(720px,94vw)] bg-card text-card-foreground border border-border rounded-md p-4 shadow-xl">
             <div className="flex items-center mb-3">
               <h2 className="text-base font-bold m-0">
-                {captureMode === 'camera' ? 'Camera capture' : captureMode === 'video' ? 'Video recording' : 'Audio recording'}
+                {captureMode === 'camera' ? t('mediaManager.capture.camera') : captureMode === 'video' ? t('mediaManager.capture.video') : t('mediaManager.capture.audio')}
               </h2>
-              <Button variant="destructiveOutline" onClick={onCancelCapture} className="ms-auto">Cancel</Button>
+              <Button variant="destructiveOutline" onClick={onCancelCapture} className="ms-auto">{t('mediaManager.actions.cancel')}</Button>
             </div>
             {captureMode === 'camera' ? (
               <>
                 <video ref={videoRef} muted playsInline className="w-full max-h-[62vh] bg-black rounded-md border border-border" />
                 <div className="flex justify-end gap-2 mt-3">
-                  <Button variant="primary" onClick={onCapturePhoto}>Capture photo</Button>
+                  <Button variant="primary" onClick={onCapturePhoto}>{t('mediaManager.capture.photo')}</Button>
                 </div>
               </>
             ) : captureMode === 'video' ? (
@@ -693,21 +858,21 @@ export default function Media() {
                 <div className="flex items-center gap-2.5 mt-3">
                   <div className="w-5 h-5 rounded-full bg-destructive ring-8 ring-destructive/15" />
                   <span className="text-xs text-muted-foreground">
-                    {recording ? 'Recording video and audio…' : 'Preparing recorder…'}
+                    {recording ? t('mediaManager.capture.recordingVideo') : t('mediaManager.capture.preparing')}
                   </span>
-                  <Button variant="primary" onClick={onStopVideoRecording} disabled={!recording} className="ms-auto">Stop and save</Button>
+                  <Button variant="primary" onClick={onStopVideoRecording} disabled={!recording} className="ms-auto">{t('mediaManager.capture.stopSave')}</Button>
                 </div>
               </>
             ) : (
               <>
                 <div className="min-h-[160px] border border-border rounded-md bg-background grid place-items-center gap-3 p-5">
                   <div className="text-xs text-muted-foreground">
-                    {recording ? 'Recording from the selected microphone.' : 'Audio recorder is ready.'}
+                    {recording ? t('mediaManager.capture.recordingAudio') : t('mediaManager.capture.audioReady')}
                   </div>
                   <div className="w-5 h-5 rounded-full bg-destructive ring-8 ring-destructive/15" />
                 </div>
                 <div className="flex justify-end gap-2 mt-3">
-                  <Button variant="primary" onClick={onStopAudioRecording} disabled={!recording}>Stop and save</Button>
+                  <Button variant="primary" onClick={onStopAudioRecording} disabled={!recording}>{t('mediaManager.capture.stopSave')}</Button>
                 </div>
               </>
             )}
@@ -718,9 +883,38 @@ export default function Media() {
       {imageEditorSrc && (
         <ImageEditingSheet
           src={imageEditorSrc}
-          title="Edit & Enhance Picture"
+          title={t('mediaManager.imageEditorTitle')}
           onCancel={() => setImageEditorSrc(null)}
           onApply={onApplyImageEdit}
+        />
+      )}
+
+      {addSheetOpen && (
+        <AddMediaSheet
+          initialTarget={subject}
+          busy={workflowBusy}
+          onCancel={() => closeWorkflow(setAddSheetOpen)}
+          onAdd={onAddFiles}
+        />
+      )}
+
+      {entryImageOpen && active && (
+        <EntryImageSheet
+          attachedTargets={activeRelations.map(({ target }) => target).filter(Boolean)}
+          busy={workflowBusy}
+          onCancel={() => closeWorkflow(setEntryImageOpen)}
+          onApply={onApplyEntryImage}
+        />
+      )}
+
+      {deleteRequest && (
+        <DeleteMediaSheet
+          mediaRecords={deleteRequest.records}
+          references={deleteRequest.references}
+          initialTargetId={targetId}
+          busy={workflowBusy}
+          onCancel={() => { setDeleteRequest(null); requestAnimationFrame(() => workflowReturnFocusRef.current?.focus?.()); }}
+          onConfirm={onConfirmDelete}
         />
       )}
     </div>
@@ -728,15 +922,23 @@ export default function Media() {
 }
 
 function MoreMenu({ items }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const buttonRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
     const onDocClick = (event) => {
       if (ref.current && !ref.current.contains(event.target)) setOpen(false);
     };
-    const onKey = (event) => { if (event.key === 'Escape') setOpen(false); };
+    ref.current?.querySelector('[role="menuitem"]')?.focus();
+    const onKey = (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
     document.addEventListener('mousedown', onDocClick);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -751,11 +953,12 @@ function MoreMenu({ items }) {
   return (
     <div ref={ref} className="relative">
       <Button
+        ref={buttonRef}
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        More <span aria-hidden="true">▾</span>
+        {t('mediaManager.actions.more')} <span aria-hidden="true">▾</span>
       </Button>
       {open ? (
         <div role="menu" className="absolute end-0 top-full z-20 mt-1 min-w-[180px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg p-1 flex flex-col">
@@ -773,6 +976,83 @@ function MoreMenu({ items }) {
           ))}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function GroupingStylePopover({ preferences, onChange }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  const buttonRef = useRef(null);
+  const thumbnailSizes = ['small', 'medium', 'large'];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    rootRef.current?.querySelector('input')?.focus();
+    const onPointerDown = (event) => {
+      if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
+    };
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <Button ref={buttonRef} onClick={() => setOpen((value) => !value)} aria-haspopup="dialog" aria-expanded={open}>
+        {t('mediaManager.grouping.button')} <span aria-hidden="true">▾</span>
+      </Button>
+      {open && (
+        <div role="dialog" aria-label={t('mediaManager.grouping.button')} className="absolute start-0 top-full z-30 mt-1 w-72 rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-lg">
+          <fieldset>
+            <legend className="mb-1.5 text-xs font-semibold">{t('mediaManager.grouping.sort')}</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {['title', 'date'].map((value) => (
+                <label key={value} className="flex items-center gap-2 text-xs">
+                  <input type="radio" name="media-sort" checked={preferences.sortBy === value} onChange={() => onChange({ sortBy: value })} />
+                  {t(`mediaManager.grouping.sort${value[0].toUpperCase()}${value.slice(1)}`)}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <fieldset className="mt-3 border-t border-border pt-3">
+            <legend className="mb-1.5 text-xs font-semibold">{t('mediaManager.grouping.group')}</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {['none', 'type', 'year', 'decade'].map((value) => (
+                <label key={value} className="flex items-center gap-2 text-xs">
+                  <input type="radio" name="media-group" checked={preferences.groupBy === value} onChange={() => onChange({ groupBy: value })} />
+                  {t(`mediaManager.grouping.group${value[0].toUpperCase()}${value.slice(1)}`)}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <label className="mt-3 block border-t border-border pt-3 text-xs font-semibold">
+            <span className="flex justify-between gap-3">
+              <span>{t('mediaManager.grouping.thumbnailSize')}</span>
+              <span className="font-normal text-muted-foreground">{t(`mediaManager.grouping.size${preferences.thumbnailSize[0].toUpperCase()}${preferences.thumbnailSize.slice(1)}`)}</span>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="2"
+              step="1"
+              value={thumbnailSizes.indexOf(preferences.thumbnailSize)}
+              onChange={(event) => onChange({ thumbnailSize: thumbnailSizes[Number(event.target.value)] })}
+              className="mt-2 w-full accent-primary"
+            />
+          </label>
+        </div>
+      )}
     </div>
   );
 }

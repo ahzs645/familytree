@@ -124,7 +124,7 @@ function mediaPictureIdentifier(record) {
 }
 
 // Owner record types that carry a primary "entry image" (thumbnailFileIdentifier).
-const ENTRY_IMAGE_OWNERS = ['Person', 'Family', 'Place'];
+const ENTRY_IMAGE_OWNERS = ['Person', 'Family', 'Source', 'Place'];
 
 export function MediaRelationsEditor({ ownerRecordName, ownerRecordType, onChanged, emptyHint }) {
   const { t } = useTranslation();
