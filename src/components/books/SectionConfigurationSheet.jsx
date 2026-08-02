@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { SECTION_KINDS, TITLE_PAGE_PRESETS } from '../../lib/books.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
+import { FamilyPicker } from '../editors/FamilyPickerSheet.jsx';
 import { Sheet } from '../ui/Sheet.jsx';
 import { Button } from '../ui/Button.jsx';
 import { Input, Textarea } from '../ui/Input.jsx';
@@ -147,13 +148,12 @@ function FamilySectionForm({ draft, set, persons, families, t }) {
   return (
     <>
       <PickerField label={t('books.config.startPerson')}><PersonPicker persons={persons} value={draft.targetRecordName || ''} onChange={(value) => set('targetRecordName', value)} ariaLabel={t('books.config.startPerson')} /></PickerField>
-      <SelectField label={t('books.config.targetFamily')} value={draft.targetFamilyRecordName || ''} onChange={(value) => {
-        const family = families.find((entry) => entry.recordName === value);
-        set('targetFamilyRecordName', value);
-        if (family?.primaryPersonRecordName) set('targetRecordName', family.primaryPersonRecordName);
-      }} options={[
-        ['', t('books.config.selectFamily')], ...families.map((family) => [family.recordName, family.label]),
-      ]} />
+      <PickerField label={t('books.config.targetFamily')}>
+        <FamilyPicker value={draft.targetFamilyRecordName || ''} families={families} persons={persons} ariaLabel={t('books.config.targetFamily')} onChange={(value, family) => {
+          set('targetFamilyRecordName', value);
+          if (family?.primaryPersonRecordName) set('targetRecordName', family.primaryPersonRecordName);
+        }} />
+      </PickerField>
       <ScopeAndSort draft={draft} set={set} t={t} />
       <IncludeOptions draft={draft} set={set} t={t} />
     </>

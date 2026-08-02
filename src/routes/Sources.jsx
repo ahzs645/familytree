@@ -4,7 +4,7 @@
  * Labels, Reference Numbers, Bookmarks, Private, Last Edited.
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { generateId } from '../lib/ids.js';
 import { formClasses } from '../components/ui/formClasses.js';
@@ -32,6 +32,8 @@ import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
 import { useRecordEditor } from '../components/editors/useRecordEditor.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { PageTitle } from '../components/ui/PageTitle.jsx';
+import { EditorModeBoundary, EditorModeControls, useEditorMode } from '../components/editors/EditorMode.jsx';
+import { DuplicateRecordAction } from '../components/editors/ContextualActionRail.jsx';
 
 function humanizeTemplateName(recordName) {
   // "SourceTemplate_ChurchRecord_Books" → "Church Record - Books"
@@ -167,6 +169,7 @@ async function reconcileSourceSideRecords(sourceId, vals, templateFields) {
 }
 
 export default function Sources() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const querySourceId = searchParams.get('sourceId');
   const [templateFields, setTemplateFields] = useState([]);
@@ -224,6 +227,22 @@ export default function Sources() {
     applyValues,
   });
   statusRef.current = setStatus;
+  const editorMode = useEditorMode({
+    recordId: activeId,
+    disabled: !!active && isRecordLocked(active),
+    onFinish: async () => {
+      if (dirty) await onSave();
+      return true;
+    },
+  });
+  const createNewSource = useCallback(async () => {
+    editorMode.markNextRecordNew();
+    await onCreate();
+  }, [editorMode, onCreate]);
+  const openScopedDuplicates = useCallback(async (href) => {
+    if (dirty && !(await editorMode.finishEditing())) return;
+    navigate(href);
+  }, [dirty, editorMode, navigate]);
 
   const { records: templateRecords } = useRecords('SourceTemplate');
   const templates = useMemo(
@@ -329,15 +348,15 @@ export default function Sources() {
         </h2>
         <SaveStatus status={status} dirty={dirty} />
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-        <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
+        <DuplicateRecordAction recordType="Source" recordId={activeId} onNavigate={openScopedDuplicates} />
+        <EditorModeControls mode={editorMode} locked={isRecordLocked(active)} />
       </div>
       <EditorSectionNavBar />
     </div>
   ) : null;
 
   const detail = active ? (
+    <EditorModeBoundary editing={editorMode.editing}>
     <div className="p-5 max-w-4xl">
       <Section title="Source Information" accent={ACCENTS.info}>
         <Field label="Source Template">
@@ -428,6 +447,7 @@ export default function Sources() {
         </div>
       </div>
     </div>
+    </EditorModeBoundary>
   ) : (
     <div className="p-10 text-muted-foreground">No source selected.</div>
   );
@@ -438,13 +458,13 @@ export default function Sources() {
         <header className="flex items-center gap-3 px-5 py-3 border-b border-border bg-card">
           <PageTitle className="text-base font-semibold">Sources</PageTitle>
           <span className="text-xs text-muted-foreground">{sources.length}</span>
-          <Button variant="primary" size="sm" onClick={onCreate} className="ms-auto">+ New Source</Button>
+          <Button variant="primary" size="sm" onClick={createNewSource} className="ms-auto">+ New Source</Button>
         </header>
         <div className="flex-1 min-h-0">
           {sources.length === 0 ? (
             <div className="p-10 text-center text-muted-foreground">
               <div className="text-sm text-foreground mb-2">No sources in this tree yet.</div>
-              <Button variant="primary" size="md" onClick={onCreate}>Add First Source</Button>
+              <Button variant="primary" size="md" onClick={createNewSource}>Add First Source</Button>
             </div>
           ) : (
             <MasterDetailList

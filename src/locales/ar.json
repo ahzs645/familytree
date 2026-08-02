@@ -785,6 +785,68 @@
     "useA": "استخدام أ",
     "useB": "استخدام ب"
   },
+  "contextActions": {
+    "action": {
+      "ancestorChart": "مخطط الأجداد",
+      "descendantChart": "مخطط الذرية",
+      "duplicates": "البحث عن تكرارات لهذا السجل",
+      "familyReport": "تقرير العائلة",
+      "fanChart": "المخطط المروحي",
+      "genogramChart": "مخطط العلاقات الأسرية",
+      "hourglassChart": "مخطط الساعة الرملية",
+      "interactiveTree": "الشجرة التفاعلية",
+      "map": "الخريطة",
+      "personReport": "تقرير الشخص",
+      "plausibility": "التحقق المنطقي",
+      "relationshipChart": "مخطط صلة القرابة",
+      "timeline": "الخط الزمني",
+      "treeChart": "مخطط الشجرة",
+      "virtualTree": "الشجرة الافتراضية",
+      "webSearch": "بحث الويب"
+    },
+    "group": {
+      "charts": "المخططات",
+      "checks": "الفحوص والبحث",
+      "reports": "التقارير",
+      "views": "طرق العرض"
+    },
+    "title": "إجراءات هذا السجل"
+  },
+  "familyPicker": {
+    "choose": "اختر عائلة…",
+    "family": "العائلة",
+    "jump": "الانتقال إلى عائلة",
+    "results": "العائلات المطابقة",
+    "search": "البحث بأسماء الشريكين…",
+    "subtitle": "ابحث عن العائلات باستخدام اسم أي من الشريكين.",
+    "title": "اختيار عائلة"
+  },
+  "relativeSelection": {
+    "addSet": "إضافة مجموعة أقارب…",
+    "addSetToGroup": "إضافة مجموعة أقارب إلى المجموعة…",
+    "addedToGroup": "تمت إضافة {count} أشخاص إلى المجموعة.",
+    "addedToSubtree": "تمت إضافة {count} أشخاص إلى تحديد الشجرة الفرعية.",
+    "changeSet": "تغيير مجموعة الأقارب…",
+    "chartButton": "مجموعة أقارب…",
+    "choose": "اختيار الأقارب",
+    "chooseSet": "اختر مجموعة أقارب…",
+    "collecting": "جارٍ جمع الأقارب…",
+    "failed": "تعذّر جمع الأقارب: {message}",
+    "generations": "الأجيال",
+    "person": "شخص البداية",
+    "pickPersonError": "اختر شخص البداية.",
+    "relationSet": "مجموعة الأقارب",
+    "set": {
+      "ancestors": "الأجداد",
+      "ancestorsAndDescendants": "الأجداد والذرية",
+      "descendants": "الذرية",
+      "immediateFamily": "العائلة المباشرة",
+      "siblings": "الإخوة والأخوات",
+      "wholeBranch": "الفرع بأكمله"
+    },
+    "subtitle": "اختر شخصاً وفرع العائلة المراد تضمينه.",
+    "title": "اختيار الأقارب"
+  },
   "editor": {
     "allChangesSaved": "تم حفظ كل التغييرات",
     "commonTypes": "شائعة",
@@ -812,6 +874,12 @@
       "lockedHint": "السجل مقفل. افتح القفل قبل التعديل.",
       "unlocked": "غير مقفل",
       "unlockedHint": "اقفل هذا السجل لمنع التعديلات غير المقصودة."
+    },
+    "mode": {
+      "alwaysEdit": "فتح المحررات دائماً في وضع التعديل",
+      "edit": "تعديل",
+      "finish": "إنهاء التعديل",
+      "shortcut": "تبديل وضع التعديل (⌘/Ctrl+E)"
     },
     "milk": {
       "active": "سارية",

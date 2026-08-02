@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '../components/ui/Button.jsx';
 import { readRef, writeRef } from '../lib/schema.js';
-import { collectRelatives } from '../lib/relationshipPath.js';
 import { personSummary } from '../models/index.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
 import { FieldRow } from '../components/editors/FieldRow.jsx';
@@ -15,6 +14,8 @@ import { useRecordEditor } from '../components/editors/useRecordEditor.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { createRecordEnvelope, createWithChangeLog, deleteWithChangeLog } from '../lib/recordWrite.js';
 import { PageTitle } from '../components/ui/PageTitle.jsx';
+import { RelativesSelectionSheet } from '../components/editors/RelativesSelectionSheet.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const GROUP_FIELDS = ['name', 'description', 'color'];
 
@@ -38,6 +39,7 @@ function membershipRecord(groupId, personRecordName) {
 }
 
 export default function PersonGroups() {
+  const { t } = useTranslation();
   const modal = useModal();
   const [searchParams] = useSearchParams();
   const queryGroupId = searchParams.get('groupId');
@@ -63,6 +65,7 @@ export default function PersonGroups() {
     [personRecords],
   );
   const [personId, setPersonId] = useState('');
+  const [relativeSheetOpen, setRelativeSheetOpen] = useState(false);
 
   useEffect(() => {
     if (!queryGroupId || groups.length === 0) return;
@@ -88,33 +91,22 @@ export default function PersonGroups() {
     await deleteWithChangeLog(active.recordName, 'PersonGroup');
   }, [active, memberRelations, modal, setStatus]);
 
-  const addRelatives = async (direction) => {
+  const addRelativeSet = async (ids) => {
     if (isRecordLocked(active)) {
       setStatus('Unlock this group before editing members.');
       return;
     }
-    if (!activeId || !personId) {
-      setStatus('Pick a person first.');
-      return;
-    }
-    setStatus(`Collecting ${direction}…`);
+    if (!activeId) return;
     try {
-      const relatives = await collectRelatives(personId, { includeSpouses: false });
       const existing = new Set(memberRelations.map((r) => readRef(r.fields?.person)).filter(Boolean));
-      existing.add(personId);
-      const wanted = relatives.filter((rel) => {
-        const edges = rel.steps.slice(1).map((step) => step.edgeFromPrev);
-        if (edges.length === 0) return false;
-        return direction === 'ancestors' ? edges.every((e) => e === 'parent') : edges.every((e) => e === 'child');
-      });
       let added = 0;
-      for (const rel of wanted) {
-        if (existing.has(rel.id)) continue;
-        existing.add(rel.id);
-        await createWithChangeLog(membershipRecord(activeId, rel.id));
+      for (const id of ids) {
+        if (existing.has(id)) continue;
+        existing.add(id);
+        await createWithChangeLog(membershipRecord(activeId, id));
         added += 1;
       }
-      setStatus(`Added ${added} ${direction}.`);
+      setStatus(t('relativeSelection.addedToGroup', { count: added }));
     } catch (error) {
       setStatus(error.message);
     }
@@ -171,8 +163,7 @@ export default function PersonGroups() {
           <button onClick={addMember} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">Add now</button>
         </div>
         <div className="mt-2 flex flex-wrap gap-2">
-          <button onClick={() => addRelatives('ancestors')} disabled={!personId} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs disabled:opacity-50">Add ancestors of selected</button>
-          <button onClick={() => addRelatives('descendants')} disabled={!personId} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs disabled:opacity-50">Add descendants of selected</button>
+          <button onClick={() => setRelativeSheetOpen(true)} className="bg-secondary border border-border rounded-md px-3 py-1.5 text-xs">{t('relativeSelection.addSetToGroup')}</button>
         </div>
       </section>
     </div>
@@ -188,6 +179,13 @@ export default function PersonGroups() {
       <div className="flex-1 min-h-0">
         <MasterDetailList items={groups} activeId={activeId} onPick={setActiveId} renderRow={(g) => <div className="text-sm">{groupName(g)}</div>} placeholder="Search groups..." detail={detail} emptyTitle="No groups yet" emptyHint="Tap + New to create a group." />
       </div>
+      <RelativesSelectionSheet
+        open={relativeSheetOpen}
+        onClose={() => setRelativeSheetOpen(false)}
+        persons={persons.map(({ summary }) => summary)}
+        initialPersonId={personId}
+        onApply={addRelativeSet}
+      />
     </div>
   );
 }

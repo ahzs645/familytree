@@ -123,12 +123,12 @@ export default function NewPerson() {
               // but say the relationship did not take, instead of leaving them
               // to discover an orphan record later.
               console.warn('Could not auto-link relation', linkError);
-              navigate(`/person/${encodeURIComponent(newRecord.recordName)}?linkFailed=1`, { replace: true });
+              navigate(`/person/${encodeURIComponent(newRecord.recordName)}?linkFailed=1&new=1`, { replace: true });
               return;
             }
           }
         }
-        navigate(`/person/${encodeURIComponent(newRecord.recordName)}`, { replace: true });
+        navigate(`/person/${encodeURIComponent(newRecord.recordName)}?new=1`, { replace: true });
       } catch (ex) {
         setError(ex?.message || t('newPerson.createFailed', { defaultValue: 'Could not create person.' }));
       }

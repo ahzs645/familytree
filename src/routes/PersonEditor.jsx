@@ -77,6 +77,8 @@ import {
   reconcileSubRecords,
   writeOptionalStringField,
 } from '../components/personEditor/persistence.js';
+import { EditorModeBoundary, EditorModeControls, useEditorMode } from '../components/editors/EditorMode.jsx';
+import { ContextualActionRail } from '../components/editors/ContextualActionRail.jsx';
 
 function uuid(prefix) {
   return generateId(prefix);
@@ -377,7 +379,16 @@ export default function PersonEditor() {
   }, [record, values, refNumbers, bookmarked, isStartPerson, isPrivate, isDeceased, outsideFamily, grave, additionalNames, facts, notes, milkKinships, labels, id, reload, t]);
 
   const locked = !!record && isRecordLocked(record);
-  useSaveShortcut(onSave, { enabled: !saving && !locked && dirty });
+  const editorMode = useEditorMode({
+    recordId: id,
+    isNew: searchParams.get('new') === '1',
+    disabled: locked,
+    onFinish: async () => {
+      if (dirty) await onSave();
+      return true;
+    },
+  });
+  useSaveShortcut(onSave, { enabled: editorMode.editing && !saving && !locked && dirty });
 
   if (notFound) return <div className="p-10 text-muted-foreground">{t('editor.person.notFound', { defaultValue: 'Person not found.' })}</div>;
   if (!record) return <div className="p-10 text-muted-foreground">{t('common.loading', { defaultValue: 'Loading…' })}</div>;
@@ -411,15 +422,16 @@ export default function PersonEditor() {
             <span className="text-xs text-muted-foreground">{t('editor.allChangesSaved', { defaultValue: 'All changes saved' })}</span>
           )}
           <RecordLockButton record={record} saving={saving} onToggle={onToggleLock} />
-          <Button variant="primary" size="md" disabled={saving || locked || !dirty} onClick={onSave} title={t('editor.saveShortcut', { defaultValue: 'Save (⌘/Ctrl+S)' })}>
-            {saving ? t('common.saving', { defaultValue: 'Saving…' }) : t('editor.saveChanges', { defaultValue: 'Save changes' })}
-          </Button>
+          <EditorModeControls mode={editorMode} locked={locked} />
         </div>
       </header>
       <EditorSectionNavBar />
 
       <div className="flex-1 overflow-auto bg-background">
         <div className="max-w-6xl mx-auto p-5">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
+          <EditorModeBoundary editing={editorMode.editing} className="order-2 lg:order-1">
+          <div>
 
           {context && (
             <Section title={t('editor.person.parentsRelatives', { defaultValue: 'Parents & Relatives' })} accent={ACCENTS.parents} domId={RELATIVES_ANCHOR}>
@@ -839,6 +851,10 @@ export default function PersonEditor() {
             </Section>
           )}
 
+          </div>
+          </EditorModeBoundary>
+          <ContextualActionRail personId={id} recordType="Person" recordId={id} onNavigate={guardedNavigate} />
+          </div>
         </div>
       </div>
     </div>

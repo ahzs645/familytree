@@ -50,6 +50,9 @@ import { useListSelection } from '../components/lists/useListSelection.js';
 import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
 import { useRecordEditor } from '../components/editors/useRecordEditor.js';
 import { useRecords } from '../lib/data/useRecords.js';
+import { EditorModeBoundary, EditorModeControls, useEditorMode } from '../components/editors/EditorMode.jsx';
+import { DuplicateRecordAction } from '../components/editors/ContextualActionRail.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const ACCENTS = {
   name: 'rgb(255 153 0)',
@@ -178,6 +181,7 @@ async function reconcilePlaceSideRecords(placeId, vals, coordPlan, setCoordinate
 }
 
 export default function Places() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const modal = useModal();
   const [searchParams] = useSearchParams();
@@ -324,8 +328,21 @@ export default function Places() {
     applyValues,
   });
   statusRef.current = setStatus;
+  const editorMode = useEditorMode({
+    recordId: activeId,
+    disabled: !!active && isRecordLocked(active),
+    onFinish: async () => {
+      if (dirty) await onSave();
+      return true;
+    },
+  });
+  const openScopedDuplicates = useCallback(async (href) => {
+    if (dirty && !(await editorMode.finishEditing())) return;
+    navigate(href);
+  }, [dirty, editorMode, navigate]);
 
   const onCreatePlace = useCallback(async (payload) => {
+    editorMode.markNextRecordNew();
     setShowNewPlaceSheet(false);
     const record = {
       recordName: generateId('place'),
@@ -353,7 +370,7 @@ export default function Places() {
     }
     await createWithChangeLog(record);
     setActiveId(record.recordName);
-  }, [setActiveId]);
+  }, [editorMode, setActiveId]);
 
   useEffect(() => {
     getMapPreferences().then(setMapPrefs);
@@ -549,15 +566,15 @@ export default function Places() {
         </h2>
         <SaveStatus status={status} dirty={dirty} />
         <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
-        <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
+        <DuplicateRecordAction recordType="Place" recordId={activeId} onNavigate={openScopedDuplicates} />
+        <EditorModeControls mode={editorMode} locked={isRecordLocked(active)} />
       </div>
       <EditorSectionNavBar />
     </div>
   ) : null;
 
   const detail = active ? (
+    <EditorModeBoundary editing={editorMode.editing}>
     <div className="p-5 max-w-4xl">
       {placeQueryMessage && (
         <div className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive-text">
@@ -713,12 +730,25 @@ export default function Places() {
         </div>
       </div>
     </div>
+    </EditorModeBoundary>
   ) : (
     <div className="p-10 text-muted-foreground">No place selected.</div>
   );
 
   if (places.length === 0) {
-    return <div className="p-10 text-muted-foreground">No places in this tree yet.</div>;
+    return (
+      <div className="p-10 text-center text-muted-foreground">
+        <p className="mb-3">{t('placePicker.noMatches')}</p>
+        <Button variant="primary" size="md" onClick={() => setShowNewPlaceSheet(true)}>{t('placePicker.newPlace')}</Button>
+        {showNewPlaceSheet && (
+          <FreeformPlaceLookupSheet
+            title={t('placePicker.newPlace')}
+            onApply={onCreatePlace}
+            onCancel={() => setShowNewPlaceSheet(false)}
+          />
+        )}
+      </div>
+    );
   }
 
   return (

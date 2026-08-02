@@ -50,6 +50,10 @@ import { useChartsBootstrap } from './hooks/useChartsBootstrap.js';
 import { useChartData } from './hooks/useChartData.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { NoDataYet } from '../NoDataYet.jsx';
+import { RelativesSelectionSheet } from '../editors/RelativesSelectionSheet.jsx';
+import { FamilyPicker } from '../editors/FamilyPickerSheet.jsx';
+import { useRecords } from '../../lib/data/useRecords.js';
+import { familySummary } from '../../models/index.js';
 
 const LOADING_CLASSES = 'flex h-full items-center justify-center bg-background text-muted-foreground';
 
@@ -199,6 +203,8 @@ export function ChartsApp() {
   const moreRef = useRef(null);
   const [panelPersonId, setPanelPersonId] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [relativePickerOpen, setRelativePickerOpen] = useState(false);
+  const { records: familyRecords } = useRecords('Family');
   const chartCanvasRef = useRef(null);
   const overlayCommands = useChartObjectCommands([]);
   const {
@@ -471,6 +477,10 @@ export function ChartsApp() {
       return String(av || a.fullName || '').localeCompare(String(bv || b.fullName || ''));
     });
   }, [chartPersonGroupMode, personBrowserGroup, personBrowserQuery, chartPersons]);
+  const selectedFamilyId = useMemo(() => familyRecords.find((record) => {
+    const summary = familySummary(record);
+    return summary?.manRecordName === rootId || summary?.womanRecordName === rootId;
+  })?.recordName || '', [familyRecords, rootId]);
 
   const overlayChartProps = useMemo(
     () => ({
@@ -494,6 +504,20 @@ export function ChartsApp() {
         <Field label={t('charts.person', { defaultValue: 'Person' })}>
           <PersonPicker persons={chartPersons} value={rootId} onChange={onRootChange} />
         </Field>
+
+        <Button size="md" onClick={() => setRelativePickerOpen(true)}>{t('relativeSelection.chartButton')}</Button>
+
+        {chartType === 'family-chart' && (
+          <Field label={t('familyPicker.family')}>
+            <FamilyPicker
+              value={selectedFamilyId}
+              families={familyRecords}
+              persons={chartPersons}
+              ariaLabel={t('familyPicker.family')}
+              onChange={(_familyId, family) => family?.primaryPersonRecordName && onRootChange(family.primaryPersonRecordName)}
+            />
+          </Field>
+        )}
 
         {needsSecond && (
           <Field label={chartType === 'relationship' ? 'Compare to' : 'Partner'}>
@@ -880,6 +904,17 @@ export function ChartsApp() {
           }}
         />
       )}
+      <RelativesSelectionSheet
+        open={relativePickerOpen}
+        onClose={() => setRelativePickerOpen(false)}
+        persons={chartPersons}
+        initialPersonId={rootId}
+        onApply={(_ids, selection) => {
+          onRootChange(selection.personId);
+          if (selection.relationSet === 'ancestors') setChartType('ancestor');
+          if (selection.relationSet === 'descendants') setChartType('descendant');
+        }}
+      />
     </div>
   );
 }

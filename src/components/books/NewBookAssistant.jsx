@@ -10,6 +10,7 @@ import {
 } from '../../lib/books.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { PersonPicker } from '../charts/PersonPicker.jsx';
+import { FamilyPicker } from '../editors/FamilyPickerSheet.jsx';
 import { LanguageSelect } from '../LanguageSelect.jsx';
 import { Sheet } from '../ui/Sheet.jsx';
 import { Button } from '../ui/Button.jsx';
@@ -130,16 +131,12 @@ export function NewBookAssistant({ persons, families = [], initialPersonId, outp
           <p className="text-sm text-muted-foreground">{t(`books.assistant.subjectHelp.${draft.bookType}`)}</p>
           {needsPerson && <div><div className="mb-1 text-xs font-medium">{t('books.config.startPerson')}</div><PersonPicker persons={persons} value={draft.targetPersonId} onChange={(value) => set('targetPersonId', value)} triggerClassName="ring-offset-background" ariaLabel={t('books.config.startPerson')} /></div>}
           {needsFamily && (
-            <label className="block text-xs font-medium">
-              {t('books.config.targetFamily')}
-              <select ref={focusRef} value={draft.targetFamilyId} onChange={(event) => {
-                const family = families.find((entry) => entry.recordName === event.target.value);
-                setDraft((current) => ({ ...current, targetFamilyId: event.target.value, targetPersonId: family?.primaryPersonRecordName || current.targetPersonId }));
-              }} className={selectClass}>
-                <option value="">{t('books.config.selectFamily')}</option>
-                {families.map((family) => <option key={family.recordName} value={family.recordName}>{family.label}</option>)}
-              </select>
-            </label>
+            <div className="block text-xs font-medium">
+              <div className="mb-1">{t('books.config.targetFamily')}</div>
+              <FamilyPicker value={draft.targetFamilyId} families={families} persons={persons} ariaLabel={t('books.config.targetFamily')} onChange={(familyId, family) => {
+                setDraft((current) => ({ ...current, targetFamilyId: familyId, targetPersonId: family?.primaryPersonRecordName || current.targetPersonId }));
+              }} />
+            </div>
           )}
           {draft.bookType === 'empty' && <div ref={focusRef} tabIndex={-1} className="rounded-md border border-border bg-secondary p-4 text-sm">{t('books.assistant.emptyHelp')}</div>}
         </div>

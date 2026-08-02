@@ -750,6 +750,68 @@
     "useA": "Use A",
     "useB": "Use B"
   },
+  "contextActions": {
+    "action": {
+      "ancestorChart": "Ancestor Chart",
+      "descendantChart": "Descendant Chart",
+      "duplicates": "Find Duplicates for This Record",
+      "familyReport": "Family Report",
+      "fanChart": "Fan Chart",
+      "genogramChart": "Genogram Chart",
+      "hourglassChart": "Hourglass Chart",
+      "interactiveTree": "Interactive Tree",
+      "map": "Map",
+      "personReport": "Person Report",
+      "plausibility": "Plausibility",
+      "relationshipChart": "Relationship Chart",
+      "timeline": "Timeline",
+      "treeChart": "Tree Chart",
+      "virtualTree": "Virtual Tree",
+      "webSearch": "Web Search"
+    },
+    "group": {
+      "charts": "Charts",
+      "checks": "Checks & Search",
+      "reports": "Reports",
+      "views": "Views"
+    },
+    "title": "Actions for This Record"
+  },
+  "familyPicker": {
+    "choose": "Choose a family…",
+    "family": "Family",
+    "jump": "Jump to family",
+    "results": "Matching families",
+    "search": "Search by partners' names…",
+    "subtitle": "Search families using either partner's name.",
+    "title": "Choose Family"
+  },
+  "relativeSelection": {
+    "addSet": "Add Relative Set…",
+    "addSetToGroup": "Add Relative Set to Group…",
+    "addedToGroup": "Added {count} people to the group.",
+    "addedToSubtree": "Added {count} people to the subtree selection.",
+    "changeSet": "Change relative set…",
+    "chartButton": "Relative Set…",
+    "choose": "Choose Relatives",
+    "chooseSet": "Choose relative set…",
+    "collecting": "Collecting…",
+    "failed": "Could not collect relatives: {message}",
+    "generations": "Generations",
+    "person": "Start person",
+    "pickPersonError": "Choose a start person.",
+    "relationSet": "Relative set",
+    "set": {
+      "ancestors": "Ancestors",
+      "ancestorsAndDescendants": "Ancestors and descendants",
+      "descendants": "Descendants",
+      "immediateFamily": "Immediate family",
+      "siblings": "Siblings",
+      "wholeBranch": "Whole branch"
+    },
+    "subtitle": "Choose a person and the family branch to include.",
+    "title": "Choose Relatives"
+  },
   "editor": {
     "allChangesSaved": "All changes saved",
     "commonTypes": "Common",
@@ -777,6 +839,12 @@
       "lockedHint": "Record is locked. Unlock it before editing.",
       "unlocked": "Unlocked",
       "unlockedHint": "Lock this record to prevent accidental edits."
+    },
+    "mode": {
+      "alwaysEdit": "Always open editors in Edit mode",
+      "edit": "Edit",
+      "finish": "Finish Editing",
+      "shortcut": "Toggle editing (⌘/Ctrl+E)"
     },
     "milk": {
       "active": "Active",

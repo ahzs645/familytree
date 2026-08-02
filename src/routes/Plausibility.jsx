@@ -2,7 +2,7 @@
  * Plausibility checker — flags improbable data (dates, ages, lifespans).
  */
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FilterChip } from '../components/ui/FilterChip.jsx';
 import { StatusBadge } from '../components/ui/StatusBadge.jsx';
 import { runPlausibilityChecks } from '../lib/plausibility.js';
@@ -12,16 +12,21 @@ export default function Plausibility() {
   const [warnings, setWarnings] = useState(null);
   const [filter, setFilter] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const scopedRecordId = searchParams.get('recordId') || '';
+  const scopedKind = searchParams.get('kind') || '';
 
   useEffect(() => {
     let cancel = false;
     (async () => {
       const prefs = await getAppPreferences();
       const w = await runPlausibilityChecks(prefs.plausibility);
-      if (!cancel) setWarnings(w);
+      if (!cancel) setWarnings(scopedRecordId
+        ? w.filter((warning) => warning.recordName === scopedRecordId && (!scopedKind || warning.recordType === scopedKind))
+        : w);
     })();
     return () => { cancel = true; };
-  }, []);
+  }, [scopedKind, scopedRecordId]);
 
   if (warnings == null) return <div className="p-10 text-muted-foreground">Running checks…</div>;
   const filtered = filter ? warnings.filter((w) => w.severity === filter) : warnings;
