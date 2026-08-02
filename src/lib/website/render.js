@@ -778,7 +778,7 @@ export function storyPage(story, model) {
 }
 
 function eventsTable(events, model, fromFolder) {
-  return `<table><thead><tr><th>Type</th><th>Date</th><th>Place</th><th>Description</th><th>Sources</th></tr></thead><tbody>${events.map((event) => {
+  return `<table><thead><tr><th>Type</th><th>Date</th><th>Time</th><th>Place</th><th>Address</th><th>Authority</th><th>Cause</th><th>Description</th><th>Sources</th></tr></thead><tbody>${events.map((event) => {
     const placeId = eventPlaceId(event);
     const place = placeId ? model.placeById.get(placeId) : null;
     const placeText = place
@@ -788,7 +788,11 @@ function eventsTable(events, model, fromFolder) {
     return `<tr>
       <td>${esc(readConclusionType(event) || readField(event, ['eventType', 'type'], 'Event'))}</td>
       <td>${esc(readField(event, ['date'], ''))}</td>
+      <td>${esc(readField(event, ['time'], ''))}</td>
       <td>${placeText}</td>
+      <td>${esc(readField(event, ['address'], ''))}</td>
+      <td>${esc(readField(event, ['agency', 'authority'], ''))}</td>
+      <td>${esc(readField(event, ['cause'], ''))}</td>
       <td>${esc(readField(event, ['description', 'userDescription', 'text'], ''))}</td>
       <td>${sources.map((rel) => {
         const sourceId = readRef(rel.fields?.source);

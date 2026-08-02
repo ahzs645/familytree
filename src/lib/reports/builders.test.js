@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildGiaPhaLineageReport, buildKinshipReport, buildPersonEventsReport, buildStoryReport } from './builders.js';
+import { buildEventsList, buildGiaPhaLineageReport, buildKinshipReport, buildNarrativeReport, buildPersonEventsReport, buildStoryReport } from './builders.js';
 
 const mockState = vi.hoisted(() => ({ db: null }));
 
@@ -18,7 +18,7 @@ describe('report builders', () => {
       person('p2', 'Jane Doe'),
       place('place1', 'Boston, Massachusetts'),
       family('fam1', 'p1', 'p2', 'John Doe & Jane Doe'),
-      event('pe1', 'PersonEvent', { person: ref('p1', 'Person'), eventType: field('Birth'), date: field('1900-01-02'), place: ref('place1', 'Place'), description: field('Born at home') }),
+      event('pe1', 'PersonEvent', { person: ref('p1', 'Person'), eventType: field('Birth'), date: field('1900-01-02'), place: ref('place1', 'Place'), description: field('Born at home'), agency: field('Boston Registry'), cause: field('Recorded cause') }),
       event('fe1', 'FamilyEvent', { family: ref('fam1', 'Family'), eventType: field('Marriage'), date: field('1920-03-04'), description: field('Wedding ceremony') }),
     ]);
 
@@ -27,7 +27,7 @@ describe('report builders', () => {
 
     expect(table.columns).toEqual(['Type', 'Date', 'Place', 'Description', 'Context']);
     expect(table.rows.length).toBeGreaterThanOrEqual(1);
-    expect(table.rows).toContainEqual(['Birth', '1900-01-02', 'Boston, Massachusetts', 'Born at home', 'Personal event']);
+    expect(table.rows).toContainEqual(['Birth', '1900-01-02', 'Boston, Massachusetts', 'Born at home · Authority: Boston Registry · Cause: Recorded cause', 'Personal event']);
     expect(table.rows).toContainEqual(['Marriage', '1920-03-04', '-', 'Wedding ceremony', 'Family with Jane Doe']);
   });
 
@@ -78,6 +78,40 @@ describe('report builders', () => {
     expect(relationTable.columns).toEqual(['Scope', 'Target Type', 'Target', 'Record ID']);
     expect(relationTable.rows).toContainEqual(['Story', 'Person', 'John Doe', 'p1']);
     expect(relationTable.rows).toContainEqual(['Section: Arrival', 'Picture', 'Harbor photo', 'media1']);
+  });
+
+  it('includes cause and authority in narrative output', async () => {
+    mockState.db = createMockDb([
+      person('p1', 'John Doe', { birth: '1900', death: '1980' }),
+      event('pe-birth', 'PersonEvent', { person: ref('p1', 'Person'), eventType: field('Birth'), agency: field('City Registry') }),
+      event('pe-death', 'PersonEvent', { person: ref('p1', 'Person'), eventType: field('Death'), agency: field('County Coroner'), cause: field('Pneumonia') }),
+    ]);
+
+    const report = await buildNarrativeReport('p1', 1);
+    const paragraphs = report.blocks.filter((entry) => entry.kind === 'paragraph').map((entry) => entry.text);
+    expect(paragraphs).toContain('Birth: recorded by City Registry.');
+    expect(paragraphs).toContain('The recorded cause of death was Pneumonia.');
+    expect(paragraphs).toContain('The death was recorded by County Coroner.');
+  });
+
+  it('reads canonical extended fields in the configurable events list', async () => {
+    mockState.db = createMockDb([
+      person('p1', 'John Doe'),
+      event('pe1', 'PersonEvent', {
+        person: ref('p1', 'Person'),
+        eventType: field('Death'),
+        date: field('1980-05-10'),
+        time: field('14:35'),
+        address: field('12 Registry Road'),
+        agency: field('County Coroner'),
+        cause: field('Pneumonia'),
+      }),
+    ]);
+
+    const report = await buildEventsList({ showTime: true, showAddress: true, showAuthority: true, showCause: true });
+    const table = report.blocks.find((entry) => entry.kind === 'table');
+    expect(table.columns).toEqual(['Type', 'Date', 'Owner', 'Place', 'Description', 'Time', 'Address', 'Authority', 'Cause']);
+    expect(table.rows).toContainEqual(['Death', '1980-05-10', 'John Doe', '-', '-', '14:35', '12 Registry Road', 'County Coroner', 'Pneumonia']);
   });
 
   it('handles same-person kinship paths', async () => {

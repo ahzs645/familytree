@@ -45,6 +45,7 @@ import { BdiText, LtrText } from '../components/BdiText.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { generateId } from '../lib/ids.js';
 import { formClasses } from '../components/ui/formClasses.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 function uuid(p) {
   return generateId(p);
@@ -99,6 +100,7 @@ function Field({ label, children }) {
 }
 
 export default function FamilyEditor() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -565,9 +567,18 @@ export default function FamilyEditor() {
                       const rawType = e.fields?.conclusionType?.value || e.fields?.eventType?.value || '';
                       const label = labelForCatalogType(familyEventTypes, rawType, readConclusionType(e) || 'Event');
                       const date = e.fields?.date?.value || '';
+                      const time = e.fields?.time?.value || '';
+                      const extendedDetails = [
+                        e.fields?.address?.value ? `${t('eventEditor.address')}: ${e.fields.address.value}` : '',
+                        (e.fields?.agency?.value || e.fields?.authority?.value) ? `${t('eventEditor.agency')}: ${e.fields?.agency?.value || e.fields?.authority?.value}` : '',
+                        e.fields?.cause?.value ? `${t('eventEditor.cause')}: ${e.fields.cause.value}` : '',
+                      ].filter(Boolean);
                       return (
-                        <div key={e.recordName} className="flex items-center justify-between p-2.5 bg-secondary/30 rounded-md">
-                          <span className="text-sm">{label}{date && <span className="text-muted-foreground"> · {date}</span>}</span>
+                        <div key={e.recordName} className="flex items-start justify-between gap-3 p-2.5 bg-secondary/30 rounded-md">
+                          <div className="min-w-0">
+                            <span className="text-sm">{label}{date && <span className="text-muted-foreground"> · {date}</span>}{time && <span className="text-muted-foreground"> · {time}</span>}</span>
+                            {extendedDetails.length > 0 && <div className="mt-1 text-xs text-muted-foreground" dir="auto">{extendedDetails.join(' · ')}</div>}
+                          </div>
                           <button onClick={() => guardedNavigate(`/events?eventId=${encodeURIComponent(e.recordName)}`)} className="text-xs text-interactive hover:underline">open in Events</button>
                         </div>
                       );

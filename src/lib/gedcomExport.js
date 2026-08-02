@@ -351,14 +351,9 @@ export async function buildGedcom(exportOptions = {}) {
     for (const ev of personEvents.filter((e) => refToRecordName(e.fields?.person?.value) === p.recordName)) {
       const tag = eventTag(refToRecordName(ev.fields?.conclusionType?.value) || ev.fields?.eventType?.value);
       lines.push(`1 ${tag}`);
-      if (ev.fields?.date?.value) lines.push(`2 DATE ${escape(ev.fields.date.value)}`);
       const placeRef = refToRecordName(ev.fields?.place?.value) || refToRecordName(ev.fields?.assignedPlace?.value);
       const place = placeRef && places.find((x) => x.recordName === placeRef);
-      if (place) {
-        const name = place.fields?.cached_normallocationString?.value || place.fields?.placeName?.value;
-        if (name) lines.push(`2 PLAC ${escape(name)}`);
-      }
-      if (ev.fields?.description?.value) pushText(lines, 2, 'NOTE', ev.fields.description.value);
+      appendEventDetails(lines, ev, 2, place);
       appendGedcomExtensions(lines, ev, 2, pointerMap);
       appendSourceCitations(lines, sourceRelations, ev.recordName, 2, sourceIdx);
     }
@@ -432,7 +427,9 @@ export async function buildGedcom(exportOptions = {}) {
     for (const ev of familyEvents.filter((e) => refToRecordName(e.fields?.family?.value) === fam.recordName)) {
       const tag = eventTag(refToRecordName(ev.fields?.conclusionType?.value) || ev.fields?.eventType?.value);
       lines.push(`1 ${tag}`);
-      if (ev.fields?.date?.value) lines.push(`2 DATE ${escape(ev.fields.date.value)}`);
+      const placeRef = refToRecordName(ev.fields?.place?.value) || refToRecordName(ev.fields?.assignedPlace?.value);
+      const place = placeRef && places.find((item) => item.recordName === placeRef);
+      appendEventDetails(lines, ev, 2, place);
       appendGedcomExtensions(lines, ev, 2, pointerMap);
       appendSourceCitations(lines, sourceRelations, ev.recordName, 2, sourceIdx);
     }
@@ -461,6 +458,31 @@ export async function buildGedcom(exportOptions = {}) {
 
   lines.push('0 TRLR');
   return lines.join('\n');
+}
+
+function appendEventDetails(lines, event, level, place) {
+  const date = event.fields?.date?.value;
+  const time = event.fields?.time?.value;
+  if (date || time) {
+    lines.push(date ? `${level} DATE ${escape(date)}` : `${level} DATE`);
+    if (time) lines.push(`${level + 1} TIME ${escape(time)}`);
+  }
+  if (place) {
+    const name = place.fields?.cached_normallocationString?.value ||
+      place.fields?.cached_normalLocationString?.value ||
+      place.fields?.cached_displayName?.value ||
+      place.fields?.placeName?.value;
+    if (name) lines.push(`${level} PLAC ${escape(name)}`);
+  } else if (event.fields?.placeName?.value) {
+    lines.push(`${level} PLAC ${escape(event.fields.placeName.value)}`);
+  }
+  if (event.fields?.address?.value) pushText(lines, level, 'ADDR', event.fields.address.value);
+  if (event.fields?.agency?.value || event.fields?.authority?.value) {
+    pushText(lines, level, 'AGNC', event.fields?.agency?.value || event.fields?.authority?.value);
+  }
+  if (event.fields?.cause?.value) pushText(lines, level, 'CAUS', event.fields.cause.value);
+  const description = event.fields?.description?.value || event.fields?.userDescription?.value;
+  if (description) pushText(lines, level, 'NOTE', description);
 }
 
 function appendTribalFact(lines, value, typeLabel, date = '', note = '') {

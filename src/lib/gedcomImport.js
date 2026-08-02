@@ -171,11 +171,19 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
           },
         };
         const date = child(ev, 'DATE')?.value;
+        const time = child(child(ev, 'DATE') || { children: [] }, 'TIME')?.value;
         const place = child(ev, 'PLAC')?.value;
         const placeId = ensurePlace(place);
+        const address = addressFromNode(ev);
+        const agency = nodeText(child(ev, 'AGNC'));
+        const cause = nodeText(child(ev, 'CAUS'));
         const note = nodeText(child(ev, 'NOTE'), noteByXref);
         const type = nodeText(child(ev, 'TYPE'));
         if (date) eventRec.fields.date = { value: date, type: 'STRING' };
+        if (time) eventRec.fields.time = { value: time, type: 'STRING' };
+        if (address) eventRec.fields.address = { value: address, type: 'STRING' };
+        if (agency) eventRec.fields.agency = { value: agency, type: 'STRING' };
+        if (cause) eventRec.fields.cause = { value: cause, type: 'STRING' };
         if (place) eventRec.fields.placeName = { value: place, type: 'STRING' };
         if (placeId) eventRec.fields.place = { value: refValue(placeId, 'Place'), type: 'REFERENCE' };
         if (type && name === 'GenericEvent') eventRec.fields.conclusionType = { value: typeToIdentifier(type), type: 'STRING' };
@@ -235,10 +243,18 @@ function parseGedcomParts(text, { mediaFiles = [], resourceFiles = [] } = {}) {
         };
         const place = child(marr, 'PLAC')?.value;
         const placeId = ensurePlace(place);
+        const time = child(child(marr, 'DATE') || { children: [] }, 'TIME')?.value;
+        const address = addressFromNode(marr);
+        const agency = nodeText(child(marr, 'AGNC'));
+        const cause = nodeText(child(marr, 'CAUS'));
         const note = nodeText(child(marr, 'NOTE'), noteByXref);
         const type = nodeText(child(marr, 'TYPE'));
         if (place) eventRec.fields.placeName = { value: place, type: 'STRING' };
         if (placeId) eventRec.fields.place = { value: refValue(placeId, 'Place'), type: 'REFERENCE' };
+        if (time) eventRec.fields.time = { value: time, type: 'STRING' };
+        if (address) eventRec.fields.address = { value: address, type: 'STRING' };
+        if (agency) eventRec.fields.agency = { value: agency, type: 'STRING' };
+        if (cause) eventRec.fields.cause = { value: cause, type: 'STRING' };
         if (note) eventRec.fields.description = { value: note, type: 'STRING' };
         if (type) eventRec.fields.type = { value: type, type: 'STRING' };
         preserveExtensions(eventRec, marr, EVENT_HANDLED_TAGS);
@@ -348,7 +364,7 @@ function eventNameForNode(node, scope = 'PersonEvent') {
 
 function eventLikeNode(node) {
   if (!node) return false;
-  return (node.children || []).some((childNode) => ['DATE', 'PLAC', 'TYPE', 'NOTE', 'SOUR', 'ADDR'].includes(childNode.tag));
+  return (node.children || []).some((childNode) => ['DATE', 'PLAC', 'TYPE', 'NOTE', 'SOUR', 'ADDR', 'AGNC', 'CAUS'].includes(childNode.tag));
 }
 
 function familyEventNodes(familyNode) {

@@ -115,6 +115,7 @@ export const REPORT_BUILDERS = [
     { key: 'showDescription', label: 'Description column', type: 'boolean', default: true, checkboxLabel: 'Show description' },
     { key: 'showAge', label: 'Age column', type: 'boolean', default: false, checkboxLabel: 'Show age at event' },
     { key: 'showTime', label: 'Time column', type: 'boolean', default: false, checkboxLabel: 'Show time' },
+    { key: 'showAddress', label: 'Address column', type: 'boolean', default: false, checkboxLabel: 'Show address' },
     { key: 'showPlaceDetail', label: 'Place detail column', type: 'boolean', default: false, checkboxLabel: 'Show place detail' },
     { key: 'showAuthority', label: 'Authority column', type: 'boolean', default: false, checkboxLabel: 'Show authority' },
     { key: 'showCause', label: 'Cause column', type: 'boolean', default: false, checkboxLabel: 'Show cause' },

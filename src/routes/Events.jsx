@@ -14,7 +14,7 @@ import { refToRecordName } from '../lib/recordRef.js';
 import { readConclusionType, readRef, writeRef } from '../lib/schema.js';
 import { applyValuesToRecord, createRecordEnvelope, createWithChangeLog, deleteWithChangeLog, stringField } from '../lib/recordWrite.js';
 import { useRecords } from '../lib/data/useRecords.js';
-import { personSummary, placeSummary } from '../models/index.js';
+import { personSummary } from '../models/index.js';
 import { buildPersonLineage, attachLineageToPersonSummaries } from '../lib/personLineage.js';
 import { personDisplayName } from '../lib/personDisplayName.js';
 import { MasterDetailList } from '../components/editors/MasterDetailList.jsx';
@@ -33,6 +33,15 @@ import { RecordLockButton } from '../components/editors/RecordLockButton.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
 import { Button } from '../components/ui/Button.jsx';
 import { PageTitle } from '../components/ui/PageTitle.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { generateId } from '../lib/ids.js';
+import {
+  clonePlaceRecord,
+  countOtherEventPlaceReferences,
+  placeDisplayName,
+  renamePlaceRecord,
+} from '../lib/eventPlaceEdit.js';
+import { SharedPlaceEditSheet } from '../components/SharedPlaceEditSheet.jsx';
 
 export default function Events({
   initialKindFilter = 'all',
@@ -40,6 +49,7 @@ export default function Events({
   showPersonEventCreate = true,
   showFamilyEventCreate = true,
 } = {}) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const modal = useModal();
   const [searchParams] = useSearchParams();
@@ -60,6 +70,7 @@ export default function Events({
   const [status, setStatus] = useState(null);
   const [queryMessage, setQueryMessage] = useState(null);
   const [loadSeq, setLoadSeq] = useState(0);
+  const [pendingPlaceEdit, setPendingPlaceEdit] = useState(null);
 
   // Attach Arabic-patrilineal lineage so events for name-less records show a
   // readable descriptor instead of "No name recorded" (see personDisplayName).
@@ -130,6 +141,10 @@ export default function Events({
       conclusionType: refToRecordName(ev.fields?.conclusionType?.value) || ev.fields?.conclusionType?.value || ev.fields?.eventType?.value || '',
       conclusionTypeLabel: readConclusionType(ev),
       date: ev.fields?.date?.value || '',
+      time: ev.fields?.time?.value || '',
+      address: ev.fields?.address?.value || '',
+      agency: ev.fields?.agency?.value || ev.fields?.authority?.value || '',
+      cause: ev.fields?.cause?.value || '',
       description: ev.fields?.description?.value || ev.fields?.userDescription?.value || '',
       isPrivate: !!ev.fields?.isPrivate?.value,
       personRef: refToRecordName(ev.fields?.person?.value) || '',
@@ -138,49 +153,115 @@ export default function Events({
         refToRecordName(ev.fields?.place?.value) ||
         refToRecordName(ev.fields?.assignedPlace?.value) ||
         '',
+      placeName: placeDisplayName(placeRecords.find((place) => place.recordName === (
+        refToRecordName(ev.fields?.place?.value) || refToRecordName(ev.fields?.assignedPlace?.value)
+      ))) || ev.fields?.placeName?.value || '',
       placeDetail: ev.fields?.placeDetail?.value || ev.fields?.placeDescription?.value || '',
     });
-  }, [activeId, events]);
+  }, [activeId, events, placeRecords]);
 
-  const onSave = useCallback(async () => {
-    const ev = events.find((e) => e.recordName === activeId);
-    if (!ev) return;
-    if (isRecordLocked(ev)) {
-      setStatus('Unlock this event before saving.');
-      return;
-    }
-    setSaving(true);
+  const persistEvent = useCallback(async (ev, saveValues, placeRef) => {
     const refFields = { place: 'Place' };
-    if (ev.recordType === 'PersonEvent' && values.personRef) refFields.person = 'Person';
-    if (ev.recordType === 'FamilyEvent' && values.familyRef) refFields.family = 'Family';
+    if (ev.recordType === 'PersonEvent' && saveValues.personRef) refFields.person = 'Person';
+    if (ev.recordType === 'FamilyEvent' && saveValues.familyRef) refFields.family = 'Family';
     const next = applyValuesToRecord(ev, {
-      date: values.date,
-      description: values.description,
-      placeDetail: values.placeDetail?.trim(),
-      place: values.placeRef,
-      person: values.personRef,
-      family: values.familyRef,
-    }, { fields: ['date', 'description', 'placeDetail'], refFields });
+      date: saveValues.date,
+      time: saveValues.time,
+      address: saveValues.address,
+      agency: saveValues.agency,
+      cause: saveValues.cause,
+      description: saveValues.description,
+      placeDetail: saveValues.placeDetail?.trim(),
+      place: placeRef,
+      person: saveValues.personRef,
+      family: saveValues.familyRef,
+    }, { fields: ['date', 'time', 'address', 'agency', 'cause', 'description', 'placeDetail'], refFields });
+    delete next.fields.assignedPlace;
+    delete next.fields.placeName;
+    delete next.fields.authority;
     const typeOptions = ev.recordType === 'FamilyEvent' ? types.Family : types.Person;
-    const chosenType = typeOptions.find((t) => t.id === values.conclusionType || t.label === values.conclusionType);
+    const chosenType = typeOptions.find((type) => type.id === saveValues.conclusionType || type.label === saveValues.conclusionType);
     if (chosenType) {
       next.fields.conclusionType = writeRef(chosenType.id, ev.recordType === 'FamilyEvent' ? 'ConclusionFamilyEventType' : 'ConclusionPersonEventType');
       next.fields.eventType = stringField(chosenType.label);
-    } else if (values.conclusionType) {
+    } else if (saveValues.conclusionType) {
       delete next.fields.conclusionType;
-      next.fields.eventType = stringField(values.conclusionType);
+      next.fields.eventType = stringField(saveValues.conclusionType);
     } else {
       delete next.fields.conclusionType;
       delete next.fields.eventType;
     }
-    if (values.isPrivate) next.fields.isPrivate = { value: true, type: 'BOOLEAN' };
+    if (saveValues.isPrivate) next.fields.isPrivate = { value: true, type: 'BOOLEAN' };
     else delete next.fields.isPrivate;
 
     await saveWithChangeLog(next);
     setSaving(false);
-    setStatus('Saved');
+    setStatus(t('common.saved'));
     setTimeout(() => setStatus(null), 1500);
-  }, [activeId, events, values, types]);
+  }, [types, t]);
+
+  const onSave = useCallback(async () => {
+    const ev = events.find((event) => event.recordName === activeId);
+    if (!ev) return;
+    if (isRecordLocked(ev)) {
+      setStatus(t('eventEditor.unlockBeforeSave'));
+      return;
+    }
+
+    const saveValues = { ...values };
+    const typedName = String(saveValues.placeName || '').trim();
+    const currentPlaceRef = refToRecordName(ev.fields?.place?.value) || refToRecordName(ev.fields?.assignedPlace?.value) || '';
+    const currentPlace = places.find((place) => place.recordName === currentPlaceRef) || null;
+    const matchingPlace = typedName ? places.find((place) => placeDisplayName(place).trim().toLocaleLowerCase() === typedName.toLocaleLowerCase()) : null;
+
+    if (!typedName) {
+      setSaving(true);
+      await persistEvent(ev, saveValues, '');
+      return;
+    }
+    if (matchingPlace && matchingPlace.recordName !== currentPlaceRef) {
+      setSaving(true);
+      await persistEvent(ev, saveValues, matchingPlace.recordName);
+      return;
+    }
+    if (!currentPlace) {
+      setSaving(true);
+      const created = clonePlaceRecord({ fields: {} }, typedName, generateId('place'));
+      await createWithChangeLog(created);
+      await persistEvent(ev, saveValues, created.recordName);
+      return;
+    }
+    if (typedName === placeDisplayName(currentPlace).trim()) {
+      setSaving(true);
+      await persistEvent(ev, saveValues, currentPlace.recordName);
+      return;
+    }
+
+    const otherReferenceCount = countOtherEventPlaceReferences(events, currentPlace.recordName, ev.recordName);
+    if (otherReferenceCount > 0) {
+      setPendingPlaceEdit({ ev, saveValues, place: currentPlace, newName: typedName, otherReferenceCount });
+      return;
+    }
+
+    setSaving(true);
+    await saveWithChangeLog(renamePlaceRecord(currentPlace, typedName));
+    await persistEvent(ev, saveValues, currentPlace.recordName);
+  }, [activeId, events, persistEvent, places, t, values]);
+
+  const finishSharedPlaceEdit = useCallback(async (choice) => {
+    const pending = pendingPlaceEdit;
+    if (!pending) return;
+    setPendingPlaceEdit(null);
+    setSaving(true);
+    if (choice === 'rename') {
+      await saveWithChangeLog(renamePlaceRecord(pending.place, pending.newName));
+      await persistEvent(pending.ev, pending.saveValues, pending.place.recordName);
+      return;
+    }
+    const clone = clonePlaceRecord(pending.place, pending.newName, generateId('place'));
+    await createWithChangeLog(clone);
+    await persistEvent(pending.ev, pending.saveValues, clone.recordName);
+  }, [pendingPlaceEdit, persistEvent]);
 
   const onCreate = useCallback(async (kind) => {
     const record = createRecordEnvelope(kind, kind === 'PersonEvent' ? 'pe' : 'fe');
@@ -212,6 +293,7 @@ export default function Events({
   const renderRow = (e) => {
     const t = readConclusionType(e) || 'Event';
     const d = formatEventDate(e.fields?.date?.value);
+    const extended = [e.fields?.time?.value, e.fields?.address?.value, e.fields?.agency?.value || e.fields?.authority?.value, e.fields?.cause?.value].filter(Boolean);
     const subjectRef =
       readRef(e.fields?.person) ||
       readRef(e.fields?.family) ||
@@ -246,6 +328,7 @@ export default function Events({
         <div className="text-xs text-muted-foreground">
           {e.recordType === 'PersonEvent' ? 'Person' : 'Family'} {subjectLabel && <>· {subjectLabel}</>}
         </div>
+        {extended.length > 0 && <div className="text-xs text-muted-foreground truncate" dir="auto">{extended.join(' · ')}</div>}
       </div>
     );
   };
@@ -310,6 +393,9 @@ export default function Events({
             placeholder="YYYY, YYYY-MM, or YYYY-MM-DD"
           />
         </FieldRow>
+        <FieldRow label={t('eventEditor.time')}>
+          <input type="time" step="1" value={values.time ?? ''} onChange={(e) => setValues({ ...values, time: e.target.value })} className={formClasses.input} />
+        </FieldRow>
         {active.recordType === 'PersonEvent' ? (
           <FieldRow label="Person">
             <select
@@ -341,18 +427,17 @@ export default function Events({
             </select>
           </FieldRow>
         )}
-        <FieldRow label="Place">
-          <select
-            value={values.placeRef ?? ''}
-            onChange={(e) => setValues({ ...values, placeRef: e.target.value })}
+        <FieldRow label={t('eventEditor.place')} hint={t('eventEditor.placeHint')}>
+          <input
+            list="event-places"
+            value={values.placeName ?? ''}
+            onChange={(e) => setValues({ ...values, placeName: e.target.value })}
             className={formClasses.input}
-          >
-            <option value="">—</option>
-            {places.map((p) => {
-              const s = placeSummary(p);
-              return <option key={p.recordName} value={p.recordName}>{s?.displayName || p.recordName}</option>;
-            })}
-          </select>
+            dir="auto"
+          />
+          <datalist id="event-places">
+            {places.map((place) => <option key={place.recordName} value={placeDisplayName(place)} />)}
+          </datalist>
         </FieldRow>
         <FieldRow label="Place detail">
           <input
@@ -361,6 +446,17 @@ export default function Events({
             className={formClasses.input}
             placeholder="e.g. St Mary's Church, Plot 14"
           />
+        </FieldRow>
+      </div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4 mb-3">
+        <FieldRow label={t('eventEditor.address')}>
+          <input value={values.address ?? ''} onChange={(e) => setValues({ ...values, address: e.target.value })} className={formClasses.input} dir="auto" />
+        </FieldRow>
+        <FieldRow label={t('eventEditor.agency')}>
+          <input value={values.agency ?? ''} onChange={(e) => setValues({ ...values, agency: e.target.value })} className={formClasses.input} dir="auto" />
+        </FieldRow>
+        <FieldRow label={t('eventEditor.cause')}>
+          <input value={values.cause ?? ''} onChange={(e) => setValues({ ...values, cause: e.target.value })} className={formClasses.input} dir="auto" />
         </FieldRow>
       </div>
       <FieldRow label="Description">
@@ -427,6 +523,16 @@ export default function Events({
 
   return (
     <div className="flex flex-col h-full">
+      {pendingPlaceEdit && (
+        <SharedPlaceEditSheet
+          oldName={placeDisplayName(pendingPlaceEdit.place)}
+          newName={pendingPlaceEdit.newName}
+          otherReferenceCount={pendingPlaceEdit.otherReferenceCount}
+          onRename={() => finishSharedPlaceEdit('rename')}
+          onCreateNew={() => finishSharedPlaceEdit('clone')}
+          onCancel={() => setPendingPlaceEdit(null)}
+        />
+      )}
       {toolbar}
       {queryMessage && !active && (
         <div className={`${warningBoxClass} m-3`}>

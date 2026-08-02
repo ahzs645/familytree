@@ -48,5 +48,5 @@ export const TOP_LEVEL_TAGS = new Set(['HEAD', 'TRLR', 'INDI', 'FAM', 'SOUR', 'N
 export const PERSON_HANDLED_TAGS = new Set(['NAME', 'SEX', 'OBJE', 'NOTE', 'SOUR', 'ALIA', 'ASSO', 'ADDR', 'ADR1', 'ADR2', 'CITY', 'STAE', 'POST', 'CTRY', ...Object.keys(CONTACT_TAG_TO_FACT), ...Object.keys(ATTRIBUTE_TAG_TO_FACT), ...Object.keys(EVENT_TAG_TO_NAME)]);
 export const FAMILY_HANDLED_TAGS = new Set(['HUSB', 'WIFE', 'CHIL', 'MARR', 'OBJE', 'ADDR', ...Object.keys(CONTACT_TAG_TO_FACT), ...Object.keys(EVENT_TAG_TO_NAME)]);
 export const SOURCE_HANDLED_TAGS = new Set(['TITL', 'AUTH', 'TEXT', 'OBJE', 'REPO', 'PUBL', 'ABBR', 'NOTE']);
-export const EVENT_HANDLED_TAGS = new Set(['DATE', 'PLAC', 'NOTE', 'OBJE', 'TYPE', 'SOUR', 'ADDR', ...Object.keys(CONTACT_TAG_TO_FACT)]);
+export const EVENT_HANDLED_TAGS = new Set(['DATE', 'PLAC', 'NOTE', 'OBJE', 'TYPE', 'SOUR', 'ADDR', 'AGNC', 'CAUS', ...Object.keys(CONTACT_TAG_TO_FACT)]);
 export const REPOSITORY_HANDLED_TAGS = new Set(['NAME', 'ADDR', 'ADR1', 'ADR2', 'CITY', 'STAE', 'POST', 'CTRY', 'NOTE', ...Object.keys(CONTACT_TAG_TO_FACT)]);

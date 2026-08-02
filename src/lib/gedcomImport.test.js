@@ -289,6 +289,45 @@ describe('parseGedcom', () => {
     expect(note?.fields?.text?.value).toBe('first line\nsecond line');
   });
 
+  it('imports standard extended fields on person and family events', () => {
+    const records = parseGedcom([
+      '0 HEAD',
+      '0 @I1@ INDI',
+      '1 NAME Jane /Doe/',
+      '1 DEAT',
+      '2 DATE 10 MAY 1999',
+      '3 TIME 14:35:00',
+      '2 ADDR 12 Registry Road',
+      '3 CONT Suite 4',
+      '2 AGNC County Registry Office',
+      '2 CAUS Pneumonia',
+      '0 @F1@ FAM',
+      '1 HUSB @I1@',
+      '1 MARR',
+      '2 DATE 1 JAN 1950',
+      '3 TIME 09:15',
+      '2 ADDR City Hall',
+      '2 AGNC Civil Registrar',
+      '2 CAUS Marriage licence',
+      '0 TRLR',
+    ].join('\n'));
+
+    const personEvent = records.find((record) => record.recordType === 'PersonEvent');
+    const familyEvent = records.find((record) => record.recordType === 'FamilyEvent');
+    expect(personEvent?.fields).toMatchObject({
+      time: { value: '14:35:00' },
+      address: { value: '12 Registry Road\nSuite 4' },
+      agency: { value: 'County Registry Office' },
+      cause: { value: 'Pneumonia' },
+    });
+    expect(familyEvent?.fields).toMatchObject({
+      time: { value: '09:15' },
+      address: { value: 'City Hall' },
+      agency: { value: 'Civil Registrar' },
+      cause: { value: 'Marriage licence' },
+    });
+  });
+
   it('preserves unknown GEDCOM subtrees on imported records', () => {
     const records = parseGedcom([
       '0 HEAD',
