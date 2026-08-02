@@ -1422,6 +1422,25 @@
     },
     "title": "Resolve merge conflicts"
   },
+  "eventEditor": {
+    "address": "Address",
+    "agency": "Authority",
+    "cause": "Cause",
+    "place": "Place",
+    "placeHint": "Choose an existing place or type a new name.",
+    "sharedPlace": {
+      "createForEvent": "Create new place",
+      "explanation": "The place “{oldName}” is also used elsewhere. Rename it to “{newName}” everywhere, or create “{newName}” for this event only?",
+      "referenceCount": {
+        "one": "1 other event uses this place.",
+        "other": "{count} other events use this place."
+      },
+      "renameEverywhere": "Rename place",
+      "title": "Create new place or rename current one?"
+    },
+    "time": "Time",
+    "unlockBeforeSave": "Unlock this event before saving."
+  },
   "nav": {
     "actions": "Actions",
     "anniversaries": "Anniversaries",

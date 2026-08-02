@@ -473,6 +473,7 @@ function TreeInspector({
   onOpenAncestorChart,
   onOpenDescendantChart,
 }) {
+  const { t } = useTranslation();
   if (!context?.selfSummary) {
     return <aside className={inspectorClass} />;
   }
@@ -523,7 +524,16 @@ function TreeInspector({
               <div className="mt-1 h-[9px] w-[9px] shrink-0 rounded-full bg-primary" />
               <div className="min-w-0">
                 <div className="max-w-full truncate text-xs font-bold text-foreground">{eventLabel(event)}</div>
-                <div className="mt-0.5 text-xs text-muted-foreground">{event.fields?.date?.value || 'No date entered'}</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">{[event.fields?.date?.value || 'No date entered', event.fields?.time?.value].filter(Boolean).join(' · ')}</div>
+                {(event.fields?.address?.value || event.fields?.agency?.value || event.fields?.authority?.value || event.fields?.cause?.value) && (
+                  <div className="mt-0.5 text-xs text-muted-foreground" dir="auto">
+                    {[
+                      event.fields?.address?.value ? `${t('eventEditor.address')}: ${event.fields.address.value}` : '',
+                      (event.fields?.agency?.value || event.fields?.authority?.value) ? `${t('eventEditor.agency')}: ${event.fields?.agency?.value || event.fields?.authority?.value}` : '',
+                      event.fields?.cause?.value ? `${t('eventEditor.cause')}: ${event.fields.cause.value}` : '',
+                    ].filter(Boolean).join(' · ')}
+                  </div>
+                )}
               </div>
             </div>
           ))}

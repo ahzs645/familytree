@@ -21,6 +21,26 @@ export class EventRecord extends BaseRecord {
     return this.fieldValue('date') || this.fieldValue('cached_dateAsDate') || null;
   }
 
+  /** Time of day, stored separately from the genealogical date expression. */
+  time() {
+    return readField(this.record, 'time', '');
+  }
+
+  /** Street or venue address recorded for this event. */
+  address() {
+    return readField(this.record, 'address', '');
+  }
+
+  /** Agency or authority responsible for recording the event. */
+  agency() {
+    return readField(this.record, ['agency', 'authority'], '');
+  }
+
+  /** Recorded cause (most commonly the cause of death). */
+  cause() {
+    return readField(this.record, 'cause', '');
+  }
+
   /** Reference to the associated person's record name (for PersonEvents). */
   personRecordName() {
     return readRef(this.fieldValue('person'));

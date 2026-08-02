@@ -137,7 +137,14 @@ export function eventDate(event) {
 }
 
 export function eventDescription(event) {
-  return readField(event, ['description', 'userDescription', 'text', 'note'], '');
+  const description = readField(event, ['description', 'userDescription', 'text', 'note'], '');
+  const agency = readField(event, ['agency', 'authority'], '');
+  const cause = readField(event, ['cause'], '');
+  return [
+    description,
+    agency ? `Authority: ${agency}` : '',
+    cause ? `Cause: ${cause}` : '',
+  ].filter(Boolean).join(' · ');
 }
 
 export function storyTitle(record) {

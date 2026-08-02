@@ -300,7 +300,7 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
   if (entityMap.PersonEvent) {
     for (const r of safeRows(query, `
       SELECT e.Z_PK, e.ZPERSON1 as ZPERSON, e.ZDATE2 as ZDATE, e.ZASSIGNEDPLACE, e.ZUSERDESCRIPTION1,
-             e.ZCAUSE, e.ZVALUE, e.ZUNIQUEID, e.ZCHANGEDATE, e.ZCREATIONDATE,
+             e.ZAGENCY, e.ZCAUSE, e.ZTIME, e.ZVALUE, e.ZUNIQUEID, e.ZCHANGEDATE, e.ZCREATIONDATE,
              c.ZTYPENAME as CONCLUSION_NAME, c.ZUNIQUEID as CTYPE_UID, c.Z_ENT as CTYPE_ENT
       FROM ZBASEOBJECT e ${conclusionJoin}ZCONCLUSIONTYPE2
       WHERE e.Z_ENT = ${entityMap.PersonEvent}
@@ -312,7 +312,9 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
       if (r.ZDATE) f.date = field(r.ZDATE);
       if (r.ZASSIGNEDPLACE) f.assignedPlace = ref('Place', r.ZASSIGNEDPLACE);
       if (r.ZUSERDESCRIPTION1) f.userDescription = field(r.ZUSERDESCRIPTION1);
+      if (r.ZAGENCY) f.agency = field(r.ZAGENCY);
       if (r.ZCAUSE) f.cause = field(r.ZCAUSE);
+      if (r.ZTIME) f.time = field(r.ZTIME);
       if (r.ZVALUE) f.value = field(r.ZVALUE);
       if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
       addRecord(makeId('PersonEvent', r.Z_PK), 'PersonEvent', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
@@ -320,7 +322,7 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
   }
   if (entityMap.FamilyEvent) {
     for (const r of safeRows(query, `
-      SELECT e.Z_PK, e.ZFAMILY, e.ZDATE1 as ZDATE, e.ZASSIGNEDPLACE, e.ZUNIQUEID,
+      SELECT e.Z_PK, e.ZFAMILY, e.ZDATE1 as ZDATE, e.ZASSIGNEDPLACE, e.ZAGENCY, e.ZCAUSE, e.ZTIME, e.ZUNIQUEID,
              e.ZCHANGEDATE, e.ZCREATIONDATE,
              c.ZTYPENAME as CONCLUSION_NAME, c.ZUNIQUEID as CTYPE_UID, c.Z_ENT as CTYPE_ENT
       FROM ZBASEOBJECT e ${conclusionJoin}ZCONCLUSIONTYPE1
@@ -332,6 +334,9 @@ export function extractMFTPKGDataset({ query, sourceName = 'browser-import', res
       if (r.CONCLUSION_NAME) f.eventType = field(r.CONCLUSION_NAME);
       if (r.ZDATE) f.date = field(r.ZDATE);
       if (r.ZASSIGNEDPLACE) f.assignedPlace = ref('Place', r.ZASSIGNEDPLACE);
+      if (r.ZAGENCY) f.agency = field(r.ZAGENCY);
+      if (r.ZCAUSE) f.cause = field(r.ZCAUSE);
+      if (r.ZTIME) f.time = field(r.ZTIME);
       if (r.ZUNIQUEID) f.uniqueID = field(r.ZUNIQUEID);
       addRecord(makeId('FamilyEvent', r.Z_PK), 'FamilyEvent', f, cdTs(r.ZCREATIONDATE), cdTs(r.ZCHANGEDATE));
     }

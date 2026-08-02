@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setAppDataClientForTesting } from './data/index.js';
 import { buildGedcom, formatGedcomExtensions, formatGedcomTextLines } from './gedcomExport.js';
+import { parseGedcom } from './gedcomImport.js';
 
 afterEach(() => {
   setAppDataClientForTesting(null);
@@ -61,6 +62,42 @@ describe('buildGedcom source citations', () => {
     const gedcom = await buildGedcom();
     expect(gedcom).toContain('1 SOUR @S1@\n2 PAGE 12\n2 TEXT household');
     expect(gedcom).toContain('2 SOUR @S1@\n3 PAGE 13');
+  });
+});
+
+describe('extended event GEDCOM round trip', () => {
+  it('writes standard TIME, ADDR, AGNC, and CAUS tags and imports them again', async () => {
+    setAppDataClientForTesting(createMemoryClient([
+      { recordName: 'p1', recordType: 'Person', fields: { firstName: { value: 'Jane' }, lastName: { value: 'Doe' } } },
+      {
+        recordName: 'e1',
+        recordType: 'PersonEvent',
+        fields: {
+          person: { value: 'p1---Person', type: 'REFERENCE' },
+          conclusionType: { value: 'Death' },
+          date: { value: '10 MAY 1999' },
+          time: { value: '14:35' },
+          address: { value: '12 Registry Road\nSuite 4' },
+          agency: { value: 'County Registry Office' },
+          cause: { value: 'Pneumonia' },
+        },
+      },
+    ]));
+
+    const gedcom = await buildGedcom();
+    expect(gedcom).toContain('2 DATE 10 MAY 1999\n3 TIME 14:35');
+    expect(gedcom).toContain('2 ADDR 12 Registry Road\n3 CONT Suite 4');
+    expect(gedcom).toContain('2 AGNC County Registry Office');
+    expect(gedcom).toContain('2 CAUS Pneumonia');
+
+    const event = parseGedcom(gedcom).find((record) => (
+      record.recordType === 'PersonEvent' && record.fields?.time?.value === '14:35'
+    ));
+    expect(event?.fields).toMatchObject({
+      address: { value: '12 Registry Road\nSuite 4' },
+      agency: { value: 'County Registry Office' },
+      cause: { value: 'Pneumonia' },
+    });
   });
 });
 

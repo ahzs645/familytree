@@ -95,7 +95,7 @@ export async function buildPersonSummary(recordName, options = {}) {
         ctx.events.map((e) => [
           eventTypeLabel(e.fields?.conclusionType?.value || e.fields?.eventType?.value),
           e.fields?.date?.value || '',
-          e.fields?.description?.value || '',
+          eventDescription(e),
         ])
       )
     );
@@ -504,7 +504,7 @@ export async function buildDescendancyReport(recordName, generations = 5, option
 
 /**
  * Find the first event of a given conclusion/event type within a person's
- * events, returning a normalized { date, place, description } for the
+ * events, returning normalized event detail for the
  * narrative describers. The place is resolved to a display name.
  */
 async function firstEventOfType(db, events, typeMatcher) {
@@ -512,7 +512,13 @@ async function firstEventOfType(db, events, typeMatcher) {
     const label = eventTypeLabelOf(event);
     if (!typeMatcher.test(label)) continue;
     const place = await placeLabel(db, readRef(event.fields?.place) || readRef(event.fields?.assignedPlace));
-    return { date: eventDate(event), place, description: eventDescription(event) };
+    return {
+      date: eventDate(event),
+      place,
+      description: eventDescription(event),
+      agency: event.fields?.agency?.value || event.fields?.authority?.value || '',
+      cause: event.fields?.cause?.value || '',
+    };
   }
   return null;
 }
@@ -606,8 +612,25 @@ export async function buildNarrativeReport(recordName, generations = 4, options 
     }
   }
 
+  // Preserve extended event evidence even for event types that do not have a
+  // dedicated narrative template.
+  for (const event of ctx.events || []) {
+    const label = eventTypeLabelOf(event);
+    if (/death|deceased/i.test(label)) continue;
+    const agency = event.fields?.agency?.value || event.fields?.authority?.value || '';
+    const cause = event.fields?.cause?.value || '';
+    const details = [
+      agency ? `recorded by ${agency}` : '',
+      cause ? `cause: ${cause}` : '',
+    ].filter(Boolean);
+    if (details.length) report.blocks.push(block.paragraph(`${label}: ${details.join(' · ')}.`));
+  }
+
   const death = describeDeath(self);
   if (death) report.blocks.push(block.paragraph(death));
+  const deathEvent = await firstEventOfType(db, ctx.events, /death|deceased/i);
+  if (deathEvent?.cause) report.blocks.push(block.paragraph(`The recorded cause of death was ${deathEvent.cause}.`));
+  if (deathEvent?.agency) report.blocks.push(block.paragraph(`The death was recorded by ${deathEvent.agency}.`));
   if (self.deathDate) dateSpan.push(self.deathDate);
 
   // World-history injection over the subject's life span.

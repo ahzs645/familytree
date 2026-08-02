@@ -232,7 +232,8 @@ export async function buildEventsList(options = {}) {
       const eventYear = yearOfDate(readField(ev, ['date']));
       return birthYear != null && eventYear != null ? String(Math.max(0, eventYear - birthYear)) : '';
     } },
-    { key: 'time', label: 'Time', enabled: !!options.showTime, value: (ev) => timeOfDate(readField(ev, ['date'])) },
+    { key: 'time', label: 'Time', enabled: !!options.showTime, value: (ev) => readField(ev, ['time']) || timeOfDate(readField(ev, ['date'])) },
+    { key: 'address', label: 'Address', enabled: !!options.showAddress, value: (ev) => readField(ev, ['address']) || '' },
     { key: 'placeDetail', label: 'Place Detail', enabled: !!options.showPlaceDetail, async: true, value: async (ev) => placeLabel(db, readRef(ev.fields?.placeDetail)) },
     { key: 'authority', label: 'Authority', enabled: !!options.showAuthority, value: (ev) => readField(ev, ['authority', 'agency', 'value']) || '' },
     { key: 'cause', label: 'Cause', enabled: !!options.showCause, value: (ev) => readField(ev, ['cause', 'causeOfDeath']) || '' },
