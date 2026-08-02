@@ -6,10 +6,8 @@
  * see a live count of the ToDos it would create, then create them. Each
  * generator corresponds to a research-suggestion category.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { generateResearchSuggestions } from '../lib/researchSuggestions.js';
-import { getAppDataClient } from '../lib/data/AppDataClient.js';
-import { logRecordCreated } from '../lib/changeLog.js';
 import { Button } from './ui/Button.jsx';
 import { matchesSearchText } from '../lib/i18n.js';
 import { writeRef } from '../lib/schema.js';
@@ -17,6 +15,7 @@ import { generateId } from '../lib/ids.js';
 import { collectAncestorIds, collectDescendantIds } from '../lib/subtree.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { Panel } from './ui/Panel.jsx';
+import { createWithChangeLog } from '../lib/recordWrite.js';
 
 // Research suggestions are { key, i18nKey } objects (legacy paths may still pass
 // raw strings). Resolve a stable category id from either shape.
@@ -38,6 +37,7 @@ const CREATORS = [
 
 export function ToDoWizardSheet({ open, onClose, onCreated }) {
   const { t } = useTranslation();
+  const openerRef = useRef(null);
   const [loading, setLoading] = useState(true);
   // matchesByCreator: { [creatorId]: [{ recordName, fullName }] }
   const [matchesByCreator, setMatchesByCreator] = useState({});
@@ -56,6 +56,20 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
   // creates (mirrors MFT's wizard, which lets you set these before generating).
   const [priority, setPriority] = useState('Normal');
   const [dueDate, setDueDate] = useState('');
+  const [todoType, setTodoType] = useState('Research');
+  const [todoStatus, setTodoStatus] = useState('Open');
+  const [todoText, setTodoText] = useState('');
+
+  useEffect(() => {
+    if (!open) return undefined;
+    openerRef.current = document.activeElement;
+    const onKeyDown = (event) => { if (event.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      openerRef.current?.focus?.();
+    };
+  }, [open, onClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,6 +99,11 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
       setScopeAll(true);
       setScopePerson('');
       setFilter('');
+      setPriority('Normal');
+      setDueDate('');
+      setTodoType(firstWithMatches?.type || 'Research');
+      setTodoStatus('Open');
+      setTodoText('');
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -175,7 +194,6 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
     setBusy(true);
     setMessage(null);
     try {
-      const client = getAppDataClient();
       const title = creatorLabel(creator.id);
       const createdTodos = [];
       const createdRelations = [];
@@ -185,11 +203,11 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
           recordType: 'ToDo',
           fields: {
             title: { value: title, type: 'STRING' },
-            type: { value: creator.type, type: 'STRING' },
-            status: { value: 'Open', type: 'STRING' },
+            type: { value: todoType, type: 'STRING' },
+            status: { value: todoStatus, type: 'STRING' },
             priority: { value: priority, type: 'STRING' },
             ...(dueDate ? { dueDate: { value: dueDate, type: 'STRING' } } : {}),
-            description: { value: `Auto-generated from Research Assistant for ${match.fullName}.`, type: 'STRING' },
+            description: { value: todoText.trim() || t('todosPage.wizard.defaultText', { name: match.fullName }), type: 'STRING' },
           },
         };
         createdTodos.push(todo);
@@ -203,8 +221,8 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
           },
         });
       }
-      await client.records.transaction({ saveRecords: [...createdTodos, ...createdRelations] });
-      for (const todo of createdTodos) await logRecordCreated(todo);
+      for (const todo of createdTodos) await createWithChangeLog(todo);
+      for (const relation of createdRelations) await createWithChangeLog(relation);
       // Drop the persons we just acted on so counts update and they leave the list.
       const usedIds = new Set(chosen.map((m) => m.recordName));
       setMatchesByCreator((prev) => ({
@@ -214,7 +232,7 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
       setMessage(t('todosPage.wizard.created', { count: createdTodos.length }));
       onCreated?.(createdTodos.length);
     } catch (error) {
-      setMessage(`Failed: ${error.message}`);
+      setMessage(t('todosPage.wizard.failed', { message: error.message }));
     } finally {
       setBusy(false);
     }
@@ -296,6 +314,30 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
               </div>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <label className="flex items-center gap-1.5">
+                  {t('todosPage.field.type')}
+                  <select
+                    value={todoType}
+                    onChange={(e) => setTodoType(e.target.value)}
+                    className="bg-background border border-border rounded-md px-2 py-1 text-foreground"
+                  >
+                    {['Research', 'Verify', 'Source', 'Media', 'Cleanup'].map((value) => (
+                      <option key={value} value={value}>{t(`todosPage.todoType.${value}`)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-1.5">
+                  {t('todosPage.field.status')}
+                  <select
+                    value={todoStatus}
+                    onChange={(e) => setTodoStatus(e.target.value)}
+                    className="bg-background border border-border rounded-md px-2 py-1 text-foreground"
+                  >
+                    {['Open', 'InProgress', 'Blocked', 'Done'].map((value) => (
+                      <option key={value} value={value}>{t(`todosPage.status.${value}`)}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-1.5">
                   {t('todosPage.field.priority')}
                   <select
                     value={priority}
@@ -317,6 +359,16 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
                   />
                 </label>
               </div>
+              <label className="mt-2 block text-xs text-muted-foreground" htmlFor="todo-wizard-text">
+                {t('todosPage.wizard.text')}
+                <textarea
+                  id="todo-wizard-text"
+                  value={todoText}
+                  onChange={(e) => setTodoText(e.target.value)}
+                  placeholder={t('todosPage.wizard.textPlaceholder')}
+                  className="mt-1 min-h-16 w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-sm text-foreground"
+                />
+              </label>
             </div>
             <div className="flex-1 overflow-auto p-3 space-y-1">
               {!scopeAll && !scopePerson ? (
