@@ -1531,6 +1531,116 @@
     },
     "title": "حلّ تعارضات الدمج"
   },
+  "familySearch": {
+    "authRequired": "سجّل الدخول إلى FamilySearch أو اضبط رمز وصول لاستخدام البيانات المباشرة. تظل حالة السياسات وقائمة الانتظار المحلية متاحة.",
+    "personId": "معرّف الشخص في FamilySearch",
+    "personIdPlaceholder": "مثال: KW1-ABC",
+    "sync": {
+      "actions": { "download": "التنزيل", "upload": "الرفع", "replace": "الاستبدال", "delete": "الحذف" },
+      "fields": { "name": "الاسم", "gender": "الجنس", "birth": "الميلاد", "death": "الوفاة", "birthPlace": "مكان الميلاد", "deathPlace": "مكان الوفاة" },
+      "reasonPrompt": "سبب {action} للحقل «{field}» في FamilySearch:",
+      "actionTitle": "{action}: {field}",
+      "actionProgress": "جارٍ إرسال إجراء {action} للحقل {field}…",
+      "downloaded": "تم تنزيل {field} إلى السجل المحلي.",
+      "sent": "أُرسل إجراء {action} للحقل {field} إلى FamilySearch.",
+      "failed": "تعذر إجراء {action}: {message}"
+    },
+    "policy": {
+      "accept": "قبول",
+      "decline": "رفض",
+      "acknowledge": "لقد قرأت هذه السياسة وفهمتها.",
+      "memories": {
+        "title": "سياسة ذكريات FamilySearch",
+        "subtitle": "مطلوبة قبل استخدام الذكريات في هذه الشجرة",
+        "summary": "لا ترفع إلا الذكريات التي تملك إذنًا لمشاركتها. قد تصبح الذكريات مرئية لمستخدمي FamilySearch الآخرين، ويجب التعامل بعناية مع معلومات الأشخاص الأحياء.",
+        "link": "قراءة اتفاقية الإرسال في FamilySearch"
+      },
+      "ordinances": {
+        "title": "سياسة مراسيم FamilySearch",
+        "subtitle": "مطلوبة قبل استخدام ميزات المراسيم في هذه الشجرة",
+        "summary": "معلومات المراسيم بيانات دينية حساسة. استخدمها فقط لأغراض تاريخ العائلة المناسبة، واحترم الخصوصية واتبع قواعد الوصول والحجز في FamilySearch.",
+        "link": "قراءة سياسة الخصوصية في FamilySearch"
+      }
+    },
+    "places": {
+      "title": "مطابقات الأماكن الدقيقة",
+      "subtitle": "اختر كيفية حفظ كل مكان من FamilySearch في الشجرة المحلية.",
+      "action": "الاستيراد كـ",
+      "useExisting": "مكان محلي موجود",
+      "createCorrected": "مكان جديد مصحح",
+      "keepText": "الاحتفاظ كنص",
+      "existingPlace": "المكان المحلي",
+      "choosePlace": "اختر مكانًا…",
+      "correctedName": "اسم المكان المصحح",
+      "keepTextHint": "سيُحتفظ بنص FamilySearch الأصلي من دون إنشاء مكان منظم.",
+      "reconciled": "تمت مطابقة مكان FamilySearch."
+    },
+    "autoMatches": {
+      "approveAll": "اعتماد كل المطابقات التلقائية",
+      "approveAllTitle": "اعتماد كل المطابقات التلقائية",
+      "confirmCount": "هل تريد اعتماد {count} من المطابقات التلقائية؟",
+      "confirmHint": "ستُعتمد كل مطابقة تلقائية مفتوحة محليًا، وسيظهر التقدم وأي إخفاق لكل شخص.",
+      "progress": "تم اعتماد {complete} من {count}",
+      "summary": "تم اعتماد {approved}؛ وتعذر اعتماد {failed}.",
+      "status": {
+        "running": "جارٍ الاعتماد…",
+        "approved": "تم الاعتماد",
+        "failed": "تعذر"
+      }
+    },
+    "panes": {
+      "furtherInformation": {
+        "label": "معلومات إضافية",
+        "description": "افحص الأشخاص المطابقين بحثًا عن ملاحظات وذكريات ونقاشات لم تُراجع محليًا بعد."
+      }
+    },
+    "furtherInformation": {
+      "title": "معلومات إضافية في FamilySearch",
+      "description": "أشخاص مطابقون لديهم ملاحظات أو ذكريات أو نقاشات تتجاوز المعلومات المستوردة سابقًا.",
+      "scan": "فحص",
+      "scanning": "جارٍ الفحص…",
+      "progress": "تم فحص {complete} من {count} من الأشخاص المطابقين…",
+      "complete": "اكتمل الفحص. لدى {count} من الأشخاص معلومات إضافية غير مشاهدة.",
+      "personFailed": "تعذر فحص {name}: {message}",
+      "empty": "لا توجد معلومات إضافية غير مشاهدة. شغّل الفحص للتحقق من FamilySearch.",
+      "counts": "الملاحظات: {notes} · الذكريات: {memories} · النقاشات: {discussions}",
+      "show": "عرض المعلومات الإضافية…",
+      "markSeen": "تحديد كمشاهَد"
+    },
+    "remoteTree": {
+      "title": "توسيع الشجرة البعيدة",
+      "subtitle": "تصفح أقارب الشخص {id} في FamilySearch من دون تغيير الشجرة المحلية.",
+      "expand": "توسيع الشجرة البعيدة",
+      "direction": "الاتجاه",
+      "ancestors": "الأسلاف",
+      "descendants": "الأحفاد",
+      "both": "الأسلاف والأحفاد",
+      "generations": "الأجيال",
+      "refresh": "جلب الشجرة",
+      "loading": "جارٍ تحميل الشجرة البعيدة…",
+      "loaded": "تم تحميل {count} من الأشخاص البعيدين.",
+      "failed": "تعذر تحميل الشجرة البعيدة: {message}",
+      "people": "الأشخاص البعيدون",
+      "selection": "الشخص المحدد",
+      "pullHint": "يستخدم السحب مسار التنزيل المحلي المعتاد ويطابق أسماء الأماكن غير المتطابقة قبل إنشاء السجلات.",
+      "pullSelected": "سحب الشخص المحدد"
+    },
+    "batch": {
+      "title": "تنزيل الأقارب تلقائيًا",
+      "subtitle": "اجلب رسمًا عائليًا بعيدًا محدودًا، ثم راجع مطابقة الأماكن قبل الاستيراد المحلي.",
+      "generations": "عدد الأجيال",
+      "ready": "جاهز.",
+      "start": "بدء",
+      "running": "جارٍ التنفيذ…",
+      "fetching": "جارٍ جلب أقارب {id}…",
+      "fetched": "تم جلب {count} من أشخاص FamilySearch. جارٍ إعداد الاستيراد المحلي…",
+      "failed": "تعذر التنزيل: {message}"
+    },
+    "import": {
+      "complete": "تم استيراد {count} من أشخاص FamilySearch الجدد.",
+      "failed": "تعذر استيراد FamilySearch: {message}"
+    }
+  },
   "nav": {
     "actions": "الإجراءات",
     "anniversaries": "الذكريات السنوية",

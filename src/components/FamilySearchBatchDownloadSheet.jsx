@@ -1,120 +1,82 @@
-/**
- * FamilySearch — Auto-download relatives.
- * Mirrors `FamilySearchPersonBatchDownloadSheet`: walks relatives N generations
- * from a matched FamilySearch ID and stages a local record per hit. Relies on
- * `readFamilySearchPerson` for the underlying fetch so the same API creds work.
- */
-import React, { useState } from 'react';
-import { getFamilySearchConfig, readFamilySearchPerson } from '../lib/familySearchApi.js';
-import { Panel } from './ui/Panel.jsx';
+/** FamilySearch relative download staged through the shared place reconciler. */
+import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { getFamilySearchConfig, hasFamilySearchMockData, readFamilySearchTree } from '../lib/familySearchApi.js';
 import { Button } from './ui/Button.jsx';
+import { Sheet } from './ui/Sheet.jsx';
+import { formClasses } from './ui/formClasses.js';
 
-export function FamilySearchBatchDownloadSheet({ open, onClose }) {
-  const [rootId, setRootId] = useState('');
+export function FamilySearchBatchDownloadSheet({ open, onClose, onImportPayloads, initialRootId = '' }) {
+  const { t } = useTranslation();
+  const rootRef = useRef(null);
+  const [rootId, setRootId] = useState(initialRootId);
   const [generations, setGenerations] = useState(2);
-  const [includeSpouses, setIncludeSpouses] = useState(true);
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState([]);
 
+  useEffect(() => {
+    if (!open) return undefined;
+    if (initialRootId) setRootId(initialRootId);
+    rootRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape' && !busy) onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [busy, initialRootId, onClose, open]);
+
   if (!open) return null;
 
-  const append = (line) => setLog((prev) => [...prev, line]);
-
   const run = async () => {
-    if (!rootId) return;
+    if (!rootId.trim()) return;
     setBusy(true);
-    setLog([]);
+    setLog([t('familySearch.batch.fetching', { id: rootId.trim() })]);
     try {
       const config = await getFamilySearchConfig();
-      if (!config?.accessToken) {
-        append('No FamilySearch access token configured.');
-        setBusy(false);
+      if (!config?.accessToken && !hasFamilySearchMockData(config)) {
+        setLog([t('familySearch.authRequired')]);
         return;
       }
-      const visited = new Set();
-      const queue = [{ id: rootId.trim(), depth: 0 }];
-      const results = [];
-      while (queue.length > 0) {
-        const { id, depth } = queue.shift();
-        if (!id || visited.has(id)) continue;
-        visited.add(id);
-        append(`Fetching ${id} (depth ${depth})…`);
-        try {
-          const person = await readFamilySearchPerson(config, id);
-          results.push({ id, person });
-          if (depth >= generations) continue;
-          const relatives = extractRelatives(person, { includeSpouses });
-          for (const nextId of relatives) {
-            if (!visited.has(nextId)) queue.push({ id: nextId, depth: depth + 1 });
-          }
-        } catch (error) {
-          append(`Error for ${id}: ${error?.message || error}`);
-        }
-      }
-      append(`Done. Fetched ${results.length} FamilySearch persons.`);
+      const tree = await readFamilySearchTree(config, rootId.trim(), { direction: 'both', generations });
+      const payloads = Object.values(tree.payloads || {});
+      setLog((current) => [...current, t('familySearch.batch.fetched', { count: tree.nodes.length })]);
+      if (payloads.length > 0) onImportPayloads(payloads);
+    } catch (error) {
+      setLog((current) => [...current, t('familySearch.batch.failed', { message: error?.message || String(error) })]);
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Panel title="Auto-Download Relatives" onClose={onClose} maxWidth="max-w-lg" maxHeight="max-h-[85vh]">
-        <div className="p-5 space-y-3 text-sm">
-          <label className="block">
-            <span className="text-xs text-muted-foreground">FamilySearch Person ID</span>
-            <input
-              value={rootId}
-              onChange={(e) => setRootId(e.target.value)}
-              placeholder="KW1-ABC"
-              className="mt-1 w-full bg-background border border-border rounded-md px-2 py-1.5"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs text-muted-foreground">Generations to walk</span>
-            <input
-              type="number"
-              min={1}
-              max={5}
-              value={generations}
-              onChange={(e) => setGenerations(Math.min(5, Math.max(1, Number(e.target.value))))}
-              className="mt-1 w-24 bg-background border border-border rounded-md px-2 py-1.5"
-            />
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={includeSpouses} onChange={(e) => setIncludeSpouses(e.target.checked)} />
-            Include spouses
-          </label>
-          <div className="bg-secondary border border-border rounded-md p-2 text-xs max-h-48 overflow-auto">
-            {log.length === 0 ? <span className="text-muted-foreground">Ready.</span> : log.map((line, idx) => (
-              <div key={idx}>{line}</div>
-            ))}
-          </div>
-        </div>
-        <footer className="px-5 py-3 border-t border-border flex gap-2 justify-end">
-          <button onClick={onClose} disabled={busy} className="text-sm border border-border bg-secondary rounded-md px-3 py-1.5">Close</button>
-          <Button variant="primary" size="md" onClick={run} disabled={busy || !rootId}>
-            {busy ? 'Running…' : 'Start'}
+    <Sheet
+      title={t('familySearch.batch.title')}
+      subtitle={t('familySearch.batch.subtitle')}
+      ariaLabel={t('familySearch.batch.title')}
+      maxWidth="max-w-lg"
+      align="center"
+      footer={(
+        <>
+          <Button variant="outline" size="sm" onClick={onClose} disabled={busy}>{t('common.close')}</Button>
+          <Button variant="primary" size="sm" onClick={run} disabled={busy || !rootId.trim()}>
+            {busy ? t('familySearch.batch.running') : t('familySearch.batch.start')}
           </Button>
-        </footer>
-    </Panel>
+        </>
+      )}
+    >
+      <label className="block text-xs">
+        <span className="block mb-1 text-muted-foreground">{t('familySearch.personId')}</span>
+        <input ref={rootRef} value={rootId} onChange={(event) => setRootId(event.target.value)} placeholder={t('familySearch.personIdPlaceholder')} dir="ltr" className={formClasses.input} />
+      </label>
+      <label className="block text-xs">
+        <span className="block mb-1 text-muted-foreground">{t('familySearch.batch.generations')}</span>
+        <input type="number" min="1" max="5" value={generations} onChange={(event) => setGenerations(Math.max(1, Math.min(5, Number(event.target.value) || 1)))} className={`${formClasses.input} w-24`} />
+      </label>
+      <div className="max-h-48 overflow-auto rounded-md border border-border bg-secondary p-2 text-xs" aria-live="polite">
+        {log.length === 0 ? <span className="text-muted-foreground">{t('familySearch.batch.ready')}</span> : log.map((line, index) => <div key={`${index}-${line}`}>{line}</div>)}
+      </div>
+    </Sheet>
   );
-}
-
-function extractRelatives(person, { includeSpouses }) {
-  const ids = [];
-  if (!person) return ids;
-  const relationships = person.relationships || person._embedded?.relationships || [];
-  for (const rel of relationships) {
-    const type = rel.type || '';
-    if (type === 'http://gedcomx.org/ParentChild' || type === 'http://gedcomx.org/BiologicalParent') {
-      if (rel.person1?.resourceId) ids.push(rel.person1.resourceId);
-      if (rel.person2?.resourceId) ids.push(rel.person2.resourceId);
-    } else if (includeSpouses && type === 'http://gedcomx.org/Couple') {
-      if (rel.person1?.resourceId) ids.push(rel.person1.resourceId);
-      if (rel.person2?.resourceId) ids.push(rel.person2.resourceId);
-    }
-  }
-  return ids.filter(Boolean);
 }
 
 export default FamilySearchBatchDownloadSheet;

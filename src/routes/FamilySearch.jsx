@@ -12,6 +12,7 @@ import {
   applyFamilySearchSyncAction,
   beginFamilySearchPkceAuthorization,
   buildFamilySearchSyncRows,
+  collectFamilySearchPlaceStrings,
   compareLocalToFamilySearchPerson,
   createFamilySearchDiscussion,
   exchangeFamilySearchAuthorizationCode,
@@ -23,9 +24,11 @@ import {
   markFamilySearchRecordMatchesSeen,
   mergeFamilySearchPersons,
   normalizeChangeHistoryFeed,
+  normalizeFamilySearchPerson,
   normalizeRecordMatchFeed,
   readFamilySearchChangeHistory,
   readFamilySearchMergeAnalysis,
+  readFamilySearchFurtherInformation,
   readFamilySearchPerson,
   saveFamilySearchConfig,
   setFamilySearchRecordMatchStatus,
@@ -36,12 +39,28 @@ import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { matchesSearchText } from '../lib/i18n.js';
 import { readField } from '../lib/schema.js';
-import { personSummary } from '../models/index.js';
+import { refValue } from '../lib/schema.js';
+import { Gender, personSummary } from '../models/index.js';
 import { FamilySearchSourceFoldersSheet } from '../components/FamilySearchSourceFoldersSheet.jsx';
 import { FamilySearchBatchDownloadSheet } from '../components/FamilySearchBatchDownloadSheet.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
 import { PageTitle } from '../components/ui/PageTitle.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { createRecordEnvelope, createWithChangeLog } from '../lib/recordWrite.js';
+import { linkExistingRelative } from '../lib/relativeLinks.js';
+import {
+  acceptFamilySearchPolicy,
+  getFamilySearchPolicyAcceptances,
+  listFamilySearchFurtherInformation,
+  markFamilySearchFurtherInformationSeen,
+  mergeFamilySearchFurtherInformation,
+  saveFamilySearchFurtherInformation,
+} from '../lib/familySearchSourceFolders.js';
+import { FamilySearchPolicySheet } from '../components/FamilySearchPolicySheet.jsx';
+import { FamilySearchSelectPlaceSheet } from '../components/FamilySearchSelectPlaceSheet.jsx';
+import { FamilySearchApproveAllSheet } from '../components/FamilySearchApproveAllSheet.jsx';
+import { FamilySearchRemoteTreeSheet } from '../components/FamilySearchRemoteTreeSheet.jsx';
 
 const TASK_META_KEY = 'familySearchTasks';
 
@@ -63,6 +82,7 @@ const TASKS_BY_PANE = {
   discussions: 'record-match-review',
   'change-history': 'sync-review',
   records: 'record-match-review',
+  'further-information': null,
   statistics: null,
 };
 
@@ -76,12 +96,14 @@ const FAMILYSEARCH_PANES = [
   { id: 'discussions', label: 'Discussions', description: 'Review discussion-style FamilySearch review tasks.' },
   { id: 'change-history', label: 'Change History', description: 'Review queued sync/change-history actions.' },
   { id: 'records', label: 'Records', description: 'Open records linked to FamilySearch match tasks.' },
+  { id: 'further-information', labelKey: 'familySearch.panes.furtherInformation.label', descriptionKey: 'familySearch.panes.furtherInformation.description' },
   { id: 'statistics', label: 'Statistics', description: 'Summary totals and task depth for parity-style reporting.' },
 ];
 
 const DEFAULT_PANE = 'overview';
 
 export default function FamilySearch() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const modal = useModal();
@@ -90,6 +112,8 @@ export default function FamilySearch() {
   const activePaneMeta = FAMILYSEARCH_PANES.find((entry) => entry.id === activePane) || FAMILYSEARCH_PANES[0];
 
   const { records: personRecords } = useRecords('Person');
+  const { records: placeRecords } = useRecords('Place');
+  const placesById = useMemo(() => new Map(placeRecords.map((place) => [place.recordName, place])), [placeRecords]);
   const people = useMemo(
     () => personRecords.map((record) => ({
       record,
@@ -125,6 +149,17 @@ export default function FamilySearch() {
   const [discussionPersonId, setDiscussionPersonId] = useState('');
   const [changeHistoryRows, setChangeHistoryRows] = useState([]);
   const [comparePersonRecord, setComparePersonRecord] = useState(null);
+  const [policyAcceptances, setPolicyAcceptances] = useState({ memories: null, ordinances: null });
+  const [policiesLoaded, setPoliciesLoaded] = useState(false);
+  const [pendingPolicy, setPendingPolicy] = useState('');
+  const [approveAllOpen, setApproveAllOpen] = useState(false);
+  const [furtherInformation, setFurtherInformation] = useState([]);
+  const [furtherScanBusy, setFurtherScanBusy] = useState(false);
+  const [furtherScanProgress, setFurtherScanProgress] = useState('');
+  const [remoteTreeRootId, setRemoteTreeRootId] = useState('');
+  const [pendingImportPayloads, setPendingImportPayloads] = useState([]);
+  const [incomingPlaces, setIncomingPlaces] = useState([]);
+  const [pendingSyncPlace, setPendingSyncPlace] = useState(null);
 
   const setPane = useCallback((nextPane) => {
     setSearchParams((params) => {
@@ -134,13 +169,30 @@ export default function FamilySearch() {
     }, { replace: true });
   }, [setSearchParams]);
 
+  const requestPane = useCallback((nextPane) => {
+    if (!policiesLoaded) {
+      setPane(nextPane);
+      return;
+    }
+    if ((nextPane === 'memories' || nextPane === 'ordinances') && !policyAcceptances[nextPane]) {
+      setPendingPolicy(nextPane);
+      return;
+    }
+    setPane(nextPane);
+  }, [policiesLoaded, policyAcceptances, setPane]);
+
   const reload = useCallback(async () => {
-    const [savedTasks, prefs] = await Promise.all([
+    const [savedTasks, prefs, policies, furtherItems] = await Promise.all([
       getAppDataClient().meta.get(TASK_META_KEY),
       getAppPreferences(),
+      getFamilySearchPolicyAcceptances(),
+      listFamilySearchFurtherInformation(),
     ]);
     setTasks(Array.isArray(savedTasks) ? savedTasks : []);
     setTaskType(prefs.familySearch?.defaultTaskType || 'match-review');
+    setPolicyAcceptances(policies);
+    setPoliciesLoaded(true);
+    setFurtherInformation(furtherItems);
     if (!defaultFilterApplied.current) {
       defaultFilterApplied.current = true;
       const showMatched = prefs.familySearch?.showMatched !== false;
@@ -150,6 +202,12 @@ export default function FamilySearch() {
       else setFilter('all');
     }
   }, []);
+
+  useEffect(() => {
+    if (policiesLoaded && (activePane === 'memories' || activePane === 'ordinances') && !policyAcceptances[activePane]) {
+      setPendingPolicy(activePane);
+    }
+  }, [activePane, policiesLoaded, policyAcceptances]);
 
   useEffect(() => { reload(); }, [reload]);
 
@@ -355,8 +413,8 @@ export default function FamilySearch() {
     try {
       const remote = await readFamilySearchPerson(apiConfig, personId);
       setApiOutput({ title: `FamilySearch ${personId}`, data: remote });
-      setCompareRows(compareLocalToFamilySearchPerson(entry.record, remote));
-      setSyncRows(buildFamilySearchSyncRows(entry.record, remote));
+      setCompareRows(compareLocalToFamilySearchPerson(entry.record, remote, { placesById }));
+      setSyncRows(buildFamilySearchSyncRows(entry.record, remote, { placesById }));
       setSyncPersonId(personId);
       setComparePersonRecord(entry.record);
       setMergeSurvivorId((current) => current || personId);
@@ -364,20 +422,26 @@ export default function FamilySearch() {
     } catch (error) {
       setApiStatus(`Compare failed: ${error.message}`);
     }
-  }, [apiConfig, modal]);
+  }, [apiConfig, modal, placesById]);
 
   const onSyncAction = useCallback(async (row, direction) => {
     if (!syncPersonId || !comparePersonRecord) return;
-    const verb = direction === 'download' ? 'Download' : direction === 'upload' ? 'Upload' : direction === 'replace' ? 'Replace' : 'Delete';
+    const actionLabel = t(`familySearch.sync.actions.${direction}`);
+    const fieldLabel = familySearchFieldLabel(row.field, t);
     const reason = await modal.prompt(
-      `Reason for ${verb.toLowerCase()} of "${row.field}" on FamilySearch:`,
+      t('familySearch.sync.reasonPrompt', { action: actionLabel, field: fieldLabel }),
       '',
-      { title: `${verb} ${row.field}` },
+      { title: t('familySearch.sync.actionTitle', { action: actionLabel, field: fieldLabel }) },
     );
     if (!reason) return;
-    setApiStatus(`${verb} ${row.field}…`);
+    setApiStatus(t('familySearch.sync.actionProgress', { action: actionLabel, field: fieldLabel }));
     try {
       if (direction === 'download') {
+        if (row.conclusion === 'birthPlace' || row.conclusion === 'deathPlace') {
+          setPendingSyncPlace({ row, record: comparePersonRecord });
+          setIncomingPlaces([row.remote]);
+          return;
+        }
         // Pull the remote value into the local record.
         const next = {
           ...comparePersonRecord,
@@ -385,11 +449,11 @@ export default function FamilySearch() {
         };
         if (row.conclusion === 'birth') next.fields.birthDate = { value: row.remote, type: 'STRING' };
         else if (row.conclusion === 'death') next.fields.deathDate = { value: row.remote, type: 'STRING' };
-        else if (row.conclusion === 'gender') next.fields.gender = { value: row.remote === 'Female' ? 2 : 1, type: 'INT64' };
+        else if (row.conclusion === 'gender') next.fields.gender = { value: row.remote === 'Female' ? Gender.Female : Gender.Male, type: 'INT64' };
         else if (row.conclusion === 'name') next.fields.cached_fullName = { value: row.remote, type: 'STRING' };
         await saveWithChangeLog(next);
         await reload();
-        setApiStatus(`Downloaded ${row.field} into the local record.`);
+        setApiStatus(t('familySearch.sync.downloaded', { field: fieldLabel }));
         return;
       }
       await applyFamilySearchSyncAction(apiConfig, {
@@ -399,11 +463,11 @@ export default function FamilySearch() {
         localPerson: comparePersonRecord,
         reason,
       });
-      setApiStatus(`${verb} of ${row.field} sent to FamilySearch.`);
+      setApiStatus(t('familySearch.sync.sent', { action: actionLabel, field: fieldLabel }));
     } catch (error) {
-      setApiStatus(`${verb} failed: ${error.message}`);
+      setApiStatus(t('familySearch.sync.failed', { action: actionLabel, message: error.message }));
     }
-  }, [apiConfig, comparePersonRecord, modal, reload, syncPersonId]);
+  }, [apiConfig, comparePersonRecord, modal, reload, syncPersonId, t]);
 
   const onUploadPerson = useCallback(async (entry) => {
     if (!(await modal.confirm(
@@ -597,7 +661,118 @@ export default function FamilySearch() {
     }
   }, [apiConfig, mergeDuplicateId, mergeReason, mergeSurvivorId, resourcesToCopy, resourcesToDelete, modal]);
 
-  const hasPanePersonRows = activePane !== 'statistics';
+  const onAcceptPolicy = useCallback(async () => {
+    if (!pendingPolicy) return;
+    const next = await acceptFamilySearchPolicy(pendingPolicy);
+    const acceptedPane = pendingPolicy;
+    setPolicyAcceptances(next);
+    setPendingPolicy('');
+    setPane(acceptedPane);
+  }, [pendingPolicy, setPane]);
+
+  const autoMatchTasks = useMemo(() => tasks.filter((task) => task.type === 'match-review' && task.status !== 'done'), [tasks]);
+
+  const approveAutoMatch = useCallback(async (task) => {
+    const stored = await getAppDataClient().meta.get(TASK_META_KEY);
+    const current = Array.isArray(stored) ? stored : [];
+    const next = current.map((item) => item.id === task.id ? { ...item, status: 'done', approvedAt: new Date().toISOString(), updatedAt: new Date().toISOString() } : item);
+    await getAppDataClient().meta.set(TASK_META_KEY, next);
+    setTasks(next);
+  }, []);
+
+  const scanFurtherInformation = useCallback(async () => {
+    const matched = people.filter((entry) => entry.familySearchID);
+    if (!apiConfig.accessToken && !apiConfig.mockData && !apiConfig.mockFamilySearch) {
+      setFurtherScanProgress(t('familySearch.authRequired'));
+      return;
+    }
+    setFurtherScanBusy(true);
+    const scanned = [];
+    try {
+      for (let index = 0; index < matched.length; index += 1) {
+        const entry = matched[index];
+        setFurtherScanProgress(t('familySearch.furtherInformation.progress', { complete: index, count: matched.length }));
+        try {
+          scanned.push(await readFamilySearchFurtherInformation(apiConfig, entry.familySearchID));
+        } catch (error) {
+          const retained = furtherInformation.find((item) => item.personId === entry.familySearchID);
+          if (retained) scanned.push(retained);
+          setApiStatus(t('familySearch.furtherInformation.personFailed', { name: entry.summary.fullName, message: error?.message || String(error) }));
+        }
+      }
+      const names = Object.fromEntries(matched.map((entry) => [entry.familySearchID, entry.summary.fullName]));
+      const merged = mergeFamilySearchFurtherInformation(furtherInformation, scanned, names);
+      const saved = await saveFamilySearchFurtherInformation(merged);
+      setFurtherInformation(saved);
+      setFurtherScanProgress(t('familySearch.furtherInformation.complete', { count: saved.filter((item) => !item.seenAt).length }));
+    } finally {
+      setFurtherScanBusy(false);
+    }
+  }, [apiConfig, furtherInformation, people, t]);
+
+  const markFurtherSeen = useCallback(async (personId) => {
+    setFurtherInformation(await markFamilySearchFurtherInformationSeen(personId));
+  }, []);
+
+  const stageRemoteImport = useCallback((payloads) => {
+    const list = (payloads || []).filter(Boolean);
+    setRemoteTreeRootId('');
+    setBatchDownloadOpen(false);
+    const strings = collectFamilySearchPlaceStrings(list);
+    const unmatched = strings.filter((incoming) => !placeRecords.some((place) => normalizePlaceName(placeLabelForImport(place)) === normalizePlaceName(incoming)));
+    setPendingImportPayloads(list);
+    if (unmatched.length > 0) {
+      setIncomingPlaces(unmatched);
+      return;
+    }
+    importFamilySearchPayloads(list, [], placeRecords).then((result) => {
+      setStatus(t('familySearch.import.complete', { count: result.created }));
+      setPendingImportPayloads([]);
+      reload();
+    }).catch((error) => setApiStatus(t('familySearch.import.failed', { message: error?.message || String(error) })));
+  }, [placeRecords, reload, t]);
+
+  const applyPlaceResolutions = useCallback(async (resolutions) => {
+    try {
+      if (pendingSyncPlace) {
+        const resolution = resolutions[0];
+        const target = await materializePlaceResolution(resolution, placeRecords);
+        const fieldName = pendingSyncPlace.row.conclusion;
+        const next = { ...pendingSyncPlace.record, fields: { ...(pendingSyncPlace.record.fields || {}) } };
+        if (target.placeId) {
+          next.fields[fieldName] = { value: refValue(target.placeId, 'Place'), type: 'REFERENCE' };
+          delete next.fields[`${fieldName}Text`];
+        } else {
+          delete next.fields[fieldName];
+          next.fields[`${fieldName}Text`] = { value: target.text, type: 'STRING' };
+        }
+        await saveWithChangeLog(next);
+        setComparePersonRecord(next);
+        setPendingSyncPlace(null);
+        setIncomingPlaces([]);
+        await reload();
+        setApiStatus(t('familySearch.places.reconciled'));
+        return;
+      }
+      const result = await importFamilySearchPayloads(pendingImportPayloads, resolutions, placeRecords);
+      setPendingImportPayloads([]);
+      setIncomingPlaces([]);
+      setRemoteTreeRootId('');
+      setBatchDownloadOpen(false);
+      setStatus(t('familySearch.import.complete', { count: result.created }));
+      await reload();
+    } catch (error) {
+      setApiStatus(t('familySearch.import.failed', { message: error?.message || String(error) }));
+    }
+  }, [pendingImportPayloads, pendingSyncPlace, placeRecords, reload, t]);
+
+  const cancelPlaceResolution = useCallback(() => {
+    setIncomingPlaces([]);
+    setPendingImportPayloads([]);
+    setPendingSyncPlace(null);
+  }, []);
+
+  const hasPanePersonRows = activePane !== 'statistics' && activePane !== 'further-information';
 
   return (
     <div className="h-full overflow-auto bg-background">
@@ -605,7 +780,7 @@ export default function FamilySearch() {
         <header className="flex flex-wrap items-center gap-3 mb-3">
           <div className="min-w-0 flex-1">
             <PageTitle className="text-xl font-bold">FamilySearch</PageTitle>
-            <p className="text-sm text-muted-foreground mt-1">{activePaneMeta.description}</p>
+            <p className="text-sm text-muted-foreground mt-1">{activePaneMeta.descriptionKey ? t(activePaneMeta.descriptionKey) : activePaneMeta.description}</p>
           </div>
           {status && <span className="text-xs text-success-text">{status}</span>}
           <div className="flex flex-wrap gap-2 w-full sm:w-auto sm:ms-auto">
@@ -622,20 +797,28 @@ export default function FamilySearch() {
           {FAMILYSEARCH_PANES.map((pane) => (
             <button
               key={pane.id}
-              onClick={() => setPane(pane.id)}
+              onClick={() => requestPane(pane.id)}
               className={`rounded-md border px-2.5 py-1.5 text-xs ${
                 pane.id === activePane
                   ? 'bg-primary text-primary-foreground border-primary'
                   : 'border-border bg-secondary hover:bg-accent'
               }`}
             >
-              {pane.label}
+              {pane.labelKey ? t(pane.labelKey) : pane.label}
             </button>
           ))}
         </section>
 
         <FamilySearchSourceFoldersSheet open={sourceFoldersOpen} onClose={() => setSourceFoldersOpen(false)} />
-        <FamilySearchBatchDownloadSheet open={batchDownloadOpen} onClose={() => setBatchDownloadOpen(false)} />
+        <FamilySearchBatchDownloadSheet open={batchDownloadOpen} onClose={() => setBatchDownloadOpen(false)} onImportPayloads={stageRemoteImport} />
+        {remoteTreeRootId && (
+          <FamilySearchRemoteTreeSheet rootId={remoteTreeRootId} config={apiConfig} onImportPayloads={stageRemoteImport} onClose={() => setRemoteTreeRootId('')} />
+        )}
+        {approveAllOpen && <FamilySearchApproveAllSheet tasks={autoMatchTasks} onApprove={approveAutoMatch} onClose={() => setApproveAllOpen(false)} />}
+        {pendingPolicy && <FamilySearchPolicySheet policy={pendingPolicy} onAccept={onAcceptPolicy} onDecline={() => { setPendingPolicy(''); if (activePane === pendingPolicy) setPane(DEFAULT_PANE); }} />}
+        {incomingPlaces.length > 0 && (
+          <FamilySearchSelectPlaceSheet incomingPlaces={incomingPlaces} places={placeRecords} onApply={applyPlaceResolutions} onCancel={cancelPlaceResolution} />
+        )}
 
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
           <Stat label="People" value={stats.total} />
@@ -667,12 +850,17 @@ export default function FamilySearch() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-5">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="px-4 py-3 border-b border-border text-sm font-semibold">
-              {hasPanePersonRows ? (
-                <>
-                  {activePaneMeta.label} · {peopleByPane.length} people
-                </>
-              ) : 'Statistics'}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-border text-sm font-semibold">
+              <span className="min-w-0 flex-1">
+                {hasPanePersonRows ? (
+                  <>
+                    {activePaneMeta.labelKey ? t(activePaneMeta.labelKey) : activePaneMeta.label} · {peopleByPane.length} people
+                  </>
+                ) : activePane === 'further-information' ? t('familySearch.furtherInformation.title') : 'Statistics'}
+              </span>
+              {activePane === 'auto-matches' && autoMatchTasks.length > 0 && (
+                <button type="button" onClick={() => setApproveAllOpen(true)} className={primaryButton}>{t('familySearch.autoMatches.approveAll')}</button>
+              )}
             </div>
 
             {hasPanePersonRows ? (
@@ -707,6 +895,9 @@ export default function FamilySearch() {
                             <button onClick={() => onLoadChangeHistory(entry)} className={secondaryButton}>History</button>
                           )}
                           {entry.familySearchID && (
+                            <button onClick={() => setRemoteTreeRootId(entry.familySearchID)} className={secondaryButton}>{t('familySearch.remoteTree.expand')}</button>
+                          )}
+                          {entry.familySearchID && (
                             <a
                               href={familySearchPersonWebUrl(apiConfig, entry.familySearchID)}
                               target="_blank"
@@ -723,6 +914,39 @@ export default function FamilySearch() {
                       </div>
                     );
                   })
+                )}
+              </div>
+            ) : activePane === 'further-information' ? (
+              <div className="p-4">
+                <div className="mb-4 flex flex-wrap items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-sm font-semibold">{t('familySearch.furtherInformation.title')}</h2>
+                    <p className="mt-1 text-xs text-muted-foreground">{t('familySearch.furtherInformation.description')}</p>
+                  </div>
+                  <button type="button" disabled={furtherScanBusy} onClick={scanFurtherInformation} className={primaryButton}>
+                    {furtherScanBusy ? t('familySearch.furtherInformation.scanning') : t('familySearch.furtherInformation.scan')}
+                  </button>
+                </div>
+                {furtherScanProgress && <p className="mb-3 text-xs text-muted-foreground" aria-live="polite">{furtherScanProgress}</p>}
+                {furtherInformation.filter((item) => !item.seenAt).length === 0 ? (
+                  <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">{t('familySearch.furtherInformation.empty')}</div>
+                ) : (
+                  <ul className="space-y-2">
+                    {furtherInformation.filter((item) => !item.seenAt).map((item) => (
+                      <li key={item.personId} className="rounded-md border border-border bg-background p-3">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium"><BdiText>{item.personName}</BdiText></div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {t('familySearch.furtherInformation.counts', { notes: item.notes, memories: item.memories, discussions: item.discussions })}
+                            </div>
+                          </div>
+                          <a href={familySearchPersonWebUrl(apiConfig, item.personId)} target="_blank" rel="noopener noreferrer" className={secondaryButton}>{t('familySearch.furtherInformation.show')}</a>
+                          <button type="button" onClick={() => markFurtherSeen(item.personId)} className={secondaryButton}>{t('familySearch.furtherInformation.markSeen')}</button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
                 )}
               </div>
             ) : (
@@ -814,7 +1038,7 @@ export default function FamilySearch() {
                   {syncRows.map((row) => (
                     <div key={row.field} className="border-b border-border last:border-b-0 p-2">
                       <div className="grid grid-cols-[64px_1fr_1fr] gap-2">
-                        <span className="font-medium">{row.field}</span>
+                        <span className="font-medium">{familySearchFieldLabel(row.field, t)}</span>
                         <span className={row.status === 'same' ? 'text-success-text' : 'text-muted-foreground'}>{row.local || '—'}</span>
                         <span className={row.status === 'same' ? 'text-success-text' : row.status === 'different' ? 'text-warning-text' : 'text-muted-foreground'}>{row.remote || '—'}</span>
                       </div>
@@ -843,7 +1067,7 @@ export default function FamilySearch() {
                 <div className="mb-3 overflow-hidden rounded-md border border-border text-xs">
                   {compareRows.map((row) => (
                     <div key={row.field} className="grid grid-cols-[72px_1fr_1fr] gap-2 border-b border-border last:border-b-0 p-2">
-                      <span className="font-medium">{row.field}</span>
+                      <span className="font-medium">{familySearchFieldLabel(row.field, t)}</span>
                       <span className={row.status === 'same' ? 'text-success-text' : 'text-muted-foreground'}>{row.local || '—'}</span>
                       <span className={row.status === 'same' ? 'text-success-text' : row.status === 'different' ? 'text-warning-text' : 'text-muted-foreground'}>{row.remote || '—'}</span>
                     </div>
@@ -1015,12 +1239,124 @@ function taskLabel(type) {
   return TASK_TYPES.find((entry) => entry.id === type)?.label || type;
 }
 
+function familySearchFieldLabel(field, t) {
+  const key = {
+    Name: 'name',
+    Gender: 'gender',
+    Birth: 'birth',
+    Death: 'death',
+    'Birth place': 'birthPlace',
+    'Death place': 'deathPlace',
+  }[field];
+  return key ? t(`familySearch.sync.fields.${key}`) : field;
+}
+
 function uuid(prefix) {
   return generateId(prefix);
 }
 
 function lines(value) {
   return String(value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+}
+
+function placeLabelForImport(place) {
+  return String(readField(place, ['cached_standardizedLocationString', 'cached_normallocationString', 'cached_displayName', 'placeName', 'name'], ''));
+}
+
+function normalizePlaceName(value) {
+  return String(value || '').trim().toLocaleLowerCase();
+}
+
+async function materializePlaceResolution(resolution, existingPlaces, createdByName = new Map()) {
+  if (!resolution || resolution.mode === 'text') return { placeId: '', text: resolution?.incoming || '' };
+  if (resolution.mode === 'existing') return { placeId: resolution.placeId, text: '' };
+  const name = String(resolution.corrected || resolution.incoming || '').trim();
+  const key = normalizePlaceName(name);
+  const prior = createdByName.get(key) || existingPlaces.find((place) => normalizePlaceName(placeLabelForImport(place)) === key);
+  if (prior) return { placeId: prior.recordName, text: '' };
+  const record = createRecordEnvelope('Place', 'place', {
+    placeName: name,
+    cached_standardizedLocationString: name,
+    cached_normallocationString: name,
+  });
+  await createWithChangeLog(record);
+  createdByName.set(key, record);
+  return { placeId: record.recordName, text: '' };
+}
+
+async function importFamilySearchPayloads(payloads, resolutions, existingPlaces) {
+  const client = getAppDataClient();
+  const { records: existingPeople } = await client.records.query('Person', { limit: 100000 });
+  const localByRemoteId = new Map(existingPeople.map((person) => [String(readField(person, ['familySearchID', 'familySearchId'], '')), person.recordName]).filter(([id]) => id));
+  const remotePeople = new Map();
+  const relationships = new Map();
+  for (const payload of payloads || []) {
+    const peopleInPayload = payload?.persons || (payload?.person ? [payload.person] : payload?.id ? [payload] : []);
+    for (const person of peopleInPayload) {
+      const normalized = normalizeFamilySearchPerson(person);
+      if (normalized.id) remotePeople.set(normalized.id, { raw: person, normalized });
+    }
+    for (const relationship of payload?.relationships || []) {
+      const parentId = relationship?.person1?.resourceId || String(relationship?.person1?.resource || '').split('/').pop();
+      const childId = relationship?.person2?.resourceId || String(relationship?.person2?.resource || '').split('/').pop();
+      if (parentId && childId && String(relationship.type || '').match(/ParentChild|BiologicalParent/)) {
+        relationships.set(`${parentId}:${childId}`, { parentId, childId });
+      }
+    }
+  }
+
+  const resolutionByIncoming = new Map((resolutions || []).map((item) => [item.incoming, item]));
+  const createdPlaces = new Map();
+  let created = 0;
+  for (const [remoteId, value] of remotePeople) {
+    if (localByRemoteId.has(remoteId)) continue;
+    const summary = value.normalized;
+    const parts = String(summary.name || '').trim().split(/\s+/);
+    const firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0] || '';
+    const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
+    const person = createRecordEnvelope('Person', 'person-fs', {
+      firstName,
+      lastName,
+      cached_fullName: summary.name || remoteId,
+      cached_fullNameForSorting: summary.name || remoteId,
+      familySearchID: remoteId,
+      ...(summary.birth ? { cached_birthDate: summary.birth } : {}),
+      ...(summary.death ? { cached_deathDate: summary.death } : {}),
+    });
+    if (summary.gender) person.fields.gender = { value: summary.gender === 'Female' ? Gender.Female : Gender.Male, type: 'INT64' };
+    await createWithChangeLog(person);
+    localByRemoteId.set(remoteId, person.recordName);
+    created += 1;
+
+    for (const fact of value.raw?.facts || []) {
+      const tag = String(fact.type || '').split('/').pop();
+      if (tag !== 'Birth' && tag !== 'Death') continue;
+      const event = createRecordEnvelope('PersonEvent', 'event-fs');
+      event.fields.person = { value: refValue(person.recordName, 'Person'), type: 'REFERENCE' };
+      event.fields.conclusionType = { value: refValue(tag, 'ConclusionPersonEventType'), type: 'REFERENCE' };
+      if (fact.date?.original) event.fields.date = { value: fact.date.original, type: 'STRING' };
+      const incoming = String(fact.place?.original || fact.place?.normalized?.[0]?.value || '').trim();
+      if (incoming) {
+        let resolution = resolutionByIncoming.get(incoming);
+        if (!resolution) {
+          const exact = existingPlaces.find((place) => normalizePlaceName(placeLabelForImport(place)) === normalizePlaceName(incoming));
+          resolution = exact ? { incoming, mode: 'existing', placeId: exact.recordName } : { incoming, mode: 'text' };
+        }
+        const target = await materializePlaceResolution(resolution, existingPlaces, createdPlaces);
+        if (target.placeId) event.fields.place = { value: refValue(target.placeId, 'Place'), type: 'REFERENCE' };
+        else event.fields.placeName = { value: target.text, type: 'STRING' };
+      }
+      await createWithChangeLog(event);
+    }
+  }
+
+  for (const { parentId, childId } of relationships.values()) {
+    const localParent = localByRemoteId.get(parentId);
+    const localChild = localByRemoteId.get(childId);
+    if (!localParent || !localChild || localParent === localChild) continue;
+    await linkExistingRelative(localChild, localParent, 'parent');
+  }
+  return { created, total: remotePeople.size };
 }
 
 function Stat({ label, value }) {
