@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Sheet } from '../ui/Sheet.jsx';
 import { Button } from '../ui/Button.jsx';
 import { getAppDataClient } from '../../lib/data/AppDataClient.js';
@@ -30,6 +30,16 @@ export function SourcePickerSheet({ target, onClose, onLinked, onManageAll }) {
   const [newTitle, setNewTitle] = useState('');
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  const openerRef = useRef(document.activeElement);
+
+  useEffect(() => {
+    const onKeyDown = (event) => { if (event.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      openerRef.current?.focus?.();
+    };
+  }, [onClose]);
 
   const reload = useCallback(async () => {
     if (!target?.recordName) return;
