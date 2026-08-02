@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { compileBook, normalizeBookPresentationSettings } from './books.js';
+import {
+  BOOK_THEME_PRESETS,
+  bookEditSignature,
+  bookFromAssistant,
+  buildAssistantSectionPlan,
+  compileBook,
+  normalizeBookPresentationSettings,
+  renderBookHTML,
+} from './books.js';
 
 describe('book compilation', () => {
   it('materializes cover metadata and a numbered table of contents', async () => {
@@ -77,5 +85,49 @@ describe('book compilation', () => {
 
   it('keeps book section pagination on by default for old saved books', () => {
     expect(normalizeBookPresentationSettings().pageStyle).toMatchObject({ paginate: true });
+  });
+
+  it('builds guided ancestor and empty-book plans from assistant scope', () => {
+    const ancestor = bookFromAssistant({
+      bookType: 'ancestor',
+      title: 'The Line',
+      targetPersonId: 'P1',
+      generationsUp: 8,
+      includeSources: true,
+      includeMedia: false,
+      outputLanguage: 'ar',
+      themeId: 'Forest',
+    });
+
+    expect(ancestor).toMatchObject({ title: 'The Line', bookType: 'ancestor', outputLanguage: 'ar', themeId: 'Forest' });
+    expect(ancestor.sections.map((section) => section.kind)).toEqual([
+      'cover', 'toc', 'ahnentafel-report', 'ancestor-narrative', 'bibliography',
+    ]);
+    expect(ancestor.sections[2]).toMatchObject({ targetRecordName: 'P1', generations: 8, scope: 'ancestors' });
+
+    expect(buildAssistantSectionPlan({ bookType: 'empty', title: 'Notes' })).toEqual([
+      expect.objectContaining({ kind: 'cover', text: 'Notes' }),
+      { kind: 'toc', tocStyle: 'numbered' },
+    ]);
+  });
+
+  it('ships the complete Mac theme set and applies theme CSS to book HTML', async () => {
+    expect(BOOK_THEME_PRESETS.map((theme) => theme.id)).toEqual([
+      'BlackAndWhite', 'Forest', 'PictureWithWhiteText', 'Modern', 'Magenta', 'Pure',
+    ]);
+    const book = { title: 'Forest Book', themeId: 'Forest', outputLanguage: 'ar', sections: [{ kind: 'cover', text: 'Forest Book' }] };
+    const compiled = await compileBook(book);
+    const html = renderBookHTML(book, compiled);
+
+    expect(html).toContain('<html lang="ar" dir="rtl">');
+    expect(html).toContain('linear-gradient(135deg,#183828,#52734d)');
+    expect(html).toContain('class="book-title-page"');
+  });
+
+  it('tracks editable book changes while ignoring persistence timestamps', () => {
+    const base = { id: 'B1', title: 'Book', sections: [{ kind: 'cover', text: 'Book' }], savedAt: 1 };
+    expect(bookEditSignature({ ...base, savedAt: 2 })).toBe(bookEditSignature(base));
+    expect(bookEditSignature({ ...base, title: 'Changed' })).not.toBe(bookEditSignature(base));
+    expect(bookEditSignature({ ...base, sections: [{ text: 'Book', kind: 'cover' }] })).toBe(bookEditSignature(base));
   });
 });

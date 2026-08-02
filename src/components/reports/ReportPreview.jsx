@@ -4,11 +4,14 @@
  */
 import React from 'react';
 import { BdiText } from '../BdiText.jsx';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 export function ReportPreview({ report, zoom = 'fit', emptyLabel = '', pageBreakLabel = '' }) {
-  if (!report) return <div className="p-12 text-center text-muted-foreground">{emptyLabel}</div>;
+  const { t } = useTranslation();
+  if (!report) return <div className="p-12 text-center text-muted-foreground">{emptyLabel || t('books.preview.configureForPreview')}</div>;
   const scale = zoom === 'fit' ? 1 : Math.max(0.5, Math.min(2, Number(zoom) || 1));
   const scaled = zoom !== 'fit';
+  const breakLabel = pageBreakLabel || t('books.preview.pageBreak');
   // The report preview always renders as a paper page — white/sepia background
   // and dark body text — regardless of the app theme, so it matches what
   // HTML/PDF exports produce. Width, background, and padding are computed from
@@ -16,8 +19,8 @@ export function ReportPreview({ report, zoom = 'fit', emptyLabel = '', pageBreak
   return (
     <div className="mx-auto" style={scaled ? scaledWrapperStyle(report.pageStyle, scale) : undefined}>
       <div
-        className="relative mx-auto my-5 overflow-hidden rounded text-start leading-[1.55] text-[#1a1d27] shadow-[0_2px_24px_rgba(0,0,0,0.4)]"
-        style={{ ...styleFor(report.pageStyle, scaled), ...(scaled ? { transform: `scale(${scale})`, transformOrigin: 'top center' } : {}) }}
+        className="relative mx-auto my-5 overflow-hidden rounded text-start leading-[1.55] shadow-[0_2px_24px_rgba(0,0,0,0.4)]"
+        style={{ ...styleFor(report.pageStyle, report.bookTheme, scaled), ...(scaled ? { transform: `scale(${scale})`, transformOrigin: 'top center' } : {}) }}
         lang={report.localization?.locale}
         dir={report.localization?.direction}
       >
@@ -30,19 +33,23 @@ export function ReportPreview({ report, zoom = 'fit', emptyLabel = '', pageBreak
             <BdiText>{report.pageStyle.watermarkText}</BdiText>
           </div>
         )}
-        <div className="relative z-0">{report.blocks.map((b, i) => <Block key={i} block={b} pageStyle={report.pageStyle} pageBreakLabel={pageBreakLabel} />)}</div>
+        <div className="relative z-0">{report.blocks.map((b, i) => <Block key={i} block={b} pageStyle={report.pageStyle} theme={report.bookTheme} pageBreakLabel={breakLabel} />)}</div>
       </div>
     </div>
   );
 }
 
-function Block({ block: b, pageStyle = {}, pageBreakLabel = '' }) {
+function Block({ block: b, pageStyle = {}, theme, pageBreakLabel = '' }) {
+  const accentStyle = theme?.preview?.accent ? { borderColor: theme.preview.accent, color: theme.preview.accent } : undefined;
+  const coverStyle = (b.bookSectionKind === 'cover' || b.bookSectionKind === 'title') && theme?.preview
+    ? { background: theme.preview.accent, color: theme.id === 'BlackAndWhite' || theme.id === 'Pure' ? theme.preview.foreground : '#ffffff', padding: 20, borderRadius: 8 }
+    : undefined;
   switch (b.kind) {
     case 'title': {
       // The preview is a document nested inside the page, so its headings start
       // one level down — the page's own h1 stays the only h1.
-      if (b.level === 1) return <h2 className="mb-2.5 mt-0 text-[28px] font-bold"><BdiText>{b.text}</BdiText></h2>;
-      if (b.level === 2) return <h3 className="mb-2.5 mt-6 border-b border-[#d4d7e0] pb-1 text-xl font-semibold"><BdiText>{b.text}</BdiText></h3>;
+      if (b.level === 1) return <h2 className="mb-2.5 mt-0 text-[28px] font-bold" style={coverStyle}><BdiText>{b.text}</BdiText></h2>;
+      if (b.level === 2) return <h3 className="mb-2.5 mt-6 border-b pb-1 text-xl font-semibold" style={accentStyle}><BdiText>{b.text}</BdiText></h3>;
       return <h4 className="mb-2 mt-[18px] text-base font-semibold"><BdiText>{b.text}</BdiText></h4>;
     }
     case 'paragraph':
@@ -79,7 +86,7 @@ function Block({ block: b, pageStyle = {}, pageBreakLabel = '' }) {
   }
 }
 
-function styleFor(pageStyle = {}, fixedWidth = false) {
+function styleFor(pageStyle = {}, bookTheme, fixedWidth = false) {
   // maxWidth is bounded by the preview pane, not the viewport. With
   // `calc(100vw - 48px)` the page could be wider than the pane it sits in, and
   // because the page is centred with `margin: auto` the overflow lands outside
@@ -91,14 +98,15 @@ function styleFor(pageStyle = {}, fixedWidth = false) {
     : pageStyle.pageSize === 'legal'
       ? { width: pageStyle.orientation === 'landscape' ? 1344 : 816, maxWidth }
       : { width: pageStyle.orientation === 'landscape' ? 1056 : 816, maxWidth };
-  const background = pageStyle.background === 'sepia'
+  const background = bookTheme?.preview?.background || (pageStyle.background === 'sepia'
     ? '#fbf6e8'
     : pageStyle.background === 'soft'
       ? '#f7f8fb'
-      : '#fff';
+      : '#fff');
   return {
     ...size,
     background,
+    color: bookTheme?.preview?.foreground || '#1a1d27',
     padding: Math.max(24, Math.min(96, pageStyle.margin || 48)),
   };
 }

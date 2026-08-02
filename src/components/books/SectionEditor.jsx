@@ -1,26 +1,19 @@
-/**
- * Inline editor for a single book section — kind + target person + options.
- */
-import React from 'react';
-import { ChevronDown, ChevronUp, GripVertical, Trash2 } from 'lucide-react';
-import { SECTION_KINDS, TITLE_PAGE_PRESETS } from '../../lib/books.js';
-import { PersonPicker } from '../charts/PersonPicker.jsx';
-import { DatePicker } from '../ui/DatePicker.jsx';
+import React, { useState } from 'react';
+import { ChevronDown, ChevronUp, GripVertical, Settings2, Trash2 } from 'lucide-react';
+import { SECTION_KINDS } from '../../lib/books.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { Button } from '../ui/Button.jsx';
-import { cn } from '../../lib/utils.js';
+import { SectionConfigurationSheet } from './SectionConfigurationSheet.jsx';
 
-/**
- * Compact control chrome for this dense editor row. Native inputs/selects are
- * kept (instead of ui/Input and ui/Select) because these controls mix fixed
- * widths and flex-1 inside a flex-wrap row, which the w-full primitives fight.
- */
-const controlClass = 'h-10 rounded-md border border-border bg-secondary text-secondary-foreground px-2.5 text-sm outline-none focus:border-primary';
+const controlClass = 'h-10 min-w-0 flex-1 rounded-md border border-border bg-secondary px-2.5 text-sm text-secondary-foreground outline-none focus:border-primary';
 
 export function SectionEditor({
   section,
   persons,
+  families = [],
   groups = [],
   sources = [],
+  media = [],
   savedReports = [],
   savedCharts = [],
   onChange,
@@ -31,229 +24,60 @@ export function SectionEditor({
   index,
   total,
 }) {
-  const def = SECTION_KINDS.find((k) => k.id === section.kind);
-  const sectionTitle = titleForSection(section, def);
+  const { t } = useTranslation();
+  const [configOpen, setConfigOpen] = useState(false);
+  const def = SECTION_KINDS.find((entry) => entry.id === section.kind);
+  const sectionTitle = titleForSection(section, def, t);
+
   return (
     <div className="mb-2.5 rounded-md border border-border bg-card p-3 text-card-foreground">
       <div className="mb-2.5 flex items-center justify-between gap-2.5">
         <div className="flex min-w-0 items-center gap-2">
           <GripVertical size={16} aria-hidden="true" className="flex-none text-muted-foreground" />
           <div className="min-w-0">
-            <div className="text-2xs font-bold tracking-wider text-muted-foreground">SECTION {index + 1}</div>
+            <div className="text-2xs font-bold tracking-wider text-muted-foreground">{t('books.sectionNumber', { number: index + 1 })}</div>
             <div className="truncate text-sm font-semibold text-foreground" title={sectionTitle}>{sectionTitle}</div>
           </div>
         </div>
         <div className="flex gap-1">
-          <Button size="icon" disabled={index === 0} onClick={onMoveUp} title="Move up" aria-label="Move section up">
-            <ChevronUp size={15} />
-          </Button>
-          <Button size="icon" disabled={index === total - 1} onClick={onMoveDown} title="Move down" aria-label="Move section down">
-            <ChevronDown size={15} />
-          </Button>
-          <Button size="icon" onClick={onRemove} className="text-destructive-text" title="Remove section" aria-label="Remove section">
-            <Trash2 size={15} />
-          </Button>
+          <Button size="icon" disabled={index === 0} onClick={onMoveUp} title={t('books.moveUp')} aria-label={t('books.moveUp')}><ChevronUp size={15} /></Button>
+          <Button size="icon" disabled={index === total - 1} onClick={onMoveDown} title={t('books.moveDown')} aria-label={t('books.moveDown')}><ChevronDown size={15} /></Button>
+          <Button size="icon" onClick={onRemove} className="text-destructive-text" title={t('books.removeSection')} aria-label={t('books.removeSection')}><Trash2 size={15} /></Button>
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <select
-          value={section.kind}
-          onChange={(e) => (onKindChange ? onKindChange(e.target.value) : onChange({ ...section, kind: e.target.value }))}
-          className={controlClass}
-          aria-label="Section type"
-        >
-          {SECTION_KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
-        </select>
-        {(section.kind === 'title' || section.kind === 'cover' || section.kind === 'chapter') && (
-          <>
-            <input
-              value={section.text || ''}
-              onChange={(e) => onChange({ ...section, text: e.target.value })}
-              placeholder={section.kind === 'chapter' ? 'Chapter title' : 'Book title'}
-              className={cn(controlClass, 'flex-1')}
-            />
-            <input
-              value={section.subtitle || ''}
-              onChange={(e) => onChange({ ...section, subtitle: e.target.value })}
-              placeholder="Subtitle (optional)"
-              className={cn(controlClass, 'flex-1')}
-            />
-            {(section.kind === 'title' || section.kind === 'cover') && (
-              <select
-                value={section.titlePreset || ''}
-                onChange={(e) => onChange({ ...section, titlePreset: e.target.value || undefined })}
-                className={cn(controlClass, 'min-w-[210px]')}
-                aria-label="Title page contents"
-              >
-                <option value="">Default title page contents</option>
-                {TITLE_PAGE_PRESETS.map((preset) => (
-                  <option key={preset.id} value={preset.id}>{preset.label}</option>
-                ))}
-              </select>
-            )}
-            {section.kind === 'chapter' && (
-              <>
-                <select
-                  value={section.chapterType || 'content'}
-                  onChange={(e) => onChange({ ...section, chapterType: e.target.value })}
-                  className={cn(controlClass, 'min-w-[150px]')}
-                  aria-label="Chapter type"
-                >
-                  <option value="preface">Preface Chapter</option>
-                  <option value="content">Content Chapter</option>
-                  <option value="appendix">Appendix Chapter</option>
-                </select>
-                <input
-                  value={section.chapterNumber || ''}
-                  onChange={(e) => onChange({ ...section, chapterNumber: e.target.value })}
-                  placeholder="Chapter number"
-                  className={cn(controlClass, 'w-[140px]')}
-                />
-              </>
-            )}
-            {section.kind === 'cover' && (
-              <>
-                <input
-                  value={section.author || ''}
-                  onChange={(e) => onChange({ ...section, author: e.target.value })}
-                  placeholder="Author"
-                  className={cn(controlClass, 'flex-1')}
-                />
-                <div className="w-[180px]">
-                  <DatePicker
-                    value={section.date || ''}
-                    onChange={(value) => onChange({ ...section, date: value })}
-                    placeholder="Date"
-                  />
-                </div>
-                <input
-                  value={section.publisher || ''}
-                  onChange={(e) => onChange({ ...section, publisher: e.target.value })}
-                  placeholder="Publisher"
-                  className={cn(controlClass, 'flex-1')}
-                />
-              </>
-            )}
-            {(section.kind === 'title' || section.kind === 'cover') && (
-              <>
-                <input
-                  value={section.imageCaption || ''}
-                  onChange={(e) => onChange({ ...section, imageCaption: e.target.value })}
-                  placeholder="Title Page Image"
-                  className={cn(controlClass, 'flex-1')}
-                />
-                <input
-                  value={section.crestCaption || ''}
-                  onChange={(e) => onChange({ ...section, crestCaption: e.target.value })}
-                  placeholder="Family Crest"
-                  className={cn(controlClass, 'flex-1')}
-                />
-              </>
-            )}
-            <input
-              value={section.place || ''}
-              onChange={(e) => onChange({ ...section, place: e.target.value })}
-              placeholder="Place"
-              className={cn(controlClass, 'flex-1')}
-            />
-            <input
-              value={section.note || ''}
-              onChange={(e) => onChange({ ...section, note: e.target.value })}
-              placeholder="Note"
-              className={cn(controlClass, 'flex-1')}
-            />
-          </>
-        )}
-        {section.kind === 'toc' && (
-          <select
-            aria-label="Table of contents style"
-            value={section.tocStyle || 'numbered'}
-            onChange={(e) => onChange({ ...section, tocStyle: e.target.value })}
-            className={controlClass}
-          >
-            <option value="numbered">Numbered</option>
-            <option value="plain">Plain</option>
-            <option value="compact">Compact</option>
+      <div className="flex items-center gap-2">
+        <label className="min-w-0 flex-1">
+          <span className="sr-only">{t('books.config.sectionType')}</span>
+          <select value={section.kind} onChange={(event) => onKindChange?.(event.target.value)} className={controlClass} aria-label={t('books.config.sectionType')}>
+            {SECTION_KINDS.map((entry) => <option key={entry.id} value={entry.id}>{t(entry.labelKey)}</option>)}
           </select>
-        )}
-        {def?.needsPerson && (
-          <div className="min-w-[240px]">
-            <PersonPicker
-              persons={persons}
-              value={section.targetRecordName}
-              onChange={(v) => onChange({ ...section, targetRecordName: v })}
-            />
-          </div>
-        )}
-        {def?.needsGenerations && (
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            Generations
-            <input
-              type="number"
-              min={2}
-              max={12}
-              value={section.generations || 5}
-              onChange={(e) => onChange({ ...section, generations: +e.target.value || 5 })}
-              className={cn(controlClass, 'w-[84px]')}
-            />
-          </label>
-        )}
-        {def?.needsGroup && (
-          <select
-            value={section.groupRecordName || ''}
-            onChange={(e) => onChange({ ...section, groupRecordName: e.target.value })}
-            className={cn(controlClass, 'min-w-[220px]')}
-          >
-            <option value="">Select group...</option>
-            {groups.map((group) => (
-              <option key={group.recordName} value={group.recordName}>{group.label}</option>
-            ))}
-          </select>
-        )}
-        {def?.needsSource && (
-          <select
-            value={section.sourceRecordName || ''}
-            onChange={(e) => onChange({ ...section, sourceRecordName: e.target.value })}
-            className={cn(controlClass, 'min-w-[220px]')}
-          >
-            <option value="">Select source...</option>
-            {sources.map((source) => (
-              <option key={source.recordName} value={source.recordName}>{source.label}</option>
-            ))}
-          </select>
-        )}
-        {def?.needsSavedReport && (
-          <select
-            value={section.savedReportId || ''}
-            onChange={(e) => onChange({ ...section, savedReportId: e.target.value })}
-            className={cn(controlClass, 'min-w-[240px]')}
-          >
-            <option value="">Select saved report...</option>
-            {savedReports.map((report) => (
-              <option key={report.id} value={report.id}>{report.name || report.builderId || report.id}</option>
-            ))}
-          </select>
-        )}
-        {def?.needsSavedChart && (
-          <select
-            value={section.savedChartId || ''}
-            onChange={(e) => onChange({ ...section, savedChartId: e.target.value })}
-            className={cn(controlClass, 'min-w-[240px]')}
-          >
-            <option value="">Select saved chart...</option>
-            {savedCharts.map((chart) => (
-              <option key={chart.id} value={chart.id}>{chart.name || chart.chartType || chart.id}</option>
-            ))}
-          </select>
-        )}
+        </label>
+        <Button variant="outline" size="md" onClick={() => setConfigOpen(true)} title={t('books.configureSection')} aria-label={t('books.configureSection')}>
+          <Settings2 size={15} />
+          <span className="hidden xl:inline">{t('books.configure')}</span>
+        </Button>
       </div>
+      {configOpen && (
+        <SectionConfigurationSheet
+          section={section}
+          persons={persons}
+          families={families}
+          groups={groups}
+          sources={sources}
+          media={media}
+          savedReports={savedReports}
+          savedCharts={savedCharts}
+          onApply={(next) => { onChange(next); setConfigOpen(false); }}
+          onCancel={() => setConfigOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
-function titleForSection(section, def) {
-  if (section.kind === 'cover' || section.kind === 'title' || section.kind === 'chapter') return section.text || def?.label || 'Untitled section';
-  return def?.label || 'Section';
+function titleForSection(section, def, t) {
+  if (['cover', 'title', 'chapter', 'custom-page'].includes(section.kind)) return section.text || t('books.untitledSection');
+  return def ? t(def.labelKey) : t('books.section');
 }
 
 export default SectionEditor;

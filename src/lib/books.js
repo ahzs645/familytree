@@ -39,7 +39,8 @@ import { getAuthorInfo } from './authorInfo.js';
 import { listSavedReports } from './reports/savedReports.js';
 import { generateId } from './ids.js';
 import { listChartDocuments } from './chartDocuments.js';
-import { compareStrings, formatInteger } from './i18n.js';
+import { compareStrings, formatInteger, getCurrentLocalization, resolveLocalization } from './i18n.js';
+import { translate } from './translate.js';
 import { personSummary, sourceSummary } from '../models/index.js';
 import {
   formatBibliography,
@@ -85,59 +86,96 @@ async function resolveTemplatedCitation(db, source, mode, baseConfig, caches) {
 const META_KEY = 'savedBooks';
 
 export const TITLE_PAGE_PRESETS = [
-  { id: 'title-subtitle-author-date', label: 'Title · Subtitle · Author · Date' },
-  { id: 'title-subtitle-image-author-date', label: 'Title · Subtitle · Image · Author · Date' },
-  { id: 'title-subtitle-crest-author-date', label: 'Title · Subtitle · Family Crest · Author · Date' },
-  { id: 'image-title-subtitle-crest-author-date', label: 'Image · Title · Subtitle · Family Crest · Author · Date' },
-  { id: 'crest-title-subtitle-author-date', label: 'Family Crest · Title · Subtitle · Author · Date' },
+  { id: 'title-subtitle-author-date', labelKey: 'books.titlePresets.titleSubtitleAuthorDate' },
+  { id: 'title-subtitle-image-author-date', labelKey: 'books.titlePresets.titleSubtitleImageAuthorDate' },
+  { id: 'title-subtitle-crest-author-date', labelKey: 'books.titlePresets.titleSubtitleCrestAuthorDate' },
+  { id: 'image-title-subtitle-crest-author-date', labelKey: 'books.titlePresets.imageTitleSubtitleCrestAuthorDate' },
+  { id: 'crest-title-subtitle-author-date', labelKey: 'books.titlePresets.crestTitleSubtitleAuthorDate' },
 ];
 
 const DEFAULT_TITLE_PAGE_PRESET = TITLE_PAGE_PRESETS[0].id;
 
 export const SECTION_KINDS = [
-  { id: 'cover', label: 'Cover Page' },
-  { id: 'chapter', label: 'Chapter' },
-  { id: 'title', label: 'Title Page' },
-  { id: 'toc', label: 'Table of Contents' },
-  { id: 'person-summary', label: 'Person Summary', needsPerson: true },
-  { id: 'ancestor-narrative', label: 'Ancestor Narrative', needsPerson: true, needsGenerations: true },
-  { id: 'descendant-narrative', label: 'Descendant Narrative', needsPerson: true, needsGenerations: true },
-  { id: 'narrative-report', label: 'Narrative Report', needsPerson: true, needsGenerations: true },
-  { id: 'ahnentafel-report', label: 'Ahnentafel Report', needsPerson: true, needsGenerations: true },
-  { id: 'register-report', label: 'Register Report', needsPerson: true, needsGenerations: true },
-  { id: 'descendancy-report', label: 'Descendancy Report', needsPerson: true, needsGenerations: true },
-  { id: 'family-group-sheet', label: 'Family Group Sheet', needsPerson: true },
-  { id: 'person-group', label: 'Person Group Insert', needsGroup: true },
-  { id: 'source-insert', label: 'Source Insert', needsSource: true },
-  { id: 'persons-list', label: 'Persons List' },
-  { id: 'places-list', label: 'Places List' },
-  { id: 'sources-list', label: 'Sources List' },
-  { id: 'bibliography', label: 'Bibliography (long citations)' },
-  { id: 'footnotes', label: 'Footnotes (short citations)' },
-  { id: 'media-gallery', label: 'Media Gallery' },
-  { id: 'media-page', label: 'Media Page (single image)', needsMedia: true },
-  { id: 'saved-report', label: 'Saved Report Embed', needsSavedReport: true },
-  { id: 'saved-chart', label: 'Saved Chart Embed', needsSavedChart: true },
+  { id: 'cover', labelKey: 'books.sections.cover', configKind: 'text' },
+  { id: 'chapter', labelKey: 'books.sections.chapter', configKind: 'text' },
+  { id: 'title', labelKey: 'books.sections.title', configKind: 'text' },
+  { id: 'toc', labelKey: 'books.sections.toc', configKind: 'text' },
+  { id: 'custom-page', labelKey: 'books.sections.customPage', configKind: 'text' },
+  { id: 'person-summary', labelKey: 'books.sections.personSummary', configKind: 'person', needsPerson: true },
+  { id: 'ancestor-narrative', labelKey: 'books.sections.ancestorNarrative', configKind: 'person', needsPerson: true, needsGenerations: true },
+  { id: 'descendant-narrative', labelKey: 'books.sections.descendantNarrative', configKind: 'person', needsPerson: true, needsGenerations: true },
+  { id: 'narrative-report', labelKey: 'books.sections.narrativeReport', configKind: 'person', needsPerson: true, needsGenerations: true },
+  { id: 'ahnentafel-report', labelKey: 'books.sections.ahnentafelReport', configKind: 'person', needsPerson: true, needsGenerations: true },
+  { id: 'register-report', labelKey: 'books.sections.registerReport', configKind: 'person', needsPerson: true, needsGenerations: true },
+  { id: 'descendancy-report', labelKey: 'books.sections.descendancyReport', configKind: 'person', needsPerson: true, needsGenerations: true },
+  { id: 'family-group-sheet', labelKey: 'books.sections.familyGroupSheet', configKind: 'family', needsPerson: true },
+  { id: 'person-group', labelKey: 'books.sections.personGroup', configKind: 'report', needsGroup: true },
+  { id: 'source-insert', labelKey: 'books.sections.sourceInsert', configKind: 'report', needsSource: true },
+  { id: 'persons-list', labelKey: 'books.sections.personsList', configKind: 'report' },
+  { id: 'places-list', labelKey: 'books.sections.placesList', configKind: 'report' },
+  { id: 'sources-list', labelKey: 'books.sections.sourcesList', configKind: 'report' },
+  { id: 'bibliography', labelKey: 'books.sections.bibliography', configKind: 'report' },
+  { id: 'footnotes', labelKey: 'books.sections.footnotes', configKind: 'report' },
+  { id: 'media-gallery', labelKey: 'books.sections.mediaGallery', configKind: 'report' },
+  { id: 'media-page', labelKey: 'books.sections.mediaPage', configKind: 'report', needsMedia: true },
+  { id: 'saved-report', labelKey: 'books.sections.savedReport', configKind: 'report', needsSavedReport: true },
+  { id: 'saved-chart', labelKey: 'books.sections.savedChart', configKind: 'chart', needsSavedChart: true },
 ];
+
+// The six themes are the identifiers shipped by MacFamilyTree 11's
+// CoreBooks.strings. CSS lives here so live preview, HTML, and bundle exports
+// all share one book renderer mapping.
+export const BOOK_THEME_PRESETS = [
+  {
+    id: 'BlackAndWhite', labelKey: 'books.themes.blackAndWhite', preview: { background: '#ffffff', foreground: '#111111', accent: '#111111' },
+    css: 'body{background:#fff;color:#111} h1,h2,h3{font-family:-apple-system,system-ui,"Noto Naskh Arabic",Tahoma,sans-serif;font-weight:800} h2{border-bottom:3px double #111} .book-title-page{letter-spacing:.02em}',
+  },
+  {
+    id: 'Forest', labelKey: 'books.themes.forest', preview: { background: '#f3f0df', foreground: '#203b2c', accent: '#52734d' },
+    css: 'body{background:#f3f0df;color:#203b2c} h1,h2,h3{color:#294d37} h2{border-color:#78946f} .book-title-page{background:linear-gradient(135deg,#183828,#52734d);color:#fff;padding:20px;border-radius:8px}',
+  },
+  {
+    id: 'PictureWithWhiteText', labelKey: 'books.themes.largePicture', preview: { background: '#24364b', foreground: '#ffffff', accent: '#b9d4ef' },
+    css: 'body{background:#f6f7f9;color:#172033} h2{border-color:#9eb2ca} .book-title-page{background:linear-gradient(135deg,#111827,#496987 58%,#8aa6bd);color:#fff;padding:42px 28px;border-radius:8px;text-shadow:0 1px 4px #000}',
+  },
+  {
+    id: 'Modern', labelKey: 'books.themes.modern', preview: { background: '#f7f9fc', foreground: '#172033', accent: '#356aa0' },
+    css: 'body{background:#f7f9fc;color:#172033} h1{font-weight:750;letter-spacing:-.03em} h2{color:#285d91;border-bottom:4px solid #7ca4ca} th{color:#285d91} .book-title-page{border-inline-start:10px solid #356aa0;padding-inline-start:22px}',
+  },
+  {
+    id: 'Magenta', labelKey: 'books.themes.magenta', preview: { background: '#fff4fb', foreground: '#481037', accent: '#b11978' },
+    css: 'body{background:#fff4fb;color:#481037} h1,h2,h3{color:#8f145f} h2{border-color:#d46aa8} .book-title-page{background:linear-gradient(140deg,#6d0f49,#bd2b82);color:#fff;padding:28px;border-radius:8px}',
+  },
+  {
+    id: 'Pure', labelKey: 'books.themes.pure', preview: { background: '#ffffff', foreground: '#252525', accent: '#a6a6a6' },
+    css: 'body{background:#fff;color:#252525} h1{font-weight:500;letter-spacing:.04em} h2{font-weight:500;border-bottom:1px solid #bbb} h3{font-weight:600} .book-title-page{text-align:center;padding-block:48px}',
+  },
+];
+
+export const DEFAULT_BOOK_THEME_ID = 'Pure';
+
+export function bookThemeFor(themeId) {
+  return BOOK_THEME_PRESETS.find((theme) => theme.id === themeId) || BOOK_THEME_PRESETS.find((theme) => theme.id === DEFAULT_BOOK_THEME_ID);
+}
 
 // New-book templates (#41) — preset section lists for common book types.
 export const BOOK_TEMPLATES = [
-  { id: 'blank', label: 'Blank book', sections: [{ kind: 'cover', text: 'My Family Book' }] },
-  { id: 'ancestor', label: 'Ancestor book', sections: [
+  { id: 'blank', labelKey: 'books.templates.blank', sections: [{ kind: 'cover', text: 'My Family Book' }] },
+  { id: 'ancestor', labelKey: 'books.templates.ancestor', sections: [
     { kind: 'cover', text: 'Ancestors' },
     { kind: 'toc' },
     { kind: 'ahnentafel-report', generations: 6 },
     { kind: 'ancestor-narrative', generations: 5 },
     { kind: 'bibliography' },
   ] },
-  { id: 'descendant', label: 'Descendant book', sections: [
+  { id: 'descendant', labelKey: 'books.templates.descendant', sections: [
     { kind: 'cover', text: 'Descendants' },
     { kind: 'toc' },
     { kind: 'register-report', generations: 4 },
     { kind: 'descendant-narrative', generations: 4 },
     { kind: 'bibliography' },
   ] },
-  { id: 'family', label: 'Family book', sections: [
+  { id: 'family', labelKey: 'books.templates.family', sections: [
     { kind: 'cover', text: 'Our Family' },
     { kind: 'toc' },
     { kind: 'family-group-sheet' },
@@ -147,14 +185,97 @@ export const BOOK_TEMPLATES = [
   ] },
 ];
 
-export function bookFromTemplate(templateId, title) {
+export function bookFromTemplate(templateId, title, outputLanguage = 'en') {
   const template = BOOK_TEMPLATES.find((t) => t.id === templateId) || BOOK_TEMPLATES[0];
+  const resolvedTitle = title || 'My Family Book';
   return {
     id: newBookId(),
-    title: title || template.label,
-    sections: template.sections.map((section) => ({ ...section })),
+    title: resolvedTitle,
+    themeId: DEFAULT_BOOK_THEME_ID,
+    outputLanguage,
+    sections: template.sections.map((section) => section.kind === 'cover'
+      ? { ...section, text: resolvedTitle }
+      : { ...section }),
     presentationSettings: normalizeBookPresentationSettings({}),
   };
+}
+
+export const ASSISTANT_BOOK_TYPES = [
+  { id: 'person', labelKey: 'books.assistant.types.person' },
+  { id: 'family', labelKey: 'books.assistant.types.family' },
+  { id: 'ancestor', labelKey: 'books.assistant.types.ancestor' },
+  { id: 'descendant', labelKey: 'books.assistant.types.descendant' },
+  { id: 'empty', labelKey: 'books.assistant.types.empty' },
+];
+
+/** Build the initial section plan used by the New Book Assistant. */
+export function buildAssistantSectionPlan(options = {}) {
+  const type = ASSISTANT_BOOK_TYPES.some((entry) => entry.id === options.bookType) ? options.bookType : 'person';
+  const targetRecordName = options.targetPersonId || '';
+  const common = {
+    targetRecordName,
+    targetFamilyRecordName: options.targetFamilyId || '',
+    scope: options.scope || (type === 'ancestor' ? 'ancestors' : type === 'descendant' ? 'descendants' : 'relatives'),
+    sort: options.sort || 'name',
+    personFilter: 'all',
+    includeSources: options.includeSources !== false,
+    includeMedia: options.includeMedia !== false,
+    includeNotes: options.includeNotes !== false,
+    includePrivate: false,
+  };
+  const cover = { kind: 'cover', text: options.title || 'My Family Book', subtitle: options.subtitle || '', author: options.author || '', date: options.date || '' };
+  if (type === 'empty') return [cover, { kind: 'toc', tocStyle: 'numbered' }];
+  const sections = [cover, { kind: 'toc', tocStyle: 'numbered' }];
+  if (type === 'person') sections.push({ kind: 'person-summary', ...common }, { kind: 'family-group-sheet', ...common });
+  if (type === 'family') sections.push({ kind: 'family-group-sheet', ...common }, { kind: 'persons-list', ...common, scope: 'family' });
+  if (type === 'ancestor') sections.push(
+    { kind: 'ahnentafel-report', ...common, generations: clampGenerations(options.generationsUp, 6) },
+    { kind: 'ancestor-narrative', ...common, generations: clampGenerations(options.generationsUp, 5) },
+  );
+  if (type === 'descendant') sections.push(
+    { kind: 'register-report', ...common, generations: clampGenerations(options.generationsDown, 4) },
+    { kind: 'descendant-narrative', ...common, generations: clampGenerations(options.generationsDown, 4) },
+  );
+  if (options.includeMedia !== false) sections.push({ kind: 'media-gallery', ...common });
+  if (options.includeSources !== false) sections.push({ kind: 'bibliography', ...common });
+  return sections;
+}
+
+export function bookFromAssistant(options = {}) {
+  return {
+    id: newBookId(),
+    title: options.title || 'My Family Book',
+    bookType: options.bookType || 'person',
+    outputLanguage: options.outputLanguage || 'en',
+    themeId: bookThemeFor(options.themeId)?.id || DEFAULT_BOOK_THEME_ID,
+    assistantScope: {
+      generationsUp: clampGenerations(options.generationsUp, 5),
+      generationsDown: clampGenerations(options.generationsDown, 4),
+      includeSources: options.includeSources !== false,
+      includeMedia: options.includeMedia !== false,
+    },
+    sections: buildAssistantSectionPlan(options),
+    presentationSettings: normalizeBookPresentationSettings({}),
+  };
+}
+
+export function bookEditSignature(book) {
+  const { savedAt: _savedAt, ...editable } = book || {};
+  return JSON.stringify(normalizeSignatureValue(editable));
+}
+
+function normalizeSignatureValue(value) {
+  if (Array.isArray(value)) return value.map(normalizeSignatureValue);
+  if (!value || typeof value !== 'object') return value;
+  return Object.keys(value).sort().reduce((result, key) => {
+    result[key] = normalizeSignatureValue(value[key]);
+    return result;
+  }, {});
+}
+
+function clampGenerations(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? Math.max(1, Math.min(12, Math.round(number))) : fallback;
 }
 
 export function normalizeBookPresentationSettings(settings = {}) {
@@ -174,10 +295,11 @@ export function normalizeBookPresentationSettings(settings = {}) {
 export async function validateBook(book) {
   const errors = [];
   const warnings = [];
+  const t = (key, params = {}) => translate(key, params, { localization: getCurrentLocalization() });
   let savedReports = null;
   let savedCharts = null;
   if (!book || !Array.isArray(book.sections) || book.sections.length === 0) {
-    errors.push({ sectionIndex: -1, message: 'Book has no sections.' });
+    errors.push({ sectionIndex: -1, message: t('books.validation.noSections') });
     return { errors, warnings };
   }
 
@@ -197,52 +319,57 @@ export async function validateBook(book) {
     const kind = section?.kind;
     const def = SECTION_KINDS.find((s) => s.id === kind);
     if (!def) {
-      errors.push({ sectionIndex: i, message: `Unknown section kind: ${kind}` });
+      errors.push({ sectionIndex: i, message: t('books.validation.unknownKind', { kind }) });
       continue;
     }
+    const sectionLabel = t(def.labelKey);
     if (def.needsPerson) {
       if (!section.targetRecordName) {
-        errors.push({ sectionIndex: i, message: `${def.label}: no person selected.` });
+        errors.push({ sectionIndex: i, message: t('books.validation.noPerson', { section: sectionLabel }) });
       } else if (!(await exists(section.targetRecordName))) {
-        errors.push({ sectionIndex: i, message: `${def.label}: person ${section.targetRecordName} no longer exists.` });
+        errors.push({ sectionIndex: i, message: t('books.validation.personMissing', { section: sectionLabel, person: section.targetRecordName }) });
       }
     }
     if (def.needsGenerations) {
       const g = Number(section.generations);
-      if (!Number.isFinite(g) || g <= 0) warnings.push({ sectionIndex: i, message: `${def.label}: using default generations.` });
-      else if (g > 12) warnings.push({ sectionIndex: i, message: `${def.label}: ${g} generations may produce a very long report.` });
+      if (!Number.isFinite(g) || g <= 0) warnings.push({ sectionIndex: i, message: t('books.validation.defaultGenerations', { section: sectionLabel }) });
+      else if (g > 12) warnings.push({ sectionIndex: i, message: t('books.validation.longReport', { section: sectionLabel, count: g }) });
     }
     if (def.needsGroup) {
-      if (!section.groupRecordName) errors.push({ sectionIndex: i, message: `${def.label}: no group selected.` });
-      else if (!(await exists(section.groupRecordName))) errors.push({ sectionIndex: i, message: `${def.label}: group missing.` });
+      if (!section.groupRecordName) errors.push({ sectionIndex: i, message: t('books.validation.noGroup', { section: sectionLabel }) });
+      else if (!(await exists(section.groupRecordName))) errors.push({ sectionIndex: i, message: t('books.validation.groupMissing', { section: sectionLabel }) });
     }
     if (def.needsSource) {
-      if (!section.sourceRecordName) errors.push({ sectionIndex: i, message: `${def.label}: no source selected.` });
-      else if (!(await exists(section.sourceRecordName))) errors.push({ sectionIndex: i, message: `${def.label}: source missing.` });
+      if (!section.sourceRecordName) errors.push({ sectionIndex: i, message: t('books.validation.noSource', { section: sectionLabel }) });
+      else if (!(await exists(section.sourceRecordName))) errors.push({ sectionIndex: i, message: t('books.validation.sourceMissing', { section: sectionLabel }) });
+    }
+    if (def.needsMedia) {
+      if (!section.targetRecordName) errors.push({ sectionIndex: i, message: t('books.validation.noMedia', { section: sectionLabel }) });
+      else if (!(await exists(section.targetRecordName))) errors.push({ sectionIndex: i, message: t('books.validation.mediaMissing', { section: sectionLabel }) });
     }
     if (kind === 'saved-report' && !section.savedReportId) {
-      errors.push({ sectionIndex: i, message: 'Saved Report Embed: no saved report selected.' });
+      errors.push({ sectionIndex: i, message: t('books.validation.noSavedReport') });
     } else if (kind === 'saved-report') {
       savedReports ??= await listSavedReports();
       if (!savedReports.some((report) => report.id === section.savedReportId)) {
-        errors.push({ sectionIndex: i, message: 'Saved Report Embed: saved report no longer exists.' });
+        errors.push({ sectionIndex: i, message: t('books.validation.savedReportMissing') });
       }
     }
     if (kind === 'saved-chart' && !section.savedChartId) {
-      errors.push({ sectionIndex: i, message: 'Saved Chart Embed: no saved chart selected.' });
+      errors.push({ sectionIndex: i, message: t('books.validation.noSavedChart') });
     } else if (kind === 'saved-chart') {
       savedCharts ??= await listChartDocuments();
       if (!savedCharts.some((chart) => chart.id === section.savedChartId)) {
-        errors.push({ sectionIndex: i, message: 'Saved Chart Embed: saved chart no longer exists.' });
+        errors.push({ sectionIndex: i, message: t('books.validation.savedChartMissing') });
       }
     }
-    if (kind === 'cover' || kind === 'title' || kind === 'chapter') {
-      if (!(section.text || '').trim()) warnings.push({ sectionIndex: i, message: `${def.label}: empty title.` });
+    if (kind === 'cover' || kind === 'title' || kind === 'chapter' || kind === 'custom-page') {
+      if (!(section.text || '').trim()) warnings.push({ sectionIndex: i, message: t('books.validation.emptyTitle', { section: sectionLabel }) });
     }
   }
 
   const tocCount = book.sections.filter((s) => s?.kind === 'toc').length;
-  if (tocCount > 1) warnings.push({ sectionIndex: -1, message: `Book has ${tocCount} Table of Contents sections.` });
+  if (tocCount > 1) warnings.push({ sectionIndex: -1, message: t('books.validation.multipleToc', { count: tocCount }) });
   return { errors, warnings };
 }
 
@@ -280,6 +407,10 @@ export async function compileBook(book) {
   const compiled = emptyReport(book.title || 'Untitled Book');
   const presentationSettings = normalizeBookPresentationSettings(book.presentationSettings);
   compiled.pageStyle = presentationSettings.pageStyle;
+  compiled.bookTheme = bookThemeFor(book.themeId);
+  compiled.outputLanguage = book.outputLanguage || 'en';
+  compiled.localization = resolveLocalization({ locale: compiled.outputLanguage });
+  const t = (key, params = {}) => translate(key, params, { localization: compiled.localization });
   const paginateSections = presentationSettings.pageStyle.paginate;
   const tocEntries = []; // collected as we compile so TOC placeholder can materialize
   const author = await safeGetAuthorInfo();
@@ -290,6 +421,13 @@ export async function compileBook(book) {
   for (let i = 0; i < (book.sections || []).length; i++) {
     const s = book.sections[i];
     const sectionBlocks = await sectionToBlocks(s, author);
+    // Renderer-only metadata stays non-enumerable so the public report AST
+    // remains backward compatible for text/CSV/RTF exporters and consumers.
+    sectionBlocks.forEach((entry) => Object.defineProperty(entry, 'bookSectionKind', {
+      value: s.kind,
+      enumerable: false,
+      configurable: true,
+    }));
     // Record TOC entry for the first title in the section
     const firstTitle = sectionBlocks.find((b) => b.kind === 'title');
     if (firstTitle && s.kind !== 'toc') {
@@ -301,7 +439,7 @@ export async function compileBook(book) {
 
   // Materialize any TOC placeholders
   compiled.blocks = compiled.blocks.map((b) =>
-    b.kind === '__toc_placeholder__' ? materializeToc(tocEntries, b.tocStyle) : b
+    b.kind === '__toc_placeholder__' ? materializeToc(tocEntries, b.tocStyle, t) : b
   );
   // Flatten the materialized TOC blocks
   const flat = [];
@@ -313,10 +451,10 @@ export async function compileBook(book) {
   return compiled;
 }
 
-function materializeToc(entries, style = 'numbered') {
+function materializeToc(entries, style = 'numbered', t = (key) => key) {
   const items = entries.map((e) => (style === 'plain' ? e.text : `${e.index}. ${e.text}`));
   return [
-    block.title('Table of Contents', 2),
+    block.title(t('books.sections.toc'), 2),
     style === 'compact' ? block.paragraph(items.join(' · ')) : block.list(items),
   ];
 }
@@ -328,6 +466,12 @@ async function sectionToBlocks(section, author = null) {
       return buildTitlePage(section, author);
     case 'chapter':
       return buildChapterBlocks(section);
+    case 'custom-page':
+      return [
+        section.text ? block.title(section.text, 2) : null,
+        section.body ? block.paragraph(section.body) : null,
+        section.note ? block.paragraph(section.note) : null,
+      ].filter(Boolean);
     case 'toc':
       // Placeholder — materialized after all sections compile so page numbers are consistent.
       return [{ kind: '__toc_placeholder__', tocStyle: section.tocStyle || 'numbered' }];
@@ -634,19 +778,28 @@ async function buildSourceInsert(sourceRecordName) {
 
 export async function downloadBookHTML(book, { filenameBase } = {}) {
   const compiled = await compileBook(book);
-  const blob = new Blob([renderHTML(compiled)], { type: 'text/html' });
+  const blob = new Blob([renderBookHTML(book, compiled)], { type: 'text/html' });
   downloadBlob(blob, `${safeFilename(filenameBase || book.title || compiled.title)}.html`);
+}
+
+export function renderBookHTML(book, compiled) {
+  return renderHTML(compiled, {
+    theme: bookThemeFor(book?.themeId),
+    localization: compiled?.localization || resolveLocalization({ locale: book?.outputLanguage || 'en' }),
+  });
 }
 
 export async function downloadBookBundle(book, { includeWebsite = true, siteOptions = {}, onProgress, signal } = {}) {
   if (signal?.aborted) throw new DOMException('Book bundle export canceled.', 'AbortError');
   const compiled = await compileBook(book);
   const zip = new JSZip();
-  zip.file('book/index.html', renderHTML(compiled));
+  zip.file('book/index.html', renderBookHTML(book, compiled));
   zip.file('book/book.txt', renderText(compiled));
   zip.file('manifest.json', JSON.stringify({
     format: 'cloudtreeweb-book-bundle',
     title: book.title || compiled.title,
+    theme: bookThemeFor(book.themeId)?.id,
+    outputLanguage: book.outputLanguage || 'en',
     exportedAt: new Date().toISOString(),
     sections: (book.sections || []).map((section) => section.kind),
   }, null, 2));
