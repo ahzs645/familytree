@@ -16,7 +16,7 @@ export const EXPORT_FORMATS = [
   { id: 'pdf', label: 'PDF (via print)', ext: 'pdf', mime: 'application/pdf' },
 ];
 
-function renderTo(format, report, { theme } = {}) {
+function renderTo(format, report, { theme, csvOptions } = {}) {
   switch (format) {
     case 'html':
     case 'pdf':
@@ -24,7 +24,7 @@ function renderTo(format, report, { theme } = {}) {
     case 'text':
       return renderText(report);
     case 'csv':
-      return renderCSV(report);
+      return renderCSV(report, csvOptions);
     case 'rtf':
       return renderRTF(report);
     default:
@@ -32,7 +32,7 @@ function renderTo(format, report, { theme } = {}) {
   }
 }
 
-export function downloadReport(format, report, { theme, filenameBase, author } = {}) {
+export function downloadReport(format, report, { theme, filenameBase, author, csvOptions } = {}) {
   const fmt = EXPORT_FORMATS.find((f) => f.id === format);
   if (!fmt) throw new Error('Unknown format ' + format);
 
@@ -54,7 +54,7 @@ export function downloadReport(format, report, { theme, filenameBase, author } =
     return;
   }
 
-  const content = renderTo(format, decoratedReport, { theme });
+  const content = renderTo(format, decoratedReport, { theme, csvOptions });
   const blob = new Blob([content], { type: fmt.mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

@@ -18,6 +18,13 @@ describe('localizeReportAst', () => {
     expect(columns.every((c) => !/^(Type|Date|Description)$/.test(c))).toBe(true);
   });
 
+  it('localizes known structural values in table rows', () => {
+    const report = emptyReport('Changes List');
+    report.blocks.push(block.table(['Changes', 'Still in Database'], [['Delete', 'Yes']]));
+    const table = localizeReportAst(report, ar).blocks[0];
+    expect(table.rows[0]).toEqual([ar('reports.terms.delete'), ar('common.yes')]);
+  });
+
   it('localizes the label half of "Label: value" lines and leaves the value alone', () => {
     const report = emptyReport('Person Summary');
     report.blocks.push(block.paragraph('Born: 10 04 2000'));

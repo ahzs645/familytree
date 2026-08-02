@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildGiaPhaLineageReport, buildKinshipReport, buildPersonEventsReport, buildStoryReport } from './builders.js';
+import { buildChangesListReport, buildDNAReport, buildGiaPhaLineageReport, buildKinshipReport, buildPersonEventsReport, buildStoryReport, buildTodayReport } from './builders.js';
 
 const mockState = vi.hoisted(() => ({ db: null }));
 
@@ -126,6 +126,40 @@ describe('report builders', () => {
     expect(tables[0].rows).toContainEqual(['2', 'Cha', 'F', 'Nguyễn Văn Cha', '2 thg 1, 1880', '-']);
     expect(tables[1].columns).toEqual(['Đời', 'Vai trò', 'Mã nhánh', 'Họ tên', 'Sinh', 'Mất', 'Phối ngẫu', 'Con']);
     expect(tables[1].rows).toContainEqual(['1', 'Gốc', '1', 'Nguyễn Văn Gốc', '4 thg 3, 1910', '-', 'Lê Thị Phối', 'Nguyễn Văn Con']);
+  });
+
+  it('builds a grouped Today report from person and family events', async () => {
+    mockState.db = createMockDb([
+      person('p1', 'Ada Smith', { birth: '1900-08-01' }),
+      family('f1', 'p1', null, 'Smith family'),
+      event('fe1', 'FamilyEvent', { family: ref('f1', 'Family'), eventType: field('Marriage'), date: field('1920-08-01') }),
+    ]);
+    const report = await buildTodayReport({ forDate: '2026-08-01', groupByEventType: true });
+    expect(report.blocks.filter((entry) => entry.kind === 'title').map((entry) => entry.text)).toEqual(expect.arrayContaining(['Birth', 'Marriage']));
+    expect(report.blocks.filter((entry) => entry.kind === 'table').flatMap((entry) => entry.rows)).toEqual(expect.arrayContaining([
+      ['Ada Smith', '1900-08-01', '126'],
+      ['Smith family', '1920-08-01', '106'],
+    ]));
+  });
+
+  it('builds DNA report rows with normalized kinds and data/file presence', async () => {
+    mockState.db = createMockDb([
+      person('p1', 'Ada Smith'),
+      { recordName: 'dna1', recordType: 'DNATestResult', fields: { person: ref('p1', 'Person'), testName: field('Kit A'), testType: field('Y-DNA'), lab: field('Lab'), haplogroup: field('R1b'), ystrMarkers: field('12=13'), rawDataFileName: field('kit.zip') } },
+    ]);
+    const report = await buildDNAReport();
+    expect(report.blocks.find((entry) => entry.kind === 'table').rows).toContainEqual(['Ada Smith', 'Kit A', 'YDNA', 'Lab', 'R1b', 'Yes', 'kit.zip']);
+  });
+
+  it('filters and groups change-list rows with author and existence', async () => {
+    mockState.db = createMockDb([
+      person('p1', 'Ada Smith'),
+      { recordName: 'c1', recordType: 'ChangeLogEntry', fields: { target: ref('p1', 'Person'), targetType: field('Person'), timestamp: field('2026-01-01T00:00:00Z'), author: field('Ada'), changeType: field('Change'), summary: field('Updated') } },
+      { recordName: 'c2', recordType: 'ChangeLogEntry', fields: { target: ref('missing', 'Source'), targetType: field('Source'), timestamp: field('2025-01-01T00:00:00Z'), author: field('Ben'), changeType: field('Delete'), summary: field('Deleted') } },
+    ]);
+    const report = await buildChangesListReport({ includeSources: false, groupBy: 'author', showAuthor: true, showStillExists: true });
+    expect(report.blocks.find((entry) => entry.kind === 'title' && entry.level === 2)?.text).toBe('Ada');
+    expect(report.blocks.find((entry) => entry.kind === 'table').rows[0]).toEqual(expect.arrayContaining(['Ada', 'Yes']));
   });
 });
 

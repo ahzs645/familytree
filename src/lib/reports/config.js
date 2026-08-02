@@ -36,9 +36,11 @@ import {
   buildMapReport,
   buildKinshipRosterReport,
   buildPersonAnalysisReport,
+  buildDNAReport,
 } from './builders.js';
 import { newReportId } from './savedReports.js';
-import { PRESENTATION_THEMES, normalizePageStyle } from '../presentationSettings.js';
+import { PRESENTATION_THEMES } from '../presentationSettings.js';
+import { normalizeReportLanguage, normalizeReportPageStyle } from './presentationSettings.js';
 
 export const REPORT_BUILDERS = [
   { id: 'person-summary', category: 'Person Reports', label: 'Person Summary', needsSubject: true, subjectType: 'Person', subjectLabel: 'Person', includeHeader: true, defaultOptions: {}, optionsSchema: [
@@ -137,9 +139,30 @@ export const REPORT_BUILDERS = [
   { id: 'status-report', category: 'Analysis', label: 'Status Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Shows high-level database completeness and count metrics.', run: () => buildStatusReport() },
   { id: 'today-report', category: 'Analysis', label: 'Today Report', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
     { key: 'forDate', label: 'Generate for date', type: 'text', default: '', placeholder: 'YYYY-MM-DD (blank = today)' },
-    { key: 'sortBy', label: 'Sort by', type: 'select', default: 'type', choices: [['type', 'Type'], ['person', 'Person']] },
-  ], helpText: 'Shows recorded births and deaths that match a given month and day, with how many years ago.', run: (rn, o) => buildTodayReport(o) },
-  { id: 'changes-list', category: 'Lists', label: 'Changes List', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists recent change-log entries in reverse chronological order.', run: () => buildChangesListReport() },
+    { key: 'sortBy', label: 'Sorting', type: 'select', default: 'date', choices: [['date', 'By Date'], ['person', 'By Name']] },
+    { key: 'groupByEventType', label: 'Grouping', type: 'boolean', default: true, checkboxLabel: 'Group by event type' },
+    { key: 'includeBirth', label: 'Birth', type: 'boolean', default: true, checkboxLabel: 'Include births' },
+    { key: 'todayIncludeChristening', label: 'Christening', type: 'boolean', default: true, checkboxLabel: 'Include christenings and baptisms' },
+    { key: 'includeDeath', label: 'Death', type: 'boolean', default: true, checkboxLabel: 'Include deaths' },
+    { key: 'todayIncludeBurial', label: 'Burial', type: 'boolean', default: true, checkboxLabel: 'Include burials' },
+    { key: 'includeMarriage', label: 'Marriage', type: 'boolean', default: true, checkboxLabel: 'Include marriages' },
+    { key: 'includeEngagement', label: 'Engagement', type: 'boolean', default: true, checkboxLabel: 'Include engagements' },
+    { key: 'includeDivorce', label: 'Divorce', type: 'boolean', default: true, checkboxLabel: 'Include divorces and separations' },
+    { key: 'includeOtherEvents', label: 'Other events', type: 'boolean', default: false, checkboxLabel: 'Include other person and family events' },
+  ], helpText: 'Shows selected person and family event anniversaries for a given month and day, grouped by event type.', run: (rn, o) => buildTodayReport(o) },
+  { id: 'changes-list', category: 'Lists', label: 'Changes List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
+    { key: 'includePersons', label: 'Persons', type: 'boolean', default: true, checkboxLabel: 'Include persons' },
+    { key: 'includeFamilies', label: 'Families', type: 'boolean', default: true, checkboxLabel: 'Include families' },
+    { key: 'includeSources', label: 'Sources', type: 'boolean', default: true, checkboxLabel: 'Include sources' },
+    { key: 'includePlaces', label: 'Places', type: 'boolean', default: true, checkboxLabel: 'Include places' },
+    { key: 'includeMedia', label: 'Media', type: 'boolean', default: true, checkboxLabel: 'Include media' },
+    { key: 'includeOtherObjects', label: 'Other objects', type: 'boolean', default: true, checkboxLabel: 'Include other object types' },
+    { key: 'showAuthor', label: 'Author', type: 'boolean', default: true, checkboxLabel: 'Show author of change' },
+    { key: 'showStillExists', label: 'Still in database', type: 'boolean', default: true, checkboxLabel: 'Display whether the entry is still in the database' },
+    { key: 'groupBy', label: 'Grouping', type: 'select', default: 'none', choices: [['none', 'No grouping'], ['objectType', 'Group by types'], ['author', 'Group by author']] },
+    { key: 'sortOrder', label: 'Sorting', type: 'select', default: 'latest', choices: [['latest', 'Latest change first'], ['earliest', 'Earliest change first']] },
+  ], helpText: 'Lists change-log entries with object, author, existence, grouping, and date-order controls.', run: (rn, o) => buildChangesListReport(o) },
+  { id: 'dna-report', category: 'Person Reports', label: 'DNA Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Summarizes DNA tests by person, kind, provider, result data, and raw-file references.', run: (rn, o) => buildDNAReport(o) },
   { id: 'map-report', category: 'Analysis', label: 'Map Report', needsSubject: false, includeHeader: true, defaultOptions: {}, helpText: 'Lists places with latitude, longitude, and GeoName identifiers.', run: () => buildMapReport() },
   { id: 'todo-list', category: 'Lists', label: 'ToDo List', needsSubject: false, includeHeader: true, defaultOptions: {}, optionsSchema: [
     { key: 'sortBy', label: 'Sort by', type: 'select', default: 'due', choices: [['due', 'Due date'], ['priority', 'Priority'], ['status', 'Status'], ['title', 'Title']] },
@@ -185,11 +208,11 @@ export function normalizeReportOptions(builderOrId, options = {}) {
   };
 }
 
-export function createSavedReportPayload({ name, builderId, targetId, secondTargetId, options, pageStyle, themeId = 'plain' }) {
+export function createSavedReportPayload({ id, name, builderId, targetId, secondTargetId, options, pageStyle, themeId = 'plain', reportLanguage = 'app' }) {
   const builder = getReportBuilder(builderId) || REPORT_BUILDERS[0];
   const theme = PRESENTATION_THEMES.some((entry) => entry.id === themeId) ? themeId : 'plain';
   return {
-    id: newReportId(),
+    id: id || newReportId(),
     name,
     builderId: builder.id,
     targetRecordName: builder.needsSubject === false ? null : targetId || null,
@@ -197,8 +220,9 @@ export function createSavedReportPayload({ name, builderId, targetId, secondTarg
     secondTargetRecordName: builder.needsSecondSubject ? secondTargetId || null : null,
     secondTargetRecordType: builder.needsSecondSubject ? builder.secondSubjectType || 'Person' : null,
     options: normalizeReportOptions(builder, options),
-    pageStyle: normalizePageStyle(pageStyle),
+    pageStyle: normalizeReportPageStyle(pageStyle),
     themeId: theme,
+    reportLanguage: normalizeReportLanguage(reportLanguage),
   };
 }
 
@@ -209,8 +233,9 @@ export function stateFromSavedReport(entry) {
     targetId: entry?.targetRecordName || null,
     secondTargetId: entry?.secondTargetRecordName || null,
     options: normalizeReportOptions(builder, entry?.options),
-    pageStyle: normalizePageStyle(entry?.pageStyle),
+    pageStyle: normalizeReportPageStyle(entry?.pageStyle),
     themeId: PRESENTATION_THEMES.some((theme) => theme.id === entry?.themeId) ? entry.themeId : 'plain',
+    reportLanguage: normalizeReportLanguage(entry?.reportLanguage),
   };
 }
 

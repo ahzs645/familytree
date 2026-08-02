@@ -48,6 +48,7 @@ describe('report configuration (src/lib/reports/config.js)', () => {
       options: { includeHeader: false },
       pageStyle: { paginate: true, background: 'sepia', pageSize: 'a4', orientation: 'landscape', margin: 72 },
       themeId: 'sepia',
+      reportLanguage: 'ar',
     });
 
     expect(payload).toMatchObject({
@@ -60,6 +61,7 @@ describe('report configuration (src/lib/reports/config.js)', () => {
       options: { includeHeader: false },
       pageStyle: { paginate: true, background: 'sepia', pageSize: 'a4', orientation: 'landscape', margin: 72 },
       themeId: 'sepia',
+      reportLanguage: 'ar',
     });
   });
 
@@ -71,6 +73,7 @@ describe('report configuration (src/lib/reports/config.js)', () => {
       options: { includeHeader: false },
       pageStyle: { margin: 60 },
       themeId: 'soft',
+      reportLanguage: 'ar',
     });
 
     expect(state).toMatchObject({
@@ -80,6 +83,7 @@ describe('report configuration (src/lib/reports/config.js)', () => {
       options: { includeHeader: false, generations: 5 },
       pageStyle: { paginate: false, background: 'none', pageSize: 'letter', orientation: 'portrait', margin: 60 },
       themeId: 'soft',
+      reportLanguage: 'ar',
     });
     expect(defaultOptionsForBuilder('register')).toMatchObject({ includeHeader: true, generations: 4 });
   });
@@ -104,5 +108,6 @@ describe('report configuration (src/lib/reports/config.js)', () => {
     expect(names).toContain('Person Reports');
     expect(names).toContain('Lineage Reports');
     expect(groups.find((group) => group.name === 'Analysis')?.builders.map((builder) => builder.id)).toContain('status-report');
+    expect(REPORT_BUILDERS.map((builder) => builder.id)).toContain('dna-report');
   });
 });

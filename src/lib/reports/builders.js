@@ -51,4 +51,6 @@ export {
   buildTodayReport,
 } from './builders/analysisReports.js';
 
+export { buildDNAReport } from './builders/dnaReports.js';
+
 export { REPORT_BUILDERS, getReportBuilder } from './builders/registry.js';

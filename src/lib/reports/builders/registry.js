@@ -45,6 +45,7 @@ import {
   buildStatusReport,
   buildTodayReport,
 } from './analysisReports.js';
+import { buildDNAReport } from './dnaReports.js';
 
 export const REPORT_BUILDERS = Object.freeze({
   'person-summary': buildPersonSummary,
@@ -79,6 +80,7 @@ export const REPORT_BUILDERS = Object.freeze({
   'status': buildStatusReport,
   'today': buildTodayReport,
   'map': buildMapReport,
+  'dna-report': buildDNAReport,
 });
 
 export function getReportBuilder(id) {

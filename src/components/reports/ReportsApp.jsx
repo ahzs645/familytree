@@ -3,11 +3,13 @@
  * save the configuration, export to any supported format.
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { Download, FileText, PanelLeftClose, PanelLeftOpen, Play, RotateCcw, RotateCw, Save, Search, Square, Trash2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Download, FileText, Minus, PanelLeftClose, PanelLeftOpen, Play, Plus, RotateCcw, RotateCw, Save, Search, Square, Trash2 } from 'lucide-react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import { getAppDataClient } from '../../lib/data/AppDataClient.js';
 import { compareStrings } from '../../lib/i18n.js';
+import { resolveLocalization, SUPPORTED_LOCALES } from '../../lib/i18n.js';
+import { translate } from '../../lib/translate.js';
 import { readField } from '../../lib/schema.js';
 import {
   REPORT_BUILDERS,
@@ -21,7 +23,7 @@ import {
 } from '../../lib/reports/config.js';
 import { applyPageStyle, listSavedReports, saveReport, deleteSavedReport, renameSavedReport } from '../../lib/reports/savedReports.js';
 import { EXPORT_FORMATS, downloadReport } from '../../lib/reports/export.js';
-import { DEFAULT_PAGE_STYLE, PRESENTATION_THEMES, normalizePageStyle } from '../../lib/presentationSettings.js';
+import { DEFAULT_PAGE_STYLE, PRESENTATION_THEMES } from '../../lib/presentationSettings.js';
 import { getAuthorInfo } from '../../lib/authorInfo.js';
 import { listBooks, saveBook, newBookId, normalizeBookPresentationSettings } from '../../lib/books.js';
 import { Button } from '../ui/Button.jsx';
@@ -37,6 +39,9 @@ import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
 import { useActivePerson } from '../../contexts/ActivePersonContext.jsx';
 import { localizeReportAst } from '../../lib/reports/localizeReport.js';
+import { REPORT_LANGUAGE_APP, normalizeReportLanguage, normalizeReportPageStyle, reportConfigurationSignature, reportContainsTables } from '../../lib/reports/presentationSettings.js';
+import { CSVExportSheet } from './CSVExportSheet.jsx';
+import { UnsavedReportSheet } from './UnsavedReportSheet.jsx';
 import {
   reportCategoryLabel,
   reportExportLabel,
@@ -48,7 +53,7 @@ import {
 
 // Re-exported for compatibility; the canonical home of the report registry
 // and its pure helpers is src/lib/reports/config.js.
-export { normalizePageStyle };
+export { normalizeReportPageStyle as normalizePageStyle };
 export {
   REPORT_BUILDERS,
   getReportBuilder,
@@ -61,7 +66,8 @@ export {
 };
 
 export function ReportsApp() {
-  const { t } = useTranslation();
+  const { t, localization } = useTranslation();
+  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { recordName: activePersonId, setActivePerson } = useActivePerson();
   const modal = useModal();
@@ -71,8 +77,14 @@ export function ReportsApp() {
   const [secondTargetId, setSecondTargetId] = useState(null);
   const [builderId, setBuilderId] = useState('person-summary');
   const [options, setOptions] = useState(() => defaultOptionsForBuilder('person-summary'));
-  const [pageStyle, setPageStyle] = useState(() => normalizePageStyle(DEFAULT_PAGE_STYLE));
+  const [pageStyle, setPageStyle] = useState(() => normalizeReportPageStyle(DEFAULT_PAGE_STYLE));
   const [themeId, setThemeId] = useState('plain');
+  const [reportLanguage, setReportLanguage] = useState(REPORT_LANGUAGE_APP);
+  const [previewZoom, setPreviewZoom] = useState('fit');
+  const [csvExportOpen, setCsvExportOpen] = useState(false);
+  const [currentSavedId, setCurrentSavedId] = useState(null);
+  const [baselineSignature, setBaselineSignature] = useState(null);
+  const [dirtyDecision, setDirtyDecision] = useState(null);
   const [report, setReport] = useState(null);
   const [customReport, setCustomReport] = useState(null);
   const [customizing, setCustomizing] = useState(false);
@@ -136,6 +148,15 @@ export function ReportsApp() {
   const builderCategories = useMemo(() => getReportBuilderCategories(filteredBuilders), [filteredBuilders]);
   const displayReport = customReport || report;
   const reportStats = useMemo(() => summarizeReport(displayReport), [displayReport]);
+  const reportLocalization = useMemo(() => (
+    reportLanguage === REPORT_LANGUAGE_APP
+      ? localization
+      : resolveLocalization({ ...localization, locale: reportLanguage, direction: 'auto' })
+  ), [localization, reportLanguage]);
+  const reportT = useCallback((key, params = {}) => translate(key, params, { localization: reportLocalization }), [reportLocalization]);
+  const configuration = useMemo(() => ({ builderId, targetId, secondTargetId, options, pageStyle, themeId, reportLanguage }), [builderId, options, pageStyle, reportLanguage, secondTargetId, targetId, themeId]);
+  const configurationSignature = useMemo(() => reportConfigurationSignature(configuration), [configuration]);
+  const dirty = baselineSignature != null && baselineSignature !== configurationSignature;
 
   useEffect(() => {
     let cancelled = false;
@@ -143,7 +164,7 @@ export function ReportsApp() {
       try {
         const [personList, storyList, savedReports, books, start] = await Promise.all([
           listAllPersons(),
-          listAllStories(),
+          listAllStories(t),
           listSavedReports(),
           listBooks(),
           findStartPerson(),
@@ -163,7 +184,7 @@ export function ReportsApp() {
         if (firstTarget && personList.some((person) => person.recordName === firstTarget)) setActivePerson(firstTarget);
         setSecondTargetId(personList.find((person) => person.recordName !== firstTarget)?.recordName || personList[0]?.recordName || null);
       } catch (error) {
-        if (!cancelled) setGenerationError(error?.message || 'Unable to load report subjects.');
+        if (!cancelled) setGenerationError(error?.message || t('reports.errors.loadSubjects'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -174,6 +195,10 @@ export function ReportsApp() {
     // Initial report defaults only; changing report subjects should not reload saved lists.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!loading && baselineSignature == null) setBaselineSignature(configurationSignature);
+  }, [baselineSignature, configurationSignature, loading]);
 
   useEffect(() => {
     if (loading || !needsSubject) return;
@@ -218,8 +243,8 @@ export function ReportsApp() {
       try {
         const ast = await builder.run(targetId, normalizedOptions, secondTargetId);
         const optioned = applyReportContentOptions(ast, normalizedOptions);
-        const localized = localizeReportAst(optioned, t);
-        const styled = applyPageStyle(localized, pageStyle);
+        const localized = localizeReportAst(optioned, reportT);
+        const styled = applyPageStyle({ ...localized, localization: reportLocalization }, pageStyle);
         if (!cancelled && generationRequestRef.current === requestId) {
           setReport(styled);
           if (!customizing) {
@@ -231,7 +256,7 @@ export function ReportsApp() {
       } catch (error) {
         if (!cancelled && generationRequestRef.current === requestId) {
           setReport(null);
-          setGenerationError(error?.message || 'Report generation failed.');
+          setGenerationError(error?.message || t('reports.errors.generation'));
         }
       } finally {
         if (!cancelled && generationRequestRef.current === requestId) setReportLoading(false);
@@ -241,29 +266,34 @@ export function ReportsApp() {
     return () => {
       cancelled = true;
     };
-  }, [loading, builder, targetId, secondTargetId, options, pageStyle, t, customizing]);
+  }, [loading, builder, targetId, secondTargetId, options, pageStyle, reportT, reportLocalization, customizing]);
 
   const updateOption = useCallback((key, value) => {
     setOptions((current) => ({ ...current, [key]: value }));
   }, []);
 
-  const onBuilderChange = useCallback((nextBuilderId) => {
+  const applyBuilderChange = useCallback((nextBuilderId) => {
+    const nextOptions = defaultOptionsForBuilder(nextBuilderId);
     setBuilderId(nextBuilderId);
-    setOptions(defaultOptionsForBuilder(nextBuilderId));
+    setOptions(nextOptions);
+    setCurrentSavedId(null);
+    setBaselineSignature(reportConfigurationSignature({ ...configuration, builderId: nextBuilderId, options: nextOptions }));
     setGenerationError('');
     setCustomizing(false);
     setCustomReport(null);
     setUndoStack([]);
     setRedoStack([]);
-  }, []);
+  }, [configuration]);
 
   const builderLabel = (entry) => t(`reports.builders.${entry.id}`);
   const selectedBuilderLabel = builderLabel(builder);
 
-  const onSave = useCallback(async () => {
-    const name = await modal.prompt('Name for this report:', '', { title: t('reports.saveReport') });
-    if (!name) return;
-    await saveReport(createSavedReportPayload({
+  const saveCurrent = useCallback(async (saveAsNew = false) => {
+    const existing = !saveAsNew && currentSavedId ? savedList.find((entry) => entry.id === currentSavedId) : null;
+    const name = existing?.name || await modal.prompt(t('reports.prompts.name'), '', { title: t('reports.saveReport') });
+    if (!name) return false;
+    const saved = await saveReport(createSavedReportPayload({
+      id: existing?.id,
       name,
       builderId,
       targetId,
@@ -271,13 +301,36 @@ export function ReportsApp() {
       options,
       pageStyle,
       themeId,
+      reportLanguage,
     }));
     setSavedList(await listSavedReports());
-  }, [builderId, targetId, secondTargetId, options, pageStyle, themeId, modal, t]);
+    setCurrentSavedId(saved.id);
+    setBaselineSignature(configurationSignature);
+    return true;
+  }, [builderId, configurationSignature, currentSavedId, modal, options, pageStyle, reportLanguage, savedList, secondTargetId, t, targetId, themeId]);
+
+  const onSave = useCallback(() => saveCurrent(true), [saveCurrent]);
+
+  const requestDirtyDecision = useCallback(() => new Promise((resolve) => {
+    setDirtyDecision({ resolve });
+  }), []);
+
+  const confirmDirty = useCallback(async () => {
+    if (!dirty) return true;
+    const choice = await requestDirtyDecision();
+    if (choice === 'cancel') return false;
+    if (choice === 'save') return saveCurrent(false);
+    return true;
+  }, [dirty, requestDirtyDecision, saveCurrent]);
+
+  const onBuilderChange = useCallback(async (nextBuilderId) => {
+    if (nextBuilderId === builderId || !(await confirmDirty())) return;
+    applyBuilderChange(nextBuilderId);
+  }, [applyBuilderChange, builderId, confirmDirty]);
 
   const onApplySaved = useCallback(async (id) => {
     const entry = savedList.find((r) => r.id === id);
-    if (!entry) return;
+    if (!entry || !(await confirmDirty())) return;
     const state = stateFromSavedReport(entry);
     setBuilderId(state.builderId);
     setTargetId(state.targetId);
@@ -285,10 +338,55 @@ export function ReportsApp() {
     setOptions(state.options);
     setPageStyle(state.pageStyle);
     setThemeId(state.themeId);
-  }, [savedList]);
+    setReportLanguage(state.reportLanguage);
+    setCurrentSavedId(entry.id);
+    setBaselineSignature(reportConfigurationSignature({
+      builderId: state.builderId,
+      targetId: state.targetId,
+      secondTargetId: state.secondTargetId,
+      options: state.options,
+      pageStyle: state.pageStyle,
+      themeId: state.themeId,
+      reportLanguage: state.reportLanguage,
+    }));
+  }, [confirmDirty, savedList]);
+
+  const onDirtyChoice = useCallback((choice) => {
+    const resolver = dirtyDecision?.resolve;
+    setDirtyDecision(null);
+    resolver?.(choice);
+  }, [dirtyDecision]);
+
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const handler = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const onClick = async (event) => {
+      const anchor = event.target?.closest?.('a[href]');
+      if (!anchor || (anchor.target && anchor.target !== '_self')) return;
+      const href = anchor.getAttribute('href') || '';
+      if (!href || href.startsWith('#')) return;
+      const next = new URL(href, window.location.href);
+      if (next.origin !== window.location.origin) return;
+      if (next.pathname === window.location.pathname && next.search === window.location.search && next.hash === window.location.hash) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (await confirmDirty()) navigate(`${next.pathname}${next.search}${next.hash}`);
+    };
+    document.addEventListener('click', onClick, true);
+    return () => document.removeEventListener('click', onClick, true);
+  }, [confirmDirty, dirty, navigate]);
 
   const onDelete = useCallback(async (id) => {
-    if (!(await modal.confirm('Delete this saved report?', { title: t('reports.deleteReport'), okLabel: t('common.delete'), destructive: true }))) return;
+    if (!(await modal.confirm(t('reports.prompts.delete'), { title: t('reports.deleteReport'), okLabel: t('common.delete'), destructive: true }))) return;
     await deleteSavedReport(id);
     setSavedList(await listSavedReports());
   }, [modal, t]);
@@ -296,7 +394,7 @@ export function ReportsApp() {
   const onRename = useCallback(async (id) => {
     const entry = savedList.find((r) => r.id === id);
     if (!entry) return;
-    const name = await modal.prompt('Rename this saved report:', entry.name || '', { title: 'Rename Report' });
+    const name = await modal.prompt(t('reports.prompts.rename'), entry.name || '', { title: t('reports.ui.renameReport') });
     if (!name || name === entry.name) return;
     await renameSavedReport(id, name);
     setSavedList(await listSavedReports());
@@ -310,20 +408,21 @@ export function ReportsApp() {
     options,
     pageStyle,
     themeId,
-  }), [builderId, targetId, secondTargetId, options, pageStyle, themeId]);
+    reportLanguage,
+  }), [builderId, targetId, secondTargetId, options, pageStyle, themeId, reportLanguage]);
 
   const onAddToBook = useCallback(async () => {
-    const reportName = await modal.prompt('Name this report section:', selectedBuilderLabel, { title: 'Add Report to Book' });
+    const reportName = await modal.prompt(t('reports.prompts.sectionName'), selectedBuilderLabel, { title: t('reports.ui.addToBook') });
     if (!reportName) return;
     const savedReport = await saveReport(currentReportPayload(reportName));
     const books = await listBooks();
     const existing = books.find((book) => book.id === bookTargetId);
     const targetBook = existing || {
       id: newBookId(),
-      title: 'Family Reports',
+      title: t('reports.book.defaultTitle'),
       presentationSettings: normalizeBookPresentationSettings(),
       sections: [
-        { kind: 'cover', text: 'Family Reports', subtitle: '', author: '', date: '' },
+        { kind: 'cover', text: t('reports.book.defaultTitle'), subtitle: '', author: '', date: '' },
         { kind: 'toc', tocStyle: 'numbered' },
       ],
     };
@@ -336,7 +435,7 @@ export function ReportsApp() {
     const nextBooks = await listBooks();
     setSavedBooks(nextBooks);
     setBookTargetId(nextBook.id);
-  }, [bookTargetId, currentReportPayload, modal, selectedBuilderLabel]);
+  }, [bookTargetId, currentReportPayload, modal, selectedBuilderLabel, t]);
 
   const beginCustomize = useCallback(() => {
     if (!displayReport) return;
@@ -400,14 +499,23 @@ export function ReportsApp() {
     });
   }, []);
 
-  const onExport = useCallback((fmt) => {
+  const performExport = useCallback((fmt, csvOptions) => {
     if (!displayReport) return;
     downloadReport(fmt, displayReport, {
       filenameBase: displayReport.title,
       author: authorInfo,
       theme: themeId === 'plain' ? null : { id: themeId },
+      csvOptions,
     });
   }, [displayReport, authorInfo, themeId]);
+
+  const onExport = useCallback((fmt) => {
+    if (fmt === 'csv') {
+      setCsvExportOpen(true);
+      return;
+    }
+    performExport(fmt);
+  }, [performExport]);
 
   const onSpeak = useCallback(() => {
     if (!speechSupported) return;
@@ -446,8 +554,8 @@ export function ReportsApp() {
           size="icon"
           className="shrink-0"
           onClick={() => setLibraryOpen((open) => !open)}
-          title={libraryOpen ? 'Hide report library' : 'Show report library'}
-          aria-label={libraryOpen ? 'Hide report library' : 'Show report library'}
+          title={libraryOpen ? t('reports.ui.hideLibrary') : t('reports.ui.showLibrary')}
+          aria-label={libraryOpen ? t('reports.ui.hideLibrary') : t('reports.ui.showLibrary')}
         >
           {libraryOpen ? <PanelLeftClose size={17} /> : <PanelLeftOpen size={17} />}
         </Button>
@@ -466,7 +574,7 @@ export function ReportsApp() {
               variant="secondary"
               onClick={onSpeak}
               disabled={!displayReport || reportLoading}
-              title={speaking ? 'Stop speaking' : 'Read this report aloud'}
+              title={speaking ? t('reports.ui.stopSpeaking') : t('reports.ui.readAloud')}
             >
               {speaking ? <Square size={15} /> : <Play size={15} />}
               <span>{speaking ? t('reports.ui.stop') : t('reports.ui.play')}</span>
@@ -588,7 +696,7 @@ export function ReportsApp() {
                       <Select
                         value={current}
                         onChange={(next) => updateOption(option.key, next)}
-                        options={option.choices.map(([value, label]) => ({ value, label }))}
+                        options={option.choices.map(([value, label]) => ({ value, label: t(`reports.optionChoices.${option.key}.${value}`, { defaultValue: label }) }))}
                       />
                     </Field>
                   );
@@ -626,10 +734,21 @@ export function ReportsApp() {
                   <input type="checkbox" checked={options.includeHeader !== false} onChange={(e) => updateOption('includeHeader', e.target.checked)} /> {t('reports.title')}
                 </label>
               </Field>
+              <Field label={t('reports.presentation.language')}>
+                <Select
+                  value={reportLanguage}
+                  onChange={(value) => setReportLanguage(normalizeReportLanguage(value))}
+                  ariaLabel={t('reports.presentation.language')}
+                  options={[
+                    { value: REPORT_LANGUAGE_APP, label: t('reports.presentation.appLanguage') },
+                    ...SUPPORTED_LOCALES.map((entry) => ({ value: entry.value, label: entry.nativeLabel })),
+                  ]}
+                />
+              </Field>
             </InspectorSection>
 
             <InspectorSection title={t('reports.ui.stylePage')}>
-              <PresentationSettingsControls value={pageStyle} onChange={setPageStyle} />
+              <PresentationSettingsControls value={pageStyle} onChange={(next) => setPageStyle((current) => normalizeReportPageStyle({ ...current, ...next }))} />
               <Field label={t('reports.theme')}>
                 <Select
                   value={themeId}
@@ -640,6 +759,50 @@ export function ReportsApp() {
                   }))}
                 />
               </Field>
+              <Field label={t('reports.presentation.watermark')}>
+                <Input
+                  value={pageStyle.watermarkText || ''}
+                  placeholder={t('reports.presentation.watermarkPlaceholder')}
+                  onChange={(event) => setPageStyle((current) => normalizeReportPageStyle({ ...current, watermarkText: event.target.value }))}
+                />
+              </Field>
+              {!!pageStyle.watermarkText && (
+                <Field label={t('reports.presentation.watermarkOpacity')}>
+                  <input
+                    type="range"
+                    min="0.04"
+                    max="0.35"
+                    step="0.01"
+                    value={pageStyle.watermarkOpacity}
+                    aria-label={t('reports.presentation.watermarkOpacity')}
+                    onChange={(event) => setPageStyle((current) => normalizeReportPageStyle({ ...current, watermarkOpacity: Number(event.target.value) }))}
+                  />
+                </Field>
+              )}
+              {reportContainsTables(displayReport) && (
+                <>
+                  <Field label={t('reports.presentation.gridLines')}>
+                    <Select
+                      value={pageStyle.tableGridLines}
+                      onChange={(value) => setPageStyle((current) => normalizeReportPageStyle({ ...current, tableGridLines: value }))}
+                      ariaLabel={t('reports.presentation.gridLines')}
+                      options={[
+                        { value: 'none', label: t('reports.presentation.gridNone') },
+                        { value: 'horizontal', label: t('reports.presentation.gridHorizontal') },
+                        { value: 'all', label: t('reports.presentation.gridAll') },
+                      ]}
+                    />
+                  </Field>
+                  <label className={checkRowClass}>
+                    <input type="checkbox" checked={pageStyle.repeatTableHeader !== false} onChange={(event) => setPageStyle((current) => normalizeReportPageStyle({ ...current, repeatTableHeader: event.target.checked }))} />
+                    {t('reports.presentation.repeatHeader')}
+                  </label>
+                  <label className={checkRowClass}>
+                    <input type="checkbox" checked={!!pageStyle.stripeTableRows} onChange={(event) => setPageStyle((current) => normalizeReportPageStyle({ ...current, stripeTableRows: event.target.checked }))} />
+                    {t('reports.presentation.stripedRows')}
+                  </label>
+                </>
+              )}
             </InspectorSection>
 
             <InspectorSection title={t('reports.saved')}>
@@ -679,7 +842,7 @@ export function ReportsApp() {
                   <div className="flex max-h-[220px] flex-col gap-1.5 overflow-auto">
                     {(customReport?.blocks || []).map((block, index) => (
                       <div key={`${block.kind}-${index}`} className="flex items-center gap-2 rounded-md border border-border bg-background py-1.5 pe-2 ps-2.5">
-                        <span className="min-w-0 flex-1 truncate text-xs text-foreground">{blockLabel(block, index)}</span>
+                        <span className="min-w-0 flex-1 truncate text-xs text-foreground">{blockLabel(block, index, t)}</span>
                         <Button variant="destructiveOutline" size="icon" className="h-7 w-7 shrink-0" onClick={() => deleteCustomBlock(index)} title={t('reports.ui.deleteBlock')} aria-label={t('reports.ui.deleteBlock')}>
                           <Trash2 size={14} />
                         </Button>
@@ -697,7 +860,7 @@ export function ReportsApp() {
                 onChange={setBookTargetId}
                 options={[
                   { value: '', label: t('reports.newBook', { defaultValue: 'New book: Family Reports' }) },
-                  ...savedBooks.map((book) => ({ value: book.id, label: book.title || 'Untitled Book' })),
+                  ...savedBooks.map((book) => ({ value: book.id, label: book.title || t('reports.book.untitled') })),
                 ]}
               />
               <Button variant="secondary" onClick={onAddToBook}>{t('reports.ui.addToBook')}</Button>
@@ -707,11 +870,36 @@ export function ReportsApp() {
         </aside>
 
         <div className="relative min-w-0 overflow-auto bg-gradient-to-b from-secondary to-background">
+          <div className="sticky top-0 z-20 flex items-center justify-end gap-1 border-b border-border bg-card/95 px-3 py-2 text-xs backdrop-blur">
+            <Button variant="ghost" size="icon" aria-label={t('reports.preview.zoomOut')} onClick={() => setPreviewZoom((current) => zoomStep(current, -1))}><Minus size={15} /></Button>
+            <Select
+              value={String(previewZoom)}
+              onChange={(value) => setPreviewZoom(value === 'fit' ? 'fit' : Number(value))}
+              ariaLabel={t('reports.preview.zoom')}
+              className="w-32"
+              triggerClassName="h-8 text-xs"
+              options={[
+                { value: 'fit', label: t('reports.preview.fitWidth') },
+                ...[0.75, 1, 1.25, 1.5].map((value) => ({ value: String(value), label: t('reports.preview.percent', { count: Math.round(value * 100) }) })),
+              ]}
+            />
+            <Button variant="ghost" size="icon" aria-label={t('reports.preview.zoomIn')} onClick={() => setPreviewZoom((current) => zoomStep(current, 1))}><Plus size={15} /></Button>
+          </div>
           {reportLoading && <div className="sticky top-0 z-10 border-b border-border bg-secondary px-5 py-2 text-xs text-foreground">{t('reports.generating', { label: selectedBuilderLabel })}</div>}
           {generationError && <div className="bg-destructive px-5 py-2 text-xs text-destructive-foreground">{generationError}</div>}
-          <ReportPreview report={displayReport} />
+          <ReportPreview report={displayReport} zoom={previewZoom} emptyLabel={t('reports.preview.empty')} pageBreakLabel={t('reports.preview.pageBreak')} />
         </div>
       </div>
+      {csvExportOpen && (
+        <CSVExportSheet
+          onCancel={() => setCsvExportOpen(false)}
+          onExport={(csvOptions) => {
+            setCsvExportOpen(false);
+            performExport('csv', csvOptions);
+          }}
+        />
+      )}
+      {dirtyDecision && <UnsavedReportSheet onChoose={onDirtyChoice} />}
     </div>
   );
 }
@@ -787,10 +975,10 @@ function getSubjectItemsForBuilder(builder, { persons, stories }) {
   return persons;
 }
 
-async function listAllStories() {
+async function listAllStories(t) {
   const { records } = await getAppDataClient().records.query('Story', { limit: 100000 });
   return records
-    .map(storySubject)
+    .map((record) => storySubject(record, t))
     .filter(Boolean)
     .sort((a, b) => compareStrings(a.label, b.label));
 }
@@ -841,22 +1029,30 @@ function cloneReport(report) {
   };
 }
 
-function blockLabel(block, index) {
-  if (!block) return `Block ${index + 1}`;
-  if (block.kind === 'title') return `Heading: ${block.text || 'Untitled'}`;
-  if (block.kind === 'paragraph') return `Paragraph: ${String(block.text || '').slice(0, 48) || 'Empty'}`;
-  if (block.kind === 'table') return `Table: ${(block.rows || []).length} rows`;
-  if (block.kind === 'list') return `List: ${(block.items || []).length} items`;
-  if (block.kind === 'pageBreak') return 'Page break';
-  return `${block.kind || 'Block'} ${index + 1}`;
+function zoomStep(current, direction) {
+  const steps = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  if (current === 'fit') return direction > 0 ? 1 : 0.75;
+  const value = Number(current) || 1;
+  const index = steps.reduce((best, step, candidate) => Math.abs(step - value) < Math.abs(steps[best] - value) ? candidate : best, 0);
+  return steps[Math.max(0, Math.min(steps.length - 1, index + direction))];
+}
+
+function blockLabel(block, index, t) {
+  if (!block) return t('reports.editing.block', { count: index + 1 });
+  if (block.kind === 'title') return t('reports.editing.heading', { value: block.text || t('reports.editing.untitled') });
+  if (block.kind === 'paragraph') return t('reports.editing.paragraph', { value: String(block.text || '').slice(0, 48) || t('reports.editing.empty') });
+  if (block.kind === 'table') return t('reports.editing.table', { count: (block.rows || []).length });
+  if (block.kind === 'list') return t('reports.editing.list', { count: (block.items || []).length });
+  if (block.kind === 'pageBreak') return t('reports.preview.pageBreak');
+  return t('reports.editing.other', { kind: block.kind || t('reports.editing.blockKind'), count: index + 1 });
 }
 
 
-function storySubject(record) {
+function storySubject(record, t) {
   if (!record) return null;
   return {
     recordName: record.recordName,
-    label: readField(record, ['title', 'name'], record.recordName || 'Story'),
+    label: readField(record, ['title', 'name'], record.recordName || t('reports.subjects.story')),
   };
 }
 

@@ -9,12 +9,14 @@ import { block, emptyReport } from '../ast.js';
 import { normalizeConclusionTypeId } from '../../catalogs.js';
 import { refToRecordName } from '../../recordRef.js';
 import {
-  addTodayRow,
+  familySummary,
   getAppDataClient,
+  humanizeType,
   loadVisiblePersonIds,
   personSummary,
   placeSummary,
   readField,
+  readConclusionType,
   readRef,
   reportPrivacyPolicy,
   visibleReportRecords,
@@ -86,28 +88,97 @@ export async function buildRichStatisticsReport() {
 
 export async function buildTodayReport(options = {}) {
   const db = getAppDataClient().records;
-  const { records } = await db.query('Person', { limit: 100000 });
-  const forDate = options.forDate ? new Date(options.forDate) : new Date();
+  const [{ records: persons }, { records: families }, { records: personEvents }, { records: familyEvents }] = await Promise.all([
+    db.query('Person', { limit: 100000 }),
+    db.query('Family', { limit: 100000 }),
+    db.query('PersonEvent', { limit: 100000 }),
+    db.query('FamilyEvent', { limit: 100000 }),
+  ]);
+  const forDate = reportTargetDate(options.forDate);
   const date = Number.isNaN(forDate.getTime()) ? new Date() : forDate;
   const key = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const personById = new Map(visibleReportRecords(persons).map((person) => [person.recordName, person]));
+  const familyById = new Map(visibleReportRecords(families).map((family) => [family.recordName, family]));
   const rows = [];
-  for (const person of visibleReportRecords(records)) {
+  const seen = new Set();
+  const push = (type, owner, rawDate) => {
+    const parts = anniversaryDateParts(rawDate);
+    if (!parts || parts.monthDay !== key || !todayEventEnabled(type, options)) return;
+    const signature = `${type}|${owner}|${rawDate}`;
+    if (seen.has(signature)) return;
+    seen.add(signature);
+    rows.push({ type, owner, date: String(rawDate || ''), year: parts.year });
+  };
+  for (const person of personById.values()) {
     const summary = personSummary(person);
-    addTodayRow(rows, key, summary, 'Birth', summary?.birthDate);
-    addTodayRow(rows, key, summary, 'Death', summary?.deathDate);
+    push('Birth', summary?.fullName || person.recordName, summary?.birthDate);
+    push('Death', summary?.fullName || person.recordName, summary?.deathDate);
   }
-  const currentYear = new Date().getFullYear();
-  const withYearsAgo = rows.map((row) => {
-    const match = String(row[2] || '').match(/-?\d{4}/);
-    return [row[0], row[1], row[2], match ? String(currentYear - parseInt(match[0], 10)) : ''];
-  });
-  const sortBy = options.sortBy || 'type';
-  const idx = sortBy === 'person' ? 1 : 0;
-  withYearsAgo.sort((a, b) => compareStrings(a[idx], b[idx]) || compareStrings(a[1], b[1]));
+  for (const event of personEvents) {
+    const personId = readRef(event.fields?.person);
+    const person = personById.get(personId);
+    if (!person) continue;
+    push(todayEventType(event), personSummary(person)?.fullName || personId, readField(event, ['date', 'cached_dateAsDate', 'dateString'], ''));
+  }
+  for (const event of familyEvents) {
+    const familyId = readRef(event.fields?.family);
+    const family = familyById.get(familyId);
+    if (!family) continue;
+    push(todayEventType(event), familySummary(family)?.familyName || familyId, readField(event, ['date', 'cached_dateAsDate', 'dateString'], ''));
+  }
+  const targetYear = date.getFullYear();
+  rows.sort((a, b) => (
+    options.sortBy === 'person'
+      ? compareStrings(a.owner, b.owner) || compareStrings(a.type, b.type)
+      : compareStrings(a.date, b.date) || compareStrings(a.owner, b.owner)
+  ));
   const report = emptyReport('Today Report');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.table(['Type', 'Person', 'Date', 'Years Ago'], withYearsAgo));
+  if (rows.length === 0) {
+    report.blocks.push(block.paragraph('There are no person or family events for the selected date.'));
+    return report;
+  }
+  const tableRows = (items) => items.map((row) => [row.owner, row.date, row.year == null ? '' : String(targetYear - row.year)]);
+  if (options.groupByEventType !== false) {
+    for (const type of [...new Set(rows.map((row) => row.type))].sort((a, b) => compareStrings(a, b))) {
+      report.blocks.push(block.title(type, 2));
+      report.blocks.push(block.table(['Person / Family', 'Date', 'Anniversary'], tableRows(rows.filter((row) => row.type === type))));
+    }
+  } else {
+    report.blocks.push(block.table(['Type', 'Person / Family', 'Date', 'Anniversary'], rows.map((row) => [row.type, ...tableRows([row])[0]])));
+  }
   return report;
+}
+
+function reportTargetDate(value) {
+  const exact = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (exact) return new Date(Number(exact[1]), Number(exact[2]) - 1, Number(exact[3]));
+  return value ? new Date(value) : new Date();
+}
+
+function anniversaryDateParts(value) {
+  const match = String(value || '').match(/(?:(-?\d{4})[-./])?(\d{1,2})[-./](\d{1,2})/);
+  if (!match) return null;
+  return {
+    year: match[1] ? Number.parseInt(match[1], 10) : null,
+    monthDay: `${String(match[2]).padStart(2, '0')}-${String(match[3]).padStart(2, '0')}`,
+  };
+}
+
+function todayEventType(event) {
+  return humanizeType(readConclusionType(event) || readField(event, ['eventType', 'type'], 'Event')) || 'Event';
+}
+
+function todayEventEnabled(type, options) {
+  const value = String(type || '').toLowerCase();
+  if (value.includes('birth')) return options.includeBirth !== false;
+  if (value.includes('christen') || value.includes('bapt')) return options.todayIncludeChristening !== false;
+  if (value.includes('death')) return options.includeDeath !== false;
+  if (value.includes('burial') || value.includes('cremat')) return options.todayIncludeBurial !== false;
+  if (value.includes('marriage') || value.includes('wedding')) return options.includeMarriage !== false;
+  if (value.includes('engage')) return options.includeEngagement !== false;
+  if (value.includes('divorce') || value.includes('separat')) return options.includeDivorce !== false;
+  return !!options.includeOtherEvents;
 }
 
 // MFT's PersonAnalysisAnalyzer 18 categories (CorePersonAnalysisAnalyzer.strings).

@@ -5,6 +5,7 @@
  */
 import { compareStrings, formatInteger } from '../../i18n.js';
 import { block, emptyReport } from '../ast.js';
+import { authorOf, changeKindOf, entityTypeOf, targetIdOf, targetLabelOf, timestampMillis } from '../../changeLogQuery.js';
 import {
   addAnniversary,
   eventOwnerLabel,
@@ -318,21 +319,63 @@ export async function buildToDoListReport(options = {}) {
   return report;
 }
 
-export async function buildChangesListReport() {
+export async function buildChangesListReport(options = {}) {
   const db = getAppDataClient().records;
   const { records } = await db.query('ChangeLogEntry', { limit: 100000 });
-  const rows = records
-    .map((entry) => [
-      readField(entry, ['timestamp'], ''),
-      readField(entry, ['changeType'], ''),
-      readField(entry, ['targetType'], ''),
-      readField(entry, ['summary'], ''),
-    ])
-    .sort((a, b) => compareStrings(b[0], a[0]));
+  const entries = records.filter((entry) => includeChangeObjectType(entityTypeOf(entry), options));
+  const rows = await Promise.all(entries.map(async (entry) => {
+    const targetId = targetIdOf(entry);
+    const target = targetId ? await db.get(targetId) : null;
+    const timestamp = changeTimestamp(entry, options.sortOrder === 'earliest' ? 'earliest' : 'latest');
+    return {
+      timestamp,
+      timestampMillis: Number.isFinite(Date.parse(timestamp)) ? Date.parse(timestamp) : timestampMillis(entry),
+      kind: changeKindOf(entry),
+      objectType: entityTypeOf(entry) || 'Record',
+      target: targetLabelOf(entry) || targetId,
+      summary: readField(entry, ['summary'], ''),
+      author: authorOf(entry),
+      stillExists: !!target,
+    };
+  }));
+  const ascending = options.sortOrder === 'earliest';
+  rows.sort((a, b) => (ascending ? 1 : -1) * (a.timestampMillis - b.timestampMillis) || compareStrings(a.target, b.target));
   const report = emptyReport('Changes List');
   report.blocks.push(block.title(report.title, 1));
-  report.blocks.push(block.table(['Date', 'Type', 'Target', 'Summary'], rows));
+  const columns = ['Date', 'Changes', 'Object Type', 'Changed Entry', 'Summary'];
+  if (options.showAuthor !== false) columns.push('Author');
+  if (options.showStillExists !== false) columns.push('Still in Database');
+  const toTableRows = (items) => items.map((row) => {
+    const values = [row.timestamp, row.kind, row.objectType, row.target, row.summary];
+    if (options.showAuthor !== false) values.push(row.author);
+    if (options.showStillExists !== false) values.push(row.stillExists ? 'Yes' : 'No');
+    return values;
+  });
+  if (options.groupBy === 'objectType' || options.groupBy === 'author') {
+    const key = options.groupBy === 'author' ? 'author' : 'objectType';
+    for (const group of [...new Set(rows.map((row) => row[key] || 'Unknown'))].sort((a, b) => compareStrings(a, b))) {
+      report.blocks.push(block.title(group, 2));
+      report.blocks.push(block.table(columns, toTableRows(rows.filter((row) => (row[key] || 'Unknown') === group))));
+    }
+  } else {
+    report.blocks.push(block.table(columns, toTableRows(rows)));
+  }
   return report;
+}
+
+function includeChangeObjectType(type, options) {
+  if (type === 'Person') return options.includePersons !== false;
+  if (type === 'Family') return options.includeFamilies !== false;
+  if (type === 'Source') return options.includeSources !== false;
+  if (type === 'Place') return options.includePlaces !== false;
+  if (String(type || '').startsWith('Media')) return options.includeMedia !== false;
+  return options.includeOtherObjects !== false;
+}
+
+function changeTimestamp(entry, mode) {
+  const fields = entry.fields || {};
+  if (mode === 'earliest') return fields.earliestChangeDate?.value || fields.timestamp?.value || fields.changeDate?.value || '';
+  return fields.latestChangeDate?.value || fields.timestamp?.value || fields.changeDate?.value || '';
 }
 
 export async function buildFactsListReport() {

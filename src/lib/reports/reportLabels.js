@@ -37,6 +37,23 @@ const OPTION_KEYS = {
   maxDepth: 'reports.options.maxDepth',
   showLifeSpan: 'reports.options.showLifeSpan',
   showCoefficients: 'reports.options.showCoefficients',
+  groupByEventType: 'reports.options.groupByEventType',
+  includeBirth: 'reports.options.includeBirth',
+  todayIncludeChristening: 'reports.options.todayIncludeChristening',
+  includeDeath: 'reports.options.includeDeath',
+  todayIncludeBurial: 'reports.options.todayIncludeBurial',
+  includeMarriage: 'reports.options.includeMarriage',
+  includeEngagement: 'reports.options.includeEngagement',
+  includeDivorce: 'reports.options.includeDivorce',
+  includeOtherEvents: 'reports.options.includeOtherEvents',
+  includePersons: 'reports.options.includePersons',
+  includeFamilies: 'reports.options.includeFamilies',
+  includeSources: 'reports.options.includeSources',
+  includePlaces: 'reports.options.includePlaces',
+  includeMedia: 'reports.options.includeMedia',
+  includeOtherObjects: 'reports.options.includeOtherObjects',
+  showAuthor: 'reports.options.showAuthor',
+  showStillExists: 'reports.options.showStillExists',
 };
 
 const EXPORT_KEYS = {

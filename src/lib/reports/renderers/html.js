@@ -44,7 +44,7 @@ function renderBlock(b) {
 }
 
 export function renderHTML(report, { theme } = {}) {
-  const localization = getCurrentLocalization();
+  const localization = report.localization || getCurrentLocalization();
   const pageStyle = report.pageStyle || {};
   const pageBackground = pageStyle.background === 'sepia' ? '#fbf6e8' : pageStyle.background === 'soft' ? '#f7f8fb' : '#fff';
   const css = theme?.id === 'sepia'
@@ -55,24 +55,32 @@ export function renderHTML(report, { theme } = {}) {
   const margin = Number.isFinite(pageStyle.margin) ? Math.max(24, Math.min(96, pageStyle.margin)) : 48;
   const authorMeta = reportAuthorMeta(report.author);
   const authorFooter = reportAuthorFooter(report.author);
+  const watermark = String(pageStyle.watermarkText || '').trim();
+  const watermarkOpacity = Number.isFinite(Number(pageStyle.watermarkOpacity)) ? Number(pageStyle.watermarkOpacity) : 0.12;
+  const grid = pageStyle.tableGridLines || 'horizontal';
+  const tableBorder = grid === 'all' ? 'border:1px solid currentColor' : grid === 'none' ? 'border:0' : 'border-bottom:1px solid currentColor';
   return `<!doctype html>
 <html lang="${esc(localization.locale)}" dir="${esc(localization.direction)}"><head><meta charset="utf-8"><title>${esc(report.title)}</title>${authorMeta}
 <style>
   ${css}
   @page{size:${pageSize} ${orientation};margin:${margin}px}
-  body{font-family:-apple-system,system-ui,"Noto Naskh Arabic",Tahoma,sans-serif;padding:${margin}px;max-width:${orientation === 'landscape' ? 1080 : 820}px;margin:0 auto;line-height:1.6;text-align:start}
+  body{font-family:-apple-system,system-ui,"Noto Naskh Arabic",Tahoma,sans-serif;padding:${margin}px;max-width:${orientation === 'landscape' ? 1080 : 820}px;margin:0 auto;line-height:1.6;text-align:start;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   h1{font-size:28px;margin:0 0 10px}
   h2{font-size:20px;margin:24px 0 10px;border-bottom:1px solid currentColor;padding-bottom:4px;opacity:.85}
   h3{font-size:16px;margin:20px 0 8px}
   p{margin:8px 0}
   ul{margin:8px 0;padding-inline-start:24px}
   table{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
-  th,td{text-align:start;padding:6px 8px;border-bottom:1px solid currentColor;opacity:.95}
+  th,td{text-align:start;padding:6px 8px;${tableBorder};opacity:.95}
   th{font-weight:600;opacity:.7;font-size:11px;text-transform:uppercase;letter-spacing:.3px}
+  thead{display:${pageStyle.repeatTableHeader === false ? 'table-row-group' : 'table-header-group'}}
+  ${pageStyle.stripeTableRows ? 'tbody tr:nth-child(even){background:rgba(100,100,100,.08)}' : ''}
   bdi{unicode-bidi:isolate}
+  .report-watermark{position:fixed;inset:35% -10% auto -10%;z-index:20;pointer-events:none;text-align:center;font-size:72px;font-weight:700;letter-spacing:.08em;opacity:${watermarkOpacity};transform:rotate(-32deg);transform-origin:center;color:currentColor}
   .report-author-footer{margin-top:32px;padding-top:12px;border-top:1px solid currentColor;font-size:11px;opacity:.7;text-align:center}
   @media print{body{padding:0;background:#fff;color:#000}}
 </style></head><body>
+${watermark ? `<div class="report-watermark" aria-hidden="true">${bdi(watermark)}</div>` : ''}
 ${report.blocks.map(renderBlock).join('\n')}
 ${authorFooter}
 </body></html>`;
