@@ -269,6 +269,12 @@ async function familySearchRequest(config, path, {
 
 export async function readFamilySearchPerson(config, personId, { relatives = true } = {}) {
   if (!personId) throw new Error('FamilySearch person ID is required.');
+  const mock = familySearchMockData(config);
+  if (mock) {
+    const payload = mock.persons?.[personId] || mock.people?.[personId];
+    if (!payload) throw new Error(`FamilySearch mock person ${personId} was not found.`);
+    return normalizeMockPersonPayload(payload, personId, mock);
+  }
   const params = new URLSearchParams({ relatives: relatives ? 'true' : 'false' });
   return familySearchRequest(config, `/platform/tree/persons/${encodeURIComponent(personId)}?${params.toString()}`, {
     accept: 'application/x-gedcomx-v1+json',
@@ -359,7 +365,7 @@ function extractCreatedPersonId(result) {
  * Each row exposes the candidate actions the UI can offer (all gated behind a reason
  * prompt before any write). This is pure logic — no network calls.
  */
-export function buildFamilySearchSyncRows(localPerson, remotePayload) {
+export function buildFamilySearchSyncRows(localPerson, remotePayload, { placesById = new Map() } = {}) {
   const local = personSummary(localPerson) || {};
   const remote = summarizeRemotePerson(remotePayload);
   const conclusions = [
@@ -367,6 +373,8 @@ export function buildFamilySearchSyncRows(localPerson, remotePayload) {
     { field: 'Gender', conclusion: 'gender', local: localGender(localPerson), remote: remote.gender },
     { field: 'Birth', conclusion: 'birth', local: readField(localPerson, ['cached_birthDate', 'birthDate'], ''), remote: remote.birth },
     { field: 'Death', conclusion: 'death', local: readField(localPerson, ['cached_deathDate', 'deathDate'], ''), remote: remote.death },
+    { field: 'Birth place', conclusion: 'birthPlace', local: localPlaceText(localPerson, 'birthPlace', placesById), remote: remote.birthPlace },
+    { field: 'Death place', conclusion: 'deathPlace', local: localPlaceText(localPerson, 'deathPlace', placesById), remote: remote.deathPlace },
   ];
   return conclusions.map(({ field, conclusion, local: localValue, remote: remoteValue }) => {
     const localText = String(localValue || '').trim();
@@ -574,6 +582,155 @@ export async function readFamilySearchChangeHistory(config, personId) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Further-information queue + remote-tree extension.
+// ---------------------------------------------------------------------------
+
+/** True when a config carries the browser-local mock fixture used by demos/tests. */
+export function hasFamilySearchMockData(config) {
+  return !!familySearchMockData(config);
+}
+
+/**
+ * Read notes, memories, and discussions not represented by the basic person
+ * payload. Live FamilySearch deployments do not always enable every endpoint,
+ * so a partial response is useful; the call only fails when every endpoint does.
+ */
+export async function readFamilySearchFurtherInformation(config, personId) {
+  if (!personId) throw new Error('FamilySearch person ID is required.');
+  const mock = familySearchMockData(config);
+  if (mock) {
+    const item = mock.furtherInformation?.[personId] || {};
+    return normalizeFurtherInformation(personId, item);
+  }
+  const encoded = encodeURIComponent(personId);
+  const requests = await Promise.allSettled([
+    familySearchRequest(config, `/platform/tree/persons/${encoded}/notes`, { accept: 'application/x-fs-v1+json' }),
+    familySearchRequest(config, `/platform/tree/persons/${encoded}/memories`, { accept: 'application/x-fs-v1+json' }),
+    listFamilySearchDiscussions(config, personId),
+  ]);
+  const fulfilled = requests.filter((result) => result.status === 'fulfilled');
+  if (fulfilled.length === 0) throw requests[0].reason;
+  const value = (index) => requests[index].status === 'fulfilled' ? requests[index].value : null;
+  return normalizeFurtherInformation(personId, {
+    notes: value(0)?.notes || value(0)?.persons?.[0]?.notes || [],
+    memories: value(1)?.entries || value(1)?.memories || value(1)?.sourceDescriptions || [],
+    discussions: value(2)?.discussions || value(2)?.persons?.[0]?.['discussion-references'] || [],
+  });
+}
+
+/** Normalize a further-information response into counts used by the queue. */
+export function normalizeFurtherInformation(personId, value = {}) {
+  const notes = normalizeInfoCollection(value.notes);
+  const memories = normalizeInfoCollection(value.memories);
+  const discussions = normalizeInfoCollection(value.discussions);
+  const explicitTotal = Number(value.total);
+  const total = Number.isFinite(explicitTotal) && explicitTotal > 0
+    ? explicitTotal
+    : notes.length + memories.length + discussions.length;
+  return {
+    personId,
+    notes: notes.length,
+    memories: memories.length,
+    discussions: discussions.length,
+    total,
+    available: value.available !== false && total > 0,
+  };
+}
+
+/**
+ * Fetch a bounded ancestor/descendant graph rooted at a matched person. The
+ * same traversal works with live GEDCOM X payloads and config.mockData.persons.
+ */
+export async function readFamilySearchTree(config, personId, { direction = 'ancestors', generations = 2 } = {}) {
+  if (!personId) throw new Error('FamilySearch person ID is required.');
+  const maxDepth = Math.max(1, Math.min(5, Number(generations) || 1));
+  const queue = [{ id: personId, depth: 0 }];
+  const fetched = new Set();
+  const nodes = new Map();
+  const edges = new Map();
+  const payloads = new Map();
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (!current?.id || fetched.has(current.id)) continue;
+    fetched.add(current.id);
+    const payload = await readFamilySearchPerson(config, current.id, { relatives: true });
+    const slice = extractFamilySearchTreeSlice(payload, current.id, direction);
+    const rawPerson = payload?.persons?.find((person) => person.id === current.id) || payload?.person || { id: current.id };
+    payloads.set(current.id, {
+      persons: [rawPerson],
+      relationships: slice.edges.map((edge) => ({
+        type: 'http://gedcomx.org/ParentChild',
+        person1: { resourceId: edge.parentId },
+        person2: { resourceId: edge.childId },
+      })),
+    });
+    for (const node of slice.nodes) {
+      const previous = nodes.get(node.id);
+      nodes.set(node.id, { ...previous, ...node, depth: Math.min(previous?.depth ?? Infinity, current.depth + (node.id === current.id ? 0 : 1)) });
+    }
+    for (const edge of slice.edges) edges.set(`${edge.parentId}:${edge.childId}`, edge);
+    if (current.depth >= maxDepth) continue;
+    for (const nextId of slice.nextIds) {
+      if (!fetched.has(nextId)) queue.push({ id: nextId, depth: current.depth + 1 });
+    }
+  }
+  return { rootId: personId, direction, nodes: [...nodes.values()], edges: [...edges.values()], payloads: Object.fromEntries(payloads) };
+}
+
+/** Extract one traversable slice from a GEDCOM X relatives payload. */
+export function extractFamilySearchTreeSlice(payload, focalId, direction = 'ancestors') {
+  const persons = payload?.persons || (payload?.person ? [payload.person] : []);
+  const relationships = payload?.relationships || payload?._embedded?.relationships || [];
+  const edges = [];
+  const nextIds = new Set();
+  const includedIds = new Set([focalId]);
+  for (const relationship of relationships) {
+    const type = String(relationship?.type || '');
+    if (!type.endsWith('/ParentChild') && !type.endsWith('/BiologicalParent')) continue;
+    const parentId = relationship?.person1?.resourceId || resourceId(relationship?.person1?.resource);
+    const childId = relationship?.person2?.resourceId || resourceId(relationship?.person2?.resource);
+    if (!parentId || !childId) continue;
+    const followsAncestor = (direction === 'ancestors' || direction === 'both') && childId === focalId;
+    const followsDescendant = (direction === 'descendants' || direction === 'both') && parentId === focalId;
+    if (!followsAncestor && !followsDescendant) continue;
+    edges.push({ parentId, childId });
+    includedIds.add(parentId);
+    includedIds.add(childId);
+    if (followsAncestor) nextIds.add(parentId);
+    if (followsDescendant) nextIds.add(childId);
+  }
+  const nodes = persons.map((person) => normalizeFamilySearchPerson(person)).filter((person) => person.id && includedIds.has(person.id));
+  if (!nodes.some((node) => node.id === focalId)) {
+    const focal = summarizeRemotePerson(payload);
+    if (focal.id) nodes.push(focal);
+  }
+  return { nodes, edges, nextIds: [...nextIds] };
+}
+
+/** Flat, stable remote-person shape shared by the mini-tree and local importer. */
+export function normalizeFamilySearchPerson(personOrPayload) {
+  const summary = personOrPayload?.persons || personOrPayload?.person
+    ? summarizeRemotePerson(personOrPayload)
+    : summarizeRemotePerson({ persons: [personOrPayload] });
+  return summary;
+}
+
+/** Unique incoming fact place strings that require reconciliation. */
+export function collectFamilySearchPlaceStrings(payloads) {
+  const values = new Set();
+  for (const payload of Array.isArray(payloads) ? payloads : [payloads]) {
+    const persons = payload?.persons || (payload?.person ? [payload.person] : []);
+    for (const person of persons) {
+      for (const fact of person?.facts || []) {
+        const place = String(fact?.place?.original || fact?.place?.normalized?.[0]?.value || '').trim();
+        if (place) values.add(place);
+      }
+    }
+  }
+  return [...values];
+}
+
 /** Normalize a change-history Atom feed into flat rows. */
 export function normalizeChangeHistoryFeed(feed) {
   const entries = feed?.entries || [];
@@ -597,7 +754,7 @@ export function familySearchPersonWebUrl(config, personId) {
   return `${host}/tree/person/details/${encodeURIComponent(personId)}`;
 }
 
-export function compareLocalToFamilySearchPerson(localPerson, remotePayload) {
+export function compareLocalToFamilySearchPerson(localPerson, remotePayload, { placesById = new Map() } = {}) {
   const local = personSummary(localPerson) || {};
   const remote = summarizeRemotePerson(remotePayload);
   return [
@@ -605,6 +762,8 @@ export function compareLocalToFamilySearchPerson(localPerson, remotePayload) {
     compareRow('Gender', localGender(localPerson), remote.gender),
     compareRow('Birth', readField(localPerson, ['cached_birthDate', 'birthDate'], ''), remote.birth),
     compareRow('Death', readField(localPerson, ['cached_deathDate', 'deathDate'], ''), remote.death),
+    compareRow('Birth place', localPlaceText(localPerson, 'birthPlace', placesById), remote.birthPlace),
+    compareRow('Death place', localPlaceText(localPerson, 'deathPlace', placesById), remote.deathPlace),
   ];
 }
 
@@ -638,20 +797,70 @@ function summarizeRemotePerson(payload) {
     id: person.id,
     name,
     gender: genderUri.endsWith('/Female') ? 'Female' : genderUri.endsWith('/Male') ? 'Male' : '',
-    birth: factOriginal(facts, 'Birth'),
-    death: factOriginal(facts, 'Death'),
+    birth: factDate(facts, 'Birth'),
+    death: factDate(facts, 'Death'),
+    birthPlace: factPlace(facts, 'Birth'),
+    deathPlace: factPlace(facts, 'Death'),
   };
 }
 
-function factOriginal(facts, tag) {
+function factDate(facts, tag) {
   const fact = facts.find((item) => String(item.type || '').endsWith(`/${tag}`));
-  return fact?.date?.original || fact?.place?.original || '';
+  return fact?.date?.original || '';
+}
+
+function factPlace(facts, tag) {
+  const fact = facts.find((item) => String(item.type || '').endsWith(`/${tag}`));
+  return fact?.place?.original || fact?.place?.normalized?.[0]?.value || '';
+}
+
+function localPlaceText(person, field, placesById) {
+  const raw = readField(person, [field], '');
+  const id = resourceId(raw);
+  const place = typeof placesById?.get === 'function' ? placesById.get(id) : placesById?.[id];
+  return place ? String(readField(place, ['cached_standardizedLocationString', 'cached_normallocationString', 'placeName', 'name'], '')) : '';
+}
+
+function familySearchMockData(config) {
+  const value = config?.mockData || config?.mockFamilySearch || null;
+  return value && typeof value === 'object' ? value : null;
+}
+
+function normalizeMockPersonPayload(payload, personId, mock) {
+  if (payload?.persons) return payload;
+  const person = payload?.person || payload;
+  const relationships = payload?.relationships || mock.relationships || [];
+  const ids = new Set([personId]);
+  for (const relationship of relationships) {
+    ids.add(relationship?.person1?.resourceId);
+    ids.add(relationship?.person2?.resourceId);
+  }
+  const persons = [...ids].filter(Boolean).map((id) => {
+    const candidate = id === personId ? person : mock.persons?.[id] || mock.people?.[id];
+    return candidate?.person || candidate || { id };
+  });
+  return { persons, relationships };
+}
+
+function normalizeInfoCollection(value) {
+  if (Array.isArray(value)) return value;
+  if (value == null || value === false) return [];
+  if (typeof value === 'number') return Array.from({ length: Math.max(0, value) });
+  return [value];
+}
+
+function resourceId(value) {
+  if (!value) return '';
+  if (typeof value === 'object') return value.resourceId || resourceId(value.value || value.resource);
+  const text = String(value);
+  if (text.includes('---')) return text.split('---')[0];
+  return text.split('/').filter(Boolean).pop() || text;
 }
 
 function localGender(person) {
   const value = readField(person, ['gender'], null);
-  if (value === 1 || value === '1' || value === 'Male') return 'Male';
-  if (value === 2 || value === '2' || value === 'Female') return 'Female';
+  if (value === 0 || value === '0' || value === 'Male') return 'Male';
+  if (value === 1 || value === '1' || value === 'Female') return 'Female';
   return '';
 }
 

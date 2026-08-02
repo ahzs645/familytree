@@ -176,13 +176,26 @@
       "create": "إنشاء الكتاب",
       "creating": "جارٍ الإنشاء…",
       "emptyHelp": "يبدأ الكتاب الفارغ بغلاف وفهرس محتويات. أضف الأقسام واضبطها في المحرر.",
-      "generationCount": { "few": "{count} أجيال", "many": "{count} جيلاً", "one": "جيل واحد", "other": "{count} جيل", "two": "جيلان", "zero": "لا أجيال" },
+      "generationCount": {
+        "few": "{count} أجيال",
+        "many": "{count} جيلاً",
+        "one": "جيل واحد",
+        "other": "{count} جيل",
+        "two": "جيلان",
+        "zero": "لا أجيال"
+      },
       "generationsDown": "الأجيال اللاحقة",
       "generationsUp": "الأجيال السابقة",
       "outputLanguage": "لغة الإخراج",
       "progress": "تقدم مساعد الكتاب الجديد",
       "stepOf": "الخطوة {current} من {total}: {name}",
-      "steps": { "type": "نوع الكتاب", "subject": "المحور", "scope": "النطاق", "presentation": "المظهر", "plan": "الخطة" },
+      "steps": {
+        "type": "نوع الكتاب",
+        "subject": "المحور",
+        "scope": "النطاق",
+        "presentation": "المظهر",
+        "plan": "الخطة"
+      },
       "subjectHelp": {
         "ancestor": "اختر الشخص الذي سيكون أسلافه محور الكتاب.",
         "descendant": "اختر الشخص الذي ستكون ذريته محور الكتاب.",
@@ -198,7 +211,13 @@
         "family": "فصل لمجموعة عائلية مع أقسام للأشخاص والوسائط والمصادر.",
         "person": "كتاب سيرة يتمحور حول شخص واحد وعائلته القريبة."
       },
-      "types": { "ancestor": "كتاب الأسلاف", "descendant": "كتاب الذرية", "empty": "كتاب فارغ", "family": "كتاب العائلة", "person": "كتاب شخص" }
+      "types": {
+        "ancestor": "كتاب الأسلاف",
+        "descendant": "كتاب الذرية",
+        "empty": "كتاب فارغ",
+        "family": "كتاب العائلة",
+        "person": "كتاب شخص"
+      }
     },
     "bookBundle": "حزمة الكتاب",
     "bookSettings": "إعدادات الكتاب",
@@ -207,7 +226,77 @@
     "bundleBook": "حزم الكتاب",
     "chaptersAndSections": "الفصول والأقسام",
     "config": {
-      "allFamilies": "كل العائلات", "allPersons": "كل الأشخاص", "allRecords": "كل السجلات", "ancestors": "الأسلاف", "appendix": "ملحق", "author": "المؤلف", "caption": "التسمية التوضيحية", "chapterNumber": "رقم الفصل", "chapterType": "نوع الفصل", "chartTitle": "عنوان المخطط", "compact": "مضغوط", "content": "محتوى", "date": "التاريخ", "deceasedOnly": "المتوفون فقط", "defaultTitlePage": "محتويات صفحة العنوان الافتراضية", "descendants": "الذرية", "divorcedOnly": "العائلات المطلقة فقط", "familyCrest": "شعار العائلة", "filter": "التصفية", "generations": "الأجيال", "include": "تضمين", "legend": "مفتاح الرسم", "livingOnly": "الأحياء فقط", "marriedOnly": "العائلات المتزوجة فقط", "media": "الوسائط", "newPage": "البدء في صفحة جديدة", "note": "ملاحظة", "notes": "الملاحظات", "numbered": "مرقم", "pageText": "نص الصفحة", "personGroup": "مجموعة الأشخاص", "place": "المكان", "plain": "بسيط", "preface": "مقدمة", "privateInformation": "المعلومات المعلّمة كخاصة", "publisher": "الناشر", "relatives": "الأقارب", "savedChart": "مخطط محفوظ", "savedReport": "تقرير محفوظ", "scope": "النطاق", "sectionType": "نوع القسم", "selectFamily": "اختر عائلة…", "selectGroup": "اختر مجموعة…", "selectMedia": "اختر وسيطاً…", "selectSavedChart": "اختر مخططاً محفوظاً…", "selectSavedReport": "اختر تقريراً محفوظاً…", "selectSource": "اختر مصدراً…", "selectedRecord": "السجل المحدد", "sheetTitles": { "chart": "ضبط المخطط", "family": "ضبط قسم العائلة", "person": "ضبط قسم الشخص", "report": "ضبط قسم التقرير", "text": "ضبط النص أو الصفحة المخصصة" }, "sort": "الترتيب", "sortBirthAsc": "حسب تاريخ الميلاد تصاعدياً", "sortBirthDesc": "حسب تاريخ الميلاد تنازلياً", "sortDate": "حسب التاريخ", "sortName": "حسب الاسم", "source": "المصدر", "sources": "المصادر", "startPerson": "شخص البداية", "subtitle": "العنوان الفرعي", "targetFamily": "العائلة المستهدفة", "targetMedia": "الوسيط المستهدف", "targetPerson": "الشخص المستهدف", "title": "العنوان", "titleImage": "صورة صفحة العنوان", "titlePageContents": "محتويات صفحة العنوان", "tocStyle": "نمط فهرس المحتويات"
+      "allFamilies": "كل العائلات",
+      "allPersons": "كل الأشخاص",
+      "allRecords": "كل السجلات",
+      "ancestors": "الأسلاف",
+      "appendix": "ملحق",
+      "author": "المؤلف",
+      "caption": "التسمية التوضيحية",
+      "chapterNumber": "رقم الفصل",
+      "chapterType": "نوع الفصل",
+      "chartTitle": "عنوان المخطط",
+      "compact": "مضغوط",
+      "content": "محتوى",
+      "date": "التاريخ",
+      "deceasedOnly": "المتوفون فقط",
+      "defaultTitlePage": "محتويات صفحة العنوان الافتراضية",
+      "descendants": "الذرية",
+      "divorcedOnly": "العائلات المطلقة فقط",
+      "familyCrest": "شعار العائلة",
+      "filter": "التصفية",
+      "generations": "الأجيال",
+      "include": "تضمين",
+      "legend": "مفتاح الرسم",
+      "livingOnly": "الأحياء فقط",
+      "marriedOnly": "العائلات المتزوجة فقط",
+      "media": "الوسائط",
+      "newPage": "البدء في صفحة جديدة",
+      "note": "ملاحظة",
+      "notes": "الملاحظات",
+      "numbered": "مرقم",
+      "pageText": "نص الصفحة",
+      "personGroup": "مجموعة الأشخاص",
+      "place": "المكان",
+      "plain": "بسيط",
+      "preface": "مقدمة",
+      "privateInformation": "المعلومات المعلّمة كخاصة",
+      "publisher": "الناشر",
+      "relatives": "الأقارب",
+      "savedChart": "مخطط محفوظ",
+      "savedReport": "تقرير محفوظ",
+      "scope": "النطاق",
+      "sectionType": "نوع القسم",
+      "selectFamily": "اختر عائلة…",
+      "selectGroup": "اختر مجموعة…",
+      "selectMedia": "اختر وسيطاً…",
+      "selectSavedChart": "اختر مخططاً محفوظاً…",
+      "selectSavedReport": "اختر تقريراً محفوظاً…",
+      "selectSource": "اختر مصدراً…",
+      "selectedRecord": "السجل المحدد",
+      "sheetTitles": {
+        "chart": "ضبط المخطط",
+        "family": "ضبط قسم العائلة",
+        "person": "ضبط قسم الشخص",
+        "report": "ضبط قسم التقرير",
+        "text": "ضبط النص أو الصفحة المخصصة"
+      },
+      "sort": "الترتيب",
+      "sortBirthAsc": "حسب تاريخ الميلاد تصاعدياً",
+      "sortBirthDesc": "حسب تاريخ الميلاد تنازلياً",
+      "sortDate": "حسب التاريخ",
+      "sortName": "حسب الاسم",
+      "source": "المصدر",
+      "sources": "المصادر",
+      "startPerson": "شخص البداية",
+      "subtitle": "العنوان الفرعي",
+      "targetFamily": "العائلة المستهدفة",
+      "targetMedia": "الوسيط المستهدف",
+      "targetPerson": "الشخص المستهدف",
+      "title": "العنوان",
+      "titleImage": "صورة صفحة العنوان",
+      "titlePageContents": "محتويات صفحة العنوان",
+      "tocStyle": "نمط فهرس المحتويات"
     },
     "configure": "ضبط",
     "configureSection": "ضبط القسم",
@@ -216,11 +305,46 @@
     "deleteBook": "حذف الكتاب",
     "deletePrompt": "هل تريد حذف هذا الكتاب؟",
     "deleteSavedAria": "حذف كتاب محفوظ",
-    "dirty": { "discard": "تجاهل التغييرات", "message": "لديك تغييرات غير محفوظة في الكتاب. هل تريد المغادرة دون حفظ؟", "switchMessage": "لديك تغييرات غير محفوظة في الكتاب. هل تريد تجاهلها والتبديل إلى كتاب آخر؟", "title": "كتاب غير محفوظ" },
-    "errors": { "errorCount": { "few": "الأخطاء ({count})", "many": "الأخطاء ({count})", "one": "خطأ ({count})", "other": "الأخطاء ({count})", "two": "خطآن ({count})", "zero": "لا أخطاء" }, "exportAnyway": "التصدير على أي حال", "fixBeforeExport": "أصلح الأخطاء أدناه قبل التصدير.", "jumpToSection": "الانتقال إلى القسم {number}", "none": "لم يُعثر على مشكلات.", "title": "يحتوي الكتاب على أخطاء", "warningCount": { "few": "التحذيرات ({count})", "many": "التحذيرات ({count})", "one": "تحذير ({count})", "other": "التحذيرات ({count})", "two": "تحذيران ({count})", "zero": "لا تحذيرات" }, "warningHelp": "سيتم تصدير الكتاب، لكن هذه العناصر قد تحتاج إلى مراجعة.", "warningTitle": "يحتوي الكتاب على تحذيرات" },
+    "dirty": {
+      "discard": "تجاهل التغييرات",
+      "message": "لديك تغييرات غير محفوظة في الكتاب. هل تريد المغادرة دون حفظ؟",
+      "switchMessage": "لديك تغييرات غير محفوظة في الكتاب. هل تريد تجاهلها والتبديل إلى كتاب آخر؟",
+      "title": "كتاب غير محفوظ"
+    },
+    "errors": {
+      "errorCount": {
+        "few": "الأخطاء ({count})",
+        "many": "الأخطاء ({count})",
+        "one": "خطأ ({count})",
+        "other": "الأخطاء ({count})",
+        "two": "خطآن ({count})",
+        "zero": "لا أخطاء"
+      },
+      "exportAnyway": "التصدير على أي حال",
+      "fixBeforeExport": "أصلح الأخطاء أدناه قبل التصدير.",
+      "jumpToSection": "الانتقال إلى القسم {number}",
+      "none": "لم يُعثر على مشكلات.",
+      "title": "يحتوي الكتاب على أخطاء",
+      "warningCount": {
+        "few": "التحذيرات ({count})",
+        "many": "التحذيرات ({count})",
+        "one": "تحذير ({count})",
+        "other": "التحذيرات ({count})",
+        "two": "تحذيران ({count})",
+        "zero": "لا تحذيرات"
+      },
+      "warningHelp": "سيتم تصدير الكتاب، لكن هذه العناصر قد تحتاج إلى مراجعة.",
+      "warningTitle": "يحتوي الكتاب على تحذيرات"
+    },
     "export": "تصدير",
     "exportAs": "تصدير بصيغة {format}",
-    "exportFormats": { "csv": "CSV", "html": "HTML", "pdf": "PDF (عبر الطباعة)", "rtf": "RTF", "text": "نص عادي" },
+    "exportFormats": {
+      "csv": "CSV",
+      "html": "HTML",
+      "pdf": "PDF (عبر الطباعة)",
+      "rtf": "RTF",
+      "text": "نص عادي"
+    },
     "includeWebsite": "تضمين الموقع",
     "loadSaved": "تحميل محفوظ…",
     "loadSavedAria": "تحميل كتاب محفوظ",
@@ -231,22 +355,123 @@
     "newFromTemplateAria": "بدء كتاب جديد من قالب",
     "newSection": "قسم جديد",
     "pdfPreview": "معاينة PDF",
-    "preview": { "configureForPreview": "اضبط التقرير لعرض المعاينة.", "pageBreak": "فاصل صفحة", "title": "معاينة" },
+    "preview": {
+      "configureForPreview": "اضبط التقرير لعرض المعاينة.",
+      "pageBreak": "فاصل صفحة",
+      "title": "معاينة"
+    },
     "publish": "نشر",
     "removeSection": "إزالة القسم",
     "saveBook": "حفظ الكتاب",
     "savePdf": "حفظ بصيغة PDF…",
     "savePrompt": "حفظ الكتاب باسم:",
     "section": "قسم",
-    "sectionGroups": { "chapters": "الفصول", "other": "أخرى", "personFamily": "حسب الشخص أو العائلة", "personReports": "تقارير الأشخاص", "saved": "التقارير والمخططات المحفوظة" },
+    "sectionGroups": {
+      "chapters": "الفصول",
+      "other": "أخرى",
+      "personFamily": "حسب الشخص أو العائلة",
+      "personReports": "تقارير الأشخاص",
+      "saved": "التقارير والمخططات المحفوظة"
+    },
     "sectionNumber": "القسم {number}",
-    "sections": { "ahnentafelReport": "تقرير ترقيم الأسلاف", "ancestorNarrative": "سرد الأسلاف", "bibliography": "قائمة المراجع (استشهادات مطولة)", "chapter": "فصل", "cover": "صفحة الغلاف", "customPage": "نص / صفحة مخصصة", "descendancyReport": "تقرير الذرية", "descendantNarrative": "سرد الذرية", "familyGroupSheet": "ورقة مجموعة العائلة", "footnotes": "الحواشي (استشهادات مختصرة)", "mediaGallery": "معرض الوسائط", "mediaPage": "صفحة وسائط (صورة واحدة)", "narrativeReport": "تقرير سردي", "personGroup": "إدراج مجموعة أشخاص", "personSummary": "ملخص شخص", "personsList": "قائمة الأشخاص", "placesList": "قائمة الأماكن", "registerReport": "تقرير السجل", "savedChart": "تضمين مخطط محفوظ", "savedReport": "تضمين تقرير محفوظ", "sourceInsert": "إدراج مصدر", "sourcesList": "قائمة المصادر", "title": "صفحة العنوان", "toc": "فهرس المحتويات" },
-    "status": { "buildingBundle": "جارٍ إنشاء حزمة النشر…", "bundleCanceled": "أُلغي تصدير حزمة الكتاب.", "bundleDownloaded": "تم تنزيل حزمة الكتاب وبها {count} أقسام.{website}", "bundleFailed": "فشل تصدير حزمة الكتاب: {message}", "exportingHtml": "جارٍ تصدير HTML للويب…", "htmlDownloaded": "تم تنزيل HTML للكتاب.", "htmlFailed": "فشل تصدير HTML للكتاب: {message}", "openingPdf": "جارٍ فتح معاينة PDF…", "pdfFailed": "فشلت معاينة PDF: {message}", "pdfOpened": "فُتحت معاينة PDF.", "websitePages": " صفحات الموقع: {count}.", "websiteSkipped": " تم تخطي تصدير الموقع." },
-    "templates": { "ancestor": "كتاب الأسلاف", "blank": "كتاب فارغ", "descendant": "كتاب الذرية", "family": "كتاب العائلة" },
-    "themes": { "blackAndWhite": "أسود وأبيض", "forest": "الغابة", "largePicture": "صورة كبيرة", "magenta": "أرجواني", "modern": "عصري", "pure": "نقي" },
-    "titlePresets": { "crestTitleSubtitleAuthorDate": "شعار العائلة · العنوان · العنوان الفرعي · المؤلف · التاريخ", "imageTitleSubtitleCrestAuthorDate": "صورة · العنوان · العنوان الفرعي · شعار العائلة · المؤلف · التاريخ", "titleSubtitleAuthorDate": "العنوان · العنوان الفرعي · المؤلف · التاريخ", "titleSubtitleCrestAuthorDate": "العنوان · العنوان الفرعي · شعار العائلة · المؤلف · التاريخ", "titleSubtitleImageAuthorDate": "العنوان · العنوان الفرعي · صورة · المؤلف · التاريخ" },
+    "sections": {
+      "ahnentafelReport": "تقرير ترقيم الأسلاف",
+      "ancestorNarrative": "سرد الأسلاف",
+      "bibliography": "قائمة المراجع (استشهادات مطولة)",
+      "chapter": "فصل",
+      "cover": "صفحة الغلاف",
+      "customPage": "نص / صفحة مخصصة",
+      "descendancyReport": "تقرير الذرية",
+      "descendantNarrative": "سرد الذرية",
+      "familyGroupSheet": "ورقة مجموعة العائلة",
+      "footnotes": "الحواشي (استشهادات مختصرة)",
+      "mediaGallery": "معرض الوسائط",
+      "mediaPage": "صفحة وسائط (صورة واحدة)",
+      "narrativeReport": "تقرير سردي",
+      "personGroup": "إدراج مجموعة أشخاص",
+      "personSummary": "ملخص شخص",
+      "personsList": "قائمة الأشخاص",
+      "placesList": "قائمة الأماكن",
+      "registerReport": "تقرير السجل",
+      "savedChart": "تضمين مخطط محفوظ",
+      "savedReport": "تضمين تقرير محفوظ",
+      "sourceInsert": "إدراج مصدر",
+      "sourcesList": "قائمة المصادر",
+      "title": "صفحة العنوان",
+      "toc": "فهرس المحتويات"
+    },
+    "status": {
+      "buildingBundle": "جارٍ إنشاء حزمة النشر…",
+      "bundleCanceled": "أُلغي تصدير حزمة الكتاب.",
+      "bundleDownloaded": "تم تنزيل حزمة الكتاب وبها {count} أقسام.{website}",
+      "bundleFailed": "فشل تصدير حزمة الكتاب: {message}",
+      "exportingHtml": "جارٍ تصدير HTML للويب…",
+      "htmlDownloaded": "تم تنزيل HTML للكتاب.",
+      "htmlFailed": "فشل تصدير HTML للكتاب: {message}",
+      "openingPdf": "جارٍ فتح معاينة PDF…",
+      "pdfFailed": "فشلت معاينة PDF: {message}",
+      "pdfOpened": "فُتحت معاينة PDF.",
+      "websitePages": " صفحات الموقع: {count}.",
+      "websiteSkipped": " تم تخطي تصدير الموقع."
+    },
+    "templates": {
+      "ancestor": "كتاب الأسلاف",
+      "blank": "كتاب فارغ",
+      "descendant": "كتاب الذرية",
+      "family": "كتاب العائلة"
+    },
+    "themes": {
+      "blackAndWhite": "أسود وأبيض",
+      "forest": "الغابة",
+      "largePicture": "صورة كبيرة",
+      "magenta": "أرجواني",
+      "modern": "عصري",
+      "pure": "نقي"
+    },
+    "titlePresets": {
+      "crestTitleSubtitleAuthorDate": "شعار العائلة · العنوان · العنوان الفرعي · المؤلف · التاريخ",
+      "imageTitleSubtitleCrestAuthorDate": "صورة · العنوان · العنوان الفرعي · شعار العائلة · المؤلف · التاريخ",
+      "titleSubtitleAuthorDate": "العنوان · العنوان الفرعي · المؤلف · التاريخ",
+      "titleSubtitleCrestAuthorDate": "العنوان · العنوان الفرعي · شعار العائلة · المؤلف · التاريخ",
+      "titleSubtitleImageAuthorDate": "العنوان · العنوان الفرعي · صورة · المؤلف · التاريخ"
+    },
     "untitledSection": "قسم بلا عنوان",
-    "validation": { "defaultGenerations": "{section}: سيُستخدم العدد الافتراضي للأجيال.", "emptyTitle": "{section}: العنوان فارغ.", "groupMissing": "{section}: المجموعة مفقودة.", "longReport": "{section}: قد ينتج عن {count} أجيال تقرير طويل جداً.", "mediaMissing": "{section}: الوسيط مفقود.", "multipleToc": "يحتوي الكتاب على {count} أقسام لفهرس المحتويات.", "noGroup": "{section}: لم تُحدد مجموعة.", "noMedia": "{section}: لم يُحدد وسيط.", "noPerson": "{section}: لم يُحدد شخص.", "noSavedChart": "تضمين مخطط محفوظ: لم يُحدد مخطط محفوظ.", "noSavedReport": "تضمين تقرير محفوظ: لم يُحدد تقرير محفوظ.", "noSections": "لا يحتوي الكتاب على أقسام.", "noSource": "{section}: لم يُحدد مصدر.", "personMissing": "{section}: لم يعد الشخص {person} موجوداً.", "savedChartMissing": "تضمين مخطط محفوظ: لم يعد المخطط موجوداً.", "savedReportMissing": "تضمين تقرير محفوظ: لم يعد التقرير موجوداً.", "sourceMissing": "{section}: المصدر مفقود.", "unknownKind": "نوع قسم غير معروف: {kind}", "verifySections": { "few": "يرجى التحقق من {count} أقسام", "many": "يرجى التحقق من {count} قسماً", "one": "يرجى التحقق من قسم واحد", "other": "يرجى التحقق من {count} قسم", "two": "يرجى التحقق من قسمين", "zero": "لا أقسام للتحقق" }, "warningCount": { "few": "{count} تحذيرات", "many": "{count} تحذيراً", "one": "تحذير واحد", "other": "{count} تحذير", "two": "تحذيران", "zero": "لا تحذيرات" } },
+    "validation": {
+      "defaultGenerations": "{section}: سيُستخدم العدد الافتراضي للأجيال.",
+      "emptyTitle": "{section}: العنوان فارغ.",
+      "groupMissing": "{section}: المجموعة مفقودة.",
+      "longReport": "{section}: قد ينتج عن {count} أجيال تقرير طويل جداً.",
+      "mediaMissing": "{section}: الوسيط مفقود.",
+      "multipleToc": "يحتوي الكتاب على {count} أقسام لفهرس المحتويات.",
+      "noGroup": "{section}: لم تُحدد مجموعة.",
+      "noMedia": "{section}: لم يُحدد وسيط.",
+      "noPerson": "{section}: لم يُحدد شخص.",
+      "noSavedChart": "تضمين مخطط محفوظ: لم يُحدد مخطط محفوظ.",
+      "noSavedReport": "تضمين تقرير محفوظ: لم يُحدد تقرير محفوظ.",
+      "noSections": "لا يحتوي الكتاب على أقسام.",
+      "noSource": "{section}: لم يُحدد مصدر.",
+      "personMissing": "{section}: لم يعد الشخص {person} موجوداً.",
+      "savedChartMissing": "تضمين مخطط محفوظ: لم يعد المخطط موجوداً.",
+      "savedReportMissing": "تضمين تقرير محفوظ: لم يعد التقرير موجوداً.",
+      "sourceMissing": "{section}: المصدر مفقود.",
+      "unknownKind": "نوع قسم غير معروف: {kind}",
+      "verifySections": {
+        "few": "يرجى التحقق من {count} أقسام",
+        "many": "يرجى التحقق من {count} قسماً",
+        "one": "يرجى التحقق من قسم واحد",
+        "other": "يرجى التحقق من {count} قسم",
+        "two": "يرجى التحقق من قسمين",
+        "zero": "لا أقسام للتحقق"
+      },
+      "warningCount": {
+        "few": "{count} تحذيرات",
+        "many": "{count} تحذيراً",
+        "one": "تحذير واحد",
+        "other": "{count} تحذير",
+        "two": "تحذيران",
+        "zero": "لا تحذيرات"
+      }
+    },
     "webHtml": "HTML للويب",
     "webHtmlExport": "تصدير HTML للويب",
     "websiteBundle": "حزمة الموقع والكتاب",
@@ -2427,28 +2652,89 @@
         "checkbox": "إظهار أحداث تاريخ العالم",
         "label": "تاريخ العالم"
       },
-      "groupByEventType": { "checkbox": "التجميع حسب نوع الحدث", "label": "التجميع" },
-      "includeBirth": { "checkbox": "تضمين الولادات", "label": "الميلاد" },
-      "todayIncludeChristening": { "checkbox": "تضمين التعميد", "label": "التعميد" },
-      "includeDeath": { "checkbox": "تضمين الوفيات", "label": "الوفاة" },
-      "todayIncludeBurial": { "checkbox": "تضمين الدفن", "label": "الدفن" },
-      "includeMarriage": { "checkbox": "تضمين الزيجات", "label": "الزواج" },
-      "includeEngagement": { "checkbox": "تضمين الخطوبة", "label": "الخطوبة" },
-      "includeDivorce": { "checkbox": "تضمين الطلاق والانفصال", "label": "الطلاق" },
-      "includeOtherEvents": { "checkbox": "تضمين أحداث الأشخاص والعائلات الأخرى", "label": "أحداث أخرى" },
-      "includePersons": { "checkbox": "تضمين الأشخاص", "label": "الأشخاص" },
-      "includeFamilies": { "checkbox": "تضمين العائلات", "label": "العائلات" },
-      "includeSources": { "checkbox": "تضمين المصادر", "label": "المصادر" },
-      "includePlaces": { "checkbox": "تضمين الأماكن", "label": "الأماكن" },
-      "includeMedia": { "checkbox": "تضمين الوسائط", "label": "الوسائط" },
-      "includeOtherObjects": { "checkbox": "تضمين أنواع الكائنات الأخرى", "label": "كائنات أخرى" },
-      "showAuthor": { "checkbox": "إظهار مؤلف التغيير", "label": "المؤلف" },
-      "showStillExists": { "checkbox": "إظهار ما إذا كان الإدخال ما زال في قاعدة البيانات", "label": "ما زال في قاعدة البيانات" }
+      "groupByEventType": {
+        "checkbox": "التجميع حسب نوع الحدث",
+        "label": "التجميع"
+      },
+      "includeBirth": {
+        "checkbox": "تضمين الولادات",
+        "label": "الميلاد"
+      },
+      "todayIncludeChristening": {
+        "checkbox": "تضمين التعميد",
+        "label": "التعميد"
+      },
+      "includeDeath": {
+        "checkbox": "تضمين الوفيات",
+        "label": "الوفاة"
+      },
+      "todayIncludeBurial": {
+        "checkbox": "تضمين الدفن",
+        "label": "الدفن"
+      },
+      "includeMarriage": {
+        "checkbox": "تضمين الزيجات",
+        "label": "الزواج"
+      },
+      "includeEngagement": {
+        "checkbox": "تضمين الخطوبة",
+        "label": "الخطوبة"
+      },
+      "includeDivorce": {
+        "checkbox": "تضمين الطلاق والانفصال",
+        "label": "الطلاق"
+      },
+      "includeOtherEvents": {
+        "checkbox": "تضمين أحداث الأشخاص والعائلات الأخرى",
+        "label": "أحداث أخرى"
+      },
+      "includePersons": {
+        "checkbox": "تضمين الأشخاص",
+        "label": "الأشخاص"
+      },
+      "includeFamilies": {
+        "checkbox": "تضمين العائلات",
+        "label": "العائلات"
+      },
+      "includeSources": {
+        "checkbox": "تضمين المصادر",
+        "label": "المصادر"
+      },
+      "includePlaces": {
+        "checkbox": "تضمين الأماكن",
+        "label": "الأماكن"
+      },
+      "includeMedia": {
+        "checkbox": "تضمين الوسائط",
+        "label": "الوسائط"
+      },
+      "includeOtherObjects": {
+        "checkbox": "تضمين أنواع الكائنات الأخرى",
+        "label": "كائنات أخرى"
+      },
+      "showAuthor": {
+        "checkbox": "إظهار مؤلف التغيير",
+        "label": "المؤلف"
+      },
+      "showStillExists": {
+        "checkbox": "إظهار ما إذا كان الإدخال ما زال في قاعدة البيانات",
+        "label": "ما زال في قاعدة البيانات"
+      }
     },
     "optionChoices": {
-      "sortBy": { "date": "حسب التاريخ", "person": "حسب الاسم" },
-      "groupBy": { "none": "دون تجميع", "objectType": "التجميع حسب النوع", "author": "التجميع حسب المؤلف" },
-      "sortOrder": { "latest": "أحدث تغيير أولاً", "earliest": "أقدم تغيير أولاً" }
+      "sortBy": {
+        "date": "حسب التاريخ",
+        "person": "حسب الاسم"
+      },
+      "groupBy": {
+        "none": "دون تجميع",
+        "objectType": "التجميع حسب النوع",
+        "author": "التجميع حسب المؤلف"
+      },
+      "sortOrder": {
+        "latest": "أحدث تغيير أولاً",
+        "earliest": "أقدم تغيير أولاً"
+      }
     },
     "presentation": {
       "language": "لغة التقرير",
@@ -2488,8 +2774,14 @@
       "rename": "إعادة تسمية هذا التقرير المحفوظ:",
       "sectionName": "اسم قسم التقرير:"
     },
-    "errors": { "loadSubjects": "تعذر تحميل موضوعات التقرير.", "generation": "فشل إنشاء التقرير." },
-    "book": { "defaultTitle": "تقارير العائلة", "untitled": "كتاب بلا عنوان" },
+    "errors": {
+      "loadSubjects": "تعذر تحميل موضوعات التقرير.",
+      "generation": "فشل إنشاء التقرير."
+    },
+    "book": {
+      "defaultTitle": "تقارير العائلة",
+      "untitled": "كتاب بلا عنوان"
+    },
     "editing": {
       "block": "الكتلة {count}",
       "heading": "عنوان: {value}",
@@ -3125,7 +3417,14 @@
     "genderSplit": "توزيع الجنس",
     "genderUnknown": "غير معروف",
     "drilldownTitle": "تفاصيل الإحصاءات",
-    "drilldownCount": { "zero": "لا سجلات مطابقة", "one": "سجل واحد مطابق", "two": "سجلان مطابقان", "few": "{count} سجلات مطابقة", "many": "{count} سجلاً مطابقاً", "other": "{count} سجل مطابق" },
+    "drilldownCount": {
+      "zero": "لا سجلات مطابقة",
+      "one": "سجل واحد مطابق",
+      "two": "سجلان مطابقان",
+      "few": "{count} سجلات مطابقة",
+      "many": "{count} سجلاً مطابقاً",
+      "other": "{count} سجل مطابق"
+    },
     "noMatchingRecords": "لا توجد سجلات مطابقة.",
     "chart": {
       "computeError": "تعذر حساب الإحصاءات.",
@@ -3328,5 +3627,127 @@
     "empty": "لا توجد شجرات محفوظة بعد.",
     "heading": "شجرات عائلتي",
     "noTree": "لا توجد شجرة بعد"
+  },
+  "familySearch": {
+    "authRequired": "سجّل الدخول إلى FamilySearch أو اضبط رمز وصول لاستخدام البيانات المباشرة. تظل حالة السياسات وقائمة الانتظار المحلية متاحة.",
+    "personId": "معرّف الشخص في FamilySearch",
+    "personIdPlaceholder": "مثال: KW1-ABC",
+    "sync": {
+      "actions": {
+        "download": "التنزيل",
+        "upload": "الرفع",
+        "replace": "الاستبدال",
+        "delete": "الحذف"
+      },
+      "fields": {
+        "name": "الاسم",
+        "gender": "الجنس",
+        "birth": "الميلاد",
+        "death": "الوفاة",
+        "birthPlace": "مكان الميلاد",
+        "deathPlace": "مكان الوفاة"
+      },
+      "reasonPrompt": "سبب {action} للحقل «{field}» في FamilySearch:",
+      "actionTitle": "{action}: {field}",
+      "actionProgress": "جارٍ إرسال إجراء {action} للحقل {field}…",
+      "downloaded": "تم تنزيل {field} إلى السجل المحلي.",
+      "sent": "أُرسل إجراء {action} للحقل {field} إلى FamilySearch.",
+      "failed": "تعذر إجراء {action}: {message}"
+    },
+    "policy": {
+      "accept": "قبول",
+      "decline": "رفض",
+      "acknowledge": "لقد قرأت هذه السياسة وفهمتها.",
+      "memories": {
+        "title": "سياسة ذكريات FamilySearch",
+        "subtitle": "مطلوبة قبل استخدام الذكريات في هذه الشجرة",
+        "summary": "لا ترفع إلا الذكريات التي تملك إذنًا لمشاركتها. قد تصبح الذكريات مرئية لمستخدمي FamilySearch الآخرين، ويجب التعامل بعناية مع معلومات الأشخاص الأحياء.",
+        "link": "قراءة اتفاقية الإرسال في FamilySearch"
+      },
+      "ordinances": {
+        "title": "سياسة مراسيم FamilySearch",
+        "subtitle": "مطلوبة قبل استخدام ميزات المراسيم في هذه الشجرة",
+        "summary": "معلومات المراسيم بيانات دينية حساسة. استخدمها فقط لأغراض تاريخ العائلة المناسبة، واحترم الخصوصية واتبع قواعد الوصول والحجز في FamilySearch.",
+        "link": "قراءة سياسة الخصوصية في FamilySearch"
+      }
+    },
+    "places": {
+      "title": "مطابقات الأماكن الدقيقة",
+      "subtitle": "اختر كيفية حفظ كل مكان من FamilySearch في الشجرة المحلية.",
+      "action": "الاستيراد كـ",
+      "useExisting": "مكان محلي موجود",
+      "createCorrected": "مكان جديد مصحح",
+      "keepText": "الاحتفاظ كنص",
+      "existingPlace": "المكان المحلي",
+      "choosePlace": "اختر مكانًا…",
+      "correctedName": "اسم المكان المصحح",
+      "keepTextHint": "سيُحتفظ بنص FamilySearch الأصلي من دون إنشاء مكان منظم.",
+      "reconciled": "تمت مطابقة مكان FamilySearch."
+    },
+    "autoMatches": {
+      "approveAll": "اعتماد كل المطابقات التلقائية",
+      "approveAllTitle": "اعتماد كل المطابقات التلقائية",
+      "confirmCount": "هل تريد اعتماد {count} من المطابقات التلقائية؟",
+      "confirmHint": "ستُعتمد كل مطابقة تلقائية مفتوحة محليًا، وسيظهر التقدم وأي إخفاق لكل شخص.",
+      "progress": "تم اعتماد {complete} من {count}",
+      "summary": "تم اعتماد {approved}؛ وتعذر اعتماد {failed}.",
+      "status": {
+        "running": "جارٍ الاعتماد…",
+        "approved": "تم الاعتماد",
+        "failed": "تعذر"
+      }
+    },
+    "panes": {
+      "furtherInformation": {
+        "label": "معلومات إضافية",
+        "description": "افحص الأشخاص المطابقين بحثًا عن ملاحظات وذكريات ونقاشات لم تُراجع محليًا بعد."
+      }
+    },
+    "furtherInformation": {
+      "title": "معلومات إضافية في FamilySearch",
+      "description": "أشخاص مطابقون لديهم ملاحظات أو ذكريات أو نقاشات تتجاوز المعلومات المستوردة سابقًا.",
+      "scan": "فحص",
+      "scanning": "جارٍ الفحص…",
+      "progress": "تم فحص {complete} من {count} من الأشخاص المطابقين…",
+      "complete": "اكتمل الفحص. لدى {count} من الأشخاص معلومات إضافية غير مشاهدة.",
+      "personFailed": "تعذر فحص {name}: {message}",
+      "empty": "لا توجد معلومات إضافية غير مشاهدة. شغّل الفحص للتحقق من FamilySearch.",
+      "counts": "الملاحظات: {notes} · الذكريات: {memories} · النقاشات: {discussions}",
+      "show": "عرض المعلومات الإضافية…",
+      "markSeen": "تحديد كمشاهَد"
+    },
+    "remoteTree": {
+      "title": "توسيع الشجرة البعيدة",
+      "subtitle": "تصفح أقارب الشخص {id} في FamilySearch من دون تغيير الشجرة المحلية.",
+      "expand": "توسيع الشجرة البعيدة",
+      "direction": "الاتجاه",
+      "ancestors": "الأسلاف",
+      "descendants": "الأحفاد",
+      "both": "الأسلاف والأحفاد",
+      "generations": "الأجيال",
+      "refresh": "جلب الشجرة",
+      "loading": "جارٍ تحميل الشجرة البعيدة…",
+      "loaded": "تم تحميل {count} من الأشخاص البعيدين.",
+      "failed": "تعذر تحميل الشجرة البعيدة: {message}",
+      "people": "الأشخاص البعيدون",
+      "selection": "الشخص المحدد",
+      "pullHint": "يستخدم السحب مسار التنزيل المحلي المعتاد ويطابق أسماء الأماكن غير المتطابقة قبل إنشاء السجلات.",
+      "pullSelected": "سحب الشخص المحدد"
+    },
+    "batch": {
+      "title": "تنزيل الأقارب تلقائيًا",
+      "subtitle": "اجلب رسمًا عائليًا بعيدًا محدودًا، ثم راجع مطابقة الأماكن قبل الاستيراد المحلي.",
+      "generations": "عدد الأجيال",
+      "ready": "جاهز.",
+      "start": "بدء",
+      "running": "جارٍ التنفيذ…",
+      "fetching": "جارٍ جلب أقارب {id}…",
+      "fetched": "تم جلب {count} من أشخاص FamilySearch. جارٍ إعداد الاستيراد المحلي…",
+      "failed": "تعذر التنزيل: {message}"
+    },
+    "import": {
+      "complete": "تم استيراد {count} من أشخاص FamilySearch الجدد.",
+      "failed": "تعذر استيراد FamilySearch: {message}"
+    }
   }
 }

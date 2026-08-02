@@ -176,13 +176,22 @@
       "create": "Create Book",
       "creating": "Creating…",
       "emptyHelp": "An empty book starts with a cover and table of contents. Add and configure sections in the editor.",
-      "generationCount": { "one": "{count} generation", "other": "{count} generations" },
+      "generationCount": {
+        "one": "{count} generation",
+        "other": "{count} generations"
+      },
       "generationsDown": "Generations down",
       "generationsUp": "Generations up",
       "outputLanguage": "Output language",
       "progress": "New book assistant progress",
       "stepOf": "Step {current} of {total}: {name}",
-      "steps": { "type": "Book type", "subject": "Subject", "scope": "Scope", "presentation": "Presentation", "plan": "Plan" },
+      "steps": {
+        "type": "Book type",
+        "subject": "Subject",
+        "scope": "Scope",
+        "presentation": "Presentation",
+        "plan": "Plan"
+      },
       "subjectHelp": {
         "ancestor": "Choose the person whose ancestors will form the book.",
         "descendant": "Choose the person whose descendants will form the book.",
@@ -198,7 +207,13 @@
         "family": "A family group chapter with person, media, and source sections.",
         "person": "A biographical book centered on one person and close family."
       },
-      "types": { "ancestor": "Ancestor Book", "descendant": "Descendant Book", "empty": "Empty Book", "family": "Family Book", "person": "Person Book" }
+      "types": {
+        "ancestor": "Ancestor Book",
+        "descendant": "Descendant Book",
+        "empty": "Empty Book",
+        "family": "Family Book",
+        "person": "Person Book"
+      }
     },
     "bookBundle": "Book bundle",
     "bookSettings": "Book Settings",
@@ -207,7 +222,77 @@
     "bundleBook": "Bundle book",
     "chaptersAndSections": "Chapters and Sections",
     "config": {
-      "allFamilies": "All families", "allPersons": "All persons", "allRecords": "All records", "ancestors": "Ancestors", "appendix": "Appendix", "author": "Author", "caption": "Caption", "chapterNumber": "Chapter number", "chapterType": "Chapter type", "chartTitle": "Chart title", "compact": "Compact", "content": "Content", "date": "Date", "deceasedOnly": "Only deceased persons", "defaultTitlePage": "Default title page contents", "descendants": "Descendants", "divorcedOnly": "Only divorced families", "familyCrest": "Family Crest", "filter": "Filter", "generations": "Generations", "include": "Include", "legend": "Legend", "livingOnly": "Only living persons", "marriedOnly": "Only married families", "media": "Media", "newPage": "Start on a new page", "note": "Note", "notes": "Notes", "numbered": "Numbered", "pageText": "Page text", "personGroup": "Person group", "place": "Place", "plain": "Plain", "preface": "Preface", "privateInformation": "Information marked private", "publisher": "Publisher", "relatives": "Relatives", "savedChart": "Saved chart", "savedReport": "Saved report", "scope": "Scope", "sectionType": "Section type", "selectFamily": "Select family…", "selectGroup": "Select group…", "selectMedia": "Select media…", "selectSavedChart": "Select saved chart…", "selectSavedReport": "Select saved report…", "selectSource": "Select source…", "selectedRecord": "Selected record", "sheetTitles": { "chart": "Configure Chart", "family": "Configure Family Section", "person": "Configure Person Section", "report": "Configure Report Section", "text": "Configure Text or Custom Page" }, "sort": "Sort", "sortBirthAsc": "By date of birth, ascending", "sortBirthDesc": "By date of birth, descending", "sortDate": "By date", "sortName": "By name", "source": "Source", "sources": "Sources", "startPerson": "Start person", "subtitle": "Subtitle", "targetFamily": "Target family", "targetMedia": "Target media", "targetPerson": "Target person", "title": "Title", "titleImage": "Title Page Image", "titlePageContents": "Title Page Contents", "tocStyle": "Table of contents style"
+      "allFamilies": "All families",
+      "allPersons": "All persons",
+      "allRecords": "All records",
+      "ancestors": "Ancestors",
+      "appendix": "Appendix",
+      "author": "Author",
+      "caption": "Caption",
+      "chapterNumber": "Chapter number",
+      "chapterType": "Chapter type",
+      "chartTitle": "Chart title",
+      "compact": "Compact",
+      "content": "Content",
+      "date": "Date",
+      "deceasedOnly": "Only deceased persons",
+      "defaultTitlePage": "Default title page contents",
+      "descendants": "Descendants",
+      "divorcedOnly": "Only divorced families",
+      "familyCrest": "Family Crest",
+      "filter": "Filter",
+      "generations": "Generations",
+      "include": "Include",
+      "legend": "Legend",
+      "livingOnly": "Only living persons",
+      "marriedOnly": "Only married families",
+      "media": "Media",
+      "newPage": "Start on a new page",
+      "note": "Note",
+      "notes": "Notes",
+      "numbered": "Numbered",
+      "pageText": "Page text",
+      "personGroup": "Person group",
+      "place": "Place",
+      "plain": "Plain",
+      "preface": "Preface",
+      "privateInformation": "Information marked private",
+      "publisher": "Publisher",
+      "relatives": "Relatives",
+      "savedChart": "Saved chart",
+      "savedReport": "Saved report",
+      "scope": "Scope",
+      "sectionType": "Section type",
+      "selectFamily": "Select family…",
+      "selectGroup": "Select group…",
+      "selectMedia": "Select media…",
+      "selectSavedChart": "Select saved chart…",
+      "selectSavedReport": "Select saved report…",
+      "selectSource": "Select source…",
+      "selectedRecord": "Selected record",
+      "sheetTitles": {
+        "chart": "Configure Chart",
+        "family": "Configure Family Section",
+        "person": "Configure Person Section",
+        "report": "Configure Report Section",
+        "text": "Configure Text or Custom Page"
+      },
+      "sort": "Sort",
+      "sortBirthAsc": "By date of birth, ascending",
+      "sortBirthDesc": "By date of birth, descending",
+      "sortDate": "By date",
+      "sortName": "By name",
+      "source": "Source",
+      "sources": "Sources",
+      "startPerson": "Start person",
+      "subtitle": "Subtitle",
+      "targetFamily": "Target family",
+      "targetMedia": "Target media",
+      "targetPerson": "Target person",
+      "title": "Title",
+      "titleImage": "Title Page Image",
+      "titlePageContents": "Title Page Contents",
+      "tocStyle": "Table of contents style"
     },
     "configure": "Configure",
     "configureSection": "Configure section",
@@ -216,11 +301,38 @@
     "deleteBook": "Delete Book",
     "deletePrompt": "Delete this book?",
     "deleteSavedAria": "Delete a saved book",
-    "dirty": { "discard": "Discard changes", "message": "You have unsaved book changes. Leave without saving?", "switchMessage": "You have unsaved book changes. Discard them and switch books?", "title": "Unsaved Book" },
-    "errors": { "errorCount": { "one": "Error ({count})", "other": "Errors ({count})" }, "exportAnyway": "Export anyway", "fixBeforeExport": "Fix the errors below before exporting.", "jumpToSection": "Jump to section {number}", "none": "No issues found.", "title": "Book has errors", "warningCount": { "one": "Warning ({count})", "other": "Warnings ({count})" }, "warningHelp": "The book will export, but these items may need your attention.", "warningTitle": "Book has warnings" },
+    "dirty": {
+      "discard": "Discard changes",
+      "message": "You have unsaved book changes. Leave without saving?",
+      "switchMessage": "You have unsaved book changes. Discard them and switch books?",
+      "title": "Unsaved Book"
+    },
+    "errors": {
+      "errorCount": {
+        "one": "Error ({count})",
+        "other": "Errors ({count})"
+      },
+      "exportAnyway": "Export anyway",
+      "fixBeforeExport": "Fix the errors below before exporting.",
+      "jumpToSection": "Jump to section {number}",
+      "none": "No issues found.",
+      "title": "Book has errors",
+      "warningCount": {
+        "one": "Warning ({count})",
+        "other": "Warnings ({count})"
+      },
+      "warningHelp": "The book will export, but these items may need your attention.",
+      "warningTitle": "Book has warnings"
+    },
     "export": "Export",
     "exportAs": "Export as {format}",
-    "exportFormats": { "csv": "CSV", "html": "HTML", "pdf": "PDF (via print)", "rtf": "RTF", "text": "Plain Text" },
+    "exportFormats": {
+      "csv": "CSV",
+      "html": "HTML",
+      "pdf": "PDF (via print)",
+      "rtf": "RTF",
+      "text": "Plain Text"
+    },
     "includeWebsite": "Include website",
     "loadSaved": "Load saved…",
     "loadSavedAria": "Load a saved book",
@@ -231,22 +343,115 @@
     "newFromTemplateAria": "Start a new book from a template",
     "newSection": "New Section",
     "pdfPreview": "PDF preview",
-    "preview": { "configureForPreview": "Configure a report to see the preview.", "pageBreak": "page break", "title": "Preview" },
+    "preview": {
+      "configureForPreview": "Configure a report to see the preview.",
+      "pageBreak": "page break",
+      "title": "Preview"
+    },
     "publish": "Publish",
     "removeSection": "Remove section",
     "saveBook": "Save Book",
     "savePdf": "Save as PDF…",
     "savePrompt": "Save book as:",
     "section": "Section",
-    "sectionGroups": { "chapters": "Chapters", "other": "Other", "personFamily": "Person / Family based", "personReports": "Reports for Persons", "saved": "Saved Reports and Charts" },
+    "sectionGroups": {
+      "chapters": "Chapters",
+      "other": "Other",
+      "personFamily": "Person / Family based",
+      "personReports": "Reports for Persons",
+      "saved": "Saved Reports and Charts"
+    },
     "sectionNumber": "SECTION {number}",
-    "sections": { "ahnentafelReport": "Ahnentafel Report", "ancestorNarrative": "Ancestor Narrative", "bibliography": "Bibliography (long citations)", "chapter": "Chapter", "cover": "Cover Page", "customPage": "Text / Custom Page", "descendancyReport": "Descendancy Report", "descendantNarrative": "Descendant Narrative", "familyGroupSheet": "Family Group Sheet", "footnotes": "Footnotes (short citations)", "mediaGallery": "Media Gallery", "mediaPage": "Media Page (single image)", "narrativeReport": "Narrative Report", "personGroup": "Person Group Insert", "personSummary": "Person Summary", "personsList": "Persons List", "placesList": "Places List", "registerReport": "Register Report", "savedChart": "Saved Chart Embed", "savedReport": "Saved Report Embed", "sourceInsert": "Source Insert", "sourcesList": "Sources List", "title": "Title Page", "toc": "Table of Contents" },
-    "status": { "buildingBundle": "Building publish bundle…", "bundleCanceled": "Book bundle export canceled.", "bundleDownloaded": "Book bundle downloaded with {count} sections.{website}", "bundleFailed": "Book bundle export failed: {message}", "exportingHtml": "Exporting web HTML…", "htmlDownloaded": "Book HTML downloaded.", "htmlFailed": "Book HTML export failed: {message}", "openingPdf": "Opening PDF preview…", "pdfFailed": "PDF preview failed: {message}", "pdfOpened": "PDF preview opened.", "websitePages": " Website pages: {count}.", "websiteSkipped": " Website export skipped." },
-    "templates": { "ancestor": "Ancestor book", "blank": "Blank book", "descendant": "Descendant book", "family": "Family book" },
-    "themes": { "blackAndWhite": "Black and White", "forest": "Forest", "largePicture": "Large Picture", "magenta": "Magenta", "modern": "Modern", "pure": "Pure" },
-    "titlePresets": { "crestTitleSubtitleAuthorDate": "Family Crest · Title · Subtitle · Author · Date", "imageTitleSubtitleCrestAuthorDate": "Image · Title · Subtitle · Family Crest · Author · Date", "titleSubtitleAuthorDate": "Title · Subtitle · Author · Date", "titleSubtitleCrestAuthorDate": "Title · Subtitle · Family Crest · Author · Date", "titleSubtitleImageAuthorDate": "Title · Subtitle · Image · Author · Date" },
+    "sections": {
+      "ahnentafelReport": "Ahnentafel Report",
+      "ancestorNarrative": "Ancestor Narrative",
+      "bibliography": "Bibliography (long citations)",
+      "chapter": "Chapter",
+      "cover": "Cover Page",
+      "customPage": "Text / Custom Page",
+      "descendancyReport": "Descendancy Report",
+      "descendantNarrative": "Descendant Narrative",
+      "familyGroupSheet": "Family Group Sheet",
+      "footnotes": "Footnotes (short citations)",
+      "mediaGallery": "Media Gallery",
+      "mediaPage": "Media Page (single image)",
+      "narrativeReport": "Narrative Report",
+      "personGroup": "Person Group Insert",
+      "personSummary": "Person Summary",
+      "personsList": "Persons List",
+      "placesList": "Places List",
+      "registerReport": "Register Report",
+      "savedChart": "Saved Chart Embed",
+      "savedReport": "Saved Report Embed",
+      "sourceInsert": "Source Insert",
+      "sourcesList": "Sources List",
+      "title": "Title Page",
+      "toc": "Table of Contents"
+    },
+    "status": {
+      "buildingBundle": "Building publish bundle…",
+      "bundleCanceled": "Book bundle export canceled.",
+      "bundleDownloaded": "Book bundle downloaded with {count} sections.{website}",
+      "bundleFailed": "Book bundle export failed: {message}",
+      "exportingHtml": "Exporting web HTML…",
+      "htmlDownloaded": "Book HTML downloaded.",
+      "htmlFailed": "Book HTML export failed: {message}",
+      "openingPdf": "Opening PDF preview…",
+      "pdfFailed": "PDF preview failed: {message}",
+      "pdfOpened": "PDF preview opened.",
+      "websitePages": " Website pages: {count}.",
+      "websiteSkipped": " Website export skipped."
+    },
+    "templates": {
+      "ancestor": "Ancestor book",
+      "blank": "Blank book",
+      "descendant": "Descendant book",
+      "family": "Family book"
+    },
+    "themes": {
+      "blackAndWhite": "Black and White",
+      "forest": "Forest",
+      "largePicture": "Large Picture",
+      "magenta": "Magenta",
+      "modern": "Modern",
+      "pure": "Pure"
+    },
+    "titlePresets": {
+      "crestTitleSubtitleAuthorDate": "Family Crest · Title · Subtitle · Author · Date",
+      "imageTitleSubtitleCrestAuthorDate": "Image · Title · Subtitle · Family Crest · Author · Date",
+      "titleSubtitleAuthorDate": "Title · Subtitle · Author · Date",
+      "titleSubtitleCrestAuthorDate": "Title · Subtitle · Family Crest · Author · Date",
+      "titleSubtitleImageAuthorDate": "Title · Subtitle · Image · Author · Date"
+    },
     "untitledSection": "Untitled section",
-    "validation": { "defaultGenerations": "{section}: using default generations.", "emptyTitle": "{section}: empty title.", "groupMissing": "{section}: group missing.", "longReport": "{section}: {count} generations may produce a very long report.", "mediaMissing": "{section}: media missing.", "multipleToc": "Book has {count} Table of Contents sections.", "noGroup": "{section}: no group selected.", "noMedia": "{section}: no media selected.", "noPerson": "{section}: no person selected.", "noSavedChart": "Saved Chart Embed: no saved chart selected.", "noSavedReport": "Saved Report Embed: no saved report selected.", "noSections": "Book has no sections.", "noSource": "{section}: no source selected.", "personMissing": "{section}: person {person} no longer exists.", "savedChartMissing": "Saved Chart Embed: saved chart no longer exists.", "savedReportMissing": "Saved Report Embed: saved report no longer exists.", "sourceMissing": "{section}: source missing.", "unknownKind": "Unknown section kind: {kind}", "verifySections": { "one": "Please verify {count} section", "other": "Please verify {count} sections" }, "warningCount": { "one": "{count} warning", "other": "{count} warnings" } },
+    "validation": {
+      "defaultGenerations": "{section}: using default generations.",
+      "emptyTitle": "{section}: empty title.",
+      "groupMissing": "{section}: group missing.",
+      "longReport": "{section}: {count} generations may produce a very long report.",
+      "mediaMissing": "{section}: media missing.",
+      "multipleToc": "Book has {count} Table of Contents sections.",
+      "noGroup": "{section}: no group selected.",
+      "noMedia": "{section}: no media selected.",
+      "noPerson": "{section}: no person selected.",
+      "noSavedChart": "Saved Chart Embed: no saved chart selected.",
+      "noSavedReport": "Saved Report Embed: no saved report selected.",
+      "noSections": "Book has no sections.",
+      "noSource": "{section}: no source selected.",
+      "personMissing": "{section}: person {person} no longer exists.",
+      "savedChartMissing": "Saved Chart Embed: saved chart no longer exists.",
+      "savedReportMissing": "Saved Report Embed: saved report no longer exists.",
+      "sourceMissing": "{section}: source missing.",
+      "unknownKind": "Unknown section kind: {kind}",
+      "verifySections": {
+        "one": "Please verify {count} section",
+        "other": "Please verify {count} sections"
+      },
+      "warningCount": {
+        "one": "{count} warning",
+        "other": "{count} warnings"
+      }
+    },
     "webHtml": "Web HTML",
     "webHtmlExport": "Web HTML export",
     "websiteBundle": "Website/book bundle",
@@ -2296,28 +2501,89 @@
         "checkbox": "Show world history events",
         "label": "World history"
       },
-      "groupByEventType": { "checkbox": "Group by event type", "label": "Grouping" },
-      "includeBirth": { "checkbox": "Include births", "label": "Birth" },
-      "todayIncludeChristening": { "checkbox": "Include christenings and baptisms", "label": "Christening" },
-      "includeDeath": { "checkbox": "Include deaths", "label": "Death" },
-      "todayIncludeBurial": { "checkbox": "Include burials", "label": "Burial" },
-      "includeMarriage": { "checkbox": "Include marriages", "label": "Marriage" },
-      "includeEngagement": { "checkbox": "Include engagements", "label": "Engagement" },
-      "includeDivorce": { "checkbox": "Include divorces and separations", "label": "Divorce" },
-      "includeOtherEvents": { "checkbox": "Include other person and family events", "label": "Other events" },
-      "includePersons": { "checkbox": "Include persons", "label": "Persons" },
-      "includeFamilies": { "checkbox": "Include families", "label": "Families" },
-      "includeSources": { "checkbox": "Include sources", "label": "Sources" },
-      "includePlaces": { "checkbox": "Include places", "label": "Places" },
-      "includeMedia": { "checkbox": "Include media", "label": "Media" },
-      "includeOtherObjects": { "checkbox": "Include other object types", "label": "Other objects" },
-      "showAuthor": { "checkbox": "Show author of change", "label": "Author" },
-      "showStillExists": { "checkbox": "Display whether the entry is still in the database", "label": "Still in database" }
+      "groupByEventType": {
+        "checkbox": "Group by event type",
+        "label": "Grouping"
+      },
+      "includeBirth": {
+        "checkbox": "Include births",
+        "label": "Birth"
+      },
+      "todayIncludeChristening": {
+        "checkbox": "Include christenings and baptisms",
+        "label": "Christening"
+      },
+      "includeDeath": {
+        "checkbox": "Include deaths",
+        "label": "Death"
+      },
+      "todayIncludeBurial": {
+        "checkbox": "Include burials",
+        "label": "Burial"
+      },
+      "includeMarriage": {
+        "checkbox": "Include marriages",
+        "label": "Marriage"
+      },
+      "includeEngagement": {
+        "checkbox": "Include engagements",
+        "label": "Engagement"
+      },
+      "includeDivorce": {
+        "checkbox": "Include divorces and separations",
+        "label": "Divorce"
+      },
+      "includeOtherEvents": {
+        "checkbox": "Include other person and family events",
+        "label": "Other events"
+      },
+      "includePersons": {
+        "checkbox": "Include persons",
+        "label": "Persons"
+      },
+      "includeFamilies": {
+        "checkbox": "Include families",
+        "label": "Families"
+      },
+      "includeSources": {
+        "checkbox": "Include sources",
+        "label": "Sources"
+      },
+      "includePlaces": {
+        "checkbox": "Include places",
+        "label": "Places"
+      },
+      "includeMedia": {
+        "checkbox": "Include media",
+        "label": "Media"
+      },
+      "includeOtherObjects": {
+        "checkbox": "Include other object types",
+        "label": "Other objects"
+      },
+      "showAuthor": {
+        "checkbox": "Show author of change",
+        "label": "Author"
+      },
+      "showStillExists": {
+        "checkbox": "Display whether the entry is still in the database",
+        "label": "Still in database"
+      }
     },
     "optionChoices": {
-      "sortBy": { "date": "By date", "person": "By name" },
-      "groupBy": { "none": "No grouping", "objectType": "Group by types", "author": "Group by author" },
-      "sortOrder": { "latest": "Latest change first", "earliest": "Earliest change first" }
+      "sortBy": {
+        "date": "By date",
+        "person": "By name"
+      },
+      "groupBy": {
+        "none": "No grouping",
+        "objectType": "Group by types",
+        "author": "Group by author"
+      },
+      "sortOrder": {
+        "latest": "Latest change first",
+        "earliest": "Earliest change first"
+      }
     },
     "presentation": {
       "language": "Report language",
@@ -2357,8 +2623,14 @@
       "rename": "Rename this saved report:",
       "sectionName": "Name this report section:"
     },
-    "errors": { "loadSubjects": "Unable to load report subjects.", "generation": "Report generation failed." },
-    "book": { "defaultTitle": "Family Reports", "untitled": "Untitled Book" },
+    "errors": {
+      "loadSubjects": "Unable to load report subjects.",
+      "generation": "Report generation failed."
+    },
+    "book": {
+      "defaultTitle": "Family Reports",
+      "untitled": "Untitled Book"
+    },
     "editing": {
       "block": "Block {count}",
       "heading": "Heading: {value}",
@@ -2986,7 +3258,10 @@
     "genderSplit": "Gender split",
     "genderUnknown": "Unknown",
     "drilldownTitle": "Statistics details",
-    "drilldownCount": { "one": "{count} matching record", "other": "{count} matching records" },
+    "drilldownCount": {
+      "one": "{count} matching record",
+      "other": "{count} matching records"
+    },
     "noMatchingRecords": "No matching records.",
     "chart": {
       "computeError": "Could not compute statistics.",
@@ -3181,5 +3456,127 @@
     "empty": "No saved trees yet.",
     "heading": "My family trees",
     "noTree": "No tree yet"
+  },
+  "familySearch": {
+    "authRequired": "Sign in to FamilySearch or configure an access token to use live data. Local policy and queue state remain available.",
+    "personId": "FamilySearch Person ID",
+    "personIdPlaceholder": "For example, KW1-ABC",
+    "sync": {
+      "actions": {
+        "download": "download",
+        "upload": "upload",
+        "replace": "replace",
+        "delete": "delete"
+      },
+      "fields": {
+        "name": "Name",
+        "gender": "Gender",
+        "birth": "Birth",
+        "death": "Death",
+        "birthPlace": "Birth place",
+        "deathPlace": "Death place"
+      },
+      "reasonPrompt": "Reason for {action} of “{field}” on FamilySearch:",
+      "actionTitle": "{action} {field}",
+      "actionProgress": "Sending {action} for {field}…",
+      "downloaded": "Downloaded {field} into the local record.",
+      "sent": "The {action} action for {field} was sent to FamilySearch.",
+      "failed": "The {action} action failed: {message}"
+    },
+    "policy": {
+      "accept": "Accept",
+      "decline": "Decline",
+      "acknowledge": "I have read and understood this policy.",
+      "memories": {
+        "title": "FamilySearch Memories Policy",
+        "subtitle": "Required before using Memories in this tree",
+        "summary": "Only upload memories you have permission to share. Memories may become visible to other FamilySearch users, and living-person information must be handled with care.",
+        "link": "Read the FamilySearch Submission Agreement"
+      },
+      "ordinances": {
+        "title": "FamilySearch Ordinances Policy",
+        "subtitle": "Required before using ordinance features in this tree",
+        "summary": "Ordinance information is sensitive religious data. Use it only for appropriate family-history purposes, respect privacy, and follow FamilySearch access and reservation rules.",
+        "link": "Read the FamilySearch privacy policy"
+      }
+    },
+    "places": {
+      "title": "Exact Place Matches",
+      "subtitle": "Choose how each FamilySearch place should be stored in the local tree.",
+      "action": "Import as",
+      "useExisting": "Existing local place",
+      "createCorrected": "Corrected new place",
+      "keepText": "Keep as text",
+      "existingPlace": "Local place",
+      "choosePlace": "Choose a place…",
+      "correctedName": "Corrected place name",
+      "keepTextHint": "The original FamilySearch text will be retained without creating a structured place.",
+      "reconciled": "FamilySearch place reconciled."
+    },
+    "autoMatches": {
+      "approveAll": "Approve all Auto-Matches",
+      "approveAllTitle": "Approve All Auto-Matches",
+      "confirmCount": "Approve {count} auto-matches?",
+      "confirmHint": "Each open auto-match will be approved locally. Progress and any failures will be shown per person.",
+      "progress": "Approved {complete} of {count}",
+      "summary": "Approved {approved}; failed {failed}.",
+      "status": {
+        "running": "Approving…",
+        "approved": "Approved",
+        "failed": "Failed"
+      }
+    },
+    "panes": {
+      "furtherInformation": {
+        "label": "Further Information",
+        "description": "Scan matched people for notes, memories, and discussions not yet reviewed locally."
+      }
+    },
+    "furtherInformation": {
+      "title": "Further Information on FamilySearch",
+      "description": "Matched people with additional notes, memories, or discussions beyond the information already imported.",
+      "scan": "Scan",
+      "scanning": "Scanning…",
+      "progress": "Scanned {complete} of {count} matched people…",
+      "complete": "Scan complete. {count} people have unseen further information.",
+      "personFailed": "Could not scan {name}: {message}",
+      "empty": "No unseen further information. Run a scan to check FamilySearch.",
+      "counts": "Notes: {notes} · Memories: {memories} · Discussions: {discussions}",
+      "show": "Show further information…",
+      "markSeen": "Mark as seen"
+    },
+    "remoteTree": {
+      "title": "Extend Remote Tree",
+      "subtitle": "Browse relatives of FamilySearch person {id} without changing the local tree.",
+      "expand": "Extend remote tree",
+      "direction": "Direction",
+      "ancestors": "Ancestors",
+      "descendants": "Descendants",
+      "both": "Ancestors and descendants",
+      "generations": "Generations",
+      "refresh": "Fetch tree",
+      "loading": "Loading the remote tree…",
+      "loaded": "Loaded {count} remote people.",
+      "failed": "Remote tree could not be loaded: {message}",
+      "people": "Remote people",
+      "selection": "Selected person",
+      "pullHint": "Pulling uses the regular local download path and reconciles unmatched place names before creating records.",
+      "pullSelected": "Pull selected person"
+    },
+    "batch": {
+      "title": "Auto-Download Relatives",
+      "subtitle": "Fetch a bounded remote family graph, then review place mappings before local import.",
+      "generations": "Generations to walk",
+      "ready": "Ready.",
+      "start": "Start",
+      "running": "Running…",
+      "fetching": "Fetching relatives of {id}…",
+      "fetched": "Fetched {count} FamilySearch people. Preparing local import…",
+      "failed": "Download failed: {message}"
+    },
+    "import": {
+      "complete": "Imported {count} new FamilySearch people.",
+      "failed": "FamilySearch import failed: {message}"
+    }
   }
 }
