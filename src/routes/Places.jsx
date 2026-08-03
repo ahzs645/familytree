@@ -29,11 +29,11 @@ import { EditSwitch } from '../components/editors/EditSwitch.jsx';
 import { MediaRelationsEditor, NotesEditor, SourceCitationsEditor } from '../components/editors/RelatedRecordEditors.jsx';
 import { Map as MapView } from '../components/ui/Map.jsx';
 import { BatchPlaceLookupSheet } from '../components/BatchPlaceLookupSheet.jsx';
+import { PlaceLookupCandidateSheet } from '../components/PlaceLookupCandidateSheet.jsx';
 import { FreeformPlaceLookupSheet } from '../components/FreeformPlaceLookupSheet.jsx';
 import { PlaceConvertToDetailSheet } from '../components/PlaceConvertToDetailSheet.jsx';
 import {
   MAP_PREFERENCES_EVENT,
-  batchLookupMissingCoordinates,
   batchLookupMissingGeoNames,
   getMapPreferences,
   lookupGeoNameId,
@@ -50,6 +50,7 @@ import { useListSelection } from '../components/lists/useListSelection.js';
 import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
 import { useRecordEditor } from '../components/editors/useRecordEditor.js';
 import { useRecords } from '../lib/data/useRecords.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const ACCENTS = {
   name: 'rgb(255 153 0)',
@@ -180,6 +181,7 @@ async function reconcilePlaceSideRecords(placeId, vals, coordPlan, setCoordinate
 export default function Places() {
   const navigate = useNavigate();
   const modal = useModal();
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   // Coordinate record lives separate from Place, linked by Place.coordinate or Coordinate.place.
   const [coordinate, setCoordinate] = useState(null);
@@ -188,6 +190,7 @@ export default function Places() {
   const [showBatchSheet, setShowBatchSheet] = useState(false);
   const [showConvertSheet, setShowConvertSheet] = useState(false);
   const [showNewPlaceSheet, setShowNewPlaceSheet] = useState(false);
+  const [candidateLookup, setCandidateLookup] = useState(null);
   const sideSave = useRef(Promise.resolve());
   const statusRef = useRef(null);
 
@@ -452,25 +455,43 @@ export default function Places() {
     if (!active) return;
     const query = Object.values(values.components || {}).filter(Boolean).join(', ') || placeSummary(active)?.displayName || placeSummary(active)?.name;
     if (!query) return;
-    setStatus('Looking up place…');
+    setCandidateLookup({ query, candidates: [], loading: true, error: '' });
+    setStatus(t('placeLookup.status.lookingUp'));
     try {
-      const candidates = await lookupPlaceCandidates(query, { limit: 1 });
-      const match = candidates[0];
-      if (!match) {
-        setStatus('No lookup match');
-        return;
-      }
-      setValues((v) => ({
-        ...v,
-        latitude: match.latitude.toFixed(6),
-        longitude: match.longitude.toFixed(6),
-        refNumbers: { ...v.refNumbers, lookupProviderId: match.providerId },
-      }));
-      setStatus(`Matched ${match.name}`);
-    } catch (error) {
-      setStatus(error.message);
+      const candidates = await lookupPlaceCandidates(query, { limit: 8 });
+      setCandidateLookup({ query, candidates, loading: false, error: '' });
+      setStatus(candidates.length ? t('placeLookup.status.chooseMatch') : t('placeLookup.status.noMatch'));
+    } catch {
+      const message = t('placeLookup.status.failed');
+      setCandidateLookup({ query, candidates: [], loading: false, error: message });
+      setStatus(message);
     }
-  }, [active, values.components, setValues, setStatus]);
+  }, [active, values.components, setStatus, t]);
+
+  const onApplyLookupCandidate = useCallback(({ candidate, chosenName }) => {
+    setValues((current) => {
+      const components = { ...(current.components || {}) };
+      const slots = Object.keys(components);
+      for (const slot of slots) {
+        const matched = candidate.components?.[slot];
+        if (matched) components[slot] = matched;
+      }
+      if (slots[0] && chosenName) components[slots[0]] = chosenName;
+      return {
+        ...current,
+        components,
+        latitude: Number(candidate.latitude).toFixed(6),
+        longitude: Number(candidate.longitude).toFixed(6),
+        refNumbers: {
+          ...current.refNumbers,
+          lookupProviderId: candidate.providerId || '',
+          ...(candidate.geoNameID ? { geonameID: candidate.geoNameID, geoNameID: candidate.geoNameID } : {}),
+        },
+      };
+    });
+    setCandidateLookup(null);
+    setStatus(t('placeLookup.status.matched', { name: chosenName || candidate.name }));
+  }, [setStatus, setValues, t]);
 
   const onLookupGeoName = useCallback(async () => {
     const id = await modal.prompt('GeoName ID:', '', { title: 'Lookup GeoName', placeholder: 'e.g. 5128581' });
@@ -491,16 +512,8 @@ export default function Places() {
   }, [modal, setValues, setStatus]);
 
   const onBatchLookup = useCallback(async () => {
-    const limit = Number(mapPrefs.batchLimit) || 10;
-    if (!(await modal.confirm(`Lookup coordinates for up to ${limit} places missing coordinates?`, { title: 'Batch lookup', okLabel: 'Run lookup' }))) return;
-    setStatus('Batch lookup running…');
-    try {
-      const changed = await batchLookupMissingCoordinates({ limit });
-      setStatus(`Batch lookup updated ${changed.length} places.`);
-    } catch (error) {
-      setStatus(error.message);
-    }
-  }, [mapPrefs.batchLimit, modal, setStatus]);
+    setShowBatchSheet(true);
+  }, []);
 
   const onBatchGeoName = useCallback(async () => {
     const limit = Number(mapPrefs.batchLimit) || 10;
@@ -623,11 +636,10 @@ export default function Places() {
         </div>
         <div className="flex flex-wrap gap-2 mt-3">
           <Button variant="primary" size="sm" onClick={() => setShowNewPlaceSheet(true)}>+ New Place</Button>
-          <button onClick={onLookupPlace} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">Lookup Place</button>
+          <button onClick={onLookupPlace} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">{t('placeLookup.actions.lookupPlace')}</button>
           <button onClick={onLookupGeoName} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5">GeoName ID</button>
-          <button onClick={onBatchLookup} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title={`Quick lookup for up to ${Number(mapPrefs.batchLimit) || 10} places missing coordinates`}>Batch Missing</button>
+          <button onClick={onBatchLookup} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title={t('placeLookup.batch.openHint')}>{t('placeLookup.batch.open')}</button>
           <button onClick={onBatchGeoName} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title={`Find GeoName IDs for up to ${Number(mapPrefs.batchLimit) || 10} places without one`}>Match GeoName IDs</button>
-          <button onClick={() => setShowBatchSheet(true)} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title="Review and lookup places missing coordinates one by one">Batch Sheet…</button>
           <button onClick={onConvertToDetails} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title="Generate PlaceDetail rows from the current place components">Place to Details</button>
           <button onClick={() => setShowConvertSheet(true)} disabled={!activeId} className="text-xs bg-secondary border border-border rounded-md px-2.5 py-1.5" title="Collapse this Place into a PlaceDetail of a parent place">Convert to Detail…</button>
         </div>
@@ -745,6 +757,19 @@ export default function Places() {
       {showBatchSheet && (
         <BatchPlaceLookupSheet
           onClose={() => setShowBatchSheet(false)}
+        />
+      )}
+      {candidateLookup && (
+        <PlaceLookupCandidateSheet
+          query={candidateLookup.query}
+          candidates={candidateLookup.candidates}
+          loading={candidateLookup.loading}
+          error={candidateLookup.error}
+          onApply={onApplyLookupCandidate}
+          onCancel={() => {
+            setCandidateLookup(null);
+            setStatus(t('placeLookup.status.cancelled'));
+          }}
         />
       )}
       {showConvertSheet && activeId && (

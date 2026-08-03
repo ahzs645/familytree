@@ -1,32 +1,60 @@
 /**
- * BatchPlaceLookupSheet — modal for looking up coordinates / GeoName IDs for
- * many Place records in one pass. Mac reference: `BatchPlaceLookupSheet.nib`.
- *
- * Surfaces places missing coordinates, lets the user pick which to process,
- * runs them serially against `lookupPlaceCandidates`, and shows per-row
- * status. Saves resolved coordinates through `buildCoordinateRecord`.
+ * Batch place lookup with explicit review for every selected place. Candidates
+ * use the same detailed chooser as single-place lookup; no first-result write
+ * happens without the user seeing the feature type, hierarchy, and map.
  */
-import React, { useEffect, useMemo, useState } from 'react';
-import { Sheet } from './ui/Sheet.jsx';
-import { Button } from './ui/Button.jsx';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { saveWithChangeLog } from '../lib/changeLog.js';
 import { createWithChangeLog } from '../lib/recordWrite.js';
 import { refValue } from '../lib/recordRef.js';
 import { readRef } from '../lib/schema.js';
 import {
+  applyPlaceLookupCandidate,
   buildCoordinateRecord,
   lookupPlaceCandidates,
   placeLookupLabel,
 } from '../lib/placeGeocoding.js';
+import { PlaceLookupCandidateSheet } from './PlaceLookupCandidateSheet.jsx';
+import { Button } from './ui/Button.jsx';
+import { Sheet } from './ui/Sheet.jsx';
 
-const STATUS = { PENDING: 'pending', RUNNING: 'running', MATCHED: 'matched', NO_MATCH: 'no-match', ERROR: 'error' };
+const STATUS = {
+  PENDING: 'pending',
+  RUNNING: 'running',
+  MATCHED: 'matched',
+  NO_MATCH: 'no-match',
+  SKIPPED: 'skipped',
+  ERROR: 'error',
+};
 
 export function BatchPlaceLookupSheet({ onClose, onDone }) {
+  const { t } = useTranslation();
+  const dialogRef = useRef(null);
+  const previousFocusRef = useRef(null);
+  const reviewResolverRef = useRef(null);
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState({});
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
+  const [review, setReview] = useState(null);
+
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement;
+    dialogRef.current?.querySelector('button, input')?.focus();
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape' || running || review) return;
+      event.preventDefault();
+      onClose();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      previousFocusRef.current?.focus?.();
+      reviewResolverRef.current?.(null);
+    };
+  }, [onClose, review, running]);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,86 +72,94 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
         }
         const missing = [];
         for (const place of places) {
-          if (hasCoord.has(place.recordName)) continue;
-          if (readRef(place.fields?.coordinate)) continue;
+          if (hasCoord.has(place.recordName) || readRef(place.fields?.coordinate)) continue;
           const label = placeLookupLabel(place);
           if (!label) continue;
-          missing.push({
-            recordName: place.recordName,
-            label,
-            status: STATUS.PENDING,
-            message: '',
-          });
+          missing.push({ recordName: place.recordName, label, status: STATUS.PENDING, message: '' });
         }
         missing.sort((a, b) => a.label.localeCompare(b.label));
         if (!cancelled) {
           setRows(missing);
-          const pick = {};
-          for (const row of missing.slice(0, 10)) pick[row.recordName] = true;
-          setSelected(pick);
+          setSelected(Object.fromEntries(missing.slice(0, 10).map((row) => [row.recordName, true])));
         }
-      } catch (e) {
-        if (!cancelled) setError(e?.message || 'Failed to load places.');
+      } catch {
+        if (!cancelled) setError(t('placeLookup.batch.loadFailed'));
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [t]);
 
   const toggleAll = (value) => {
     if (!rows) return;
-    const next = {};
-    for (const row of rows) next[row.recordName] = value;
-    setSelected(next);
+    setSelected(Object.fromEntries(rows.map((row) => [row.recordName, value])));
   };
 
   const summary = useMemo(() => {
-    if (!rows) return { total: 0, selected: 0, matched: 0, noMatch: 0, errors: 0 };
-    let matched = 0, noMatch = 0, errors = 0, picked = 0;
-    for (const row of rows) {
-      if (selected[row.recordName]) picked += 1;
-      if (row.status === STATUS.MATCHED) matched += 1;
-      if (row.status === STATUS.NO_MATCH) noMatch += 1;
-      if (row.status === STATUS.ERROR) errors += 1;
+    const result = { total: rows?.length || 0, selected: 0, matched: 0, noMatch: 0, skipped: 0, errors: 0 };
+    for (const row of rows || []) {
+      if (selected[row.recordName]) result.selected += 1;
+      if (row.status === STATUS.MATCHED) result.matched += 1;
+      if (row.status === STATUS.NO_MATCH) result.noMatch += 1;
+      if (row.status === STATUS.SKIPPED) result.skipped += 1;
+      if (row.status === STATUS.ERROR) result.errors += 1;
     }
-    return { total: rows.length, selected: picked, matched, noMatch, errors };
+    return result;
   }, [rows, selected]);
+
+  const requestReview = (row, candidates) => new Promise((resolve) => {
+    reviewResolverRef.current = resolve;
+    setReview({ row, candidates });
+  });
+
+  const finishReview = (choice) => {
+    const resolve = reviewResolverRef.current;
+    reviewResolverRef.current = null;
+    setReview(null);
+    resolve?.(choice);
+  };
 
   const run = async () => {
     if (!rows) return;
     setRunning(true);
     const client = getAppDataClient();
-    for (let i = 0; i < rows.length; i += 1) {
-      if (!selected[rows[i].recordName]) continue;
-      setRows((current) => updateRow(current, i, { status: STATUS.RUNNING, message: 'Looking up…' }));
+    for (const row of rows) {
+      if (!selected[row.recordName] || row.status === STATUS.MATCHED) continue;
+      setRows((current) => updateRow(current, row.recordName, { status: STATUS.RUNNING, message: t('placeLookup.batch.lookingUp') }));
       try {
-        const candidates = await lookupPlaceCandidates(rows[i].label, { limit: 1 });
-        const candidate = candidates[0];
-        if (!candidate) {
-          setRows((current) => updateRow(current, i, { status: STATUS.NO_MATCH, message: 'No match found.' }));
+        const candidates = await lookupPlaceCandidates(row.label, { limit: 8 });
+        if (!candidates.length) {
+          setRows((current) => updateRow(current, row.recordName, { status: STATUS.NO_MATCH, message: t('placeLookup.batch.noMatch') }));
           continue;
         }
-        const place = await client.records.get(rows[i].recordName);
+        const choice = await requestReview(row, candidates);
+        if (!choice) {
+          setRows((current) => updateRow(current, row.recordName, { status: STATUS.SKIPPED, message: t('placeLookup.batch.skipped') }));
+          continue;
+        }
+        const place = await client.records.get(row.recordName);
         if (!place) {
-          setRows((current) => updateRow(current, i, { status: STATUS.ERROR, message: 'Place record missing.' }));
+          setRows((current) => updateRow(current, row.recordName, { status: STATUS.ERROR, message: t('placeLookup.batch.recordMissing') }));
           continue;
         }
-        const coordinate = buildCoordinateRecord(place.recordName, candidate);
+        const coordinate = buildCoordinateRecord(place.recordName, choice.candidate);
         await createWithChangeLog(coordinate);
+        const namedPlace = applyPlaceLookupCandidate(place, choice.candidate, choice.chosenName);
         await saveWithChangeLog({
-          ...place,
+          ...namedPlace,
           fields: {
-            ...place.fields,
+            ...namedPlace.fields,
             coordinate: { value: refValue(coordinate.recordName, 'Coordinate'), type: 'REFERENCE' },
-            lookupProvider: { value: candidate.provider, type: 'STRING' },
-            lookupProviderId: { value: candidate.providerId, type: 'STRING' },
           },
         });
-        setRows((current) => updateRow(current, i, {
+        setRows((current) => updateRow(current, row.recordName, {
           status: STATUS.MATCHED,
-          message: `${candidate.latitude.toFixed(4)}, ${candidate.longitude.toFixed(4)} — ${candidate.name}`,
+          message: t('placeLookup.batch.matchedMessage', {
+            coordinates: `${choice.candidate.latitude.toFixed(4)}, ${choice.candidate.longitude.toFixed(4)}`,
+            name: choice.chosenName || choice.candidate.name,
+          }),
         }));
-      } catch (e) {
-        setRows((current) => updateRow(current, i, { status: STATUS.ERROR, message: e?.message || 'Lookup failed.' }));
+      } catch {
+        setRows((current) => updateRow(current, row.recordName, { status: STATUS.ERROR, message: t('placeLookup.batch.lookupFailed') }));
       }
     }
     setRunning(false);
@@ -131,93 +167,92 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
   };
 
   return (
-    <Sheet
-      ariaLabel="Batch place lookup"
-      offset="pt-[6vh]"
-      maxWidth="max-w-3xl"
-      scroll="card"
-      maxHeight="max-h-[85vh]"
-      bodyClassName="p-3"
-      title="Batch Place Lookup"
-      subtitle="Look up coordinates for places that don't have a Coordinate record yet. Uses Nominatim (OpenStreetMap); respects the shared request rate."
-      headerExtra={rows && (
-        <div className="flex items-center gap-2 mt-2 text-xs flex-wrap">
-          <span className="text-muted-foreground">{summary.total} place{summary.total === 1 ? '' : 's'} missing coordinates · {summary.selected} selected</span>
-          {summary.matched > 0 && <span className="text-success-text">{summary.matched} matched</span>}
-          {summary.noMatch > 0 && <span className="text-muted-foreground">{summary.noMatch} no match</span>}
-          {summary.errors > 0 && <span className="text-destructive-text">{summary.errors} errors</span>}
-          <div className="ms-auto flex gap-1">
-            <button type="button" onClick={() => toggleAll(true)} disabled={running} className="border border-border rounded-md px-2 py-0.5 hover:bg-accent">Select all</button>
-            <button type="button" onClick={() => toggleAll(false)} disabled={running} className="border border-border rounded-md px-2 py-0.5 hover:bg-accent">Select none</button>
+    <>
+      <Sheet
+        dialogRef={dialogRef}
+        ariaLabel={t('placeLookup.batch.ariaLabel')}
+        offset="pt-[6vh]"
+        maxWidth="max-w-3xl"
+        scroll="card"
+        maxHeight="max-h-[85vh]"
+        bodyClassName="p-3"
+        title={t('placeLookup.batch.title')}
+        subtitle={t('placeLookup.batch.subtitle')}
+        headerExtra={rows && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-muted-foreground">{t('placeLookup.batch.summary', { total: summary.total, selected: summary.selected })}</span>
+            {summary.matched > 0 && <span className="text-success-text">{t('placeLookup.batch.matchedCount', { count: summary.matched })}</span>}
+            {summary.noMatch > 0 && <span className="text-muted-foreground">{t('placeLookup.batch.noMatchCount', { count: summary.noMatch })}</span>}
+            {summary.skipped > 0 && <span className="text-muted-foreground">{t('placeLookup.batch.skippedCount', { count: summary.skipped })}</span>}
+            {summary.errors > 0 && <span className="text-destructive-text">{t('placeLookup.batch.errorCount', { count: summary.errors })}</span>}
+            <div className="ms-auto flex gap-1">
+              <button type="button" onClick={() => toggleAll(true)} disabled={running} className="rounded-md border border-border px-2 py-0.5 hover:bg-accent">{t('placeLookup.batch.selectAll')}</button>
+              <button type="button" onClick={() => toggleAll(false)} disabled={running} className="rounded-md border border-border px-2 py-0.5 hover:bg-accent">{t('placeLookup.batch.selectNone')}</button>
+            </div>
           </div>
-        </div>
-      )}
-      footerClassName="flex items-center gap-2"
-      footer={(
-        <>
-          <button type="button" onClick={onClose} disabled={running} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Close</button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={run}
-            disabled={running || !rows || summary.selected === 0}
-            className="ms-auto"
-          >
-            {running ? 'Running…' : `Look up ${summary.selected} place${summary.selected === 1 ? '' : 's'}`}
-          </Button>
-        </>
-      )}
-    >
-          {error && <div className="text-sm text-destructive-text mb-3">{error}</div>}
-          {!rows ? (
-            <div className="text-sm text-muted-foreground">Loading places…</div>
-          ) : rows.length === 0 ? (
-            <div className="text-sm text-muted-foreground">Every place already has coordinates.</div>
-          ) : (
-            <ul className="divide-y divide-border">
-              {rows.map((row) => (
-                <li key={row.recordName} className="flex items-start gap-2 py-2">
+        )}
+        footerClassName="flex items-center gap-2"
+        footer={(
+          <>
+            <button type="button" onClick={onClose} disabled={running} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent">{t('placeLookup.batch.close')}</button>
+            <Button variant="primary" size="sm" onClick={run} disabled={running || !rows || summary.selected === 0} className="ms-auto">
+              {running ? t('placeLookup.batch.running') : t('placeLookup.batch.run', { count: summary.selected })}
+            </Button>
+          </>
+        )}
+      >
+        {error && <div className="mb-3 text-sm text-destructive-text" role="alert">{error}</div>}
+        {!rows ? (
+          <div className="text-sm text-muted-foreground">{t('placeLookup.batch.loading')}</div>
+        ) : rows.length === 0 ? (
+          <div className="text-sm text-muted-foreground">{t('placeLookup.batch.complete')}</div>
+        ) : (
+          <ul className="divide-y divide-border">
+            {rows.map((row) => (
+              <li key={row.recordName} className="flex items-start gap-2 py-2">
+                <label className="mt-0.5 inline-flex">
+                  <span className="sr-only">{t('placeLookup.batch.selectPlace', { name: row.label })}</span>
                   <input
                     type="checkbox"
                     checked={!!selected[row.recordName]}
                     disabled={running || row.status === STATUS.MATCHED}
-                    onChange={(e) => setSelected((prev) => ({ ...prev, [row.recordName]: e.target.checked }))}
-                    className="mt-0.5"
+                    onChange={(event) => setSelected((previous) => ({ ...previous, [row.recordName]: event.target.checked }))}
                   />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm truncate">{row.label}</div>
-                    {row.message && (
-                      <div className={`text-xs truncate ${statusTone(row.status)}`}>{row.message}</div>
-                    )}
-                  </div>
-                  <div className={`text-2xs ${statusTone(row.status)}`}>{statusLabel(row.status)}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-    </Sheet>
+                </label>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm">{row.label}</div>
+                  {row.message && <div className={`truncate text-xs ${statusTone(row.status)}`}>{row.message}</div>}
+                </div>
+                <div className={`text-2xs ${statusTone(row.status)}`}>{statusLabel(row.status, t)}</div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Sheet>
+      {review && (
+        <PlaceLookupCandidateSheet
+          query={review.row.label}
+          candidates={review.candidates}
+          onApply={finishReview}
+          onCancel={() => finishReview(null)}
+        />
+      )}
+    </>
   );
 }
 
-function updateRow(list, index, patch) {
-  const next = list.slice();
-  next[index] = { ...next[index], ...patch };
-  return next;
+function updateRow(list, recordName, patch) {
+  return (list || []).map((row) => row.recordName === recordName ? { ...row, ...patch } : row);
 }
 
-function statusLabel(status) {
-  if (status === STATUS.RUNNING) return 'Running';
-  if (status === STATUS.MATCHED) return 'Matched';
-  if (status === STATUS.NO_MATCH) return 'No match';
-  if (status === STATUS.ERROR) return 'Error';
-  return '';
+function statusLabel(status, t) {
+  return status === STATUS.PENDING ? '' : t(`placeLookup.batch.status.${status}`);
 }
 
 function statusTone(status) {
   if (status === STATUS.MATCHED) return 'text-success-text';
   if (status === STATUS.ERROR) return 'text-destructive-text';
   if (status === STATUS.RUNNING) return 'text-interactive';
-  if (status === STATUS.NO_MATCH) return 'text-muted-foreground';
   return 'text-muted-foreground';
 }
 

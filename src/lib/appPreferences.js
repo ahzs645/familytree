@@ -98,6 +98,7 @@ const DEFAULT_APP_PREFERENCES = {
     autoDownloadFamilySearchSources: false,
     concurrency: 3,
     wifiOnly: false,
+    geographicPackageBaseUrl: '',
   },
   editControllers: {
     eventTypesCollapsed: false,
