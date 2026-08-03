@@ -193,7 +193,6 @@ export default function Places() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const modal = useModal();
-  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   // Coordinate record lives separate from Place, linked by Place.coordinate or Coordinate.place.
   const [coordinate, setCoordinate] = useState(null);

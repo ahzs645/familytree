@@ -98,7 +98,7 @@ export async function getTreeArtworkMedia(snapshotId) {
     id: record.recordName,
     label: record.fields?.caption?.value || record.fields?.title?.value || record.fields?.filename?.value || record.recordName,
     src: imageForMedia(record.recordName, snapshot.backup),
-  })).filter((item) => item.src).sort((a, b) => item.label.localeCompare(b.label));
+  })).filter((item) => item.src).sort((a, b) => a.label.localeCompare(b.label));
 }
 
 export async function setTreeSnapshotArtwork(snapshotId, artwork) {
