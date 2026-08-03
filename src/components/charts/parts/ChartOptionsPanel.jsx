@@ -10,9 +10,10 @@ import { Input } from '../../ui/Input.jsx';
 import { cn } from '../../../lib/utils.js';
 import { CHART_COLORING_MODES } from '../coloring.js';
 import { DISTRIBUTION_TYPES } from '../../../lib/chartData/distributionBuilder.js';
+import { useTranslation } from '../../../contexts/LocalizationContext.jsx';
 
 // Chart types that have dedicated options on the "Chart" tab.
-const CHART_TAB_TYPES = new Set(['distribution', 'sociogram', 'timeline']);
+const CHART_TAB_TYPES = new Set(['ancestor', 'descendant', 'tree', 'fan', 'hourglass', 'genogram', 'distribution', 'sociogram', 'timeline']);
 
 export function ChartOptionsPanel({
   tab,
@@ -37,6 +38,20 @@ export function ChartOptionsPanel({
   chartContent,
   onChartContentChange,
   chartType,
+  ancestorConfig,
+  onAncestorConfigChange,
+  descendantConfig,
+  onDescendantConfigChange,
+  treeConfig,
+  onTreeConfigChange,
+  fanConfig,
+  onFanConfigChange,
+  fanArcDegrees,
+  onFanArcDegreesChange,
+  hourglassConfig,
+  onHourglassConfigChange,
+  genogramConfig,
+  onGenogramConfigChange,
   distributionType,
   onDistributionTypeChange,
   distributionRelativeValues,
@@ -56,10 +71,12 @@ export function ChartOptionsPanel({
   timelineMarkerMode,
   onTimelineMarkerModeChange,
 }) {
+  const { t } = useTranslation();
   const content = chartContent || { showPortraits: false, showLifespan: true, showIds: false };
   const setContent = (key, value) => onChartContentChange?.({ ...content, [key]: value });
   const socio = sociogramConfig || {};
   const setSocio = (key, value) => onSociogramConfigChange?.({ ...socio, [key]: value });
+  const setModeOption = (config, setter, key, value) => setter?.({ ...config, [key]: value });
   const showChartTab = CHART_TAB_TYPES.has(chartType);
   // The spacing controls only affect the Family Chart layout, so hide the tab
   // for every other chart type.
@@ -94,6 +111,57 @@ export function ChartOptionsPanel({
       )}
       {tab === 'chart' && showChartTab && (
         <div className="grid gap-2.5">
+          {chartType === 'ancestor' && (
+            <>
+              <CheckOption label={t('charts.modeOptions.ancestor.showRootSiblings')} checked={Boolean(ancestorConfig?.showRootSiblings)} onChange={(value) => setModeOption(ancestorConfig, onAncestorConfigChange, 'showRootSiblings', value)} />
+              <CheckOption label={t('charts.modeOptions.ancestor.showAncestorSiblings')} checked={Boolean(ancestorConfig?.showAncestorSiblings)} onChange={(value) => setModeOption(ancestorConfig, onAncestorConfigChange, 'showAncestorSiblings', value)} />
+              <RangeField label={t('charts.modeOptions.ancestor.siblingScale')} value={Math.round((ancestorConfig?.siblingScale ?? 0.5) * 100)} min={25} max={100} onChange={(value) => setModeOption(ancestorConfig, onAncestorConfigChange, 'siblingScale', value / 100)} />
+            </>
+          )}
+          {chartType === 'descendant' && (
+            <>
+              <CheckOption label={t('charts.modeOptions.descendant.showPartners')} checked={descendantConfig?.showPartners !== false} onChange={(value) => setModeOption(descendantConfig, onDescendantConfigChange, 'showPartners', value)} />
+              <CheckOption label={t('charts.modeOptions.descendant.indentPartners')} checked={Boolean(descendantConfig?.indentPartners)} onChange={(value) => setModeOption(descendantConfig, onDescendantConfigChange, 'indentPartners', value)} />
+              {descendantConfig?.indentPartners && <RangeField label={t('charts.modeOptions.descendant.partnerIndention')} value={descendantConfig?.partnerIndent ?? 32} min={0} max={160} onChange={(value) => setModeOption(descendantConfig, onDescendantConfigChange, 'partnerIndent', value)} />}
+            </>
+          )}
+          {chartType === 'tree' && (
+            <SelectOption label={t('charts.modeOptions.tree.subtreeAlignment')} value={treeConfig?.subtreeAlignment || 'top'} onChange={(value) => setModeOption(treeConfig, onTreeConfigChange, 'subtreeAlignment', value)} options={[
+              ['top', t('charts.modeOptions.alignment.top')], ['center', t('charts.modeOptions.alignment.center')],
+            ]} />
+          )}
+          {chartType === 'fan' && (
+            <>
+              <SelectOption label={t('charts.modeOptions.fan.mode')} value={fanConfig?.mode || 'ancestor'} onChange={(value) => setModeOption(fanConfig, onFanConfigChange, 'mode', value)} options={[
+                ['ancestor', t('charts.modeOptions.fan.ancestors')], ['descendant', t('charts.modeOptions.fan.descendants')],
+              ]} />
+              <RangeField label={t('charts.modeOptions.fan.startAngle')} value={fanConfig?.startAngle ?? -90} min={-180} max={180} onChange={(value) => setModeOption(fanConfig, onFanConfigChange, 'startAngle', value)} />
+              <RangeField label={t('charts.modeOptions.fan.arc')} value={fanArcDegrees} min={90} max={360} onChange={onFanArcDegreesChange} />
+              <CheckOption label={t('charts.modeOptions.fan.expandSmallSlices')} checked={Boolean(fanConfig?.expandSmallSlices)} onChange={(value) => setModeOption(fanConfig, onFanConfigChange, 'expandSmallSlices', value)} />
+            </>
+          )}
+          {chartType === 'hourglass' && (
+            <>
+              <RangeField label={t('charts.modeOptions.hourglass.partnerAncestorGenerations')} value={hourglassConfig?.partnerAncestorGenerations ?? 0} min={0} max={8} onChange={(value) => setModeOption(hourglassConfig, onHourglassConfigChange, 'partnerAncestorGenerations', value)} />
+              <SelectOption label={t('charts.modeOptions.hourglass.alignment')} value={hourglassConfig?.alignment || 'center'} onChange={(value) => setModeOption(hourglassConfig, onHourglassConfigChange, 'alignment', value)} options={[
+                ['start', t('charts.modeOptions.alignment.start')], ['center', t('charts.modeOptions.alignment.center')], ['end', t('charts.modeOptions.alignment.end')],
+              ]} />
+              <RangeField label={t('charts.modeOptions.hourglass.connectionWidth')} value={hourglassConfig?.connectionWidth ?? 2} min={1} max={8} onChange={(value) => setModeOption(hourglassConfig, onHourglassConfigChange, 'connectionWidth', value)} />
+              <SelectOption label={t('charts.modeOptions.hourglass.connectionCorners')} value={hourglassConfig?.connectionCorners || 'rounded'} onChange={(value) => setModeOption(hourglassConfig, onHourglassConfigChange, 'connectionCorners', value)} options={[
+                ['rounded', t('charts.modeOptions.hourglass.rounded')], ['square', t('charts.modeOptions.hourglass.square')],
+              ]} />
+            </>
+          )}
+          {chartType === 'genogram' && (
+            <>
+              <SelectOption label={t('charts.modeOptions.genogram.eventPosition')} value={genogramConfig?.eventPosition || 'right'} onChange={(value) => setModeOption(genogramConfig, onGenogramConfigChange, 'eventPosition', value)} options={[
+                ['right', t('charts.modeOptions.genogram.right')], ['below', t('charts.modeOptions.genogram.below')],
+              ]} />
+              <SelectOption label={t('charts.modeOptions.genogram.eventBackground')} value={genogramConfig?.eventBackground || 'none'} onChange={(value) => setModeOption(genogramConfig, onGenogramConfigChange, 'eventBackground', value)} options={[
+                ['none', t('charts.modeOptions.genogram.none')], ['filled', t('charts.modeOptions.genogram.filled')],
+              ]} />
+            </>
+          )}
           {chartType === 'distribution' && (
             <>
               <SelectOption

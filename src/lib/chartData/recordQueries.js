@@ -60,6 +60,11 @@ export async function getAllFamilies(options = {}) {
   return filterPublic(records, options);
 }
 
+export async function getAllChildRelations(options = {}) {
+  const records = await queryAll('ChildRelation', options);
+  return filterPublic(records, options);
+}
+
 async function getAllPlaces(options = {}) {
   return queryAll('Place', options);
 }

@@ -14,6 +14,7 @@ export function ChartConnection({
   opacity = 1,
   markerEnd,
   label,
+  cornerStyle: cornerStyleDefault,
 }) {
   const { t } = useTranslation();
   const { selectedObject, selectObject, connectionStyles } = useChartSelection();
@@ -22,7 +23,7 @@ export function ChartConnection({
   const selected = selectedObject?.kind === 'connection' && selectedObject.id === resolvedId;
   const stroke = style.color || color || theme.connector;
   const strokeWidth = Math.max(0.5, Number(style.lineWidth ?? width ?? theme.connectorWidth) || 1);
-  const cornerStyle = style.cornerStyle || 'rounded';
+  const cornerStyle = style.cornerStyle || cornerStyleDefault || 'rounded';
   const lineJoin = cornerStyle === 'beveled' ? 'bevel' : cornerStyle === 'sharp' ? 'miter' : 'round';
   const lineCap = cornerStyle === 'rounded' ? 'round' : 'butt';
   const accessibleLabel = label || t('charts.objectInspector.connection', { defaultValue: 'Connection' });

@@ -23,6 +23,12 @@ export function useChartSelection(searchParams, sharedRootId) {
   const [doubleAncestorRightGens, setDoubleAncestorRightGens] = useState(4);
   const [fanArcDegrees, setFanArcDegrees] = useState(180);
   const [ancestorBranch, setAncestorBranch] = useState('both');
+  const [ancestorConfig, setAncestorConfig] = useState({ showRootSiblings: false, showAncestorSiblings: false, siblingScale: 0.5 });
+  const [descendantConfig, setDescendantConfig] = useState({ showPartners: true, indentPartners: false, partnerIndent: 32 });
+  const [treeConfig, setTreeConfig] = useState({ subtreeAlignment: 'top' });
+  const [fanConfig, setFanConfig] = useState({ mode: 'ancestor', startAngle: -90, expandSmallSlices: false });
+  const [hourglassConfig, setHourglassConfig] = useState({ partnerAncestorGenerations: 0, alignment: 'center', connectionWidth: 2, connectionCorners: 'rounded' });
+  const [genogramConfig, setGenogramConfig] = useState({ eventPosition: 'right', eventBackground: 'none' });
   const [distributionType, setDistributionType] = useState('gender');
   const [distributionRelativeValues, setDistributionRelativeValues] = useState(false);
   const [distributionGraphType, setDistributionGraphType] = useState('bar');
@@ -55,6 +61,12 @@ export function useChartSelection(searchParams, sharedRootId) {
     doubleAncestorRightGens, setDoubleAncestorRightGens,
     fanArcDegrees, setFanArcDegrees,
     ancestorBranch, setAncestorBranch,
+    ancestorConfig, setAncestorConfig,
+    descendantConfig, setDescendantConfig,
+    treeConfig, setTreeConfig,
+    fanConfig, setFanConfig,
+    hourglassConfig, setHourglassConfig,
+    genogramConfig, setGenogramConfig,
     distributionType, setDistributionType,
     distributionRelativeValues, setDistributionRelativeValues,
     distributionGraphType, setDistributionGraphType,

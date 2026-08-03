@@ -113,6 +113,12 @@ export function ChartsApp() {
     doubleAncestorRightGens, setDoubleAncestorRightGens,
     fanArcDegrees, setFanArcDegrees,
     ancestorBranch, setAncestorBranch,
+    ancestorConfig, setAncestorConfig,
+    descendantConfig, setDescendantConfig,
+    treeConfig, setTreeConfig,
+    fanConfig, setFanConfig,
+    hourglassConfig, setHourglassConfig,
+    genogramConfig, setGenogramConfig,
     distributionType, setDistributionType,
     distributionRelativeValues, setDistributionRelativeValues,
     distributionGraphType, setDistributionGraphType,
@@ -313,6 +319,8 @@ export function ChartsApp() {
     ancestorTree,
     descendantTree,
     secondAncestorTree,
+    partnerAncestorTree,
+    completeTreeData,
     timelineData,
     genogramData,
     distributionData,
@@ -644,6 +652,10 @@ export function ChartsApp() {
                   setAncestorBranch={setAncestorBranch}
                   fanArcDegrees={fanArcDegrees}
                   setFanArcDegrees={setFanArcDegrees}
+                  treeConfig={treeConfig}
+                  setTreeConfig={setTreeConfig}
+                  fanConfig={fanConfig}
+                  setFanConfig={setFanConfig}
                 />
               )}
 
@@ -779,6 +791,14 @@ export function ChartsApp() {
           ancestorTree={ancestorTree}
           descendantTree={descendantTree}
           secondAncestorTree={secondAncestorTree}
+          partnerAncestorTree={partnerAncestorTree}
+          completeTreeData={completeTreeData}
+          ancestorConfig={ancestorConfig}
+          descendantConfig={descendantConfig}
+          treeConfig={treeConfig}
+          fanConfig={fanConfig}
+          hourglassConfig={hourglassConfig}
+          genogramConfig={genogramConfig}
           chartPersons={chartPersons}
           distributionData={distributionData}
           distributionType={distributionType}
@@ -842,7 +862,7 @@ export function ChartsApp() {
           // have dedicated options (distribution/sociogram/timeline); otherwise
           // open to General.
           setChartOptionsTab(
-            chartType === 'distribution' || chartType === 'sociogram' || chartType === 'timeline'
+            ['ancestor', 'descendant', 'tree', 'fan', 'hourglass', 'genogram', 'distribution', 'sociogram', 'timeline'].includes(chartType)
               ? 'chart'
               : 'general'
           );
@@ -874,6 +894,20 @@ export function ChartsApp() {
           chartContent={chartContent}
           onChartContentChange={setChartContent}
           chartType={chartType}
+          ancestorConfig={ancestorConfig}
+          onAncestorConfigChange={setAncestorConfig}
+          descendantConfig={descendantConfig}
+          onDescendantConfigChange={setDescendantConfig}
+          treeConfig={treeConfig}
+          onTreeConfigChange={setTreeConfig}
+          fanConfig={fanConfig}
+          onFanConfigChange={setFanConfig}
+          fanArcDegrees={fanArcDegrees}
+          onFanArcDegreesChange={setFanArcDegrees}
+          hourglassConfig={hourglassConfig}
+          onHourglassConfigChange={setHourglassConfig}
+          genogramConfig={genogramConfig}
+          onGenogramConfigChange={setGenogramConfig}
           distributionType={distributionType}
           onDistributionTypeChange={setDistributionType}
           distributionRelativeValues={distributionRelativeValues}

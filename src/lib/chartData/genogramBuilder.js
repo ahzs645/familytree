@@ -23,10 +23,10 @@ import { readField, readRef } from '../schema.js';
 import { getAppDataClient } from '../data/AppDataClient.js';
 import { isPublicRecord } from '../privacy.js';
 
-const EVENT_POSITIONS = new Set(['right', 'below', 'left', 'above']);
+const EVENT_POSITIONS = new Set(['right', 'below']);
 const EVENT_BACKGROUNDS = new Set(['none', 'filled']);
 
-function normalizeGenogramConfig(raw = {}) {
+export function normalizeGenogramConfig(raw = {}) {
   return {
     rootPersonId: raw.rootPersonId || null,
     showEvents: raw.showEvents !== false,

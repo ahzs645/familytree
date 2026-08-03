@@ -13,11 +13,12 @@ import { layoutAncestors } from './layouts/ancestorLayout.js';
 import { layoutAncestorsUpward } from './layouts/ancestorUpwardLayout.js';
 import { layoutDescendants } from './layouts/descendantLayout.js';
 import { translateSvgPath } from './layouts/pathUtils.js';
+import { layoutCompleteTree } from '../../lib/chartData/completeTreeBuilder.js';
 
 const PADDING = 30;
 const HALF_GAP = 40;
 
-export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, variant = 'horizontal', chartCanvasRef, colorForPerson, ...overlayProps }) {
+export function TreeChart({ ancestorTree, descendantTree, completeTreeData, options, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, variant = 'horizontal', chartCanvasRef, colorForPerson, ...overlayProps }) {
   if (variant === 'symmetrical') {
     return (
       <SymmetricalTree
@@ -36,10 +37,9 @@ export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPer
     );
   }
   return (
-    <HorizontalTree
-      ancestorTree={ancestorTree}
-      descendantTree={descendantTree}
-      generations={generations}
+    <CompleteTree
+      completeTreeData={completeTreeData}
+      options={options}
       onPersonClick={onPersonClick}
       theme={theme}
       page={page}
@@ -49,6 +49,23 @@ export function TreeChart({ ancestorTree, descendantTree, generations = 4, onPer
       colorForPerson={colorForPerson}
       {...overlayProps}
     />
+  );
+}
+
+function CompleteTree({ completeTreeData, options, onPersonClick, theme, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
+  const layout = useMemo(() => layoutCompleteTree(completeTreeData, theme, { alignment: options?.subtreeAlignment }), [completeTreeData, theme, options]);
+  if (!completeTreeData) return <ChartEmptyState theme={theme} />;
+  return (
+    <ChartCanvas ref={chartCanvasRef} theme={theme} page={page} overlays={overlays} onOverlaysChange={onOverlaysChange} {...overlayProps}>
+      <g transform={`translate(${PADDING},${PADDING})`}>
+        {layout.edges.map((edge) => (
+          <path key={edge.id} d={edge.d} fill="none" stroke={theme.connector} strokeWidth={edge.kind === 'partner' ? theme.connectorWidth * 1.4 : theme.connectorWidth} />
+        ))}
+        {layout.nodes.map((node) => (
+          <PersonNode key={node.id} x={node.x} y={node.y} person={node.person} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(node.person)} />
+        ))}
+      </g>
+    </ChartCanvas>
   );
 }
 

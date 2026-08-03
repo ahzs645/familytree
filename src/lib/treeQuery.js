@@ -11,6 +11,7 @@ import { familySummary, personSummary } from '../models/index.js';
 import { attachLineageToPersonSummaries, buildPersonLineage } from './personLineage.js';
 import { decorateSummaryName, loadAdditionalNameSuffixes } from './additionalNames.js';
 import { childRelationKind, childRelationLabel } from './childRelationshipTypes.js';
+import { siblingRecordNames } from './chartData/ancestorBuilder.js';
 
 /**
  * Build an ancestor pedigree tree to a given depth.
@@ -26,6 +27,8 @@ import { childRelationKind, childRelationLabel } from './childRelationshipTypes.
  */
 export async function buildAncestorTree(rootRecordName, maxGenerations = 5, options = {}) {
   const branch = options?.branch || 'both';
+  const showRootSiblings = Boolean(options?.showRootSiblings);
+  const showAncestorSiblings = Boolean(options?.showAncestorSiblings);
   const db = getAppDataClient().records;
   const root = await db.get(rootRecordName);
   if (!isPublicRecord(root)) return null;
@@ -51,11 +54,20 @@ export async function buildAncestorTree(rootRecordName, maxGenerations = 5, opti
 
   async function recurse(record, gen) {
     if (!isPublicRecord(record)) return null;
-    const node = { person: decorateSummaryName(personSummary(record), nameSuffixes), father: null, mother: null, generation: gen };
+    const node = { person: decorateSummaryName(personSummary(record), nameSuffixes), father: null, mother: null, siblings: [], generation: gen };
     if (gen >= maxGenerations) return node;
     const parents = await db.personsParents(record.recordName);
     if (parents.length > 0) {
       const fam = parents.find((p) => isPublicRecord(p.family));
+      if (fam && ((gen === 0 && showRootSiblings) || (gen > 0 && showAncestorSiblings))) {
+        const { records: relations = [] } = await db.query('ChildRelation', {
+          referenceField: 'family', referenceValue: fam.family.recordName, limit: 100000,
+        });
+        for (const siblingId of siblingRecordNames(relations, record.recordName)) {
+          const sibling = await db.get(siblingId);
+          if (isPublicRecord(sibling)) node.siblings.push(decorateSummaryName(personSummary(sibling), nameSuffixes));
+        }
+      }
       if (fam?.man && shouldIncludeFather(gen)) node.father = await recurse(fam.man, gen + 1);
       if (fam?.woman && shouldIncludeMother(gen)) node.mother = await recurse(fam.woman, gen + 1);
     }

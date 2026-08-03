@@ -13,8 +13,8 @@ import { layoutAncestors } from './layouts/ancestorLayout.js';
 
 const PADDING = 30;
 
-export function AncestorChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
-  const { nodes, links } = useMemo(() => layoutAncestors(tree, generations, theme), [tree, generations, theme]);
+export function AncestorChart({ tree, generations = 5, options, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
+  const { nodes, links } = useMemo(() => layoutAncestors(tree, generations, theme, options), [tree, generations, theme, options]);
   if (!tree) return <ChartEmptyState theme={theme} />;
 
   return (
@@ -43,17 +43,12 @@ export function AncestorChart({ tree, generations = 5, onPersonClick, theme = DE
             />
           );
         })}
-        {nodes.map((n) => (
-          <PersonNode
-            key={n.id}
-            x={n.x}
-            y={n.y}
-            person={n.person}
-            placeholder={n.placeholder}
-            theme={theme}
-            onClick={onPersonClick}
-            colorOverride={colorForPerson?.(n.person)}
-          />
+        {nodes.map((n) => n.scale ? (
+          <g key={n.id} transform={`translate(${n.x},${n.y}) scale(${n.scale})`}>
+            <PersonNode x={0} y={0} person={n.person} placeholder={n.placeholder} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(n.person)} />
+          </g>
+        ) : (
+          <PersonNode key={n.id} x={n.x} y={n.y} person={n.person} placeholder={n.placeholder} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(n.person)} />
         ))}
       </g>
     </ChartCanvas>

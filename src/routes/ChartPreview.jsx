@@ -125,10 +125,10 @@ function PreviewChart({ payload }) {
     return <StatisticsChart theme={theme} />;
   }
   if (chartType === 'descendant') {
-    return <DescendantChart tree={trees.descendantTree} {...common} />;
+    return <DescendantChart tree={trees.descendantTree} options={chart?.builderConfig?.descendant} {...common} />;
   }
   if (chartType === 'hourglass') {
-    return <HourglassChart ancestorTree={trees.ancestorTree} descendantTree={trees.descendantTree} generations={generations} {...common} />;
+    return <HourglassChart ancestorTree={trees.ancestorTree} descendantTree={trees.descendantTree} generations={chart?.builderConfig?.hourglass?.ancestorGenerations || generations} options={chart?.builderConfig?.hourglass} {...common} />;
   }
   if (chartType === 'tree' || chartType === 'symmetrical') {
     return <TreeChart ancestorTree={trees.ancestorTree} descendantTree={trees.descendantTree} generations={generations} variant={chartType === 'symmetrical' ? 'symmetrical' : 'horizontal'} {...common} />;
@@ -137,7 +137,8 @@ function PreviewChart({ payload }) {
     return <DoubleAncestorChart leftTree={trees.ancestorTree} rightTree={trees.secondAncestorTree} leftGenerations={generations} rightGenerations={generations} {...common} />;
   }
   if (chartType === 'fan') {
-    return <FanChart tree={trees.ancestorTree} generations={generations} {...common} />;
+    const fan = chart?.builderConfig?.fan || {};
+    return <FanChart tree={fan.mode === 'descendant' ? trees.descendantTree : trees.ancestorTree} generations={generations} arcDegrees={fan.arcDegrees} mode={fan.mode} startAngle={fan.startAngle} expandSmallSlices={fan.expandSmallSlices} {...common} />;
   }
   if (chartType === 'circular') {
     return <CircularAncestorChart tree={trees.ancestorTree} generations={generations} {...common} />;
@@ -151,7 +152,7 @@ function PreviewChart({ payload }) {
   if (chartType === 'fractal-tree') {
     return <FractalAncestorChart tree={trees.ancestorTree} generations={generations} variant="fractal" {...common} />;
   }
-  return <AncestorChart tree={trees.ancestorTree} generations={generations} {...common} />;
+  return <AncestorChart tree={trees.ancestorTree} generations={generations} options={chart?.builderConfig?.ancestor} {...common} />;
 }
 
 function LegacyPreview({ rootPerson }) {
