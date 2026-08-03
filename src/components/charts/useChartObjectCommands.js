@@ -10,7 +10,8 @@
  */
 
 import { useCallback, useMemo, useReducer } from 'react';
-import { getContentRect, normalizePageDimensions, computePageTiles } from '../../lib/pageLayout.js';
+import { getContentRect } from '../../lib/pageLayout.js';
+import { computePageBreakAdjustments } from '../../lib/chartObjectLayout.js';
 import { generateId } from '../../lib/ids.js';
 
 const MAX_HISTORY = 64;
@@ -66,8 +67,24 @@ function ensureArray(value) {
   return Array.isArray(value) ? value : [];
 }
 
-function overlaysEqual(a, b) {
+function compositorEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function normalizeStyleMap(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).map(([id, style]) => [String(id), { ...(style || {}) }]));
+}
+
+function normalizeCompositor(value) {
+  if (Array.isArray(value)) {
+    return { overlays: normalizeAll(value), objectStyles: {}, connectionStyles: {} };
+  }
+  return {
+    overlays: normalizeAll(value?.overlays),
+    objectStyles: normalizeStyleMap(value?.objectStyles),
+    connectionStyles: normalizeStyleMap(value?.connectionStyles),
+  };
 }
 
 function moveLine(overlay, dx = 0, dy = 0) {
@@ -121,32 +138,26 @@ function overlayBounds(overlay) {
 }
 
 function ensureSelection(items, selectedId) {
-  if (!selectedId) return items[0]?.id || null;
+  if (!selectedId) return null;
   return items.some((item) => item.id === selectedId) ? selectedId : (items[0]?.id || null);
-}
-
-function updateSelectionState(state, selectedId) {
-  return {
-    ...state,
-    selectedId: ensureSelection(state.history[state.index] || [], selectedId),
-  };
 }
 
 function commitReducer(state, action) {
   switch (action.type) {
     case 'SET_FROM_SOURCE': {
-      const items = normalizeAll(action.overlays);
+      const compositor = normalizeCompositor(action.compositor);
       return {
-        history: [items],
+        history: [compositor],
         index: 0,
-        selectedId: action.preserveSelection ? ensureSelection(items, state.selectedId) : (items[0]?.id || null),
+        selectedId: action.preserveSelection ? ensureSelection(compositor.overlays, state.selectedId) : null,
+        selectedObject: action.preserveSelection ? state.selectedObject : null,
       };
     }
 
     case 'PREVIEW': {
-      const items = normalizeAll(action.overlays);
+      const compositor = normalizeCompositor(action.compositor);
       const history = [...state.history];
-      history[state.index] = items;
+      history[state.index] = compositor;
       return {
         ...state,
         history,
@@ -154,9 +165,9 @@ function commitReducer(state, action) {
     }
 
     case 'COMMIT': {
-      const items = normalizeAll(action.overlays);
-      const current = state.history[state.index] || [];
-      if (overlaysEqual(current, items)) return state;
+      const compositor = normalizeCompositor(action.compositor);
+      const current = state.history[state.index] || normalizeCompositor({});
+      if (compositorEqual(current, compositor)) return state;
       let history = state.history.slice(0, state.index + 1);
       history.push(items);
       let index = history.length - 1;
@@ -169,7 +180,7 @@ function commitReducer(state, action) {
         ...state,
         history,
         index,
-        selectedId: ensureSelection(items, action.selectedId || state.selectedId),
+        selectedId: ensureSelection(compositor.overlays, action.selectedId || state.selectedId),
       };
     }
 
@@ -178,7 +189,7 @@ function commitReducer(state, action) {
       return {
         ...state,
         index: state.index - 1,
-        selectedId: ensureSelection(state.history[state.index - 1] || [], state.selectedId),
+        selectedId: ensureSelection(state.history[state.index - 1]?.overlays || [], state.selectedId),
       };
     }
 
@@ -187,7 +198,7 @@ function commitReducer(state, action) {
       return {
         ...state,
         index: state.index + 1,
-        selectedId: ensureSelection(state.history[state.index + 1] || [], state.selectedId),
+        selectedId: ensureSelection(state.history[state.index + 1]?.overlays || [], state.selectedId),
       };
     }
 
@@ -195,6 +206,19 @@ function commitReducer(state, action) {
       return {
         ...state,
         selectedId: action.id ? String(action.id) : null,
+        selectedObject: null,
+      };
+    }
+
+    case 'SELECT_OBJECT': {
+      return {
+        ...state,
+        selectedId: null,
+        selectedObject: action.object?.id ? {
+          id: String(action.object.id),
+          kind: action.object.kind === 'connection' ? 'connection' : 'person',
+          label: String(action.object.label || ''),
+        } : null,
       };
     }
 
@@ -205,19 +229,27 @@ function commitReducer(state, action) {
 
 export function useChartObjectCommands(initialOverlays = []) {
   const [state, dispatch] = useReducer(commitReducer, {
-    history: [normalizeAll(initialOverlays)],
+    history: [normalizeCompositor({ overlays: initialOverlays })],
     index: 0,
     selectedId: null,
+    selectedObject: null,
   });
 
-  const overlays = useMemo(() => state.history[state.index] || [], [state.history, state.index]);
+  const compositor = useMemo(() => state.history[state.index] || normalizeCompositor({}), [state.history, state.index]);
+  const overlays = compositor.overlays;
+  const objectStyles = compositor.objectStyles;
+  const connectionStyles = compositor.connectionStyles;
   const hasUndo = state.index > 0;
   const hasRedo = state.index < state.history.length - 1;
 
   const setFromSource = useCallback((next, options = {}) => {
     dispatch({
       type: 'SET_FROM_SOURCE',
-      overlays: normalizeAll(next),
+      compositor: normalizeCompositor({
+        overlays: next,
+        objectStyles: options.objectStyles,
+        connectionStyles: options.connectionStyles,
+      }),
       preserveSelection: options.preserveSelection,
     });
   }, []);
@@ -225,15 +257,23 @@ export function useChartObjectCommands(initialOverlays = []) {
   const setOverlaysPreview = useCallback((next) => {
     dispatch({
       type: 'PREVIEW',
-      overlays: normalizeAll(next),
+      compositor: { ...compositor, overlays: normalizeAll(next) },
       selectedId: state.selectedId,
     });
-  }, [state.selectedId]);
+  }, [compositor, state.selectedId]);
 
   const setOverlaysCommit = useCallback((next, options = {}) => {
     dispatch({
       type: 'COMMIT',
-      overlays: normalizeAll(next),
+      compositor: { ...compositor, overlays: normalizeAll(next) },
+      selectedId: options.selectedId,
+    });
+  }, [compositor]);
+
+  const setCompositorCommit = useCallback((next, options = {}) => {
+    dispatch({
+      type: 'COMMIT',
+      compositor: normalizeCompositor(next),
       selectedId: options.selectedId,
     });
   }, []);
@@ -244,6 +284,32 @@ export function useChartObjectCommands(initialOverlays = []) {
   const selectOverlay = useCallback((overlayId) => {
     dispatch({ type: 'SELECT', id: overlayId });
   }, []);
+
+  const selectObject = useCallback((object) => {
+    dispatch({ type: 'SELECT_OBJECT', object });
+  }, []);
+
+  const updateObjectStyle = useCallback((id, changes, options = {}) => {
+    if (!id) return;
+    const nextStyles = { ...objectStyles };
+    if (options.replace && !Object.keys(changes || {}).length) delete nextStyles[id];
+    else nextStyles[id] = options.replace ? { ...(changes || {}) } : { ...(objectStyles[id] || {}), ...changes };
+    setCompositorCommit({
+      ...compositor,
+      objectStyles: nextStyles,
+    });
+  }, [compositor, objectStyles, setCompositorCommit]);
+
+  const updateConnectionStyle = useCallback((id, changes, options = {}) => {
+    if (!id) return;
+    const nextStyles = { ...connectionStyles };
+    if (options.replace && !Object.keys(changes || {}).length) delete nextStyles[id];
+    else nextStyles[id] = options.replace ? { ...(changes || {}) } : { ...(connectionStyles[id] || {}), ...changes };
+    setCompositorCommit({
+      ...compositor,
+      connectionStyles: nextStyles,
+    });
+  }, [compositor, connectionStyles, setCompositorCommit]);
 
   const moveSelected = useCallback((dx, dy) => {
     const selectedId = state.selectedId || overlays[0]?.id;
@@ -461,46 +527,40 @@ export function useChartObjectCommands(initialOverlays = []) {
     setOverlaysCommit(next);
   }, [overlays, setOverlaysCommit, state.selectedId]);
 
-  const moveAwayFromPageCuts = useCallback((pageSetup = {}) => {
-    if (!overlays.length) return;
-    const { width: pageW, height: pageH } = normalizePageDimensions(pageSetup);
-    const content = getContentRect(pageSetup);
-    const chartBounds = overlays.reduce((acc, overlay) => {
-      const rect = overlayBounds(overlay);
-      acc.minX = Math.min(acc.minX, rect.x);
-      acc.minY = Math.min(acc.minY, rect.y);
+  const moveAwayFromPageCuts = useCallback((pageSetup = {}, measured = null) => {
+    const objects = Array.isArray(measured?.objects)
+      ? measured.objects
+      : overlays.map((overlay) => ({ id: overlay.id, kind: 'overlay', bounds: overlayBounds(overlay) }));
+    const contentBounds = measured?.contentBounds || objects.reduce((acc, object) => {
+      const rect = object.bounds;
+      acc.x = Math.min(acc.x, rect.x);
+      acc.y = Math.min(acc.y, rect.y);
       acc.maxX = Math.max(acc.maxX, rect.x + rect.width);
       acc.maxY = Math.max(acc.maxY, rect.y + rect.height);
       return acc;
-    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-    if (!Number.isFinite(chartBounds.minX)) return;
-    const tiles = computePageTiles({
-      x: chartBounds.minX,
-      y: chartBounds.minY,
-      width: Math.max(pageW, chartBounds.maxX - chartBounds.minX),
-      height: Math.max(pageH, chartBounds.maxY - chartBounds.minY),
-    }, pageSetup);
-    if (!tiles.length) return;
-    const next = overlays.map((overlay) => {
-      const rect = overlayBounds(overlay);
-      const tile = tiles.find((t) => rect.centerX >= t.chart.x && rect.centerX <= t.chart.x + t.chart.width
-        && rect.centerY >= t.chart.y && rect.centerY <= t.chart.y + t.chart.height);
-      if (!tile) return overlay;
-      const tileInnerX = tile.chart.x + content.x;
-      const tileInnerY = tile.chart.y + content.y;
-      const tileInnerMaxX = tile.chart.x + tile.chart.width - content.x;
-      const tileInnerMaxY = tile.chart.y + tile.chart.height - content.y;
-      let dx = 0;
-      let dy = 0;
-      if (rect.x < tileInnerX) dx = tileInnerX - rect.x;
-      else if (rect.x + rect.width > tileInnerMaxX) dx = tileInnerMaxX - (rect.x + rect.width);
-      if (rect.y < tileInnerY) dy = tileInnerY - rect.y;
-      else if (rect.y + rect.height > tileInnerMaxY) dy = tileInnerMaxY - (rect.y + rect.height);
-      if (!dx && !dy) return overlay;
-      return moveShape(overlay, dx, dy);
+    }, { x: Infinity, y: Infinity, maxX: -Infinity, maxY: -Infinity });
+    const normalizedBounds = Number.isFinite(contentBounds?.width)
+      ? contentBounds
+      : { x: contentBounds.x, y: contentBounds.y, width: contentBounds.maxX - contentBounds.x, height: contentBounds.maxY - contentBounds.y };
+    const adjustments = computePageBreakAdjustments(objects, pageSetup, normalizedBounds);
+    if (!adjustments.length) return;
+    const overlayMoves = new Map(adjustments.filter((item) => item.kind === 'overlay').map((item) => [item.id, item]));
+    const nextOverlays = overlays.map((overlay) => {
+      const adjustment = overlayMoves.get(overlay.id);
+      return adjustment ? moveShape(overlay, adjustment.dx, adjustment.dy) : overlay;
     });
-    setOverlaysCommit(next);
-  }, [overlays, setOverlaysCommit]);
+    const nextObjectStyles = { ...objectStyles };
+    for (const adjustment of adjustments) {
+      if (adjustment.kind !== 'person') continue;
+      const current = nextObjectStyles[adjustment.id] || {};
+      nextObjectStyles[adjustment.id] = {
+        ...current,
+        offsetX: (Number(current.offsetX) || 0) + adjustment.dx,
+        offsetY: (Number(current.offsetY) || 0) + adjustment.dy,
+      };
+    }
+    setCompositorCommit({ ...compositor, overlays: nextOverlays, objectStyles: nextObjectStyles });
+  }, [compositor, objectStyles, overlays, setCompositorCommit]);
 
   const distributeBorderToBorder = useCallback((direction = 'horizontal', pageSetup = {}) => {
     if (overlays.length < 2) return;
@@ -528,7 +588,10 @@ export function useChartObjectCommands(initialOverlays = []) {
 
   return {
     overlays,
+    objectStyles,
+    connectionStyles,
     selectedOverlayId: state.selectedId,
+    selectedObject: state.selectedObject,
     hasUndo,
     hasRedo,
     setFromSource,
@@ -540,6 +603,9 @@ export function useChartObjectCommands(initialOverlays = []) {
     undo,
     redo,
     selectOverlay,
+    selectObject,
+    updateObjectStyle,
+    updateConnectionStyle,
     addText,
     addLine,
     addImage,

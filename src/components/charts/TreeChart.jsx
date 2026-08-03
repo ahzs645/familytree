@@ -7,6 +7,7 @@ import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
 import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
+import { ChartConnection } from './ChartConnection.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutAncestors } from './layouts/ancestorLayout.js';
 import { layoutAncestorsUpward } from './layouts/ancestorUpwardLayout.js';
@@ -106,16 +107,16 @@ function HorizontalTree({ ancestorTree, descendantTree, generations = 4, onPerso
         {layout.ancestor.links.map((l, i) => {
           const midX = (l.from.x + l.toFather.x) / 2;
           return (
-            <g key={'a' + i} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth}>
-              <path d={`M ${l.from.x} ${l.from.y} H ${midX}`} />
-              <path d={`M ${midX} ${l.toFather.y} H ${l.toFather.x + theme.nodeWidth}`} />
-              <path d={`M ${midX} ${l.toMother.y} H ${l.toMother.x + theme.nodeWidth}`} />
-              <path d={`M ${midX} ${l.toFather.y} V ${l.toMother.y}`} />
-            </g>
+            <ChartConnection key={'a' + i} id={`tree-ancestor-${i}`} theme={theme} paths={[
+              `M ${l.from.x} ${l.from.y} H ${midX}`,
+              `M ${midX} ${l.toFather.y} H ${l.toFather.x + theme.nodeWidth}`,
+              `M ${midX} ${l.toMother.y} H ${l.toMother.x + theme.nodeWidth}`,
+              `M ${midX} ${l.toFather.y} V ${l.toMother.y}`,
+            ]} />
           );
         })}
         {layout.descLinks.map((l, i) => (
-          <path key={'d' + i} d={l.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
+          <ChartConnection key={'d' + i} id={`tree-descendant-${i}`} d={l.d} theme={theme} />
         ))}
         {layout.ancestor.nodes.map((n) => (
           <PersonNode
@@ -181,7 +182,7 @@ function SymmetricalTree({ ancestorTree, descendantTree, generations, onPersonCl
     >
       <g transform={`translate(${PADDING},${PADDING})`}>
         {layout.links.map((l, i) => (
-          <path key={i} d={l.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
+          <ChartConnection key={i} id={`symmetrical-${i}`} d={l.d} theme={theme} />
         ))}
         {layout.nodes.map((n, i) => (
           <PersonNode

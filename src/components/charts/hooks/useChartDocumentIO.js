@@ -73,6 +73,7 @@ export function useChartDocumentIO({
     pageCutMarks, setPageCutMarks,
     pagePrintPageNumbers, setPagePrintPageNumbers,
     pageOmitEmptyPages, setPageOmitEmptyPages,
+    pageWatermark, setPageWatermark,
   } = pageSetup;
   const {
     exportFormat, setExportFormat,
@@ -85,7 +86,14 @@ export function useChartDocumentIO({
     relationshipBloodlineOnly, setRelationshipBloodlineOnly,
     selectedRelationshipPathId, setSelectedRelationshipPathId,
   } = relationship;
-  const { overlays, selectedOverlayId, setFromSource } = overlayCommands;
+  const {
+    overlays,
+    objectStyles,
+    connectionStyles,
+    selectedOverlayId,
+    selectedObject,
+    setFromSource,
+  } = overlayCommands;
   const {
     setCurrentDocumentId, setCurrentDocumentName,
     isDirty, setIsDirty, setIsReadOnly, dirtyGuardRef,
@@ -106,9 +114,9 @@ export function useChartDocumentIO({
     doubleAncestorRightGens, fanArcDegrees, ancestorBranch, virtualSource,
     virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle,
     chartNote, pageSize, pageOrientation, chartBackground,
-    relationshipBloodlineOnly, selectedRelationshipPathId, overlays,
+    relationshipBloodlineOnly, selectedRelationshipPathId, overlays, objectStyles, connectionStyles,
     pageMargins, pagePrintMargins, pageOverlap, pageCutMarks,
-    pagePrintPageNumbers, pageOmitEmptyPages, coloringMode, chartContent,
+    pagePrintPageNumbers, pageOmitEmptyPages, pageWatermark, coloringMode, chartContent,
     distributionType, distributionRelativeValues, distributionGraphType,
     distributionFromYear, distributionToYear, sociogramConfig,
     timelineGrouping, timelineCollapse, timelineMarkerMode,
@@ -201,6 +209,7 @@ export function useChartDocumentIO({
     setPageCutMarks(Boolean(normalized.pageSetup.cutMarks));
     setPagePrintPageNumbers(Boolean(normalized.pageSetup.printPageNumbers));
     setPageOmitEmptyPages(normalized.pageSetup.omitEmptyPages !== false);
+    setPageWatermark(normalized.pageSetup.watermark || '');
     if (normalized.exportSettings) {
       setExportFormat(normalized.exportSettings.format || 'png');
       setExportScale(Number(normalized.exportSettings.scale) || 1);
@@ -213,6 +222,8 @@ export function useChartDocumentIO({
     setSelectedRelationshipPathId(relationshipConfig.selectedPathId || null);
     setFromSource(Array.isArray(normalized.compositorConfig.overlays) ? normalized.compositorConfig.overlays : [], {
       preserveSelection: options.preserveSelection ?? false,
+      objectStyles: normalized.compositorConfig.objectStyles,
+      connectionStyles: normalized.compositorConfig.connectionStyles,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setActivePerson, setFromSource]);
@@ -260,7 +271,9 @@ export function useChartDocumentIO({
     compositorConfig: {
       themeId,
       overlays,
-      selectedObjectIds: selectedOverlayId ? [selectedOverlayId] : [],
+      objectStyles,
+      connectionStyles,
+      selectedObjectIds: selectedObject?.id ? [selectedObject.id] : selectedOverlayId ? [selectedOverlayId] : [],
     },
     pageSetup: {
       title: chartTitle,
@@ -274,6 +287,7 @@ export function useChartDocumentIO({
       cutMarks: pageCutMarks,
       printPageNumbers: pagePrintPageNumbers,
       omitEmptyPages: pageOmitEmptyPages,
+      watermark: pageWatermark,
     },
     exportSettings: {
       format: exportFormat,
@@ -282,7 +296,7 @@ export function useChartDocumentIO({
       jpegQuality: exportJpegQuality,
       fileNameTemplate: exportFileNameTemplate,
     },
-  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, selectedOverlayId, pageMargins, pagePrintMargins, pageOverlap, pageCutMarks, pagePrintPageNumbers, pageOmitEmptyPages, exportFormat, exportScale, exportIncludeBackground, exportJpegQuality, exportFileNameTemplate, coloringMode, chartContent, distributionType, distributionRelativeValues, distributionGraphType, distributionFromYear, distributionToYear, sociogramConfig, timelineGrouping, timelineCollapse, timelineMarkerMode]);
+  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, objectStyles, connectionStyles, selectedOverlayId, selectedObject, pageMargins, pagePrintMargins, pageOverlap, pageCutMarks, pagePrintPageNumbers, pageOmitEmptyPages, pageWatermark, exportFormat, exportScale, exportIncludeBackground, exportJpegQuality, exportFileNameTemplate, coloringMode, chartContent, distributionType, distributionRelativeValues, distributionGraphType, distributionFromYear, distributionToYear, sociogramConfig, timelineGrouping, timelineCollapse, timelineMarkerMode]);
 
   return {
     suppressDirtyOnce,

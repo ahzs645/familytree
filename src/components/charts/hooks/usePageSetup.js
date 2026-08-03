@@ -25,6 +25,7 @@ export function usePageSetup() {
   const [pageCutMarks, setPageCutMarks] = useState(false);
   const [pagePrintPageNumbers, setPagePrintPageNumbers] = useState(false);
   const [pageOmitEmptyPages, setPageOmitEmptyPages] = useState(true);
+  const [pageWatermark, setPageWatermark] = useState('');
 
   return {
     chartTitle,
@@ -53,5 +54,7 @@ export function usePageSetup() {
     setPagePrintPageNumbers,
     pageOmitEmptyPages,
     setPageOmitEmptyPages,
+    pageWatermark,
+    setPageWatermark,
   };
 }

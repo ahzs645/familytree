@@ -7,6 +7,7 @@ import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
 import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
+import { ChartConnection } from './ChartConnection.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutAncestors } from './layouts/ancestorLayout.js';
 
@@ -29,12 +30,17 @@ export function AncestorChart({ tree, generations = 5, onPersonClick, theme = DE
         {links.map((l, i) => {
           const midX = (l.from.x + l.toFather.x) / 2;
           return (
-            <g key={i} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth}>
-              <path d={`M ${l.from.x} ${l.from.y} H ${midX}`} />
-              <path d={`M ${midX} ${l.toFather.y} H ${l.toFather.x}`} />
-              <path d={`M ${midX} ${l.toMother.y} H ${l.toMother.x}`} />
-              <path d={`M ${midX} ${l.toFather.y} V ${l.toMother.y}`} />
-            </g>
+            <ChartConnection
+              key={i}
+              id={`ancestor-${i}`}
+              paths={[
+                `M ${l.from.x} ${l.from.y} H ${midX}`,
+                `M ${midX} ${l.toFather.y} H ${l.toFather.x}`,
+                `M ${midX} ${l.toMother.y} H ${l.toMother.x}`,
+                `M ${midX} ${l.toFather.y} V ${l.toMother.y}`,
+              ]}
+              theme={theme}
+            />
           );
         })}
         {nodes.map((n) => (

@@ -7,6 +7,7 @@ import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
 import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
+import { ChartConnection } from './ChartConnection.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutDescendants } from './layouts/descendantLayout.js';
 import { layoutAncestorsUpward } from './layouts/ancestorUpwardLayout.js';
@@ -55,7 +56,7 @@ export function HourglassChart({ ancestorTree, descendantTree, generations = 4, 
     >
       <g transform={`translate(${PADDING},${PADDING})`}>
         {layout.links.map((l, i) => (
-          <path key={i} d={l.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
+          <ChartConnection key={i} id={`hourglass-${i}`} d={l.d} theme={theme} />
         ))}
         {layout.nodes.map((n, i) => (
           <PersonNode

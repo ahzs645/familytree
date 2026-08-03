@@ -177,6 +177,17 @@ describe('chart document schema V2', () => {
       expect(cfg.overlays).toHaveLength(1);
     });
 
+    it('preserves per-person and per-connection chart overrides', () => {
+      const cfg = createDefaultCompositorConfig({
+        compositorConfig: {
+          objectStyles: { p1: { fill: '#ffeeaa', fontScale: 1.2, showPhoto: false } },
+          connectionStyles: { c1: { color: '#123456', lineWidth: 3, cornerStyle: 'sharp' } },
+        },
+      });
+      expect(cfg.objectStyles.p1).toEqual({ fill: '#ffeeaa', fontScale: 1.2, showPhoto: false });
+      expect(cfg.connectionStyles.c1).toEqual({ color: '#123456', lineWidth: 3, cornerStyle: 'sharp' });
+    });
+
     it('prefers compositorConfig block over legacy', () => {
       const cfg = createDefaultCompositorConfig({
         themeId: 'legacy',

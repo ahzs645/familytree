@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useRef, useState, useCallback, useImperativeHandle } from 'react';
 import { DEFAULT_THEME } from './theme.js';
-import { exportChartAsPng, exportChartAsSvg, printChartViaPdf } from '../../lib/chartExport.js';
+import { exportChartAsPdf, exportChartAsPng, exportChartAsSvg, printChart } from '../../lib/chartExport.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { Button } from '../ui/Button.jsx';
@@ -126,8 +126,8 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
     }
     if (overlayDrag.current) {
       const { id, startX, startY, original } = overlayDrag.current;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
+      const dx = (e.clientX - startX) / view.k;
+      const dy = (e.clientY - startY) / view.k;
       const next = overlays.map((overlay) => (overlay.id === id ? moveOverlay(original, dx, dy) : overlay));
       overlayDrag.current.preview = next;
       emitOverlays(next, { finalize: false });
@@ -198,19 +198,18 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
     fileNameTemplate: exportSettings?.fileNameTemplate,
   };
 
+  const showExportError = (error) => {
+    console.error('[CloudTreeWeb] chart export failed', error);
+    modal.alert(t('charts.exportFailed'));
+  };
   const onExportSvg = () => exportChartAsSvg(svgRef.current, exportOptions);
-  const onExportPng = () => exportChartAsPng(svgRef.current, exportOptions, background);
-  // printChartViaPdf throws when the popup is blocked. Unhandled, the click
-  // did nothing and said nothing; surface it through onExportError so the
-  // caller can tell the user why.
-  // printChartViaPdf throws when the popup is blocked. Unhandled, the click did
-  // nothing and said nothing — tell the user instead.
+  const onExportPng = () => exportChartAsPng(svgRef.current, exportOptions, background).catch(showExportError);
+  const onExportPdf = () => exportChartAsPdf(svgRef.current, exportOptions, background).catch(showExportError);
   const onPrint = () => {
     try {
-      printChartViaPdf(svgRef.current, exportOptions);
+      printChart(svgRef.current, exportOptions);
     } catch (error) {
-      console.error('[CloudTreeWeb] chart PDF export failed', error);
-      modal.alert(error?.message || t('charts.printFailed', { defaultValue: 'Could not open the print view.' }));
+      showExportError(error);
     }
   };
 
@@ -219,9 +218,10 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
     resetView: () => onReset(),
     exportSvg: onExportSvg,
     exportPng: onExportPng,
-    exportPdf: onPrint,
+    exportPdf: onExportPdf,
     print: onPrint,
-  }), [onReset, onExportSvg, onExportPng, onPrint]);
+    measurePageBreakObjects: () => measurePageBreakObjects(contentRef.current),
+  }), [onReset, onExportSvg, onExportPng, onExportPdf, onPrint]);
 
   return (
     // width/height are props and background comes from the chart theme, so
@@ -240,29 +240,31 @@ export const ChartCanvas = React.forwardRef(function ChartCanvas(
         onPointerLeave={onPointerUp}
       >
         <rect x="0" y="0" width="100%" height="100%" fill={background} />
-        {(page.title || page.note) && (
-          <g pointerEvents="none">
-            {page.title && <text x={24} y={34} fill={theme.text} fontSize={20} fontFamily={theme.fontFamily} fontWeight={700}>{page.title}</text>}
-            {page.note && <text x={24} y={56} fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{page.note}</text>}
-          </g>
-        )}
-        <g ref={contentRef} transform={`translate(${view.x},${view.y}) scale(${view.k})`}>{children}</g>
-        <OverlayLayer
-          overlays={overlays}
-          theme={theme}
-          selectedOverlayId={selectedOverlayId}
-          onSelect={onSelectOverlay}
-          onDragStart={(event, overlay) => {
-            event.stopPropagation();
-            onSelectOverlay?.(overlay.id);
-            overlayDrag.current = {
-              id: overlay.id,
-              startX: event.clientX,
-              startY: event.clientY,
-              original: overlay,
-            };
-          }}
-        />
+        <g ref={contentRef} data-chart-export-content="true" transform={`translate(${view.x},${view.y}) scale(${view.k})`}>
+          {(page.title || page.note) && (
+            <g pointerEvents="none">
+              {page.title && <text x={24} y={34} fill={theme.text} fontSize={20} fontFamily={theme.fontFamily} fontWeight={700}>{page.title}</text>}
+              {page.note && <text x={24} y={56} fill={theme.textMuted} fontSize={12} fontFamily={theme.fontFamily}>{page.note}</text>}
+            </g>
+          )}
+          {children}
+          <OverlayLayer
+            overlays={overlays}
+            theme={theme}
+            selectedOverlayId={selectedOverlayId}
+            onSelect={onSelectOverlay}
+            onDragStart={(event, overlay) => {
+              event.stopPropagation();
+              onSelectOverlay?.(overlay.id);
+              overlayDrag.current = {
+                id: overlay.id,
+                startX: event.clientX,
+                startY: event.clientY,
+                original: overlay,
+              };
+            }}
+          />
+        </g>
       </svg>
       <div className="absolute end-3 top-3 flex gap-1.5">
         <Button onClick={() => setView((v) => ({ ...v, k: Math.min(maxZoom, v.k * 1.2) }))}>＋</Button>
@@ -290,6 +292,8 @@ function OverlayLayer({ overlays, theme, onDragStart, onSelect, selectedOverlayI
           return (
             <g
               key={overlay.id}
+              data-chart-object-kind="overlay"
+              data-chart-object-id={overlay.id}
               opacity={opacity}
               onPointerDown={(event) => {
                 onSelect?.(overlay.id);
@@ -305,7 +309,7 @@ function OverlayLayer({ overlays, theme, onDragStart, onSelect, selectedOverlayI
 
         if (overlay.type === 'image') {
           return (
-            <g key={overlay.id} opacity={opacity}>
+            <g key={overlay.id} opacity={opacity} data-chart-object-kind="overlay" data-chart-object-id={overlay.id}>
               <image
                 href={overlay.href}
                 x={overlay.x}
@@ -338,6 +342,8 @@ function OverlayLayer({ overlays, theme, onDragStart, onSelect, selectedOverlayI
         return (
           <text
             key={overlay.id}
+            data-chart-object-kind="overlay"
+            data-chart-object-id={overlay.id}
             x={overlay.x}
             y={overlay.y}
             fill={isSelected ? '#1e88e5' : (overlay.color || theme.text)}
@@ -357,6 +363,55 @@ function OverlayLayer({ overlays, theme, onDragStart, onSelect, selectedOverlayI
       })}
     </g>
   );
+}
+
+function measurePageBreakObjects(content) {
+  if (!content) return null;
+  let contentBounds;
+  try {
+    const bbox = content.getBBox();
+    contentBounds = { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height };
+  } catch {
+    return null;
+  }
+  const seen = new Set();
+  const objects = [];
+  for (const element of content.querySelectorAll('[data-chart-object-kind="person"], [data-chart-object-kind="overlay"]')) {
+    const id = element.getAttribute('data-chart-object-id');
+    const kind = element.getAttribute('data-chart-object-kind');
+    if (!id || seen.has(`${kind}:${id}`)) continue;
+    const bounds = boundsRelativeTo(element, content);
+    if (!bounds) continue;
+    seen.add(`${kind}:${id}`);
+    objects.push({ id, kind, bounds });
+  }
+  return { contentBounds, objects };
+}
+
+function boundsRelativeTo(element, ancestor) {
+  try {
+    const bbox = element.getBBox();
+    const elementMatrix = element.getCTM();
+    const ancestorMatrix = ancestor.getCTM();
+    if (!elementMatrix || !ancestorMatrix) return null;
+    const matrix = ancestorMatrix.inverse().multiply(elementMatrix);
+    const points = [
+      new DOMPoint(bbox.x, bbox.y),
+      new DOMPoint(bbox.x + bbox.width, bbox.y),
+      new DOMPoint(bbox.x, bbox.y + bbox.height),
+      new DOMPoint(bbox.x + bbox.width, bbox.y + bbox.height),
+    ].map((point) => point.matrixTransform(matrix));
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    return {
+      x: Math.min(...xs),
+      y: Math.min(...ys),
+      width: Math.max(...xs) - Math.min(...xs),
+      height: Math.max(...ys) - Math.min(...ys),
+    };
+  } catch {
+    return null;
+  }
 }
 
 // Object Inspector edits write `fontWeight` ('normal'|'bold'); older overlays

@@ -7,6 +7,7 @@ import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
 import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
+import { ChartConnection } from './ChartConnection.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import {
   layoutVirtualTree,
@@ -49,7 +50,7 @@ export function VirtualTreeDiagram({ tree, source = 'descendant', virtualTreeDat
           </text>
         )}
         {links.map((l, i) => (
-          <path key={i} d={l.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
+          <ChartConnection key={i} id={`virtual-${i}`} d={l.d} theme={theme} />
         ))}
         {nodes.map((n) => (
           <PersonNode
