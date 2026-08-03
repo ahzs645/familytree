@@ -1,4 +1,5 @@
 import { getActiveExportDefaults } from './appPreferences.js';
+import { renderCSV } from './reports/renderers/csv.js';
 
 const SEPARATORS = { comma: ',', semicolon: ';', tab: '\t' };
 
@@ -14,12 +15,6 @@ function valueFor(row, column) {
   return '';
 }
 
-function escapeCsv(value, separator = ',') {
-  const text = String(value ?? '');
-  if (!text.includes('"') && !text.includes('\n') && !text.includes('\r') && !text.includes(separator)) return text;
-  return `"${text.replace(/"/g, '""')}"`;
-}
-
 function downloadText(filename, text, mime) {
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -33,14 +28,21 @@ function downloadText(filename, text, mime) {
 }
 
 export function downloadRowsAsCsv(filenameBase, rows, columns, { separator } = {}) {
-  const exportable = columns.filter((column) => column.export !== false);
   const sep = resolveSeparator(separator);
-  const lines = [
-    exportable.map((column) => escapeCsv(column.label || column.key, sep)).join(sep),
-    ...rows.map((row) => exportable.map((column) => escapeCsv(valueFor(row, column), sep)).join(sep)),
-  ];
   const isTab = sep === '\t';
-  downloadText(`${filenameBase}.${isTab ? 'tsv' : 'csv'}`, lines.join('\n'), isTab ? 'text/tab-separated-values' : 'text/csv');
+  downloadText(`${filenameBase}.${isTab ? 'tsv' : 'csv'}`, rowsToCsv(rows, columns, { separator: sep }), isTab ? 'text/tab-separated-values' : 'text/csv');
+}
+
+/** Build entity-list CSV through the same AST renderer used by reports. */
+export function rowsToCsv(rows, columns, { separator } = {}) {
+  const exportable = columns.filter((column) => column.export !== false);
+  return renderCSV({
+    blocks: [{
+      kind: 'table',
+      columns: exportable.map((column) => column.label || column.key),
+      rows: rows.map((row) => exportable.map((column) => valueFor(row, column))),
+    }],
+  }, { delimiter: resolveSeparator(separator), includeHeader: true });
 }
 
 export function downloadRowsAsJson(filenameBase, rows, columns) {

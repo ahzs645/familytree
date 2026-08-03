@@ -46,11 +46,19 @@ import {
   detachMediaFromTarget,
   findMediaReferences,
   groupMediaRecords,
+  mediaTimestamp,
+  mediaTitle,
   loadAssetsForMedia,
   normalizeMediaGalleryPreferences,
   setMediaAsEntryImage,
 } from '../lib/mediaManagement.js';
 import { AddMediaSheet, DeleteMediaSheet, EntryImageSheet } from '../components/media/MediaWorkflowSheets.jsx';
+import { useColumnVisibility } from '../components/lists/useColumnVisibility.js';
+import { ColumnChooser } from '../components/lists/ColumnChooser.jsx';
+import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { useScopedRows } from '../components/lists/useScopedRows.js';
+import { useSortProfile } from '../components/lists/useSortProfile.js';
+import { downloadRowsAsCsv } from '../lib/listExport.js';
 
 const MEDIA_TYPES = ['all', 'MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 
@@ -102,6 +110,21 @@ export default function Media() {
   const [workflowBusy, setWorkflowBusy] = useState(false);
   const [galleryPrefs, setGalleryPrefs] = useState(DEFAULT_MEDIA_GALLERY_PREFERENCES);
   const [loadSeq, setLoadSeq] = useState(0);
+  const mediaSortOptions = useMemo(() => [
+    { key: 'title', label: t('mediaManager.grouping.sortTitle') },
+    { key: 'date', label: t('mediaManager.grouping.sortDate') },
+  ], [t]);
+  const sortProfile = useSortProfile('media', mediaSortOptions, 'title');
+  const listColumns = useMemo(() => [
+    { key: 'title', label: t('lists.columnLabels.title'), alwaysVisible: true, exportValue: mediaTitle },
+    { key: 'type', label: t('lists.columnLabels.type'), exportValue: (record) => record.recordType },
+    { key: 'date', label: t('lists.columnLabels.date'), defaultVisible: false, exportValue: (record) => record.fields?.date?.value || record.fields?.mft_creationDate?.value || '' },
+    { key: 'filename', label: t('lists.columnLabels.filename'), defaultVisible: false, exportValue: (record) => record.fields?.filename?.value || record.fields?.fileName?.value || '' },
+    { key: 'description', label: t('lists.columnLabels.description'), defaultVisible: false, exportValue: (record) => record.fields?.description?.value || '' },
+    { key: 'url', label: t('lists.columnLabels.url'), defaultVisible: false, exportValue: (record) => record.fields?.url?.value || '' },
+    { key: 'recordId', label: t('lists.columnLabels.recordId'), defaultVisible: false, exportValue: (record) => record.recordName },
+  ], [t]);
+  const columnVisibility = useColumnVisibility('media', listColumns);
 
   const reload = useCallback(async () => {
     const data = getAppDataClient();
@@ -121,10 +144,16 @@ export default function Media() {
   useEffect(() => {
     let cancelled = false;
     getAppPreferences().then((preferences) => {
-      if (!cancelled) setGalleryPrefs(normalizeMediaGalleryPreferences(preferences.media?.gallery));
+      if (!cancelled) {
+        const saved = normalizeMediaGalleryPreferences(preferences.media?.gallery);
+        setGalleryPrefs(saved);
+        try {
+          if (!localStorage.getItem('list:sort:media')) sortProfile.setSortKey(saved.sortBy);
+        } catch {}
+      }
     });
     return () => { cancelled = true; };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateGalleryPrefs = useCallback((patch) => {
     setGalleryPrefs((current) => {
@@ -133,6 +162,11 @@ export default function Media() {
       return next;
     });
   }, []);
+
+  const updateMediaPresentation = useCallback((patch) => {
+    if (patch.sortBy) sortProfile.setSortKey(patch.sortBy);
+    updateGalleryPrefs(patch);
+  }, [sortProfile.setSortKey, updateGalleryPrefs]);
 
   const openWorkflow = useCallback((setter) => {
     workflowReturnFocusRef.current = document.activeElement;
@@ -440,14 +474,20 @@ export default function Media() {
     }
   }, [active, activeAssets, reload, values.caption, values.filename, t]);
 
+  const typeFiltered = useMemo(() => filter === 'all' ? media : media.filter((m) => m.recordType === filter), [filter, media]);
+  const scoped = useScopedRows(typeFiltered, {
+    entityType: filter === 'all' ? 'Media' : filter,
+    rowIds: (record) => record.recordName,
+  });
   const filtered = useMemo(() => {
-    const byType = filter === 'all' ? media : media.filter((m) => m.recordType === filter);
+    const byType = scoped.rows;
     if (!relatedMediaIds) return byType;
     return byType.filter((m) => relatedMediaIds.has(m.recordName));
-  }, [filter, media, relatedMediaIds]);
+  }, [scoped.rows, relatedMediaIds]);
+  const effectiveGalleryPrefs = useMemo(() => ({ ...galleryPrefs, sortBy: sortProfile.sortKey }), [galleryPrefs, sortProfile.sortKey]);
   const mediaGroups = useMemo(
-    () => groupMediaRecords(filtered, galleryPrefs, localization.locale),
-    [filtered, galleryPrefs, localization.locale]
+    () => groupMediaRecords(filtered, effectiveGalleryPrefs, localization.locale),
+    [filtered, effectiveGalleryPrefs, localization.locale]
   );
   const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const visibleIds = useMemo(() => filtered.map((m) => m.recordName), [filtered]);
@@ -508,6 +548,9 @@ export default function Media() {
       setStatus(t('mediaManager.status.operationFailed', { message: error.message }));
     }
   }, [media, selectedIds, t]);
+  const onExportSelectedCsv = useCallback(() => {
+    downloadRowsAsCsv('media-selected', media.filter((record) => selectedSet.has(record.recordName)), listColumns);
+  }, [listColumns, media, selectedSet]);
 
   const onOpenMedia = useCallback(() => {
     if (!active) return;
@@ -616,7 +659,9 @@ export default function Media() {
           ariaLabel={t('mediaManager.filterAria')}
           className="w-32"
         />
-        <GroupingStylePopover preferences={galleryPrefs} onChange={updateGalleryPrefs} />
+        <GroupingStylePopover preferences={effectiveGalleryPrefs} onChange={updateMediaPresentation} />
+        <ScopeFilterSelect value={scoped.scopeId} onChange={scoped.setScopeId} scopes={scoped.scopes} loading={scoped.loading} error={scoped.error} />
+        <ColumnChooser columns={listColumns} isVisible={columnVisibility.isVisible} onToggle={columnVisibility.toggle} onReset={columnVisibility.resetToDefaults} />
         <span className="ms-auto text-muted-foreground text-xs">
           {t('mediaManager.itemCount', { count: filtered.length })}
           {selectedIds.length ? ` · ${t('mediaManager.selectedVisible', { visible: selectedVisibleCount, count: selectedIds.length })}` : ''}
@@ -666,6 +711,11 @@ export default function Media() {
             {
               label: t('mediaManager.actions.exportSelected'),
               onClick: onExportSelected,
+              disabled: !selectedIds.length,
+            },
+            {
+              label: t('lists.exportSelectedCsv'),
+              onClick: onExportSelectedCsv,
               disabled: !selectedIds.length,
             },
             {
@@ -734,10 +784,15 @@ export default function Media() {
                   />
                 </label>
                 <div className={cn(thumbnailIconClass, 'leading-none mb-1.5')}>{iconFor(m.recordType)}</div>
-                <div className="text-xs text-foreground font-semibold mb-0.5 break-words">
+                {columnVisibility.isVisible('title') ? <div className="text-xs text-foreground font-semibold mb-0.5 break-words">
                   {m.fields?.caption?.value || m.fields?.filename?.value || m.fields?.fileName?.value || m.fields?.url?.value || m.recordName}
-                </div>
-                <div className="text-xs text-muted-foreground">{mediaTypeLabel(m.recordType)}</div>
+                </div> : null}
+                {columnVisibility.isVisible('type') ? <div className="text-xs text-muted-foreground">{mediaTypeLabel(m.recordType)}</div> : null}
+                {columnVisibility.isVisible('date') && mediaTimestamp(m) ? <div className="text-xs text-muted-foreground">{new Intl.DateTimeFormat(localization.locale, { year: 'numeric', month: 'short', day: 'numeric' }).format(mediaTimestamp(m))}</div> : null}
+                {columnVisibility.isVisible('filename') && (m.fields?.filename?.value || m.fields?.fileName?.value) ? <div className="text-xs text-muted-foreground break-words">{m.fields?.filename?.value || m.fields?.fileName?.value}</div> : null}
+                {columnVisibility.isVisible('description') && m.fields?.description?.value ? <div className="text-xs text-muted-foreground break-words">{m.fields.description.value}</div> : null}
+                {columnVisibility.isVisible('url') && m.fields?.url?.value ? <div className="text-xs text-muted-foreground break-all">{m.fields.url.value}</div> : null}
+                {columnVisibility.isVisible('recordId') ? <div className="text-2xs text-muted-foreground break-all">{m.recordName}</div> : null}
               </div>
             );
           })}

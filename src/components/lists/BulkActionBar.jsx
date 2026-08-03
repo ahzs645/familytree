@@ -19,7 +19,7 @@ export function BulkActionBar({ count, onClear, children }) {
         onClick={onClear}
         className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent"
       >
-        {t('lists.clear')}
+        {t('lists.selectNone')}
       </button>
     </div>
   );

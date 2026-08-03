@@ -12,7 +12,6 @@ export function ScopeFilterSelect({
   className = '',
 }) {
   const { t } = useTranslation();
-  if (!loading && (!scopes || scopes.length === 0)) return null;
   const resolvedLabel = label || t('smartScopes.smartFilter');
   return (
     <label className={`flex items-center gap-2 ${className}`}>

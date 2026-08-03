@@ -74,6 +74,12 @@ export default function PlausibilityList() {
       render: (row) => <Link to={recordHref(row)} className="text-xs text-interactive hover:underline">{t('plausibilityList.open')}</Link>,
     },
   ], [t]);
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    { key: 'severity', label: t('plausibilityList.severity'), getGroup: (row) => severityLabel(row.severity) },
+    { key: 'rule', label: t('plausibilityList.rule'), getGroup: (row) => row.rule },
+    { key: 'recordType', label: t('plausibilityList.recordType'), getGroup: (row) => row.recordType },
+  ], [t]);
 
   if (loading) return <div className="p-10 text-muted-foreground">{t('plausibilityList.loading')}</div>;
 
@@ -111,6 +117,7 @@ export default function PlausibilityList() {
         initialSortKey="severity"
         initialSortDirection="desc"
         sortProfile={sortProfile}
+        groupOptions={groupOptions}
         searchPlaceholder={t('plausibilityList.searchPlaceholder')}
         toolbar={filters}
         emptyTitle={warnings.length === 0 ? t('plausibilityList.emptyAllTitle') : t('plausibilityList.emptyFilteredTitle')}

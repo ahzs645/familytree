@@ -83,7 +83,28 @@ export default function Families() {
       export: false,
       render: (row) => <Link to={`/family/${row.id}`} className="text-xs text-interactive hover:underline">{t('families.openFamily')}</Link>,
     },
+    { key: 'bookmarked', label: t('lists.columnLabels.bookmarked'), defaultVisible: false, sortValue: (row) => !!row.family?.fields?.isBookmarked?.value, exportValue: (row) => !!row.family?.fields?.isBookmarked?.value },
+    { key: 'private', label: t('lists.columnLabels.private'), defaultVisible: false, sortValue: (row) => !!row.family?.fields?.isPrivate?.value, exportValue: (row) => !!row.family?.fields?.isPrivate?.value },
     { key: 'id', label: t('families.familyId'), defaultVisible: false },
+  ], [t]);
+
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    {
+      key: 'marriageDecade',
+      label: t('lists.groups.marriageDecade'),
+      getGroup: (row) => {
+        const match = String(row.marriageDate || '').match(/(\d{4})/);
+        if (!match) return { key: 'unknown', label: t('lists.groups.unknownDate') };
+        const decade = Math.floor(Number(match[1]) / 10) * 10;
+        return { key: String(decade), label: t('lists.groups.decade', { year: decade }) };
+      },
+    },
+    {
+      key: 'partnerInitial',
+      label: t('lists.groups.partnerInitial'),
+      getGroup: (row) => String(row.partner1Name || row.partner2Name || '').trim()[0]?.toLocaleUpperCase() || t('lists.unknownGroup'),
+    },
   ], [t]);
 
   const scoped = useScopedRows(rows, {
@@ -163,6 +184,7 @@ export default function Families() {
         columns={columns}
         initialSortKey="partner1Name"
         sortProfile={sortProfile}
+        groupOptions={groupOptions}
         searchPlaceholder={t('families.searchPlaceholder')}
         toolbar={filters}
         emptyTitle={t('families.emptyTitle')}

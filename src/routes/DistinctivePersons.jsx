@@ -8,6 +8,8 @@ import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadDistinctivePersonRows } from '../lib/listData.js';
 import { Gender } from '../models/index.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { useSortProfile } from '../components/lists/useSortProfile.js';
+import { decadeDescriptor } from '../lib/listGrouping.js';
 
 const CRITERIA_DEFS = [
   // MacFamilyTree's DistinctivePersonsAnalyzer superlatives (CoreDistinctivePersonsAnalyzer.strings).
@@ -34,6 +36,13 @@ export default function DistinctivePersons() {
   const [loading, setLoading] = useState(true);
   const [matchMode, setMatchMode] = useState('any');
   const [selectedCriteria, setSelectedCriteria] = useState(() => new Set(['marker']));
+  const sortOptions = useMemo(() => [
+    { key: 'signals', label: t('distinctivePersons.signals') },
+    { key: 'fullName', label: t('distinctivePersons.name') },
+    { key: 'birthDate', label: t('distinctivePersons.born') },
+    { key: 'deathDate', label: t('distinctivePersons.died') },
+  ], [t]);
+  const sortProfile = useSortProfile('distinctive-persons', sortOptions, 'signals');
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +110,14 @@ export default function DistinctivePersons() {
       render: (row) => <Link to={`/person/${row.id}`} className="text-xs text-interactive hover:underline">{t('distinctivePersons.openPerson')}</Link>,
     },
   ], [t]);
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    { key: 'gender', label: t('distinctivePersons.gender'), getGroup: (row) => row.genderLabel },
+    { key: 'birthDecade', label: t('lists.groups.birthDecade'), getGroup: (row) => {
+      const decade = decadeDescriptor(row.birthYear);
+      return decade ? { key: decade.key, label: t('lists.groups.decade', { year: decade.year }) } : t('lists.groups.unknownBirth');
+    } },
+  ], [t]);
 
   const toggleCriterion = (id) => {
     setSelectedCriteria((current) => {
@@ -155,6 +172,8 @@ export default function DistinctivePersons() {
         columns={columns}
         initialSortKey="signals"
         initialSortDirection="desc"
+        sortProfile={sortProfile}
+        groupOptions={groupOptions}
         searchPlaceholder={t('distinctivePersons.searchPlaceholder')}
         toolbar={filters}
         emptyTitle={t('distinctivePersons.emptyTitle')}

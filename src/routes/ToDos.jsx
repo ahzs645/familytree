@@ -23,6 +23,16 @@ import { useRecords } from '../lib/data/useRecords.js';
 import { useListSelection } from '../components/lists/useListSelection.js';
 import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
 import { PageTitle } from '../components/ui/PageTitle.jsx';
+import { useColumnVisibility } from '../components/lists/useColumnVisibility.js';
+import { ColumnChooser } from '../components/lists/ColumnChooser.jsx';
+import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { useScopedRows } from '../components/lists/useScopedRows.js';
+import { GroupBySelect } from '../components/lists/GroupBySelect.jsx';
+import { useGroupProfile } from '../components/lists/useGroupProfile.js';
+import { useSortProfile } from '../components/lists/useSortProfile.js';
+import { Select } from '../components/ui/Select.jsx';
+import { listToolbarSelectTriggerClass } from '../components/lists/listToolbarClasses.js';
+import { todoScheduleBucket } from '../lib/listGrouping.js';
 
 const TARGET_TYPES = ['Person', 'Family', 'Source', 'Place', 'PersonEvent', 'FamilyEvent', 'MediaPicture', 'MediaPDF', 'MediaURL'];
 const TODO_FIELDS = ['title', 'type', 'status', 'priority', 'dueDate'];
@@ -118,7 +128,39 @@ export default function ToDos() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, TARGET_TYPES.map((type) => targetRecords[type]));
 
-  const todoIds = useMemo(() => todos.map((todo) => todo.recordName), [todos]);
+  const listColumns = useMemo(() => [
+    { key: 'title', label: t('todosPage.field.title'), alwaysVisible: true, exportValue: (record) => todoTitle(record, t('todosPage.fallbackTitle')) },
+    { key: 'type', label: t('todosPage.field.type'), defaultVisible: false, exportValue: (record) => record.fields?.type?.value || '' },
+    { key: 'priority', label: t('todosPage.field.priority'), exportValue: (record) => record.fields?.priority?.value || '' },
+    { key: 'status', label: t('todosPage.field.status'), exportValue: (record) => record.fields?.status?.value || '' },
+    { key: 'dueDate', label: t('todosPage.field.dueDate'), defaultVisible: false, exportValue: (record) => record.fields?.dueDate?.value || '' },
+    { key: 'description', label: t('todosPage.field.description'), defaultVisible: false, exportValue: (record) => record.fields?.description?.value || record.fields?.text?.value || '' },
+    { key: 'recordId', label: t('lists.columnLabels.recordId'), defaultVisible: false, exportValue: (record) => record.recordName },
+  ], [t]);
+  const columnVisibility = useColumnVisibility('todos', listColumns);
+  const scoped = useScopedRows(todos, { entityType: 'ToDo', rowIds: (record) => record.recordName });
+  const todoSortOptions = useMemo(() => [
+    { key: 'title', label: t('todosPage.field.title'), compare: (a, b) => todoTitle(a).localeCompare(todoTitle(b)) },
+    { key: 'dueDate', label: t('todosPage.field.dueDate'), compare: (a, b) => String(a.fields?.dueDate?.value || '9999').localeCompare(String(b.fields?.dueDate?.value || '9999')) || todoTitle(a).localeCompare(todoTitle(b)) },
+    { key: 'status', label: t('todosPage.field.status'), compare: (a, b) => String(a.fields?.status?.value || '').localeCompare(String(b.fields?.status?.value || '')) || todoTitle(a).localeCompare(todoTitle(b)) },
+    { key: 'priority', label: t('todosPage.field.priority'), compare: (a, b) => String(a.fields?.priority?.value || '').localeCompare(String(b.fields?.priority?.value || '')) || todoTitle(a).localeCompare(todoTitle(b)) },
+    { key: 'type', label: t('todosPage.field.type'), compare: (a, b) => String(a.fields?.type?.value || '').localeCompare(String(b.fields?.type?.value || '')) || todoTitle(a).localeCompare(todoTitle(b)) },
+  ], [t]);
+  const sortProfile = useSortProfile('todos', todoSortOptions, 'title');
+  const sortedTodos = sortProfile.sort(scoped.rows);
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    { key: 'type', label: t('todosPage.field.type'), getGroup: (record) => { const value = record.fields?.type?.value; return value ? { key: value, label: t(`todosPage.todoType.${value}`, { defaultValue: value }) } : t('lists.unknownGroup'); } },
+    { key: 'priority', label: t('todosPage.field.priority'), getGroup: (record) => { const value = record.fields?.priority?.value; return value ? { key: value, label: t(`todosPage.priority.${value}`, { defaultValue: value }) } : t('lists.unknownGroup'); } },
+    { key: 'status', label: t('todosPage.field.status'), getGroup: (record) => { const value = record.fields?.status?.value; return value ? { key: value, label: t(`todosPage.status.${value}`, { defaultValue: value }) } : t('lists.unknownGroup'); } },
+    { key: 'schedule', label: t('lists.groups.schedule'), getGroup: (record) => {
+      const key = todoScheduleBucket(record.fields?.dueDate?.value, record.fields?.status?.value);
+      return { key, label: t(`lists.groups.${key}`) };
+    } },
+  ], [t]);
+  const groupProfile = useGroupProfile('todos', groupOptions);
+
+  const todoIds = useMemo(() => sortedTodos.map((todo) => todo.recordName), [sortedTodos]);
   const selection = useListSelection(todoIds);
 
   const bulkDeleteTodos = async (ids) => {
@@ -128,6 +170,7 @@ export default function ToDos() {
       deleteRecordNames: [...ids, ...ownedRelations.map((relation) => relation.recordName)],
     });
     for (const id of ids) await logRecordDeleted(id, 'ToDo');
+    for (const relation of ownedRelations) await logRecordDeleted(relation.recordName, 'ToDoRelation');
   };
 
   useEffect(() => {
@@ -175,6 +218,7 @@ export default function ToDos() {
       deleteRecordNames: [...completedIds, ...completedRelations.map((relation) => relation.recordName)],
     });
     for (const todo of completed) await logRecordDeleted(todo.recordName, 'ToDo');
+    for (const relation of completedRelations) await logRecordDeleted(relation.recordName, 'ToDoRelation');
     flashStatus(t('todosPage.deletedCompleted', { count: completed.length }));
   };
 
@@ -189,6 +233,7 @@ export default function ToDos() {
       deleteRecordNames: [active.recordName, ...activeRelations.map((r) => r.recordName)],
     });
     await logRecordDeleted(active.recordName, 'ToDo');
+    for (const relation of activeRelations) await logRecordDeleted(relation.recordName, 'ToDoRelation');
   };
 
   const addCustomTodoType = async () => {
@@ -253,9 +298,29 @@ export default function ToDos() {
 
   const renderRow = (record) => (
     <div>
-      <div className="text-sm text-foreground truncate">{todoTitle(record, t('todosPage.fallbackTitle'))}</div>
-      <div className="text-xs text-muted-foreground">{statusLabel(record.fields?.status?.value || 'Open')} · {priorityLabel(record.fields?.priority?.value || 'Normal')}</div>
+      {columnVisibility.isVisible('title') ? <div className="text-sm text-foreground truncate">{todoTitle(record, t('todosPage.fallbackTitle'))}</div> : null}
+      <div className="text-xs text-muted-foreground">
+        {columnVisibility.isVisible('status') ? statusLabel(record.fields?.status?.value || 'Open') : null}
+        {columnVisibility.isVisible('status') && columnVisibility.isVisible('priority') ? ' · ' : null}
+        {columnVisibility.isVisible('priority') ? priorityLabel(record.fields?.priority?.value || 'Normal') : null}
+      </div>
+      {columnVisibility.isVisible('type') ? <div className="text-xs text-muted-foreground truncate">{record.fields?.type?.value || ''}</div> : null}
+      {columnVisibility.isVisible('dueDate') && record.fields?.dueDate?.value ? <div className="text-xs text-muted-foreground">{record.fields.dueDate.value}</div> : null}
+      {columnVisibility.isVisible('description') && (record.fields?.description?.value || record.fields?.text?.value) ? <div className="text-xs text-muted-foreground truncate">{record.fields?.description?.value || record.fields?.text?.value}</div> : null}
+      {columnVisibility.isVisible('recordId') ? <div className="text-2xs text-muted-foreground truncate">{record.recordName}</div> : null}
     </div>
+  );
+
+  const listToolbar = (
+    <>
+      <ScopeFilterSelect value={scoped.scopeId} onChange={scoped.setScopeId} scopes={scoped.scopes} loading={scoped.loading} error={scoped.error} />
+      <label className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">{t('sortProfiles.label')}</span>
+        <Select value={sortProfile.sortKey} onChange={sortProfile.setSortKey} ariaLabel={t('sortProfiles.label')} options={todoSortOptions.map((option) => ({ value: option.key, label: option.label }))} triggerClassName={listToolbarSelectTriggerClass} />
+      </label>
+      <GroupBySelect value={groupProfile.groupKey} onChange={groupProfile.setGroupKey} options={groupOptions} />
+      <ColumnChooser columns={listColumns} isVisible={columnVisibility.isVisible} onToggle={columnVisibility.toggle} onReset={columnVisibility.resetToDefaults} />
+    </>
   );
 
   const detail = active ? (
@@ -360,18 +425,23 @@ export default function ToDos() {
       />
       <div className="flex-1 min-h-0">
         <MasterDetailList
-          items={todos}
+          items={sortedTodos}
           activeId={activeId}
           onPick={setActiveId}
           renderRow={renderRow}
           placeholder={t('todosPage.searchPlaceholder')}
           detail={detail}
+          toolbar={listToolbar}
+          groupBy={groupProfile.activeGroup?.key === 'none' ? null : groupProfile.activeGroup}
           selection={selection}
           bulkBar={(
             <RecordBulkBar
               selection={selection}
               recordType="ToDo"
               onDelete={bulkDeleteTodos}
+              exportRows={sortedTodos}
+              exportColumns={listColumns}
+              exportFilename="todos-selected"
             />
           )}
         />

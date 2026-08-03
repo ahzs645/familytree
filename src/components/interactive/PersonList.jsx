@@ -27,11 +27,12 @@ function initialFor(person, localization) {
   return (normalized || firstGrapheme).toLocaleUpperCase(localization.locale);
 }
 
-export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null, renderBadge = null, searchRowActions = null }) {
+export function PersonList({ persons, activeId, onPick, selection = null, onToggleSelect = null, visibleColumns = null, renderBadge = null, searchRowActions = null, groupBy = null }) {
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const showColumn = (key) => !visibleColumns || visibleColumns.has(key);
   const [query, setQuery] = useState('');
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
   const deferredQuery = useDeferredValue(query);
   const localization = getCurrentLocalization();
   const localizationKey = `${localization.locale}|${localization.direction}|${localization.numberingSystem}|${localization.calendar}`;
@@ -81,19 +82,34 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
       // Persons with no recorded name display a placeholder ("No name
       // recorded"), and keying off that string filed them all under N, wedged
       // between real surnames. Give them their own bucket instead.
-      const initial = hasRealName(p) ? initialFor(p, localization) : UNNAMED_GROUP;
-      if (!groups.has(initial)) groups.set(initial, []);
-      groups.get(initial).push(p);
+      const raw = groupBy?.key === 'none'
+        ? { key: 'all', label: '' }
+        : groupBy?.getGroup
+        ? groupBy.getGroup(p)
+        : (hasRealName(p) ? initialFor(p, localization) : UNNAMED_GROUP);
+      const descriptor = typeof raw === 'object' && raw
+        ? { key: String(raw.key || 'unknown'), label: String(raw.label || t('lists.unknownGroup')) }
+        : { key: String(raw || UNNAMED_GROUP), label: String(raw || t('lists.unknownGroup')) };
+      if (!groups.has(descriptor.key)) groups.set(descriptor.key, { label: descriptor.label, rows: [] });
+      groups.get(descriptor.key).rows.push(p);
     }
-    return [...groups.entries()]
-      .map(([letter, group]) => [letter, queryWords.length ? group : group.sort((a, b) => compareStrings(a.fullName, b.fullName, localization))])
+    const entries = [...groups.entries()].map(([key, group]) => [key, group.label, group.rows]);
+    if (groupBy) return entries;
+    return entries
+      .map(([key, label, group]) => [key, label, queryWords.length ? group : group.sort((a, b) => compareStrings(a.fullName, b.fullName, localization))])
       .sort(([a], [b]) => {
-        // The unnamed bucket always sorts last, whatever the locale.
         if (a === UNNAMED_GROUP) return b === UNNAMED_GROUP ? 0 : 1;
         if (b === UNNAMED_GROUP) return -1;
         return compareStrings(a, b, localization);
       });
-  }, [persons, indexedPersons, normalizedQuery, queryWords, queryVariantGroups, localizationKey]);
+  }, [persons, indexedPersons, normalizedQuery, queryWords, queryVariantGroups, localizationKey, groupBy, t]);
+
+  const toggleGroup = (key) => setCollapsedGroups((current) => {
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
 
   return (
     <div className="flex h-full flex-col border-e border-border bg-card">
@@ -110,12 +126,19 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
         {searchRowActions}
       </div>
       <div className="flex-1 overflow-auto">
-        {sections.map(([letter, group]) => (
-          <div key={letter}>
-            <div className="sticky top-0 border-b border-border bg-muted px-3 py-1.5 text-xs font-semibold tracking-wide text-muted-foreground">
-              {letter === UNNAMED_GROUP ? t('persons.unnamedGroup', { defaultValue: 'No name recorded' }) : letter}
-            </div>
-            {group.map((p) => {
+        {sections.map(([key, label, group]) => (
+          <div key={key}>
+            {groupBy?.key !== 'none' ? <button
+              type="button"
+              onClick={() => toggleGroup(key)}
+              aria-expanded={!collapsedGroups.has(key)}
+              className="sticky top-0 z-[5] flex w-full items-center gap-2 border-b border-border bg-muted px-3 py-1.5 text-start text-xs font-semibold tracking-wide text-muted-foreground"
+            >
+              <span aria-hidden="true">{collapsedGroups.has(key) ? '▸' : '▾'}</span>
+              <span className="min-w-0 flex-1 truncate">{key === UNNAMED_GROUP ? t('persons.unnamedGroup') : label}</span>
+              <span>{group.length}</span>
+            </button> : null}
+            {!collapsedGroups.has(key) && group.map((p) => {
               const isSelected = selection?.has(p.recordName);
               const isActive = p.recordName === activeId;
               return (
@@ -173,6 +196,12 @@ export function PersonList({ persons, activeId, onPick, selection = null, onTogg
                         <LtrText>{lifeSpanLabel(p)}</LtrText>
                       </div>
                     ) : null}
+                    {showColumn('gender') && p.genderLabel ? <div className="text-xs text-muted-foreground">{p.genderLabel}</div> : null}
+                    {showColumn('birthDate') && p.birthDate ? <div className="text-xs text-muted-foreground"><LtrText>{p.birthDate}</LtrText></div> : null}
+                    {showColumn('deathDate') && p.deathDate ? <div className="text-xs text-muted-foreground"><LtrText>{p.deathDate}</LtrText></div> : null}
+                    {showColumn('cemetery') && p.cemetery ? <div className="text-xs text-muted-foreground">{p.cemetery}</div> : null}
+                    {showColumn('recordId') ? <div className="text-2xs text-muted-foreground">{p.recordName}</div> : null}
+                    {showColumn('private') && p.private ? <div className="text-2xs font-semibold text-interactive">{t('lists.columnLabels.private')}</div> : null}
                     {/* Disambiguate otherwise-identical nameless rows: when there is
                         no real name, no dates, and no patrilineal tail to show,
                         surface the record id so 800+ rows aren't indistinguishable. */}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { listAllScopes, runScope } from '../../lib/smartScopes.js';
+import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 
 function normalizeIds(value) {
   if (Array.isArray(value)) return value.filter(Boolean).map(String);
@@ -12,6 +13,7 @@ export function useScopedRows(rows, {
   rowIds = (row) => row.id,
   enabled = true,
 } = {}) {
+  const { t } = useTranslation();
   const [scopes, setScopes] = useState([]);
   const [scopeId, setScopeId] = useState('');
   const [matchedIds, setMatchedIds] = useState(null);
@@ -27,13 +29,16 @@ export function useScopedRows(rows, {
       setMatchedIds(null);
       return undefined;
     }
+    setScopeId('');
+    setMatchedIds(null);
+    setError('');
     setLoadingScopes(true);
     listAllScopes(entityType)
       .then((next) => {
         if (!cancelled) setScopes(next);
       })
       .catch((err) => {
-        if (!cancelled) setError(err?.message || 'Unable to load smart filters.');
+        if (!cancelled) setError(err?.message || t('smartScopes.loadError'));
       })
       .finally(() => {
         if (!cancelled) setLoadingScopes(false);
@@ -41,7 +46,7 @@ export function useScopedRows(rows, {
     return () => {
       cancelled = true;
     };
-  }, [enabled, entityType]);
+  }, [enabled, entityType, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,7 +65,7 @@ export function useScopedRows(rows, {
       .catch((err) => {
         if (cancelled) return;
         setMatchedIds(null);
-        setError(err?.message || 'Unable to apply smart filter.');
+        setError(err?.message || t('smartScopes.applyError'));
       })
       .finally(() => {
         if (!cancelled) setApplyingScope(false);
@@ -68,7 +73,7 @@ export function useScopedRows(rows, {
     return () => {
       cancelled = true;
     };
-  }, [scopeId]);
+  }, [scopeId, t]);
 
   const scopedRows = useMemo(() => {
     if (!matchedIds) return rows;

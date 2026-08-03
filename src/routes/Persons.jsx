@@ -27,23 +27,14 @@ import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { cn } from '../lib/utils.js';
 import { PageTitle } from '../components/ui/PageTitle.jsx';
 import { useSetPageMeta } from '../contexts/PageMetaContext.jsx';
+import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { useScopedRows } from '../components/lists/useScopedRows.js';
+import { GroupBySelect } from '../components/lists/GroupBySelect.jsx';
+import { useGroupProfile } from '../components/lists/useGroupProfile.js';
+import { useSortProfile } from '../components/lists/useSortProfile.js';
+import { decadeDescriptor, initialDescriptor } from '../lib/listGrouping.js';
 
 const ME_PERSON_STORAGE_KEY = 'cloudtreeweb:mePersonId';
-
-const EXPORT_COLUMNS = [
-  { key: 'fullName', label: 'Name' },
-  { key: 'genderLabel', label: 'Gender' },
-  { key: 'arabicPatrilinealName', label: 'Arabic Patrilineal Name' },
-  { key: 'birthDate', label: 'Born' },
-  { key: 'deathDate', label: 'Died' },
-  { key: 'outsideFamily', label: 'Outside Main Family' },
-  { key: 'cemetery', label: 'Cemetery' },
-  { key: 'cemeteryLocation', label: 'Cemetery Location' },
-  { key: 'graveNumber', label: 'Grave Number' },
-  { key: 'bookmarked', label: 'Bookmarked' },
-  { key: 'startPerson', label: 'Start Person' },
-  { key: 'id', label: 'Record ID' },
-];
 
 const LIST_COLUMN_DEFS = [
   { key: 'fullName', labelKey: 'persons.columns.fullName', alwaysVisible: true },
@@ -52,6 +43,12 @@ const LIST_COLUMN_DEFS = [
   { key: 'outsideFamily', labelKey: 'persons.columns.outsideFamilyMarker' },
   { key: 'bookmarked', labelKey: 'persons.columns.bookmarkedMarker' },
   { key: 'startPerson', labelKey: 'persons.columns.startPersonMarker' },
+  { key: 'gender', labelKey: 'persons.columns.gender', defaultVisible: false },
+  { key: 'birthDate', labelKey: 'persons.columns.birthDate', defaultVisible: false },
+  { key: 'deathDate', labelKey: 'persons.columns.deathDate', defaultVisible: false },
+  { key: 'cemetery', labelKey: 'persons.columns.cemetery', defaultVisible: false },
+  { key: 'private', labelKey: 'lists.columnLabels.private', defaultVisible: false },
+  { key: 'recordId', labelKey: 'lists.columnLabels.recordId', defaultVisible: false },
 ];
 
 export default function Persons() {
@@ -60,7 +57,6 @@ export default function Persons() {
   const [activeId, setActiveId] = useState(null);
   const [context, setContext] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [sortKey, setSortKey] = useState('name');
   const [filter, setFilter] = useState('all');
   const [mobilePane, setMobilePane] = useState('list');
   const [mePersonId, setMePersonId] = useState(() => {
@@ -78,6 +74,22 @@ export default function Persons() {
   const modal = useModal();
   const localization = getCurrentLocalization();
   const localizationKey = `${localization.locale}|${localization.direction}|${localization.numberingSystem}|${localization.calendar}`;
+  const personSortOptions = useMemo(() => [
+    { key: 'name', label: t('persons.sortName'), compare: (a, b) => compareStrings(a.fullName, b.fullName, localization) },
+    { key: 'birth', label: t('persons.sortBirth'), compare: (a, b) => (a.birthYear || 99999) - (b.birthYear || 99999) || compareStrings(a.fullName, b.fullName, localization) },
+    { key: 'death', label: t('persons.sortDeath'), compare: (a, b) => (a.deathYear || 99999) - (b.deathYear || 99999) || compareStrings(a.fullName, b.fullName, localization) },
+  ], [localizationKey, t]);
+  const sortProfile = useSortProfile('persons', personSortOptions, 'name');
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    { key: 'surnameInitial', label: t('lists.groups.surnameInitial'), getGroup: (person) => initialDescriptor(person.lastName || person.fullName) || t('persons.unnamedGroup') },
+    { key: 'birthDecade', label: t('lists.groups.birthDecade'), getGroup: (person) => {
+      const decade = decadeDescriptor(person.birthYear);
+      return decade ? { key: decade.key, label: t('lists.groups.decade', { year: decade.year }) } : { key: 'unknown', label: t('lists.groups.unknownBirth') };
+    } },
+  ], [t]);
+  const groupProfile = useGroupProfile('persons', groupOptions, 'surnameInitial');
+  const scoped = useScopedRows(persons, { entityType: 'Person', rowIds: (person) => person.id });
 
   const pick = (id) => {
     setActiveId(id);
@@ -106,14 +118,26 @@ export default function Persons() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const allVisibleIds = useMemo(() => persons.map((p) => p.id), [persons]);
-  const selection = useListSelection(allVisibleIds);
   const listColumns = useMemo(
-    () => LIST_COLUMN_DEFS.map((c) => ({ key: c.key, label: t(c.labelKey), alwaysVisible: c.alwaysVisible })),
+    () => LIST_COLUMN_DEFS.map((c) => ({ key: c.key, label: t(c.labelKey), alwaysVisible: c.alwaysVisible, defaultVisible: c.defaultVisible })),
     [t]
   );
   const columnVisibility = useColumnVisibility('persons', listColumns);
   const report = useListReportOptions();
+  const exportColumns = useMemo(() => [
+    { key: 'fullName', label: t('persons.columns.fullName') },
+    { key: 'genderLabel', label: t('persons.columns.gender') },
+    { key: 'arabicPatrilinealName', label: t('persons.columns.arabicPatrilinealName') },
+    { key: 'birthDate', label: t('persons.columns.birthDate') },
+    { key: 'deathDate', label: t('persons.columns.deathDate') },
+    { key: 'outsideFamily', label: t('persons.outsideFamily') },
+    { key: 'cemetery', label: t('persons.cemetery') },
+    { key: 'cemeteryLocation', label: t('persons.cemeteryLocation') },
+    { key: 'graveNumber', label: t('persons.graveNumber') },
+    { key: 'bookmarked', label: t('persons.bookmarked') },
+    { key: 'startPerson', label: t('persons.startPerson') },
+    { key: 'id', label: t('lists.columnLabels.recordId') },
+  ], [t]);
 
   const bulkDelete = async () => {
     if (!selection.count) return;
@@ -130,11 +154,11 @@ export default function Persons() {
 
   const bulkExport = () => {
     const rows = persons.filter((p) => selection.isSelected(p.id));
-    downloadRowsAsCsv('persons-selected', rows, EXPORT_COLUMNS);
+    downloadRowsAsCsv('persons-selected', rows, exportColumns);
   };
 
   const visiblePersons = useMemo(() => {
-    let next = persons.filter((person) => {
+    const next = scoped.rows.filter((person) => {
       if (filter === 'bookmarked') return person.bookmarked;
       if (filter === 'start') return person.startPerson;
       if (filter === 'missing-birth') return !person.birthDate;
@@ -142,13 +166,10 @@ export default function Persons() {
       if (filter === 'outside-family') return person.outsideFamily;
       return true;
     });
-    next = [...next].sort((a, b) => {
-      if (sortKey === 'birth') return (a.birthYear || 99999) - (b.birthYear || 99999) || compareStrings(a.fullName, b.fullName, localization);
-      if (sortKey === 'death') return (a.deathYear || 99999) - (b.deathYear || 99999) || compareStrings(a.fullName, b.fullName, localization);
-      return compareStrings(a.fullName, b.fullName, localization);
-    });
-    return next;
-  }, [persons, filter, sortKey, localizationKey]);
+    return sortProfile.sort(next);
+  }, [scoped.rows, filter, sortProfile.sort]);
+  const allVisibleIds = useMemo(() => visiblePersons.map((person) => person.id), [visiblePersons]);
+  const selection = useListSelection(allVisibleIds);
 
   useEffect(() => {
     if (!visiblePersons.length) {
@@ -235,11 +256,7 @@ export default function Persons() {
     { value: 'missing-death', label: t('persons.missingDeath') },
     { value: 'outside-family', label: t('persons.outsideFamily') },
   ];
-  const sortOptions = [
-    { value: 'name', label: t('persons.sortName') },
-    { value: 'birth', label: t('persons.sortBirth') },
-    { value: 'death', label: t('persons.sortDeath') },
-  ];
+  const sortOptions = personSortOptions.map((option) => ({ value: option.key, label: option.label }));
 
   // "New person" is the one action someone reviewing a shared tree comes here
   // to find. On mobile it sits in the header next to the filter toggle rather
@@ -274,7 +291,7 @@ export default function Persons() {
       <ListReportToolbar
         title={t('persons.listTitle')}
         rows={visiblePersons}
-        columns={EXPORT_COLUMNS}
+        columns={exportColumns}
         options={report.options}
         update={report.update}
         updateInfoColumn={report.updateInfoColumn}
@@ -282,8 +299,8 @@ export default function Persons() {
         compact
       />
       <ExportMenu
-        onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, EXPORT_COLUMNS)}
-        onJson={() => downloadRowsAsJson('persons-list', visiblePersons, EXPORT_COLUMNS)}
+        onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, exportColumns)}
+        onJson={() => downloadRowsAsJson('persons-list', visiblePersons, exportColumns)}
         t={t}
       />
     </>
@@ -304,13 +321,15 @@ export default function Persons() {
       <label className="sr-only md:not-sr-only md:text-xs md:text-muted-foreground" htmlFor="persons-sort">{t('persons.sort')}</label>
       <Select
         id="persons-sort"
-        value={sortKey}
-        onChange={setSortKey}
+        value={sortProfile.sortKey}
+        onChange={sortProfile.setSortKey}
         options={sortOptions}
         ariaLabel={t('persons.sortAria')}
         className="w-full md:w-48"
         triggerClassName="h-8 text-xs"
       />
+      <ScopeFilterSelect value={scoped.scopeId} onChange={scoped.setScopeId} scopes={scoped.scopes} loading={scoped.loading} error={scoped.error} className="col-span-2" />
+      <GroupBySelect value={groupProfile.groupKey} onChange={groupProfile.setGroupKey} options={groupOptions} className="col-span-2" />
       <div className="col-span-2 md:min-w-[280px] md:max-w-[360px]">
         <PersonPicker persons={persons} value={mePersonId} onChange={setMePersonId} triggerClassName="h-8 text-xs" />
       </div>
@@ -381,8 +400,9 @@ export default function Persons() {
             {selection.count > 0 ? (
               <div className="px-3 pt-3">
                 <BulkActionBar count={selection.count} onClear={selection.clear}>
+                  {!selection.allSelected ? <button type="button" onClick={selection.selectAll} className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent">{t('lists.selectAll')}</button> : null}
                   <BulkLabelMenu selectedIds={selection.selectedIds} recordType="Person" onAssigned={() => selection.clear()} />
-                  <button type="button" onClick={bulkExport} className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent">{t('persons.exportCsv')}</button>
+                  <button type="button" onClick={bulkExport} className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent">{t('lists.exportSelected')}</button>
                   <button type="button" onClick={bulkDelete} className="border border-destructive text-destructive-text rounded-md px-2.5 py-1 text-xs hover:bg-destructive/10">{t('common.delete')}</button>
                 </BulkActionBar>
               </div>
@@ -395,6 +415,7 @@ export default function Persons() {
               selection={new Set(selection.selectedIds)}
               onToggleSelect={selection.toggle}
               visibleColumns={new Set(columnVisibility.visibleColumns.map((c) => c.key))}
+              groupBy={groupProfile.activeGroup}
               renderBadge={(person) => {
                 const kinship = kinshipById.get(person.id);
                 if (!kinship) return null;
@@ -409,7 +430,7 @@ export default function Persons() {
         )}
         {report.options.previewMode ? (
           <div className="flex-1 min-w-0 overflow-auto">
-            <ListReportPreview title={t('persons.listTitle')} rows={visiblePersons} columns={EXPORT_COLUMNS} options={report.options} />
+            <ListReportPreview title={t('persons.listTitle')} rows={visiblePersons} columns={exportColumns} options={report.options} />
           </div>
         ) : (!isMobile || mobilePane === 'detail') && (
         <div className="flex-1 min-w-0 overflow-auto">

@@ -42,6 +42,18 @@ import {
   renamePlaceRecord,
 } from '../lib/eventPlaceEdit.js';
 import { SharedPlaceEditSheet } from '../components/SharedPlaceEditSheet.jsx';
+import { useListSelection } from '../components/lists/useListSelection.js';
+import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
+import { useColumnVisibility } from '../components/lists/useColumnVisibility.js';
+import { ColumnChooser } from '../components/lists/ColumnChooser.jsx';
+import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { useScopedRows } from '../components/lists/useScopedRows.js';
+import { GroupBySelect } from '../components/lists/GroupBySelect.jsx';
+import { useGroupProfile } from '../components/lists/useGroupProfile.js';
+import { useSortProfile } from '../components/lists/useSortProfile.js';
+import { Select } from '../components/ui/Select.jsx';
+import { listToolbarSelectTriggerClass } from '../components/lists/listToolbarClasses.js';
+import { yearFromListDate } from '../lib/listGrouping.js';
 
 export default function Events({
   initialKindFilter = 'all',
@@ -290,8 +302,50 @@ export default function Events({
   const personByName = React.useMemo(() => new Map(persons.map((p) => [p.recordName, p])), [persons]);
   const familyByName = React.useMemo(() => new Map(families.map((f) => [f.recordName, f])), [families]);
 
+  const eventSubjectLabel = useCallback((event) => {
+    const subjectId = readRef(event.fields?.person) || readRef(event.fields?.family) || '';
+    if (event.recordType === 'PersonEvent') return personDisplayName(personByName.get(subjectId)) || subjectId;
+    return familyByName.get(subjectId)?.fields?.cached_familyName?.value || subjectId;
+  }, [familyByName, personByName]);
+  const listColumns = useMemo(() => [
+    { key: 'type', label: t('eventEditor.type'), alwaysVisible: true, exportValue: (event) => readConclusionType(event) || t('eventEditor.eventFallback') },
+    { key: 'date', label: t('eventEditor.date'), exportValue: (event) => event.fields?.date?.value || '' },
+    { key: 'subject', label: t('eventEditor.subject'), exportValue: eventSubjectLabel },
+    { key: 'kind', label: t('eventEditor.kind'), exportValue: (event) => event.recordType === 'PersonEvent' ? t('eventEditor.personEvent') : t('eventEditor.familyEvent') },
+    { key: 'place', label: t('eventEditor.place'), defaultVisible: false, exportValue: (event) => event.fields?.placeName?.value || placeDisplayName(placeRecords.find((place) => place.recordName === (readRef(event.fields?.place) || readRef(event.fields?.assignedPlace)))) || '' },
+    { key: 'description', label: t('eventEditor.description'), defaultVisible: false, exportValue: (event) => event.fields?.description?.value || event.fields?.userDescription?.value || '' },
+    { key: 'private', label: t('lists.columnLabels.private'), defaultVisible: false, exportValue: (event) => !!event.fields?.isPrivate?.value },
+    { key: 'recordId', label: t('lists.columnLabels.recordId'), defaultVisible: false, exportValue: (event) => event.recordName },
+  ], [eventSubjectLabel, placeRecords, t]);
+  const columnVisibility = useColumnVisibility('events', listColumns);
+  const scoped = useScopedRows(filtered, {
+    entityType: kindFilter === 'PersonEvent' || kindFilter === 'FamilyEvent' ? kindFilter : 'Event',
+    rowIds: (event) => event.recordName,
+  });
+  const eventSortOptions = useMemo(() => [
+    { key: 'date', label: t('eventEditor.date'), compare: (a, b) => String(b.fields?.date?.value || '').localeCompare(String(a.fields?.date?.value || '')) },
+    { key: 'typeName', label: t('eventEditor.type'), compare: (a, b) => String(readConclusionType(a) || '').localeCompare(String(readConclusionType(b) || '')) },
+    { key: 'subject', label: t('eventEditor.subject'), compare: (a, b) => eventSubjectLabel(a).localeCompare(eventSubjectLabel(b)) },
+    { key: 'kind', label: t('eventEditor.kind'), compare: (a, b) => a.recordType.localeCompare(b.recordType) },
+  ], [eventSubjectLabel, t]);
+  const sortProfile = useSortProfile('events', eventSortOptions, 'date');
+  const sortedEvents = sortProfile.sort(scoped.rows);
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    { key: 'kind', label: t('eventEditor.kind'), getGroup: (event) => event.recordType === 'PersonEvent' ? t('eventEditor.personEvents') : t('eventEditor.familyEvents') },
+    { key: 'type', label: t('eventEditor.type'), getGroup: (event) => readConclusionType(event) || t('eventEditor.eventFallback') },
+    { key: 'year', label: t('lists.groups.year'), getGroup: (event) => {
+      const year = yearFromListDate(event.fields?.date?.value);
+      return year ? String(year) : t('lists.groups.unknownDate');
+    } },
+  ], [t]);
+  const groupProfile = useGroupProfile('events', groupOptions);
+  const eventIds = useMemo(() => sortedEvents.map((event) => event.recordName), [sortedEvents]);
+  const selection = useListSelection(eventIds);
+  const eventTypeFor = useCallback((id) => events.find((event) => event.recordName === id)?.recordType || 'PersonEvent', [events]);
+
   const renderRow = (e) => {
-    const t = readConclusionType(e) || 'Event';
+    const eventType = readConclusionType(e) || t('eventEditor.eventFallback');
     const d = formatEventDate(e.fields?.date?.value);
     const extended = [e.fields?.time?.value, e.fields?.address?.value, e.fields?.agency?.value || e.fields?.authority?.value, e.fields?.cause?.value].filter(Boolean);
     const subjectRef =
@@ -322,16 +376,32 @@ export default function Events({
     }
     return (
       <div>
-        <div className="text-sm text-foreground">
-          {t}{d && <span className="text-muted-foreground"> · <LtrText>{d}</LtrText></span>}
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {e.recordType === 'PersonEvent' ? 'Person' : 'Family'} {subjectLabel && <>· {subjectLabel}</>}
-        </div>
+        {columnVisibility.isVisible('type') ? <div className="text-sm text-foreground">
+          {eventType}{columnVisibility.isVisible('date') && d ? <span className="text-muted-foreground"> · <LtrText>{d}</LtrText></span> : null}
+        </div> : null}
+        {columnVisibility.isVisible('kind') || columnVisibility.isVisible('subject') ? <div className="text-xs text-muted-foreground">
+          {columnVisibility.isVisible('kind') ? (e.recordType === 'PersonEvent' ? t('glossary.person') : t('glossary.family')) : null} {columnVisibility.isVisible('subject') && subjectLabel ? <>· {subjectLabel}</> : null}
+        </div> : null}
+        {columnVisibility.isVisible('place') && (e.fields?.placeName?.value || e.fields?.placeDetail?.value) ? <div className="text-xs text-muted-foreground truncate">{e.fields?.placeName?.value || e.fields?.placeDetail?.value}</div> : null}
+        {columnVisibility.isVisible('description') && (e.fields?.description?.value || e.fields?.userDescription?.value) ? <div className="text-xs text-muted-foreground truncate">{e.fields?.description?.value || e.fields?.userDescription?.value}</div> : null}
+        {columnVisibility.isVisible('private') && e.fields?.isPrivate?.value ? <div className="text-2xs font-semibold text-interactive">{t('lists.columnLabels.private')}</div> : null}
+        {columnVisibility.isVisible('recordId') ? <div className="text-2xs text-muted-foreground truncate">{e.recordName}</div> : null}
         {extended.length > 0 && <div className="text-xs text-muted-foreground truncate" dir="auto">{extended.join(' · ')}</div>}
       </div>
     );
   };
+
+  const listToolbar = (
+    <>
+      <ScopeFilterSelect value={scoped.scopeId} onChange={scoped.setScopeId} scopes={scoped.scopes} loading={scoped.loading} error={scoped.error} />
+      <label className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">{t('sortProfiles.label')}</span>
+        <Select value={sortProfile.sortKey} onChange={sortProfile.setSortKey} ariaLabel={t('sortProfiles.label')} options={eventSortOptions.map((option) => ({ value: option.key, label: option.label }))} triggerClassName={listToolbarSelectTriggerClass} />
+      </label>
+      <GroupBySelect value={groupProfile.groupKey} onChange={groupProfile.setGroupKey} options={groupOptions} />
+      <ColumnChooser columns={listColumns} isVisible={columnVisibility.isVisible} onToggle={columnVisibility.toggle} onReset={columnVisibility.resetToDefaults} />
+    </>
+  );
 
   const active = events.find((e) => e.recordName === activeId);
   const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
@@ -541,12 +611,28 @@ export default function Events({
       )}
       <div className="flex-1 min-h-0">
         <MasterDetailList
-          items={filtered}
+          items={sortedEvents}
           activeId={activeId}
           onPick={setActiveId}
           renderRow={renderRow}
           placeholder="Search events…"
           detail={detail}
+          toolbar={listToolbar}
+          groupBy={groupProfile.activeGroup?.key === 'none' ? null : groupProfile.activeGroup}
+          selection={selection}
+          bulkBar={(
+            <RecordBulkBar
+              selection={selection}
+              recordType={eventTypeFor}
+              onDeleted={(ids) => {
+                if (ids.includes(activeId)) setActiveId(null);
+                reload();
+              }}
+              exportRows={sortedEvents}
+              exportColumns={listColumns}
+              exportFilename="events-selected"
+            />
+          )}
         />
       </div>
     </div>

@@ -50,6 +50,16 @@ import { useListSelection } from '../components/lists/useListSelection.js';
 import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
 import { useRecordEditor } from '../components/editors/useRecordEditor.js';
 import { useRecords } from '../lib/data/useRecords.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { useColumnVisibility } from '../components/lists/useColumnVisibility.js';
+import { ColumnChooser } from '../components/lists/ColumnChooser.jsx';
+import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { useScopedRows } from '../components/lists/useScopedRows.js';
+import { GroupBySelect } from '../components/lists/GroupBySelect.jsx';
+import { useGroupProfile } from '../components/lists/useGroupProfile.js';
+import { useSortProfile } from '../components/lists/useSortProfile.js';
+import { Select } from '../components/ui/Select.jsx';
+import { listToolbarSelectTriggerClass } from '../components/lists/listToolbarClasses.js';
 
 const ACCENTS = {
   name: 'rgb(255 153 0)',
@@ -178,6 +188,7 @@ async function reconcilePlaceSideRecords(placeId, vals, coordPlan, setCoordinate
 }
 
 export default function Places() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const modal = useModal();
   const [searchParams] = useSearchParams();
@@ -359,7 +370,35 @@ export default function Places() {
     getMapPreferences().then(setMapPrefs);
   }, []);
 
-  const placeIds = useMemo(() => places.map((record) => record.recordName), [places]);
+  const listColumns = useMemo(() => [
+    { key: 'name', label: t('lists.columnLabels.placeName'), alwaysVisible: true, exportValue: (record) => placeSummary(record)?.displayName || placeSummary(record)?.name || record.recordName },
+    { key: 'country', label: t('lists.columnLabels.country'), defaultVisible: false, exportValue: (record) => record.fields?.country?.value || '' },
+    { key: 'adminLevel', label: t('lists.columnLabels.adminLevel'), defaultVisible: false, exportValue: (record) => record.fields?.adminLevel1?.value || record.fields?.state?.value || record.fields?.province?.value || record.fields?.county?.value || '' },
+    { key: 'locality', label: t('lists.columnLabels.locality'), defaultVisible: false, exportValue: (record) => record.fields?.locality?.value || record.fields?.place?.value || '' },
+    { key: 'geonameId', label: t('lists.columnLabels.geonameId'), exportValue: (record) => record.fields?.geonameID?.value || record.fields?.geoNameID?.value || '' },
+    { key: 'nameType', label: t('lists.columnLabels.nameType'), defaultVisible: false, exportValue: (record) => record.fields?.nameType?.value || '' },
+    { key: 'bookmarked', label: t('lists.columnLabels.bookmarked'), defaultVisible: false, exportValue: (record) => !!record.fields?.isBookmarked?.value },
+    { key: 'private', label: t('lists.columnLabels.private'), defaultVisible: false, exportValue: (record) => !!record.fields?.isPrivate?.value },
+    { key: 'recordId', label: t('lists.columnLabels.recordId'), defaultVisible: false, exportValue: (record) => record.recordName },
+  ], [t]);
+  const columnVisibility = useColumnVisibility('places', listColumns);
+  const scoped = useScopedRows(places, { entityType: 'Place', rowIds: (record) => record.recordName });
+  const placeSortOptions = useMemo(() => [
+    { key: 'name', label: t('lists.columnLabels.placeName'), compare: sortPlaces },
+    { key: 'country', label: t('lists.columnLabels.country'), compare: (a, b) => String(a.fields?.country?.value || '').localeCompare(String(b.fields?.country?.value || '')) || sortPlaces(a, b) },
+    { key: 'adminLevel', label: t('lists.columnLabels.adminLevel'), compare: (a, b) => String(a.fields?.adminLevel1?.value || a.fields?.state?.value || a.fields?.province?.value || a.fields?.county?.value || '').localeCompare(String(b.fields?.adminLevel1?.value || b.fields?.state?.value || b.fields?.province?.value || b.fields?.county?.value || '')) || sortPlaces(a, b) },
+    { key: 'geonameId', label: t('lists.columnLabels.geonameId'), compare: (a, b) => String(a.fields?.geonameID?.value || '').localeCompare(String(b.fields?.geonameID?.value || '')) || sortPlaces(a, b) },
+  ], [t]);
+  const sortProfile = useSortProfile('places', placeSortOptions, 'name');
+  const sortedPlaces = sortProfile.sort(scoped.rows);
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    { key: 'country', label: t('lists.columnLabels.country'), getGroup: (record) => record.fields?.country?.value || t('lists.groups.noCountry') },
+    { key: 'adminLevel', label: t('lists.columnLabels.adminLevel'), getGroup: (record) => record.fields?.adminLevel1?.value || record.fields?.state?.value || record.fields?.province?.value || record.fields?.county?.value || t('lists.groups.noAdminLevel') },
+  ], [t]);
+  const groupProfile = useGroupProfile('places', groupOptions);
+
+  const placeIds = useMemo(() => sortedPlaces.map((record) => record.recordName), [sortedPlaces]);
   const selection = useListSelection(placeIds);
 
   useEffect(() => {
@@ -535,11 +574,30 @@ export default function Places() {
     const s = placeSummary(r);
     return (
       <div>
-        <div className="text-sm text-foreground">{s?.displayName || s?.name || r.recordName}</div>
-        {s?.geonameID && <div className="text-xs text-muted-foreground">GeoName #{s.geonameID}</div>}
+        {columnVisibility.isVisible('name') ? <div className="text-sm text-foreground">{s?.displayName || s?.name || r.recordName}</div> : null}
+        {columnVisibility.isVisible('country') && r.fields?.country?.value ? <div className="text-xs text-muted-foreground truncate">{r.fields.country.value}</div> : null}
+        {columnVisibility.isVisible('adminLevel') && (r.fields?.adminLevel1?.value || r.fields?.state?.value || r.fields?.province?.value || r.fields?.county?.value) ? <div className="text-xs text-muted-foreground truncate">{r.fields?.adminLevel1?.value || r.fields?.state?.value || r.fields?.province?.value || r.fields?.county?.value}</div> : null}
+        {columnVisibility.isVisible('locality') && (r.fields?.locality?.value || r.fields?.place?.value) ? <div className="text-xs text-muted-foreground truncate">{r.fields?.locality?.value || r.fields?.place?.value}</div> : null}
+        {columnVisibility.isVisible('geonameId') && s?.geonameID ? <div className="text-xs text-muted-foreground">{t('lists.geonameValue', { id: s.geonameID })}</div> : null}
+        {columnVisibility.isVisible('nameType') && r.fields?.nameType?.value ? <div className="text-xs text-muted-foreground truncate">{r.fields.nameType.value}</div> : null}
+        {columnVisibility.isVisible('bookmarked') && r.fields?.isBookmarked?.value ? <div className="text-2xs font-semibold text-interactive">★ {t('lists.columnLabels.bookmarked')}</div> : null}
+        {columnVisibility.isVisible('private') && r.fields?.isPrivate?.value ? <div className="text-2xs font-semibold text-interactive">{t('lists.columnLabels.private')}</div> : null}
+        {columnVisibility.isVisible('recordId') ? <div className="text-2xs text-muted-foreground truncate">{r.recordName}</div> : null}
       </div>
     );
   };
+
+  const listToolbar = (
+    <>
+      <ScopeFilterSelect value={scoped.scopeId} onChange={scoped.setScopeId} scopes={scoped.scopes} loading={scoped.loading} error={scoped.error} />
+      <label className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">{t('sortProfiles.label')}</span>
+        <Select value={sortProfile.sortKey} onChange={sortProfile.setSortKey} ariaLabel={t('sortProfiles.label')} options={placeSortOptions.map((option) => ({ value: option.key, label: option.label }))} triggerClassName={listToolbarSelectTriggerClass} />
+      </label>
+      <GroupBySelect value={groupProfile.groupKey} onChange={groupProfile.setGroupKey} options={groupOptions} />
+      <ColumnChooser columns={listColumns} isVisible={columnVisibility.isVisible} onToggle={columnVisibility.toggle} onReset={columnVisibility.resetToDefaults} />
+    </>
+  );
 
   const detailHeader = active ? (
     <div className="border-b border-border bg-card">
@@ -724,18 +782,23 @@ export default function Places() {
   return (
     <EditorSectionNavProvider>
       <MasterDetailList
-        items={places}
+        items={sortedPlaces}
         activeId={activeId}
         onPick={setActiveId}
         renderRow={renderRow}
         placeholder="Search places…"
         detail={detail}
         detailHeader={detailHeader}
+        toolbar={listToolbar}
+        groupBy={groupProfile.activeGroup?.key === 'none' ? null : groupProfile.activeGroup}
         selection={selection}
         bulkBar={(
           <RecordBulkBar
             selection={selection}
             recordType="Place"
+            exportRows={sortedPlaces}
+            exportColumns={listColumns}
+            exportFilename="places-selected"
             onDeleted={(ids) => {
               if (ids.includes(activeId)) setActiveId(null);
             }}

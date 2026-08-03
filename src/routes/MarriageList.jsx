@@ -58,6 +58,15 @@ export default function MarriageList() {
     },
     { key: 'id', label: t('marriageList.familyId'), defaultVisible: false },
   ], [t]);
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    { key: 'marriageDecade', label: t('lists.groups.marriageDecade'), getGroup: (row) => {
+      const match = String(row.marriageDate || '').match(/(\d{4})/);
+      if (!match) return t('lists.groups.unknownDate');
+      const decade = Math.floor(Number(match[1]) / 10) * 10;
+      return { key: String(decade), label: t('lists.groups.decade', { year: decade }) };
+    } },
+  ], [t]);
 
   const scoped = useScopedRows(rows, {
     entityType: 'Family',
@@ -92,6 +101,7 @@ export default function MarriageList() {
         columns={columns}
         initialSortKey="marriageDate"
         sortProfile={sortProfile}
+        groupOptions={groupOptions}
         searchPlaceholder={t('marriageList.searchPlaceholder')}
         toolbar={filters}
         emptyTitle={t('marriageList.emptyTitle')}
