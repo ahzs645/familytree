@@ -10,6 +10,7 @@ import { generateId } from './ids.js';
 const DB_NAME = 'cloudtreeweb-tree-library';
 const DB_VERSION = 1;
 const STORE = 'snapshots';
+export const TREE_ARTWORK_MODES = Object.freeze(['crest', 'single', 'mosaic']);
 
 // localStorage pointer to the library snapshot that the active dataset belongs
 // to. Stored outside Dexie meta because importDataset() clears the meta store.
@@ -74,8 +75,54 @@ export async function listTreeSnapshots({ sortBy = 'updatedAt' } = {}) {
     label: summary.label || '',
     recordCount: summary.recordCount || Object.keys(backup?.records || {}).length,
     assetCount: summary.assetCount || (Array.isArray(backup?.assets) ? backup.assets.length : 0),
+    artwork: normalizeTreeArtwork(summary.artwork),
+    artworkImages: selectedArtworkImages(summary.artwork, backup),
   }));
   return sortSnapshots(mapped, sortBy);
+}
+
+export function normalizeTreeArtwork(value) {
+  const mode = TREE_ARTWORK_MODES.includes(value?.mode) ? value.mode : 'crest';
+  const gridSize = Math.max(1, Math.min(4, Number(value?.gridSize) || 2));
+  const crest = ['tree', 'shield', 'heart', 'star'].includes(value?.crest) ? value.crest : 'tree';
+  const mediaIds = [...new Set(Array.isArray(value?.mediaIds) ? value.mediaIds.filter(Boolean).map(String) : [])].slice(0, 16);
+  return { mode, gridSize, crest, mediaIds };
+}
+
+export async function getTreeArtworkMedia(snapshotId) {
+  const db = await openLibrary();
+  const snapshot = await db[STORE].get(snapshotId);
+  if (!snapshot) throw new Error('Tree snapshot was not found.');
+  const records = Object.values(snapshot.backup?.records || {}).filter((record) => record?.recordType === 'MediaPicture');
+  return records.map((record) => ({
+    id: record.recordName,
+    label: record.fields?.caption?.value || record.fields?.title?.value || record.fields?.filename?.value || record.recordName,
+    src: imageForMedia(record.recordName, snapshot.backup),
+  })).filter((item) => item.src).sort((a, b) => item.label.localeCompare(b.label));
+}
+
+export async function setTreeSnapshotArtwork(snapshotId, artwork) {
+  const db = await openLibrary();
+  const snapshot = await db[STORE].get(snapshotId);
+  if (!snapshot) throw new Error('Tree snapshot was not found.');
+  const next = { ...snapshot, artwork: normalizeTreeArtwork(artwork), updatedAt: new Date().toISOString() };
+  await db[STORE].put(next);
+  emitTreesChanged();
+  return next.artwork;
+}
+
+function selectedArtworkImages(artwork, backup) {
+  const config = normalizeTreeArtwork(artwork);
+  return config.mediaIds.map((id) => imageForMedia(id, backup)).filter(Boolean).slice(0, config.mode === 'single' ? 1 : config.gridSize ** 2);
+}
+
+function imageForMedia(mediaId, backup) {
+  const record = backup?.records?.[mediaId];
+  if (!record || record.recordType !== 'MediaPicture') return '';
+  const ids = record.fields?.assetIds?.value || [];
+  const asset = (backup.assets || []).find((item) => ids.includes(item.assetId) || item.ownerRecordName === mediaId);
+  if (!asset?.dataBase64 || !String(asset.mimeType || '').startsWith('image/')) return '';
+  return `data:${asset.mimeType};base64,${asset.dataBase64}`;
 }
 
 export async function clearTreeSnapshots() {
@@ -144,6 +191,7 @@ export async function saveCurrentTreeSnapshot(name = '') {
     recordCount: Object.keys(backup.records || {}).length,
     assetCount: Array.isArray(backup.assets) ? backup.assets.length : 0,
     backup,
+    artwork: normalizeTreeArtwork(),
   };
   const db = await openLibrary();
   await db[STORE].put(snapshot);
@@ -227,6 +275,7 @@ export async function upsertActiveTreeSnapshot({ name } = {}) {
     updatedAt: now,
     favorite: existing?.favorite ?? false,
     label: existing?.label || '',
+    artwork: normalizeTreeArtwork(existing?.artwork),
     counts: backup.counts || {},
     recordCount,
     assetCount,

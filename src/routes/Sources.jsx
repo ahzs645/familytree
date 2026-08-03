@@ -45,6 +45,7 @@ import { listToolbarSelectTriggerClass } from '../components/lists/listToolbarCl
 import { yearFromListDate } from '../lib/listGrouping.js';
 import { EditorModeBoundary, EditorModeControls, useEditorMode } from '../components/editors/EditorMode.jsx';
 import { DuplicateRecordAction } from '../components/editors/ContextualActionRail.jsx';
+import { DictationButton } from '../components/ui/DictationButton.jsx';
 
 function humanizeTemplateName(recordName) {
   // "SourceTemplate_ChurchRecord_Books" → "Church Record - Books"
@@ -471,6 +472,9 @@ export default function Sources() {
       <Section title="Source Text" accent={ACCENTS.text}>
         <textarea value={values.text || ''} onChange={(e) => setValues((v) => ({ ...v, text: e.target.value }))} rows={8} className={textareaClass}
           placeholder="Type or paste the full source text here…" />
+        <div className="mt-1.5 text-end">
+          <DictationButton value={values.text || ''} onChange={(text) => setValues((v) => ({ ...v, text }))} />
+        </div>
       </Section>
 
       <Section title="Referenced Entries" accent={ACCENTS.refs}>

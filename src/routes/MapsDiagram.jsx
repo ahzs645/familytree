@@ -15,6 +15,13 @@ import { personSummary } from '../models/index.js';
 import { Select } from '../components/ui/Select.jsx';
 import { useIsMobile } from '../lib/useIsMobile.js';
 import { cn } from '../lib/utils.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import {
+  aggregateLegend,
+  buildAggregateStatisticPoints,
+  statisticEventMatches,
+  STATISTIC_MAP_SOURCES,
+} from '../lib/statisticMapData.js';
 import {
   buildChronologicalConnections,
   colorForVisualEvent,
@@ -37,24 +44,8 @@ function rangeLabel(range) {
   return `${range[0]} - ${range[1]}`;
 }
 
-const STATISTIC_SOURCES = [
-  { id: 'events-heat', label: 'Events heat map', mode: 'heat', predicate: () => true },
-  { id: 'events', label: 'Events', predicate: () => true },
-  { id: 'birth-heat', label: 'Birth events heat map', mode: 'heat', predicate: (event) => /birth|christ|bapt/i.test(event.conclusionType) },
-  { id: 'birth', label: 'Birth Events', predicate: (event) => /birth|christ|bapt/i.test(event.conclusionType) },
-  { id: 'birth-living', label: 'Birth events of living persons', predicate: (event) => /birth|christ|bapt/i.test(event.conclusionType) && !event.subjectDeathYear },
-  { id: 'death-heat', label: 'Death events heat map', mode: 'heat', predicate: (event) => /death|crem/i.test(event.conclusionType) },
-  { id: 'death', label: 'Death Events', predicate: (event) => /death|crem/i.test(event.conclusionType) },
-  { id: 'burial', label: 'Burial Events', predicate: (event) => /burial|buri/i.test(event.conclusionType) },
-  { id: 'burial-heat', label: 'Burial events heat map', mode: 'heat', predicate: (event) => /burial|buri/i.test(event.conclusionType) },
-  { id: 'name-distribution', label: 'Name distribution', colorBy: 'name', predicate: () => true },
-  { id: 'gender-distribution', label: 'Gender distribution', colorBy: 'gender', predicate: () => true },
-  { id: 'living-heat', label: 'Heat map of living persons', mode: 'heat', predicate: (event) => !event.subjectDeathYear },
-  { id: 'average-age', label: 'Average age', colorBy: 'age', predicate: (event) => Number.isFinite(event.subjectBirthYear) },
-  { id: 'average-age-at-death', label: 'Average age at death', colorBy: 'ageAtDeath', predicate: (event) => Number.isFinite(event.subjectBirthYear) && Number.isFinite(event.subjectDeathYear) },
-];
-
 export default function MapsDiagram() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const inViews = location.pathname.startsWith('/views/');
@@ -179,10 +170,11 @@ export default function MapsDiagram() {
   }, [events]);
 
   const effectiveRange = allYears ? yearBounds : (yearRange || yearBounds);
-  const statisticSource = STATISTIC_SOURCES.find((source) => source.id === statisticSourceId) || STATISTIC_SOURCES[0];
+  const statisticSource = STATISTIC_MAP_SOURCES.find((source) => source.id === statisticSourceId) || STATISTIC_MAP_SOURCES[0];
+  const statisticSourceLabel = t(`statisticMaps.sources.${statisticSource.labelKey}`);
 
   const filtered = useMemo(() => events.filter((e) => {
-    if (!statisticSource.predicate(e)) return false;
+    if (!statisticSource.aggregate && !statisticEventMatches(e, statisticSource)) return false;
     if (filterType && e.conclusionType !== filterType) return false;
     if (subjectId && e.subjectId !== subjectId) return false;
     if (visualOptions.smartFilterMode === 'with-places' && !e.placeId) return false;
@@ -193,6 +185,16 @@ export default function MapsDiagram() {
     if (!allYears && Number.isFinite(e.year) && (e.year < effectiveRange[0] || e.year > effectiveRange[1])) return false;
     return true;
   }), [events, statisticSource, filterType, subjectId, visualOptions.smartFilterMode, visualOptions.personGroupMode, effectiveRange, allYears]);
+
+  const aggregatePoints = useMemo(() => statisticSource.aggregate
+    ? buildAggregateStatisticPoints(statisticSource.id, {
+      events,
+      families: familyRecords,
+      childRelations: childRelRecords,
+    })
+    : [], [statisticSource, events, familyRecords, childRelRecords]);
+  const displayed = statisticSource.aggregate ? aggregatePoints : filtered;
+  const legend = useMemo(() => aggregateLegend(aggregatePoints), [aggregatePoints]);
 
   useEffect(() => {
     if (!playing) return undefined;
@@ -206,7 +208,7 @@ export default function MapsDiagram() {
         const next = [nextStart, nextEnd];
         if (!visualOptions.slideshowSkipEmptyYears) return next;
         const hasEvent = events.some((event) => {
-          if (!statisticSource.predicate(event) || !Number.isFinite(event.year)) return false;
+          if (!statisticEventMatches(event, statisticSource) || !Number.isFinite(event.year)) return false;
           return event.year >= next[0] && event.year <= next[1];
         });
         return hasEvent ? next : yearBounds;
@@ -220,31 +222,33 @@ export default function MapsDiagram() {
   }, [allYears]);
 
   useEffect(() => {
-    if (selectedId && !filtered.some((event) => event.recordName === selectedId)) setSelectedId(null);
-  }, [filtered, selectedId]);
+    if (selectedId && !displayed.some((event) => event.recordName === selectedId)) setSelectedId(null);
+  }, [displayed, selectedId]);
 
   const center = useMemo(() => {
-    if (filtered.length === 0) return [0, 20];
-    const lats = filtered.map((m) => m.lat);
-    const lngs = filtered.map((m) => m.lng);
+    if (displayed.length === 0) return [0, 20];
+    const lats = displayed.map((m) => m.lat);
+    const lngs = displayed.map((m) => m.lng);
     return [(Math.min(...lngs) + Math.max(...lngs)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2];
-  }, [filtered]);
+  }, [displayed]);
 
-  const selectedEvent = filtered.find((event) => event.recordName === selectedId);
-  const hoveredEvent = filtered.find((event) => event.recordName === hoveredId);
+  const selectedEvent = displayed.find((event) => event.recordName === selectedId);
+  const hoveredEvent = displayed.find((event) => event.recordName === hoveredId);
   const detailEvent = selectedEvent || hoveredEvent;
   const mapMarkers = useMemo(() => {
-    return filtered.map((event) => ({
+    return displayed.map((event) => ({
       id: event.recordName,
       year: event.year,
       lat: event.lat,
       lng: event.lng,
-      color: colorForStatisticEvent(event, statisticSource, visualOptions, yearBounds),
-      size: visualOptions.markerSize,
-      popup: `${event.conclusionType}${event.date ? ' · ' + event.date : ''} — ${event.placeName}`,
+      color: event.color || colorForStatisticEvent(event, statisticSource, visualOptions, yearBounds),
+      size: event.size || visualOptions.markerSize,
+      popup: statisticSource.aggregate
+        ? t('statisticMaps.aggregatePopup', { place: event.placeName, value: formatAggregateValue(event.value, event.unit, t), count: event.sampleCount })
+        : `${event.conclusionType}${event.date ? ' · ' + event.date : ''} — ${event.placeName}`,
       onClick: () => setSelectedId(event.recordName),
     }));
-  }, [filtered, statisticSource, visualOptions, yearBounds]);
+  }, [displayed, statisticSource, visualOptions, yearBounds, t]);
   const mapConnections = useMemo(
     () => buildChronologicalConnections(
       mapMarkers,
@@ -280,7 +284,7 @@ export default function MapsDiagram() {
             <MapModeSwitch activeMode="statistics" onModeChange={navigateMapMode} />
           </div>
           <div className="text-xs text-muted-foreground">
-            {loading ? 'Loading events…' : `${filtered.length} of ${events.length} placed event${events.length === 1 ? '' : 's'} · ${statisticSource.label}`}
+            {loading ? t('statisticMaps.loading') : t('statisticMaps.summary', { shown: displayed.length, total: events.length, source: statisticSourceLabel })}
           </div>
         </div>
         <div className="ms-auto flex shrink-0 items-center gap-2">
@@ -308,13 +312,13 @@ export default function MapsDiagram() {
             <Select
               value={statisticSourceId}
               onChange={(value) => {
-                const nextSource = STATISTIC_SOURCES.find((source) => source.id === value);
+                const nextSource = STATISTIC_MAP_SOURCES.find((source) => source.id === value);
                 setStatisticSourceId(value);
                 if (nextSource?.mode === 'heat') setVisualOptions((current) => normalizeVisualViewOptions('mapStory', { ...current, markerMode: 'pins-heat' }));
               }}
               ariaLabel="Statistic"
               triggerClassName="h-8 ps-2 pe-7 text-sm"
-              options={STATISTIC_SOURCES.map((source) => ({ value: source.id, label: source.label }))}
+              options={STATISTIC_MAP_SOURCES.map((source) => ({ value: source.id, label: t(`statisticMaps.sources.${source.labelKey}`) }))}
             />
           </label>
           <label className="grid gap-1 text-xs text-muted-foreground">
@@ -403,14 +407,14 @@ export default function MapsDiagram() {
             center={center}
             zoom={visualOptions.slideshowFit && playing ? 5 : 4}
             markers={mapMarkers}
-            showMarkers={usesMarkerPins(visualOptions)}
+            showMarkers={statisticSource.aggregate ? true : usesMarkerPins(visualOptions)}
             connections={mapConnections}
             connectionOptions={{ pattern: visualOptions.connectionPattern, width: visualOptions.connectionWidth, animate: visualOptions.animateConnections }}
             tileNames={visualOptions.tileNames}
             mapType={visualOptions.mapType}
             displayCurrentLocation={visualOptions.displayCurrentLocation}
             heatmap={{
-              enabled: statisticSource.mode === 'heat' || usesHeatMap(visualOptions),
+              enabled: !statisticSource.aggregate && (statisticSource.mode === 'heat' || usesHeatMap(visualOptions)),
               radius: visualOptions.heatRadius,
               opacity: visualOptions.heatOpacity,
               amplification: visualOptions.heatAmplification,
@@ -421,6 +425,7 @@ export default function MapsDiagram() {
             }}
             emptyMessage={loading ? '' : 'Not enough information to display this map. Make sure you have entered data for the selected statistics type and coordinates for event places.'}
           />
+          {legend && <AggregateLegend legend={legend} t={t} />}
         </div>
         <aside className="min-h-0 border-t border-border bg-card p-4 lg:overflow-auto lg:border-l lg:border-t-0">
           <VisualOptionsDrawer
@@ -433,13 +438,13 @@ export default function MapsDiagram() {
             placement="inline"
           />
           {optionsOpen && <div className="h-4" />}
-          <EventDetail event={detailEvent} selected={!!selectedEvent} />
+          <EventDetail event={detailEvent} selected={!!selectedEvent} t={t} />
           <div className="mt-4">
             <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Timeline</div>
             <div className="space-y-2">
-              {filtered.length === 0 ? (
+              {displayed.length === 0 ? (
                 <div className="rounded-md border border-border bg-background p-3 text-xs text-muted-foreground">No events match the current map filters.</div>
-              ) : filtered.slice(0, 500).map((event) => {
+              ) : displayed.slice(0, 500).map((event) => {
                 const active = event.recordName === selectedId || event.recordName === hoveredId;
                 return (
                   <button
@@ -452,8 +457,8 @@ export default function MapsDiagram() {
                     onClick={() => setSelectedId(event.recordName)}
                     className={`w-full rounded-md border p-2.5 text-start transition-colors ${active ? 'border-primary bg-accent' : 'border-border bg-background hover:bg-accent/60'}`}
                   >
-                    <div className="text-sm font-medium">{event.conclusionType}</div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">{formatEventDate(event.date) || 'Undated'} · {event.placeName}</div>
+                    <div className="text-sm font-medium">{event.conclusionType || event.placeName}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">{statisticSource.aggregate ? formatAggregateValue(event.value, event.unit, t) : `${formatEventDate(event.date) || 'Undated'} · ${event.placeName}`}</div>
                     {event.subjectName && <div className="mt-0.5 text-2xs text-muted-foreground">{event.subjectName}</div>}
                   </button>
                 );
@@ -466,11 +471,24 @@ export default function MapsDiagram() {
   );
 }
 
-function EventDetail({ event, selected }) {
+function EventDetail({ event, selected, t }) {
   if (!event) {
     return (
       <div className="rounded-md border border-border bg-background p-4 text-sm text-muted-foreground">
         Hover or select an event row to inspect its date, place, and related actions.
+      </div>
+    );
+  }
+  if (event.recordType === 'PlaceAggregate') {
+    return (
+      <div className="rounded-md border border-border bg-background p-4">
+        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          {selected ? t('statisticMaps.selectedPlace') : t('statisticMaps.hoveredPlace')}
+        </div>
+        <h2 className="text-base font-semibold">{event.placeName}</h2>
+        <div className="mt-2 text-2xl font-semibold">{formatAggregateValue(event.value, event.unit, t)}</div>
+        <div className="text-xs text-muted-foreground">{t('statisticMaps.averageSamples', { count: event.sampleCount })}</div>
+        <Link to={`/places?placeId=${encodeURIComponent(event.placeId)}`} className="mt-4 inline-flex h-8 items-center rounded-md border border-border bg-secondary px-2.5 text-xs hover:bg-accent">{t('statisticMaps.openPlace')}</Link>
       </div>
     );
   }
@@ -503,6 +521,27 @@ function EventDetail({ event, selected }) {
       </div>
     </div>
   );
+}
+
+function AggregateLegend({ legend, t }) {
+  return (
+    <div className="absolute inset-inline-start-3 bottom-8 z-10 rounded-md border border-border bg-popover/95 px-3 py-2 text-xs text-popover-foreground shadow">
+      <div className="font-semibold">{t('statisticMaps.legend.valuesAtPlace')}</div>
+      <div className="mt-2 flex items-end gap-3 text-muted-foreground">
+        <span className="inline-block h-[18px] w-[18px] rounded-full border-2 border-white bg-blue-600 shadow" />
+        <span>{formatAggregateValue(legend.min, legend.unit, t)}</span>
+        <span className="inline-block h-[32px] w-[32px] rounded-full border-2 border-white bg-red-700 shadow" />
+        <span>{formatAggregateValue(legend.max, legend.unit, t)}</span>
+      </div>
+    </div>
+  );
+}
+
+function formatAggregateValue(value, unit, t) {
+  const rounded = Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
+  return unit === 'children'
+    ? t('statisticMaps.units.children', { value: rounded })
+    : t('statisticMaps.units.years', { value: rounded });
 }
 
 function colorForStatisticEvent(event, source, visualOptions, yearBounds) {

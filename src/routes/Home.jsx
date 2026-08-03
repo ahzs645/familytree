@@ -31,6 +31,7 @@ import {
   upsertActiveTreeSnapshot,
 } from '../lib/treeLibrary.js';
 import { loadAnniversaryRows } from '../lib/listData.js';
+import { TreeArtwork, TreeArtworkEditorSheet } from '../components/TreeArtwork.jsx';
 
 export function Home() {
   const navigate = useNavigate();
@@ -47,6 +48,8 @@ export function Home() {
   const [activeTreeId, setActiveTreeIdState] = useState(() => getActiveTreeId());
   const [upcomingAnniversaries, setUpcomingAnniversaries] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [artworkSnapshot, setArtworkSnapshot] = useState(null);
+  const closeArtwork = useCallback(() => setArtworkSnapshot(null), []);
 
   const reload = useCallback(async () => {
     setSnapshots(await listTreeSnapshots({ sortBy }));
@@ -102,6 +105,13 @@ export function Home() {
     await reload();
   });
 
+  const onArtwork = withBusy(async (snapshot) => {
+    if (snapshot.id === activeTreeId) await upsertActiveTreeSnapshot();
+    const refreshed = await listTreeSnapshots({ sortBy });
+    setSnapshots(refreshed);
+    setArtworkSnapshot(refreshed.find((item) => item.id === snapshot.id) || snapshot);
+  });
+
   const onRestore = withBusy(async (snapshot) => {
     if (snapshot.id === activeTreeId) return;
     if (!(await modal.confirm(t('home.openConfirm', { name: snapshot.name }), { title: t('home.openTitle'), okLabel: t('home.openOk') }))) return;
@@ -135,6 +145,7 @@ export function Home() {
 
   return (
     <div className="px-4 sm:px-6 py-6 sm:py-8 pb-16 h-full overflow-auto">
+      {artworkSnapshot && <TreeArtworkEditorSheet snapshot={artworkSnapshot} onClose={closeArtwork} onSaved={reload} />}
       <section className="mb-8">
         <h2 className="text-2xl sm:text-3xl font-bold mb-3">{t('home.heroTitle')}</h2>
         <p className="text-muted-foreground leading-relaxed max-w-3xl">
@@ -263,6 +274,7 @@ export function Home() {
               return (
               <li key={snapshot.id} className={`p-4 rounded-xl border bg-card ${isActive ? 'border-primary ring-1 ring-primary/30' : 'border-border'}`}>
                 <div className="flex items-start justify-between gap-2 mb-1">
+                  <TreeArtwork snapshot={snapshot} className="h-14 w-14" />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-semibold truncate">
                       {snapshot.favorite && <span aria-hidden className="text-yellow-500 me-1">★</span>}
@@ -299,6 +311,7 @@ export function Home() {
                   <Button variant="primary" size="sm" onClick={() => onRestore(snapshot)} disabled={busy || isActive} className="py-1">{isActive ? t('home.treeCurrentBtn', { defaultValue: 'Open' }) : t('home.treeOpen')}</Button>
                   <button onClick={() => onRename(snapshot)} disabled={busy} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1 hover:bg-accent">{t('home.treeRename')}</button>
                   <button onClick={() => onLabel(snapshot)} disabled={busy} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1 hover:bg-accent">{t('home.treeLabel')}</button>
+                  <button onClick={() => onArtwork(snapshot)} disabled={busy} className="text-xs border border-border bg-secondary rounded-md px-2.5 py-1 hover:bg-accent">{t('home.treeArtwork')}</button>
                   <button onClick={() => onDelete(snapshot)} disabled={busy} className="text-xs border border-border bg-transparent text-destructive-text rounded-md px-2.5 py-1 hover:bg-destructive/10 ms-auto">{t('home.treeDelete')}</button>
                 </div>
               </li>

@@ -1,7 +1,9 @@
 import { getAppDataClient } from './data/AppDataClient.js';
 import { generateId } from './ids.js';
-import { refValue } from './recordRef.js';
+import { refToRecordName, refValue } from './recordRef.js';
 import { Gender } from '../models/index.js';
+import { createWithChangeLog } from './recordWrite.js';
+import { saveWithChangeLog } from './changeLog.js';
 
 const CSV_NAME_KEYS = ['name', 'full name', 'fullname', 'display name', 'fn'];
 const CSV_FIRST_KEYS = ['first', 'first name', 'firstname', 'given', 'given name'];
@@ -18,13 +20,19 @@ const CSV_MOTHER_KEYS = ['mother', 'mom', 'mum'];
 const CSV_CHILD_KEYS = ['child', 'children', 'son', 'daughter'];
 
 export async function importContactsFile(file) {
+  const entries = await readContactsFile(file);
+  return importContactEntries(entries);
+}
+
+/** Parse a file without writing so the UI can show the relationship step. */
+export async function readContactsFile(file) {
   const text = await file.text();
   const lowerName = String(file.name || '').toLowerCase();
   const entries = lowerName.endsWith('.vcf') || lowerName.endsWith('.vcard') || text.includes('BEGIN:VCARD')
     ? buildVCardEntries(text)
     : buildCSVEntries(text);
   if (!entries.length) throw new Error('No contacts found in that file.');
-  return saveContactEntries(entries);
+  return entries;
 }
 
 /** Contact Picker API availability (Chromium on Android + desktop behind flag). */
@@ -37,6 +45,11 @@ export function contactPickerSupported() {
  * Person records — the browser bridge for MacFamilyTree's Address Book import.
  */
 export async function importContactsViaPicker() {
+  return importContactEntries(await pickContactsViaPicker());
+}
+
+/** Pick contacts without writing so relationship choices can be reviewed. */
+export async function pickContactsViaPicker() {
   if (!contactPickerSupported()) throw new Error('The Contact Picker is not supported in this browser.');
   const picked = await navigator.contacts.select(['name', 'email', 'tel'], { multiple: true });
   const entries = (picked || [])
@@ -47,7 +60,11 @@ export async function importContactsViaPicker() {
     }))
     .filter(Boolean);
   if (!entries.length) throw new Error('No contacts selected.');
-  return saveContactEntries(entries);
+  return entries;
+}
+
+export async function importContactEntries(entries, { anchorPersonId = '', relationshipByContact = {} } = {}) {
+  return saveContactEntries(entries, { anchorPersonId, relationshipByContact });
 }
 
 /**
@@ -56,12 +73,119 @@ export async function importContactsViaPicker() {
  * spouse/father/mother/child columns) by matching related names to the people
  * we just imported plus those already in the tree.
  */
-async function saveContactEntries(entries) {
+async function saveContactEntries(entries, { anchorPersonId = '', relationshipByContact = {} } = {}) {
   const db = getAppDataClient().records;
   const records = entries.map((entry) => entry.record);
-  const relationships = await linkContactRelations(entries, db);
-  await db.saveMany([...records, ...relationships]);
-  return { created: records.length, relationships: relationships.length, records };
+  for (const record of records) await createWithChangeLog(record);
+  const hasGuidedChoices = anchorPersonId && Object.values(relationshipByContact).some((value) => value && value !== 'unrelated');
+  const plan = hasGuidedChoices
+    ? await planGuidedContactRelationships(entries, { anchorPersonId, relationshipByContact }, db)
+    : { creates: await linkContactRelations(entries, db), updates: [] };
+  for (const record of plan.creates) await createWithChangeLog(record);
+  for (const record of plan.updates) await saveWithChangeLog(record);
+  return { created: records.length, relationships: plan.creates.length + plan.updates.length, records };
+}
+
+/**
+ * Build the family changes for the guided mapping step. Existing family
+ * records are returned as updates; all new families/child links are creates.
+ */
+export async function planGuidedContactRelationships(entries, { anchorPersonId, relationshipByContact }, db = getAppDataClient().records) {
+  if (!anchorPersonId) return { creates: [], updates: [] };
+  const [familyResult, childResult] = await Promise.all([
+    db.query('Family', { limit: 100000 }),
+    db.query('ChildRelation', { limit: 100000 }),
+  ]);
+  const families = familyResult.records.map((record) => ({ ...record, fields: { ...record.fields } }));
+  const childRelations = [...childResult.records];
+  const creates = [];
+  const updatedIds = new Set();
+  const newFamilyIds = new Set();
+  const childKeys = new Set(childRelations.map((relation) => `${refName(relation.fields?.family?.value)}|${refName(relation.fields?.child?.value)}`));
+
+  const makeFamily = () => {
+    const family = { recordName: generateId('family-contact'), recordType: 'Family', fields: {} };
+    families.push(family);
+    creates.push(family);
+    newFamilyIds.add(family.recordName);
+    return family;
+  };
+  const markFamily = (family) => { if (!newFamilyIds.has(family.recordName)) updatedIds.add(family.recordName); };
+  const partners = (family) => [refName(family.fields?.man?.value), refName(family.fields?.woman?.value)].filter(Boolean);
+  const familyForPerson = (personId) => families.find((family) => partners(family).includes(personId));
+  const parentFamilyFor = (personId) => {
+    const relation = childRelations.find((item) => refName(item.fields?.child?.value) === personId);
+    return families.find((family) => family.recordName === refName(relation?.fields?.family?.value));
+  };
+  const setPartner = (family, personId, preferredSlot = '') => {
+    if (!personId || partners(family).includes(personId)) return;
+    const slots = preferredSlot ? [preferredSlot, preferredSlot === 'man' ? 'woman' : 'man'] : ['man', 'woman'];
+    const slot = slots.find((name) => !family.fields[name]);
+    if (!slot) return;
+    family.fields[slot] = { value: refValue(personId, 'Person'), type: 'REFERENCE' };
+    markFamily(family);
+  };
+  const addChild = (family, personId) => {
+    const key = `${family.recordName}|${personId}`;
+    if (!personId || childKeys.has(key)) return;
+    childKeys.add(key);
+    const relation = {
+      recordName: generateId('cr-contact'),
+      recordType: 'ChildRelation',
+      fields: { family: { value: refValue(family.recordName, 'Family'), type: 'REFERENCE' }, child: { value: refValue(personId, 'Person'), type: 'REFERENCE' } },
+    };
+    childRelations.push(relation);
+    creates.push(relation);
+  };
+  const ensureCouple = (first, second) => {
+    let family = families.find((item) => partners(item).includes(first) && partners(item).includes(second));
+    if (!family) family = familyForPerson(first) || makeFamily();
+    setPartner(family, first);
+    setPartner(family, second);
+    return family;
+  };
+  const ensureParentFamily = (personId) => {
+    const family = parentFamilyFor(personId) || makeFamily();
+    addChild(family, personId);
+    return family;
+  };
+
+  for (const entry of entries) {
+    const importedId = entry.record.recordName;
+    const relation = relationshipByContact[importedId] || 'unrelated';
+    if (relation === 'spouse') ensureCouple(anchorPersonId, importedId);
+    else if (relation === 'child') {
+      const family = familyForPerson(anchorPersonId) || makeFamily();
+      setPartner(family, anchorPersonId);
+      addChild(family, importedId);
+    } else if (relation === 'parent' || relation === 'father' || relation === 'mother') {
+      const family = ensureParentFamily(anchorPersonId);
+      setPartner(family, importedId, relation === 'father' ? 'man' : relation === 'mother' ? 'woman' : '');
+    } else if (relation === 'sibling') {
+      addChild(ensureParentFamily(anchorPersonId), importedId);
+    } else if (relation === 'in-law') {
+      const parentFamily = parentFamilyFor(anchorPersonId);
+      const siblingId = parentFamily
+        ? childRelations.map((item) => refName(item.fields?.family?.value) === parentFamily.recordName ? refName(item.fields?.child?.value) : '').find((id) => id && id !== anchorPersonId)
+        : '';
+      const spouseFamily = familyForPerson(anchorPersonId);
+      const spouseId = spouseFamily ? partners(spouseFamily).find((id) => id !== anchorPersonId) : '';
+      if (siblingId) ensureCouple(siblingId, importedId);
+      else if (spouseId) addChild(ensureParentFamily(spouseId), importedId);
+      else creates.push({
+        recordName: generateId('associate-contact'),
+        recordType: 'AssociateRelation',
+        fields: {
+          person: { value: refValue(anchorPersonId, 'Person'), type: 'REFERENCE' },
+          associate: { value: refValue(importedId, 'Person'), type: 'REFERENCE' },
+          relationType: { value: 'in-law', type: 'STRING' },
+        },
+      });
+    }
+  }
+
+  const updates = families.filter((family) => updatedIds.has(family.recordName));
+  return { creates, updates };
 }
 
 async function linkContactRelations(entries, db) {
@@ -402,4 +526,10 @@ function clean(value) {
 
 function normalizeKey(value) {
   return clean(value).toLowerCase().replace(/[_-]+/g, ' ');
+}
+
+function refName(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return refToRecordName(value) || value;
+  return value.recordName || value.id || value.identifier || '';
 }

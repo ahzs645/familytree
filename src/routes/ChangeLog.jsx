@@ -6,6 +6,7 @@
  * mft entries and ones written by saveWithChangeLog.
  */
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   listChangeLogEntries,
   getSubEntriesForEntry,
@@ -24,6 +25,11 @@ import {
 } from '../lib/changeLog.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { Select } from '../components/ui/Select.jsx';
+import { getAppDataClient } from '../lib/data/AppDataClient.js';
+import { deepLinkForRecord } from '../lib/deepLinks.js';
+import { familySummary, personSummary, placeSummary, sourceSummary } from '../models/index.js';
+import { readConclusionType } from '../lib/schema.js';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const ENTITY_TYPES = ['', 'Person', 'Family', 'PersonEvent', 'FamilyEvent', 'Place', 'Source'];
 
@@ -42,6 +48,8 @@ function dateKey(ms) {
 }
 
 export default function ChangeLog() {
+  const navigate = useNavigate();
+  const { t } = useTranslation();
   const modal = useModal();
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -53,6 +61,7 @@ export default function ChangeLog() {
   const [subs, setSubs] = useState({});
   const [purgeStatus, setPurgeStatus] = useState('');
   const [reloadTick, setReloadTick] = useState(0);
+  const [targets, setTargets] = useState(new Map());
 
   useEffect(() => {
     let cancel = false;
@@ -71,6 +80,19 @@ export default function ChangeLog() {
     })();
     return () => { cancel = true; };
   }, [filter, lineageBatch, sourceRecord, targetRecord, reloadTick]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const ids = [...new Set(entries.map(targetIdOf).filter(Boolean))];
+    if (ids.length === 0) {
+      setTargets(new Map());
+      return undefined;
+    }
+    getAppDataClient().records.getMany(ids).then((records) => {
+      if (!cancelled) setTargets(new Map(records.map((record) => [record.recordName, record])));
+    });
+    return () => { cancelled = true; };
+  }, [entries]);
 
   const runPurge = useCallback(async (window) => {
     if (!(await modal.confirm(`${window.label}?\n\nThis cannot be undone.`, { title: 'Purge change log', okLabel: 'Purge', destructive: true }))) return;
@@ -189,20 +211,30 @@ export default function ChangeLog() {
             {g.entries.map((e) => {
               const isOpen = expanded.has(e.recordName);
               const kind = changeKindOf(e);
+              const targetId = targetIdOf(e);
+              const target = targets.get(targetId);
+              const targetType = entityTypeOf(e) || target?.recordType || '';
+              const targetRoute = target ? deepLinkForRecord(target.recordType || targetType, targetId, target) : null;
+              const displayName = target ? (recordDisplayName(target) || targetLabelOf(e) || targetId) : (targetId || targetLabelOf(e));
               return (
                 <div key={e.recordName} className="bg-card border border-border rounded-md mb-1.5">
-                  <button
-                    onClick={() => toggle(e.recordName)}
-                    className="flex items-center w-full px-3 py-2.5 text-start hover:bg-secondary/40 transition-colors"
-                  >
+                  <div className="flex items-center w-full px-3 py-2.5 text-start hover:bg-secondary/40 transition-colors">
+                    <button type="button" onClick={() => toggle(e.recordName)} aria-expanded={isOpen} aria-label={t('changeLogPage.toggleDetails', { name: displayName })} className="rounded px-1 text-muted-foreground hover:bg-accent">{isOpen ? '▾' : '▸'}</button>
                     {kind && <KindBadge kind={kind} />}
                     <span className="flex-1 ms-3 text-sm">
-                      <span className="text-muted-foreground me-2">{entityTypeOf(e) || 'Record'}</span>
-                      <span className="text-foreground">{targetLabelOf(e) || targetIdOf(e)}</span>
+                      <span className="text-muted-foreground me-2">{targetType || 'Record'}</span>
+                      <button
+                        type="button"
+                        onClick={() => targetRoute && navigate(targetRoute)}
+                        disabled={!targetRoute}
+                        title={targetRoute ? t('changeLogPage.revealObject') : t('changeLogPage.recordMissing')}
+                        className="text-interactive hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
+                      >
+                        {displayName}
+                      </button>
                     </span>
                     <span className="text-xs text-muted-foreground me-3">{formatDate(timestampMillis(e))}</span>
-                    <span className="text-muted-foreground">{isOpen ? '▾' : '▸'}</span>
-                  </button>
+                  </div>
                   {isOpen && (
                     <div className="border-t border-border bg-background/60">
                       <SubEntries
@@ -221,6 +253,23 @@ export default function ChangeLog() {
       </div>
     </div>
   );
+}
+
+function recordDisplayName(record) {
+  if (!record) return '';
+  if (record.recordType === 'Person') return personSummary(record)?.fullName || '';
+  if (record.recordType === 'Family') return familySummary(record)?.familyName || '';
+  if (record.recordType === 'Place') return placeSummary(record)?.displayName || placeSummary(record)?.name || '';
+  if (record.recordType === 'Source') return sourceSummary(record)?.title || '';
+  if (record.recordType === 'PersonEvent' || record.recordType === 'FamilyEvent') {
+    return [readConclusionType(record), record.fields?.date?.value].filter(Boolean).join(' · ');
+  }
+  return record.fields?.title?.value
+    || record.fields?.name?.value
+    || record.fields?.caption?.value
+    || record.fields?.filename?.value
+    || record.fields?.cached_fullName?.value
+    || record.recordName;
 }
 
 function SubEntries({ subs, entityType, author, targetId }) {

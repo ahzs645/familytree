@@ -30,6 +30,7 @@ import { BdiText } from '../BdiText.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { generateId } from '../../lib/ids.js';
 import { formClasses } from '../ui/formClasses.js';
+import { DictationButton } from '../ui/DictationButton.jsx';
 
 const MEDIA_TYPES = ['MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 const CITABLE_TARGET_TYPES = ['Person', 'Family', 'Place', 'PersonEvent', 'FamilyEvent', 'PersonFact', 'TribalAffiliation', 'TribalAffiliationRelation', ...MEDIA_TYPES];
@@ -806,6 +807,9 @@ export function NotesEditor({ ownerRecordName, ownerRecordType, onChanged }) {
                 placeholder={t('related.noteText', { defaultValue: 'Note text' })}
                 aria-label={t('related.noteText', { defaultValue: 'Note text' })}
               />
+              <div className="mt-1.5 text-end">
+                <DictationButton value={note.text} onChange={(text) => setNotes((items) => items.map((item, i) => i === index ? { ...item, text } : item))} />
+              </div>
               <div className="text-end mt-2">
                 <button onClick={() => setNotes((items) => items.filter((_, i) => i !== index))} className="text-xs text-destructive-text hover:underline">{t('related.stageRemoval', { defaultValue: 'Stage removal' })}</button>
               </div>

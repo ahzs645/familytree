@@ -31,7 +31,8 @@ import {
  * STORY REPORT — metadata, narrative sections, and related records.
  */
 export async function buildStoryReport(recordName, options = {}) {
-  const db = getAppDataClient().records;
+  const client = getAppDataClient();
+  const db = client.records;
   const story = recordName ? await db.get(recordName) : null;
   if (!story || story.recordType !== 'Story') return emptyReport('Story not found');
 
@@ -72,10 +73,37 @@ export async function buildStoryReport(recordName, options = {}) {
   if (sections.length === 0) {
     report.blocks.push(block.paragraph('No story sections recorded.'));
   } else {
-    sections.forEach((section, index) => {
+    for (const [index, section] of sections.entries()) {
       report.blocks.push(block.title(storySectionTitle(section, index), 3));
       appendTextParagraphs(report, readField(section, ['text', 'description'], ''), 'No section text recorded.');
-    });
+      const { records: attachments } = await db.query('StorySectionRelation', {
+        referenceField: 'storySection',
+        referenceValue: section.recordName,
+        limit: 100000,
+      });
+      const sourceLabels = [];
+      for (const relation of attachments || []) {
+        const targetId = readRef(relation.fields?.target);
+        const target = targetId ? await db.get(targetId) : null;
+        if (!target) continue;
+        if (target.recordType === 'Source') {
+          sourceLabels.push(readField(target, ['title', 'name'], target.recordName));
+          continue;
+        }
+        if (target.recordType === 'MediaPicture' && client.assets) {
+          const ids = target.fields?.assetIds?.value || [];
+          let asset = ids.length ? await client.assets.get(ids[0]) : null;
+          if (!asset && client.assets.listForRecord) asset = (await client.assets.listForRecord(target.recordName))[0] || null;
+          if (asset?.dataBase64) {
+            report.blocks.push(block.image(
+              `data:${asset.mimeType || 'image/png'};base64,${asset.dataBase64}`,
+              readField(target, ['caption', 'title', 'filename'], ''),
+            ));
+          }
+        }
+      }
+      if (sourceLabels.length) report.blocks.push(block.list(sourceLabels.map((label) => `Source: ${label}`)));
+    }
   }
 
   const relationRows = [];

@@ -433,6 +433,9 @@ export default function Events({
           >
             Related media
           </Button>
+          <Button onClick={() => navigate(`/stories?createFromEvent=1&eventId=${encodeURIComponent(active.recordName)}`)}>
+            {t('stories.createForEvent')}
+          </Button>
           <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
           <Button variant="destructiveOutline" size="md" onClick={onDelete} disabled={isRecordLocked(active)}>Delete</Button>
           <Button variant="primary" size="md" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title="Save (⌘/Ctrl+S)">{saving ? 'Saving…' : 'Save'}</Button>

@@ -33,6 +33,7 @@ function snapshot(records) {
     mediaRelations: [],
     storyRelations: [],
     storySections: [],
+    storySectionRelations: [],
     assets: [],
   };
 }

@@ -1,15 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildChangesListReport, buildDNAReport, buildEventsList, buildGiaPhaLineageReport, buildKinshipReport, buildNarrativeReport, buildPersonEventsReport, buildStoryReport, buildTodayReport } from './builders.js';
 
-const mockState = vi.hoisted(() => ({ db: null }));
+const mockState = vi.hoisted(() => ({ db: null, assets: null }));
 
 vi.mock('../data/AppDataClient.js', () => ({
-  getAppDataClient: () => ({ records: mockState.db }),
+  getAppDataClient: () => ({ records: mockState.db, assets: mockState.assets }),
 }));
 
 describe('report builders', () => {
   beforeEach(() => {
     mockState.db = createMockDb([]);
+    mockState.assets = { get: vi.fn(async () => null), listForRecord: vi.fn(async () => []) };
   });
 
   it('builds a person events report with expected columns and linked family events', async () => {
@@ -56,7 +57,7 @@ describe('report builders', () => {
       {
         recordName: 'media1',
         recordType: 'MediaPicture',
-        fields: { title: field('Harbor photo') },
+        fields: { title: field('Harbor photo'), assetIds: field(['asset-1'], 'LIST') },
       },
       {
         recordName: 'storyrel1',
@@ -69,6 +70,7 @@ describe('report builders', () => {
         fields: { storySection: ref('section1', 'StorySection'), target: ref('media1', 'MediaPicture'), targetType: field('MediaPicture') },
       },
     ]);
+    mockState.assets = { get: vi.fn(async () => ({ assetId: 'asset-1', mimeType: 'image/png', dataBase64: 'AAAA' })), listForRecord: vi.fn(async () => []) };
 
     const report = await buildStoryReport('story1');
     const paragraphs = report.blocks.filter((entry) => entry.kind === 'paragraph').map((entry) => entry.text);
@@ -78,6 +80,7 @@ describe('report builders', () => {
     expect(relationTable.columns).toEqual(['Scope', 'Target Type', 'Target', 'Record ID']);
     expect(relationTable.rows).toContainEqual(['Story', 'Person', 'John Doe', 'p1']);
     expect(relationTable.rows).toContainEqual(['Section: Arrival', 'Picture', 'Harbor photo', 'media1']);
+    expect(report.blocks).toContainEqual(expect.objectContaining({ kind: 'image', src: 'data:image/png;base64,AAAA' }));
   });
 
   it('includes cause and authority in narrative output', async () => {

@@ -38,6 +38,7 @@ function snapshot(overrides = {}) {
     mediaRelations: [],
     storyRelations: [],
     storySections: [],
+    storySectionRelations: [],
     dnaResults: [],
     personGroups: [],
     personGroupRelations: [],

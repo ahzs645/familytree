@@ -19,6 +19,7 @@ import {
 import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { cn } from '../lib/utils.js';
+import { TreeArtwork } from './TreeArtwork.jsx';
 
 export function TreeSwitcher({ collapsed = false }) {
   const { t } = useTranslation();
@@ -101,9 +102,10 @@ export function TreeSwitcher({ collapsed = false }) {
         )}
       >
         {collapsed ? (
-          <ChevronDown size={14} className="opacity-80" />
+          activeTree ? <TreeArtwork snapshot={activeTree} className="h-7 w-7" /> : <ChevronDown size={14} className="opacity-80" />
         ) : (
           <>
+            {activeTree && <TreeArtwork snapshot={activeTree} className="h-6 w-6" />}
             <span className="flex-1 min-w-0 truncate text-start text-xs font-semibold">
               {triggerLabel}
             </span>
@@ -143,6 +145,7 @@ export function TreeSwitcher({ collapsed = false }) {
                     <span className="w-4 flex-shrink-0">
                       {isActive ? <Check size={14} className="text-interactive" /> : null}
                     </span>
+                    <TreeArtwork snapshot={snapshot} className="h-8 w-8" />
                     <span className="flex-1 min-w-0 truncate">
                       {snapshot.favorite && <span aria-hidden className="text-yellow-500 me-1">★</span>}
                       {snapshot.name}
