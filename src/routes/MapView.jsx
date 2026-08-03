@@ -3,7 +3,7 @@
  * Click a marker to jump to its record in the Places editor.
  */
 import React, { useMemo } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useRecords } from '../lib/data/useRecords.js';
 import { refToRecordName } from '../lib/recordRef.js';
 import { placeSummary } from '../models/index.js';
@@ -19,9 +19,15 @@ function parseCoord(v) {
 export default function MapView() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const scopedPersonId = searchParams.get('person') || '';
+  const scopedFamilyId = searchParams.get('family') || '';
   const { records: places, loading: placesLoading } = useRecords('Place');
   const { records: coordinates, loading: coordinatesLoading } = useRecords('Coordinate');
-  const loading = placesLoading || coordinatesLoading;
+  const { records: personEvents, loading: personEventsLoading } = useRecords('PersonEvent');
+  const { records: familyEvents, loading: familyEventsLoading } = useRecords('FamilyEvent');
+  const { records: families, loading: familiesLoading } = useRecords('Family');
+  const loading = placesLoading || coordinatesLoading || personEventsLoading || familyEventsLoading || familiesLoading;
   const inViews = location.pathname.startsWith('/views/');
 
   const navigateMapMode = (mode) => {
@@ -30,6 +36,30 @@ export default function MapView() {
       : { map: '/map', globe: '/globe', statistics: '/maps-diagram' };
     navigate(targets[mode] || targets.map);
   };
+
+  const scopedPlaceIds = useMemo(() => {
+    if (!scopedPersonId && !scopedFamilyId) return null;
+    const personIds = new Set(scopedPersonId ? [scopedPersonId] : []);
+    if (scopedFamilyId) {
+      const family = families.find((record) => record.recordName === scopedFamilyId);
+      const manId = refToRecordName(family?.fields?.man?.value);
+      const womanId = refToRecordName(family?.fields?.woman?.value);
+      if (manId) personIds.add(manId);
+      if (womanId) personIds.add(womanId);
+    }
+    const ids = new Set();
+    for (const event of personEvents) {
+      if (!personIds.has(refToRecordName(event.fields?.person?.value))) continue;
+      const placeId = refToRecordName(event.fields?.place?.value) || refToRecordName(event.fields?.assignedPlace?.value);
+      if (placeId) ids.add(placeId);
+    }
+    for (const event of familyEvents) {
+      if (scopedFamilyId !== refToRecordName(event.fields?.family?.value)) continue;
+      const placeId = refToRecordName(event.fields?.place?.value) || refToRecordName(event.fields?.assignedPlace?.value);
+      if (placeId) ids.add(placeId);
+    }
+    return ids;
+  }, [families, familyEvents, personEvents, scopedFamilyId, scopedPersonId]);
 
   const markers = useMemo(() => {
     const coordByPlace = new Map();
@@ -40,6 +70,7 @@ export default function MapView() {
 
     const out = [];
     for (const p of places) {
+      if (scopedPlaceIds && !scopedPlaceIds.has(p.recordName)) continue;
       const coordinateRef = refToRecordName(p.fields?.coordinate?.value);
       const coord =
         (coordinateRef && coordinates.find((c) => c.recordName === coordinateRef)) ||
@@ -57,7 +88,7 @@ export default function MapView() {
       });
     }
     return out;
-  }, [places, coordinates, navigate]);
+  }, [places, coordinates, navigate, scopedPlaceIds]);
 
   // Frame the marker bounding box so spread-out places stay in view instead of
   // opening on empty ocean at the geometric midpoint. Fall back to a world view

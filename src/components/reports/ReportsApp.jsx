@@ -3,7 +3,7 @@
  * save the configuration, export to any supported format.
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Download, FileText, Minus, PanelLeftClose, PanelLeftOpen, Play, Plus, RotateCcw, RotateCw, Save, Search, Square, Trash2 } from 'lucide-react';
 import { listAllPersons, findStartPerson } from '../../lib/treeQuery.js';
 import { getAppDataClient } from '../../lib/data/AppDataClient.js';
@@ -68,6 +68,7 @@ export {
 export function ReportsApp() {
   const { t, localization } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isMobile = useIsMobile();
   const { recordName: activePersonId, setActivePerson } = useActivePerson();
   const modal = useModal();
@@ -75,8 +76,9 @@ export function ReportsApp() {
   const [stories, setStories] = useState([]);
   const [targetId, setTargetId] = useState(null);
   const [secondTargetId, setSecondTargetId] = useState(null);
-  const [builderId, setBuilderId] = useState('person-summary');
-  const [options, setOptions] = useState(() => defaultOptionsForBuilder('person-summary'));
+  const requestedBuilderId = getReportBuilder(searchParams.get('type'))?.id || 'person-summary';
+  const [builderId, setBuilderId] = useState(requestedBuilderId);
+  const [options, setOptions] = useState(() => defaultOptionsForBuilder(requestedBuilderId));
   const [pageStyle, setPageStyle] = useState(() => normalizeReportPageStyle(DEFAULT_PAGE_STYLE));
   const [themeId, setThemeId] = useState('plain');
   const [reportLanguage, setReportLanguage] = useState(REPORT_LANGUAGE_APP);
@@ -177,8 +179,11 @@ export function ReportsApp() {
         setBookTargetId(books[0]?.id || '');
         setEmpty(personList.length === 0 && storyList.length === 0);
 
-        const firstTarget = personList.some((person) => person.recordName === activePersonId)
-          ? activePersonId
+        const requestedPersonId = searchParams.get('person');
+        const firstTarget = personList.some((person) => person.recordName === requestedPersonId)
+          ? requestedPersonId
+          : personList.some((person) => person.recordName === activePersonId)
+            ? activePersonId
           : start?.recordName || personList[0]?.recordName || storyList[0]?.recordName || null;
         setTargetId(firstTarget);
         if (firstTarget && personList.some((person) => person.recordName === firstTarget)) setActivePerson(firstTarget);

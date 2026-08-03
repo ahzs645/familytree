@@ -32,7 +32,7 @@ export default function Families() {
   const newFamily = useCallback(async () => {
     const record = createRecordEnvelope('Family', 'family');
     await createWithChangeLog(record);
-    navigate(`/family/${record.recordName}`);
+    navigate(`/family/${record.recordName}?new=1`);
   }, [navigate]);
 
   const reload = useCallback(async () => {

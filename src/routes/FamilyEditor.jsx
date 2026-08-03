@@ -46,6 +46,9 @@ import { useModal } from '../contexts/ModalContext.jsx';
 import { generateId } from '../lib/ids.js';
 import { formClasses } from '../components/ui/formClasses.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { EditorModeBoundary, EditorModeControls, useEditorMode } from '../components/editors/EditorMode.jsx';
+import { ContextualActionRail } from '../components/editors/ContextualActionRail.jsx';
+import { FamilyPicker } from '../components/editors/FamilyPickerSheet.jsx';
 
 function uuid(p) {
   return generateId(p);
@@ -128,6 +131,7 @@ export default function FamilyEditor() {
   const [loadSeq, setLoadSeq] = useState(0);
   const [familyEventTypes, setFamilyEventTypes] = useState(FAMILY_EVENT_TYPES);
   const { records: labelRecords } = useRecords('Label');
+  const { records: familyRecords } = useRecords('Family');
   const labelDefs = useMemo(() => resolveLabelDefinitions(labelRecords), [labelRecords]);
 
   useEffect(() => {
@@ -390,7 +394,16 @@ export default function FamilyEditor() {
   }, [dirty, modal, navigate]);
 
   const locked = !!family && isRecordLocked(family);
-  useSaveShortcut(onSave, { enabled: !saving && !locked && dirty });
+  const editorMode = useEditorMode({
+    recordId: id,
+    isNew: searchParams.get('new') === '1',
+    disabled: locked,
+    onFinish: async () => {
+      if (dirty) await onSave();
+      return true;
+    },
+  });
+  useSaveShortcut(onSave, { enabled: editorMode.editing && !saving && !locked && dirty });
 
   if (notFound) return <div className="p-10 text-muted-foreground">Family not found.</div>;
   if (!family) return <div className="p-10 text-muted-foreground">Loading…</div>;
@@ -404,6 +417,9 @@ export default function FamilyEditor() {
     <div className="flex flex-col h-full">
       <header className="flex flex-wrap items-center gap-3 px-5 py-3 border-b border-border bg-card">
         <button onClick={() => guardedNavigate(-1)} className="text-xs text-muted-foreground border border-border rounded-md px-3 py-1.5 hover:bg-accent">← Back</button>
+        <div className="w-full sm:w-auto">
+          <FamilyPicker value={id} families={familyRecords} persons={persons} ariaLabel={t('familyPicker.jump')} onChange={(familyId) => guardedNavigate(`/family/${encodeURIComponent(familyId)}`)} />
+        </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-base font-semibold truncate">
             {/* Prefer the couple's names; familyName() returns a generic
@@ -433,15 +449,16 @@ export default function FamilyEditor() {
             <span className="text-xs text-muted-foreground">All changes saved</span>
           )}
           <RecordLockButton record={family} saving={saving} onToggle={onToggleLock} />
-          <Button variant="primary" size="md" disabled={saving || locked || !dirty} onClick={onSave} title="Save (⌘/Ctrl+S)">
-            {saving ? 'Saving…' : 'Save changes'}
-          </Button>
+          <EditorModeControls mode={editorMode} locked={locked} />
         </div>
       </header>
       <EditorSectionNavBar />
 
       <div className="flex-1 overflow-auto bg-background">
         <div className="max-w-6xl mx-auto p-5">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
+          <EditorModeBoundary editing={editorMode.editing} className="order-2 lg:order-1">
+          <div>
 
           {deepLinkTarget && (
             <div className="mb-4 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs text-foreground">
@@ -657,6 +674,10 @@ export default function FamilyEditor() {
             </div>
           </div>
 
+          </div>
+          </EditorModeBoundary>
+          <ContextualActionRail personId={manId || womanId || ''} familyId={id} recordType="Family" recordId={id} onNavigate={guardedNavigate} />
+          </div>
         </div>
       </div>
     </div>

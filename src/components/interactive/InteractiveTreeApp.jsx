@@ -77,9 +77,10 @@ export function InteractiveTreeApp() {
         findStartPerson(),
         findLargestDescendantRoot(),
       ]);
+      const requestedPersonId = searchParams.get('person');
       setActivePerson(resolveInitialTreePersonId({
         persons: list,
-        activeId,
+        activeId: requestedPersonId || activeId,
         startPerson,
         largestRoot,
       }));

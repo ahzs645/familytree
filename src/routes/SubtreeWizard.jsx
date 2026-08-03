@@ -14,12 +14,12 @@ import { Button } from '../components/ui/Button.jsx';
 import { listAllPersons } from '../lib/treeQuery.js';
 import {
   exportSubtreeBackup,
-  collectAncestorIds,
-  collectDescendantIds,
   removeSubtree,
 } from '../lib/subtree.js';
 import { compareStrings, getCurrentLocalization } from '../lib/i18n.js';
 import { useModal } from '../contexts/ModalContext.jsx';
+import { RelativesSelectionSheet } from '../components/editors/RelativesSelectionSheet.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 function downloadJson(filename, payload) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -36,13 +36,14 @@ function downloadJson(filename, payload) {
 export default function SubtreeWizard() {
   const navigate = useNavigate();
   const modal = useModal();
+  const { t } = useTranslation();
   const [allPersons, setAllPersons] = useState([]);
   const [working, setWorking] = useState(new Set());
   const [leftSelection, setLeftSelection] = useState(new Set());
   const [rightSelection, setRightSelection] = useState(new Set());
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
-  const [depth, setDepth] = useState(5);
+  const [relativeSheetOpen, setRelativeSheetOpen] = useState(false);
   const localization = getCurrentLocalization();
 
   useEffect(() => {
@@ -73,32 +74,9 @@ export default function SubtreeWizard() {
     setRightSelection(new Set());
   };
 
-  const addAncestorsOf = async (personId) => {
-    setBusy(true);
-    try {
-      const ids = await collectAncestorIds(personId, depth);
-      const next = new Set(working);
-      next.add(personId);
-      for (const id of ids) next.add(id);
-      setWorking(next);
-      setStatus(`Added ${ids.length} ancestors.`);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const addDescendantsOf = async (personId) => {
-    setBusy(true);
-    try {
-      const ids = await collectDescendantIds(personId, depth);
-      const next = new Set(working);
-      next.add(personId);
-      for (const id of ids) next.add(id);
-      setWorking(next);
-      setStatus(`Added ${ids.length} descendants.`);
-    } finally {
-      setBusy(false);
-    }
+  const addRelativeSet = (ids) => {
+    setWorking((current) => new Set([...current, ...ids]));
+    setStatus(t('relativeSelection.addedToSubtree', { count: ids.size }));
   };
 
   const exportWorkingSet = async () => {
@@ -156,8 +134,6 @@ export default function SubtreeWizard() {
     }
   };
 
-  const firstRight = workingPersons[0]?.recordName;
-
   return (
     <div className="flex h-full min-h-0 flex-col overflow-auto p-3 sm:p-6 md:overflow-hidden">
       <header className="mb-4 flex flex-wrap items-center gap-3 md:flex-nowrap">
@@ -169,16 +145,7 @@ export default function SubtreeWizard() {
       </header>
 
       <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
-        <label className="flex items-center gap-2">Generations depth
-          <input
-            type="number"
-            min="1"
-            max="15"
-            value={depth}
-            onChange={(e) => setDepth(Math.max(1, Math.min(15, Number(e.target.value) || 1)))}
-            className="w-16 h-8 rounded-md border border-border bg-secondary px-2"
-          />
-        </label>
+        <Button size="sm" onClick={() => setRelativeSheetOpen(true)}>{t('relativeSelection.addSet')}</Button>
         <Button variant="primary" size="sm" onClick={exportWorkingSet} disabled={busy || working.size === 0}>
           Export subtree ({working.size})
         </Button>
@@ -202,8 +169,7 @@ export default function SubtreeWizard() {
           <button onClick={addSelected} disabled={leftSelection.size === 0} className="inline-flex h-8 items-center border border-border rounded-md px-3 text-xs hover:bg-accent disabled:opacity-50">Add →</button>
           <button onClick={removeSelected} disabled={rightSelection.size === 0} className="inline-flex h-8 items-center border border-border rounded-md px-3 text-xs hover:bg-accent disabled:opacity-50">← Remove</button>
           <div className="border-t border-border w-full my-2" />
-          <button onClick={() => firstRight && addAncestorsOf(firstRight)} disabled={!firstRight || busy} className="inline-flex h-8 items-center border border-border rounded-md px-3 text-xs hover:bg-accent disabled:opacity-50">+ Ancestors</button>
-          <button onClick={() => firstRight && addDescendantsOf(firstRight)} disabled={!firstRight || busy} className="inline-flex h-8 items-center border border-border rounded-md px-3 text-xs hover:bg-accent disabled:opacity-50">+ Descendants</button>
+          <button onClick={() => setRelativeSheetOpen(true)} disabled={busy} className="inline-flex h-8 items-center border border-border rounded-md px-3 text-xs hover:bg-accent disabled:opacity-50">{t('relativeSelection.addSet')}</button>
         </div>
         <Column
           title={`Persons to be exported (${workingPersons.length})`}
@@ -212,6 +178,13 @@ export default function SubtreeWizard() {
           onToggle={(id) => toggle(rightSelection, setRightSelection, id)}
         />
       </div>
+      <RelativesSelectionSheet
+        open={relativeSheetOpen}
+        onClose={() => setRelativeSheetOpen(false)}
+        persons={sortedPersons}
+        initialPersonId={workingPersons[0]?.recordName || ''}
+        onApply={addRelativeSet}
+      />
     </div>
   );
 }

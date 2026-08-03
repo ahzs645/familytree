@@ -59,6 +59,7 @@ import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { useSortProfile } from '../components/lists/useSortProfile.js';
 import { downloadRowsAsCsv } from '../lib/listExport.js';
+import { EditorModeBoundary, EditorModeControls, useEditorMode } from '../components/editors/EditorMode.jsx';
 
 const MEDIA_TYPES = ['all', 'MediaPicture', 'MediaPDF', 'MediaURL', 'MediaAudio', 'MediaVideo'];
 
@@ -125,6 +126,14 @@ export default function Media() {
     { key: 'recordId', label: t('lists.columnLabels.recordId'), defaultVisible: false, exportValue: (record) => record.recordName },
   ], [t]);
   const columnVisibility = useColumnVisibility('media', listColumns);
+  const [newMediaRecordId, setNewMediaRecordId] = useState('');
+  const selectNewMedia = useCallback((recordName) => {
+    setNewMediaRecordId(recordName || '');
+    setActiveId(recordName || null);
+  }, []);
+  useEffect(() => {
+    if (newMediaRecordId && activeId && activeId !== newMediaRecordId) setNewMediaRecordId('');
+  }, [activeId, newMediaRecordId]);
 
   const reload = useCallback(async () => {
     const data = getAppDataClient();
@@ -190,7 +199,7 @@ export default function Media() {
     onStartVideoRecording,
     onStopVideoRecording,
     onCancelCapture,
-  } = useMediaCapture({ setStatus, reload, setActiveId });
+  } = useMediaCapture({ setStatus, reload, setActiveId: selectNewMedia });
 
   useEffect(() => {
     let cancel = false;
@@ -322,7 +331,7 @@ export default function Media() {
       const result = await createMediaRecordsFromFiles([...files]);
       for (const record of result.records) await attachMediaToTarget(record, target);
       await reload();
-      setActiveId(result.records[0]?.recordName || null);
+      selectNewMedia(result.records[0]?.recordName || '');
       setStatus(t('mediaManager.status.added', { count: result.created, name: recordDisplayLabel(target) }));
       closeWorkflow(setAddSheetOpen);
     } catch (error) {
@@ -330,7 +339,7 @@ export default function Media() {
     } finally {
       setWorkflowBusy(false);
     }
-  }, [closeWorkflow, reload, t]);
+  }, [closeWorkflow, reload, selectNewMedia, t]);
 
   const onAddURL = useCallback(async () => {
     const url = await modal.prompt(t('mediaManager.addUrl.prompt'), '', { title: t('mediaManager.addUrl.title'), placeholder: 'https://…' });
@@ -339,12 +348,12 @@ export default function Media() {
     try {
       const record = await createMediaURLRecord(url);
       await reload();
-      setActiveId(record.recordName);
+      selectNewMedia(record.recordName);
       setStatus(t('mediaManager.status.addedUrl'));
     } catch (error) {
       setStatus(error.message);
     }
-  }, [reload, modal, t]);
+  }, [reload, modal, selectNewMedia, t]);
 
   const active = media.find((m) => m.recordName === activeId);
   const editableSnapshot = useMemo(() => ({ activeFields: active?.fields || {}, values }), [active, values]);
@@ -353,7 +362,17 @@ export default function Media() {
     reloadKey: loadSeq,
     enabled: !!active && !saving && !readOnlyGallery,
   });
-  useSaveShortcut(onSave, { enabled: !!active && !saving && !isRecordLocked(active) && !readOnlyGallery && dirty });
+  const editorMode = useEditorMode({
+    recordId: active?.recordName || '',
+    isNew: !!active && active.recordName === newMediaRecordId,
+    disabled: readOnlyGallery || (!!active && isRecordLocked(active)),
+    onFinish: async () => {
+      if (dirty) await onSave();
+      setNewMediaRecordId('');
+      return true;
+    },
+  });
+  useSaveShortcut(onSave, { enabled: editorMode.editing && !!active && !saving && !isRecordLocked(active) && !readOnlyGallery && dirty });
   const onToggleLock = useRecordLock({
     record: active,
     setRecord: (next) => setMedia((rows) => rows.map((row) => row.recordName === next.recordName ? next : row)),
@@ -827,15 +846,16 @@ export default function Media() {
                 <SaveStatus status={status} dirty={dirty} />
                 <RecordLockButton record={active} saving={saving} onToggle={onToggleLock} />
                 <Button onClick={onOpenMedia}>{t('mediaManager.actions.openMedia')}</Button>
-                {active.recordType === 'MediaPicture' && <Button onClick={() => openWorkflow(setEntryImageOpen)}>{t('mediaManager.actions.useEntryImage')}</Button>}
-                {active.recordType !== 'MediaURL' && <Button variant="destructiveOutline" onClick={() => replaceFileRef.current?.click()} disabled={isRecordLocked(active)}>{t('mediaManager.actions.replace')}</Button>}
-                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={() => onEditImage('rotate')} disabled={isRecordLocked(active)}>{t('mediaManager.actions.rotate')}</Button>}
-                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={() => onEditImage('crop-square')} disabled={isRecordLocked(active)}>{t('mediaManager.actions.crop')}</Button>}
-                {active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={onOpenImageEditor} disabled={isRecordLocked(active)}>{t('mediaManager.actions.editEnhance')}</Button>}
-                <Button variant="destructiveOutline" onClick={() => requestDelete([active])} disabled={isRecordLocked(active)}>{t('mediaManager.actions.delete')}</Button>
-                <Button variant="primary" onClick={onSave} disabled={saving || isRecordLocked(active) || !dirty} title={t('mediaManager.actions.saveShortcut')}>{saving ? t('mediaManager.actions.saving') : t('mediaManager.actions.save')}</Button>
+                {editorMode.editing && active.recordType === 'MediaPicture' && <Button onClick={() => openWorkflow(setEntryImageOpen)}>{t('mediaManager.actions.useEntryImage')}</Button>}
+                {editorMode.editing && active.recordType !== 'MediaURL' && <Button variant="destructiveOutline" onClick={() => replaceFileRef.current?.click()} disabled={isRecordLocked(active)}>{t('mediaManager.actions.replace')}</Button>}
+                {editorMode.editing && active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={() => onEditImage('rotate')} disabled={isRecordLocked(active)}>{t('mediaManager.actions.rotate')}</Button>}
+                {editorMode.editing && active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={() => onEditImage('crop-square')} disabled={isRecordLocked(active)}>{t('mediaManager.actions.crop')}</Button>}
+                {editorMode.editing && active.recordType === 'MediaPicture' && <Button variant="destructiveOutline" onClick={onOpenImageEditor} disabled={isRecordLocked(active)}>{t('mediaManager.actions.editEnhance')}</Button>}
+                {editorMode.editing && <Button variant="destructiveOutline" onClick={() => requestDelete([active])} disabled={isRecordLocked(active)}>{t('mediaManager.actions.delete')}</Button>}
+                <EditorModeControls mode={editorMode} locked={isRecordLocked(active)} />
               </div>
             </div>
+            <EditorModeBoundary editing={editorMode.editing}>
             <FieldRow label={t('mediaManager.fields.caption')}>
               <Input value={values.caption ?? ''} onChange={(e) => setValues({ ...values, caption: e.target.value })} />
             </FieldRow>
@@ -887,6 +907,7 @@ export default function Media() {
                 </div>
               )}
             </FieldRow>
+            </EditorModeBoundary>
           </aside>
         ))}
       </div>

@@ -12,10 +12,10 @@ import { Button } from './ui/Button.jsx';
 import { matchesSearchText } from '../lib/i18n.js';
 import { writeRef } from '../lib/schema.js';
 import { generateId } from '../lib/ids.js';
-import { collectAncestorIds, collectDescendantIds } from '../lib/subtree.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { Panel } from './ui/Panel.jsx';
 import { createWithChangeLog } from '../lib/recordWrite.js';
+import { RelativesSelectionSheet } from './editors/RelativesSelectionSheet.jsx';
 
 // Research suggestions are { key, i18nKey } objects (legacy paths may still pass
 // raw strings). Resolve a stable category id from either shape.
@@ -45,9 +45,10 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
   const [currentCreator, setCurrentCreator] = useState(CREATORS[0].id);
   const [scopeAll, setScopeAll] = useState(true);
   const [scopePerson, setScopePerson] = useState('');
-  // When a person is selected, scope covers them + direct ancestors/descendants
-  // (matching MFT). null until computed; empty means "nothing in scope yet".
+  // A custom scope is the reusable relative set returned by the selection
+  // sheet. null means all people; an empty set means nothing is in scope.
   const [scopeIds, setScopeIds] = useState(null);
+  const [scopeSheetOpen, setScopeSheetOpen] = useState(false);
   const [selected, setSelected] = useState(new Set()); // recordNames within current scope
   const [filter, setFilter] = useState('');
   const [busy, setBusy] = useState(false);
@@ -108,24 +109,6 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
     })();
     return () => { cancelled = true; };
   }, [open]);
-
-  // Resolve the selected person's scope (self + ancestors + descendants).
-  useEffect(() => {
-    if (scopeAll || !scopePerson) {
-      setScopeIds(null);
-      return;
-    }
-    let cancelled = false;
-    setScopeIds(null);
-    (async () => {
-      const [ancestors, descendants] = await Promise.all([
-        collectAncestorIds(scopePerson),
-        collectDescendantIds(scopePerson),
-      ]);
-      if (!cancelled) setScopeIds(new Set([scopePerson, ...ancestors, ...descendants]));
-    })();
-    return () => { cancelled = true; };
-  }, [scopeAll, scopePerson]);
 
   // Matches for the current generator, narrowed to the chosen scope.
   const scopedMatches = useMemo(() => {
@@ -239,6 +222,7 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
   };
 
   return (
+    <>
     <Panel
       title={t('todosPage.wizard.title')}
       meta={t('todosPage.wizard.count', { count: selectedCount })}
@@ -253,18 +237,13 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
           {t('todosPage.wizard.scopeAll')}
         </label>
         <label className="flex items-center gap-1.5 text-sm cursor-pointer">
-          <input type="radio" name="todo-wizard-scope" checked={!scopeAll} onChange={() => setScopeAll(false)} />
+          <input type="radio" name="todo-wizard-scope" checked={!scopeAll} onChange={() => setScopeSheetOpen(true)} />
           {t('todosPage.wizard.scopePerson')}
         </label>
         {!scopeAll && (
-          <select
-            value={scopePerson}
-            onChange={(e) => setScopePerson(e.target.value)}
-            className="bg-background border border-border rounded-md px-2 py-1.5 text-sm min-w-[200px]"
-          >
-            <option value="">{t('todosPage.wizard.selectPerson')}</option>
-            {people.map((p) => <option key={p.recordName} value={p.recordName}>{p.fullName}</option>)}
-          </select>
+          <button type="button" onClick={() => setScopeSheetOpen(true)} className="bg-background border border-border rounded-md px-3 py-1.5 text-sm">
+            {scopePerson ? people.find((person) => person.recordName === scopePerson)?.fullName || t('relativeSelection.changeSet') : t('relativeSelection.chooseSet')}
+          </button>
         )}
       </div>
 
@@ -398,6 +377,19 @@ export function ToDoWizardSheet({ open, onClose, onCreated }) {
         </Button>
       </footer>
     </Panel>
+    <RelativesSelectionSheet
+      open={scopeSheetOpen}
+      onClose={() => setScopeSheetOpen(false)}
+      persons={people}
+      initialPersonId={scopePerson}
+      initialRelationSet="ancestorsAndDescendants"
+      onApply={(ids, selection) => {
+        setScopeAll(false);
+        setScopePerson(selection.personId);
+        setScopeIds(ids);
+      }}
+    />
+    </>
   );
 }
 

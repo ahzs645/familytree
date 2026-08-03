@@ -2,6 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Existing editors share their full field layout between read and edit mode.
+   A disabled fieldset prevents mutations; these rules remove form chrome so
+   the same values read like a record summary instead of a disabled form. */
+.record-editor-read :is(input:not([type='checkbox']):not([type='radio']), textarea, select) {
+  appearance: none;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  padding-inline: 0;
+  color: hsl(var(--foreground));
+  opacity: 1;
+  -webkit-text-fill-color: hsl(var(--foreground));
+}
+
+.record-editor-read textarea {
+  resize: none;
+}
+
+.record-editor-read button:not([data-read-action='true']),
+.record-editor-read input[type='file'] {
+  display: none;
+}
+
+.record-editor-read :is(input[type='checkbox'], input[type='radio']):not(:checked) {
+  visibility: hidden;
+}
+
+.record-editor-read :is(input, textarea, select) {
+  pointer-events: none;
+}
+
+.record-editor-read .maplibregl-map {
+  pointer-events: none;
+}
+
 @layer base {
   :root {
     color-scheme: light;

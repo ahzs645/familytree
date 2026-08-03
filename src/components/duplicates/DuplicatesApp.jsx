@@ -1,7 +1,7 @@
 /**
  * DuplicatesApp — scan for duplicate persons/families/sources and merge them.
  */
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   clearSkippedDuplicatePairs,
@@ -28,11 +28,13 @@ export function DuplicatesApp() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialKind = SCANS.find((entry) => entry.id === searchParams.get('kind'))?.id || 'Person';
+  const scopedRecordId = searchParams.get('recordId') || '';
   const [kind, setKind] = useState(initialKind);
   const [pairs, setPairs] = useState([]);
   const [scanning, setScanning] = useState(false);
   const [hasScanned, setHasScanned] = useState(false);
   const [skippedCount, setSkippedCount] = useState(0);
+  const autoScanApplied = useRef(false);
   useEffect(() => {
     const paramKind = searchParams.get('kind');
     const nextKind = SCANS.find((entry) => entry.id === paramKind)?.id;
@@ -43,11 +45,19 @@ export function DuplicatesApp() {
     setScanning(true);
     const scan = SCANS.find((s) => s.id === kind);
     const [result, skippedPairs] = await Promise.all([scan.run(), getSkippedDuplicatePairs(kind)]);
-    setPairs(result);
+    setPairs(scopedRecordId
+      ? result.filter((pair) => pair.a?.recordName === scopedRecordId || pair.b?.recordName === scopedRecordId)
+      : result);
     setSkippedCount(skippedPairs.length);
     setHasScanned(true);
     setScanning(false);
-  }, [kind]);
+  }, [kind, scopedRecordId]);
+
+  useEffect(() => {
+    if (searchParams.get('auto') !== '1' || autoScanApplied.current) return;
+    autoScanApplied.current = true;
+    void onScan();
+  }, [onScan, searchParams]);
 
   const onSkipPair = useCallback(async (pair) => {
     await skipDuplicatePair(kind, pair.a, pair.b);
@@ -60,10 +70,12 @@ export function DuplicatesApp() {
     await clearSkippedDuplicatePairs(kind);
     const scan = SCANS.find((s) => s.id === kind);
     const result = await scan.run();
-    setPairs(result);
+    setPairs(scopedRecordId
+      ? result.filter((pair) => pair.a?.recordName === scopedRecordId || pair.b?.recordName === scopedRecordId)
+      : result);
     setSkippedCount(0);
     setScanning(false);
-  }, [kind]);
+  }, [kind, scopedRecordId]);
 
   return (
     <div className="flex flex-col h-full bg-background">
