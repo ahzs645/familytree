@@ -154,10 +154,13 @@ function applyMinification(layout, options) {
     const gen = Number(node.generation) || 0;
     // Compose with the layout's own scale hierarchy (lineage large / siblings small).
     let scale = Number.isFinite(node.scale) ? node.scale : 1;
+    // Native reciprocal minification (decompiled buildAncestors/buildPartners):
+    // ancestors at depth a >= start scale by 1/(a - start + 2), i.e. with the
+    // default start 3: 1, 1, 0.5, 0.333…; descendants likewise from level 2.
     if (gen < 0 && aStart > 0 && Math.abs(gen) >= aStart) {
-      scale = Math.max(0.42, scale * (1 - (Math.abs(gen) - aStart + 1) * 0.14));
+      scale = scale / (Math.abs(gen) - aStart + 2);
     } else if (gen > 0 && dStart > 0 && gen >= dStart) {
-      scale = Math.max(0.42, scale * (1 - (gen - dStart + 1) * 0.14));
+      scale = scale / (gen - dStart + 2);
     }
     // Collateral siblings (not the direct lineage): focused person's own
     // siblings (generation 0) vs. all other collateral relatives. The family
@@ -326,6 +329,29 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   // Vertical pitch between generation rows, scaled by the Parents/Children
   // Spacing control (1.0 = native default).
   const GENERATION_STEP_SCALED = GENERATION_STEP * pcFactor;
+  // Native rows COMPRESS as their content minifies: the contour extents
+  // (H/2+B / H/2+T) all scale with the row's minification, so both the pitch
+  // between rows and the band tray depth follow the row scale. Mirror the
+  // applyMinification schedule so figures and trays shrink together.
+  const aStartRow = Number.isFinite(options.ancestorScaleStartLevel) ? options.ancestorScaleStartLevel : 0;
+  const dStartRow = Number.isFinite(options.descendantScaleStartLevel) ? options.descendantScaleStartLevel : 0;
+  const rowScale = (generation) => {
+    const gen = Math.trunc(Number(generation) || 0);
+    if (gen < 0 && aStartRow > 0 && Math.abs(gen) >= aStartRow) return 1 / (Math.abs(gen) - aStartRow + 2);
+    if (gen > 0 && dStartRow > 0 && gen >= dStartRow) return 1 / (gen - dStartRow + 2);
+    return 1;
+  };
+  const rowYCache = new Map([[0, 0]]);
+  const rowY = (generation) => {
+    const gen = Math.trunc(Number(generation) || 0);
+    if (rowYCache.has(gen)) return rowYCache.get(gen);
+    const towardZero = gen > 0 ? gen - 1 : gen + 1;
+    const base = rowY(towardZero);
+    const pitch = GENERATION_STEP_SCALED * (rowScale(gen) + rowScale(towardZero)) / 2;
+    const y = gen > 0 ? base - pitch : base + pitch;
+    rowYCache.set(gen, y);
+    return y;
+  };
   // Horizontal couple gap, sibling pitch, and the minimum same-generation gap.
   // Partner Spacing widens couples; Branch Spacing widens siblings/lineages.
   // Native ordinary contour pitch ≈ 126 web units (2.175 native × 58).
@@ -343,7 +369,7 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       id: personId,
       generation,
       x,
-      y: -generation * GENERATION_STEP_SCALED,
+      y: rowY(generation),
       z: source.featured ? 52 : 22 + Math.min(Math.abs(generation) * 3, 18),
       familyBlockId,
       footprintWidth: source.featured ? 250 : 190,
@@ -388,19 +414,45 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
 
   // `side` < 0 spreads siblings left of the apex (paternal half), > 0 right
   // (maternal half), 0 alternates — keeping each couple clear in the middle.
-  const buildBranch = (personId, generation, depth, side, includeSiblings = true) => {
+  const buildBranch = (personId, generation, depth, side, includeSiblings = true, descentFamilyId = null) => {
     const family = familyByChild.get(personId);
     // Tag with the family that groups the person with their siblings (their own
     // parents' family) so each couple's children share one holder box.
     const holderId = family?.id || `solo:${personId}`;
+    // Native local groups (decompiled assignLocalGroupIdentifiers...): the
+    // OPPOSITE parent/partner inherits the current person's group — a couple
+    // always shares ONE slab (قاسم/زينب/علي together in the reference), keyed
+    // here by the union that continues the lineage downward.
+    const coupleHolder = descentFamilyId ? `couple:${descentFamilyId}` : holderId;
     // The branch apex IS the direct-lineage ancestor — the native viewer renders
     // it featured-sized while collateral siblings are minified small.
-    const nodes = [{ id: personId, gen: generation, dx: 0, holderId, priority: 70 - Math.abs(generation), lineage: true }];
+    const nodes = [{ id: personId, gen: generation, dx: 0, holderId: coupleHolder, priority: 70 - Math.abs(generation), lineage: true }];
     const extents = new Map([[generation, { min: 0, max: 0 }]]);
     if (!family) return { nodes, extents };
     // personId is the lineage child of its own parents' family.
     lineageChildId.set(family.id, personId);
-    const siblingIds = (includeSiblings ? orderFamilyChildren(family, personId, generation) : [])
+    // Native merges HALF-SIBLINGS (children of the parents' other unions) into
+    // the same sibling row cluster, ordered together with the full siblings —
+    // the reference shows صبرية، فوزية left of the lineage child سامي on one
+    // slab. Collect them from every other family of either parent.
+    const halfSiblingIds = [];
+    if (includeSiblings) {
+      for (const parentId of family.parents || []) {
+        for (const other of familiesByParent.get(parentId) || []) {
+          if (other.id === family.id) continue;
+          for (const childId of other.children || []) {
+            if (!sourceNodes.has(childId)) continue;
+            if (childId === personId) continue;
+            if ((family.children || []).includes(childId)) continue;
+            if (!halfSiblingIds.includes(childId)) halfSiblingIds.push(childId);
+          }
+        }
+      }
+    }
+    const siblingFamily = halfSiblingIds.length
+      ? { ...family, children: [...(family.children || []), ...halfSiblingIds] }
+      : family;
+    const siblingIds = (includeSiblings ? orderFamilyChildren(siblingFamily, personId, generation) : [])
       .map((node) => node.person.recordName)
       .filter((id) => id !== personId);
     const siblingPriority = 40 - Math.abs(generation);
@@ -408,75 +460,72 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     // figures (matches the native viewer's dense sibling rows).
     const siblingGap = SIBLING_GAP * 0.8;
     const rowExtent = extents.get(generation);
+    // --- Other unions FIRST, directly beside the apex (native order) ---
+    // Native shows every union of a direct-line ancestor in-band: the
+    // step-spouse stands full-size IMMEDIATELY beside the ancestor (علي beside
+    // زينب in the reference — nobody in between, so the couple bar stays
+    // short and its ⚭/D icon sits in their gap), with that union's children
+    // (half-siblings, minified) directly below the pair on the SAME slab as
+    // their lineage half-sibling. Ordinary siblings then fan out beyond.
+    const outward = side || 1;
+    let unionEdge = 0; // furthest apex-row slot claimed by union clusters
+    if (personId !== rootId) {
+      for (const other of familiesByParent.get(personId) || []) {
+        // Skip the union that continues the displayed lineage downward (its
+        // couple bar + drops are routed from the child generation's branch).
+        if (lineageChildId.has(other.id)) continue;
+        const spouseId = (other.parents || []).find((id) => id !== personId && sourceNodes.has(id));
+        const unionChildren = (other.children || []).filter((id) => sourceNodes.has(id) && id !== personId);
+        if (!spouseId && unionChildren.length === 0) continue;
+        let spouseDx = unionEdge;
+        if (spouseId && !nodes.some((node) => node.id === spouseId && node.gen === generation)) {
+          spouseDx = unionEdge + outward * 118;
+          nodes.push({
+            id: spouseId, gen: generation, dx: spouseDx, holderId: coupleHolder,
+            priority: 45 - Math.abs(generation), lineage: false, scaleOverride: 1,
+          });
+          rowExtent.min = Math.min(rowExtent.min, spouseDx);
+          rowExtent.max = Math.max(rowExtent.max, spouseDx);
+          unionEdge = spouseDx;
+        }
+        // The union's children (half-siblings of the lineage child) are NOT
+        // placed here — they merge into the child row's sibling cluster in
+        // the child branch (native order: sorted together with full siblings).
+      }
+    }
+    // --- Ordinary siblings fan out beyond any union clusters ---
     const placeSibling = (id, dx) => {
       nodes.push({ id, gen: generation, dx, holderId: family.id, priority: siblingPriority, lineage: false });
       rowExtent.min = Math.min(rowExtent.min, dx);
       rowExtent.max = Math.max(rowExtent.max, dx);
     };
     if (side < 0) {
-      let x = 0;
-      for (const id of siblingIds) { x -= siblingGap; placeSibling(id, x); }
+      let x = Math.min(0, unionEdge);
+      for (const id of [...siblingIds].reverse()) { x -= siblingGap; placeSibling(id, x); }
     } else if (side > 0) {
-      let x = 0;
-      for (const id of siblingIds) { x += siblingGap; placeSibling(id, x); }
+      let x = Math.max(0, unionEdge);
+      for (const id of [...siblingIds].reverse()) { x += siblingGap; placeSibling(id, x); }
     } else {
-      let leftX = 0;
-      let rightX = 0;
+      let leftX = Math.min(0, unionEdge);
+      let rightX = Math.max(0, unionEdge);
       siblingIds.forEach((id, index) => {
         if (index % 2 === 0) { rightX += siblingGap; placeSibling(id, rightX); }
         else { leftX -= siblingGap; placeSibling(id, leftX); }
       });
     }
-    // Native shows every union of a direct-line ancestor in-band: the
-    // step-spouse stands full-size just OUTSIDE the ancestor (on the
-    // ancestor's own side, like علي beside زينب in the reference), with that
-    // union's children (half-siblings, minified) beyond. The family routing
-    // loop then draws its couple bar in the next relation-order lane/colour.
-    const outward = side || 1;
-    for (const other of familiesByParent.get(personId) || []) {
-      // Skip the union that continues the displayed lineage downward (its
-      // couple bar + drops are routed from the child generation's branch).
-      if (lineageChildId.has(other.id)) continue;
-      const spouseId = (other.parents || []).find((id) => id !== personId && sourceNodes.has(id));
-      const unionChildren = (other.children || []).filter((id) => sourceNodes.has(id) && id !== personId);
-      if (!spouseId && unionChildren.length === 0) continue;
-      const edge = outward < 0 ? rowExtent.min : rowExtent.max;
-      let cursor = edge;
-      if (spouseId && !nodes.some((node) => node.id === spouseId && node.gen === generation)) {
-        cursor += outward * (siblingGap + 40);
-        nodes.push({
-          id: spouseId, gen: generation, dx: cursor, holderId: other.id,
-          priority: 45 - Math.abs(generation), lineage: false, scaleOverride: 1,
-        });
-        rowExtent.min = Math.min(rowExtent.min, cursor);
-        rowExtent.max = Math.max(rowExtent.max, cursor);
-      }
-      for (const childId of unionChildren) {
-        if (nodes.some((node) => node.id === childId)) continue;
-        cursor += outward * siblingGap;
-        nodes.push({
-          id: childId, gen: generation + 1, dx: cursor, holderId: other.id,
-          priority: 30 - Math.abs(generation), lineage: false,
-        });
-        const childRow = extents.get(generation + 1) || { min: cursor, max: cursor };
-        childRow.min = Math.min(childRow.min, cursor);
-        childRow.max = Math.max(childRow.max, cursor);
-        extents.set(generation + 1, childRow);
-      }
-    }
     if (depth > MAX_DEPTH) return { nodes, extents };
     const parents = (family.parents || []).filter((id) => sourceNodes.has(id)).slice(0, 2);
     if (parents.length === 1) {
       // A single parent sits directly above the apex.
-      const parentBranch = buildBranch(parents[0], generation - 1, depth + 1, side || -1);
+      const parentBranch = buildBranch(parents[0], generation - 1, depth + 1, side || -1, true, family.id);
       mergeBranch(nodes, extents, parentBranch, 0);
     } else if (parents.length === 2) {
       // Spouses FACE each other like the native viewer: the father's siblings
       // always fan left of him and the mother's right of her, so the couple
       // stands adjacent in the middle and their union bar stays short (instead
       // of slicing across a whole sibling holder).
-      const fatherBranch = buildBranch(parents[0], generation - 1, depth + 1, -1);
-      const motherBranch = buildBranch(parents[1], generation - 1, depth + 1, 1);
+      const fatherBranch = buildBranch(parents[0], generation - 1, depth + 1, -1, true, family.id);
+      const motherBranch = buildBranch(parents[1], generation - 1, depth + 1, 1, true, family.id);
       const separation = Math.max(PARTNER_GAP, requiredSeparation(fatherBranch, motherBranch));
       mergeBranch(nodes, extents, fatherBranch, -separation / 2);
       mergeBranch(nodes, extents, motherBranch, separation / 2);
@@ -545,6 +594,55 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   const root = nodeById.get(rootId) || uniquePlaced.find((node) => node.featured);
   const rootX = root?.x || 0;
   const nodeList = uniquePlaced.filter((node) => Math.abs(node.x - rootX) <= VISIBLE_X_RADIUS && node.generation >= -4 && node.generation <= 1);
+  // --- Native contour row pitch (decompiled builder geometry pass) ----------
+  // Row separation is MEASURED from content, not a fixed step:
+  //   pitch = max(H/2 + B) of the upper row + max(H/2 + T) of the lower row,
+  // with H = (hInfo + 0.7)·m native units (the person slot including its text
+  // plane), B = m·(0.1 + 0.4·parentsChildrenFactor), T = 0.25 (unscaled), all
+  // multiplied by the node's effective minification. hInfo mirrors the native
+  // heightOfPersonInformation row budget (name ≤2 lines + ☆/† date rows).
+  {
+    const U = 58;
+    const effScale = (node) => (Number.isFinite(node.scale) ? node.scale : 1) * rowScale(node.generation);
+    const rowsByGen = new Map();
+    for (const node of nodeList) {
+      if (!rowsByGen.has(node.generation)) rowsByGen.set(node.generation, []);
+      rowsByGen.get(node.generation).push(node);
+    }
+    const downOf = new Map();
+    const upOf = new Map();
+    for (const [gen, members] of rowsByGen) {
+      let down = 0;
+      let up = 0;
+      for (const node of members) {
+        // Our rendered content extents around the node anchor: the figure
+        // rises ~40·s above it, the name/☆/† label block hangs ~95·s below
+        // (the root medallion is its own 150/150 disc). The native contour
+        // adds B = m·(0.1 + 0.4·pc) below and T = 0.25 above, unscaled shape.
+        const scale = effScale(node);
+        // Figure: seated +12 above the anchor, bust ~62·s tall on top of that.
+        // Labels: name + ☆/† rows hang ~104·s below. Measured from the render.
+        const top = node.featured ? 150 : 12 + 84 * scale;
+        const bottom = node.featured ? 150 : 92 * scale;
+        node.contentTop = top;
+        node.contentBottom = bottom;
+        down = Math.max(down, bottom + U * scale * (0.1 + 0.4 * pcFactor));
+        up = Math.max(up, top + 0.25 * U);
+      }
+      downOf.set(gen, down);
+      upOf.set(gen, up);
+    }
+    const yByGen = new Map([[0, 0]]);
+    for (let gen = -1; rowsByGen.has(gen); gen -= 1) {
+      yByGen.set(gen, (yByGen.get(gen + 1) ?? 0) + downOf.get(gen) + upOf.get(gen + 1));
+    }
+    for (let gen = 1; rowsByGen.has(gen); gen += 1) {
+      yByGen.set(gen, (yByGen.get(gen - 1) ?? 0) - (downOf.get(gen - 1) + upOf.get(gen)));
+    }
+    for (const node of nodeList) {
+      if (yByGen.has(node.generation)) node.y = yByGen.get(node.generation);
+    }
+  }
   const visibleIds = new Set(nodeList.map((node) => node.id));
 
   const addSegment = (familyId, type, emphasis, a, b, nodeIds = []) => {
@@ -564,6 +662,7 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   // marriage of the same person draws the NEXT wheel hue — olive next to
   // maroon in the reference), so links carry it alongside the generation.
   let routingRelationOrder = 0;
+  let routingChildOrder = 0;
   const addPolyline = (familyId, type, emphasis, points, nodeIds = []) => {
     routedLinks.push({
       key: `${familyId}:${type}:${routedLinks.length}`,
@@ -574,6 +673,7 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       nodeIds,
       generation: routingGeneration,
       relationOrder: routingRelationOrder,
+      childOrder: routingChildOrder,
       colorClass: routingColorClass,
     });
   };
@@ -581,15 +681,36 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   // shifts its couple bar one lane toward the parents (-0.1 native × order,
   // ≈ 7.3 web units, orders ≤ 5 only) so remarriage bars don't overlap.
   const unionCountByPerson = new Map();
+  // Total displayed unions per person (used for the native attach-point rule:
+  // when one parent has further unions, the child trunk hangs under the OTHER
+  // parent instead of the couple midpoint — decompiled
+  // setAttachPointForChildrenConnection: in the ancestors builder).
+  const totalUnionsByPerson = new Map();
+  for (const family of familyGraph.families || []) {
+    const parents = (family.parents || []).filter((id) => visibleIds.has(id));
+    const children = (family.children || []).filter((id) => visibleIds.has(id));
+    if (parents.length === 0 || children.length === 0) continue;
+    for (const parentId of parents) {
+      totalUnionsByPerson.set(parentId, (totalUnionsByPerson.get(parentId) || 0) + 1);
+    }
+  }
+  // Native childRelationOrder (decompiled buildAncestorsIfNecessary..., the
+  // cinc at 0xc1d0): a running count of this parent's PRIOR families that
+  // displayed at least one visible child. It feeds the child-bus lane (δc)
+  // and, together with parentsRelationOrder, the connection colour level.
+  const childOrderByPerson = new Map();
   for (const family of familyGraph.families || []) {
     const parents = (family.parents || []).map((id) => nodeById.get(id)).filter((node) => node && visibleIds.has(node.id));
     const children = (family.children || []).map((id) => nodeById.get(id)).filter((node) => node && visibleIds.has(node.id));
     if (parents.length === 0 || children.length === 0) continue;
     const unionOrder = Math.max(...parents.map((parent) => unionCountByPerson.get(parent.id) || 0));
+    const childOrder = Math.max(...parents.map((parent) => childOrderByPerson.get(parent.id) || 0));
     for (const parent of parents) {
       unionCountByPerson.set(parent.id, (unionCountByPerson.get(parent.id) || 0) + 1);
+      if (children.length > 0) childOrderByPerson.set(parent.id, (childOrderByPerson.get(parent.id) || 0) + 1);
     }
     routingRelationOrder = unionOrder;
+    routingChildOrder = childOrder;
     const generation = children[0].generation;
     routingGeneration = generation;
     // Native lineage colouring: root's family (children at gen 0) draws purple;
@@ -601,7 +722,7 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     if (generation === 0) routingColorClass = 'root';
     else if (generation <= -2) routingColorClass = lineageGender === Gender.Female ? 'maternal' : 'paternal';
     else routingColorClass = 'descend';
-    const childY = -generation * GENERATION_STEP_SCALED;
+    const childY = rowY(generation);
     const parentY = parents[0].y;
     const direction = Math.sign(parentY - childY || 1);
     const emphasis = family.id === rootFamily?.id || family.parents.some((id) => id === familyGraph.rootId);
@@ -646,7 +767,18 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
         { x: Math.max(...sortedParents.map((p) => p.x)), y: coupleBarY }, parentIds);
       const coupleBar = routedLinks[routedLinks.length - 1];
       if (coupleBar) coupleBar.coupleMark = { x: gapCenter, y: coupleBarY };
-      trunkTop = { x: gapCenter, y: coupleBarY };
+      // Native attach point: midpoint of the couple bar UNLESS one parent has
+      // further displayed unions — then the trunk hangs under the other
+      // (single-union) parent, keeping the busy parent's side clear for the
+      // next union's bar (the reference shows the red trunk under قاسم).
+      const unionsOf = (parent) => totalUnionsByPerson.get(parent.id) || 1;
+      const busyParents = sortedParents.filter((parent) => unionsOf(parent) > 1);
+      if (busyParents.length === 1 && sortedParents.length === 2) {
+        const calm = sortedParents.find((parent) => unionsOf(parent) <= 1);
+        trunkTop = { x: calm.x, y: coupleBarY };
+      } else {
+        trunkTop = { x: gapCenter, y: coupleBarY };
+      }
     } else {
       // Single parent: the trunk starts at the figure's child-facing edge.
       trunkTop = { x: parents[0].x, y: parents[0].y - direction * slotHalf(parents[0]) };
@@ -655,8 +787,8 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
     // lane TOWARD the children (0.1 native units × order) so two families'
     // buses on the same gutter never overlap — the red/green lanes of the
     // reference remarriage close-up.
-    const laneShift = unionOrder > 0 && unionOrder <= 6
-      ? -direction * 5.8 * (unionOrder % 7) * Math.min(...parents.map((parent) => Number.isFinite(parent.scale) ? parent.scale : 1))
+    const laneShift = childOrder > 0
+      ? -direction * 5.8 * (childOrder % 7) * Math.min(...parents.map((parent) => Number.isFinite(parent.scale) ? parent.scale : 1))
       : 0;
     const busLaneY = childBusY + laneShift;
 
@@ -713,7 +845,7 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
 
   // All routed links already reference only visible nodes (filtered above).
   const visibleLinks = routedLinks;
-  const visibleBands = buildBands(nodeList, rootX, options.generationBandsSegmentByPedigree !== false);
+  const visibleBands = buildBands(nodeList, rootX, options.generationBandsSegmentByPedigree !== false, rowScale);
   const bounds = boundsFor(nodeList, visibleBands, visibleLinks);
   const viewBounds = focusBoundsFor(nodeList, visibleBands, bounds);
   return { nodes: nodeList, links: visibleLinks, bands: visibleBands, bounds, viewBounds };
@@ -724,7 +856,10 @@ function orderGeneration(group, rootId) {
     const ap = nodePriority(a, rootId);
     const bp = nodePriority(b, rootId);
     if (ap !== bp) return ap - bp;
-    return (a.person.birthDate || '').localeCompare(b.person.birthDate || '') || a.person.fullName.localeCompare(b.person.fullName);
+    // Native effective default child sort (decompiled allChildRelationDictionaries
+    // mode 0): NAME ascending, birth date DESCENDING as the tiebreak.
+    return a.person.fullName.localeCompare(b.person.fullName)
+      || (b.person.birthDate || '').localeCompare(a.person.birthDate || '');
   });
 }
 
@@ -746,7 +881,7 @@ function mergeRole(a, b) {
   return `${a} ${b}`;
 }
 
-function buildBands(nodes, rootX = 0, segmentByPedigree = true) {
+function buildBands(nodes, rootX = 0, segmentByPedigree = true, rowScale = () => 1) {
   const grouped = new Map();
   for (const node of nodes) {
     if (!grouped.has(node.generation)) grouped.set(node.generation, []);
@@ -759,17 +894,29 @@ function buildBands(nodes, rootX = 0, segmentByPedigree = true) {
     const maxX = Math.max(...segments.map((segment) => segment.x + segment.width / 2));
     const centerY = group.reduce((sum, node) => sum + node.y, 0) / group.length;
     const years = yearRange(group.map((node) => node.person));
-    const height = generation === 0 ? 286 : generation < 0 ? 186 : 184;
+    // Tray hugs the row's measured content: figure tops above the anchors,
+    // label blocks below — and shifts its centre down accordingly so nothing
+    // hangs off the slab.
+    const maxTop = Math.max(...group.map((node) => node.contentTop ?? 40));
+    const maxBottom = Math.max(...group.map((node) => node.contentBottom ?? 93));
+    const height = generation === 0 ? 286 : Math.max(64, maxTop + maxBottom + 18);
     const title =
       generation === 0
         ? 'Root Generation'
         : generation < 0
           ? `Generation ${Math.abs(generation)}`
           : `Descendant Generation ${generation}`;
+    // Content hangs BELOW the anchors (labels) more than above (figure tops),
+    // so the tray centre sits below the row's anchor line by half the
+    // difference — keeps figures and labels inside the slab.
+    const bandY = generation === 0
+      ? centerY
+      : centerY - ((Math.max(...group.map((node) => node.contentBottom ?? 93))
+        - Math.max(...group.map((node) => node.contentTop ?? 40))) / 2);
     return {
       generation,
       x: (minX + maxX) / 2,
-      y: centerY,
+      y: bandY,
       width: maxX - minX,
       height,
       title,
@@ -797,8 +944,8 @@ function clusterByGap(sorted, splitGap) {
 
 function buildBandSegments(group, generation, rootX = 0, segmentByPedigree = true) {
   const sorted = [...group].sort((a, b) => a.x - b.x);
-  const minWidth = generation === 0 ? 460 : 210;
-  const padding = generation === 0 ? 340 : 96;
+  const minWidth = generation === 0 ? 460 : 150;
+  const padding = generation === 0 ? 340 : 48;
   // Root (0) and the focused person's parents (-1) are ONE continuous band.
   // From the grandparents up (gen <= -2) each couple's children-group gets its
   // own holder box (keyed by familyBlockId) — the native viewer's nested
@@ -839,7 +986,27 @@ function buildBandSegments(group, generation, rootX = 0, segmentByPedigree = tru
     segments.push({ x: (left + right) / 2, width: right - left, blood });
     isFirst = false;
   }
-  return segments;
+  // Native slabs carry ±0.2S margins around their people, so ADJACENT groups'
+  // margined extents overlap and fuse into one continuous surface (the
+  // reference pink slab holds صبرية/فوزية/سامي unbroken), while genuinely
+  // distant blocks keep real spacing. Merge close neighbours outright.
+  const merged = [];
+  for (const segment of segments) {
+    const previous = merged[merged.length - 1];
+    if (previous) {
+      const gap = (segment.x - segment.width / 2) - (previous.x + previous.width / 2);
+      if (gap < 60) {
+        const left = previous.x - previous.width / 2;
+        const right = segment.x + segment.width / 2;
+        previous.x = (left + right) / 2;
+        previous.width = right - left;
+        previous.blood = previous.blood || segment.blood;
+        continue;
+      }
+    }
+    merged.push(segment);
+  }
+  return merged;
 }
 
 export function bandSplitGap(generation) {

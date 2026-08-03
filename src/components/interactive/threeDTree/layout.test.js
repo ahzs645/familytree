@@ -140,7 +140,7 @@ describe('buildInteractiveLayout', () => {
     expect(rootLink).toBeTruthy();
     const busY = Math.max(...rootLink.points.map((point) => point.y));
     expect(busY).toBeGreaterThan(nodes.get('root').y + 96);
-    expect(busY).toBeLessThan(nodes.get('root').y + 170);
+    expect(busY).toBeLessThan(nodes.get('root').y + 210);
     // The trunk (owned by both parents) is a STRAIGHT vertical segment — the
     // native trunk never doglegs; it runs from the couple bar's gap center
     // down to the crossbar lane.
@@ -157,7 +157,7 @@ describe('buildInteractiveLayout', () => {
     // the gutter-midpoint bus level.
     expect(Math.max(...trunk.points.map((point) => point.y))).toBeGreaterThan(nodes.get('root').y + 150);
     expect(Math.min(...trunk.points.map((point) => point.y))).toBeGreaterThan(nodes.get('root').y + 96);
-    expect(Math.min(...trunk.points.map((point) => point.y))).toBeLessThan(nodes.get('root').y + 170);
+    expect(Math.min(...trunk.points.map((point) => point.y))).toBeLessThan(nodes.get('root').y + 210);
     expect(layout.bands.find((band) => band.generation === 0)).toMatchObject({
       count: 2,
       title: 'Root Generation',

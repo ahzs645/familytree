@@ -304,7 +304,14 @@ function colorForConnector(link, type, palette, mode, customColor) {
   if (Number.isFinite(link.generation)) {
     // Web generations negate the native level, so the native "+relationOrder"
     // becomes a subtraction here.
-    const shifted = link.generation - (Number(link.relationOrder) || 0);
+    // Native adds BOTH order terms to the colour level (decompiled
+    // generalPlatformColorForFamilyConnectionInfo: L = gen + rp + rc):
+    // parentsRelationOrder plus childRelationOrder (count of prior unions
+    // that displayed children) — a second union usually shifts TWO wheel
+    // steps, red → olive-green as in the native remarriage close-up.
+    const shifted = link.generation
+      - (Number(link.relationOrder) || 0)
+      - (Number(link.childOrder) || 0);
     // Slight shade compensates for the web rig's brighter ambient (1.4 vs the
     // native 0.55) so the rendered ribbon tone matches the Mac's deeper look.
     return blendHex(

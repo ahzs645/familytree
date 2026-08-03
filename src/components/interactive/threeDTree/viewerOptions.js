@@ -47,12 +47,14 @@ function defaultViewerOptions() {
     generationDirection: 'topToBottom',
     boxAlignment: 'centered',
     adjustParentPositions: true,
-    parentsChildrenSpacing: 1.0,
+    parentsChildrenSpacing: 1.1, // native default (decompiled config)
     partnerSpacing: 1.0,
     branchSpacing: 1.0,
     siblingGenerations: 4,
-    ancestorScaleStartLevel: 0,
-    descendantScaleStartLevel: 0,
+    // Native TreeBuilderConfiguration defaults (decompiled): ancestors start
+    // minifying at level 3, descendants at level 2, reciprocal scaling.
+    ancestorScaleStartLevel: 3,
+    descendantScaleStartLevel: 2,
     siblingMinification: 0,
     otherSiblingMinification: 0,
     personWidth: 1.0,
