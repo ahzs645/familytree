@@ -52,9 +52,17 @@ export function BatchPlaceLookupSheet({ onClose, onDone }) {
     return () => {
       document.removeEventListener('keydown', onKeyDown);
       previousFocusRef.current?.focus?.();
-      reviewResolverRef.current?.(null);
     };
   }, [onClose, review, running]);
+
+  // A review changes `review` and therefore restarts the keyboard/focus effect
+  // above. Only settle an outstanding review when the whole batch sheet is
+  // actually removed; otherwise opening the chooser immediately skips it.
+  useEffect(() => () => {
+    const resolve = reviewResolverRef.current;
+    reviewResolverRef.current = null;
+    resolve?.(null);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

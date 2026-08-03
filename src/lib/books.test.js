@@ -3,6 +3,8 @@ import {
   BOOK_THEME_PRESETS,
   bookEditSignature,
   bookFromAssistant,
+  bookSectionPersonIds,
+  bookSectionReportOptions,
   buildAssistantSectionPlan,
   compileBook,
   normalizeBookPresentationSettings,
@@ -129,5 +131,36 @@ describe('book compilation', () => {
     expect(bookEditSignature({ ...base, savedAt: 2 })).toBe(bookEditSignature(base));
     expect(bookEditSignature({ ...base, title: 'Changed' })).not.toBe(bookEditSignature(base));
     expect(bookEditSignature({ ...base, sections: [{ text: 'Book', kind: 'cover' }] })).toBe(bookEditSignature(base));
+  });
+
+  it('maps saved section controls to report options', () => {
+    expect(bookSectionReportOptions({
+      scope: 'descendants', sort: 'birth-desc', personFilter: 'deceased',
+      includeSources: false, includeMedia: false, includeNotes: false, includePrivate: true,
+    })).toMatchObject({
+      scope: 'descendants', sortBy: 'birth', sortDescending: true, personFilter: 'deceased',
+      appendCitations: false, includeSources: false, includeMedia: false, includeNotes: false, includePrivate: true,
+    });
+  });
+
+  it('resolves ancestor, descendant, relative, and family scopes for list sections', () => {
+    const families = [
+      { recordName: 'parents', fields: { man: { value: 'grandpa---Person' }, woman: { value: 'grandma---Person' } } },
+      { recordName: 'couple', fields: { man: { value: 'parent---Person' }, woman: { value: 'spouse---Person' } } },
+    ];
+    const childRelations = [
+      { fields: { family: { value: 'parents---Family' }, child: { value: 'parent---Person' } } },
+      { fields: { family: { value: 'couple---Family' }, child: { value: 'child---Person' } } },
+    ];
+    const data = { families, childRelations };
+
+    expect(bookSectionPersonIds({ scope: 'ancestors', targetRecordName: 'parent' }, data).sort())
+      .toEqual(['grandma', 'grandpa', 'parent']);
+    expect(bookSectionPersonIds({ scope: 'descendants', targetRecordName: 'parent' }, data).sort())
+      .toEqual(['child', 'parent']);
+    expect(bookSectionPersonIds({ scope: 'relatives', targetRecordName: 'parent' }, data).sort())
+      .toEqual(['child', 'grandma', 'grandpa', 'parent', 'spouse']);
+    expect(bookSectionPersonIds({ scope: 'family', targetFamilyRecordName: 'couple' }, data).sort())
+      .toEqual(['child', 'parent', 'spouse']);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildFamilySearchSyncRows,
+  familySearchConclusionPayload,
   normalizeRecordMatchFeed,
   normalizeChangeHistoryFeed,
   familySearchPersonWebUrl,
@@ -130,6 +131,33 @@ describe('FamilySearch workflow depth helpers', () => {
     expect(collectFamilySearchPlaceStrings([remote, remote])).toEqual(['Boston, Massachusetts', 'Salem, Massachusetts']);
   });
 
+  it('resolves local vital places from PersonEvent records and serializes them for upload', () => {
+    const local = localPerson({ cached_fullName: { value: 'Jane Doe' }, cached_birthDate: { value: '1900' } });
+    const birthEvent = {
+      recordName: 'event-1',
+      recordType: 'PersonEvent',
+      fields: {
+        person: { value: 'p1---Person' },
+        conclusionType: { value: 'Birth---ConclusionPersonEventType' },
+        place: { value: 'place-1---Place' },
+      },
+    };
+    const placesById = new Map([['place-1', { recordName: 'place-1', fields: { placeName: { value: 'Boston, Massachusetts' } } }]]);
+    const remote = { persons: [{ id: 'P1', facts: [{ type: 'http://gedcomx.org/Birth', place: { original: 'Boston, Massachusetts' } }] }] };
+
+    const row = buildFamilySearchSyncRows(local, remote, { placesById, personEvents: [birthEvent] })
+      .find((candidate) => candidate.conclusion === 'birthPlace');
+
+    expect(row).toMatchObject({ local: 'Boston, Massachusetts', status: 'same' });
+    expect(familySearchConclusionPayload(local, row)).toEqual({
+      facts: [{
+        type: 'http://gedcomx.org/Birth',
+        date: { original: '1900' },
+        place: { original: 'Boston, Massachusetts' },
+      }],
+    });
+  });
+
   it('normalizes further-information counts', () => {
     expect(normalizeFurtherInformation('P1', { notes: 2, memories: [{}], discussions: [], available: true }))
       .toMatchObject({ personId: 'P1', notes: 2, memories: 1, discussions: 0, total: 3, available: true });
@@ -165,5 +193,28 @@ describe('FamilySearch workflow depth helpers', () => {
     const tree = await readFamilySearchTree(config, 'CHILD', { direction: 'ancestors', generations: 2 });
     expect(tree.nodes.map((node) => node.id)).toEqual(expect.arrayContaining(['CHILD', 'PARENT']));
     expect(tree.edges).toEqual([{ parentId: 'PARENT', childId: 'CHILD' }]);
+  });
+
+  it('does not expose payload-less relatives beyond the requested depth', async () => {
+    const config = {
+      mockData: {
+        persons: {
+          CHILD: { id: 'CHILD' },
+          PARENT: { id: 'PARENT' },
+          GRANDPARENT: { id: 'GRANDPARENT' },
+        },
+        relationships: [
+          { type: 'http://gedcomx.org/ParentChild', person1: { resourceId: 'PARENT' }, person2: { resourceId: 'CHILD' } },
+          { type: 'http://gedcomx.org/ParentChild', person1: { resourceId: 'GRANDPARENT' }, person2: { resourceId: 'PARENT' } },
+        ],
+      },
+    };
+
+    const tree = await readFamilySearchTree(config, 'CHILD', { direction: 'ancestors', generations: 1 });
+
+    expect(tree.nodes.map((node) => node.id).sort()).toEqual(['CHILD', 'PARENT']);
+    expect(tree.edges).toEqual([{ parentId: 'PARENT', childId: 'CHILD' }]);
+    expect(tree.payloads.PARENT.relationships).toEqual([]);
+    expect(tree.nodes.some((node) => node.id === 'GRANDPARENT')).toBe(false);
   });
 });

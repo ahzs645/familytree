@@ -6,6 +6,7 @@
 import { compareStrings, formatInteger } from '../../i18n.js';
 import { block, emptyReport } from '../ast.js';
 import { authorOf, changeKindOf, entityTypeOf, targetIdOf, targetLabelOf, timestampMillis } from '../../changeLogQuery.js';
+import { isLiving } from '../../privacy.js';
 import {
   addAnniversary,
   eventOwnerLabel,
@@ -29,15 +30,26 @@ import {
 export async function buildPersonsList(options = {}) {
   const db = getAppDataClient().records;
   const { records } = await db.query('Person', { limit: 100000 });
-  const visibleRecords = visibleReportRecords(records);
-  let people = visibleRecords.map(personSummary).filter(Boolean);
+  const policy = reportPrivacyPolicy();
+  const visibleRecords = visibleReportRecords(records, {
+    ...policy,
+    hideMarkedPrivate: options.includePrivate ? false : policy.hideMarkedPrivate,
+  });
+  const scopedIds = options.personIds ? new Set(options.personIds) : null;
+  const filteredRecords = visibleRecords.filter((record) => {
+    if (scopedIds && !scopedIds.has(record.recordName)) return false;
+    if (options.personFilter === 'living') return isLiving(record);
+    if (options.personFilter === 'deceased') return !isLiving(record);
+    return true;
+  });
+  let people = filteredRecords.map(personSummary).filter(Boolean);
 
   // Resolve birth/death place display names only when those columns are on,
   // so the common path stays a single Person query (matches descendancy).
   if (options.showBirthPlace || options.showDeathPlace) {
     const { records: placeRecords } = await db.query('Place', { limit: 100000 });
     const placeName = new Map(placeRecords.map((place) => [place.recordName, placeSummary(place)?.displayName || placeSummary(place)?.name || '']));
-    const byId = new Map(visibleRecords.map((record) => [record.recordName, record]));
+    const byId = new Map(filteredRecords.map((record) => [record.recordName, record]));
     for (const person of people) {
       const record = byId.get(person.recordName);
       if (!record) continue;
@@ -56,6 +68,7 @@ export async function buildPersonsList(options = {}) {
       : sortBy === 'death' ? compareStrings(a.deathDate || '', b.deathDate || '') || compareStrings(a.fullName, b.fullName)
         : compareStrings(a.fullName, b.fullName)
   ));
+  if (options.sortDescending) people.reverse();
   // Per-column info chooser (mirrors the Lists workbench INFO_COLUMN_DEFS).
   // Name is always present; the rest are toggled. Defaults preserve the prior
   // Gender / Born / Died layout.

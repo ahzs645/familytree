@@ -50,4 +50,20 @@ describe('guided contact relationships', () => {
     }, db(existing));
     expect(plan.updates[0].fields.woman.value).toBe('imported-mother---Person');
   });
+
+  it('creates a new spouse family when the anchor existing family is full', async () => {
+    const existing = [
+      { recordName: 'existing-couple', recordType: 'Family', fields: { man: ref('anchor'), woman: ref('existing-spouse') } },
+    ];
+    const plan = await planGuidedContactRelationships([entry('imported-spouse')], {
+      anchorPersonId: 'anchor', relationshipByContact: { 'imported-spouse': 'spouse' },
+    }, db(existing));
+
+    expect(plan.updates).toHaveLength(0);
+    const newFamily = plan.creates.find((record) => record.recordType === 'Family');
+    expect([newFamily.fields.man.value, newFamily.fields.woman.value]).toEqual([
+      'anchor---Person',
+      'imported-spouse---Person',
+    ]);
+  });
 });

@@ -139,7 +139,9 @@ export async function planGuidedContactRelationships(entries, { anchorPersonId, 
   };
   const ensureCouple = (first, second) => {
     let family = families.find((item) => partners(item).includes(first) && partners(item).includes(second));
-    if (!family) family = familyForPerson(first) || makeFamily();
+    if (!family) {
+      family = families.find((item) => partners(item).includes(first) && partners(item).length < 2) || makeFamily();
+    }
     setPartner(family, first);
     setPartner(family, second);
     return family;

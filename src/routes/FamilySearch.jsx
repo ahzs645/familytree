@@ -38,7 +38,7 @@ import {
 import { getAppDataClient } from '../lib/data/AppDataClient.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { matchesSearchText } from '../lib/i18n.js';
-import { readField } from '../lib/schema.js';
+import { readConclusionType, readField } from '../lib/schema.js';
 import { refValue } from '../lib/schema.js';
 import { Gender, personSummary } from '../models/index.js';
 import { FamilySearchSourceFoldersSheet } from '../components/FamilySearchSourceFoldersSheet.jsx';
@@ -61,6 +61,7 @@ import { FamilySearchPolicySheet } from '../components/FamilySearchPolicySheet.j
 import { FamilySearchSelectPlaceSheet } from '../components/FamilySearchSelectPlaceSheet.jsx';
 import { FamilySearchApproveAllSheet } from '../components/FamilySearchApproveAllSheet.jsx';
 import { FamilySearchRemoteTreeSheet } from '../components/FamilySearchRemoteTreeSheet.jsx';
+import { withFamilySearchVitalPlace } from '../lib/familySearchLocalSync.js';
 
 const TASK_META_KEY = 'familySearchTasks';
 
@@ -411,10 +412,17 @@ export default function FamilySearch() {
     if (!personId) return;
     setApiStatus('Reading FamilySearch person…');
     try {
-      const remote = await readFamilySearchPerson(apiConfig, personId);
+      const [remote, { records: personEvents }] = await Promise.all([
+        readFamilySearchPerson(apiConfig, personId),
+        getAppDataClient().records.query('PersonEvent', {
+          referenceField: 'person',
+          referenceValue: entry.record.recordName,
+          limit: 100000,
+        }),
+      ]);
       setApiOutput({ title: `FamilySearch ${personId}`, data: remote });
-      setCompareRows(compareLocalToFamilySearchPerson(entry.record, remote, { placesById }));
-      setSyncRows(buildFamilySearchSyncRows(entry.record, remote, { placesById }));
+      setCompareRows(compareLocalToFamilySearchPerson(entry.record, remote, { placesById, personEvents }));
+      setSyncRows(buildFamilySearchSyncRows(entry.record, remote, { placesById, personEvents }));
       setSyncPersonId(personId);
       setComparePersonRecord(entry.record);
       setMergeSurvivorId((current) => current || personId);
@@ -737,17 +745,24 @@ export default function FamilySearch() {
       if (pendingSyncPlace) {
         const resolution = resolutions[0];
         const target = await materializePlaceResolution(resolution, placeRecords);
-        const fieldName = pendingSyncPlace.row.conclusion;
-        const next = { ...pendingSyncPlace.record, fields: { ...(pendingSyncPlace.record.fields || {}) } };
-        if (target.placeId) {
-          next.fields[fieldName] = { value: refValue(target.placeId, 'Place'), type: 'REFERENCE' };
-          delete next.fields[`${fieldName}Text`];
-        } else {
-          delete next.fields[fieldName];
-          next.fields[`${fieldName}Text`] = { value: target.text, type: 'STRING' };
-        }
-        await saveWithChangeLog(next);
-        setComparePersonRecord(next);
+        const eventType = pendingSyncPlace.row.conclusion === 'birthPlace' ? 'Birth' : 'Death';
+        const { records: events } = await getAppDataClient().records.query('PersonEvent', {
+          referenceField: 'person',
+          referenceValue: pendingSyncPlace.record.recordName,
+          limit: 100000,
+        });
+        const existing = events.find((event) => readConclusionType(event) === eventType);
+        const event = withFamilySearchVitalPlace(
+          existing || createRecordEnvelope('PersonEvent', 'event-fs'),
+          {
+            personId: pendingSyncPlace.record.recordName,
+            eventType,
+            placeId: target.placeId,
+            text: target.text,
+          },
+        );
+        if (existing) await saveWithChangeLog(event);
+        else await createWithChangeLog(event);
         setPendingSyncPlace(null);
         setIncomingPlaces([]);
         await reload();
