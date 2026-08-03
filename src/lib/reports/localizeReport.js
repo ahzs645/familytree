@@ -22,6 +22,8 @@ const TERM_KEYS = {
   Age: 'reports.terms.age',
   Ancestors: 'glossary.tree',
   'Anniversary List': 'reports.builders.anniversary-list',
+  'Ahnentafel Report': 'reports.builders.ahnentafel',
+  'Ancestor Narrative': 'reports.builders.ancestor-narrative',
   Anniversary: 'reports.terms.anniversary',
   Birth: 'glossary.birth',
   Born: 'glossary.birth',
@@ -32,6 +34,8 @@ const TERM_KEYS = {
   Date: 'glossary.date',
   Death: 'glossary.death',
   'DNA Report': 'reports.builders.dna-report',
+  'Descendancy Report': 'reports.builders.descendancy',
+  'Descendant Narrative': 'reports.builders.descendant-narrative',
   Description: 'reports.terms.description',
   Died: 'glossary.death',
   Event: 'glossary.event',
@@ -41,6 +45,7 @@ const TERM_KEYS = {
   Family: 'glossary.family',
   'Family Group Sheet': 'reports.builders.family-group-sheet',
   'Person / Family': 'reports.terms.personOrFamily',
+  'Media Gallery Report': 'reports.builders.media-gallery-report',
   Father: 'glossary.father',
   Gender: 'glossary.gender',
   Generation: 'reports.terms.generation',
@@ -62,18 +67,25 @@ const TERM_KEYS = {
   'Partner 1': 'reports.terms.partner1',
   'Partner 2': 'reports.terms.partner2',
   Person: 'glossary.person',
+  'Person Summary': 'reports.builders.person-summary',
+  'Persons List': 'reports.builders.persons-list',
   'Person A': 'reports.terms.personA',
   'Person B': 'reports.terms.personB',
   Persons: 'reports.terms.persons',
   Place: 'glossary.place',
   Places: 'glossary.place',
+  'Places List': 'reports.builders.places-list',
+  Proband: 'reports.subjects.proband',
+  Publisher: 'books.config.publisher',
   Relationship: 'reports.terms.relationship',
   Report: 'glossary.report',
+  'Register Report': 'reports.builders.register',
   'Raw File': 'reports.terms.rawFile',
   Residence: 'reports.terms.residence',
   Scope: 'reports.terms.scope',
   Source: 'glossary.source',
   Sources: 'glossary.source',
+  'Sources List': 'reports.builders.sources-list',
   Spouse: 'glossary.spouse',
   Status: 'glossary.status',
   Summary: 'reports.terms.summary',
@@ -131,8 +143,16 @@ function localizeBlock(entry, t) {
 
 /** Exact-match a standalone term (table header, title). */
 function localizeText(value, t) {
-  const key = TERM_KEYS[String(value ?? '').trim()];
-  return key ? t(key) : value;
+  const text = String(value ?? '');
+  const key = TERM_KEYS[text.trim()];
+  if (key) return t(key);
+  const separator = text.indexOf(' — ');
+  if (separator > 0) {
+    const prefix = text.slice(0, separator).trim();
+    const prefixKey = TERM_KEYS[prefix];
+    if (prefixKey) return `${t(prefixKey)}${text.slice(separator)}`;
+  }
+  return value;
 }
 
 /**

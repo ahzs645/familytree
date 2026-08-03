@@ -53,6 +53,16 @@ describe('localizeReportAst', () => {
     expect(out.blocks[2].rows[0]).toEqual(['احمد رعد جليل']);
   });
 
+  it('localizes report titles while preserving their subject names', () => {
+    const report = emptyReport('Person Summary — Jane Doe');
+    report.blocks.push(block.title(report.title, 1));
+
+    const out = localizeReportAst(report, ar);
+
+    expect(out.title).toBe(`${ar('reports.builders.person-summary')} — Jane Doe`);
+    expect(out.blocks[0].text).toBe(`${ar('reports.builders.person-summary')} — Jane Doe`);
+  });
+
   it('is a no-op without a translator', () => {
     const report = emptyReport('Person Summary');
     report.blocks.push(block.table(['Type'], [['Birth']]));

@@ -1,5 +1,5 @@
 import { getAppDataClient } from './data/AppDataClient.js';
-import { readField } from './schema.js';
+import { readConclusionType, readField, readRef } from './schema.js';
 import { personSummary } from '../models/index.js';
 
 const META_KEY = 'familySearchApiConfig';
@@ -365,7 +365,7 @@ function extractCreatedPersonId(result) {
  * Each row exposes the candidate actions the UI can offer (all gated behind a reason
  * prompt before any write). This is pure logic — no network calls.
  */
-export function buildFamilySearchSyncRows(localPerson, remotePayload, { placesById = new Map() } = {}) {
+export function buildFamilySearchSyncRows(localPerson, remotePayload, { placesById = new Map(), personEvents = [] } = {}) {
   const local = personSummary(localPerson) || {};
   const remote = summarizeRemotePerson(remotePayload);
   const conclusions = [
@@ -373,8 +373,8 @@ export function buildFamilySearchSyncRows(localPerson, remotePayload, { placesBy
     { field: 'Gender', conclusion: 'gender', local: localGender(localPerson), remote: remote.gender },
     { field: 'Birth', conclusion: 'birth', local: readField(localPerson, ['cached_birthDate', 'birthDate'], ''), remote: remote.birth },
     { field: 'Death', conclusion: 'death', local: readField(localPerson, ['cached_deathDate', 'deathDate'], ''), remote: remote.death },
-    { field: 'Birth place', conclusion: 'birthPlace', local: localPlaceText(localPerson, 'birthPlace', placesById), remote: remote.birthPlace },
-    { field: 'Death place', conclusion: 'deathPlace', local: localPlaceText(localPerson, 'deathPlace', placesById), remote: remote.deathPlace },
+    { field: 'Birth place', conclusion: 'birthPlace', local: localVitalPlaceText(localPerson, 'Birth', personEvents, placesById), remote: remote.birthPlace },
+    { field: 'Death place', conclusion: 'deathPlace', local: localVitalPlaceText(localPerson, 'Death', personEvents, placesById), remote: remote.deathPlace },
   ];
   return conclusions.map(({ field, conclusion, local: localValue, remote: remoteValue }) => {
     const localText = String(localValue || '').trim();
@@ -411,16 +411,7 @@ export async function applyFamilySearchSyncAction(config, {
     // to write to FamilySearch here.
     return { direction, applied: 'local', value: row?.remote || '' };
   }
-  const gedcomx = localPersonToGedcomX(localPerson);
-  const person = gedcomx.persons[0] || {};
-  let payloadPerson = null;
-  if (row.conclusion === 'name') payloadPerson = { names: person.names || [] };
-  else if (row.conclusion === 'gender') payloadPerson = person.gender ? { gender: person.gender } : null;
-  else if (row.conclusion === 'birth' || row.conclusion === 'death') {
-    const tag = row.conclusion === 'birth' ? 'Birth' : 'Death';
-    const fact = (person.facts || []).find((item) => String(item.type || '').endsWith(`/${tag}`));
-    payloadPerson = fact ? { facts: [fact] } : null;
-  }
+  const payloadPerson = familySearchConclusionPayload(localPerson, row);
   if (direction === 'delete') {
     return familySearchRequest(config, `/platform/tree/persons/${encodeURIComponent(personId)}/conclusions`, {
       method: 'DELETE',
@@ -436,6 +427,27 @@ export async function applyFamilySearchSyncAction(config, {
     headers: { 'X-Reason': reason.trim() },
     body: JSON.stringify({ persons: [{ id: personId, ...payloadPerson }] }),
   });
+}
+
+/** Build the GEDCOM X fragment for one locally sourced conclusion. */
+export function familySearchConclusionPayload(localPerson, row) {
+  const gedcomx = localPersonToGedcomX(localPerson);
+  const person = gedcomx.persons[0] || {};
+  let payloadPerson = null;
+  if (row.conclusion === 'name') payloadPerson = { names: person.names || [] };
+  else if (row.conclusion === 'gender') payloadPerson = person.gender ? { gender: person.gender } : null;
+  else if (row.conclusion === 'birth' || row.conclusion === 'death') {
+    const tag = row.conclusion === 'birth' ? 'Birth' : 'Death';
+    const fact = (person.facts || []).find((item) => String(item.type || '').endsWith(`/${tag}`));
+    payloadPerson = fact ? { facts: [fact] } : null;
+  } else if (row.conclusion === 'birthPlace' || row.conclusion === 'deathPlace') {
+    const tag = row.conclusion === 'birthPlace' ? 'Birth' : 'Death';
+    const place = String(row.local || '').trim();
+    const fact = (person.facts || []).find((item) => String(item.type || '').endsWith(`/${tag}`))
+      || { type: `http://gedcomx.org/${tag}` };
+    payloadPerson = place ? { facts: [{ ...fact, place: { original: place } }] } : null;
+  }
+  return payloadPerson;
 }
 
 // ---------------------------------------------------------------------------
@@ -657,20 +669,23 @@ export async function readFamilySearchTree(config, personId, { direction = 'ance
     const payload = await readFamilySearchPerson(config, current.id, { relatives: true });
     const slice = extractFamilySearchTreeSlice(payload, current.id, direction);
     const rawPerson = payload?.persons?.find((person) => person.id === current.id) || payload?.person || { id: current.id };
+    const atBoundary = current.depth >= maxDepth;
+    const sliceNodes = atBoundary ? slice.nodes.filter((node) => node.id === current.id) : slice.nodes;
+    const sliceEdges = atBoundary ? [] : slice.edges;
     payloads.set(current.id, {
       persons: [rawPerson],
-      relationships: slice.edges.map((edge) => ({
+      relationships: sliceEdges.map((edge) => ({
         type: 'http://gedcomx.org/ParentChild',
         person1: { resourceId: edge.parentId },
         person2: { resourceId: edge.childId },
       })),
     });
-    for (const node of slice.nodes) {
+    for (const node of sliceNodes) {
       const previous = nodes.get(node.id);
       nodes.set(node.id, { ...previous, ...node, depth: Math.min(previous?.depth ?? Infinity, current.depth + (node.id === current.id ? 0 : 1)) });
     }
-    for (const edge of slice.edges) edges.set(`${edge.parentId}:${edge.childId}`, edge);
-    if (current.depth >= maxDepth) continue;
+    for (const edge of sliceEdges) edges.set(`${edge.parentId}:${edge.childId}`, edge);
+    if (atBoundary) continue;
     for (const nextId of slice.nextIds) {
       if (!fetched.has(nextId)) queue.push({ id: nextId, depth: current.depth + 1 });
     }
@@ -754,7 +769,7 @@ export function familySearchPersonWebUrl(config, personId) {
   return `${host}/tree/person/details/${encodeURIComponent(personId)}`;
 }
 
-export function compareLocalToFamilySearchPerson(localPerson, remotePayload, { placesById = new Map() } = {}) {
+export function compareLocalToFamilySearchPerson(localPerson, remotePayload, { placesById = new Map(), personEvents = [] } = {}) {
   const local = personSummary(localPerson) || {};
   const remote = summarizeRemotePerson(remotePayload);
   return [
@@ -762,8 +777,8 @@ export function compareLocalToFamilySearchPerson(localPerson, remotePayload, { p
     compareRow('Gender', localGender(localPerson), remote.gender),
     compareRow('Birth', readField(localPerson, ['cached_birthDate', 'birthDate'], ''), remote.birth),
     compareRow('Death', readField(localPerson, ['cached_deathDate', 'deathDate'], ''), remote.death),
-    compareRow('Birth place', localPlaceText(localPerson, 'birthPlace', placesById), remote.birthPlace),
-    compareRow('Death place', localPlaceText(localPerson, 'deathPlace', placesById), remote.deathPlace),
+    compareRow('Birth place', localVitalPlaceText(localPerson, 'Birth', personEvents, placesById), remote.birthPlace),
+    compareRow('Death place', localVitalPlaceText(localPerson, 'Death', personEvents, placesById), remote.deathPlace),
   ];
 }
 
@@ -819,6 +834,19 @@ function localPlaceText(person, field, placesById) {
   const id = resourceId(raw);
   const place = typeof placesById?.get === 'function' ? placesById.get(id) : placesById?.[id];
   return place ? String(readField(place, ['cached_standardizedLocationString', 'cached_normallocationString', 'placeName', 'name'], '')) : '';
+}
+
+function localVitalPlaceText(person, eventType, personEvents, placesById) {
+  const event = (personEvents || []).find((candidate) => readConclusionType(candidate) === eventType);
+  if (event) {
+    const placeId = readRef(event.fields?.place) || readRef(event.fields?.assignedPlace);
+    const place = typeof placesById?.get === 'function' ? placesById.get(placeId) : placesById?.[placeId];
+    const resolved = place
+      ? readField(place, ['cached_standardizedLocationString', 'cached_normallocationString', 'placeName', 'name'], '')
+      : readField(event, ['placeName', 'assignedPlaceName'], '');
+    if (resolved) return String(resolved);
+  }
+  return localPlaceText(person, eventType === 'Birth' ? 'birthPlace' : 'deathPlace', placesById);
 }
 
 function familySearchMockData(config) {

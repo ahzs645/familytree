@@ -33,6 +33,7 @@ import {
 } from './reports/builders.js';
 import { renderHTML } from './reports/renderers/html.js';
 import { renderText } from './reports/renderers/text.js';
+import { localizeReportAst } from './reports/localizeReport.js';
 import { normalizePresentationSettings } from './presentationSettings.js';
 import { buildSite } from './websiteExport.js';
 import { getAuthorInfo } from './authorInfo.js';
@@ -420,7 +421,7 @@ export async function compileBook(book) {
 
   for (let i = 0; i < (book.sections || []).length; i++) {
     const s = book.sections[i];
-    const sectionBlocks = await sectionToBlocks(s, author);
+    const sectionBlocks = await sectionToBlocks(s, author, t);
     // Renderer-only metadata stays non-enumerable so the public report AST
     // remains backward compatible for text/CSV/RTF exporters and consumers.
     sectionBlocks.forEach((entry) => Object.defineProperty(entry, 'bookSectionKind', {
@@ -459,7 +460,105 @@ function materializeToc(entries, style = 'numbered', t = (key) => key) {
   ];
 }
 
-async function sectionToBlocks(section, author = null) {
+export function bookSectionReportOptions(section = {}) {
+  const sortBy = section.sort === 'birth-asc' || section.sort === 'birth-desc'
+    ? 'birth'
+    : section.sort === 'date' ? 'date' : 'name';
+  return {
+    ...(section.config || {}),
+    scope: section.scope || 'all',
+    targetRecordName: section.targetRecordName || '',
+    targetFamilyRecordName: section.targetFamilyRecordName || '',
+    personFilter: section.personFilter || 'all',
+    sortBy,
+    sortDescending: section.sort === 'birth-desc',
+    appendCitations: section.includeSources !== false,
+    includeSources: section.includeSources !== false,
+    includeMedia: section.includeMedia !== false,
+    includeNotes: section.includeNotes !== false,
+    includePrivate: !!section.includePrivate,
+  };
+}
+
+export function bookSectionPersonIds(section = {}, { families = [], childRelations = [] } = {}) {
+  const scope = section.scope || 'all';
+  if (scope === 'all') return null;
+  const targetId = section.targetRecordName || '';
+  if (scope === 'family') {
+    const family = families.find((record) => record.recordName === section.targetFamilyRecordName);
+    if (!family) return targetId ? [targetId] : [];
+    const ids = new Set([readRef(family.fields?.man), readRef(family.fields?.woman)].filter(Boolean));
+    for (const relation of childRelations) {
+      if (readRef(relation.fields?.family) === family.recordName) ids.add(readRef(relation.fields?.child));
+    }
+    return [...ids].filter(Boolean);
+  }
+  if (!targetId) return [];
+  if (scope === 'selected') return [targetId];
+
+  const familyById = new Map(families.map((family) => [family.recordName, family]));
+  const parentFamiliesByChild = new Map();
+  const childrenByFamily = new Map();
+  for (const relation of childRelations) {
+    const familyId = readRef(relation.fields?.family);
+    const childId = readRef(relation.fields?.child);
+    if (!familyId || !childId) continue;
+    if (!parentFamiliesByChild.has(childId)) parentFamiliesByChild.set(childId, []);
+    parentFamiliesByChild.get(childId).push(familyId);
+    if (!childrenByFamily.has(familyId)) childrenByFamily.set(familyId, []);
+    childrenByFamily.get(familyId).push(childId);
+  }
+  const spouseFamiliesByPerson = new Map();
+  for (const family of families) {
+    for (const personId of [readRef(family.fields?.man), readRef(family.fields?.woman)].filter(Boolean)) {
+      if (!spouseFamiliesByPerson.has(personId)) spouseFamiliesByPerson.set(personId, []);
+      spouseFamiliesByPerson.get(personId).push(family.recordName);
+    }
+  }
+  const result = new Set([targetId]);
+  const queue = [targetId];
+  while (queue.length) {
+    const personId = queue.shift();
+    const next = [];
+    if (scope === 'ancestors' || scope === 'relatives') {
+      for (const familyId of parentFamiliesByChild.get(personId) || []) {
+        const family = familyById.get(familyId);
+        next.push(readRef(family?.fields?.man), readRef(family?.fields?.woman));
+        if (scope === 'relatives') next.push(...(childrenByFamily.get(familyId) || []));
+      }
+    }
+    if (scope === 'descendants' || scope === 'relatives') {
+      for (const familyId of spouseFamiliesByPerson.get(personId) || []) {
+        const family = familyById.get(familyId);
+        if (scope === 'relatives') next.push(readRef(family?.fields?.man), readRef(family?.fields?.woman));
+        next.push(...(childrenByFamily.get(familyId) || []));
+      }
+    }
+    for (const nextId of next.filter(Boolean)) {
+      if (result.has(nextId)) continue;
+      result.add(nextId);
+      queue.push(nextId);
+    }
+  }
+  return [...result];
+}
+
+async function resolveBookSectionPersonIds(section) {
+  if (!section.scope || section.scope === 'all') return null;
+  const db = getAppDataClient().records;
+  const [{ records: families }, { records: childRelations }] = await Promise.all([
+    db.query('Family', { limit: 100000 }),
+    db.query('ChildRelation', { limit: 100000 }),
+  ]);
+  return bookSectionPersonIds(section, { families, childRelations });
+}
+
+function localizedReportBlocks(report, t) {
+  return localizeReportAst(report, t).blocks || [];
+}
+
+async function sectionToBlocks(section, author = null, t = null) {
+  const options = bookSectionReportOptions(section);
   switch (section.kind) {
     case 'cover':
     case 'title':
@@ -476,67 +575,68 @@ async function sectionToBlocks(section, author = null) {
       // Placeholder — materialized after all sections compile so page numbers are consistent.
       return [{ kind: '__toc_placeholder__', tocStyle: section.tocStyle || 'numbered' }];
     case 'person-summary': {
-      const r = await buildPersonSummary(section.targetRecordName);
-      return r.blocks;
+      const r = await buildPersonSummary(section.targetRecordName, options);
+      return localizedReportBlocks(r, t);
     }
     case 'ancestor-narrative': {
       const r = await buildAncestorNarrative(section.targetRecordName, section.generations || 5);
-      return r.blocks;
+      return localizedReportBlocks(r, t);
     }
     case 'descendant-narrative': {
       const r = await buildDescendantNarrative(section.targetRecordName, section.generations || 4);
-      return r.blocks;
+      return localizedReportBlocks(r, t);
     }
     case 'narrative-report': {
-      const r = await buildNarrativeReport(section.targetRecordName, section.generations || 4);
-      return r.blocks;
+      const r = await buildNarrativeReport(section.targetRecordName, section.generations || 4, options);
+      return localizedReportBlocks(r, t);
     }
     case 'ahnentafel-report': {
       const r = await buildAhnentafelReport(section.targetRecordName, section.generations || 6);
-      return r.blocks;
+      return localizedReportBlocks(r, t);
     }
     case 'register-report': {
       const r = await buildRegisterReport(section.targetRecordName, section.generations || 4);
-      return r.blocks;
+      return localizedReportBlocks(r, t);
     }
     case 'descendancy-report': {
-      const r = await buildDescendancyReport(section.targetRecordName, section.generations || 5);
-      return r.blocks;
+      const r = await buildDescendancyReport(section.targetRecordName, section.generations || 5, options);
+      return localizedReportBlocks(r, t);
     }
     case 'family-group-sheet': {
-      const r = await buildFamilyGroupSheet(section.targetRecordName);
-      return r.blocks;
+      const r = await buildFamilyGroupSheet(section.targetRecordName, options);
+      return localizedReportBlocks(r, t);
     }
     case 'person-group':
-      return buildPersonGroupInsert(section.groupRecordName);
+      return localizedReportBlocks({ blocks: await buildPersonGroupInsert(section.groupRecordName, options) }, t);
     case 'source-insert':
-      return buildSourceInsert(section.sourceRecordName);
+      return localizedReportBlocks({ blocks: await buildSourceInsert(section.sourceRecordName) }, t);
     case 'persons-list': {
-      const r = await buildPersonsList();
-      return r.blocks;
+      const personIds = await resolveBookSectionPersonIds(section);
+      const r = await buildPersonsList({ ...options, ...(personIds ? { personIds } : {}) });
+      return localizedReportBlocks(r, t);
     }
     case 'places-list': {
-      const r = await buildPlacesList();
-      return r.blocks;
+      const r = await buildPlacesList(options);
+      return localizedReportBlocks(r, t);
     }
     case 'sources-list': {
-      const r = await buildSourcesList();
-      return r.blocks;
+      const r = await buildSourcesList(options);
+      return localizedReportBlocks(r, t);
     }
     case 'bibliography':
-      return buildBibliographyInsert(section.config);
+      return localizedReportBlocks({ blocks: await buildBibliographyInsert(section.config) }, t);
     case 'footnotes':
-      return buildFootnotesInsert(section.config);
+      return localizedReportBlocks({ blocks: await buildFootnotesInsert(section.config) }, t);
     case 'media-gallery': {
-      const r = await buildMediaGalleryReport();
-      return r.blocks;
+      const r = await buildMediaGalleryReport(options);
+      return localizedReportBlocks(r, t);
     }
     case 'media-page':
-      return buildMediaPageInsert(section.targetRecordName, section.caption);
+      return localizedReportBlocks({ blocks: await buildMediaPageInsert(section.targetRecordName, section.caption) }, t);
     case 'saved-report':
-      return buildSavedReportInsert(section.savedReportId);
+      return localizedReportBlocks({ blocks: await buildSavedReportInsert(section.savedReportId) }, t);
     case 'saved-chart':
-      return buildSavedChartInsert(section.savedChartId);
+      return localizedReportBlocks({ blocks: await buildSavedChartInsert(section.savedChartId) }, t);
     default:
       return [block.paragraph(`Unsupported section: ${section.kind}`)];
   }
