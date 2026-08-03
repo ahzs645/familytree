@@ -282,22 +282,28 @@ export default function Persons() {
   const listActions = (
     <>
       {!isMobile && newPersonAction}
-      <ColumnChooser
-        columns={listColumns}
-        isVisible={columnVisibility.isVisible}
-        onToggle={columnVisibility.toggle}
-        onReset={columnVisibility.resetToDefaults}
-      />
-      <ListReportToolbar
-        title={t('persons.listTitle')}
-        rows={visiblePersons}
-        columns={exportColumns}
-        options={report.options}
-        update={report.update}
-        updateInfoColumn={report.updateInfoColumn}
-        onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
-        compact
-      />
+      {/* Column chooser and report workbench need desktop width; on a phone
+          they overflow the toolbar, leaving export as the useful action. */}
+      {!isMobile && (
+        <ColumnChooser
+          columns={listColumns}
+          isVisible={columnVisibility.isVisible}
+          onToggle={columnVisibility.toggle}
+          onReset={columnVisibility.resetToDefaults}
+        />
+      )}
+      {!isMobile && (
+        <ListReportToolbar
+          title={t('persons.listTitle')}
+          rows={visiblePersons}
+          columns={exportColumns}
+          options={report.options}
+          update={report.update}
+          updateInfoColumn={report.updateInfoColumn}
+          onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
+          compact
+        />
+      )}
       <ExportMenu
         onCsv={() => downloadRowsAsCsv('persons-list', visiblePersons, exportColumns)}
         onJson={() => downloadRowsAsJson('persons-list', visiblePersons, exportColumns)}

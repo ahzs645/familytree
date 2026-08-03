@@ -8,6 +8,7 @@ import { Select } from '../ui/Select.jsx';
 import { listToolbarSelectTriggerClass } from './listToolbarClasses.js';
 import { GroupBySelect } from './GroupBySelect.jsx';
 import { useGroupProfile } from './useGroupProfile.js';
+import { useIsMobile } from '../../lib/useIsMobile.js';
 
 export function ConfigurableListTable({
   listId,
@@ -23,18 +24,23 @@ export function ConfigurableListTable({
   const columnVisibility = useColumnVisibility(listId, columns);
   const report = useListReportOptions();
   const groupProfile = useGroupProfile(listId, groupOptions, defaultGroupKey);
+  // The report workbench and column chooser are desktop-width tools; on a
+  // phone they overflow the toolbar, so sorting and grouping carry the row.
+  const isMobile = useIsMobile();
   const controls = (
     <>
       {toolbar}
-      <ListReportToolbar
-        title={tableProps.reportTitle || tableProps.title || t('lists.report')}
-        rows={tableProps.rows || []}
-        columns={columns}
-        options={report.options}
-        update={report.update}
-        updateInfoColumn={report.updateInfoColumn}
-        onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
-      />
+      {!isMobile && (
+        <ListReportToolbar
+          title={tableProps.reportTitle || tableProps.title || t('lists.report')}
+          rows={tableProps.rows || []}
+          columns={columns}
+          options={report.options}
+          update={report.update}
+          updateInfoColumn={report.updateInfoColumn}
+          onPreviewChange={(previewMode) => report.update('previewMode', previewMode)}
+        />
+      )}
       {sortProfile?.sortOptions?.length ? (
         <div className="inline-flex items-center gap-2">
           <span className="text-xs text-muted-foreground whitespace-nowrap">{sortProfile.label || t('sortProfiles.label')}</span>
@@ -56,13 +62,15 @@ export function ConfigurableListTable({
         onChange={groupProfile.setGroupKey}
         options={groupOptions}
       />
-      <ColumnChooser
-        columns={columns}
-        isVisible={columnVisibility.isVisible}
-        onToggle={columnVisibility.toggle}
-        onReset={columnVisibility.resetToDefaults}
-        label={columnChooserLabel}
-      />
+      {!isMobile && (
+        <ColumnChooser
+          columns={columns}
+          isVisible={columnVisibility.isVisible}
+          onToggle={columnVisibility.toggle}
+          onReset={columnVisibility.resetToDefaults}
+          label={columnChooserLabel}
+        />
+      )}
     </>
   );
   return (
