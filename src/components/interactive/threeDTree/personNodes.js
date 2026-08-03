@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { yearLabel } from '../../../lib/vitalFormat.js';
+import { Gender } from '../../../models/index.js';
 import { ROOT_CARD, SKIN } from './constants.js';
 import { MAC_FAMILY_GRAPH_LAYOUT } from './macTreeStyle.js';
 import { makeReferencePersonModel } from './referenceModels.js';
@@ -355,29 +356,32 @@ function hasMoreRelatives(node) {
 // to a point in the pointed direction, tinted by the person's resolved colour.
 // Mirrors the native viewer's FurtherPersonsMark: the taper aims at where the
 // hidden relatives live (down = this person's own families/children).
-function makeFurtherPersonsPin(node, palette, featured, dir, baseY) {
+// Native FurtherPersonsMark (decompiled updateFurtherPersonMarkWithNodeRef:):
+// a short capsule 0.39 native units long (×58 web), radius 0.025u, with a ball
+// of radius 0.05u at the far end, tinted 0.75 × the person's resolved colour.
+// Directions: parents (0,+1 toward parents), children (0,-1), male-partner
+// slot (-1,0), female-partner slot (+1,0).
+function makeFurtherPersonsPin(node, palette, featured, dirX, dirY, baseX, baseY, scale = 1) {
   const group = new THREE.Group();
-  const color = colorsForGender(node?.person?.gender, palette).deep;
-  const material = new THREE.MeshStandardMaterial({ color, roughness: 0.46, metalness: 0.05 });
-  const headR = featured ? 4.8 : 3.8;
-  const tipLen = featured ? 12 : 9.5;
-  // Rounded head sitting at the band edge…
-  const head = new THREE.Mesh(new THREE.SphereGeometry(headR, 18, 14), material);
-  head.position.set(0, 0, 0);
-  group.add(head);
-  // …tapering to a point in the pointed direction (cone tip = the "arrow").
-  const tip = new THREE.Mesh(new THREE.ConeGeometry(headR, tipLen, 16), material);
-  // Cone apex points +Y by default; rotate π to point it down when dir < 0.
-  tip.rotation.x = dir < 0 ? Math.PI : 0;
-  tip.position.set(0, dir * (tipLen / 2 + headR * 0.35), 0);
-  group.add(tip);
-  const highlight = new THREE.Mesh(
-    new THREE.SphereGeometry(featured ? 1.5 : 1.2, 8, 6),
-    new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false })
+  const base = new THREE.Color(colorsForGender(node?.person?.gender, palette).base);
+  const color = base.multiplyScalar(0.75);
+  const material = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0 });
+  const u = 58 * scale * (featured ? 1.2 : 1);
+  const length = 0.39 * u;
+  const radius = Math.max(1.1, 0.025 * u);
+  const ballR = Math.max(2.1, 0.05 * u);
+  const capsule = new THREE.Mesh(
+    new THREE.CapsuleGeometry(radius, Math.max(2, length - radius * 2), 3, 10),
+    material
   );
-  highlight.position.set(-headR * 0.32, headR * 0.32, headR * 0.7);
-  group.add(highlight);
-  group.position.set(0, baseY, 12);
+  // CapsuleGeometry's long axis is Y; rotate onto X for horizontal stubs.
+  if (dirX !== 0) capsule.rotation.z = Math.PI / 2;
+  capsule.position.set(dirX * length / 2, dirY * length / 2, 0);
+  group.add(capsule);
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(ballR, 16, 12), material);
+  ball.position.set(dirX * length, dirY * length, 0);
+  group.add(ball);
+  group.position.set(baseX, baseY, 10);
   group.renderOrder = 19;
   return group;
 }
@@ -388,13 +392,28 @@ function makeFurtherPersonsPin(node, palette, featured, dir, baseY) {
 function makeFurtherRelativesMarker(node, palette, featured) {
   const group = new THREE.Group();
   const more = node?.more || {};
-  const topY = featured ? ROOT_CARD.h * 0.5 + 8 : 64;
-  const bottomY = featured ? -ROOT_CARD.h * 0.5 - 84 : -102;
+  const scale = Number.isFinite(node?.scale) ? node.scale : 1;
+  const topY = featured ? ROOT_CARD.h * 0.5 + 8 : 58 * scale;
+  const bottomY = featured ? -ROOT_CARD.h * 0.5 - 84 : -96 * scale;
+  const male = node?.person?.gender === Gender.Male;
   let drew = false;
-  if ((more.parents || 0) > 0) { group.add(makeFurtherPersonsPin(node, palette, featured, 1, topY)); drew = true; }
-  if ((more.families || 0) > 0) { group.add(makeFurtherPersonsPin(node, palette, featured, -1, bottomY)); drew = true; }
+  if ((more.parents || 0) > 0) {
+    group.add(makeFurtherPersonsPin(node, palette, featured, 0, 1, 0, topY, scale));
+    drew = true;
+  }
+  if ((more.families || 0) > 0) {
+    // A hidden spouse-family = a partner stub toward the missing partner's
+    // slot (native: female-partner direction +X, male-partner -X) plus a
+    // children pin hanging below — both visible in the reference close-ups.
+    const dir = male ? 1 : -1;
+    group.add(makeFurtherPersonsPin(node, palette, featured, dir, 0, dir * 20 * scale, 10 * scale, scale));
+    group.add(makeFurtherPersonsPin(node, palette, featured, 0, -1, 0, bottomY, scale));
+    drew = true;
+  }
   // Fallback for a generic "more relatives" count with no direction.
-  if (!drew && (more.relatives || 0) > 0) group.add(makeFurtherPersonsPin(node, palette, featured, -1, bottomY));
+  if (!drew && (more.relatives || 0) > 0) {
+    group.add(makeFurtherPersonsPin(node, palette, featured, 0, -1, 0, bottomY, scale));
+  }
   // Tag the marker so a click on any pin toggles expand-in-place for this person,
   // and add a generous transparent hit-pad so the small pin is easy to click.
   group.userData.expandFor = node?.id || node?.person?.recordName || null;

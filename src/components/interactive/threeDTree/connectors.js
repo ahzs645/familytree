@@ -194,6 +194,17 @@ export function makeConnector(link, nodes, palette, options = {}) {
   return group;
 }
 
+function blendHex(hexA, hexB, fraction) {
+  const parse = (hex) => {
+    const normalized = String(hex || '').replace('#', '');
+    return [0, 2, 4].map((index) => parseInt(normalized.slice(index, index + 2), 16) || 0);
+  };
+  const a = parse(hexA);
+  const b = parse(hexB);
+  const mixed = a.map((channel, index) => Math.round(channel + (b[index] - channel) * fraction));
+  return `#${mixed.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
+}
+
 function lightenHex(hex, amount) {
   const normalized = String(hex || '').replace('#', '');
   if (normalized.length !== 6) return hex;
@@ -286,7 +297,26 @@ function colorForConnector(link, type, palette, mode, customColor) {
     return link.emphasis ? palette.descendantLine : (type === 'ancestor' ? palette.ancestorLine : palette.descendantLine);
   }
   // byGenerationLight (default) and byGenerationDark are identical natively.
-  if (Number.isFinite(link.generation)) return nativeConnectionColor(link.generation);
+  // Native blends the PARENT-generation level and CHILD-generation level
+  // 50/50 (decompiled generalPlatformColorForFamilyConnectionInfo:) — that
+  // half-step of hue is what lands on the deep crimson/violet tones the Mac
+  // renders instead of the raw vivid wheel entries.
+  if (Number.isFinite(link.generation)) {
+    // Web generations negate the native level, so the native "+relationOrder"
+    // becomes a subtraction here.
+    const shifted = link.generation - (Number(link.relationOrder) || 0);
+    // Slight shade compensates for the web rig's brighter ambient (1.4 vs the
+    // native 0.55) so the rendered ribbon tone matches the Mac's deeper look.
+    return blendHex(
+      blendHex(
+        nativeConnectionColor(shifted),
+        nativeConnectionColor(shifted - 1),
+        0.5
+      ),
+      '#000000',
+      0.16
+    );
+  }
   if (type === 'partner') return palette.partnerLine;
   if (link.emphasis) return palette.descendantLine;
   if (type === 'ancestor') return palette.ancestorLine;

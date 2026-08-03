@@ -248,6 +248,21 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
     }
   };
 
+  // Native shows ALL unions of every direct-line ancestor in-band (the
+  // parentsRelationOrder lanes): the step-spouse stands beside the ancestor
+  // with that union's children (half-siblings) alongside. Pull those families
+  // in for each lineage parent.
+  const addOtherUnions = (personId, generationForChildren, branch) => {
+    if (!personId) return;
+    for (const family of familyById.values()) {
+      const manId = refToRecordName(family.fields?.man?.value);
+      const womanId = refToRecordName(family.fields?.woman?.value);
+      if (manId !== personId && womanId !== personId) continue;
+      if (familyIds.has(family.recordName)) continue;
+      addFamily(family.recordName, generationForChildren, 'ancestor', branch);
+    }
+  };
+
   const visitAncestorLine = (personId, generation, depth, branch = 'root') => {
     if (depth > maxAncestorGenerations) return;
     for (const familyId of parentFamiliesByChild.get(personId) || []) {
@@ -257,6 +272,8 @@ export async function buildInteractiveFamilyGraph(rootRecordName, options = {}) 
       const motherId = refToRecordName(family?.fields?.woman?.value);
       const fatherBranch = branch === 'root' ? 'paternal' : branch;
       const motherBranch = branch === 'root' ? 'maternal' : branch;
+      addOtherUnions(fatherId, generation, fatherBranch);
+      addOtherUnions(motherId, generation, motherBranch);
       if (fatherId) visitAncestorLine(fatherId, generation - 1, depth + 1, fatherBranch);
       if (motherId) visitAncestorLine(motherId, generation - 1, depth + 1, motherBranch);
     }

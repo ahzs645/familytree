@@ -51,55 +51,116 @@ function rgbaToColor(rgba) {
   return new THREE.Color(`rgb(${match[1]}, ${match[2]}, ${match[3]})`);
 }
 
-export function makeGenerationBand(band, palette, style = 'raised', options = {}) {
+// 1 native scene unit = 58 web units (the builder allocates a 1×1 slot per
+// unminified person = regularModelSize). All native band constants below are
+// decompiled from GenerationBandObject / elevationOfContentAboveBottomFloor.
+const NATIVE_UNIT = 58;
+// Common band floor. Native bands rise from the shared ground plane (Y=0);
+// the web board keeps figures around z≈0, so the floor sits below them and
+// each style's elevation decides how close the top face comes to the figures.
+const BAND_FLOOR_Z = -26;
+
+// Native style heights (native units → web): style mode → [bloodTop, otherTop].
+function bandElevations(style, generation, band) {
+  const u = NATIVE_UNIT;
+  switch (style) {
+    case 'flat': return [0.02 * u, 0.02 * u];
+    case 'raised': return [0.1 * u, 0.1 * u];
+    case 'raisedProminent': return [0.25 * u, 0.1 * u];
+    case 'pedestal': return [0.15 * u, 0.15 * u];
+    case 'pedestalProminent': return [0.30 * u, 0.15 * u];
+    case 'smallStairs':
+    case 'smallStairsProminent':
+    case 'largeStairs':
+    case 'largeStairsProminent': {
+      const small = style.startsWith('small');
+      const base = (small ? 0.15 : 0.30) * u;
+      const step = base;
+      const level = Math.abs(Number(generation) || 0);
+      const bloodStep = step;
+      const otherStep = /Prominent$/.test(style) ? step * 0.4 : step;
+      return [base + level * bloodStep, base + level * otherStep];
+    }
+    default: return [0.30 * u, 0.15 * u];
+  }
+}
+
+export function makeGenerationBand(band, palette, style = 'pedestalProminent', options = {}) {
   if (style === 'none') return new THREE.Group();
   const opacity = Number.isFinite(options.generationBandOpacity) ? options.generationBandOpacity : 0.62;
   const colorMode = options.generationBandColorMode || 'byGeneration';
-  const renderStyle = normalizeRenderStyle(style);
-  const prominent = isProminentBlood(style);
-  const zOffset = bandHeightOffset(style, band.generation);
-  const effectiveColorMode = prominent && colorMode === 'byGeneration' ? 'highSaturation' : colorMode;
-  const color = rgbaToColor(bandFillForMode(band, effectiveColorMode, options));
-  // Real extruded slab so the band reads as a 3D pedestal (visible depth/side
-  // when the camera tilts) like the native viewer, not a flat sticker.
-  const depth = renderStyle === 'pedestal' ? 70 : renderStyle === 'flat' ? 10 : 44;
+  const baseColor = rgbaToColor(bandFillForMode(band, colorMode, options));
+  const [bloodTop, otherTop] = bandElevations(style, band.generation, band);
+  const u = NATIVE_UNIT;
+  const capThickness = 0.06 * u;      // native pedestal cap
+  const capChamfer = 0.0175 * u;
+  const bodyChamfer = 0.01 * u;
+  const desaturate = options.desaturateColorsForPartnerAncestors !== false;
   const group = new THREE.Group();
   const segments = band.segments?.length ? band.segments : [band];
+  // Tiny per-generation lift so overlapping band rectangles (root card over
+  // the parents' row) depth-sort cleanly instead of z-fighting. Invisible at
+  // 0.5 units; native rows never overlap because layout contour-packs them.
+  const floorZ = BAND_FLOOR_Z + (Number(band.generation) || 0) * 0.5;
   for (const segment of segments) {
-    // Segments carry explicit width/height/x/y so reoriented (Left↔Right) bands
-    // render as vertical bars; vertical bands fall back to the band thickness.
     const segW = Number.isFinite(segment.width) ? segment.width : band.width;
     const segH = Number.isFinite(segment.height) ? segment.height : band.height;
     const segX = segment.x;
     const segY = Number.isFinite(segment.y) ? segment.y : band.y;
-    const shape = roundedRectShape(segW, segH, Math.min(34, segH / 2, segW / 2));
-    const geometry = new THREE.ExtrudeGeometry(shape, {
-      depth,
-      bevelEnabled: true,
-      bevelThickness: 7,
-      bevelSize: 6,
-      bevelSegments: 2,
-      curveSegments: 8,
-    });
-    geometry.translate(0, 0, -depth);
-    const material = new THREE.MeshStandardMaterial({
-      color,
+    const blood = segment.blood !== false;
+    const height = blood ? bloodTop : otherTop;
+    // Native corner radius: min(width/6, length/6, 0.25 native units).
+    const radius = Math.min(segW / 6, segH / 6, 0.25 * u);
+    // Partner (non-blood) groups desaturate: S×0.4, V×0.9 in the light theme.
+    let color = baseColor;
+    if (!blood && desaturate) {
+      const hsl = { h: 0, s: 0, l: 0 };
+      baseColor.getHSL(hsl);
+      color = new THREE.Color().setHSL(hsl.h, hsl.s * 0.4, Math.min(1, hsl.l * 0.96));
+    }
+    // Lower body blends toward the scene background (native fraction ~0.45).
+    const bodyColor = color.clone().lerp(new THREE.Color(palette.background || '#f4f2ee'), 0.45);
+    const material = (fill) => new THREE.MeshStandardMaterial({
+      color: fill,
       roughness: 0.82,
       metalness: 0,
       transparent: opacity < 0.99,
       opacity: Math.max(0.5, Math.min(1, opacity / 0.62)),
     });
-    const mesh = new THREE.Mesh(geometry, material);
-    // Top face sits just behind the figures; the slab extrudes away from camera.
-    mesh.position.set(segX, segY, -8 + zOffset);
-    mesh.castShadow = false;
-    mesh.receiveShadow = true;
-    mesh.renderOrder = 1;
-    group.add(mesh);
+    const shape = roundedRectShape(segW, segH, radius);
+    // Two stacked rounded shapes (native pedestal): a thin cap over a body.
+    const bodyDepth = Math.max(2, height - capThickness);
+    const body = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, {
+      depth: bodyDepth,
+      bevelEnabled: true,
+      bevelThickness: bodyChamfer,
+      bevelSize: bodyChamfer,
+      bevelSegments: 1,
+      curveSegments: 8,
+    }), material(bodyColor));
+    body.position.set(segX, segY, floorZ);
+    body.receiveShadow = true;
+    body.renderOrder = 1;
+    group.add(body);
+    const cap = new THREE.Mesh(new THREE.ExtrudeGeometry(shape, {
+      depth: capThickness,
+      bevelEnabled: true,
+      bevelThickness: capChamfer,
+      bevelSize: capChamfer,
+      bevelSegments: 2,
+      curveSegments: 8,
+    }), material(color));
+    cap.position.set(segX, segY, floorZ + bodyDepth);
+    cap.receiveShadow = true;
+    cap.renderOrder = 1.2;
+    group.add(cap);
 
+    // Native fake band shadow: +0.23 native units in both dimensions, centered
+    // (no lateral offset), transparency 0.25, just above the floor.
     const shadowTexture = makeBandShadowTexture();
-    const shadow = makePlaneFromTexture(shadowTexture, segW * 1.04, segH * 1.12);
-    shadow.position.set(segX + 12, segY - 18, -8 - depth - 10 + zOffset);
+    const shadow = makePlaneFromTexture(shadowTexture, segW + 0.23 * u, segH + 0.23 * u);
+    shadow.material.opacity = 0.25;
+    shadow.position.set(segX, segY, floorZ - 1);
     shadow.renderOrder = 0.5;
     group.add(shadow);
   }

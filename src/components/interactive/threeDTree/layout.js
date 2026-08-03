@@ -258,9 +258,14 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   }
   const familyByChild = new Map();
   const familyById = new Map((familyGraph.families || []).map((family) => [family.id, family]));
+  const familiesByParent = new Map();
   for (const family of familyById.values()) {
     for (const childId of family.children || []) {
       if (!familyByChild.has(childId)) familyByChild.set(childId, family);
+    }
+    for (const parentId of family.parents || []) {
+      if (!familiesByParent.has(parentId)) familiesByParent.set(parentId, []);
+      familiesByParent.get(parentId).push(family);
     }
   }
 
@@ -422,6 +427,43 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
         else { leftX -= siblingGap; placeSibling(id, leftX); }
       });
     }
+    // Native shows every union of a direct-line ancestor in-band: the
+    // step-spouse stands full-size just OUTSIDE the ancestor (on the
+    // ancestor's own side, like علي beside زينب in the reference), with that
+    // union's children (half-siblings, minified) beyond. The family routing
+    // loop then draws its couple bar in the next relation-order lane/colour.
+    const outward = side || 1;
+    for (const other of familiesByParent.get(personId) || []) {
+      // Skip the union that continues the displayed lineage downward (its
+      // couple bar + drops are routed from the child generation's branch).
+      if (lineageChildId.has(other.id)) continue;
+      const spouseId = (other.parents || []).find((id) => id !== personId && sourceNodes.has(id));
+      const unionChildren = (other.children || []).filter((id) => sourceNodes.has(id) && id !== personId);
+      if (!spouseId && unionChildren.length === 0) continue;
+      const edge = outward < 0 ? rowExtent.min : rowExtent.max;
+      let cursor = edge;
+      if (spouseId && !nodes.some((node) => node.id === spouseId && node.gen === generation)) {
+        cursor += outward * (siblingGap + 40);
+        nodes.push({
+          id: spouseId, gen: generation, dx: cursor, holderId: other.id,
+          priority: 45 - Math.abs(generation), lineage: false, scaleOverride: 1,
+        });
+        rowExtent.min = Math.min(rowExtent.min, cursor);
+        rowExtent.max = Math.max(rowExtent.max, cursor);
+      }
+      for (const childId of unionChildren) {
+        if (nodes.some((node) => node.id === childId)) continue;
+        cursor += outward * siblingGap;
+        nodes.push({
+          id: childId, gen: generation + 1, dx: cursor, holderId: other.id,
+          priority: 30 - Math.abs(generation), lineage: false,
+        });
+        const childRow = extents.get(generation + 1) || { min: cursor, max: cursor };
+        childRow.min = Math.min(childRow.min, cursor);
+        childRow.max = Math.max(childRow.max, cursor);
+        extents.set(generation + 1, childRow);
+      }
+    }
     if (depth > MAX_DEPTH) return { nodes, extents };
     const parents = (family.parents || []).filter((id) => sourceNodes.has(id)).slice(0, 2);
     if (parents.length === 1) {
@@ -462,7 +504,7 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       if (node.gen === 0) continue;
       addNode(node.id, node.gen, rootX + node.dx, node.holderId, node.priority, {
         lineage: node.lineage,
-        scale: node.lineage ? 1 : 0.5,
+        scale: node.scaleOverride ?? (node.lineage ? 1 : 0.5),
       });
     }
   } else {
@@ -518,6 +560,10 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
   // line, maternal=green wife line) for the "By Lineage" colour mode.
   let routingGeneration = 0;
   let routingColorClass = 'descend';
+  // Native adds the union's relation order into the colour level (a second
+  // marriage of the same person draws the NEXT wheel hue — olive next to
+  // maroon in the reference), so links carry it alongside the generation.
+  let routingRelationOrder = 0;
   const addPolyline = (familyId, type, emphasis, points, nodeIds = []) => {
     routedLinks.push({
       key: `${familyId}:${type}:${routedLinks.length}`,
@@ -527,13 +573,23 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       points,
       nodeIds,
       generation: routingGeneration,
+      relationOrder: routingRelationOrder,
       colorClass: routingColorClass,
     });
   };
+  // Native parentsRelationOrder: each ADDITIONAL union of the same person
+  // shifts its couple bar one lane toward the parents (-0.1 native × order,
+  // ≈ 7.3 web units, orders ≤ 5 only) so remarriage bars don't overlap.
+  const unionCountByPerson = new Map();
   for (const family of familyGraph.families || []) {
     const parents = (family.parents || []).map((id) => nodeById.get(id)).filter((node) => node && visibleIds.has(node.id));
     const children = (family.children || []).map((id) => nodeById.get(id)).filter((node) => node && visibleIds.has(node.id));
     if (parents.length === 0 || children.length === 0) continue;
+    const unionOrder = Math.max(...parents.map((parent) => unionCountByPerson.get(parent.id) || 0));
+    for (const parent of parents) {
+      unionCountByPerson.set(parent.id, (unionCountByPerson.get(parent.id) || 0) + 1);
+    }
+    routingRelationOrder = unionOrder;
     const generation = children[0].generation;
     routingGeneration = generation;
     // Native lineage colouring: root's family (children at gen 0) draws purple;
@@ -572,7 +628,10 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       ? Math.max(...sortedChildren.map(edgeOf))
       : Math.min(...sortedChildren.map(edgeOf));
     const childBusY = (parentFarEdge + childNearEdge) / 2;
-    const coupleBarY = average(parents.map((parent) => parent.y));
+    const laneOffset = unionOrder <= 5
+      ? direction * 7.3 * unionOrder * Math.min(...parents.map((parent) => Number.isFinite(parent.scale) ? parent.scale : 1))
+      : 0;
+    const coupleBarY = average(parents.map((parent) => parent.y)) + laneOffset;
     const parentIds = parents.map((parent) => parent.id);
 
     let trunkTop;
@@ -592,29 +651,48 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       // Single parent: the trunk starts at the figure's child-facing edge.
       trunkTop = { x: parents[0].x, y: parents[0].y - direction * slotHalf(parents[0]) };
     }
-    // Straight trunk at Gx down to the crossbar lane.
-    addSegment(family.id, 'family', emphasis,
-      trunkTop, { x: trunkTop.x, y: childBusY }, parentIds);
+    // Native child-lane offset δc: each additional union's crossbar shifts one
+    // lane TOWARD the children (0.1 native units × order) so two families'
+    // buses on the same gutter never overlap — the red/green lanes of the
+    // reference remarriage close-up.
+    const laneShift = unionOrder > 0 && unionOrder <= 6
+      ? -direction * 5.8 * (unionOrder % 7) * Math.min(...parents.map((parent) => Number.isFinite(parent.scale) ? parent.scale : 1))
+      : 0;
+    const busLaneY = childBusY + laneShift;
 
-    if (sortedChildren.length === 1 && Math.abs(sortedChildren[0].x - trunkTop.x) <= 1) {
-      // Single aligned child: no crossbar, the trunk continues into the drop.
+    if (sortedChildren.length === 1) {
       const only = sortedChildren[0];
-      addSegment(family.id, 'family', emphasis,
-        { x: only.x, y: childBusY }, { x: only.x, y: edgeOf(only) }, [only.id]);
+      if (Math.abs(only.x - trunkTop.x) <= 1) {
+        // Single aligned child: straight trunk continuing into the drop.
+        addSegment(family.id, 'family', emphasis,
+          trunkTop, { x: trunkTop.x, y: busLaneY }, parentIds);
+        addSegment(family.id, 'family', emphasis,
+          { x: only.x, y: busLaneY }, { x: only.x, y: edgeOf(only) - direction * 1.6 }, [only.id]);
+      } else {
+        // Single offset child: ONE rounded path — trunk down, lane across,
+        // drop into the child (the big curved corners of the reference's
+        // remarriage routing).
+        addPolyline(family.id, 'family', emphasis, [
+          trunkTop,
+          { x: trunkTop.x, y: busLaneY },
+          { x: only.x, y: busLaneY },
+          { x: only.x, y: edgeOf(only) - direction * 1.6 },
+        ], [...parentIds, only.id]);
+      }
     } else {
+      // Straight trunk at Gx down to the crossbar lane.
+      addSegment(family.id, 'family', emphasis,
+        trunkTop, { x: trunkTop.x, y: busLaneY }, parentIds);
       const first = sortedChildren[0];
       const last = sortedChildren[sortedChildren.length - 1];
       // Outer drops + crossbar as one rounded U (native bends only these two
       // corners, capped at ~22 web units by the renderer).
-      const busPath = sortedChildren.length === 1
-        ? [{ x: first.x, y: childBusY }, { x: first.x, y: edgeOf(first) }]
-        : [
-          { x: first.x, y: edgeOf(first) },
-          { x: first.x, y: childBusY },
-          { x: last.x, y: childBusY },
-          { x: last.x, y: edgeOf(last) },
-        ];
-      addPolyline(family.id, 'family', emphasis, busPath, sortedChildren.map((child) => child.id));
+      addPolyline(family.id, 'family', emphasis, [
+        { x: first.x, y: edgeOf(first) - direction * 1.6 },
+        { x: first.x, y: busLaneY },
+        { x: last.x, y: busLaneY },
+        { x: last.x, y: edgeOf(last) - direction * 1.6 },
+      ], sortedChildren.map((child) => child.id));
       // Crossbar expansion so the trunk always lands on it (native enlarges
       // the crossbar extent to include Gx instead of dog-legging the trunk).
       const busMinX = Math.min(first.x, last.x);
@@ -622,13 +700,13 @@ function buildFamilyGraphLayout(familyGraph, activeId, options = {}) {
       if (trunkTop.x < busMinX - 1 || trunkTop.x > busMaxX + 1) {
         const nearest = trunkTop.x < busMinX ? busMinX : busMaxX;
         addSegment(family.id, 'family', emphasis,
-          { x: trunkTop.x, y: childBusY }, { x: nearest, y: childBusY }, parentIds);
+          { x: trunkTop.x, y: busLaneY }, { x: nearest, y: busLaneY }, parentIds);
       }
       // Middle children: straight T-join drops, one per visible child.
       for (let i = 1; i < sortedChildren.length - 1; i += 1) {
         const child = sortedChildren[i];
         addSegment(family.id, 'family', emphasis,
-          { x: child.x, y: childBusY }, { x: child.x, y: edgeOf(child) }, [child.id]);
+          { x: child.x, y: busLaneY }, { x: child.x, y: edgeOf(child) - direction * 1.6 }, [child.id]);
       }
     }
   }
@@ -754,7 +832,11 @@ function buildBandSegments(group, generation, rootX = 0, segmentByPedigree = tru
       left = center - minWidth / 2;
       right = center + minWidth / 2;
     }
-    segments.push({ x: (left + right) / 2, width: right - left });
+    // Native "blood group": a local group is blood-related when ANY member is
+    // on the direct line (root/ancestor/descendant). Prominent band styles
+    // raise blood groups higher and desaturation applies to the others.
+    const blood = holder.some((node) => node.featured || node.lineage !== false);
+    segments.push({ x: (left + right) / 2, width: right - left, blood });
     isFirst = false;
   }
   return segments;
