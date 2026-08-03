@@ -147,6 +147,12 @@ export default function PersonAnalysis() {
     },
     { key: 'personId', label: t('personAnalysis.personId'), defaultVisible: false },
   ], [t]);
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    { key: 'evidence', label: t('personAnalysis.evidence'), getGroup: (row) => stateLabel(row.sourceState) },
+    { key: 'duplicateRisk', label: t('personAnalysis.duplicateRisk'), getGroup: (row) => riskLabel(row.duplicateRisk) },
+    { key: 'attention', label: t('personAnalysis.summary.attention'), getGroup: (row) => row.attentionScore > 0 ? t('personAnalysis.summary.attention') : t('personAnalysis.noneShort') },
+  ], [t]);
 
   if (loading) return <div className="p-10 text-muted-foreground">{t('personAnalysis.loading')}</div>;
 
@@ -168,7 +174,7 @@ export default function PersonAnalysis() {
         disabled={matrixLoading || scoped.rows.length < 2}
         className={listToolbarButtonClass}
       >
-        {matrixLoading ? 'Matrix...' : 'Relationship Matrix'}
+        {matrixLoading ? t('personAnalysis.matrixLoading') : t('personAnalysis.matrixTitle')}
       </button>
     </div>
     <ScopeFilterSelect
@@ -205,6 +211,7 @@ export default function PersonAnalysis() {
         initialSortKey="orphanedRelationships"
         initialSortDirection="desc"
         sortProfile={sortProfile}
+        groupOptions={groupOptions}
         searchPlaceholder={t('personAnalysis.searchPlaceholder')}
         toolbar={filters}
         emptyTitle={t('personAnalysis.emptyTitle')}
@@ -214,25 +221,25 @@ export default function PersonAnalysis() {
         <div className="border-t border-border bg-background p-5">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold">Relationship Matrix</div>
-              <div className="text-xs text-muted-foreground">First {matrix.people.length} people in the current scoped result.</div>
+              <div className="text-sm font-semibold">{t('personAnalysis.matrixTitle')}</div>
+              <div className="text-xs text-muted-foreground">{t('personAnalysis.matrixHint', { count: matrix.people.length })}</div>
             </div>
-            <button type="button" className={listToolbarButtonClass} onClick={() => setMatrix(null)}>Close</button>
+            <button type="button" className={listToolbarButtonClass} onClick={() => setMatrix(null)}>{t('common.close')}</button>
           </div>
           <div className="overflow-auto rounded-md border border-border">
             <table className="min-w-full text-xs">
               <thead className="bg-card">
                 <tr>
-                  <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-medium">Person</th>
+                  <th className="sticky start-0 z-10 bg-card px-3 py-2 text-start font-medium">{t('personAnalysis.person')}</th>
                   {matrix.people.map((person) => (
-                    <th key={person.id} className="px-3 py-2 text-left font-medium whitespace-nowrap">{person.person?.displayName || person.id}</th>
+                    <th key={person.id} className="px-3 py-2 text-start font-medium whitespace-nowrap">{person.person?.displayName || person.id}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {matrix.rows.map((row) => (
                   <tr key={row.id} className="border-t border-border">
-                    <th className="sticky left-0 bg-background px-3 py-2 text-left font-medium whitespace-nowrap">{row.person?.displayName || row.id}</th>
+                    <th className="sticky start-0 bg-background px-3 py-2 text-start font-medium whitespace-nowrap">{row.person?.displayName || row.id}</th>
                     {row.cells.map((cell) => (
                       <td key={`${cell.from}-${cell.to}`} className="px-3 py-2 align-top">
                         <div>{cell.label}</div>

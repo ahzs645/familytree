@@ -9,12 +9,14 @@ import { useIsMobile } from '../../lib/useIsMobile.js';
 import { Input } from '../ui/Input.jsx';
 import { Button } from '../ui/Button.jsx';
 import { cn } from '../../lib/utils.js';
+import { sectionRows } from '../../lib/listGrouping.js';
 
-export function MasterDetailList({ items, activeId, onPick, renderRow, placeholder, detail, detailHeader = null, emptyTitle, emptyHint, selection = null, bulkBar = null }) {
+export function MasterDetailList({ items, activeId, onPick, renderRow, placeholder, detail, detailHeader = null, emptyTitle, emptyHint, selection = null, bulkBar = null, toolbar = null, groupBy = null }) {
   const { t } = useTranslation();
   const searchLabel = placeholder ?? t('common.search');
   const [query, setQuery] = useState('');
   const [mobileView, setMobileView] = useState('list');
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
   const isMobile = useIsMobile();
 
   const filtered = useMemo(() => {
@@ -30,6 +32,16 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
     onPick(id);
     if (isMobile) setMobileView('detail');
   };
+  const sections = useMemo(
+    () => sectionRows(filtered, groupBy?.getGroup, t('lists.unknownGroup')),
+    [filtered, groupBy, t]
+  );
+  const toggleGroup = (key) => setCollapsedGroups((current) => {
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
 
   const showList = !isMobile || mobileView === 'list';
   const showDetail = !isMobile || mobileView === 'detail';
@@ -52,15 +64,16 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
               aria-label={searchLabel}
             />
             <div className="text-muted-foreground text-xs mt-1.5">
-              {filtered.length} of {items.length}
+              {t('lists.rowsOfTotal', { count: filtered.length, total: items.length })}
             </div>
+            {toolbar ? <div className="mt-2 flex flex-wrap items-center gap-2">{toolbar}</div> : null}
           </div>
           {bulkBar ? <div className="px-2.5 py-2 border-b border-border">{bulkBar}</div> : null}
           <div className="flex-1 overflow-auto">
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center text-center px-6 py-12">
                 <div className="text-sm font-semibold text-foreground">
-                  {emptyTitle || 'Nothing here yet'}
+                  {emptyTitle || t('lists.noRows')}
                 </div>
                 {emptyHint && (
                   <div className="text-xs text-muted-foreground mt-1">
@@ -69,7 +82,21 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
                 )}
               </div>
             ) : (
-              filtered.map((it) => {
+              sections.map((section) => (
+                <React.Fragment key={section.key}>
+                {groupBy ? (
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(section.key)}
+                    aria-expanded={!collapsedGroups.has(section.key)}
+                    className="sticky top-0 z-[5] flex w-full items-center gap-2 border-b border-border bg-muted px-3 py-1.5 text-start text-xs font-semibold text-muted-foreground"
+                  >
+                    <span aria-hidden="true">{collapsedGroups.has(section.key) ? '▸' : '▾'}</span>
+                    <span className="min-w-0 flex-1 truncate">{section.label}</span>
+                    <span>{section.rows.length}</span>
+                  </button>
+                ) : null}
+                {!collapsedGroups.has(section.key) && section.rows.map((it) => {
                 const itemId = it.recordName || it.id;
                 // Name the row checkbox after the row's own rendered content.
                 // renderRow is caller-supplied and each caller derives its
@@ -112,7 +139,9 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
                     <div id={rowLabelId} className={selection ? 'min-w-0 flex-1' : undefined}>{renderRow(it)}</div>
                   </div>
                 );
-              })
+                })}
+                </React.Fragment>
+              ))
             )}
           </div>
         </aside>
@@ -127,7 +156,7 @@ export function MasterDetailList({ items, activeId, onPick, renderRow, placehold
                 onClick={() => setMobileView('list')}
                 className="text-interactive font-semibold min-h-[40px] px-1"
               >
-                ← Back to list
+                {t('common.back')}
               </Button>
             </div>
           )}

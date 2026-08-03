@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 /**
  * useListSelection — tracks a set of selected row IDs with standard toggle /
@@ -11,6 +11,15 @@ import { useCallback, useMemo, useState } from 'react';
 export function useListSelection(allIds) {
   const [selected, setSelected] = useState(() => new Set());
   const [anchor, setAnchor] = useState(null);
+
+  useEffect(() => {
+    const allowed = new Set(allIds || []);
+    setSelected((current) => {
+      const next = new Set([...current].filter((id) => allowed.has(id)));
+      return next.size === current.size ? current : next;
+    });
+    setAnchor((current) => current && allowed.has(current) ? current : null);
+  }, [allIds]);
 
   const isSelected = useCallback((id) => selected.has(id), [selected]);
 

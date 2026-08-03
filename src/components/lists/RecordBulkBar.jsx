@@ -4,6 +4,7 @@ import { BulkLabelMenu } from './BulkLabelMenu.jsx';
 import { deleteRecordsWithLog } from '../../lib/bulkActions.js';
 import { useModal } from '../../contexts/ModalContext.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { downloadRowsAsCsv } from '../../lib/listExport.js';
 
 /**
  * RecordBulkBar — standard bulk-action bar for record-backed lists: assign
@@ -12,7 +13,16 @@ import { useTranslation } from '../../contexts/LocalizationContext.jsx';
  * runs after deletion for reload/active-row cleanup. Extra buttons go in
  * `children`.
  */
-export function RecordBulkBar({ selection, recordType, onDelete, onDeleted, children }) {
+export function RecordBulkBar({
+  selection,
+  recordType,
+  onDelete,
+  onDeleted,
+  exportRows,
+  exportColumns,
+  exportFilename = 'selected-records',
+  children,
+}) {
   const modal = useModal();
   const { t } = useTranslation();
 
@@ -33,7 +43,21 @@ export function RecordBulkBar({ selection, recordType, onDelete, onDeleted, chil
   if (!selection.count) return null;
   return (
     <BulkActionBar count={selection.count} onClear={selection.clear}>
+      {!selection.allSelected ? (
+        <button type="button" onClick={selection.selectAll} className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent">
+          {t('lists.selectAll')}
+        </button>
+      ) : null}
       <BulkLabelMenu selectedIds={selection.selectedIds} recordType={recordType} onAssigned={selection.clear} />
+      {exportRows && exportColumns?.length ? (
+        <button
+          type="button"
+          onClick={() => downloadRowsAsCsv(exportFilename, exportRows.filter((row) => selection.isSelected(row.recordName || row.id)), exportColumns)}
+          className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent"
+        >
+          {t('lists.exportSelected')}
+        </button>
+      ) : null}
       {children}
       <button
         type="button"

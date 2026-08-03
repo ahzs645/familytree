@@ -7,6 +7,7 @@ import { listToolbarInputBaseClass, listToolbarSelectTriggerClass } from '../com
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadAnniversaryRows } from '../lib/listData.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { useSortProfile } from '../components/lists/useSortProfile.js';
 
 const MONTH_VALUES = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
 
@@ -18,6 +19,13 @@ export default function AnniversaryList() {
   const [monthFilter, setMonthFilter] = useState('');
   const [dayFilter, setDayFilter] = useState('');
   const currentYear = useMemo(() => new Date().getFullYear(), []);
+  const sortOptions = useMemo(() => [
+    { key: 'monthDay', label: t('anniversaryList.monthDay') },
+    { key: 'type', label: t('anniversaryList.type') },
+    { key: 'personName', label: t('anniversaryList.person') },
+    { key: 'year', label: t('anniversaryList.year') },
+  ], [t]);
+  const sortProfile = useSortProfile('anniversaries', sortOptions, 'monthDay');
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +84,12 @@ export default function AnniversaryList() {
       render: (row) => <Link to={`/person/${row.personId}`} className="text-xs text-interactive hover:underline">{t('anniversaryList.openPerson')}</Link>,
     },
   ], [t, currentYear]);
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    { key: 'type', label: t('anniversaryList.type'), getGroup: (row) => row.type },
+    { key: 'month', label: t('anniversaryList.month'), getGroup: (row) => t(`anniversaryList.months.${row.month}`) },
+    { key: 'year', label: t('anniversaryList.year'), getGroup: (row) => row.yearLabel },
+  ], [t]);
 
   if (loading) return <div className="p-10 text-muted-foreground">{t('anniversaryList.loading')}</div>;
 
@@ -131,6 +145,8 @@ export default function AnniversaryList() {
         rows={scoped.rows}
         columns={columns}
         initialSortKey="monthDay"
+        sortProfile={sortProfile}
+        groupOptions={groupOptions}
         searchPlaceholder={t('anniversaryList.searchPlaceholder')}
         toolbar={filters}
         emptyTitle={t('anniversaryList.emptyTitle')}

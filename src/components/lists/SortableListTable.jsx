@@ -6,6 +6,7 @@ import { ListReportPreview } from './ListReportWorkbench.jsx';
 import { listToolbarCountClass, listToolbarInputClass } from './listToolbarClasses.js';
 import { useListSelection } from './useListSelection.js';
 import { PageTitle } from '../ui/PageTitle.jsx';
+import { sectionRows } from '../../lib/listGrouping.js';
 
 function defaultValue(row, column) {
   if (column.sortValue) return column.sortValue(row);
@@ -66,7 +67,7 @@ export function SortableListTable({
   rowKey = (row) => row.id,
   initialSortKey,
   initialSortDirection = 'asc',
-  searchPlaceholder = 'Search list...',
+  searchPlaceholder,
   rowSearchValue,
   emptyTitle,
   emptyHint,
@@ -75,11 +76,13 @@ export function SortableListTable({
   reportPreview,
   selectable = false,
   renderBulkActions,
+  groupBy = null,
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState(initialSortKey || columns.find((column) => column.sortable !== false)?.key || '');
   const [sortDirection, setSortDirection] = useState(initialSortDirection);
+  const [collapsedGroups, setCollapsedGroups] = useState(() => new Set());
   const localization = getCurrentLocalization();
   const localizationKey = `${localization.locale}|${localization.direction}|${localization.numberingSystem}|${localization.calendar}`;
 
@@ -111,6 +114,17 @@ export function SortableListTable({
     setSortDirection('asc');
   };
 
+  const sections = useMemo(
+    () => sectionRows(visibleRows, groupBy?.getGroup, t('lists.unknownGroup')),
+    [visibleRows, groupBy, t]
+  );
+  const toggleGroup = (key) => setCollapsedGroups((current) => {
+    const next = new Set(current);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
+
   const visibleIds = useMemo(
     () => (selectable ? visibleRows.map((row) => rowKey(row)) : []),
     [selectable, visibleRows, rowKey]
@@ -124,6 +138,7 @@ export function SortableListTable({
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={searchPlaceholder}
+          aria-label={searchPlaceholder || t('common.search')}
           className={listToolbarInputClass}
         />
         <span className={listToolbarCountClass}>
@@ -134,6 +149,11 @@ export function SortableListTable({
       {selectable && selection.count > 0 ? (
         <div className="px-4 md:px-5 py-2 border-b border-border bg-background">
           <BulkActionBar count={selection.count} onClear={selection.clear}>
+            {!selection.allSelected ? (
+              <button type="button" onClick={selection.selectAll} className="border border-border rounded-md px-2.5 py-1 text-xs hover:bg-accent">
+                {t('lists.selectAll')}
+              </button>
+            ) : null}
             {renderBulkActions ? renderBulkActions(selection.selectedIds, selection.clear) : null}
           </BulkActionBar>
         </div>
@@ -154,7 +174,21 @@ export function SortableListTable({
         ) : (
           <>
           <div className="md:hidden divide-y divide-border">
-            {visibleRows.map((row) => (
+            {sections.map((section) => (
+              <React.Fragment key={section.key}>
+              {groupBy ? (
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(section.key)}
+                  aria-expanded={!collapsedGroups.has(section.key)}
+                  className="sticky top-0 z-[5] flex w-full items-center gap-2 bg-muted px-4 py-2 text-start text-xs font-semibold text-muted-foreground"
+                >
+                  <span aria-hidden="true">{collapsedGroups.has(section.key) ? '▸' : '▾'}</span>
+                  <span className="min-w-0 flex-1 truncate">{section.label}</span>
+                  <span>{section.rows.length}</span>
+                </button>
+              ) : null}
+              {!collapsedGroups.has(section.key) && section.rows.map((row) => (
               <div
                 key={rowKey(row)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -181,6 +215,8 @@ export function SortableListTable({
                   );
                 })}
               </div>
+              ))}
+              </React.Fragment>
             ))}
           </div>
           <table className="hidden md:table w-full border-collapse text-sm" style={{ minWidth: `${columns.length * 140}px` }}>
@@ -222,7 +258,25 @@ export function SortableListTable({
               </tr>
             </thead>
             <tbody>
-              {visibleRows.map((row) => (
+              {sections.map((section) => (
+                <React.Fragment key={section.key}>
+                {groupBy ? (
+                  <tr className="border-b border-border bg-muted/90">
+                    <th colSpan={columns.length + (selectable ? 1 : 0)} className="p-0 text-start">
+                      <button
+                        type="button"
+                        onClick={() => toggleGroup(section.key)}
+                        aria-expanded={!collapsedGroups.has(section.key)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-start text-xs font-semibold text-muted-foreground"
+                      >
+                        <span aria-hidden="true">{collapsedGroups.has(section.key) ? '▸' : '▾'}</span>
+                        <span className="min-w-0 flex-1 truncate">{section.label}</span>
+                        <span>{section.rows.length}</span>
+                      </button>
+                    </th>
+                  </tr>
+                ) : null}
+                {!collapsedGroups.has(section.key) && section.rows.map((row) => (
                 <tr
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
@@ -244,6 +298,8 @@ export function SortableListTable({
                     </td>
                   ))}
                 </tr>
+                ))}
+                </React.Fragment>
               ))}
             </tbody>
           </table>

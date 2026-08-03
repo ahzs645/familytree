@@ -32,6 +32,17 @@ import { RecordBulkBar } from '../components/lists/RecordBulkBar.jsx';
 import { useRecordEditor } from '../components/editors/useRecordEditor.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { PageTitle } from '../components/ui/PageTitle.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { useColumnVisibility } from '../components/lists/useColumnVisibility.js';
+import { ColumnChooser } from '../components/lists/ColumnChooser.jsx';
+import { ScopeFilterSelect } from '../components/lists/ScopeFilterSelect.jsx';
+import { useScopedRows } from '../components/lists/useScopedRows.js';
+import { GroupBySelect } from '../components/lists/GroupBySelect.jsx';
+import { useGroupProfile } from '../components/lists/useGroupProfile.js';
+import { useSortProfile } from '../components/lists/useSortProfile.js';
+import { Select } from '../components/ui/Select.jsx';
+import { listToolbarSelectTriggerClass } from '../components/lists/listToolbarClasses.js';
+import { yearFromListDate } from '../lib/listGrouping.js';
 
 function humanizeTemplateName(recordName) {
   // "SourceTemplate_ChurchRecord_Books" → "Church Record - Books"
@@ -167,6 +178,7 @@ async function reconcileSourceSideRecords(sourceId, vals, templateFields) {
 }
 
 export default function Sources() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const querySourceId = searchParams.get('sourceId');
   const [templateFields, setTemplateFields] = useState([]);
@@ -248,7 +260,43 @@ export default function Sources() {
   const { records: labelRecords } = useRecords('Label');
   const labelDefs = useMemo(() => resolveLabelDefinitions(labelRecords), [labelRecords]);
 
-  const sourceIds = useMemo(() => sources.map((record) => record.recordName), [sources]);
+  const templateNameById = useMemo(() => new Map(templates.map((template) => [template.recordName, template.name])), [templates]);
+  const repositoryNameById = useMemo(() => new Map(repositories.map((repository) => [repository.recordName, repository.name])), [repositories]);
+  const listColumns = useMemo(() => [
+    { key: 'title', label: t('lists.columnLabels.title'), alwaysVisible: true, exportValue: (record) => sourceSummary(record)?.title || record.recordName },
+    { key: 'author', label: t('lists.columnLabels.author'), defaultVisible: false, exportValue: (record) => record.fields?.author?.value || '' },
+    { key: 'date', label: t('lists.columnLabels.date'), exportValue: (record) => record.fields?.cached_date?.value || record.fields?.date?.value || '' },
+    { key: 'template', label: t('lists.columnLabels.template'), defaultVisible: false, exportValue: (record) => templateNameById.get(refToRecordName(record.fields?.template?.value) || refToRecordName(record.fields?.sourceTemplate?.value)) || '' },
+    { key: 'repository', label: t('lists.columnLabels.repository'), defaultVisible: false, exportValue: (record) => repositoryNameById.get(refToRecordName(record.fields?.sourceRepository?.value)) || '' },
+    { key: 'publication', label: t('lists.columnLabels.publication'), defaultVisible: false, exportValue: (record) => record.fields?.publication?.value || '' },
+    { key: 'abbreviation', label: t('lists.columnLabels.abbreviation'), defaultVisible: false, exportValue: (record) => record.fields?.abbreviation?.value || '' },
+    { key: 'referenceNumber', label: t('lists.columnLabels.referenceNumber'), defaultVisible: false, exportValue: (record) => record.fields?.sourceReferenceNumber?.value || '' },
+    { key: 'bookmarked', label: t('lists.columnLabels.bookmarked'), defaultVisible: false, exportValue: (record) => !!record.fields?.isBookmarked?.value },
+    { key: 'private', label: t('lists.columnLabels.private'), defaultVisible: false, exportValue: (record) => !!record.fields?.isPrivate?.value },
+    { key: 'recordId', label: t('lists.columnLabels.recordId'), defaultVisible: false, exportValue: (record) => record.recordName },
+  ], [repositoryNameById, t, templateNameById]);
+  const columnVisibility = useColumnVisibility('sources', listColumns);
+  const scoped = useScopedRows(sources, { entityType: 'Source', rowIds: (record) => record.recordName });
+  const sourceSortOptions = useMemo(() => [
+    { key: 'title', label: t('lists.columnLabels.title'), compare: sortSources },
+    { key: 'author', label: t('lists.columnLabels.author'), compare: (a, b) => String(a.fields?.author?.value || '').localeCompare(String(b.fields?.author?.value || '')) || sortSources(a, b) },
+    { key: 'date', label: t('lists.columnLabels.date'), compare: (a, b) => String(a.fields?.cached_date?.value || a.fields?.date?.value || '').localeCompare(String(b.fields?.cached_date?.value || b.fields?.date?.value || '')) || sortSources(a, b) },
+    { key: 'template', label: t('lists.columnLabels.template'), compare: (a, b) => String(templateNameById.get(refToRecordName(a.fields?.template?.value) || refToRecordName(a.fields?.sourceTemplate?.value)) || '').localeCompare(String(templateNameById.get(refToRecordName(b.fields?.template?.value) || refToRecordName(b.fields?.sourceTemplate?.value)) || '')) || sortSources(a, b) },
+  ], [t, templateNameById]);
+  const sortProfile = useSortProfile('sources', sourceSortOptions, 'title');
+  const sortedSources = sortProfile.sort(scoped.rows);
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    { key: 'template', label: t('lists.groups.sourceTemplate'), getGroup: (record) => templateNameById.get(refToRecordName(record.fields?.template?.value) || refToRecordName(record.fields?.sourceTemplate?.value)) || t('lists.groups.noTemplate') },
+    { key: 'author', label: t('lists.groups.author'), getGroup: (record) => record.fields?.author?.value || t('lists.groups.noAuthor') },
+    { key: 'year', label: t('lists.groups.year'), getGroup: (record) => {
+      const year = yearFromListDate(record.fields?.cached_date?.value || record.fields?.date?.value);
+      return year ? { key: String(year), label: String(year) } : { key: 'unknown', label: t('lists.groups.unknownDate') };
+    } },
+  ], [t, templateNameById]);
+  const groupProfile = useGroupProfile('sources', groupOptions);
+
+  const sourceIds = useMemo(() => sortedSources.map((record) => record.recordName), [sortedSources]);
   const selection = useListSelection(sourceIds);
 
   useEffect(() => {
@@ -311,15 +359,37 @@ export default function Sources() {
 
   const renderRow = (r) => {
     const s = sourceSummary(r);
+    const visible = columnVisibility.isVisible;
+    const templateName = templateNameById.get(refToRecordName(r.fields?.template?.value) || refToRecordName(r.fields?.sourceTemplate?.value));
     return (
       <div>
-        <div className="text-sm text-foreground truncate">
+        {visible('title') ? <div className="text-sm text-foreground truncate">
           {s?.bookmarked ? '★ ' : ''}{s?.title || r.recordName}
-        </div>
-        {s?.date && <div className="text-xs text-muted-foreground">{s.date}</div>}
+        </div> : null}
+        {visible('author') && r.fields?.author?.value ? <div className="text-xs text-muted-foreground truncate">{r.fields.author.value}</div> : null}
+        {visible('date') && s?.date ? <div className="text-xs text-muted-foreground">{s.date}</div> : null}
+        {visible('template') && templateName ? <div className="text-xs text-muted-foreground truncate">{templateName}</div> : null}
+        {visible('repository') && repositoryNameById.get(refToRecordName(r.fields?.sourceRepository?.value)) ? <div className="text-xs text-muted-foreground truncate">{repositoryNameById.get(refToRecordName(r.fields?.sourceRepository?.value))}</div> : null}
+        {visible('publication') && r.fields?.publication?.value ? <div className="text-xs text-muted-foreground truncate">{r.fields.publication.value}</div> : null}
+        {visible('abbreviation') && r.fields?.abbreviation?.value ? <div className="text-xs text-muted-foreground truncate">{r.fields.abbreviation.value}</div> : null}
+        {visible('referenceNumber') && r.fields?.sourceReferenceNumber?.value ? <div className="text-xs text-muted-foreground truncate">{r.fields.sourceReferenceNumber.value}</div> : null}
+        {visible('private') && r.fields?.isPrivate?.value ? <div className="text-2xs font-semibold text-interactive">{t('lists.columnLabels.private')}</div> : null}
+        {visible('recordId') ? <div className="text-2xs text-muted-foreground truncate">{r.recordName}</div> : null}
       </div>
     );
   };
+
+  const listToolbar = (
+    <>
+      <ScopeFilterSelect value={scoped.scopeId} onChange={scoped.setScopeId} scopes={scoped.scopes} loading={scoped.loading} error={scoped.error} />
+      <label className="flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">{t('sortProfiles.label')}</span>
+        <Select value={sortProfile.sortKey} onChange={sortProfile.setSortKey} ariaLabel={t('sortProfiles.label')} options={sourceSortOptions.map((option) => ({ value: option.key, label: option.label }))} triggerClassName={listToolbarSelectTriggerClass} />
+      </label>
+      <GroupBySelect value={groupProfile.groupKey} onChange={groupProfile.setGroupKey} options={groupOptions} />
+      <ColumnChooser columns={listColumns} isVisible={columnVisibility.isVisible} onToggle={columnVisibility.toggle} onReset={columnVisibility.resetToDefaults} />
+    </>
+  );
 
   const detailHeader = active ? (
     <div className="border-b border-border bg-card">
@@ -448,18 +518,23 @@ export default function Sources() {
             </div>
           ) : (
             <MasterDetailList
-              items={sources}
+              items={sortedSources}
               activeId={activeId}
               onPick={setActiveId}
               renderRow={renderRow}
               placeholder="Search sources…"
               detail={detail}
               detailHeader={detailHeader}
+              toolbar={listToolbar}
+              groupBy={groupProfile.activeGroup?.key === 'none' ? null : groupProfile.activeGroup}
               selection={selection}
               bulkBar={(
                 <RecordBulkBar
                   selection={selection}
                   recordType="Source"
+                  exportRows={sortedSources}
+                  exportColumns={listColumns}
+                  exportFilename="sources-selected"
                   onDeleted={(ids) => {
                     if (ids.includes(activeId)) setActiveId(null);
                   }}

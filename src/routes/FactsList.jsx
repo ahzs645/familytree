@@ -7,6 +7,8 @@ import { listToolbarInputBaseClass, listToolbarSelectTriggerClass } from '../com
 import { useScopedRows } from '../components/lists/useScopedRows.js';
 import { loadFactRows } from '../lib/listData.js';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
+import { useSortProfile } from '../components/lists/useSortProfile.js';
+import { yearFromListDate } from '../lib/listGrouping.js';
 
 export default function FactsList() {
   const { t } = useTranslation();
@@ -14,6 +16,13 @@ export default function FactsList() {
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
+  const sortOptions = useMemo(() => [
+    { key: 'personName', label: t('factsList.person') },
+    { key: 'factTypeLabel', label: t('factsList.fact') },
+    { key: 'date', label: t('factsList.date') },
+    { key: 'value', label: t('factsList.value') },
+  ], [t]);
+  const sortProfile = useSortProfile('facts', sortOptions, 'personName');
 
   useEffect(() => {
     let cancelled = false;
@@ -78,6 +87,12 @@ export default function FactsList() {
         : null,
     },
   ], [t]);
+  const groupOptions = useMemo(() => [
+    { key: 'none', label: t('lists.groups.none') },
+    { key: 'factType', label: t('factsList.fact'), getGroup: (row) => row.factTypeLabel || row.factType },
+    { key: 'person', label: t('factsList.person'), getGroup: (row) => row.personName || t('factsList.noLinkedPerson') },
+    { key: 'year', label: t('lists.groups.year'), getGroup: (row) => String(yearFromListDate(row.date) || t('lists.groups.unknownDate')) },
+  ], [t]);
 
   if (loading) return <div className="p-10 text-muted-foreground">{t('factsList.loading')}</div>;
 
@@ -121,6 +136,8 @@ export default function FactsList() {
         rows={scoped.rows}
         columns={columns}
         initialSortKey="personName"
+        sortProfile={sortProfile}
+        groupOptions={groupOptions}
         searchPlaceholder={t('factsList.searchPlaceholder')}
         toolbar={filters}
         emptyTitle={t('factsList.emptyTitle')}

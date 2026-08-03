@@ -6,23 +6,28 @@ import { ListReportToolbar, useListReportOptions } from './ListReportWorkbench.j
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { Select } from '../ui/Select.jsx';
 import { listToolbarSelectTriggerClass } from './listToolbarClasses.js';
+import { GroupBySelect } from './GroupBySelect.jsx';
+import { useGroupProfile } from './useGroupProfile.js';
 
 export function ConfigurableListTable({
   listId,
   columns,
   toolbar,
   sortProfile,
+  groupOptions = [],
+  defaultGroupKey = 'none',
   columnChooserLabel,
   ...tableProps
 }) {
   const { t } = useTranslation();
   const columnVisibility = useColumnVisibility(listId, columns);
   const report = useListReportOptions();
+  const groupProfile = useGroupProfile(listId, groupOptions, defaultGroupKey);
   const controls = (
     <>
       {toolbar}
       <ListReportToolbar
-        title={tableProps.reportTitle || tableProps.title || 'List Report'}
+        title={tableProps.reportTitle || tableProps.title || t('lists.report')}
         rows={tableProps.rows || []}
         columns={columns}
         options={report.options}
@@ -46,6 +51,11 @@ export function ConfigurableListTable({
           />
         </div>
       ) : null}
+      <GroupBySelect
+        value={groupProfile.groupKey}
+        onChange={groupProfile.setGroupKey}
+        options={groupOptions}
+      />
       <ColumnChooser
         columns={columns}
         isVisible={columnVisibility.isVisible}
@@ -61,10 +71,11 @@ export function ConfigurableListTable({
       columns={columnVisibility.visibleColumns}
       sortColumns={columns}
       initialSortKey={sortProfile?.sortKey || tableProps.initialSortKey}
+      groupBy={groupProfile.activeGroup?.key === 'none' ? null : groupProfile.activeGroup}
       toolbar={controls}
       reportPreview={{
         enabled: report.options.previewMode,
-        title: tableProps.reportTitle || 'List Report',
+        title: tableProps.reportTitle || t('lists.report'),
         columns,
         options: report.options,
       }}
