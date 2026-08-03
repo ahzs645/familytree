@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Sheet } from './ui/Sheet.jsx';
 import { Button } from './ui/Button.jsx';
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 /**
  * PageSetupSheet — modal that edits a pageSetup block
@@ -10,7 +11,9 @@ import { Button } from './ui/Button.jsx';
  * Mirrors MacFamilyTree's Print Settings pane plus the NSPrintInfo page
  * setup dialog. Designed to work with `pageLayout.js` helpers.
  */
-export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, title = 'Page setup' }) {
+export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, title }) {
+  const { t } = useTranslation();
+  const firstControlRef = useRef(null);
   const [draft, setDraft] = useState(() => ({
     paperSize: pageSetup?.paperSize || 'letter',
     orientation: pageSetup?.orientation || 'portrait',
@@ -35,6 +38,19 @@ export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, t
   }));
 
   const set = (key, value) => setDraft((d) => ({ ...d, [key]: value }));
+
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    firstControlRef.current?.focus();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      previousFocus?.focus?.();
+    };
+  }, [onCancel]);
 
   const apply = () => {
     onApply({
@@ -68,39 +84,40 @@ export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, t
 
   return (
     <Sheet
-      title={title}
+      title={title || t('charts.pageSetup.title')}
+      ariaLabel={title || t('charts.pageSetup.title')}
       maxWidth="max-w-md"
       bodyClassName="p-4 space-y-3 text-xs"
       footer={(
         <>
-          <button type="button" onClick={onCancel} className="border border-border rounded-md px-3 py-1.5 text-xs hover:bg-accent">Cancel</button>
-          <Button variant="primary" size="sm" onClick={apply}>Apply</Button>
+          <Button variant="outline" size="sm" onClick={onCancel}>{t('common.cancel')}</Button>
+          <Button variant="primary" size="sm" onClick={apply}>{t('common.apply')}</Button>
         </>
       )}
     >
       <div className="grid grid-cols-2 gap-2">
-            <label className="block">Paper size
-              <select value={draft.paperSize} onChange={(e) => set('paperSize', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2">
-                <option value="letter">Letter (8.5 × 11)</option>
-                <option value="legal">Legal (8.5 × 14)</option>
-                <option value="tabloid">Tabloid (11 × 17)</option>
-                <option value="a3">A3</option>
-                <option value="a4">A4</option>
-                <option value="a5">A5</option>
+            <label className="block">{t('charts.pageSetup.paperSize')}
+              <select ref={firstControlRef} value={draft.paperSize} onChange={(e) => set('paperSize', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2">
+                <option value="letter">{t('charts.pageSetup.paper.letter')}</option>
+                <option value="legal">{t('charts.pageSetup.paper.legal')}</option>
+                <option value="tabloid">{t('charts.pageSetup.paper.tabloid')}</option>
+                <option value="a3">{t('charts.pageSetup.paper.a3')}</option>
+                <option value="a4">{t('charts.pageSetup.paper.a4')}</option>
+                <option value="a5">{t('charts.pageSetup.paper.a5')}</option>
               </select>
             </label>
-            <label className="block">Orientation
+            <label className="block">{t('charts.pageSetup.orientation')}
               <select value={draft.orientation} onChange={(e) => set('orientation', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2">
-                <option value="portrait">Portrait</option>
-                <option value="landscape">Landscape</option>
+                <option value="portrait">{t('charts.pageSetup.portrait')}</option>
+                <option value="landscape">{t('charts.pageSetup.landscape')}</option>
               </select>
             </label>
           </div>
           <fieldset className="border border-border rounded-md p-2">
-            <legend className="text-muted-foreground px-1">Margins (px)</legend>
+            <legend className="text-muted-foreground px-1">{t('charts.pageSetup.margins')}</legend>
             <div className="grid grid-cols-4 gap-2">
               {['Top', 'Right', 'Bottom', 'Left'].map((side) => (
-                <label key={side} className="block">{side}
+                <label key={side} className="block">{t(`charts.pageSetup.side.${side.toLowerCase()}`)}
                   <input
                     type="number"
                     min={0}
@@ -112,25 +129,25 @@ export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, t
               ))}
             </div>
           </fieldset>
-          <label className="block">Overlap (px)
+          <label className="block">{t('charts.pageSetup.overlap')}
             <input type="number" min={0} max={200} value={draft.overlap} onChange={(e) => set('overlap', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2" />
           </label>
           <div className="space-y-1">
-            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.omitEmptyPages} onChange={(e) => set('omitEmptyPages', e.target.checked)} /> Omit empty pages when printing or exporting</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.cutMarks} onChange={(e) => set('cutMarks', e.target.checked)} /> Cut marks</label>
-            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.printPageNumbers} onChange={(e) => set('printPageNumbers', e.target.checked)} /> Print page numbers</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.omitEmptyPages} onChange={(e) => set('omitEmptyPages', e.target.checked)} /> {t('charts.pageSetup.omitEmpty')}</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.cutMarks} onChange={(e) => set('cutMarks', e.target.checked)} /> {t('charts.pageSetup.cutMarks')}</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={draft.printPageNumbers} onChange={(e) => set('printPageNumbers', e.target.checked)} /> {t('charts.pageSetup.pageNumbers')}</label>
           </div>
-          <label className="block">Watermark
-            <input type="text" value={draft.watermark} placeholder="e.g. DRAFT or your family name" onChange={(e) => set('watermark', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2" />
+          <label className="block">{t('charts.pageSetup.watermark')}
+            <input type="text" value={draft.watermark} placeholder={t('charts.pageSetup.watermarkPlaceholder')} onChange={(e) => set('watermark', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2" />
           </label>
-          <label className="block">Background color
-            <input type="text" value={draft.backgroundColor} placeholder="e.g. #ffffff or leave blank" onChange={(e) => set('backgroundColor', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2" />
+          <label className="block">{t('charts.pageSetup.backgroundColor')}
+            <input type="text" value={draft.backgroundColor} placeholder={t('charts.pageSetup.backgroundPlaceholder')} onChange={(e) => set('backgroundColor', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2" />
           </label>
           <fieldset className="border border-border rounded-md p-2">
-            <legend className="text-muted-foreground px-1">Print margins (px)</legend>
+            <legend className="text-muted-foreground px-1">{t('charts.pageSetup.printMargins')}</legend>
             <div className="grid grid-cols-4 gap-2">
               {['Top', 'Right', 'Bottom', 'Left'].map((side) => (
-                <label key={`print-${side}`} className="block">{side}
+                <label key={`print-${side}`} className="block">{t(`charts.pageSetup.side.${side.toLowerCase()}`)}
                   <input
                     type="number"
                     min={0}
@@ -143,26 +160,26 @@ export function PageSetupSheet({ pageSetup, exportSettings, onApply, onCancel, t
             </div>
           </fieldset>
           <fieldset className="border border-border rounded-md p-2">
-            <legend className="text-muted-foreground px-1">Export settings</legend>
+            <legend className="text-muted-foreground px-1">{t('charts.pageSetup.exportSettings')}</legend>
             <div className="grid grid-cols-2 gap-2">
-              <label className="block">Format
+              <label className="block">{t('charts.pageSetup.format')}
                 <select value={draft.exportFormat} onChange={(e) => set('exportFormat', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2">
-                  <option value="png">PNG</option>
-                  <option value="jpeg">JPEG</option>
-                  <option value="svg">SVG</option>
-                  <option value="pdf">PDF</option>
+                  <option value="png">{t('charts.pageSetup.formatName.png')}</option>
+                  <option value="jpeg">{t('charts.pageSetup.formatName.jpeg')}</option>
+                  <option value="svg">{t('charts.pageSetup.formatName.svg')}</option>
+                  <option value="pdf">{t('charts.pageSetup.formatName.pdf')}</option>
                 </select>
               </label>
-              <label className="block">Scale
+              <label className="block">{t('charts.pageSetup.scale')}
                 <input type="number" min={0.25} max={4} step={0.25} value={draft.exportScale} onChange={(e) => set('exportScale', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2" />
               </label>
             </div>
             {draft.exportFormat === 'jpeg' && (
-              <label className="block mt-2">JPEG quality (0.1–1)
+              <label className="block mt-2">{t('charts.pageSetup.jpegQuality')}
                 <input type="number" min={0.1} max={1} step={0.05} value={draft.exportJpegQuality} onChange={(e) => set('exportJpegQuality', e.target.value)} className="w-full h-9 mt-1 rounded-md border border-border bg-secondary px-2" />
               </label>
             )}
-            <label className="flex items-center gap-2 mt-2"><input type="checkbox" checked={draft.exportIncludeBackground} onChange={(e) => set('exportIncludeBackground', e.target.checked)} /> Include background in export</label>
+            <label className="flex items-center gap-2 mt-2"><input type="checkbox" checked={draft.exportIncludeBackground} onChange={(e) => set('exportIncludeBackground', e.target.checked)} /> {t('charts.pageSetup.includeBackground')}</label>
           </fieldset>
     </Sheet>
   );

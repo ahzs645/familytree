@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
 import { ChartEmptyState } from './ChartEmptyState.jsx';
 import { PersonNode } from './PersonNode.jsx';
+import { ChartConnection } from './ChartConnection.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutDescendants } from './layouts/descendantLayout.js';
 import { localizeNoName, noNameLabel } from '../../lib/personDisplayName.js';
@@ -242,7 +243,7 @@ export function RadialDescendantTimelineChart({ tree, onPersonClick, theme = DEF
           </g>
         ))}
         {layout.links.map((link) => (
-          <path key={`${link.source.id}-${link.target.id}`} d={link.d} fill="none" stroke="#cfcfcf" strokeWidth={1.5} />
+          <ChartConnection key={`${link.source.id}-${link.target.id}`} id={`radial-${link.source.id}-${link.target.id}`} d={link.d} theme={theme} color="#cfcfcf" width={1.5} />
         ))}
         <text x={layout.cx} y={layout.cy + 4} textAnchor="middle" fill="#111827" fontSize={12} fontFamily="Arial, sans-serif">
           {layout.rootLabel || 'Selected family'}
@@ -431,14 +432,11 @@ export function CircularAncestorChart({ tree, generations = 5, onPersonClick, th
       {...overlayProps}
     >
       {layout.links.map((link, i) => (
-        <line
+        <ChartConnection
           key={i}
-          x1={link.from.x + theme.nodeWidth / 2}
-          y1={link.from.y + theme.nodeHeight / 2}
-          x2={link.to.x + theme.nodeWidth / 2}
-          y2={link.to.y + theme.nodeHeight / 2}
-          stroke={theme.connector}
-          strokeWidth={theme.connectorWidth}
+          id={`circular-${i}`}
+          d={`M ${link.from.x + theme.nodeWidth / 2} ${link.from.y + theme.nodeHeight / 2} L ${link.to.x + theme.nodeWidth / 2} ${link.to.y + theme.nodeHeight / 2}`}
+          theme={theme}
         />
       ))}
       {layout.nodes.map((node) => (
@@ -822,15 +820,14 @@ export function SociogramChart({ sociogramData, onPersonClick, theme = DEFAULT_T
     >
       <g>
         {layout.edges.map((edge, index) => (
-          <line
+          <ChartConnection
             key={`${edge.fromId}-${edge.toId}-${index}`}
-            x1={edge.from.x}
-            y1={edge.from.y}
-            x2={edge.to.x}
-            y2={edge.to.y}
-            stroke={edge.kind === 'associate' ? '#d08c60' : theme.connector}
-            strokeWidth={edge.kind === 'associate' ? 2 : 1.6}
-            strokeDasharray={edge.kind === 'associate' ? '6 4' : 'none'}
+            id={`sociogram-${edge.fromId}-${edge.toId}-${index}`}
+            d={`M ${edge.from.x} ${edge.from.y} L ${edge.to.x} ${edge.to.y}`}
+            theme={theme}
+            color={edge.kind === 'associate' ? '#d08c60' : theme.connector}
+            width={edge.kind === 'associate' ? 2 : 1.6}
+            dashArray={edge.kind === 'associate' ? '6 4' : 'none'}
             opacity={0.8}
           />
         ))}
@@ -875,7 +872,7 @@ export function GenogramChart({ tree, genogramData, onPersonClick, theme = DEFAU
     >
       <g transform="translate(40,80)">
         {layout.links.map((link, index) => (
-          <path key={index} d={link.d} fill="none" stroke={sociogram ? '#d08c60' : theme.connector} strokeWidth={sociogram ? 2.4 : theme.connectorWidth} strokeDasharray={sociogram ? '6 4' : 'none'} />
+          <ChartConnection key={index} id={`genogram-${index}`} d={link.d} theme={theme} color={sociogram ? '#d08c60' : theme.connector} width={sociogram ? 2.4 : theme.connectorWidth} dashArray={sociogram ? '6 4' : 'none'} />
         ))}
         {layout.nodes.map((node, index) => {
           const builderNode = node.person?.recordName ? builderByPersonId.get(node.person.recordName) : null;
@@ -933,7 +930,7 @@ export function FractalAncestorChart({ tree, generations = 5, onPersonClick, the
       {...overlayProps}
     >
       {layout.links.map((link, index) => (
-        <path key={index} d={link.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
+        <ChartConnection key={index} id={`fractal-${variant}-${index}`} d={link.d} theme={theme} />
       ))}
       {layout.nodes.map((node) => (
         <PersonNode key={node.key} x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(node.person)} />

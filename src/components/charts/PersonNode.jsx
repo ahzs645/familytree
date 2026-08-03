@@ -19,14 +19,18 @@ export function PersonNode({
   theme = DEFAULT_THEME,
   highlighted = false,
   colorOverride = null,
+  objectId,
 }) {
-  const { openPerson } = useChartSelection();
+  const { openPerson, selectedObject, selectObject, objectStyles } = useChartSelection();
   const { content, photoFor } = useChartContent();
 
   if (!person && !placeholder) return null;
   const colors = theme.gender[person?.gender ?? 0] || theme.gender[0];
   const display = localizeNoName((person ? personDisplayName(person) : '') || noNameLabel());
-  const photo = content.showPortraits && person ? photoFor(person.recordName) : null;
+  const resolvedObjectId = String(objectId || person?.recordName || '');
+  const objectStyle = objectStyles?.[resolvedObjectId] || {};
+  const photoEnabled = objectStyle.showPhoto == null ? content.showPortraits : Boolean(objectStyle.showPhoto);
+  const photo = photoEnabled && person ? photoFor(person.recordName) : null;
   const refId = content.showIds && person ? (person.referenceNumber || person.gedcomId || person.familySearchID || '') : '';
   const baseSpan = person && content.showLifespan ? lifeSpanLabel(person) : '';
   const span = [baseSpan, refId && `#${refId}`].filter(Boolean).join(' · ');
@@ -37,27 +41,53 @@ export function PersonNode({
   const spanX = spanDirection === 'rtl' ? theme.nodeWidth - 12 : 12;
   const displayLines = wrapGraphemes(display, 20, 2);
   const wrappedDisplay = displayLines.length > 1;
-  const fill = placeholder ? theme.placeholderFill : colorOverride?.fill || colors.fill;
-  const stroke = highlighted ? '#ffd166' : placeholder ? theme.placeholderStroke : colorOverride?.stroke || colors.stroke;
+  const fill = objectStyle.fill || (placeholder ? theme.placeholderFill : colorOverride?.fill || colors.fill);
+  const stroke = highlighted ? '#ffd166' : objectStyle.borderColor || (placeholder ? theme.placeholderStroke : colorOverride?.stroke || colors.stroke);
   const strokeWidth = highlighted ? 2.5 : 1.5;
+  const textColor = objectStyle.textColor || theme.text;
+  const fontScale = Math.max(0.5, Math.min(2, Number(objectStyle.fontScale) || 1));
+  const offsetX = Number(objectStyle.offsetX) || 0;
+  const offsetY = Number(objectStyle.offsetY) || 0;
+  const selected = selectedObject?.kind === 'person' && selectedObject.id === resolvedObjectId;
 
-  const interactive = (onClick || openPerson) && person;
+  const interactive = (onClick || openPerson || selectObject) && person;
 
-  const handleClick = () => {
+  const handleClick = (event) => {
     if (!person) return;
+    event?.stopPropagation?.();
+    selectObject?.({ id: resolvedObjectId, kind: 'person', label: display });
+  };
+
+  const handleOpen = (event) => {
+    if (!person) return;
+    event?.stopPropagation?.();
     if (openPerson) openPerson(person);
-    else if (onClick) onClick(person);
+    else onClick?.(person);
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleClick(event);
+    }
   };
 
   return (
     <g
-      transform={`translate(${x},${y})`}
+      transform={`translate(${x + offsetX},${y + offsetY})`}
+      data-chart-object-kind={person ? 'person' : undefined}
+      data-chart-object-id={person ? resolvedObjectId : undefined}
+      role={person ? 'button' : undefined}
+      tabIndex={person ? 0 : undefined}
+      aria-label={person ? display : undefined}
       style={{
         cursor: interactive ? 'pointer' : 'default',
         userSelect: 'none',
         WebkitUserSelect: 'none',
       }}
       onClick={handleClick}
+      onDoubleClick={handleOpen}
+      onKeyDown={handleKeyDown}
     >
       <rect
         width={theme.nodeWidth}
@@ -84,8 +114,8 @@ export function PersonNode({
       <text
         x={displayX}
         y={wrappedDisplay ? 17 : 22}
-        fill={theme.text}
-        fontSize={13}
+        fill={textColor}
+        fontSize={13 * fontScale}
         fontFamily={theme.fontFamily}
         fontWeight={600}
         direction={displayDirection}
@@ -99,14 +129,30 @@ export function PersonNode({
         <text
           x={spanX}
           y={wrappedDisplay ? 47 : 40}
-          fill={theme.textMuted}
-          fontSize={11}
+          fill={textColor}
+          opacity={0.78}
+          fontSize={11 * fontScale}
           fontFamily={theme.fontFamily}
           direction={spanDirection}
           style={{ unicodeBidi: 'plaintext' }}
         >
           {span}
         </text>
+      )}
+      {selected && (
+        <rect
+          data-export-exclude="true"
+          x={-3}
+          y={-3}
+          width={theme.nodeWidth + 6}
+          height={theme.nodeHeight + 6}
+          rx={theme.nodeRadius + 2}
+          fill="none"
+          stroke="#1e88e5"
+          strokeWidth={2}
+          strokeDasharray="5 3"
+          pointerEvents="none"
+        />
       )}
     </g>
   );

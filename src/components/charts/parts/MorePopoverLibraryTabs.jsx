@@ -133,7 +133,10 @@ export function MoreLibraryTab({
 
 export function MoreOverlaysTab({
   overlays,
+  objectStyles,
+  connectionStyles,
   selectedOverlayId,
+  selectedObject,
   isReadOnly,
   hasUndo,
   hasRedo,
@@ -154,9 +157,12 @@ export function MoreOverlaysTab({
   pageSize,
   pageOrientation,
   onUpdateOverlay,
+  onUpdateObjectStyle,
+  onUpdateConnectionStyle,
 }) {
+  const { t } = useTranslation();
   return (<>
-    <Section label={`Overlays${isReadOnly ? ' (read-only)' : ''}`}>
+    <Section label={isReadOnly ? t('charts.overlays.readOnlyTitle') : t('charts.overlays.title')}>
       <div className="grid grid-cols-4 gap-1.5">
         <Button onClick={addTextOverlay} disabled={isReadOnly}>Text</Button>
         <Button onClick={addLineOverlay} disabled={isReadOnly}>Line</Button>
@@ -181,18 +187,23 @@ export function MoreOverlaysTab({
         <Button onClick={focusRootInCanvas}>Focus root</Button>
       </div>
       <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-        <Button className="whitespace-normal" onClick={() => moveAwayFromPageCuts({ paperSize: pageSize, orientation: pageOrientation })} disabled={!overlays.length || isReadOnly} title="Shift objects that cross a page-tile boundary so they fit inside one page">Away from cuts</Button>
+        <Button className="whitespace-normal" onClick={moveAwayFromPageCuts} disabled={isReadOnly} title={t('charts.overlays.moveAwayHint')}>{t('charts.overlays.moveAway')}</Button>
         <Button className="whitespace-normal" onClick={() => distributeBorderToBorder('horizontal', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2 || isReadOnly} title="Distribute objects evenly across the page content rect">Border-to-border H</Button>
         <Button className="whitespace-normal" onClick={() => distributeBorderToBorder('vertical', { paperSize: pageSize, orientation: pageOrientation })} disabled={overlays.length < 2 || isReadOnly} title="Distribute objects evenly from top to bottom">Border-to-border V</Button>
       </div>
     </Section>
 
-    {selectedOverlayId && (
-      <Section label="Object inspector">
+    {(selectedOverlayId || selectedObject) && (
+      <Section label={t('charts.objectInspector.title')}>
         <ChartObjectInspector
           overlays={overlays}
+          objectStyles={objectStyles}
+          connectionStyles={connectionStyles}
           selectedOverlayId={selectedOverlayId}
+          selectedObject={selectedObject}
           onUpdateOverlay={onUpdateOverlay}
+          onUpdateObjectStyle={onUpdateObjectStyle}
+          onUpdateConnectionStyle={onUpdateConnectionStyle}
         />
       </Section>
     )}
@@ -283,7 +294,7 @@ export function MoreExportTab({
       <div className="grid grid-cols-3 gap-1.5">
         <Button onClick={exportSvg}>Save SVG</Button>
         <Button onClick={exportPng}>Save {exportFormat === 'jpeg' ? 'JPEG' : 'PNG'}</Button>
-        <Button onClick={exportPdf} title={t('charts.printHint')}>{t('charts.print')}</Button>
+        <Button onClick={exportPdf} title={t('charts.pdfHint')}>{t('charts.savePdf')}</Button>
       </div>
     </Section>
   );

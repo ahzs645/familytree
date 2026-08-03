@@ -5,6 +5,7 @@
 import React from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
 import { PersonNode } from './PersonNode.jsx';
+import { ChartConnection } from './ChartConnection.jsx';
 import { DEFAULT_THEME } from './theme.js';
 
 const PADDING = 30;
@@ -52,11 +53,10 @@ export function RelationshipPathChart({ result, pathCount = 0, secondPicked, onP
               <PersonNode x={x} y={y} person={step.person} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(step.person)} />
               {i > 0 && step.edgeFromPrev && (
                 <g>
-                  <path
+                  <ChartConnection
+                    id={`relationship-${i}`}
                     d={`M ${x - STEP_GAP + 4} ${y + theme.nodeHeight / 2} H ${x - 4}`}
-                    stroke={theme.connector}
-                    strokeWidth={theme.connectorWidth}
-                    fill="none"
+                    theme={theme}
                     markerEnd="url(#rp-arrow)"
                   />
                   <text

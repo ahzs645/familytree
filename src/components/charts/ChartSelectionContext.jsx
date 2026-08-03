@@ -7,11 +7,30 @@
  */
 import React, { createContext, useContext } from 'react';
 
-const ChartSelectionContext = createContext({ openPerson: null });
+const ChartSelectionContext = createContext({
+  openPerson: null,
+  selectedObject: null,
+  selectObject: null,
+  objectStyles: {},
+  connectionStyles: {},
+});
 
-export function ChartSelectionProvider({ openPerson, children }) {
+export function ChartSelectionProvider({
+  openPerson,
+  selectedObject,
+  selectObject,
+  objectStyles = {},
+  connectionStyles = {},
+  children,
+}) {
   return (
-    <ChartSelectionContext.Provider value={{ openPerson }}>
+    <ChartSelectionContext.Provider value={{
+      openPerson,
+      selectedObject,
+      selectObject,
+      objectStyles,
+      connectionStyles,
+    }}>
       {children}
     </ChartSelectionContext.Provider>
   );

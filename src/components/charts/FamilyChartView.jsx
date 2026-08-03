@@ -2,6 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { Edit3, Eye, GitMerge } from 'lucide-react';
 import { ChartCanvas } from './ChartCanvas.jsx';
 import { ChartEmptyState } from './ChartEmptyState.jsx';
+import { ChartConnection } from './ChartConnection.jsx';
+import { useChartSelection } from './ChartSelectionContext.jsx';
+import { useChartContent } from './ChartContentContext.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { lifeSpanLabel } from '../../models/index.js';
 import { textDirection, wrapGraphemes } from '../../lib/i18n.js';
@@ -56,15 +59,16 @@ export function FamilyChartView({
     >
       <g transform={`translate(${PADDING},${PADDING})`}>
         {layout.links.map((link, index) => (
-          <path
+          <ChartConnection
             key={`${link.kind}-${index}`}
+            id={`family-${link.kind}-${index}`}
             d={link.d}
-            fill="none"
-            stroke={link.kind?.includes('duplicate') ? theme.textMuted : theme.connector}
-            strokeWidth={link.kind?.includes('marriage') ? Math.max(1, theme.connectorWidth) : theme.connectorWidth}
-            strokeDasharray={link.kind?.includes('duplicate') || link.kind === 'secondary-child' ? '5 4' : 'none'}
+            theme={theme}
+            color={link.kind?.includes('duplicate') ? theme.textMuted : theme.connector}
+            width={link.kind?.includes('marriage') ? Math.max(1, theme.connectorWidth) : theme.connectorWidth}
+            dashArray={link.kind?.includes('duplicate') || link.kind === 'secondary-child' ? '5 4' : 'none'}
             opacity={link.kind?.includes('duplicate') || link.kind === 'secondary-child' ? 0.8 : 1}
-            title={link.label || undefined}
+            label={link.label || undefined}
           />
         ))}
         {layout.nodes.map((node, index) => (
@@ -115,7 +119,13 @@ function FamilyChartNode({
   editable,
 }) {
   const { t } = useTranslation();
+  const { selectedObject, selectObject, objectStyles } = useChartSelection();
+  const { content, photoFor } = useChartContent();
   const { person, placeholder } = node;
+  const objectId = String(person?.recordName || node.id);
+  const objectStyle = objectStyles?.[objectId] || {};
+  const photoEnabled = objectStyle.showPhoto == null ? content.showPortraits : Boolean(objectStyle.showPhoto);
+  const photo = photoEnabled && person ? photoFor(person.recordName) : null;
   const display = person?.fullName ? localizeNoName(person.fullName) : (node.role === 'placeholder-spouse' ? t('editor.person.unknownPartner', { defaultValue: 'Unknown partner' }) : noNameLabel());
   const span = person ? lifeSpanLabel(person) : '';
   const displayDirection = textDirection(display, 'ltr');
@@ -124,29 +134,37 @@ function FamilyChartNode({
   const actionsOnLeft = displayDirection === 'rtl';
   const actionWidth = hasActions ? 46 : 0;
   const textInset = 12;
+  const portraitInset = photo ? 34 : 0;
   const displayX = displayDirection === 'rtl'
     ? theme.nodeWidth - textInset
-    : textInset + (actionsOnLeft ? actionWidth : 0);
+    : textInset + (actionsOnLeft ? actionWidth : 0) + portraitInset;
   const spanX = spanDirection === 'rtl'
     ? theme.nodeWidth - textInset
-    : textInset + (actionsOnLeft ? actionWidth : 0);
-  const usableTextWidth = Math.max(9, Math.floor((theme.nodeWidth - textInset * 2 - actionWidth) / 8));
+    : textInset + (actionsOnLeft ? actionWidth : 0) + portraitInset;
+  const usableTextWidth = Math.max(9, Math.floor((theme.nodeWidth - textInset * 2 - actionWidth - portraitInset) / 8));
   const displayLines = wrapGraphemes(display, Math.min(20, usableTextWidth), 2);
   const wrappedDisplay = displayLines.length > 1;
   const colors = theme.gender[person?.gender ?? 2] || theme.gender[2] || theme.gender[0];
-  const fill = placeholder ? theme.placeholderFill : colorOverride?.fill || colors.fill;
-  const stroke = node.role === 'root'
+  const fill = objectStyle.fill || (placeholder ? theme.placeholderFill : colorOverride?.fill || colors.fill);
+  const stroke = objectStyle.borderColor || (node.role === 'root'
     ? '#ffd166'
     : node.collapsedDuplicate
       ? theme.textMuted
       : placeholder
         ? theme.placeholderStroke
-        : colorOverride?.stroke || colors.stroke;
+        : colorOverride?.stroke || colors.stroke);
+  const textColor = objectStyle.textColor || theme.text;
+  const fontScale = Math.max(0.5, Math.min(2, Number(objectStyle.fontScale) || 1));
+  const offsetX = Number(objectStyle.offsetX) || 0;
+  const offsetY = Number(objectStyle.offsetY) || 0;
+  const selected = selectedObject?.kind === 'person' && selectedObject.id === objectId;
   const textY = wrappedDisplay ? 16 : 22;
   const actionX = actionsOnLeft ? 7 : theme.nodeWidth - 47;
 
-  const handleClick = () => {
-    if (person) onClick?.(person);
+  const handleClick = (event) => {
+    if (!person) return;
+    event.stopPropagation();
+    selectObject?.({ id: objectId, kind: 'person', label: display });
   };
   const handleInspect = (event) => {
     event.stopPropagation();
@@ -159,10 +177,12 @@ function FamilyChartNode({
 
   return (
     <g
-      transform={`translate(${node.x},${node.y})`}
+      transform={`translate(${node.x + offsetX},${node.y + offsetY})`}
+      data-chart-object-kind={person ? 'person' : undefined}
+      data-chart-object-id={person ? objectId : undefined}
       style={{ cursor: person ? 'pointer' : 'default', userSelect: 'none' }}
       onClick={handleClick}
-      onDoubleClick={handleEdit}
+      onDoubleClick={(event) => { event.stopPropagation(); if (person) onClick?.(person); }}
     >
       <rect
         width={theme.nodeWidth}
@@ -174,11 +194,22 @@ function FamilyChartNode({
         strokeWidth={node.role === 'root' ? 2.5 : 1.5}
         strokeDasharray={placeholder || node.collapsedDuplicate ? '4 3' : 'none'}
       />
+      {photo && (
+        <image
+          href={photo}
+          x={4}
+          y={4}
+          width={34}
+          height={34}
+          preserveAspectRatio="xMidYMid slice"
+          rx={4}
+        />
+      )}
       <text
         x={displayX}
         y={textY}
-        fill={theme.text}
-        fontSize={13}
+        fill={textColor}
+        fontSize={13 * fontScale}
         fontFamily={theme.fontFamily}
         fontWeight={600}
         direction={displayDirection}
@@ -192,8 +223,9 @@ function FamilyChartNode({
         <text
           x={spanX}
           y={wrappedDisplay ? 45 : 39}
-          fill={theme.textMuted}
-          fontSize={11}
+          fill={textColor}
+          opacity={0.78}
+          fontSize={11 * fontScale}
           fontFamily={theme.fontFamily}
           direction={spanDirection}
           style={{ unicodeBidi: 'plaintext' }}
@@ -238,6 +270,9 @@ function FamilyChartNode({
             </g>
           )}
         </g>
+      )}
+      {selected && (
+        <rect data-export-exclude="true" x={-3} y={-3} width={theme.nodeWidth + 6} height={theme.nodeHeight + 6} rx={theme.nodeRadius + 2} fill="none" stroke="#1e88e5" strokeWidth={2} strokeDasharray="5 3" pointerEvents="none" />
       )}
     </g>
   );

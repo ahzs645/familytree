@@ -6,33 +6,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button.jsx';
 import { listChartTemplates, deleteChartTemplate, saveChartTemplate, newTemplateId } from '../lib/chartTemplates.js';
-import { listChartDocuments, deleteChartDocument } from '../lib/chartDocuments.js';
+import { listChartDocuments, deleteChartDocument, saveChartDocument } from '../lib/chartDocuments.js';
 import { useRecords } from '../lib/data/useRecords.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { PageTitle } from '../components/ui/PageTitle.jsx';
-
-const CHART_LABELS = {
-  ancestor: 'Ancestor',
-  descendant: 'Descendant',
-  hourglass: 'Hourglass',
-  tree: 'Tree (horizontal)',
-  'family-chart': 'Family Chart',
-  'double-ancestor': 'Double Ancestor',
-  fan: 'Fan',
-  circular: 'Circular Tree',
-  'radial-descendant': 'Radial Descendant',
-  symmetrical: 'Symmetrical Tree',
-  distribution: 'Distribution',
-  lifespan: 'Lifespan',
-  timeline: 'Timeline',
-  genogram: 'Genogram',
-  sociogram: 'Sociogram',
-  'fractal-h-tree': 'Fractal H-Tree',
-  'square-tree': 'Square Tree',
-  'fractal-tree': 'Fractal Tree',
-  relationship: 'Relationship Path',
-  virtual: 'Virtual Tree',
-};
+import { useTranslation } from '../contexts/LocalizationContext.jsx';
 
 const ACCENT = {
   ancestor: 'bg-blue-500/15 text-blue-700 dark:text-blue-300',
@@ -57,22 +35,23 @@ const ACCENT = {
   virtual: 'bg-rose-500/15 text-rose-700 dark:text-rose-300',
 };
 
-function importedLayoutStatus(view) {
+function importedLayoutStatus(view, t) {
   const decodedRaw = view.fields?.chartObjectsContainerDataDecoded?.value;
   if (decodedRaw) {
     try {
       const decoded = JSON.parse(decodedRaw);
-      if (decoded.status === 'decoded') return 'decoded Mac layout';
-      if (decoded.status === 'unsupported-binary') return 'archived binary layout preserved';
+      if (decoded.status === 'decoded') return t('savedCharts.importStatus.decoded');
+      if (decoded.status === 'unsupported-binary') return t('savedCharts.importStatus.binary');
     } catch {
       // Fall through to byte-preservation wording.
     }
   }
-  if (view.fields?.chartObjectsContainerData?.value) return 'archived layout preserved';
-  return 'metadata only; no Mac layout payload in this file';
+  if (view.fields?.chartObjectsContainerData?.value) return t('savedCharts.importStatus.archived');
+  return t('savedCharts.importStatus.metadataOnly');
 }
 
 export default function SavedCharts() {
+  const { t, localization } = useTranslation();
   const modal = useModal();
   const [templates, setTemplates] = useState(null);
   const [documents, setDocuments] = useState([]);
@@ -86,63 +65,81 @@ export default function SavedCharts() {
   useEffect(() => { reloadAll(); }, [reloadAll]);
 
   const onDelete = async (id) => {
-    if (!(await modal.confirm('Delete this saved chart?', { title: 'Delete chart', okLabel: 'Delete', destructive: true }))) return;
+    if (!(await modal.confirm(t('savedCharts.deleteTemplateConfirm'), { title: t('savedCharts.deleteChartTitle'), okLabel: t('savedCharts.delete'), destructive: true }))) return;
     await deleteChartTemplate(id);
     reloadAll();
   };
 
   const onDeleteDocument = async (id) => {
-    if (!(await modal.confirm('Delete this chart document?', { title: 'Delete document', okLabel: 'Delete', destructive: true }))) return;
+    if (!(await modal.confirm(t('savedCharts.deleteDocumentConfirm'), { title: t('savedCharts.deleteDocumentTitle'), okLabel: t('savedCharts.delete'), destructive: true }))) return;
     await deleteChartDocument(id);
     reloadAll();
   };
 
   const onDuplicate = async (tpl) => {
-    const name = await modal.prompt('Name for the copy:', `${tpl.name} (copy)`, { title: 'Duplicate chart' });
+    const name = await modal.prompt(t('savedCharts.copyPrompt'), t('savedCharts.copyName', { name: tpl.name }), { title: t('savedCharts.copyTitle') });
     if (!name) return;
     await saveChartTemplate({ ...tpl, id: newTemplateId(), name });
     reloadAll();
   };
 
-  if (templates == null) return <div className="p-10 text-muted-foreground">Loading…</div>;
+  const onRenameTemplate = async (template) => {
+    const name = await modal.prompt(t('savedCharts.renamePrompt'), template.name || '', { title: t('savedCharts.renameTitle') });
+    if (!name?.trim() || name.trim() === template.name) return;
+    await saveChartTemplate({ ...template, name: name.trim() });
+    reloadAll();
+  };
+
+  const onRenameDocument = async (document) => {
+    const name = await modal.prompt(t('savedCharts.renamePrompt'), document.name || '', { title: t('savedCharts.renameTitle') });
+    if (!name?.trim() || name.trim() === document.name) return;
+    await saveChartDocument({ ...document, name: name.trim() });
+    reloadAll();
+  };
+
+  if (templates == null) return <div className="p-10 text-muted-foreground">{t('savedCharts.loading')}</div>;
 
   return (
     <div className="h-full overflow-auto bg-background">
       <div className="max-w-5xl mx-auto p-5">
         <header className="mb-5">
-          <PageTitle className="text-xl font-bold">Saved Charts</PageTitle>
+          <PageTitle className="text-xl font-bold">{t('savedCharts.title')}</PageTitle>
           <p className="text-sm text-muted-foreground mt-1">
             {templates.length + documents.length + importedViews.length === 0
-              ? 'No saved charts yet. Configure a chart in Charts and click Save to store the layout.'
-              : `${templates.length + documents.length + importedViews.length} saved chart configuration${templates.length + documents.length + importedViews.length === 1 ? '' : 's'}`}
+              ? t('savedCharts.empty')
+              : t('savedCharts.count', { count: templates.length + documents.length + importedViews.length })}
           </p>
         </header>
 
         {documents.length > 0 && (
           <section className="mb-6">
-            <h2 className="text-sm font-semibold mb-3">Editable Web Chart Documents</h2>
+            <h2 className="text-sm font-semibold mb-3">{t('savedCharts.documentsTitle')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {documents.map((doc) => (
                 <div key={doc.id} className="rounded-lg border border-border bg-card p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <span className={`text-2xs font-bold uppercase tracking-wider rounded px-2 py-0.5 ${ACCENT[doc.chartType] || 'bg-muted text-muted-foreground'}`}>
-                      {CHART_LABELS[doc.chartType] || doc.chartType}
+                      {t(`charts.chartType.${doc.chartType}`, { defaultValue: doc.chartType })}
                     </span>
-                    <span className="text-2xs text-muted-foreground">{doc.overlays?.length || 0} overlays</span>
+                    <span className="text-2xs text-muted-foreground">{t('savedCharts.overlayCount', { count: doc.overlays?.length || 0 })}</span>
                   </div>
                   <div className="text-sm font-semibold mb-1 truncate">{doc.name}</div>
                   <div className="text-xs text-muted-foreground mb-3">
-                    {doc.generations ? `${doc.generations} generations` : ''}
-                    {doc.savedAt && ` · saved ${new Date(doc.savedAt).toLocaleDateString()}`}
+                    {doc.generations ? t('savedCharts.generationCount', { count: doc.generations }) : ''}
+                    {doc.savedAt && ` · ${t('savedCharts.savedDate', { date: new Date(doc.savedAt).toLocaleDateString(localization.locale) })}`}
                   </div>
                   <div className="flex gap-2">
                     <Button variant="primary" size="sm" onClick={() => navigate(`/charts?document=${doc.id}`)} className="flex-1">
-                      Open
+                      {t('savedCharts.open')}
                     </Button>
-                    <button onClick={() => onDeleteDocument(doc.id)}
-                      className="border border-border text-destructive-text rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">
+                    <Button size="sm" onClick={() => onRenameDocument(doc)}>{t('savedCharts.rename')}</Button>
+                    <Button onClick={() => onDeleteDocument(doc.id)}
+                      variant="destructiveOutline"
+                      size="sm"
+                      aria-label={t('savedCharts.deleteNamed', { name: doc.name })}
+                    >
                       ×
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -152,33 +149,36 @@ export default function SavedCharts() {
 
         {templates.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {templates.map((t) => (
-              <div key={t.id} className="rounded-lg border border-border bg-card p-4">
+            {templates.map((template) => (
+              <div key={template.id} className="rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-2xs font-bold uppercase tracking-wider rounded px-2 py-0.5 ${ACCENT[t.chartType] || 'bg-muted text-muted-foreground'}`}>
-                    {CHART_LABELS[t.chartType] || t.chartType}
+                  <span className={`text-2xs font-bold uppercase tracking-wider rounded px-2 py-0.5 ${ACCENT[template.chartType] || 'bg-muted text-muted-foreground'}`}>
+                    {t(`charts.chartType.${template.chartType}`, { defaultValue: template.chartType })}
                   </span>
-                  {t.themeId && t.themeId !== 'auto' && (
-                    <span className="text-2xs text-muted-foreground">{t.themeId}</span>
+                  {template.themeId && template.themeId !== 'auto' && (
+                    <span className="text-2xs text-muted-foreground">{template.themeId}</span>
                   )}
                 </div>
-                <div className="text-sm font-semibold mb-1 truncate">{t.name}</div>
+                <div className="text-sm font-semibold mb-1 truncate">{template.name}</div>
                 <div className="text-xs text-muted-foreground mb-3">
-                  {t.generations ? `${t.generations} generations` : ''}
-                  {t.savedAt && ` · saved ${new Date(t.savedAt).toLocaleDateString()}`}
+                  {template.generations ? t('savedCharts.generationCount', { count: template.generations }) : ''}
+                  {template.savedAt && ` · ${t('savedCharts.savedDate', { date: new Date(template.savedAt).toLocaleDateString(localization.locale) })}`}
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="primary" size="sm" onClick={() => navigate(`/charts?type=${t.chartType}&template=${t.id}`)} className="flex-1">
-                    Open
+                  <Button variant="primary" size="sm" onClick={() => navigate(`/charts?type=${template.chartType}&template=${template.id}`)} className="flex-1">
+                    {t('savedCharts.open')}
                   </Button>
-                  <button onClick={() => onDuplicate(t)}
-                    className="border border-border bg-secondary text-foreground rounded-md px-3 py-1.5 text-xs">
-                    Copy
-                  </button>
-                  <button onClick={() => onDelete(t.id)}
-                    className="border border-border text-destructive-text rounded-md px-3 py-1.5 text-xs hover:bg-destructive/10">
+                  <Button size="sm" onClick={() => onRenameTemplate(template)}>{t('savedCharts.rename')}</Button>
+                  <Button size="sm" onClick={() => onDuplicate(template)}>
+                    {t('savedCharts.copy')}
+                  </Button>
+                  <Button onClick={() => onDelete(template.id)}
+                    variant="destructiveOutline"
+                    size="sm"
+                    aria-label={t('savedCharts.deleteNamed', { name: template.name })}
+                  >
                     ×
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -186,18 +186,18 @@ export default function SavedCharts() {
         )}
         {importedViews.length > 0 && (
           <section className="mt-6">
-            <h2 className="text-sm font-semibold mb-3">Imported MacFamilyTree Saved Charts</h2>
+            <h2 className="text-sm font-semibold mb-3">{t('savedCharts.importedTitle')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {importedViews.map((view) => (
                 <div key={view.recordName} className="rounded-lg border border-border bg-card p-4">
-                  <span className="text-2xs font-bold uppercase tracking-wider rounded px-2 py-0.5 bg-secondary text-muted-foreground">SavedChart</span>
+                  <span className="text-2xs font-bold uppercase tracking-wider rounded px-2 py-0.5 bg-secondary text-muted-foreground">{t('savedCharts.importedBadge')}</span>
                   <div className="text-sm font-semibold mt-2 mb-1 truncate">{view.fields?.title?.value || view.fields?.name?.value || view.recordName}</div>
                   <div className="text-xs text-muted-foreground mb-3">
-                    {view.fields?.author?.value || 'MacFamilyTree import'}
-                    {' · '}{importedLayoutStatus(view)}
+                    {view.fields?.author?.value || t('savedCharts.macImport')}
+                    {' · '}{importedLayoutStatus(view, t)}
                   </div>
                   <Button variant="primary" size="sm" onClick={() => navigate(`/charts?imported=${encodeURIComponent(view.recordName)}`)}>
-                    Open Web Chart
+                    {t('savedCharts.openWebChart')}
                   </Button>
                 </div>
               ))}

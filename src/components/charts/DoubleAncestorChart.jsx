@@ -6,6 +6,7 @@
 import React, { useMemo } from 'react';
 import { ChartCanvas } from './ChartCanvas.jsx';
 import { PersonNode } from './PersonNode.jsx';
+import { ChartConnection } from './ChartConnection.jsx';
 import { DEFAULT_THEME } from './theme.js';
 import { layoutAncestors } from './layouts/ancestorLayout.js';
 
@@ -85,34 +86,28 @@ export function DoubleAncestorChart({
         {layout.left.links.map((l, i) => {
           const midX = (l.from.x + l.toFather.x) / 2;
           return (
-            <g key={'l' + i} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth}>
-              <path d={`M ${l.from.x} ${l.from.y} H ${midX}`} />
-              <path d={`M ${midX} ${l.toFather.y} H ${l.toFather.x + theme.nodeWidth}`} />
-              <path d={`M ${midX} ${l.toMother.y} H ${l.toMother.x + theme.nodeWidth}`} />
-              <path d={`M ${midX} ${l.toFather.y} V ${l.toMother.y}`} />
-            </g>
+            <ChartConnection key={'l' + i} id={`double-left-${i}`} theme={theme} paths={[
+              `M ${l.from.x} ${l.from.y} H ${midX}`,
+              `M ${midX} ${l.toFather.y} H ${l.toFather.x + theme.nodeWidth}`,
+              `M ${midX} ${l.toMother.y} H ${l.toMother.x + theme.nodeWidth}`,
+              `M ${midX} ${l.toFather.y} V ${l.toMother.y}`,
+            ]} />
           );
         })}
         {/* Right side connectors (standard ancestor geometry) */}
         {layout.right.links.map((l, i) => {
           const midX = (l.from.x + l.toFather.x) / 2;
           return (
-            <g key={'r' + i} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth}>
-              <path d={`M ${l.from.x} ${l.from.y} H ${midX}`} />
-              <path d={`M ${midX} ${l.toFather.y} H ${l.toFather.x}`} />
-              <path d={`M ${midX} ${l.toMother.y} H ${l.toMother.x}`} />
-              <path d={`M ${midX} ${l.toFather.y} V ${l.toMother.y}`} />
-            </g>
+            <ChartConnection key={'r' + i} id={`double-right-${i}`} theme={theme} paths={[
+              `M ${l.from.x} ${l.from.y} H ${midX}`,
+              `M ${midX} ${l.toFather.y} H ${l.toFather.x}`,
+              `M ${midX} ${l.toMother.y} H ${l.toMother.x}`,
+              `M ${midX} ${l.toFather.y} V ${l.toMother.y}`,
+            ]} />
           );
         })}
         {layout.marriage && (
-          <path
-            d={layout.marriage.d}
-            fill="none"
-            stroke={theme.connector}
-            strokeWidth={theme.connectorWidth * 1.5}
-            strokeDasharray="4 4"
-          />
+          <ChartConnection id="double-marriage" d={layout.marriage.d} theme={theme} width={theme.connectorWidth * 1.5} dashArray="4 4" />
         )}
         {layout.left.nodes.map((n) => (
           <PersonNode key={'ln-' + n.id} x={n.x} y={n.y} person={n.person} placeholder={n.placeholder} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(n.person)} />

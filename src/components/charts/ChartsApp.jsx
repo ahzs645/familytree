@@ -164,6 +164,7 @@ export function ChartsApp() {
     pageCutMarks, setPageCutMarks,
     pagePrintPageNumbers, setPagePrintPageNumbers,
     pageOmitEmptyPages, setPageOmitEmptyPages,
+    pageWatermark, setPageWatermark,
   } = pageSetup;
   const relationship = useRelationshipPaths();
   const {
@@ -209,7 +210,10 @@ export function ChartsApp() {
   const overlayCommands = useChartObjectCommands([]);
   const {
     overlays,
+    objectStyles,
+    connectionStyles,
     selectedOverlayId,
+    selectedObject,
     hasUndo,
     hasRedo,
     setOverlaysPreview,
@@ -228,6 +232,9 @@ export function ChartsApp() {
     moveAwayFromPageCuts,
     distributeBorderToBorder,
     selectOverlay,
+    selectObject,
+    updateObjectStyle,
+    updateConnectionStyle,
   } = overlayCommands;
   const theme = getTheme(themeId, appTheme === 'dark');
   const needsSecond = CHART_TYPES.find((t) => t.id === chartType)?.needsSecond;
@@ -244,6 +251,7 @@ export function ChartsApp() {
     cutMarks: pageCutMarks,
     printPageNumbers: pagePrintPageNumbers,
     omitEmptyPages: pageOmitEmptyPages,
+    watermark: pageWatermark,
   };
   const chartTitleOrDefault = chartTitle || 'chart';
 
@@ -322,7 +330,7 @@ export function ChartsApp() {
     persons,
     privateIds,
     hidePrivateChartInfo,
-    showPortraits: chartContent.showPortraits,
+    showPortraits: chartContent.showPortraits || Object.values(objectStyles).some((style) => style?.showPhoto === true),
     setChartPhotos,
   });
 
@@ -409,6 +417,18 @@ export function ChartsApp() {
     const updated = overlays.map((overlay) => (overlay?.id === id ? { ...overlay, ...next } : overlay));
     setOverlaysCommit(updated, { selectedId: id });
   }, [overlays, setOverlaysCommit]);
+
+  const onSelectChartObject = useCallback((object) => {
+    selectObject(object);
+    if (object?.id) {
+      setMorePopoverTab('overlays');
+      setMoreOpen(true);
+    }
+  }, [selectObject]);
+
+  const onMoveAwayFromPageBreaks = useCallback(() => {
+    moveAwayFromPageCuts(chartPage, chartCanvasRef.current?.measurePageBreakObjects?.());
+  }, [chartPage, moveAwayFromPageCuts]);
 
   const addTextOverlay = useCallback(async () => {
     const text = await modal.prompt('Text label:', 'Annotation', { title: 'Add text' });
@@ -673,7 +693,10 @@ export function ChartsApp() {
               {morePopoverTab === 'overlays' && (
                 <MoreOverlaysTab
                   overlays={overlays}
+                  objectStyles={objectStyles}
+                  connectionStyles={connectionStyles}
                   selectedOverlayId={selectedOverlayId}
+                  selectedObject={selectedObject}
                   isReadOnly={isReadOnly}
                   hasUndo={hasUndo}
                   hasRedo={hasRedo}
@@ -689,11 +712,13 @@ export function ChartsApp() {
                   sendToBack={sendToBack}
                   distributeEvenly={distributeEvenly}
                   focusRootInCanvas={focusRootInCanvas}
-                  moveAwayFromPageCuts={moveAwayFromPageCuts}
+                  moveAwayFromPageCuts={onMoveAwayFromPageBreaks}
                   distributeBorderToBorder={distributeBorderToBorder}
                   pageSize={pageSize}
                   pageOrientation={pageOrientation}
                   onUpdateOverlay={onUpdateOverlay}
+                  onUpdateObjectStyle={updateObjectStyle}
+                  onUpdateConnectionStyle={updateConnectionStyle}
                 />
               )}
 
@@ -724,7 +749,13 @@ export function ChartsApp() {
 
       <ChartShareQrDialog qrShare={qrShare} onClose={() => setQrShare(null)} />
 
-      <ChartSelectionProvider openPerson={openPersonInPanel}>
+      <ChartSelectionProvider
+        openPerson={openPersonInPanel}
+        selectedObject={selectedObject}
+        selectObject={onSelectChartObject}
+        objectStyles={objectStyles}
+        connectionStyles={connectionStyles}
+      >
       <ChartContentProvider content={chartContent} photosById={chartPhotos}>
       <div className="flex min-h-0 min-w-0 flex-1">
         <ChartStage
@@ -865,7 +896,7 @@ export function ChartsApp() {
       )}
       {pageSetupSheetOpen && (
         <PageSetupSheet
-          title="Page setup"
+          title={t('charts.pageSetup.title')}
           pageSetup={{
             paperSize: pageSize,
             orientation: pageOrientation,
@@ -875,6 +906,7 @@ export function ChartsApp() {
             cutMarks: pageCutMarks,
             printPageNumbers: pagePrintPageNumbers,
             omitEmptyPages: pageOmitEmptyPages,
+            watermark: pageWatermark,
             backgroundColor: chartBackground,
           }}
           exportSettings={{
@@ -893,6 +925,7 @@ export function ChartsApp() {
             setPageCutMarks(Boolean(nextPage.cutMarks));
             setPagePrintPageNumbers(Boolean(nextPage.printPageNumbers));
             setPageOmitEmptyPages(nextPage.omitEmptyPages !== false);
+            setPageWatermark(nextPage.watermark || '');
             if (nextPage.backgroundColor !== undefined) setChartBackground(nextPage.backgroundColor);
             if (nextExport) {
               setExportFormat(nextExport.format || 'png');
