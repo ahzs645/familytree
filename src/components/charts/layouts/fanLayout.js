@@ -20,13 +20,36 @@ export function layoutFan(tree, generations, options = {}) {
   // For a full 360° fan, split vertically: father's half above, mother's half below,
   // so slot 0 (father) occupies -180°..0° (top) and slot 1 (mother) occupies 0°..180° (bottom).
   // For partial fans, center the arc upward at 12 o'clock.
-  const startAngle = arcDegrees >= 360 ? -180 : -arcDegrees / 2 - 90;
+  const startAngle = options.startAngle ?? (arcDegrees >= 360 ? -180 : -arcDegrees / 2 - 90);
   const arcRad = arcDegrees * DEG_TO_RAD;
   const startRad = startAngle * DEG_TO_RAD;
 
   const slices = [];
 
-  function visit(node, gen, slot) {
+  function pushSlice(node, gen, slot, a0, a1) {
+    if (options.expandSmallSlices && gen === generations - 1) {
+      const minimumArc = 4 * DEG_TO_RAD;
+      if (a1 - a0 < minimumArc) {
+        const mid = (a0 + a1) / 2;
+        a0 = mid - minimumArc / 2;
+        a1 = mid + minimumArc / 2;
+      }
+    }
+    const r0 = probandRadius + (gen - 1) * ringWidth;
+    const r1 = r0 + ringWidth;
+    const midAngle = (a0 + a1) / 2;
+    const midRadius = (r0 + r1) / 2;
+    slices.push({
+      gen, slot,
+      path: annularSliceD(r0, r1, a0, a1),
+      textArcPath: textArcD(midRadius, a0, a1),
+      midAngle, midRadius, a0, a1,
+      person: node.person,
+      placeholder: !node.person,
+    });
+  }
+
+  function visitAncestor(node, gen, slot) {
     if (!node) return;
     if (gen === 0) {
       slices.push({ proband: true, person: node.person });
@@ -35,31 +58,42 @@ export function layoutFan(tree, generations, options = {}) {
       const sliceArc = arcRad / slotsAtGen;
       const a0 = startRad + slot * sliceArc;
       const a1 = a0 + sliceArc;
-      const r0 = probandRadius + (gen - 1) * ringWidth;
-      const r1 = r0 + ringWidth;
-      const midAngle = (a0 + a1) / 2;
-      const midRadius = (r0 + r1) / 2;
-      slices.push({
-        gen,
-        slot,
-        path: annularSliceD(r0, r1, a0, a1),
-        textArcPath: textArcD(midRadius, a0, a1),
-        midAngle,
-        midRadius,
-        a0,
-        a1,
-        person: node.person,
-        placeholder: !node.person,
-      });
+      pushSlice(node, gen, slot, a0, a1);
     }
 
     if (gen + 1 >= generations) return;
     const childSlot = slot * 2;
-    visit(node.father, gen + 1, childSlot);
-    visit(node.mother, gen + 1, childSlot + 1);
+    visitAncestor(node.father, gen + 1, childSlot);
+    visitAncestor(node.mother, gen + 1, childSlot + 1);
   }
 
-  visit(tree, 0, 0);
+  function descendantChildren(node) {
+    return (node?.unions || []).flatMap((union) => union.children || []);
+  }
+
+  function descendantWeight(node, gen) {
+    if (gen + 1 >= generations) return 1;
+    const children = descendantChildren(node);
+    return children.length ? children.reduce((sum, child) => sum + descendantWeight(child, gen + 1), 0) : 1;
+  }
+
+  function visitDescendants(node, gen, slot, a0, a1) {
+    if (!node) return;
+    if (gen === 0) slices.push({ proband: true, person: node.person });
+    else pushSlice(node, gen, slot, a0, a1);
+    if (gen + 1 >= generations) return;
+    const children = descendantChildren(node);
+    const total = children.reduce((sum, child) => sum + descendantWeight(child, gen + 1), 0);
+    let cursor = a0;
+    children.forEach((child, index) => {
+      const end = index === children.length - 1 ? a1 : cursor + (a1 - a0) * descendantWeight(child, gen + 1) / total;
+      visitDescendants(child, gen + 1, index, cursor, end);
+      cursor = end;
+    });
+  }
+
+  if (options.mode === 'descendant') visitDescendants(tree, 0, 0, startRad, startRad + arcRad);
+  else visitAncestor(tree, 0, 0);
 
   const totalRadius = probandRadius + (generations - 1) * ringWidth;
   const size = totalRadius * 2 + 40;

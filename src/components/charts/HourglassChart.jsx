@@ -14,17 +14,40 @@ import { translateSvgPath } from './layouts/pathUtils.js';
 
 const PADDING = 40;
 
-export function HourglassChart({ ancestorTree, descendantTree, generations = 4, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
-  const layout = useMemo(() => {
+export function layoutHourglass(ancestorTree, descendantTree, partnerAncestorTree, generations, theme, options = {}) {
     const upper = layoutAncestorsUpward(ancestorTree, generations, theme);
-    const descendants = layoutDescendants(descendantTree, theme);
+    const partnerUpper = partnerAncestorTree
+      ? layoutAncestorsUpward(partnerAncestorTree, Math.max(1, options.partnerAncestorGenerations || 1), theme)
+      : null;
+    const partnerDx = upper.width + 60;
+    const partnerDy = partnerUpper ? upper.probandY - partnerUpper.probandY : 0;
+    const upperNodes = partnerUpper
+      ? [...upper.nodes, ...partnerUpper.nodes.map((node) => ({ ...node, id: `partner-${node.id}`, x: node.x + partnerDx, y: node.y + partnerDy }))]
+      : upper.nodes;
+    const upperLinks = partnerUpper
+      ? [
+        ...upper.links,
+        ...partnerUpper.links.map((link) => ({ ...link, d: translateSvgPath(link.d, partnerDx, partnerDy) })),
+        {
+          d: `M ${upper.probandX} ${upper.probandY + theme.nodeHeight / 2} H ${partnerDx + partnerUpper.probandX}`,
+          kind: 'partner',
+        },
+      ]
+      : upper.links;
+    const descendants = layoutDescendants(descendantTree, theme, { showPartners: !partnerUpper });
 
     // Align the descendant root horizontally under the upper proband, then push
     // the whole descendant subtree down so it sits below the proband row. Drop
     // the duplicated root node so the proband appears only once.
     const rootNode = descendants.nodes[0];
     const rootId = rootNode?.id;
-    const dx = rootNode ? (upper.probandX - theme.nodeWidth / 2) - rootNode.x : 0;
+    const combinedWidth = partnerUpper ? partnerDx + partnerUpper.width : upper.width;
+    const targetX = options.alignment === 'start'
+      ? upper.probandX - theme.nodeWidth / 2
+      : options.alignment === 'end'
+        ? combinedWidth - theme.nodeWidth
+        : combinedWidth / 2 - theme.nodeWidth / 2;
+    const dx = rootNode ? targetX - rootNode.x : 0;
     const dy = rootNode ? upper.probandY - rootNode.y : upper.probandY;
     const lowerNodes = descendants.nodes
       .filter((n) => n.id !== rootId)
@@ -33,14 +56,19 @@ export function HourglassChart({ ancestorTree, descendantTree, generations = 4, 
       d: translateSvgPath(l.d, dx, dy),
     }));
 
-    const allNodes = [...upper.nodes, ...lowerNodes];
-    const width = Math.max(upper.width, ...allNodes.map((n) => n.x + theme.nodeWidth));
+    const allNodes = [...upperNodes, ...lowerNodes];
+    const width = Math.max(combinedWidth, ...allNodes.map((n) => n.x + theme.nodeWidth));
     return {
       nodes: allNodes,
-      links: [...upper.links, ...lowerLinks],
+      links: [...upperLinks, ...lowerLinks],
       width,
     };
-  }, [ancestorTree, descendantTree, generations, theme]);
+}
+
+export function HourglassChart({ ancestorTree, descendantTree, partnerAncestorTree, generations = 4, options = {}, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
+  const layout = useMemo(() => {
+    return layoutHourglass(ancestorTree, descendantTree, partnerAncestorTree, generations, theme, options);
+  }, [ancestorTree, descendantTree, partnerAncestorTree, generations, theme, options]);
 
   if (!ancestorTree) return <ChartEmptyState theme={theme} />;
 
@@ -55,7 +83,15 @@ export function HourglassChart({ ancestorTree, descendantTree, generations = 4, 
     >
       <g transform={`translate(${PADDING},${PADDING})`}>
         {layout.links.map((l, i) => (
-          <path key={i} d={l.d} fill="none" stroke={theme.connector} strokeWidth={theme.connectorWidth} />
+          <path
+            key={i}
+            d={l.d}
+            fill="none"
+            stroke={theme.connector}
+            strokeWidth={options.connectionWidth || theme.connectorWidth}
+            strokeLinecap={options.connectionCorners === 'square' ? 'butt' : 'round'}
+            strokeLinejoin={options.connectionCorners === 'square' ? 'miter' : 'round'}
+          />
         ))}
         {layout.nodes.map((n, i) => (
           <PersonNode

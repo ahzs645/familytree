@@ -9,23 +9,23 @@ import {
   createDefaultExportSettings,
 } from './chartDocumentSchema.js';
 
-describe('chart document schema V2', () => {
+describe('chart document schema V3', () => {
   describe('schemaVersion', () => {
-    it('stamps schemaVersion 2 on empty input', () => {
+    it('stamps schemaVersion 3 on empty input', () => {
       const doc = normalizeChartDocument({});
       expect(doc.schemaVersion).toBe(CHART_DOCUMENT_SCHEMA_VERSION);
-      expect(doc.schemaVersion).toBe(2);
+      expect(doc.schemaVersion).toBe(3);
     });
 
     it('overwrites an older schemaVersion on normalize', () => {
       const doc = normalizeChartDocument({ schemaVersion: 1 });
-      expect(doc.schemaVersion).toBe(2);
+      expect(doc.schemaVersion).toBe(3);
     });
 
     it('handles null/undefined input without throwing', () => {
       expect(() => normalizeChartDocument()).not.toThrow();
       expect(() => normalizeChartDocument(null)).not.toThrow();
-      expect(normalizeChartDocument(null).schemaVersion).toBe(2);
+      expect(normalizeChartDocument(null).schemaVersion).toBe(3);
     });
   });
 
@@ -154,6 +154,33 @@ describe('chart document schema V2', () => {
     it('tracks activeChart based on chartType', () => {
       const doc = normalizeChartDocument({ chartType: 'fan' });
       expect(doc.builderConfig.activeChart).toBe('fan');
+    });
+
+    it('migrates defaults for the per-mode chart options', () => {
+      const config = createDefaultBuilderConfig('ancestor', {});
+      expect(config.ancestor).toMatchObject({ showRootSiblings: false, showAncestorSiblings: false, siblingScale: 0.5 });
+      expect(config.descendant).toMatchObject({ generations: 5, showPartners: true, indentPartners: false, partnerIndent: 32 });
+      expect(config.tree.subtreeAlignment).toBe('top');
+      expect(config.fan).toMatchObject({ mode: 'ancestor', startAngle: -90, expandSmallSlices: false });
+      expect(config.hourglass).toMatchObject({ ancestorGenerations: 4, descendantGenerations: 3, partnerAncestorGenerations: 0, alignment: 'center', connectionWidth: 2, connectionCorners: 'rounded' });
+      expect(config.genogram).toMatchObject({ generations: 5, eventPosition: 'right', eventBackground: 'none' });
+    });
+
+    it('preserves and clamps persisted per-mode values', () => {
+      const config = createDefaultBuilderConfig('fan', { builderConfig: {
+        ancestor: { showRootSiblings: true, siblingScale: 9 },
+        descendant: { showPartners: false, partnerIndent: 999 },
+        tree: { subtreeAlignment: 'center' },
+        fan: { mode: 'descendant', startAngle: -999, expandSmallSlices: true },
+        hourglass: { partnerAncestorGenerations: 99, connectionWidth: 20, connectionCorners: 'square' },
+        genogram: { eventPosition: 'below', eventBackground: 'filled' },
+      } });
+      expect(config.ancestor).toMatchObject({ showRootSiblings: true, siblingScale: 1 });
+      expect(config.descendant).toMatchObject({ showPartners: false, partnerIndent: 160 });
+      expect(config.tree.subtreeAlignment).toBe('center');
+      expect(config.fan).toMatchObject({ mode: 'descendant', startAngle: -180, expandSmallSlices: true });
+      expect(config.hourglass).toMatchObject({ partnerAncestorGenerations: 8, connectionWidth: 8, connectionCorners: 'square' });
+      expect(config.genogram).toMatchObject({ eventPosition: 'below', eventBackground: 'filled' });
     });
   });
 
@@ -346,7 +373,7 @@ describe('chart document schema V2', () => {
         overlays: [{ id: 'o1', type: 'text', text: 'Hi' }],
       };
       const doc = migrateChartDocument(legacy);
-      expect(doc.schemaVersion).toBe(2);
+      expect(doc.schemaVersion).toBe(3);
       expect(doc.id).toBe('chart-1');
       expect(doc.name).toBe('My Tree');
       expect(doc.chartType).toBe('descendant');
@@ -374,7 +401,7 @@ describe('chart document schema V2', () => {
     it('is idempotent', () => {
       const first = normalizeChartDocument({ rootId: 'p1', generations: 4 });
       const second = normalizeChartDocument(first);
-      expect(second.schemaVersion).toBe(2);
+      expect(second.schemaVersion).toBe(3);
       expect(second.roots.primaryPersonId).toBe('p1');
       expect(second.builderConfig.common.generations).toBe(4);
     });

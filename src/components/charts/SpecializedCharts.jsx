@@ -852,7 +852,7 @@ export function SociogramChart({ sociogramData, onPersonClick, theme = DEFAULT_T
   );
 }
 
-export function GenogramChart({ tree, genogramData, onPersonClick, theme = DEFAULT_THEME, page, sociogram = false, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
+export function GenogramChart({ tree, genogramData, options, onPersonClick, theme = DEFAULT_THEME, page, sociogram = false, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const layout = useMemo(() => layoutDescendants(tree, theme), [tree, theme]);
   // Index builder-output nodes by person record name so we can annotate each
   // layout node with its event/fact counts without reshaping the layout.
@@ -879,35 +879,29 @@ export function GenogramChart({ tree, genogramData, onPersonClick, theme = DEFAU
         ))}
         {layout.nodes.map((node, index) => {
           const builderNode = node.person?.recordName ? builderByPersonId.get(node.person.recordName) : null;
-          const eventCount = builderNode?.events?.length || 0;
-          const factCount = builderNode?.facts?.length || 0;
+          const annotations = [
+            ...(builderNode?.events || []).map((event) => [event.type, event.year].filter(Boolean).join(' ')),
+            ...(builderNode?.facts || []).map((fact) => [fact.type, fact.value].filter(Boolean).join(': ')),
+          ].filter(Boolean).slice(0, 3);
+          const below = options?.eventPosition === 'below';
+          const annotationX = below ? node.x : node.x + theme.nodeWidth + 8;
+          const annotationY = below ? node.y + theme.nodeHeight + 8 : node.y;
           return (
             <g key={`${node.id}-${index}`}>
               <PersonNode x={node.x} y={node.y} person={node.person} placeholder={node.placeholder} theme={theme} onClick={onPersonClick} colorOverride={colorForPerson?.(node.person)} />
               {sociogram && !node.placeholder && (
                 <circle cx={node.x + theme.nodeWidth - 14} cy={node.y + 14} r={5} fill="#d08c60" />
               )}
-              {!node.placeholder && (eventCount > 0 || factCount > 0) && (
-                <g>
-                  <rect
-                    x={node.x + theme.nodeWidth - 36}
-                    y={node.y + theme.nodeHeight - 18}
-                    width={32}
-                    height={14}
-                    rx={7}
-                    fill={theme.connector}
-                    opacity={0.85}
-                  />
-                  <text
-                    x={node.x + theme.nodeWidth - 20}
-                    y={node.y + theme.nodeHeight - 8}
-                    textAnchor="middle"
-                    fontSize={10}
-                    fontFamily={theme.fontFamily}
-                    fill={theme.background || '#fff'}
-                  >
-                    {eventCount ? `E${eventCount}` : ''}{eventCount && factCount ? ' ' : ''}{factCount ? `F${factCount}` : ''}
-                  </text>
+              {!node.placeholder && annotations.length > 0 && (
+                <g transform={`translate(${annotationX},${annotationY})`}>
+                  {options?.eventBackground === 'filled' && (
+                    <rect width={Math.max(110, theme.nodeWidth)} height={annotations.length * 15 + 8} rx={5} fill={theme.connector} opacity={0.16} />
+                  )}
+                  {annotations.map((annotation, annotationIndex) => (
+                    <text key={`${annotation}-${annotationIndex}`} x={5} y={14 + annotationIndex * 15} fontSize={10} fontFamily={theme.fontFamily} fill={theme.text}>
+                      {annotation}
+                    </text>
+                  ))}
                 </g>
               )}
             </g>

@@ -40,10 +40,10 @@ function personSubtext(person, gen) {
   return lines;
 }
 
-export function FanChart({ tree, generations = 5, onPersonClick, theme = DEFAULT_THEME, arcDegrees, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
+export function FanChart({ tree, generations = 5, mode = 'ancestor', startAngle, expandSmallSlices = false, onPersonClick, theme = DEFAULT_THEME, arcDegrees, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
   const { slices, totalRadius, size, probandRadius } = useMemo(
-    () => layoutFan(tree, generations, { arcDegrees }),
-    [tree, generations, arcDegrees]
+    () => layoutFan(tree, generations, { arcDegrees, mode, startAngle, expandSmallSlices }),
+    [tree, generations, arcDegrees, mode, startAngle, expandSmallSlices]
   );
   if (!tree) return <ChartEmptyState theme={theme} />;
 

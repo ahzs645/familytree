@@ -542,6 +542,51 @@
     "groupBy": "التجميع حسب",
     "lastName": "اسم العائلة",
     "more": "المزيد",
+    "modeOptions": {
+      "alignment": {
+        "center": "الوسط",
+        "end": "النهاية",
+        "start": "البداية",
+        "top": "الأعلى"
+      },
+      "ancestor": {
+        "showAncestorSiblings": "إظهار إخوة وأخوات الأسلاف",
+        "showRootSiblings": "إظهار إخوة وأخوات الشخص المحدد",
+        "siblingScale": "حجم الإخوة والأخوات (%)"
+      },
+      "descendant": {
+        "indentPartners": "إزاحة الشركاء",
+        "partnerIndention": "مقدار إزاحة الشريك",
+        "showPartners": "إظهار الشركاء"
+      },
+      "fan": {
+        "ancestors": "الأسلاف",
+        "arc": "قوس المروحة",
+        "descendants": "الأحفاد",
+        "expandSmallSlices": "توسيع مقاطع المروحة الصغيرة جداً إن أمكن",
+        "mode": "النمط",
+        "startAngle": "زاوية البداية"
+      },
+      "genogram": {
+        "below": "أسفل",
+        "eventBackground": "خلفية الأحداث والحقائق",
+        "eventPosition": "موضع الأحداث والحقائق",
+        "filled": "معبأة",
+        "none": "بلا خلفية",
+        "right": "يمين"
+      },
+      "hourglass": {
+        "alignment": "المحاذاة",
+        "connectionCorners": "زوايا الوصلات",
+        "connectionWidth": "عرض الوصلات",
+        "partnerAncestorGenerations": "أجيال أسلاف الشريك",
+        "rounded": "مستديرة",
+        "square": "مربعة"
+      },
+      "tree": {
+        "subtreeAlignment": "محاذاة الأشجار المنفصلة"
+      }
+    },
     "noPerson": "لا يوجد شخص",
     "options": "خيارات",
     "optionsTabs": "خيارات المخطط",

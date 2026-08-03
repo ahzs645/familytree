@@ -16,6 +16,7 @@ import { buildGenogramData } from '../../../lib/chartData/genogramBuilder.js';
 import { buildDistributionData } from '../../../lib/chartData/distributionBuilder.js';
 import { buildSociogramData } from '../../../lib/chartData/sociogramBuilder.js';
 import { buildVirtualTreeData } from '../../../lib/chartData/virtualTreeBuilder.js';
+import { buildCompleteTreeData } from '../../../lib/chartData/completeTreeBuilder.js';
 import { buildGenerationIndex } from '../coloring.js';
 import { loadChartPortraits } from '../ChartContentContext.jsx';
 
@@ -33,7 +34,8 @@ export function useChartData({
   const {
     rootId, secondId, chartType, generations, descendantGenerations,
     hourglassAncestorGens, hourglassDescendantGens, doubleAncestorLeftGens,
-    doubleAncestorRightGens, ancestorBranch, distributionType,
+    doubleAncestorRightGens, ancestorBranch, ancestorConfig, fanConfig,
+    hourglassConfig, genogramConfig, distributionType,
     distributionRelativeValues, distributionGraphType, distributionFromYear,
     distributionToYear, sociogramConfig, timelineGrouping, timelineCollapse,
     timelineMarkerMode,
@@ -52,6 +54,8 @@ export function useChartData({
   const [ancestorTree, setAncestorTree] = useState(null);
   const [descendantTree, setDescendantTree] = useState(null);
   const [secondAncestorTree, setSecondAncestorTree] = useState(null);
+  const [partnerAncestorTree, setPartnerAncestorTree] = useState(null);
+  const [completeTreeData, setCompleteTreeData] = useState(null);
   const [timelineData, setTimelineData] = useState(null);
   const [genogramData, setGenogramData] = useState(null);
   const [distributionData, setDistributionData] = useState(null);
@@ -68,7 +72,9 @@ export function useChartData({
     : chartType === 'double-ancestor'
       ? doubleAncestorLeftGens
       : generations;
-  const descendantDepth = chartType === 'hourglass'
+  const descendantDepth = chartType === 'fan' && fanConfig.mode === 'descendant'
+    ? generations
+    : chartType === 'hourglass'
     ? hourglassDescendantGens
     : chartType === 'descendant' || chartType === 'genogram' || chartType === 'sociogram' || chartType === 'tree' || chartType === 'symmetrical' || chartType === 'family-chart' || chartType === 'radial-descendant' || chartType === 'lifespan'
       ? descendantGenerations
@@ -78,9 +84,9 @@ export function useChartData({
     if (!rootId) return;
     let cancelled = false;
     (async () => {
-      const ancestorOptions = chartType === 'ancestor' || chartType === 'fan' || chartType === 'circular'
+      const ancestorOptions = chartType === 'ancestor' || (chartType === 'fan' && fanConfig.mode !== 'descendant') || chartType === 'circular'
         || chartType === 'fractal-tree' || chartType === 'fractal-h-tree' || chartType === 'square-tree'
-        ? { branch: ancestorBranch }
+        ? { branch: ancestorBranch, ...(chartType === 'ancestor' ? ancestorConfig : {}) }
         : undefined;
       const a = await buildAncestorTree(rootId, ancestorDepth, ancestorOptions);
       const d = await buildDescendantTree(rootId, descendantDepth);
@@ -92,7 +98,26 @@ export function useChartData({
     return () => {
       cancelled = true;
     };
-  }, [rootId, ancestorDepth, descendantDepth, chartType, ancestorBranch]);
+  }, [rootId, ancestorDepth, descendantDepth, chartType, ancestorBranch, ancestorConfig, fanConfig.mode]);
+
+  useEffect(() => {
+    if (chartType !== 'tree') { setCompleteTreeData(null); return undefined; }
+    let cancelled = false;
+    buildCompleteTreeData().then((data) => { if (!cancelled) setCompleteTreeData(data); }).catch(() => { if (!cancelled) setCompleteTreeData(null); });
+    return () => { cancelled = true; };
+  }, [chartType, persons]);
+
+  useEffect(() => {
+    const generationsForPartner = Number(hourglassConfig.partnerAncestorGenerations) || 0;
+    const partnerId = descendantTree?.unions?.find((union) => union.partner)?.partner?.recordName;
+    if (chartType !== 'hourglass' || !partnerId || generationsForPartner < 1) {
+      setPartnerAncestorTree(null);
+      return undefined;
+    }
+    let cancelled = false;
+    buildAncestorTree(partnerId, generationsForPartner).then((tree) => { if (!cancelled) setPartnerAncestorTree(tree); });
+    return () => { cancelled = true; };
+  }, [chartType, descendantTree, hourglassConfig.partnerAncestorGenerations]);
 
   useEffect(() => {
     if (!secondId || !needsSecond) {
@@ -158,14 +183,14 @@ export function useChartData({
     let cancelled = false;
     (async () => {
       try {
-        const data = await buildGenogramData({ rootPersonId: rootId, generations: descendantGenerations });
+        const data = await buildGenogramData({ rootPersonId: rootId, generations: descendantGenerations, ...genogramConfig });
         if (!cancelled) setGenogramData(data);
       } catch (_error) {
         if (!cancelled) setGenogramData(null);
       }
     })();
     return () => { cancelled = true; };
-  }, [chartType, rootId, descendantGenerations]);
+  }, [chartType, rootId, descendantGenerations, genogramConfig]);
 
   // Sociogram uses its own builder (buildSociogramData) so the relationship
   // inclusion toggles (parents/grandparents/partners/children/associates) and
@@ -280,6 +305,8 @@ export function useChartData({
     ancestorTree,
     descendantTree,
     secondAncestorTree,
+    partnerAncestorTree,
+    completeTreeData,
     timelineData,
     genogramData,
     distributionData,

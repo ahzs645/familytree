@@ -11,8 +11,8 @@ import { layoutDescendants } from './layouts/descendantLayout.js';
 
 const PADDING = 30;
 
-export function DescendantChart({ tree, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
-  const { nodes, links } = useMemo(() => layoutDescendants(tree, theme), [tree, theme]);
+export function DescendantChart({ tree, options, onPersonClick, theme = DEFAULT_THEME, page, overlays, onOverlaysChange, chartCanvasRef, colorForPerson, ...overlayProps }) {
+  const { nodes, links } = useMemo(() => layoutDescendants(tree, theme, options), [tree, theme, options]);
   if (!tree) return <ChartEmptyState theme={theme} />;
 
   return (

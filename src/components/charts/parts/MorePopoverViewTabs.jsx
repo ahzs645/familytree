@@ -12,6 +12,7 @@ import { ChartBackgroundSheet } from '../ChartBackgroundSheet.jsx';
 import { THEMES } from '../theme.js';
 import { COMPLETENESS_COLOR_MODES, COMPLETENESS_LEGEND } from '../../../lib/researchCompleteness.js';
 import { COMPACT_SELECT_TRIGGER } from './controlStyles.js';
+import { useTranslation } from '../../../contexts/LocalizationContext.jsx';
 
 export function MoreViewTab({
   themeId, setThemeId,
@@ -70,7 +71,10 @@ export function MoreLayoutTab({
   doubleAncestorRightGens, setDoubleAncestorRightGens,
   ancestorBranch, setAncestorBranch,
   fanArcDegrees, setFanArcDegrees,
+  treeConfig, setTreeConfig,
+  fanConfig, setFanConfig,
 }) {
+  const { t } = useTranslation();
   return (<>
     <Section label="Generations">
       <Input
@@ -172,7 +176,21 @@ export function MoreLayoutTab({
     )}
 
     {chartType === 'fan' && (
-      <Section label="Fan arc">
+      <Section label={t('charts.modeOptions.fan.mode')}>
+        <Select
+          value={fanConfig?.mode || 'ancestor'}
+          onChange={(mode) => setFanConfig({ ...fanConfig, mode })}
+          options={[
+            { value: 'ancestor', label: t('charts.modeOptions.fan.ancestors') },
+            { value: 'descendant', label: t('charts.modeOptions.fan.descendants') },
+          ]}
+          triggerClassName={COMPACT_SELECT_TRIGGER}
+        />
+      </Section>
+    )}
+
+    {chartType === 'fan' && (
+      <Section label={t('charts.modeOptions.fan.arc')}>
         <div className="mb-1 text-xs text-muted-foreground">Arc ({fanArcDegrees}°)</div>
         <input
           type="range"
@@ -182,6 +200,20 @@ export function MoreLayoutTab({
           value={fanArcDegrees}
           onChange={(e) => setFanArcDegrees(+e.target.value)}
           className="w-full"
+        />
+      </Section>
+    )}
+
+    {chartType === 'tree' && (
+      <Section label={t('charts.modeOptions.tree.subtreeAlignment')}>
+        <Select
+          value={treeConfig?.subtreeAlignment || 'top'}
+          onChange={(subtreeAlignment) => setTreeConfig({ ...treeConfig, subtreeAlignment })}
+          options={[
+            { value: 'top', label: t('charts.modeOptions.alignment.top') },
+            { value: 'center', label: t('charts.modeOptions.alignment.center') },
+          ]}
+          triggerClassName={COMPACT_SELECT_TRIGGER}
         />
       </Section>
     )}

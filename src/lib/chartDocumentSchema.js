@@ -1,4 +1,4 @@
-export const CHART_DOCUMENT_SCHEMA_VERSION = 2;
+export const CHART_DOCUMENT_SCHEMA_VERSION = 3;
 
 const DEFAULT_GENERATIONS = 5;
 
@@ -96,6 +96,56 @@ export function createDefaultBuilderConfig(chartType = 'ancestor', raw = {}) {
   for (const key of CHART_OPTION_KEYS) {
     config[key] = { ...(existing[key] || {}) };
   }
+
+  config.ancestor = {
+    ...config.ancestor,
+    showRootSiblings: Boolean(config.ancestor.showRootSiblings),
+    showAncestorSiblings: Boolean(config.ancestor.showAncestorSiblings),
+    siblingScale: clampNumber(config.ancestor.siblingScale, 0.25, 1, 0.5),
+  };
+
+  config.descendant = {
+    ...config.descendant,
+    generations: clampNumber(config.descendant.generations ?? existing.common?.descendantGenerations, 1, 12, 5),
+    showPartners: config.descendant.showPartners !== false,
+    indentPartners: Boolean(config.descendant.indentPartners),
+    partnerIndent: clampNumber(config.descendant.partnerIndent, 0, 160, 32),
+  };
+
+  config.tree = {
+    ...config.tree,
+    subtreeAlignment: config.tree.subtreeAlignment === 'center' ? 'center' : 'top',
+  };
+
+  config.fan = {
+    ...config.fan,
+    mode: config.fan.mode === 'descendant' ? 'descendant' : 'ancestor',
+    startAngle: clampNumber(config.fan.startAngle, -180, 180, -90),
+    expandSmallSlices: Boolean(config.fan.expandSmallSlices),
+  };
+
+  config.hourglass = {
+    ...config.hourglass,
+    ancestorGenerations: clampNumber(config.hourglass.ancestorGenerations, 1, 12, 4),
+    descendantGenerations: clampNumber(config.hourglass.descendantGenerations, 1, 12, 3),
+    partnerAncestorGenerations: clampNumber(config.hourglass.partnerAncestorGenerations, 0, 8, 0),
+    alignment: ['start', 'center', 'end'].includes(config.hourglass.alignment) ? config.hourglass.alignment : 'center',
+    connectionWidth: clampNumber(config.hourglass.connectionWidth, 1, 8, 2),
+    connectionCorners: config.hourglass.connectionCorners === 'square' ? 'square' : 'rounded',
+  };
+
+  config.genogram = {
+    ...config.genogram,
+    generations: clampNumber(config.genogram.generations, 1, 12, 5),
+    eventPosition: config.genogram.eventPosition === 'below' ? 'below' : 'right',
+    eventBackground: config.genogram.eventBackground === 'filled' ? 'filled' : 'none',
+  };
+
+  config.doubleAncestor = {
+    ...config.doubleAncestor,
+    leftGenerations: clampNumber(config.doubleAncestor.leftGenerations, 1, 12, 4),
+    rightGenerations: clampNumber(config.doubleAncestor.rightGenerations, 1, 12, 4),
+  };
 
   config.relationship = {
     ...relationship,

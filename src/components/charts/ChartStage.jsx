@@ -50,6 +50,14 @@ export function ChartStage({
   ancestorTree,
   descendantTree,
   secondAncestorTree,
+  partnerAncestorTree,
+  completeTreeData,
+  ancestorConfig,
+  descendantConfig,
+  treeConfig,
+  fanConfig,
+  hourglassConfig,
+  genogramConfig,
   chartPersons,
   distributionData,
   distributionType,
@@ -84,6 +92,7 @@ export function ChartStage({
         <AncestorChart
           chartCanvasRef={chartCanvasRef}
           tree={ancestorTree}
+          options={ancestorConfig}
           generations={generations}
           onPersonClick={onPersonClick}
           theme={theme}
@@ -97,6 +106,7 @@ export function ChartStage({
         <DescendantChart
           chartCanvasRef={chartCanvasRef}
           tree={descendantTree}
+          options={descendantConfig}
           onPersonClick={onPersonClick}
           theme={theme}
           page={chartPage}
@@ -110,6 +120,8 @@ export function ChartStage({
           chartCanvasRef={chartCanvasRef}
           ancestorTree={ancestorTree}
           descendantTree={descendantTree}
+          partnerAncestorTree={partnerAncestorTree}
+          options={hourglassConfig}
           generations={hourglassAncestorGens}
           onPersonClick={onPersonClick}
           theme={theme}
@@ -124,6 +136,8 @@ export function ChartStage({
           chartCanvasRef={chartCanvasRef}
           ancestorTree={ancestorTree}
           descendantTree={descendantTree}
+          completeTreeData={completeTreeData}
+          options={treeConfig}
           generations={generations}
           onPersonClick={onPersonClick}
           theme={theme}
@@ -172,9 +186,12 @@ export function ChartStage({
       {chartType === 'fan' && (
         <FanChart
           chartCanvasRef={chartCanvasRef}
-          tree={ancestorTree}
+          tree={fanConfig?.mode === 'descendant' ? descendantTree : ancestorTree}
           generations={generations}
           arcDegrees={fanArcDegrees}
+          mode={fanConfig?.mode}
+          startAngle={fanConfig?.startAngle}
+          expandSmallSlices={fanConfig?.expandSmallSlices}
           onPersonClick={onPersonClick}
           theme={theme}
           page={chartPage}
@@ -254,6 +271,7 @@ export function ChartStage({
           chartCanvasRef={chartCanvasRef}
           tree={descendantTree}
           genogramData={genogramData}
+          options={genogramConfig}
           onPersonClick={onPersonClick}
           theme={theme}
           page={chartPage}

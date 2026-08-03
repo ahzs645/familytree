@@ -36,10 +36,16 @@ export function useChartDocumentIO({
     secondId, setSecondId,
     chartType, setChartType,
     generations, setGenerations,
-    descendantGenerations,
-    hourglassAncestorGens, hourglassDescendantGens,
-    doubleAncestorLeftGens, doubleAncestorRightGens,
-    fanArcDegrees, ancestorBranch,
+    descendantGenerations, setDescendantGenerations,
+    hourglassAncestorGens, setHourglassAncestorGens, hourglassDescendantGens, setHourglassDescendantGens,
+    doubleAncestorLeftGens, setDoubleAncestorLeftGens, doubleAncestorRightGens, setDoubleAncestorRightGens,
+    fanArcDegrees, setFanArcDegrees, ancestorBranch, setAncestorBranch,
+    ancestorConfig, setAncestorConfig,
+    descendantConfig, setDescendantConfig,
+    treeConfig, setTreeConfig,
+    fanConfig, setFanConfig,
+    hourglassConfig, setHourglassConfig,
+    genogramConfig, setGenogramConfig,
     distributionType, setDistributionType,
     distributionRelativeValues, setDistributionRelativeValues,
     distributionGraphType, setDistributionGraphType,
@@ -112,6 +118,8 @@ export function useChartDocumentIO({
     distributionType, distributionRelativeValues, distributionGraphType,
     distributionFromYear, distributionToYear, sociogramConfig,
     timelineGrouping, timelineCollapse, timelineMarkerMode,
+    ancestorConfig, descendantConfig, treeConfig, fanConfig,
+    hourglassConfig, genogramConfig,
   ]);
 
   useEffect(() => {
@@ -165,6 +173,19 @@ export function useChartDocumentIO({
     setColoringMode(normalized.builderConfig.common?.coloringMode || 'gender');
     setChartContent({ ...DEFAULT_CHART_CONTENT, ...(normalized.builderConfig.common?.chartContent || {}) });
     const common = normalized.builderConfig.common || {};
+    setAncestorConfig(normalized.builderConfig.ancestor);
+    setDescendantConfig(normalized.builderConfig.descendant);
+    setDescendantGenerations(normalized.builderConfig.descendant.generations);
+    setTreeConfig(normalized.builderConfig.tree);
+    setFanConfig(normalized.builderConfig.fan);
+    setHourglassConfig(normalized.builderConfig.hourglass);
+    setHourglassAncestorGens(normalized.builderConfig.hourglass.ancestorGenerations);
+    setHourglassDescendantGens(normalized.builderConfig.hourglass.descendantGenerations);
+    setDoubleAncestorLeftGens(normalized.builderConfig.doubleAncestor.leftGenerations);
+    setDoubleAncestorRightGens(normalized.builderConfig.doubleAncestor.rightGenerations);
+    setGenogramConfig(normalized.builderConfig.genogram);
+    setFanArcDegrees(Number(normalized.builderConfig.fan?.arcDegrees) || 180);
+    setAncestorBranch(normalized.builderConfig.ancestor?.branch || 'both');
     if (common.distributionType) setDistributionType(common.distributionType);
     setDistributionRelativeValues(Boolean(common.distributionRelativeValues));
     setDistributionGraphType(common.distributionGraphType === 'line' ? 'line' : 'bar');
@@ -250,6 +271,13 @@ export function useChartDocumentIO({
         bloodlineOnly: relationshipBloodlineOnly,
         selectedPathId: selectedRelationshipPathId,
       },
+      ancestor: { ...ancestorConfig, branch: ancestorBranch },
+      descendant: { ...descendantConfig, generations: descendantGenerations },
+      tree: treeConfig,
+      fan: { ...fanConfig, arcDegrees: fanArcDegrees },
+      hourglass: { ...hourglassConfig, ancestorGenerations: hourglassAncestorGens, descendantGenerations: hourglassDescendantGens },
+      doubleAncestor: { leftGenerations: doubleAncestorLeftGens, rightGenerations: doubleAncestorRightGens },
+      genogram: { ...genogramConfig, generations: descendantGenerations },
       virtual: {
         source: virtualSource,
         orientation: virtualOrientation,
@@ -282,7 +310,7 @@ export function useChartDocumentIO({
       jpegQuality: exportJpegQuality,
       fileNameTemplate: exportFileNameTemplate,
     },
-  }), [chartType, rootId, secondId, themeId, generations, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, selectedOverlayId, pageMargins, pagePrintMargins, pageOverlap, pageCutMarks, pagePrintPageNumbers, pageOmitEmptyPages, exportFormat, exportScale, exportIncludeBackground, exportJpegQuality, exportFileNameTemplate, coloringMode, chartContent, distributionType, distributionRelativeValues, distributionGraphType, distributionFromYear, distributionToYear, sociogramConfig, timelineGrouping, timelineCollapse, timelineMarkerMode]);
+  }), [chartType, rootId, secondId, themeId, generations, descendantGenerations, hourglassAncestorGens, hourglassDescendantGens, doubleAncestorLeftGens, doubleAncestorRightGens, virtualSource, virtualOrientation, virtualHSpacing, virtualVSpacing, chartTitle, chartNote, pageSize, pageOrientation, chartBackground, relationshipBloodlineOnly, selectedRelationshipPathId, overlays, selectedOverlayId, pageMargins, pagePrintMargins, pageOverlap, pageCutMarks, pagePrintPageNumbers, pageOmitEmptyPages, exportFormat, exportScale, exportIncludeBackground, exportJpegQuality, exportFileNameTemplate, coloringMode, chartContent, distributionType, distributionRelativeValues, distributionGraphType, distributionFromYear, distributionToYear, sociogramConfig, timelineGrouping, timelineCollapse, timelineMarkerMode, ancestorConfig, ancestorBranch, descendantConfig, treeConfig, fanConfig, fanArcDegrees, hourglassConfig, genogramConfig]);
 
   return {
     suppressDirtyOnce,

@@ -518,6 +518,51 @@
     "groupBy": "Group by",
     "lastName": "Last Name",
     "more": "More",
+    "modeOptions": {
+      "alignment": {
+        "center": "Center",
+        "end": "End",
+        "start": "Start",
+        "top": "Top"
+      },
+      "ancestor": {
+        "showAncestorSiblings": "Show Brothers and Sisters of Ancestors",
+        "showRootSiblings": "Show Brothers and Sisters of the selected person",
+        "siblingScale": "Scaling of Brothers and Sisters (%)"
+      },
+      "descendant": {
+        "indentPartners": "Indent Partners",
+        "partnerIndention": "Partner Indention",
+        "showPartners": "Show Partners"
+      },
+      "fan": {
+        "ancestors": "Ancestors",
+        "arc": "Fan Arc",
+        "descendants": "Descendants",
+        "expandSmallSlices": "Expand very small fan segments if possible",
+        "mode": "Mode",
+        "startAngle": "Start Angle"
+      },
+      "genogram": {
+        "below": "Below",
+        "eventBackground": "Background of Events & Facts",
+        "eventPosition": "Position of Events & Facts",
+        "filled": "Filled",
+        "none": "None",
+        "right": "Right"
+      },
+      "hourglass": {
+        "alignment": "Alignment",
+        "connectionCorners": "Connection Corners",
+        "connectionWidth": "Connection Width",
+        "partnerAncestorGenerations": "Ancestors of Partner Generations",
+        "rounded": "Rounded",
+        "square": "Square"
+      },
+      "tree": {
+        "subtreeAlignment": "Alignment of Separated Trees"
+      }
+    },
     "noPerson": "No person",
     "options": "Options",
     "optionsTabs": "Chart options",
