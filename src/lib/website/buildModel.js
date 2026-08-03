@@ -120,6 +120,10 @@ export function buildPublishModel(snapshot, options) {
   const storySections = snapshot.storySections.filter((section) => (
     include(section) && storyIds.has(readRef(section.fields?.story) || readRef(section.fields?.storySection))
   ));
+  const storySectionIds = new Set(storySections.map((section) => section.recordName));
+  const storySectionRelations = (snapshot.storySectionRelations || []).filter((relation) => (
+    include(relation) && storySectionIds.has(readRef(relation.fields?.storySection)) && includedRecordIds.has(readRef(relation.fields?.target))
+  ));
 
   // DNA test results (#86) — public results whose person is in the export.
   const dnaResults = options.contentSections.dna
@@ -147,6 +151,7 @@ export function buildPublishModel(snapshot, options) {
     mediaRelations,
     storyRelations,
     storySections,
+    storySectionRelations,
     dnaResults,
     personGroups,
     personGroupRelations,
@@ -207,6 +212,7 @@ export function buildPublishModel(snapshot, options) {
   model.storyRelationsByTarget = groupRecords(storyRelations, (record) => readRef(record.fields?.target));
   model.storyRelationsByStory = groupRecords(storyRelations, (record) => readRef(record.fields?.story));
   model.storySectionsByStory = groupRecords(storySections, (record) => readRef(record.fields?.story) || readRef(record.fields?.storySection));
+  model.storySectionRelationsBySection = groupRecords(storySectionRelations, (record) => readRef(record.fields?.storySection));
   model.assetsByOwner = groupRecords(assets, (asset) => asset.ownerRecordName);
   model.personSurnameGroups = buildPersonSurnameGroups(persons, options);
   return model;

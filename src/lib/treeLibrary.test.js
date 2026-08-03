@@ -40,7 +40,7 @@ afterEach(() => {
 
 // Import after the shims are in place. Static imports work because treeLibrary
 // only reads localStorage/window inside its function bodies.
-const { ACTIVE_TREE_CHANGED_EVENT, getActiveTreeId, setActiveTreeId } = await import('./treeLibrary.js');
+const { ACTIVE_TREE_CHANGED_EVENT, getActiveTreeId, normalizeTreeArtwork, setActiveTreeId } = await import('./treeLibrary.js');
 
 describe('treeLibrary active-tree pointer', () => {
   it('returns null when no active tree has been set', () => {
@@ -65,5 +65,15 @@ describe('treeLibrary active-tree pointer', () => {
       .filter((e) => e.type === ACTIVE_TREE_CHANGED_EVENT)
       .map((e) => e.detail?.id);
     expect(ids).toEqual(['tree-evt', null]);
+  });
+});
+
+describe('tree artwork normalization', () => {
+  it('defaults to crest mode and constrains mosaic selections', () => {
+    expect(normalizeTreeArtwork()).toEqual({ mode: 'crest', gridSize: 2, crest: 'tree', mediaIds: [] });
+    const ids = Array.from({ length: 20 }, (_, index) => `media-${index}`);
+    expect(normalizeTreeArtwork({ mode: 'mosaic', gridSize: 9, crest: 'bogus', mediaIds: [...ids, ids[0]] })).toMatchObject({
+      mode: 'mosaic', gridSize: 4, crest: 'tree', mediaIds: ids.slice(0, 16),
+    });
   });
 });

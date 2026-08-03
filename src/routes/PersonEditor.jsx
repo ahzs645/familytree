@@ -72,6 +72,7 @@ import { DatePicker } from '../components/ui/DatePicker.jsx';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { BdiText, LtrText } from '../components/BdiText.jsx';
+import { DictationButton } from '../components/ui/DictationButton.jsx';
 import {
   reconcileMilkKinships,
   reconcileSubRecords,
@@ -727,6 +728,9 @@ export default function PersonEditor() {
                       dir="auto"
                       className={inputClass() + ' resize-y'}
                     />
+                    <div className="mt-1.5 text-end">
+                      <DictationButton value={n.text} onChange={(text) => setNotes((a) => a.map((x, j) => j === i ? { ...x, text } : x))} />
+                    </div>
                     <div className="text-end">
                       <RemoveBtn label={t('common.remove', { defaultValue: 'Remove' })} onClick={() => setNotes((a) => a.filter((_, j) => j !== i))} />
                     </div>

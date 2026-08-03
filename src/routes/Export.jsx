@@ -15,7 +15,8 @@ import { analyzeBackupMergeJSON, mergeBackupJSON, planMerge, mergeBackupJSONWith
 import { MergeConflictSheet } from '../components/MergeConflictSheet.jsx';
 import { MergeTreesWizardSheet } from '../components/MergeTreesWizardSheet.jsx';
 import { downloadSubtreeBackup, removeSubtree } from '../lib/subtree.js';
-import { contactPickerSupported, importContactsFile, importContactsViaPicker } from '../lib/contactImport.js';
+import { contactPickerSupported, importContactEntries, pickContactsViaPicker, readContactsFile } from '../lib/contactImport.js';
+import { ContactImportSheet } from '../components/ContactImportSheet.jsx';
 import {
   deleteTreeSnapshot,
   listTreeSnapshots,
@@ -64,6 +65,7 @@ export default function Export() {
   const [conflictPlan, setConflictPlan] = useState(null);
   const [undoableMerges, setUndoableMerges] = useState([]);
   const [mergeWizardOpen, setMergeWizardOpen] = useState(false);
+  const [pendingContacts, setPendingContacts] = useState(null);
   const [persons, setPersons] = useState([]);
   const [subtreeRoot, setSubtreeRoot] = useState(null);
   const [treeSnapshots, setTreeSnapshots] = useState([]);
@@ -200,9 +202,9 @@ export default function Export() {
     setBusy(true);
     setStatus(t('exportPage.status.importingContacts', { defaultValue: 'Importing contacts…' }));
     try {
-      const result = await importContactsFile(file);
-      await refresh();
-      setStatus(t('exportPage.status.importedContacts', { count: result.created, formatted: result.created.toLocaleString(), defaultValue: `Imported ${result.created.toLocaleString()} contacts as person records.` }));
+      const entries = await readContactsFile(file);
+      setPendingContacts(entries);
+      setStatus(t('exportPage.status.reviewContacts', { count: entries.length, defaultValue: `${entries.length} contacts ready for relationship mapping.` }));
     } catch (error) {
       setStatus(t('exportPage.status.contactsFailed', { message: error.message, defaultValue: `Contacts import failed: ${error.message}` }));
     } finally {
@@ -215,11 +217,28 @@ export default function Export() {
     setBusy(true);
     setStatus(t('exportPage.status.openingContactPicker', { defaultValue: 'Opening Contact Picker…' }));
     try {
-      const result = await importContactsViaPicker();
-      await refresh();
-      setStatus(t('exportPage.status.importedContacts', { count: result.created, formatted: result.created.toLocaleString(), defaultValue: `Imported ${result.created.toLocaleString()} contacts as person records.` }));
+      const entries = await pickContactsViaPicker();
+      setPendingContacts(entries);
+      setStatus(t('exportPage.status.reviewContacts', { count: entries.length, defaultValue: `${entries.length} contacts ready for relationship mapping.` }));
     } catch (error) {
       setStatus(t('exportPage.status.contactsFailed', { message: error.message, defaultValue: `Contacts import failed: ${error.message}` }));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onImportMappedContacts = async ({ anchorPersonId, relationshipByContact }) => {
+    setBusy(true);
+    setStatus(t('exportPage.status.importingContacts', { defaultValue: 'Importing contacts…' }));
+    try {
+      const result = await importContactEntries(pendingContacts || [], { anchorPersonId, relationshipByContact });
+      await refresh();
+      setPersons(await listAllPersons());
+      setPendingContacts(null);
+      setStatus(t('exportPage.status.importedContactsWithRelationships', { contacts: result.created, relationships: result.relationships, defaultValue: `Imported ${result.created} contacts and created ${result.relationships} relationship records.` }));
+    } catch (error) {
+      setStatus(t('exportPage.status.contactsFailed', { message: error.message, defaultValue: `Contacts import failed: ${error.message}` }));
+      throw error;
     } finally {
       setBusy(false);
     }
@@ -762,6 +781,15 @@ export default function Export() {
             await refresh();
             setStatus(t('exportPage.merge.wizardSummary', { records: (result.records ?? 0).toLocaleString(), assets: (result.assets ?? 0).toLocaleString(), defaultValue: `Merged ${(result.records ?? 0).toLocaleString()} records and ${(result.assets ?? 0).toLocaleString()} assets via the merge wizard.` }));
           }}
+        />
+      )}
+      {pendingContacts && (
+        <ContactImportSheet
+          entries={pendingContacts}
+          persons={persons}
+          initialAnchorId={activePersonId || subtreeRoot || ''}
+          onImport={onImportMappedContacts}
+          onClose={() => setPendingContacts(null)}
         />
       )}
     </div>

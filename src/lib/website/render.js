@@ -767,9 +767,12 @@ export function storyPage(story, model) {
     ${readField(story, ['subtitle'], '') ? `<p class="muted">${esc(readField(story, ['subtitle'], ''))}</p>` : ''}
     ${isPrivateRecord(story) ? '<span class="badge">Private export</span>' : ''}
     ${readField(story, ['text', 'description', 'userDescription'], '') ? `<div class="card"><p>${esc(readField(story, ['text', 'description', 'userDescription'], ''))}</p></div>` : ''}
-    ${sections.length ? sections.sort((a, b) => Number(readField(a, ['order'], 0)) - Number(readField(b, ['order'], 0))).map((section) => (
-      `<section><h2>${esc(readField(section, ['title', 'name'], 'Section'))}</h2><div class="card"><p>${esc(readField(section, ['text', 'description'], ''))}</p></div></section>`
-    )).join('') : ''}
+    ${sections.length ? sections.sort((a, b) => Number(readField(a, ['order'], 0)) - Number(readField(b, ['order'], 0))).map((section) => {
+      const sectionRelations = model.storySectionRelationsBySection?.get(section.recordName) || [];
+      const sources = sectionRelations.map((relation) => model.sourceById.get(readRef(relation.fields?.target))).filter(Boolean);
+      const attachedMedia = sectionRelations.map((relation) => model.mediaById.get(readRef(relation.fields?.target))).filter(Boolean);
+      return `<section><h2>${esc(readField(section, ['title', 'name'], 'Section'))}</h2><div class="card"><p>${esc(readField(section, ['text', 'description'], ''))}</p>${attachedMedia.map((media) => mediaAssetHtml(media, model, 'stories', 'media-preview') || mediaUrlHtml(media)).join('')}${sources.length ? `<h3>Sources</h3><ul>${sources.map((source) => `<li>${linkTo(source.recordName, sourceLabel(source), model, 'stories')}</li>`).join('')}</ul>` : ''}</div></section>`;
+    }).join('') : ''}
     ${relations.length ? `<h2>Related Entries</h2><div class="card"><ul>${relations.map((rel) => {
       const targetId = readRef(rel.fields?.target);
       return `<li>${linkTo(targetId, targetLabel(targetId, model), model, 'stories')}</li>`;
