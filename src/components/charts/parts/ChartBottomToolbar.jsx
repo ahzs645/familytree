@@ -1,6 +1,6 @@
 /**
- * Footer toolbar of the charts page — find box plus action buttons
- * (focus, save, share, people browser, chart options, export).
+ * Footer toolbar of the charts page — action buttons for focus, save, share,
+ * the people browser, chart options, and export.
  *
  * Stateless; every action is wired to a callback. The "active" prop is
  * used to indicate whether the corresponding panel is currently open.
@@ -12,9 +12,8 @@
  * the underlying tab strip.
  */
 import React from 'react';
-import { FileDown, Focus, Search, Settings2, Share2, SlidersHorizontal } from 'lucide-react';
+import { FileDown, Focus, Settings2, Share2, SlidersHorizontal } from 'lucide-react';
 import { Button } from '../../ui/Button.jsx';
-import { Input } from '../../ui/Input.jsx';
 import { cn } from '../../../lib/utils.js';
 import { useTranslation } from '../../../contexts/LocalizationContext.jsx';
 
@@ -22,9 +21,6 @@ export function ChartBottomToolbar({
   personBrowserOpen,
   onTogglePersonBrowser,
   onFocus,
-  findText,
-  onFindTextChange,
-  onFind,
   onSave,
   onShare,
   onExport,
@@ -37,20 +33,7 @@ export function ChartBottomToolbar({
       <ChartToolButton label={t('charts.focus', { defaultValue: 'Focus' })} icon={Focus} onClick={onFocus} />
       <ChartToolButton label={t('common.save', { defaultValue: 'Save' })} icon={FileDown} onClick={onSave} />
       <ChartToolButton label={t('charts.share', { defaultValue: 'Share' })} icon={Share2} onClick={onShare} />
-      <div className="flex min-w-0 flex-[1_1_220px] items-center gap-1.5">
-        <Search size={14} />
-        <Input
-          compact
-          value={findText}
-          onChange={(event) => onFindTextChange(event.target.value)}
-          onKeyDown={(event) => event.key === 'Enter' && onFind()}
-          placeholder={t('charts.find', { defaultValue: 'Find' })}
-          aria-label={t('charts.find', { defaultValue: 'Find' })}
-          className="h-[30px] min-w-0 flex-1"
-        />
-        <Button onClick={onFind} className="h-[30px]">{t('charts.find', { defaultValue: 'Find' })}</Button>
-      </div>
-      <ChartToolButton label={t('charts.people', { defaultValue: 'People' })} icon={Settings2} onClick={onTogglePersonBrowser} active={personBrowserOpen} />
+      <ChartToolButton label={t('charts.browsePeople', { defaultValue: 'Browse people' })} icon={Settings2} onClick={onTogglePersonBrowser} active={personBrowserOpen} />
       <ChartToolButton label={t('charts.options', { defaultValue: 'Options' })} icon={SlidersHorizontal} onClick={onChart} active={chartOptionsOpen} />
       <Button onClick={onExport} className="ms-auto">
         {t('charts.tab.export', { defaultValue: 'Export' })}

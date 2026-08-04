@@ -1,6 +1,7 @@
 /**
- * Right-side panel that lists every person in the tree with a search box
- * and grouping selector. Clicking a row re-roots the chart to that person.
+ * Right-side panel that lists every person in the tree with a search box and
+ * grouping selector. Clicking a row opens that person's details; changing the
+ * chart root remains an explicit action in the detail panel.
  *
  * The visible list is capped at 700 rows; for trees larger than that, the
  * search box is the practical way to find the right person.
@@ -25,6 +26,9 @@ export function ChartPersonBrowser({ persons, rootId, query, onQueryChange, grou
         <div className="mb-1 text-xs text-muted-foreground">{t('charts.find', { defaultValue: 'Find' })}</div>
         <Input compact value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Find person" />
       </label>
+      <p className="mb-2.5 text-2xs leading-relaxed text-muted-foreground">
+        {t('charts.browsePeopleHint', { defaultValue: 'Select a person to inspect them. Changing the chart root is an explicit action in their details.' })}
+      </p>
       <label className="mb-2.5 block">
         <div className="mb-1 text-xs text-muted-foreground">{t('charts.groupBy', { defaultValue: 'Group by' })}</div>
         <Select
@@ -46,7 +50,7 @@ export function ChartPersonBrowser({ persons, rootId, query, onQueryChange, grou
             <button
               type="button"
               key={person.recordName}
-              onClick={() => onPick(person.recordName)}
+              onClick={() => onPick(person)}
               className={cn(
                 'mb-1 w-full cursor-pointer rounded-md border border-border px-2 py-1.5 text-start text-foreground',
                 active ? 'bg-accent' : 'bg-background hover:bg-accent'

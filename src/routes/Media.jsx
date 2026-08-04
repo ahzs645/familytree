@@ -20,6 +20,7 @@ import { recordDisplayLabel } from '../components/editors/RelatedRecordEditors.j
 import { Button } from '../components/ui/Button.jsx';
 import { Input, Textarea } from '../components/ui/Input.jsx';
 import { Select } from '../components/ui/Select.jsx';
+import { AnchoredPopover } from '../components/ui/AnchoredPopover.jsx';
 import { cn } from '../lib/utils.js';
 import { useModal } from '../contexts/ModalContext.jsx';
 import { buildMediaSlideshowSearchParams } from '../lib/mediaPresentation.js';
@@ -1002,13 +1003,14 @@ function MoreMenu({ items }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const buttonRef = useRef(null);
+  const menuRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
     const onDocClick = (event) => {
       if (ref.current && !ref.current.contains(event.target)) setOpen(false);
     };
-    ref.current?.querySelector('[role="menuitem"]')?.focus();
+    menuRef.current?.querySelector('[role="menuitem"]')?.focus();
     const onKey = (event) => {
       if (event.key === 'Escape') {
         setOpen(false);
@@ -1037,7 +1039,14 @@ function MoreMenu({ items }) {
         {t('mediaManager.actions.more')} <span aria-hidden="true">▾</span>
       </Button>
       {open ? (
-        <div role="menu" className="absolute end-0 top-full z-20 mt-1 min-w-[180px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg p-1 flex flex-col">
+        <AnchoredPopover
+          ref={menuRef}
+          anchorRef={buttonRef}
+          align="end"
+          maxHeight="70vh"
+          role="menu"
+          className="w-[180px] bg-popover text-popover-foreground border border-border rounded-md shadow-lg p-1 flex flex-col"
+        >
           {visible.map((item) => (
             <button
               key={item.label}
@@ -1050,7 +1059,7 @@ function MoreMenu({ items }) {
               {item.label}
             </button>
           ))}
-        </div>
+        </AnchoredPopover>
       ) : null}
     </div>
   );
@@ -1061,11 +1070,12 @@ function GroupingStylePopover({ preferences, onChange }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const buttonRef = useRef(null);
+  const popoverRef = useRef(null);
   const thumbnailSizes = ['small', 'medium', 'large'];
 
   useEffect(() => {
     if (!open) return undefined;
-    rootRef.current?.querySelector('input')?.focus();
+    popoverRef.current?.querySelector('input')?.focus();
     const onPointerDown = (event) => {
       if (rootRef.current && !rootRef.current.contains(event.target)) setOpen(false);
     };
@@ -1089,7 +1099,15 @@ function GroupingStylePopover({ preferences, onChange }) {
         {t('mediaManager.grouping.button')} <span aria-hidden="true">▾</span>
       </Button>
       {open && (
-        <div role="dialog" aria-label={t('mediaManager.grouping.button')} className="absolute start-0 top-full z-30 mt-1 w-72 rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-lg">
+        <AnchoredPopover
+          ref={popoverRef}
+          anchorRef={buttonRef}
+          align="start"
+          maxHeight="80vh"
+          role="dialog"
+          aria-label={t('mediaManager.grouping.button')}
+          className="w-72 rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-lg"
+        >
           <fieldset>
             <legend className="mb-1.5 text-xs font-semibold">{t('mediaManager.grouping.sort')}</legend>
             <div className="grid grid-cols-2 gap-2">
@@ -1127,7 +1145,7 @@ function GroupingStylePopover({ preferences, onChange }) {
               className="mt-2 w-full accent-primary"
             />
           </label>
-        </div>
+        </AnchoredPopover>
       )}
     </div>
   );

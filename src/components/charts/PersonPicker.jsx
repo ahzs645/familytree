@@ -1,7 +1,7 @@
 /**
  * Searchable dropdown for picking the chart's start person.
  */
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { BdiText, LtrText } from '../BdiText.jsx';
 import { cn } from '../../lib/utils.js';
@@ -17,11 +17,13 @@ import { useTranslation } from '../../contexts/LocalizationContext.jsx';
  * people with no relatives, since picking one shows a single lone card).
  * Omitted by every other caller, which renders exactly as before.
  */
-export function PersonPicker({ persons, value, onChange, triggerClassName, note, ariaLabel }) {
+export function PersonPicker({ persons, value, onChange, triggerClassName, className, note, ariaLabel, searchAriaLabel, placeholder, id }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const localization = getCurrentLocalization();
+  const generatedListboxId = useId();
+  const listboxId = `${generatedListboxId}-listbox`;
 
   // The popover is portaled to <body> so it overlays everything and isn't
   // clipped by an ancestor's overflow:hidden (e.g. the editor Section card).
@@ -70,13 +72,15 @@ export function PersonPicker({ persons, value, onChange, triggerClassName, note,
   const selected = persons.find((p) => p.recordName === value);
 
   return (
-    <div className="relative w-full min-w-0 max-w-[260px]">
+    <div className={cn('relative w-full min-w-0 max-w-[260px]', className)}>
       <button
+        id={id}
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? listboxId : undefined}
         aria-label={ariaLabel}
         className={cn(
           'w-full h-10 rounded-md border border-border bg-secondary text-foreground text-sm ps-3 pe-8 text-start outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 hover:bg-accent inline-flex items-center relative',
@@ -84,7 +88,7 @@ export function PersonPicker({ persons, value, onChange, triggerClassName, note,
         )}
       >
         <span className={cn('truncate flex-1', !selected && 'text-muted-foreground')}>
-          {selected ? <BdiText>{personDisplayName(selected)}</BdiText> : t('persons.choosePerson')}
+          {selected ? <BdiText>{personDisplayName(selected)}</BdiText> : (placeholder || t('persons.choosePerson'))}
         </span>
         <svg
           aria-hidden="true"
@@ -110,15 +114,25 @@ export function PersonPicker({ persons, value, onChange, triggerClassName, note,
             dir="auto"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Escape') return;
+              setOpen(false);
+              setQuery('');
+              triggerRef.current?.focus();
+            }}
             placeholder={t('persons.search')}
+            aria-label={searchAriaLabel || t('persons.searchPicker')}
             className="w-full border-0 border-b border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none"
           />
-          <div className="max-h-80 overflow-y-auto">
+          <div id={listboxId} role="listbox" aria-label={ariaLabel || placeholder || t('persons.choosePerson')} className="max-h-80 overflow-y-auto">
             {filtered.length === 0 && (
               <div className="p-3 text-sm text-muted-foreground">{t('common.noMatches')}</div>
             )}
             {filtered.map((p) => (
-              <div
+              <button
+                type="button"
+                role="option"
+                aria-selected={p.recordName === value}
                 key={p.recordName}
                 onClick={() => {
                   onChange(p.recordName);
@@ -126,7 +140,7 @@ export function PersonPicker({ persons, value, onChange, triggerClassName, note,
                   setQuery('');
                 }}
                 className={cn(
-                  'cursor-pointer border-b border-border px-3 py-2 hover:bg-secondary',
+                  'block w-full cursor-pointer border-b border-border px-3 py-2 text-start hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
                   p.recordName === value && 'bg-secondary'
                 )}
               >
@@ -144,7 +158,7 @@ export function PersonPicker({ persons, value, onChange, triggerClassName, note,
                     <BdiText>{p.lineageSearchText}</BdiText>
                   </div>
                 ) : null}
-              </div>
+              </button>
             ))}
           </div>
         </div>,

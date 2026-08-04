@@ -6,11 +6,10 @@
  * page reads as part of the app rather than a standalone display piece. The
  * canvas below keeps its own themeable look — see heritageTree.css.
  *
- * On a phone the secondary actions collapse into an overflow sheet, the same
- * `<details>` pattern the Persons toolbar uses. Laid out flat, the controls
- * wrapped onto three rows and ate a third of the screen.
+ * On a phone the secondary actions collapse into an overflow menu. Laid out
+ * flat, the controls wrapped onto three rows and ate a third of the screen.
  */
-import React, { useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ChartColumn, Ellipsis, House, LocateFixed, Minus, Plus, Printer, RotateCw, Upload } from 'lucide-react';
 import Tooltip from './Tooltip.jsx';
 import { exportTreeToPdf } from './exportTree.js';
@@ -22,6 +21,7 @@ import { useIsMobile } from '../../lib/useIsMobile.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { useSetPageMeta } from '../../contexts/PageMetaContext.jsx';
 import { PageTitle } from '../ui/PageTitle.jsx';
+import { AnchoredPopover } from '../ui/AnchoredPopover.jsx';
 
 const THEME_KEYS = ['app', 'classic', 'ink', 'ocean', 'forest', 'monochrome'];
 
@@ -58,6 +58,7 @@ export default function Header({
 }) {
   const fileInputRef = useRef(null);
   const overflowRef = useRef(null);
+  const [overflowOpen, setOverflowOpen] = useState(false);
   const { t } = useTranslation();
   const isMobile = useIsMobile();
   const summaryLine = rootName
@@ -67,10 +68,27 @@ export default function Header({
 
   const zoomOut = () => setView((prev) => ({ ...prev, scale: Math.max(0.1, prev.scale - 0.12) }));
   const zoomIn = () => setView((prev) => ({ ...prev, scale: Math.min(2, prev.scale + 0.12) }));
-  // <details> stays open after a click, so an action would leave the sheet
-  // covering the result it just produced.
-  const closeOverflow = () => { if (overflowRef.current) overflowRef.current.open = false; };
+  const closeOverflow = () => setOverflowOpen(false);
   const run = (action) => () => { closeOverflow(); action(); };
+
+  useEffect(() => {
+    if (!overflowOpen) return undefined;
+    const onDocClick = (event) => {
+      if (!overflowRef.current?.contains(event.target)) setOverflowOpen(false);
+    };
+    const onKey = (event) => {
+      if (event.key === 'Escape') {
+        setOverflowOpen(false);
+        overflowRef.current?.focus();
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [overflowOpen]);
 
   const personPicker = (
     <PersonPicker
@@ -143,15 +161,28 @@ export default function Header({
           <Button size="icon" className={ICON_BUTTON} aria-label={t('heritageTree.recenterAria')} onClick={handleRecenter}>
             <LocateFixed size={16} />
           </Button>
-          <details ref={overflowRef} className="relative">
-            <summary
-              className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-secondary text-foreground hover:bg-accent [&::-webkit-details-marker]:hidden"
+          <div>
+            <button
+              ref={overflowRef}
+              type="button"
+              onClick={() => setOverflowOpen((open) => !open)}
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-secondary text-foreground hover:bg-accent"
               aria-label={t('heritageTree.moreActions')}
+              aria-haspopup="menu"
+              aria-expanded={overflowOpen}
             >
               <Ellipsis size={18} />
-            </summary>
-            <div className="absolute end-0 top-full z-40 mt-2 w-[min(17rem,calc(100vw-1.5rem))] rounded-md border border-border bg-card p-2 shadow-xl">
-              <div className="px-2 pb-2">
+            </button>
+            {overflowOpen ? (
+              <AnchoredPopover
+                anchorRef={overflowRef}
+                align="end"
+                gap={8}
+                maxHeight="85vh"
+                role="menu"
+                className="w-[272px] rounded-md border border-border bg-card p-2 shadow-xl"
+              >
+                <div className="px-2 pb-2">
                 <span className="mb-1 block text-xs text-muted-foreground" aria-hidden="true">
                   {t('heritageTree.themeAria')}
                 </span>
@@ -203,9 +234,10 @@ export default function Header({
                   <RotateCw size={16} className="shrink-0 text-muted-foreground" />
                   {t('heritageTree.tooltips.reload')}
                 </button>
-              </div>
-            </div>
-          </details>
+                </div>
+              </AnchoredPopover>
+            ) : null}
+          </div>
         </div>
       ) : (
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">

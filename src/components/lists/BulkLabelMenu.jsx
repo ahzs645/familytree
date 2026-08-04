@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { assignLabelToRecords, listLabels } from '../../lib/bulkActions.js';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
+import { AnchoredPopover } from '../ui/AnchoredPopover.jsx';
 
 /**
  * BulkLabelMenu — "Assign label" dropdown for the BulkActionBar. Lists the
@@ -12,6 +13,7 @@ export function BulkLabelMenu({ selectedIds, recordType, onAssigned }) {
   const [labels, setLabels] = useState(null);
   const [busy, setBusy] = useState(false);
   const ref = useRef(null);
+  const buttonRef = useRef(null);
 
   useEffect(() => {
     if (!open || labels) return;
@@ -55,6 +57,7 @@ export function BulkLabelMenu({ selectedIds, recordType, onAssigned }) {
   return (
     <div className="relative" ref={ref}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={busy}
@@ -65,7 +68,13 @@ export function BulkLabelMenu({ selectedIds, recordType, onAssigned }) {
         {t('lists.assignLabel')}
       </button>
       {open ? (
-        <div role="menu" className="absolute end-0 top-full z-30 mt-1 w-48 max-h-64 overflow-auto rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1">
+        <AnchoredPopover
+          anchorRef={buttonRef}
+          align="end"
+          maxHeight={256}
+          role="menu"
+          className="w-48 rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1"
+        >
           {labels == null ? (
             <div className="px-3 py-2 text-xs text-muted-foreground">…</div>
           ) : labels.length === 0 ? (
@@ -88,7 +97,7 @@ export function BulkLabelMenu({ selectedIds, recordType, onAssigned }) {
               </button>
             ))
           )}
-        </div>
+        </AnchoredPopover>
       ) : null}
     </div>
   );

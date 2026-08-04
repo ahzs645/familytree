@@ -5,6 +5,7 @@ import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { Select } from '../ui/Select.jsx';
 import { listToolbarButtonClass, listToolbarIconButtonClass } from './listToolbarClasses.js';
 import { copyTextToClipboard } from '../../lib/clipboard.js';
+import { AnchoredPopover } from '../ui/AnchoredPopover.jsx';
 
 const INFO_COLUMN_DEFS = [
   { value: '', labelKey: 'lists.infoDoNotShow' },
@@ -58,6 +59,7 @@ export function ListReportToolbar({
   // When `panel` is null the popover is closed.
   const [panel, setPanel] = useState(null);
   const ref = useRef(null);
+  const buttonRef = useRef(null);
   const previewMode = Boolean(options.previewMode);
 
   const directActions = [
@@ -94,6 +96,7 @@ export function ListReportToolbar({
         );
       })}
       <button
+        ref={buttonRef}
         type="button"
         onClick={openCustomize}
         className={listToolbarButtonClass}
@@ -106,6 +109,7 @@ export function ListReportToolbar({
       </button>
       {panel && (
         <ListReportOptionsPanel
+          anchorRef={buttonRef}
           panel={panel}
           setPanel={setPanel}
           options={options}
@@ -184,7 +188,7 @@ export function ListReportPreview({ title, rows = [], columns = [], options = DE
   );
 }
 
-function ListReportOptionsPanel({ panel, setPanel, options, update, updateInfoColumn, onClose }) {
+function ListReportOptionsPanel({ anchorRef, panel, setPanel, options, update, updateInfoColumn, onClose }) {
   const { t } = useTranslation();
   const infoColumnOptions = INFO_COLUMN_DEFS.map((item) => [item.value, t(item.labelKey)]);
   const tabs = [
@@ -192,7 +196,15 @@ function ListReportOptionsPanel({ panel, setPanel, options, update, updateInfoCo
     { id: 'page', label: t('lists.page') },
   ];
   return (
-    <div className="absolute end-0 top-[calc(100%+0.4rem)] z-30 w-[min(360px,calc(100vw-2rem))] rounded-md border border-border bg-card p-4 text-sm shadow-xl">
+    <AnchoredPopover
+      anchorRef={anchorRef}
+      align="end"
+      gap={6}
+      maxHeight="80vh"
+      role="dialog"
+      aria-label={t('lists.customize')}
+      className="w-[360px] rounded-md border border-border bg-card p-4 text-sm shadow-xl"
+    >
       <div className="mb-3 flex items-center gap-3">
         <div className="text-sm font-semibold">{t('lists.customize')}</div>
         <button type="button" onClick={onClose} className="ms-auto rounded-md border border-border bg-secondary px-2 py-1 text-xs hover:bg-accent">{t('lists.close')}</button>
@@ -255,7 +267,7 @@ function ListReportOptionsPanel({ panel, setPanel, options, update, updateInfoCo
           ]} />
         </OptionGroup>
       )}
-    </div>
+    </AnchoredPopover>
   );
 }
 

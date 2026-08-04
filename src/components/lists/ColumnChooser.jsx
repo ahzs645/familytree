@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { listToolbarButtonClass } from './listToolbarClasses.js';
+import { AnchoredPopover } from '../ui/AnchoredPopover.jsx';
 
 /**
  * ColumnChooser — small dropdown menu that lets users toggle per-column
@@ -49,7 +50,12 @@ export function ColumnChooser({ columns, isVisible, onToggle, onReset, label }) 
         <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden="true"><path fill="currentColor" d="M2 4l4 4 4-4z" /></svg>
       </button>
       {open ? (
-        <div className="absolute end-0 mt-1 w-56 rounded-md border border-border bg-popover text-popover-foreground shadow-lg z-30">
+        <AnchoredPopover
+          anchorRef={buttonRef}
+          align="end"
+          maxHeight={340}
+          className="w-56 rounded-md border border-border bg-popover text-popover-foreground shadow-lg"
+        >
           <ul className="max-h-72 overflow-y-auto p-1" role="menu">
             {columns.map((col) => (
               <li key={col.key} role="menuitemcheckbox" aria-checked={isVisible(col.key)}>
@@ -76,7 +82,7 @@ export function ColumnChooser({ columns, isVisible, onToggle, onReset, label }) 
               </button>
             </div>
           ) : null}
-        </div>
+        </AnchoredPopover>
       ) : null}
     </div>
   );

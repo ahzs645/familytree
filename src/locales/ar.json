@@ -511,6 +511,8 @@
   },
   "charts": {
     "allPersons": "كل الأشخاص",
+    "browsePeople": "تصفح الأشخاص",
+    "browsePeopleHint": "اختر شخصاً لعرض تفاصيله. تغيير جذر المخطط إجراء صريح من داخل التفاصيل.",
     "birthUnknown": "الميلاد غير معروف",
     "birthYear": "سنة الميلاد",
     "chartType": {
@@ -2550,6 +2552,7 @@
     },
     "choosePerson": "اختر شخصاً...",
     "clearMe": "مسح أنا",
+    "clearRelationshipReference": "مسح الشخص المرجعي للقرابة",
     "columns": {
       "arabicPatrilinealName": "اسم النسب العربي",
       "birthDate": "تاريخ الميلاد",
@@ -2588,6 +2591,9 @@
     "listTitle": "قائمة الأشخاص",
     "loading": "جار تحميل الأشخاص...",
     "meHint": "تُعرض شارات القرابة بالنسبة إلى {name}.",
+    "relationshipReference": "القرابة بالنسبة إلى",
+    "relationshipReferenceHint": "اختر شخصاً مرجعياً لعرض صلة قرابته بكل شخص في القائمة.",
+    "relationshipReferencePlaceholder": "اختر الشخص المرجعي...",
     "milkFather": "الأب من الرضاعة",
     "milkKinship": "الرضاعة",
     "milkKinshipHeading": "قرابة الرضاعة / Milk Kinship",
@@ -2603,7 +2609,9 @@
     "parents": "الوالدان",
     "partnerFamilies": "عائلات الشريك",
     "search": "بحث...",
+    "searchPicker": "البحث في خيارات الأشخاص",
     "searchPlaceholder": "ابحث عن الأشخاص...",
+    "searchRelationshipReference": "البحث عن شخص مرجعي للقرابة",
     "sort": "ترتيب",
     "sortAria": "ترتيب الأشخاص",
     "sortBirth": "ترتيب: سنة الميلاد",

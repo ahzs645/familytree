@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { useTranslation } from '../../contexts/LocalizationContext.jsx';
 import { useIsMobile } from '../../lib/useIsMobile.js';
@@ -12,6 +12,7 @@ import { OptionsPanel } from './threeDTree/OptionsPanel.jsx';
 import { useThreeTreeScene } from './threeDTree/useThreeTreeScene.js';
 import { Button } from '../ui/Button.jsx';
 import { cn } from '../../lib/utils.js';
+import { AnchoredPopover } from '../ui/AnchoredPopover.jsx';
 
 export function ThreeDTreeView({
   ancestorTree,
@@ -49,6 +50,7 @@ export function ThreeDTreeView({
   const [actionsOpen, setActionsOpen] = useState(false);
   const [optionsPanelOpen, setOptionsPanelOpen] = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
+  const actionsButtonRef = useRef(null);
 
   useEffect(() => {
     if (!presentationMode) return undefined;
@@ -223,6 +225,7 @@ export function ThreeDTreeView({
         </Button>
         <div className="relative shrink-0">
           <Button
+            ref={actionsButtonRef}
             onClick={() => {
               setActionsOpen((open) => !open);
               setControlsVisible(true);
@@ -233,7 +236,13 @@ export function ThreeDTreeView({
             {t('interactiveTree.actions')}
           </Button>
           {actionsOpen && (
-            <div className="absolute start-0 top-[38px] z-30 w-[186px] rounded-md border border-border bg-card/[0.98] p-1.5 shadow-[0_18px_40px_rgb(0_0_0/0.22)] backdrop-blur-md">
+            <AnchoredPopover
+              anchorRef={actionsButtonRef}
+              align="start"
+              maxHeight="80vh"
+              role="menu"
+              className="w-[186px] rounded-md border border-border bg-card/[0.98] p-1.5 shadow-[0_18px_40px_rgb(0_0_0/0.22)] backdrop-blur-md"
+            >
               <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); onPick?.(activeId); actionsRef.current?.fit?.(); }}>{t('interactiveTree.focusOnPerson')}</Button>
               <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); setPresentationMode(true); }}>{t('interactiveTree.enterPresentation')}</Button>
               <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); actionsRef.current?.snapshot?.(); }}>{t('interactiveTree.saveAsImage')}</Button>
@@ -242,7 +251,7 @@ export function ThreeDTreeView({
               <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); onOpenAncestorChart?.(activeId); }}>{t('interactiveTree.ancestorChart')}</Button>
               <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); onOpenDescendantChart?.(activeId); }}>{t('interactiveTree.descendantChart')}</Button>
               <Button variant="ghost" className={macActionItemClass} onClick={() => { setActionsOpen(false); onToggleChrome?.('people'); }}>{t('interactiveTree.personList')}</Button>
-            </div>
+            </AnchoredPopover>
           )}
         </div>
       </div>

@@ -3,6 +3,7 @@ import { formatInteger, getCurrentLocalization, localeWithExtensions } from '../
 import { cn } from '../../lib/utils.js';
 import { Select } from './Select.jsx';
 import { buttonClasses } from './Button.jsx';
+import { AnchoredPopover } from './AnchoredPopover.jsx';
 import {
   PREFIX,
   PREFIX_LABELS,
@@ -186,11 +187,14 @@ export function DatePicker({
         </svg>
       </button>
       {open ? (
-        <div
+        <AnchoredPopover
+          anchorRef={buttonRef}
+          align="start"
+          maxHeight={560}
           ref={popRef}
           role="dialog"
           aria-label="Choose date"
-          className="absolute z-40 mt-1 w-80 max-w-[calc(100vw-1rem)] rounded-md border border-border bg-popover text-popover-foreground shadow-lg p-3"
+          className="w-80 rounded-md border border-border bg-popover text-popover-foreground shadow-lg p-3"
         >
           {qualifiers ? (
             <div className="mb-3 space-y-2 border-b border-border pb-3">
@@ -333,7 +337,7 @@ export function DatePicker({
               </button>
             ) : null}
           </div>
-        </div>
+        </AnchoredPopover>
       ) : null}
     </div>
   );

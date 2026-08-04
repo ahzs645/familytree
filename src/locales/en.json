@@ -487,6 +487,8 @@
   },
   "charts": {
     "allPersons": "All Persons",
+    "browsePeople": "Browse people",
+    "browsePeopleHint": "Select a person to inspect them. Changing the chart root is an explicit action in their details.",
     "birthUnknown": "Birth unknown",
     "birthYear": "Birth Year",
     "chartType": {
@@ -2403,6 +2405,7 @@
     },
     "choosePerson": "Choose person...",
     "clearMe": "Clear Me",
+    "clearRelationshipReference": "Clear relationship reference",
     "columns": {
       "arabicPatrilinealName": "Arabic lineage name",
       "birthDate": "Birth date",
@@ -2437,6 +2440,9 @@
     "listTitle": "Persons List",
     "loading": "Loading persons...",
     "meHint": "Relationship badges are shown relative to {name}.",
+    "relationshipReference": "Relationships relative to",
+    "relationshipReferenceHint": "Choose a reference person to show their relationship to each person in the list.",
+    "relationshipReferencePlaceholder": "Choose reference person...",
     "milkFather": "Milk father",
     "milkKinship": "Milk kinship",
     "milkKinshipHeading": "Milk Kinship / الرضاعة",
@@ -2452,7 +2458,9 @@
     "parents": "Parents",
     "partnerFamilies": "Partner Families",
     "search": "Search...",
+    "searchPicker": "Search person choices",
     "searchPlaceholder": "Search persons...",
+    "searchRelationshipReference": "Search relationship reference persons",
     "sort": "Sort",
     "sortAria": "Sort persons",
     "sortBirth": "Sort: Birth year",

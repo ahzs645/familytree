@@ -211,8 +211,6 @@ export function MoreOverlaysTab({
 }
 
 export function MoreExportTab({
-  findText, setFindText,
-  onFindPerson,
   exportFormat, setExportFormat,
   exportScale, setExportScale,
   exportJpegQuality, setExportJpegQuality,
@@ -224,16 +222,7 @@ export function MoreExportTab({
 }) {
   const { t } = useTranslation();
   return (
-    <Section label="Find + Export">
-      <div className="mb-1.5 grid grid-cols-[1fr_auto] gap-1.5">
-        <Input
-          compact
-          value={findText}
-          onChange={(e) => setFindText(e.target.value)}
-          placeholder="Find person name/record"
-        />
-        <Button onClick={onFindPerson}>Find</Button>
-      </div>
+    <Section label={t('charts.tab.export', { defaultValue: 'Export' })}>
       <div className="mb-1.5 grid grid-cols-2 gap-1.5">
         <label className="block">
           <div className="mb-1 text-xs text-muted-foreground">Format</div>

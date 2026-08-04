@@ -20,6 +20,7 @@ import { useDatabaseStatus } from '../contexts/DatabaseStatusContext.jsx';
 import { useTranslation } from '../contexts/LocalizationContext.jsx';
 import { cn } from '../lib/utils.js';
 import { TreeArtwork } from './TreeArtwork.jsx';
+import { AnchoredPopover } from './ui/AnchoredPopover.jsx';
 
 export function TreeSwitcher({ collapsed = false }) {
   const { t } = useTranslation();
@@ -30,6 +31,7 @@ export function TreeSwitcher({ collapsed = false }) {
   const [activeId, setActiveId] = useState(() => getActiveTreeId());
   const [busy, setBusy] = useState(false);
   const rootRef = useRef(null);
+  const buttonRef = useRef(null);
 
   const reload = useCallback(async () => {
     setSnapshots(await listTreeSnapshots({ sortBy: 'favorites' }));
@@ -90,6 +92,7 @@ export function TreeSwitcher({ collapsed = false }) {
   return (
     <div ref={rootRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="listbox"
@@ -115,10 +118,12 @@ export function TreeSwitcher({ collapsed = false }) {
       </button>
 
       {open && (
-        <div
+        <AnchoredPopover
+          anchorRef={buttonRef}
+          align="start"
+          maxHeight={400}
           role="listbox"
-          className="absolute z-40 mt-1 start-0 end-auto min-w-[240px] max-w-[280px] rounded-md border border-border bg-popover text-popover-foreground shadow-xl overflow-hidden"
-          style={{ insetInlineStart: 0 }}
+          className="w-[280px] rounded-md border border-border bg-popover text-popover-foreground shadow-xl"
         >
           <div className="px-3 py-2 text-2xs font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">
             {t('treeSwitcher.heading', { defaultValue: 'My family trees' })}
@@ -169,7 +174,7 @@ export function TreeSwitcher({ collapsed = false }) {
               <span>{t('treeSwitcher.create', { defaultValue: 'Create new tree' })}</span>
             </button>
           </div>
-        </div>
+        </AnchoredPopover>
       )}
     </div>
   );

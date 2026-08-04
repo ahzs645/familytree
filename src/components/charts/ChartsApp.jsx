@@ -15,6 +15,7 @@ import { useTheme } from '../../contexts/ThemeContext.jsx';
 import { matchesSearchText } from '../../lib/i18n.js';
 import { PageSetupSheet } from '../PageSetupSheet.jsx';
 import { Select } from '../ui/Select.jsx';
+import { AnchoredPopover } from '../ui/AnchoredPopover.jsx';
 import { colorForCompleteness } from '../../lib/researchCompleteness.js';
 import { getTheme } from './theme.js';
 import { PersonPicker } from './PersonPicker.jsx';
@@ -187,7 +188,6 @@ export function ChartsApp() {
   // View / Layout / Page / Library / Overlays / Export so the panel scans at
   // a glance on both desktop and mobile.
   const [morePopoverTab, setMorePopoverTab] = useState('view');
-  const [findText, setFindText] = useState('');
   const [chartOptionsOpen, setChartOptionsOpen] = useState(false);
   const [chartOptionsTab, setChartOptionsTab] = useState('general');
   // The People browser pane is helpful on desktop where it sits beside the
@@ -208,6 +208,7 @@ export function ChartsApp() {
   const [hidePrivateChartInfo, setHidePrivateChartInfo] = useState(true);
   const [chartPersonGroupMode, setChartPersonGroupMode] = useState('all');
   const moreRef = useRef(null);
+  const moreButtonRef = useRef(null);
   const [panelPersonId, setPanelPersonId] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [relativePickerOpen, setRelativePickerOpen] = useState(false);
@@ -470,20 +471,6 @@ export function ChartsApp() {
     chartCanvasRef.current?.exportPdf?.() || chartCanvasRef.current?.print?.();
   }, []);
 
-  const onFindPerson = useCallback(() => {
-    const needle = findText.trim();
-    if (!needle) return;
-    const match = persons.find((person) => {
-      const fullName = String(person.fullName || `${person.firstName || ''} ${person.lastName || ''}`);
-      return matchesSearchText(fullName, needle) || matchesSearchText(person.recordName, needle);
-    });
-    if (!match) return;
-    setRootId(match.recordName);
-    setActivePerson(match.recordName);
-    focusRootInCanvas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusRootInCanvas, findText, persons, setActivePerson]);
-
   const exportSettings = useMemo(() => ({
     format: exportFormat,
     scale: exportScale,
@@ -596,11 +583,19 @@ export function ChartsApp() {
         </Field>
 
         <div ref={moreRef} className="relative ms-auto">
-          <Button size="md" onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}>
+          <Button ref={moreButtonRef} size="md" onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}>
             {t('charts.more', { defaultValue: 'More' })} ▾
           </Button>
           {moreOpen && (
-            <div className="absolute end-0 top-[calc(100%+6px)] z-20 w-[380px] max-w-[calc(100vw-24px)] max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-card p-3.5 text-card-foreground shadow-lg">
+            <AnchoredPopover
+              anchorRef={moreButtonRef}
+              align="end"
+              gap={6}
+              maxHeight="70vh"
+              role="dialog"
+              aria-label={t('charts.more', { defaultValue: 'More' })}
+              className="w-[380px] rounded-lg border border-border bg-card p-3.5 text-card-foreground shadow-lg"
+            >
               <div className="no-scrollbar -mx-0.5 mb-2.5 flex gap-0.5 overflow-x-auto border-b border-border" role="tablist" aria-label={t('charts.optionsTabs', { defaultValue: 'Chart options' })}>
                 {[
                   ['view', 'View'],
@@ -736,9 +731,6 @@ export function ChartsApp() {
 
               {morePopoverTab === 'export' && (
                 <MoreExportTab
-                  findText={findText}
-                  setFindText={setFindText}
-                  onFindPerson={onFindPerson}
                   exportFormat={exportFormat}
                   setExportFormat={setExportFormat}
                   exportScale={exportScale}
@@ -754,7 +746,7 @@ export function ChartsApp() {
                   exportPdf={exportPdf}
                 />
               )}
-            </div>
+            </AnchoredPopover>
           )}
         </div>
       </header>
@@ -823,11 +815,7 @@ export function ChartsApp() {
             onQueryChange={setPersonBrowserQuery}
             group={personBrowserGroup}
             onGroupChange={setPersonBrowserGroup}
-            onPick={(id) => {
-              setRootId(id);
-              setActivePerson(id);
-              focusRootInCanvas();
-            }}
+            onPick={openPersonInPanel}
             onAllPersons={() => {
               setPersonBrowserQuery('');
               setChartPersonGroupMode('all');
@@ -848,9 +836,6 @@ export function ChartsApp() {
         personBrowserOpen={personBrowserOpen}
         onTogglePersonBrowser={() => setPersonBrowserOpen((open) => !open)}
         onFocus={focusRootInCanvas}
-        findText={findText}
-        onFindTextChange={setFindText}
-        onFind={onFindPerson}
         onSave={onSaveDocument}
         onShare={onShareChart}
         onExport={exportPng}

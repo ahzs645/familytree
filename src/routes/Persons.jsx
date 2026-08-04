@@ -33,6 +33,7 @@ import { GroupBySelect } from '../components/lists/GroupBySelect.jsx';
 import { useGroupProfile } from '../components/lists/useGroupProfile.js';
 import { useSortProfile } from '../components/lists/useSortProfile.js';
 import { decadeDescriptor, initialDescriptor } from '../lib/listGrouping.js';
+import { AnchoredPopover } from '../components/ui/AnchoredPopover.jsx';
 
 const ME_PERSON_STORAGE_KEY = 'cloudtreeweb:mePersonId';
 
@@ -336,14 +337,39 @@ export default function Persons() {
       />
       <ScopeFilterSelect value={scoped.scopeId} onChange={scoped.setScopeId} scopes={scoped.scopes} loading={scoped.loading} error={scoped.error} className="col-span-2" />
       <GroupBySelect value={groupProfile.groupKey} onChange={groupProfile.setGroupKey} options={groupOptions} className="col-span-2" />
-      <div className="col-span-2 md:min-w-[280px] md:max-w-[360px]">
-        <PersonPicker persons={persons} value={mePersonId} onChange={setMePersonId} triggerClassName="h-8 text-xs" />
+      <div className="col-span-2 w-full rounded-md border border-border/70 bg-muted/40 p-2.5 md:w-[360px]">
+        <label className="mb-1 block text-xs font-medium text-foreground" htmlFor="persons-relationship-reference">
+          {t('persons.relationshipReference')}
+        </label>
+        <div className="flex min-w-0 items-center gap-2">
+          <PersonPicker
+            id="persons-relationship-reference"
+            persons={persons}
+            value={mePersonId}
+            onChange={setMePersonId}
+            ariaLabel={t('persons.relationshipReference')}
+            searchAriaLabel={t('persons.searchRelationshipReference')}
+            placeholder={t('persons.relationshipReferencePlaceholder')}
+            className="max-w-none flex-1"
+            triggerClassName="h-8 text-xs"
+          />
+          {mePersonId ? (
+            <button
+              type="button"
+              onClick={() => setMePersonId('')}
+              className="h-8 shrink-0 rounded-md border border-border bg-secondary px-2.5 text-xs text-muted-foreground hover:bg-accent"
+              aria-label={t('persons.clearRelationshipReference')}
+            >
+              {t('common.clear')}
+            </button>
+          ) : null}
+        </div>
+        <div className="mt-1.5 text-2xs leading-relaxed text-muted-foreground">
+          {mePerson
+            ? t('persons.meHint', { name: mePerson.fullName })
+            : t('persons.relationshipReferenceHint')}
+        </div>
       </div>
-      {mePersonId ? (
-        <button type="button" onClick={() => setMePersonId('')} className="h-8 rounded-md border border-border bg-secondary px-2.5 text-xs text-muted-foreground hover:bg-accent">
-          {t('persons.clearMe')}
-        </button>
-      ) : null}
     </>
   );
 
@@ -351,24 +377,14 @@ export default function Persons() {
   const mobileSearchActions = (
     <>
       {newPersonAction}
-      <details className="group relative shrink-0">
-        <summary className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-md border border-border bg-secondary text-foreground hover:bg-accent [&::-webkit-details-marker]:hidden" aria-label={t('persons.filter')}>
-          <SlidersHorizontal size={17} />
-        </summary>
-        <div className="absolute end-0 top-full z-30 mt-2 w-[min(22rem,calc(100vw-1.5rem))] rounded-md border border-border bg-card p-3 shadow-xl">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            {listActions}
-          </div>
-          <div className="grid grid-cols-1 gap-2">
-            {filterControls}
-          </div>
-          {mePerson ? (
-            <div className="mt-2 text-xs text-muted-foreground">
-              {t('persons.meHint', { name: mePerson.fullName })}
-            </div>
-          ) : null}
+      <MobileFiltersMenu label={t('persons.filter')}>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          {listActions}
         </div>
-      </details>
+        <div className="grid grid-cols-1 gap-2">
+          {filterControls}
+        </div>
+      </MobileFiltersMenu>
     </>
   );
 
@@ -387,16 +403,9 @@ export default function Persons() {
           )}
         </div>
         {!isMobile ? (
-          <>
-            <div className="flex flex-wrap items-center gap-3">
-              {filterControls}
-            </div>
-            {mePerson ? (
-              <div className="mt-2 text-xs text-muted-foreground">
-                {t('persons.meHint', { name: mePerson.fullName })}
-              </div>
-            ) : null}
-          </>
+          <div className="flex flex-wrap items-start gap-3">
+            {filterControls}
+          </div>
         ) : null}
       </header>
 
@@ -612,6 +621,7 @@ function InfoCell({ label, value }) {
 function ExportMenu({ onCsv, onJson, t }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
+  const buttonRef = useRef(null);
 
   useEffect(() => {
     if (!open) return;
@@ -630,6 +640,7 @@ function ExportMenu({ onCsv, onJson, t }) {
   return (
     <div className="relative" ref={ref}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={listToolbarButtonClass}
@@ -640,9 +651,12 @@ function ExportMenu({ onCsv, onJson, t }) {
         <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden="true"><path fill="currentColor" d="M2 4l4 4 4-4z" /></svg>
       </button>
       {open ? (
-        <div
+        <AnchoredPopover
+          anchorRef={buttonRef}
+          align="end"
+          maxHeight={200}
           role="menu"
-          className="absolute end-0 top-full z-20 mt-1 w-40 rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1"
+          className="w-40 rounded-md border border-border bg-popover text-popover-foreground shadow-lg py-1"
         >
           <button
             type="button"
@@ -660,7 +674,61 @@ function ExportMenu({ onCsv, onJson, t }) {
           >
             {t('persons.exportJson')}
           </button>
-        </div>
+        </AnchoredPopover>
+      ) : null}
+    </div>
+  );
+}
+
+function MobileFiltersMenu({ label, children }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  const buttonRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDocClick = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    const onKey = (event) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="shrink-0">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-secondary text-foreground hover:bg-accent"
+        aria-label={label}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+      >
+        <SlidersHorizontal size={17} />
+      </button>
+      {open ? (
+        <AnchoredPopover
+          anchorRef={buttonRef}
+          align="end"
+          gap={8}
+          maxHeight="80vh"
+          role="dialog"
+          aria-label={label}
+          className="w-[min(22rem,calc(100vw-1.5rem))] rounded-md border border-border bg-card p-3 shadow-xl"
+        >
+          {children}
+        </AnchoredPopover>
       ) : null}
     </div>
   );
